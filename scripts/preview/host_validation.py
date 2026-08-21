@@ -22,6 +22,7 @@ import subprocess
 import sys
 import threading
 import time
+import uuid
 from typing import Any, Iterable
 
 FORMAT = "turboism.host-validation.tasks"
@@ -400,10 +401,15 @@ printf '%s\n' "$acquired"
     def heartbeat(self, owner: str) -> None:
         script = r'''set -euo pipefail
 root=$1; owner=$2; now=$3
+[ -d "$root/leases" ] || exit 0
 find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
 while IFS= read -r -d '' slot; do
-  [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ] || continue
-  printf '%s\n' "$now" > "$slot/heartbeatEpoch"
+  lock="$slot/.scheduler-operation"
+  mkdir "$lock" 2>/dev/null || continue
+  if [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ]; then
+    printf '%s\n' "$now" > "$slot/heartbeatEpoch"
+  fi
+  rmdir "$lock" 2>/dev/null || true
 done
 '''
         self._run(script, [self.scheduler_root, owner, str(int(time.time()))])
@@ -411,6 +417,7 @@ done
     def release_owner(self, owner: str) -> None:
         script = r'''set -euo pipefail
 root=$1; owner=$2
+[ -d "$root/leases" ] || exit 0
 find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
 while IFS= read -r -d '' slot; do
   [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ] || continue
@@ -425,6 +432,7 @@ done
     def status(self) -> list[dict[str, str]]:
         script = r'''set -euo pipefail
 root=$1
+[ -d "$root/leases" ] || exit 0
 find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
 while IFS= read -r -d '' slot; do
   resource=$(basename "$(dirname "$slot")")
@@ -451,12 +459,26 @@ done
     def release_stale(self, older_than: int) -> list[str]:
         script = r'''set -euo pipefail
 root=$1; cutoff=$2
+[ -d "$root/leases" ] || exit 0
 find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
 while IFS= read -r -d '' slot; do
   heartbeat=$(cat "$slot/heartbeatEpoch" 2>/dev/null || echo 0)
   case "$heartbeat" in ''|*[!0-9]*) heartbeat=0 ;; esac
   [ "$heartbeat" -lt "$cutoff" ] || continue
   owner=$(cat "$slot/owner" 2>/dev/null || true)
+  lock="$slot/.scheduler-operation"
+  mkdir "$lock" 2>/dev/null || continue
+  current_heartbeat=$(cat "$slot/heartbeatEpoch" 2>/dev/null || echo 0)
+  current_owner=$(cat "$slot/owner" 2>/dev/null || true)
+  if [ "$current_heartbeat" != "$heartbeat" ] || [ "$current_owner" != "$owner" ]; then
+    rmdir "$lock" 2>/dev/null || true
+    continue
+  fi
+  case "$current_heartbeat" in ''|*[!0-9]*) current_heartbeat=0 ;; esac
+  if [ "$current_heartbeat" -ge "$cutoff" ]; then
+    rmdir "$lock" 2>/dev/null || true
+    continue
+  fi
   printf '%s\t%s\n' "$slot" "$owner"
   rm -rf -- "$slot"
 done
@@ -470,7 +492,8 @@ done
 
 def owner_id(request: Request, index: int) -> str:
     stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    raw = f"{request.task.name}-{request.version}-{os.getpid()}-{index}-{stamp}"
+    nonce = uuid.uuid4().hex
+    raw = f"{nonce}-{request.task.name}-{request.version}-{os.getpid()}-{index}-{stamp}"
     return re.sub(r"[^A-Za-z0-9._-]", "-", raw)[:128]
 
 

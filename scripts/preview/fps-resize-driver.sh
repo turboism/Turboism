@@ -31,6 +31,19 @@ fps_cmdline_matches_cubism_selector() {
   [[ "$cmd" == *"$FPS_CUBISM_JAR_TOKEN"* && "$cmd" == *"$selector"* ]]
 }
 
+fps_parse_geometry() {
+  local geometry=$1 key value width='' height=''
+  while IFS='=' read -r key value; do
+    case "$key" in
+      WIDTH) width=$value ;;
+      HEIGHT) height=$value ;;
+    esac
+  done <<< "$geometry"
+  [[ "$width" =~ ^[1-9][0-9]*$ && "$height" =~ ^[1-9][0-9]*$ ]] || return 1
+  [ "$width" -gt 40 ] || return 1
+  printf '%s\t%s\n' "$width" "$height"
+}
+
 fps_resize_main() {
   # The wrapper passes a unique suffix of its purpose-named project copy. Never
   # discover a run by "newest task" because multiple validation windows may start
@@ -73,7 +86,9 @@ fps_resize_main() {
 
   # 3. Bounded resize bursts covering the exerciser sampling window; identity
   #    and window ownership are revalidated before every resize.
-  eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null || true)"
+  local geometry WIDTH HEIGHT
+  geometry=$(xdotool getwindowgeometry --shell "$win" 2>/dev/null) || return 0
+  IFS=$'\t' read -r WIDTH HEIGHT < <(fps_parse_geometry "$geometry") || return 0
   local end=$((SECONDS + 240))
   while [ "$SECONDS" -lt "$end" ]; do
     [ -r "/proc/$pid/stat" ] || break

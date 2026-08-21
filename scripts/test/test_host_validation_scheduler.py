@@ -159,8 +159,34 @@ class HostValidationSchedulerTest(unittest.TestCase):
                 released = leases.release_stale(older_than=300)
                 self.assertEqual(1, len(released))
                 self.assertEqual([], leases.status())
+
+                live = leases.acquire(request, "live-owner", wait_seconds=1, poll_seconds=1)
+                live_heartbeat = Path(live.slots[0]) / "heartbeatEpoch"
+                live_heartbeat.write_text(str(int(time.time()) - 1000) + "\n", encoding="utf-8")
+                operation_lock = Path(live.slots[0]) / ".scheduler-operation"
+                operation_lock.mkdir()
+                self.assertEqual([], leases.release_stale(older_than=300))
+                self.assertEqual("live-owner", leases.status()[0]["owner"])
+                operation_lock.rmdir()
+                leases.heartbeat("live-owner")
+                self.assertEqual([], leases.release_stale(older_than=300))
+                leases.release_owner("live-owner")
+
+                missing_root = scheduler.RemoteLeases(
+                    "local-test", key, str(temporary / "missing-scheduler"), resources
+                )
+                self.assertEqual([], missing_root.status())
+                self.assertEqual([], missing_root.release_stale(older_than=300))
             finally:
                 os.environ["PATH"] = old_path
+
+    def test_owner_ids_include_random_dispatcher_entropy(self) -> None:
+        request = self.request("workspace:5302")
+        first = scheduler.owner_id(request, 1)
+        second = scheduler.owner_id(request, 1)
+        self.assertNotEqual(first, second)
+        self.assertRegex(first, scheduler.SAFE_NAME)
+        self.assertRegex(second, scheduler.SAFE_NAME)
 
 
 if __name__ == "__main__":

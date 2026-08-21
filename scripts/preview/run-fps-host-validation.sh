@@ -54,9 +54,26 @@ run_nonce="$(printf '%06d' "$$")"
 fixture_selector="-$run_nonce-$fixture_suffix"
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 driver_pid=''
+runner_args=("$@")
+ssh_host='<validation-user>@<validation-host>'
+ssh_key="$HOME/.ssh/<validation-ssh-key>"
+for ((index = 0; index < ${#runner_args[@]}; index++)); do
+  case "${runner_args[index]}" in
+    --ssh-host)
+      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-host requires a value' >&2; exit 2; }
+      ssh_host="${runner_args[index + 1]}"
+      index=$((index + 1))
+      ;;
+    --ssh-key)
+      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-key requires a value' >&2; exit 2; }
+      ssh_key="${runner_args[index + 1]}"
+      index=$((index + 1))
+      ;;
+  esac
+done
 if [ -r "$driver" ]; then
-  nohup ssh -i "$HOME/.ssh/<validation-ssh-key>" -o IdentitiesOnly=yes \
-    <validation-user>@<validation-host> "bash -s -- '$fixture_selector'" < "$driver" \
+  nohup ssh -i "$ssh_key" -o IdentitiesOnly=yes \
+    "$ssh_host" "bash -s -- '$fixture_selector'" < "$driver" \
     > "/tmp/fps-resize-driver-$run_nonce.out" 2>&1 &
   driver_pid=$!
 fi
