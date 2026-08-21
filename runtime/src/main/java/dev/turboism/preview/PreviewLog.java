@@ -50,9 +50,15 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     @FunctionalInterface
     interface Sink {
-        Sink STDERR = (level, line, failure) -> System.err.println(line);
+        Sink STDERR = (level, component, message, failure) ->
+            System.err.println("[" + level + "][" + component + "] " + message);
 
-        void write(Level level, String line, Throwable failure);
+        /**
+         * Writes one record to the host logger. The sink receives structured fields rather than the
+         * session-file line so the host's own appender remains the sole owner of timestamps and
+         * level prefixes.
+         */
+        void write(Level level, String component, String message, Throwable failure);
 
         default void close() {}
     }
@@ -236,10 +242,12 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         final Throwable failure
     ) {
         if (level.ordinal() < minimumLevel.ordinal()) return;
-        final String line = Instant.now(clock) + " [" + level + "] [" + safe(component) + "] " + safe(message);
+        final String safeComponent = safe(component);
+        final String safeMessage = safe(message);
+        final String line = Instant.now(clock) + " [" + level + "] [" + safeComponent + "] " + safeMessage;
         remember(line);
         try {
-            sink.write(level, line, failure);
+            sink.write(level, safeComponent, safeMessage, failure);
         } catch (RuntimeException exception) {
             System.out.println("Turboism preview host log write failed: " + exception.getMessage());
         }
