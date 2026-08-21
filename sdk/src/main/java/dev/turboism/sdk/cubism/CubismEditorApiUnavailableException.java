@@ -25,7 +25,8 @@ public final class CubismEditorApiUnavailableException extends UnsupportedOperat
      *
      * @param apiId stable SDK method identity
      * @param activeVersion exact active Editor version, or empty when no verified Editor is active
-     * @param supportedVersions exact reviewed versions declared by the SDK method
+     * @param supportedVersions exact reviewed versions admitted by every applicable declaration;
+     *     empty when the declarations intentionally prohibit all reviewed versions
      */
     public CubismEditorApiUnavailableException(
         final String apiId,
@@ -39,9 +40,6 @@ public final class CubismEditorApiUnavailableException extends UnsupportedOperat
         this.supportedVersions = List.copyOf(
             Objects.requireNonNull(supportedVersions, "supportedVersions")
         );
-        if (this.supportedVersions.isEmpty()) {
-            throw new IllegalArgumentException("supportedVersions must not be empty");
-        }
     }
 
     /** @return stable SDK method identity in {@code owner#method(parameterTypes)} form */
@@ -54,7 +52,10 @@ public final class CubismEditorApiUnavailableException extends UnsupportedOperat
         return activeVersion;
     }
 
-    /** @return immutable exact versions declared by the SDK method, in declaration order */
+    /**
+     * @return immutable exact versions admitted by all applicable declarations, in reviewed-version
+     *     order; possibly empty when every reviewed version is prohibited
+     */
     public List<String> supportedVersions() {
         return supportedVersions;
     }
