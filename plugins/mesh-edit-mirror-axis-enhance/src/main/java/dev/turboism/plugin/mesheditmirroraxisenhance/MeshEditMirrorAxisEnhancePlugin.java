@@ -1,20 +1,22 @@
-package dev.turboism.plugin.mesh;
+package dev.turboism.plugin.mesheditmirroraxisenhance;
 
-import dev.turboism.plugin.mesh.service.MeshInspectorService;
+import dev.turboism.plugin.mesheditmirroraxisenhance.service.MeshInspectorService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
+import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
+import java.util.Set;
 import java.util.function.Consumer;
 
 /**
  * Official SDK-only plugin shell for read-only mesh inspection.
  */
-public final class MeshPlugin implements TurboismPlugin {
+public final class MeshEditMirrorAxisEnhancePlugin implements TurboismPlugin {
 
     private PluginContext context;
     private PluginLogger logger;
@@ -25,7 +27,7 @@ public final class MeshPlugin implements TurboismPlugin {
         this.context = context;
         this.logger = context.logger();
         this.inspectorService = new MeshInspectorService(context.cubismRead(), context.uiHost());
-        logger.info("MeshPlugin initialized");
+        logger.info("MeshEditMirrorAxisEnhancePlugin initialized");
     }
 
     @Override
@@ -37,6 +39,16 @@ public final class MeshPlugin implements TurboismPlugin {
                 ignored -> inspectorService.inspect()
             );
             registerMirrorLinkedDeletion();
+            context.disposableScope().register(
+                context.meshMirrorMoveParticipation().participate()
+            );
+            context.disposableScope().register(
+                context.meshMirrorToolEligibility().extendEligibleTools(Set.of(
+                    MeshEditTool.ARROW,
+                    MeshEditTool.ERASER,
+                    MeshEditTool.LASSO
+                ))
+            );
             context.disposableScope().register(
                 context.meshEditUi().contributeMirrorAxisAngleControl(
                     new MeshEditUiService.MirrorAxisAngleControl(
@@ -54,17 +66,17 @@ public final class MeshPlugin implements TurboismPlugin {
             closeDisposableScopeQuietly();
             throw failure;
         }
-        logger.info("MeshPlugin enabled: mesh inspector action enrolled in disposable scope");
+        logger.info("MeshEditMirrorAxisEnhancePlugin enabled: mesh inspector action enrolled in disposable scope");
     }
 
     @Override
     public void disable() {
-        logger.info("MeshPlugin disabled");
+        logger.info("MeshEditMirrorAxisEnhancePlugin disabled");
     }
 
     @Override
     public void shutdown() {
-        logger.info("MeshPlugin shutdown");
+        logger.info("MeshEditMirrorAxisEnhancePlugin shutdown");
     }
 
     /** Called by the native-position mesh-edit control. */
@@ -120,7 +132,7 @@ public final class MeshPlugin implements TurboismPlugin {
         try {
             context.disposableScope().close();
         } catch (Exception closeFailure) {
-            logger.warn("MeshPlugin enable rollback close failed: " + closeFailure.getMessage());
+            logger.warn("MeshEditMirrorAxisEnhancePlugin enable rollback close failed: " + closeFailure.getMessage());
         }
     }
 }
