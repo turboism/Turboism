@@ -122,12 +122,19 @@ final class PluginManagerTestFixtures {
     }
 
     static PluginContext context(DisposableScope scope) {
+        return context(scope, new NoopPluginLogger());
+    }
+
+    static PluginContext context(
+        DisposableScope scope,
+        PluginLogger logger
+    ) {
         return (PluginContext) Proxy.newProxyInstance(
             PluginContext.class.getClassLoader(),
             new Class<?>[] { PluginContext.class },
             (proxy, method, args) -> switch (method.getName()) {
                 case "descriptor" -> descriptor();
-                case "logger" -> new NoopPluginLogger();
+                case "logger" -> logger;
                 case "disposableScope" -> scope;
                 case "permissions" -> List.of();
                 case "mainToolbar" -> noopMainToolbarRegistry();

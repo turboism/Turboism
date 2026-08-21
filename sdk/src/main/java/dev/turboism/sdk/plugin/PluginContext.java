@@ -55,6 +55,14 @@ public interface PluginContext {
 
     PluginDescriptor descriptor();
 
+    /**
+     * Returns the framework logger scoped to {@link #descriptor() the current plugin}.
+     *
+     * <p>Every record automatically carries the plugin descriptor id and is written to Turboism's
+     * session log and, when available, Cubism's host logger.</p>
+     *
+     * @return the current plugin's logger
+     */
     PluginLogger logger();
 
     PluginPaths paths();
