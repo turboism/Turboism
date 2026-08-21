@@ -1,4 +1,4 @@
-package dev.turboism.plugin.mesh;
+package dev.turboism.plugin.mesheditmirroraxisenhance;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
@@ -17,6 +17,7 @@ import dev.turboism.sdk.cubism.SelectionSnapshot;
 import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
@@ -49,18 +50,19 @@ import java.util.ArrayList;
 import java.util.Locale;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MeshPluginTest {
+class MeshEditMirrorAxisEnhancePluginTest {
 
     @Test
     void enableRegistersInspectAction() {
         TestPluginLogger logger = new TestPluginLogger();
         RecordingPluginContext context = new RecordingPluginContext(logger);
-        MeshPlugin plugin = new MeshPlugin();
+        MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
         context.actions().execute("mesh.inspector.inspect");
@@ -80,7 +82,7 @@ class MeshPluginTest {
     @Test
     void disposableScopeClosesAction() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
-        MeshPlugin plugin = new MeshPlugin();
+        MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
         context.disposableScope().close();
@@ -88,9 +90,9 @@ class MeshPluginTest {
     }
 
     @Test
-    void exposesMirrorAxisAngleThroughTheMeshPluginService() {
+    void exposesMirrorAxisAngleThroughTheMeshEditMirrorAxisEnhancePluginService() {
         RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
-        MeshPlugin plugin = new MeshPlugin();
+        MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
 
@@ -102,7 +104,7 @@ class MeshPluginTest {
     @Test
     void registersTheLegacyMirrorAxisAngleControlInPluginScope() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
-        MeshPlugin plugin = new MeshPlugin();
+        MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
 
@@ -119,6 +121,35 @@ class MeshPluginTest {
 
         context.disposableScope().close();
         assertTrue(context.meshEditUi().control == null);
+    }
+
+    @Test
+    void registersOnlyTheBackportedMirrorEligibleToolsAndDisposesThem() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(
+            Set.of(MeshEditTool.ARROW, MeshEditTool.ERASER, MeshEditTool.LASSO),
+            context.meshMirrorToolEligibility.tools
+        );
+
+        context.disposableScope().close();
+        assertTrue(context.meshMirrorToolEligibility.tools.isEmpty());
+    }
+
+    @Test
+    void registersSelectedPointMovementPolicyAndDisposesIt() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        assertTrue(context.meshMirrorMoveParticipation.participating);
+
+        context.disposableScope().close();
+        assertTrue(!context.meshMirrorMoveParticipation.participating);
     }
 
     /** Records the participant the plugin registers, so the policy's presence is assertable. */
@@ -143,7 +174,7 @@ class MeshPluginTest {
     @org.junit.jupiter.api.Test
     void enableRegistersTheMirrorLinkedDeletionPolicy() {
         final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
-        final MeshPlugin plugin = new MeshPlugin();
+        final MeshEditMirrorAxisEnhancePlugin plugin = new MeshEditMirrorAxisEnhancePlugin();
         plugin.init(context);
         plugin.enable();
 
@@ -183,6 +214,10 @@ class MeshPluginTest {
         @Override public MeshMirrorAxisService meshMirrorAxis() { return meshMirrorAxis; }
 
         final RecordingMeshEditParticipation meshEditParticipation = new RecordingMeshEditParticipation();
+        final RecordingMeshMirrorMoveParticipation meshMirrorMoveParticipation =
+            new RecordingMeshMirrorMoveParticipation();
+        final RecordingMeshMirrorToolEligibility meshMirrorToolEligibility =
+            new RecordingMeshMirrorToolEligibility();
 
         @Override
         public dev.turboism.sdk.cubism.mesh.MeshEditParticipation meshEditParticipation() {
@@ -206,6 +241,14 @@ class MeshPluginTest {
                     return () -> { };
                 }
             };
+        }
+        @Override
+        public dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility meshMirrorToolEligibility() {
+            return meshMirrorToolEligibility;
+        }
+        @Override
+        public dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
+            return meshMirrorMoveParticipation;
         }
         @Override public RecordingMeshEditUiService meshEditUi() { return meshEditUi; }
         @Override public List<PluginPermission> permissions() { return List.of(); }
@@ -249,6 +292,30 @@ class MeshPluginTest {
         @Override public Optional<ThemeStatusSnapshot> themeStatus() { throw unsupported(); }
         private static UnsupportedOperationException unsupported() {
             return new UnsupportedOperationException("not used");
+        }
+    }
+
+    private static final class RecordingMeshMirrorMoveParticipation
+        implements dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation {
+
+        private boolean participating;
+
+        @Override
+        public Registration participate() {
+            participating = true;
+            return () -> participating = false;
+        }
+    }
+
+    private static final class RecordingMeshMirrorToolEligibility
+        implements dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility {
+
+        private Set<MeshEditTool> tools = Set.of();
+
+        @Override
+        public Registration extendEligibleTools(final Set<MeshEditTool> registered) {
+            tools = Set.copyOf(registered);
+            return () -> tools = Set.of();
         }
     }
 

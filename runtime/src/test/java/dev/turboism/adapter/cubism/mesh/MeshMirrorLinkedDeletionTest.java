@@ -57,7 +57,67 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(mesh.point(0))), pack.undo, pack);
 
         assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+        assertTrue(diagnostics.stream().anyMatch(value -> value.startsWith(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1")
+        )));
+    }
+
+    @Test
+    void pointActionDeletesIncidentEdgesBeforeDeletingTheMirrorPoint() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(
+            point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f),
+            point(2, 2.0f, 0.0f)
+        );
+        final Edge incident = new Edge(1, 2, "SOFT");
+        mesh.edges.add(incident);
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.mirrorDeletePointAction(
+            List.of(List.of(mesh.point(0))), pack.undo, pack
+        );
+
+        assertEquals(List.of(incident), mesh.handler.removed);
+        assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
+        assertEquals(1, pack.undo.added.size());
+        assertTrue(diagnostics.contains(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1 incidentEdges=1")
+        ));
+    }
+
+    @Test
+    void normalizesDeletionReferencesThroughTheLiveMeshBeforeResolvingCounterparts() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(
+            List.of(List.of(new CompatiblePointRef(mesh.point(0)))), pack.undo, pack
+        );
+
+        assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
+        assertTrue(diagnostics.stream().anyMatch(value -> value.startsWith(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1")
+        )));
+    }
+
+    @Test
+    void normalizedSourcesExcludeCounterpartsAlreadyPresentInTheCallerDeletion() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(point(0, -1.0f, 0.0f), point(1, 1.0f, 0.0f));
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.mirrorDeletePoints(
+            List.of(List.of(
+                new CompatiblePointRef(mesh.point(0)),
+                new CompatiblePointRef(mesh.point(1))
+            )),
+            pack.undo,
+            pack
+        );
+
+        assertTrue(pack.editMode.deleted.isEmpty());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_EMPTY kind=POINTS")));
     }
 
     @Test
@@ -89,7 +149,9 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
 
         assertEquals(List.of(first.point(1)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+        assertTrue(diagnostics.stream().anyMatch(value -> value.startsWith(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1")
+        )));
     }
 
     @Test
@@ -111,7 +173,9 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
 
         assertEquals(List.of(first.point(1)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+        assertTrue(diagnostics.stream().anyMatch(value -> value.startsWith(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1")
+        )));
     }
 
     @Test
@@ -130,7 +194,9 @@ final class MeshMirrorLinkedDeletionTest {
         NativeMeshMirrorBridge.mirrorDeletePoints(List.of(List.of(first.point(0))), pack.undo, pack);
 
         assertEquals(List.of(second.point(0)), pack.editMode.deleted);
-        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=POINTS count=1")));
+        assertTrue(diagnostics.stream().anyMatch(value -> value.startsWith(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1")
+        )));
     }
 
     @Test
@@ -332,6 +398,123 @@ final class MeshMirrorLinkedDeletionTest {
         assertTrue(diagnostics.contains(stage("PARTICIPATION_EMPTY kind=EDGES")));
     }
 
+    @Test
+    void eraserDeletesMirrorPointsAndTheirIncidentEdgesIntoTheOuterUndo() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, 2.0f, 0.0f),
+            point(2, 3.0f, 0.0f)
+        );
+        final Edge incident = new Edge(1, 2, "SOFT");
+        mesh.edges.add(incident);
+        final Pack pack = new Pack(mesh);
+        final Point candidate = point(0, -2.0f, 0.0f);
+
+        NativeMeshMirrorBridge.mirrorDeleteEraserPoints(
+            List.of(candidate), pack, pack.undo
+        );
+
+        assertEquals(List.of(incident), mesh.handler.removed);
+        assertEquals(List.of(mesh.point(1)), pack.editMode.deleted);
+        assertEquals(1, pack.undo.added.size());
+        assertTrue(diagnostics.contains(
+            stage("PARTICIPATION_APPLIED kind=POINTS count=1 incidentEdges=1")
+        ));
+    }
+
+    @Test
+    void eraserDeletesCounterpartsSeparatelyIntoTheCurrentOuterUndo() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final Edge liveSource = new Edge(0, 1, "SOFT");
+        final Edge counterpart = new Edge(2, 3, "SOFT");
+        mesh.edges.add(liveSource);
+        mesh.edges.add(counterpart);
+        final Pack pack = new Pack(mesh);
+        final List<Edge> wrappers = new ArrayList<>(List.of(new Edge(0, 1, "SOFT")));
+
+        NativeMeshMirrorBridge.mirrorDeleteEraserEdges(wrappers, pack, pack.undo);
+
+        assertEquals(List.of(new Edge(0, 1, "SOFT")), wrappers);
+        assertEquals(List.of(counterpart), mesh.handler.removed, diagnostics.toString());
+        assertEquals(1, pack.undo.added.size());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=ERASER_EDGES count=1")));
+    }
+
+    @Test
+    void eraserResolvesSubclassWrappersThroughTheNativeEdgeType() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final NativeEdge liveSource = new NativeEdge(0, 1, EdgeType.SOFT);
+        final NativeEdge counterpart = new NativeEdge(2, 3, EdgeType.SOFT);
+        mesh.edges.add(liveSource);
+        mesh.edges.add(counterpart);
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.mirrorDeleteEraserEdges(
+            List.of(new EdgeWrapper(0, 1, EdgeType.SOFT, true)), pack, pack.undo
+        );
+
+        assertEquals(List.of(counterpart), mesh.handler.removed, diagnostics.toString());
+        assertEquals(1, pack.undo.added.size());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=ERASER_EDGES count=1")));
+    }
+
+    @Test
+    void eraserResolvesEndpointWrappersInEachContextLikeNative5302() {
+        final List<String> diagnostics = install();
+        final Mesh first = new Mesh(
+            point(0, -20.0f, 0.0f), point(1, -10.0f, 0.0f),
+            point(2, 10.0f, 0.0f), point(3, 20.0f, 0.0f)
+        );
+        final Edge firstSource = new Edge(0, 1, "SOFT");
+        final Edge firstCounterpart = new Edge(2, 3, "SOFT");
+        first.edges.add(firstSource);
+        first.edges.add(firstCounterpart);
+        final Mesh second = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        final Edge secondSource = new Edge(0, 1, "SOFT");
+        final Edge secondCounterpart = new Edge(2, 3, "SOFT");
+        second.edges.add(secondSource);
+        second.edges.add(secondCounterpart);
+        final Pack pack = new Pack(first, second);
+        final Edge wrapper = new Edge(0, 1, "SOFT");
+
+        NativeMeshMirrorBridge.mirrorDeleteEraserEdges(List.of(wrapper), pack, pack.undo);
+
+        assertEquals(List.of(firstCounterpart), first.handler.removed, diagnostics.toString());
+        assertEquals(List.of(secondCounterpart), second.handler.removed, diagnostics.toString());
+        assertEquals(2, pack.undo.added.size());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_APPLIED kind=ERASER_EDGES count=2")));
+    }
+
+    @Test
+    void discreteEdgeDeletionStillRequiresExactSourceIdentity() {
+        final List<String> diagnostics = install();
+        final Mesh mesh = new Mesh(
+            point(0, -2.0f, 0.0f), point(1, -1.0f, 0.0f),
+            point(2, 1.0f, 0.0f), point(3, 2.0f, 0.0f)
+        );
+        mesh.edges.add(new Edge(0, 1, "SOFT"));
+        mesh.edges.add(new Edge(2, 3, "SOFT"));
+        final Pack pack = new Pack(mesh);
+
+        NativeMeshMirrorBridge.rememberEdgeUndoGroup(pack.undo);
+        NativeMeshMirrorBridge.mirrorDeleteEdge(new Edge(0, 1, "SOFT"), pack);
+
+        assertTrue(mesh.handler.removed.isEmpty());
+        assertTrue(pack.undo.added.isEmpty());
+        assertTrue(diagnostics.contains(stage("PARTICIPATION_EMPTY kind=EDGES")));
+    }
+
     private static List<String> install() {
         return install(true);
     }
@@ -349,7 +532,7 @@ final class MeshMirrorLinkedDeletionTest {
         return diagnostics;
     }
 
-    /** The same policy MeshPlugin registers; the framework holds none of its own. */
+    /** The same policy the mirror-axis enhancement plugin registers; the framework holds none. */
     private static void registerMirrorPolicy() {
         NativeMeshMirrorBridge.participation().participate(deletion ->
             deletion.mirrorAxis().enabled()
@@ -425,7 +608,16 @@ final class MeshMirrorLinkedDeletionTest {
         }
     }
 
-    public static final class Edge {
+    /** Host-shaped source handle whose live point must be recovered by getCompatiblePointRef. */
+    public static final class CompatiblePointRef {
+        private final Point live;
+
+        CompatiblePointRef(final Point live) {
+            this.live = live;
+        }
+    }
+
+    public static class Edge {
         private final int index1;
         private final int index2;
         private final String type;
@@ -460,6 +652,54 @@ final class MeshMirrorLinkedDeletionTest {
         }
     }
 
+    public enum EdgeType { SOFT }
+
+    public static class NativeEdge {
+        private final int index1;
+        private final int index2;
+        private final EdgeType type;
+
+        public NativeEdge(final int index1, final int index2, final EdgeType type) {
+            this.index1 = index1;
+            this.index2 = index2;
+            this.type = type;
+        }
+
+        public int getIndex1() {
+            return index1;
+        }
+
+        public int getIndex2() {
+            return index2;
+        }
+
+        public EdgeType getType() {
+            return type;
+        }
+
+        @Override
+        public boolean equals(final Object other) {
+            return other instanceof NativeEdge edge
+                && edge.index1 == index1 && edge.index2 == index2 && edge.type == type;
+        }
+
+        @Override
+        public int hashCode() {
+            return index1 * 31 + index2;
+        }
+    }
+
+    public static final class EdgeWrapper extends NativeEdge {
+        public EdgeWrapper(
+            final int index1,
+            final int index2,
+            final EdgeType type,
+            final boolean candidate
+        ) {
+            super(index1, index2, type);
+        }
+    }
+
     public static final class Handler {
         final List<Object> removed = new ArrayList<>();
 
@@ -481,7 +721,7 @@ final class MeshMirrorLinkedDeletionTest {
 
     public static final class Mesh {
         private final List<Point> points;
-        final List<Edge> edges = new ArrayList<>();
+        final List<Object> edges = new ArrayList<>();
         final Handler handler = new Handler();
 
         Mesh(final Point... points) {
@@ -496,7 +736,15 @@ final class MeshMirrorLinkedDeletionTest {
             return points;
         }
 
-        public List<Edge> getEdges() {
+        public Point getCompatiblePointRef(final Point point) {
+            return points.contains(point) ? point : null;
+        }
+
+        public Point getCompatiblePointRef(final CompatiblePointRef reference) {
+            return reference != null && points.contains(reference.live) ? reference.live : null;
+        }
+
+        public List<Object> getEdges() {
             return edges;
         }
 

@@ -10,10 +10,12 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
-import java.lang.reflect.InvocationTargetException;
 import java.util.EnumSet;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 /** Invokes only enabled exact-version native menu items from the verified top-menu root. */
 public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter {
@@ -148,27 +150,22 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
 
     private static <T> T onEdt(final Operation<T> operation) {
         if (SwingUtilities.isEventDispatchThread()) return operation.run();
-        final Object[] result = new Object[1];
-        final Throwable[] failure = new Throwable[1];
+        final FutureTask<T> task = new FutureTask<>(operation::run);
+        SwingUtilities.invokeLater(task);
         try {
-            SwingUtilities.invokeAndWait(() -> {
-                try {
-                    result[0] = operation.run();
-                } catch (Throwable throwable) {
-                    failure[0] = throwable;
-                }
-            });
+            return task.get(30L, TimeUnit.SECONDS);
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Editor command dispatch was interrupted", exception);
-        } catch (InvocationTargetException exception) {
-            throw new IllegalStateException("Editor command dispatch failed", exception);
+        } catch (TimeoutException exception) {
+            task.cancel(false);
+            throw new IllegalStateException("Editor command dispatch timed out", exception);
+        } catch (java.util.concurrent.ExecutionException exception) {
+            final Throwable cause = exception.getCause();
+            if (cause instanceof RuntimeException runtime) throw runtime;
+            if (cause instanceof Error error) throw error;
+            throw new IllegalStateException("Editor command dispatch failed", cause);
         }
-        if (failure[0] instanceof RuntimeException exception) throw exception;
-        if (failure[0] instanceof Error error) throw error;
-        if (failure[0] != null) throw new IllegalStateException("Editor command dispatch failed", failure[0]);
-        @SuppressWarnings("unchecked") final T value = (T) result[0];
-        return value;
     }
 
     @FunctionalInterface

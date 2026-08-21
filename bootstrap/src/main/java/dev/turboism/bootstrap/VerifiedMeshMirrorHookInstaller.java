@@ -106,10 +106,13 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
             profile.mirrorWidgetOwner().replace('/', '.'),
             profile.mirrorAxisDrawOwner().replace('/', '.')
         ));
+        final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
+        if (move != null) targets.add(move.owner().replace('/', '.'));
         final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
         if (linked != null) {
             targets.add(linked.pointActionOwner().replace('/', '.'));
             targets.add(linked.edgeActionOwner().replace('/', '.'));
+            targets.add(linked.eraserActionOwner().replace('/', '.'));
         }
         this.targetClassNames = targets.toArray(new String[0]);
     }
@@ -131,6 +134,36 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
                 rollback();
                 closed = true;
                 throw new IllegalStateException("mesh mirror hook installation failed", failure);
+            }
+        }
+    }
+
+    /**
+     * Loads any still-lazy exact targets while the admitted host loader is known. The hook is
+     * fail-closed: every target must be defined by that loader and observed by Instrumentation.
+     */
+    void defineLazyTargets() {
+        synchronized (lifecycleLock) {
+            if (closed) throw new IllegalStateException("mesh mirror hook installer is closed");
+            if (!installed) throw new IllegalStateException("mesh mirror transformer is not installed");
+            final ClassLoader loader = transformer.admittedClassLoader();
+            if (loader == null) throw new IllegalStateException("mesh mirror host loader is not admitted");
+            try {
+                final List<String> missing = new ArrayList<>(List.of(targetClassNames));
+                for (String target : targetClassNames) {
+                    final Class<?> defined = Class.forName(target, false, loader);
+                    if (defined.getClassLoader() != loader) {
+                        throw new IllegalStateException("mesh mirror lazy target loader mismatch: " + target);
+                    }
+                }
+                for (Class<?> type : instrumentation.getAllLoadedClasses()) {
+                    if (type.getClassLoader() == loader) missing.remove(safeName(type));
+                }
+                if (!missing.isEmpty()) {
+                    throw new IllegalStateException("mesh mirror lazy targets were not observed: " + missing);
+                }
+            } catch (ClassNotFoundException | LinkageError failure) {
+                throw new IllegalStateException("mesh mirror lazy target definition failed", failure);
             }
         }
     }

@@ -53,6 +53,54 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
+    void definesEveryLazyOwnedTargetThroughTheAdmittedLoader() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final ClassLoader loader = getClass().getClassLoader();
+        final int[] enumerations = {0};
+        final java.lang.instrument.ClassFileTransformer[] installed = {null};
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            loader,
+            new Class<?>[] {Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "isRetransformClassesSupported" -> true;
+                case "addTransformer" -> { installed[0] = (java.lang.instrument.ClassFileTransformer) arguments[0]; yield null; }
+                case "getAllLoadedClasses" -> enumerations[0]++ == 0
+                    ? new Class<?>[0]
+                    : new Class<?>[] {TargetMesh.class, TargetWidget.class, TargetDraw.class};
+                case "removeTransformer" -> true;
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation, loader, null, null, profile(), calls::add
+        );
+
+        installer.install();
+        assertNotNull(installed[0]);
+        installed[0].transform(
+            null,
+            loader,
+            TargetMesh.class.getName().replace('.', '/'),
+            null,
+            TargetMesh.class.getProtectionDomain(),
+            classBytes(TargetMesh.class)
+        );
+        installer.defineLazyTargets();
+        installer.close();
+    }
+
+    @Test
+    void refusesLazyDefinitionBeforeTheHostLoaderIsAdmitted() throws Exception {
+        final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+            instrumentation(new ArrayList<>()), null, null, profile()
+        );
+
+        installer.install();
+        assertThrows(IllegalStateException.class, installer::defineLazyTargets);
+        installer.close();
+    }
+
+    @Test
     void registrationDoesNotClaimTargetTransformationReadiness() throws Exception {
         final List<String> calls = new ArrayList<>();
         final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
@@ -79,6 +127,7 @@ final class VerifiedMeshMirrorHookInstallerTest {
             )
         ).orElseThrow();
         assertNotNull(backported.linkedDeletion());
+        assertNotNull(backported.toolEligibility());
         final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
             instrumentation(calls), getClass().getClassLoader(), null, null, backported, calls::add
         );
@@ -87,14 +136,16 @@ final class VerifiedMeshMirrorHookInstallerTest {
         assertTrue(installer.isInstalled());
         installer.close();
 
-        // Restoration enumerates loaded classes; the owned set must span all five targets.
-        assertEquals(5, installer.ownedTargetCount());
+        // Restoration enumerates loaded classes; the owned set includes movement and deletion actions.
+        assertEquals(7, installer.ownedTargetCount());
         // 5.3.02 already deletes mirror counterparts natively and must stay untargeted.
-        assertNull(MeshMirrorHostProfile.forArtifact(
+        final MeshMirrorHostProfile nativeHost = MeshMirrorHostProfile.forArtifact(
             new dev.turboism.mapping.verification.HostArtifactDigest(
                 41_922_739L, "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
             )
-        ).orElseThrow().linkedDeletion());
+        ).orElseThrow();
+        assertNull(nativeHost.linkedDeletion());
+        assertNull(nativeHost.toolEligibility());
     }
 
     /** Registration, target transformation, and control attachment are three separate facts. */
@@ -439,6 +490,14 @@ final class VerifiedMeshMirrorHookInstallerTest {
             TargetWidget.class.getName().replace('.', '/'), "widget", "(Ljava/lang/Object;)Ljava/lang/Object;",
             TargetDraw.class.getName().replace('.', '/'), "a", "(FZFLjava/lang/Object;)V"
         );
+    }
+
+    private static byte[] classBytes(final Class<?> type) throws Exception {
+        final String resource = "/" + type.getName().replace('.', '/') + ".class";
+        try (var input = type.getResourceAsStream(resource)) {
+            if (input == null) throw new IllegalStateException("missing class bytes: " + resource);
+            return input.readAllBytes();
+        }
     }
 
     private static Object defaultValue(final Class<?> type) {

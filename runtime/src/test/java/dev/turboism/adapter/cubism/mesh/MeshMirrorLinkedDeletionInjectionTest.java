@@ -22,6 +22,7 @@ final class MeshMirrorLinkedDeletionInjectionTest {
 
     private static final String POINT_FIXTURE = "fixture/PointDeleteAction";
     private static final String EDGE_FIXTURE = "fixture/EdgeDeleteAction";
+    private static final String ERASER_FIXTURE = "fixture/EraserDeleteAction";
     private static final String RECORDER = "dev/turboism/adapter/cubism/mesh/MeshMirrorLinkedDeletionInjectionTest$Recorder";
     private static final String EDIT_MODE = RECORDER + "$EditMode";
     private static final String MESH = RECORDER + "$Mesh";
@@ -62,6 +63,27 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         action.getClass().getMethod("b", Object.class).invoke(action, new Object());
 
         assertEquals(List.of(Recorder.EDGE), Recorder.removedEdges);
+        assertTrue(diagnostics.contains(
+            "MESH_MIRROR_DIAG stage=EDGE_DELETE_ACTION_ENTER"
+        ));
+        assertTrue(diagnostics.contains(
+            "MESH_MIRROR_DIAG stage=PARTICIPATION_SKIPPED reason=NO_PARTICIPANT"
+        ));
+    }
+
+    @Test
+    void eraserDeletionKeepsTheSourceOperandsAndPassesTheOuterUndo() throws Exception {
+        final List<String> diagnostics = installBridge();
+        final Object action = transformAndInstantiate(ERASER_FIXTURE, eraserFixture());
+
+        action.getClass().getMethod("erase", Object.class, Object.class, Object.class)
+            .invoke(action, new Object(), new Object(), Recorder.UNDO);
+
+        assertEquals(List.of(Recorder.ERASER_EDGES), Recorder.removedEdgeLists);
+        assertEquals(List.of(Recorder.ERASER_EDGES), Recorder.removedPointLists);
+        assertTrue(diagnostics.contains(
+            "MESH_MIRROR_DIAG stage=ERASER_DELETE_ACTION_ENTER"
+        ));
         assertTrue(diagnostics.contains(
             "MESH_MIRROR_DIAG stage=PARTICIPATION_SKIPPED reason=NO_PARTICIPANT"
         ));
@@ -208,12 +230,20 @@ final class MeshMirrorLinkedDeletionInjectionTest {
             shared.mirrorPointDescriptor(), shared.mirrorHitMethod(), shared.mirrorHitDescriptor(),
             shared.mirrorWidgetOwner(), shared.mirrorWidgetMethod(), shared.mirrorWidgetDescriptor(),
             shared.mirrorAxisDrawOwner(), shared.mirrorAxisDrawMethod(), shared.mirrorAxisDrawDescriptor(),
+            null,
+            null,
             new MeshMirrorHostProfile.LinkedDeletion(
                 POINT_FIXTURE, "b", "(Ljava/lang/Object;)V",
                 EDIT_MODE, "delete_exe", "(Ljava/util/List;Ljava/lang/Object;)V",
                 EDGE_FIXTURE, "b", "(Ljava/lang/Object;)V",
                 RECORDER, "beginUndo", "(Ljava/lang/String;)Ljava/lang/Object;",
-                MESH, "removeEdge", "(Ljava/lang/Object;)V"
+                MESH, "removeEdge", "(Ljava/lang/Object;)V",
+                ERASER_FIXTURE, "erase",
+                "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                RECORDER + "$Handler", "removeEdges",
+                "(Ljava/util/List;)Ljava/lang/Object;",
+                RECORDER + "$Handler", "removePoints",
+                "(Ljava/util/List;Z)Ljava/lang/Object;"
             )
         );
     }
@@ -230,6 +260,87 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         method.visitMethodInsn(Opcodes.INVOKESTATIC, RECORDER, "undo", "()Ljava/lang/Object;", false);
         method.visitMethodInsn(
             Opcodes.INVOKEVIRTUAL, EDIT_MODE, "delete_exe", "(Ljava/util/List;Ljava/lang/Object;)V", false
+        );
+        method.visitInsn(Opcodes.RETURN);
+        method.visitMaxs(0, 0);
+        method.visitEnd();
+        writer.visitEnd();
+        return writer.toByteArray();
+    }
+
+    /**
+     * {@code void erase(Object pack, Object event, Object outerUndo) {
+     * Recorder.outerUndo(Recorder.handler().removeEdges(Recorder.eraserEdges()));
+     * }}
+     */
+    private static byte[] eraserFixture() {
+        final ClassWriter writer = newClass(ERASER_FIXTURE);
+        final MethodVisitor method = writer.visitMethod(
+            Opcodes.ACC_PUBLIC,
+            "erase",
+            "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+            null,
+            null
+        );
+        method.visitCode();
+        method.visitVarInsn(Opcodes.ALOAD, 3);
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "handler",
+            "()L" + RECORDER + "$Handler;",
+            false
+        );
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "eraserEdges",
+            "()Ljava/util/List;",
+            false
+        );
+        method.visitMethodInsn(
+            Opcodes.INVOKEVIRTUAL,
+            RECORDER + "$Handler",
+            "removeEdges",
+            "(Ljava/util/List;)Ljava/lang/Object;",
+            false
+        );
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "attachUndo",
+            "(Ljava/lang/Object;Ljava/lang/Object;)V",
+            false
+        );
+        method.visitVarInsn(Opcodes.ALOAD, 3);
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "handler",
+            "()L" + RECORDER + "$Handler;",
+            false
+        );
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "eraserEdges",
+            "()Ljava/util/List;",
+            false
+        );
+        method.visitInsn(Opcodes.ICONST_0);
+        method.visitMethodInsn(
+            Opcodes.INVOKEVIRTUAL,
+            RECORDER + "$Handler",
+            "removePoints",
+            "(Ljava/util/List;Z)Ljava/lang/Object;",
+            false
+        );
+        method.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            RECORDER,
+            "attachUndo",
+            "(Ljava/lang/Object;Ljava/lang/Object;)V",
+            false
         );
         method.visitInsn(Opcodes.RETURN);
         method.visitMaxs(0, 0);
@@ -284,16 +395,22 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         static final List<Object> SOURCES = List.of(List.of(POINT));
         static final Object UNDO = new Object();
         static final Object EDGE = new Object();
+        static final List<Object> ERASER_EDGES = List.of(new Object());
         static final List<Object> deletedSources = new ArrayList<>();
         static final List<Object> deletedUndo = new ArrayList<>();
         static final List<Object> removedEdges = new ArrayList<>();
+        static final List<Object> removedEdgeLists = new ArrayList<>();
+        static final List<Object> removedPointLists = new ArrayList<>();
         private static final EditMode EDIT_MODE_INSTANCE = new EditMode();
         private static final Mesh MESH_INSTANCE = new Mesh();
+        private static final Handler HANDLER_INSTANCE = new Handler();
 
         static void reset() {
             deletedSources.clear();
             deletedUndo.clear();
             removedEdges.clear();
+            removedEdgeLists.clear();
+            removedPointLists.clear();
         }
 
         public static EditMode editMode() {
@@ -316,6 +433,18 @@ final class MeshMirrorLinkedDeletionInjectionTest {
             return EDGE;
         }
 
+        public static Handler handler() {
+            return HANDLER_INSTANCE;
+        }
+
+        public static List<Object> eraserEdges() {
+            return ERASER_EDGES;
+        }
+
+        public static void attachUndo(final Object groupUndo, final Object childUndo) {
+            // The fixture only needs to preserve the original stack and call order.
+        }
+
         public static Object beginUndo(final String label) {
             return UNDO;
         }
@@ -330,6 +459,18 @@ final class MeshMirrorLinkedDeletionInjectionTest {
         public static final class Mesh {
             public void removeEdge(final Object edge) {
                 removedEdges.add(edge);
+            }
+        }
+
+        public static final class Handler {
+            public Object removeEdges(final List<?> edges) {
+                removedEdgeLists.add(edges);
+                return new Object();
+            }
+
+            public Object removePoints(final List<?> points, final boolean unused) {
+                removedPointLists.add(points);
+                return new Object();
             }
         }
     }
