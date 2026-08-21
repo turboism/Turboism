@@ -94,7 +94,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
             stale = List.copyOf(attachments);
             attachments.clear();
         }
-        runOnEdt(() -> stale.forEach(attachment -> remove(attachment.mount, attachment.root)));
+        runOnEdt(() -> stale.forEach(attachment -> remove(attachment.panel, attachment.mount, attachment.root)));
     }
 
     void attachNative(
@@ -133,13 +133,12 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
                 synchronized (attachments) {
                     if (contribution.get() == active) attachments.add(new Attachment(panel, mount, root));
                     else {
-                        remove(mount, root);
+                        remove(panel, mount, root);
                         diag("ATTACH_SKIPPED reason=CONTRIBUTION_CHANGED");
                         return;
                     }
                 }
-                tryInvoke(mount, "revalidate");
-                tryInvoke(mount, "repaint");
+                refreshHostLayout(panel, mount);
                 NativeMeshMirrorBridge.markControlAttached();
                 diag("ATTACH_OK");
             } catch (ReflectiveOperationException | RuntimeException failure) {
@@ -290,7 +289,7 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
             stale = List.copyOf(attachments);
             attachments.clear();
         }
-        runOnEdt(() -> stale.forEach(attachment -> remove(attachment.mount, attachment.root)));
+        runOnEdt(() -> stale.forEach(attachment -> remove(attachment.panel, attachment.mount, attachment.root)));
     }
 
     private Attachment find(final Object panel) {
@@ -304,16 +303,58 @@ public final class RuntimeMeshEditUiService implements MeshEditUiService {
         if (observer != null) observer.accept(available);
     }
 
-    private static void remove(final Object mount, final Object root) {
+    /**
+     * Reapplies the host's own folding-body finalizer after a late child mutation. Besides
+     * rebinding the child, that exact helper makes its nested Swing panes transparent and paints
+     * the root with {@code CFoldingPane}'s inner color. It runs only on attach/removal.
+     */
+    private static void refreshHostLayout(final Object panel, final Object mount) {
         try {
-            final Object children = property(mount, "children");
-            if (children instanceof List) {
-                @SuppressWarnings("rawtypes")
-                final List raw = (List) children;
-                raw.remove(root);
-            } else invoke(mount, "remove", root);
+            final Object foldingPane = mirrorEditFoldingPane(panel);
+            if (foldingPane != null && !finalizeFoldingBody(foldingPane, mount)) {
+                tryInvoke(foldingPane, "setChild", mount);
+            }
             tryInvoke(mount, "revalidate");
             tryInvoke(mount, "repaint");
+            if (foldingPane != null) {
+                tryInvoke(foldingPane, "revalidate");
+                tryInvoke(foldingPane, "repaint");
+            }
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // The row itself remains usable when the surrounding host pane cannot be refreshed.
+        }
+    }
+
+    private static boolean finalizeFoldingBody(final Object foldingPane, final Object mount)
+        throws ReflectiveOperationException {
+        final Class<?> foldingType = foldingPane.getClass();
+        final Class<?> widgetType = Class.forName(
+            "com.live2d.ui.CWidget", false, foldingType.getClassLoader()
+        );
+        if (!widgetType.isInstance(mount)) return false;
+        final Object companion = foldingType.getField("Companion").get(null);
+        final Method finalize = companion.getClass().getDeclaredMethod(
+            "a", foldingType, widgetType
+        );
+        if (!Modifier.isStatic(finalize.getModifiers()) || finalize.getReturnType() != void.class) {
+            return false;
+        }
+        finalize.setAccessible(true);
+        finalize.invoke(null, foldingPane, mount);
+        return true;
+    }
+
+    private static Object mirrorEditFoldingPane(final Object panel)
+        throws ReflectiveOperationException {
+        Object foldingPane = tryInvoke(panel, "getMirrorEditFoldingPane");
+        if (foldingPane == null) foldingPane = field(panel, "mirrorEditFoldingPane");
+        return foldingPane;
+    }
+
+    private static void remove(final Object panel, final Object mount, final Object root) {
+        try {
+            invoke(mount, "remove", root);
+            refreshHostLayout(panel, mount);
         } catch (ReflectiveOperationException | RuntimeException ignored) {
             // Best-effort cleanup; the host rebuilds its UI on the next session.
         }

@@ -827,6 +827,7 @@ public final class TurboismAgent {
             return;
         }
         try {
+            installer.defineLazyTargets();
             installer.bind(
                 runtime.hostAccess().meshMirrorAxisService(),
                 runtime.hostAccess().meshEditUiService()

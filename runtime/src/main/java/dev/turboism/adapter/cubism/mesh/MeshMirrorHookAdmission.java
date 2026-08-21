@@ -8,7 +8,7 @@ import java.util.List;
 
 /** Runtime-owned admission for the single production mesh-mirror hook consumer. */
 public final class MeshMirrorHookAdmission {
-    public static final String PLUGIN_ID = "dev.turboism.plugin.mesh";
+    public static final String PLUGIN_ID = "dev.turboism.plugin.mesh-edit-mirror-axis-enhance";
 
     private MeshMirrorHookAdmission() { }
 
