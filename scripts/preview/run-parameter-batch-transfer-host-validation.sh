@@ -56,7 +56,6 @@ exec bash "$runner" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
   --jvm-option '-Dturboism.validation.hostVersion='$version \
-  --jvm-option '-Dturboism.validation.fixtureName=fixture.cmo3' \
   --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
   --ready-marker 'Plugin load complete' \
   --ready-marker 'ParameterBatchTransferPlugin enabled' \

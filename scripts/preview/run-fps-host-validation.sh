@@ -46,18 +46,22 @@ if [ ! -f "$probe_jar" ]; then
   exit 1
 fi
 
-# Bounded host-side resize driver: forces modeling-canvas repaints inside the
-# exerciser sampling window (see fps-resize-driver.sh). Killed when this
-# wrapper (and with it the runner) exits; it never touches other sessions.
+# The runner prefixes this suffix with its generated run ID. The resize driver
+# matches the nonce-bearing tail, which stays unique even if the launch crosses
+# a UTC-second boundary or other validations start at the same time.
+fixture_suffix='fps.cmo3'
+run_nonce="$(printf '%06d' "$$")"
+fixture_selector="-$run_nonce-$fixture_suffix"
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 driver_pid=''
 if [ -r "$driver" ]; then
   nohup ssh -i "$HOME/.ssh/<validation-ssh-key>" -o IdentitiesOnly=yes \
-    <validation-user>@<validation-host> "bash -s" < "$driver" > /tmp/fps-resize-driver.out 2>&1 &
+    <validation-user>@<validation-host> "bash -s -- '$fixture_selector'" < "$driver" \
+    > "/tmp/fps-resize-driver-$run_nonce.out" 2>&1 &
   driver_pid=$!
 fi
 trap 'if [ -n "$driver_pid" ]; then kill "$driver_pid" 2>/dev/null || true; fi' EXIT
-exec bash "$runner" \
+TURBOISM_HOST_VALIDATION_RUN_NONCE="$run_nonce" exec bash "$runner" \
   --name fps \
   --version "$version" \
   --run-label "$run_label" \
@@ -65,6 +69,7 @@ exec bash "$runner" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:fps-host-validation-exerciser.jar" \
   --fixture-remote "$fixture_src" \
+  --fixture-name "$fixture_suffix" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
   --ready-marker 'FPS_EXERCISER_READY' \
