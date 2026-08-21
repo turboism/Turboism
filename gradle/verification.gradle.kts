@@ -261,6 +261,19 @@ val checkDuplicateJavaImports by tasks.registering {
     }
 }
 
+val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies every official release plugin has a store-ready README matching its descriptor."
+    workingDir(rootDir)
+    inputs.file("packaging/release-plugins.txt")
+    inputs.file("scripts/test/check_official_plugin_readmes.py")
+    inputs.files(fileTree("plugins") {
+        include("*/README.md")
+        include("*/src/main/resources/META-INF/turboism/plugin.json")
+    })
+    commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
@@ -280,7 +293,8 @@ val devCheck by tasks.registering {
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
-        "checkOfficialPluginI18nCompleteness"
+        "checkOfficialPluginI18nCompleteness",
+        checkOfficialPluginReadmes
     )
 }
 
