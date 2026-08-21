@@ -92,7 +92,9 @@ if [ -n "$webdav_config" ]; then
   echo "webdav-config: staging $webdav_config into the task turboism-home config dir."
 fi
 
+run_nonce="${TURBOISM_HOST_VALIDATION_RUN_NONCE:-$(printf '%06d' "$$")}"
 runner_cmd=(
+  env "TURBOISM_HOST_VALIDATION_RUN_NONCE=$run_nonce"
   bash "$runner"  --name backup-interactive
   --version "$version"
   --run-label "$run_label"
@@ -129,20 +131,12 @@ if [ -n "$webdav_config" ]; then
   ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
   scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
   task_base="$remote_root/backup-interactive/$version-$run_label"
-  # Snapshot dirs from previous sessions so we only stage into the NEW task dir.
-  pre_existing="$("${ssh_cmd[@]}" "$ssh_host" "ls -td '$task_base'/backup-interactive-* 2>/dev/null" || true)"
+  # Match only this invocation's nonce-bearing task ID. Multiple interactive or
+  # automated sessions may create sibling task directories concurrently.
   for _ in $(seq 1 120); do
     kill -0 "$runner_pid" 2>/dev/null || break
-    listed="$("${ssh_cmd[@]}" "$ssh_host" "ls -td '$task_base'/backup-interactive-* 2>/dev/null" || true)"
-    candidate=''
-    while IFS= read -r dir; do
-      [ -n "$dir" ] || continue
-      in_old=0
-      while IFS= read -r old; do
-        [ -n "$old" ] && [ "$old" = "$dir" ] && { in_old=1; break; }
-      done <<< "$pre_existing"
-      [ "$in_old" = 0 ] && { candidate="$dir"; break; }
-    done <<< "$listed"
+    candidate="$("${ssh_cmd[@]}" "$ssh_host" \
+      "find '$task_base' -mindepth 1 -maxdepth 1 -type d -name 'backup-interactive-*-$run_nonce' -print -quit 2>/dev/null" || true)"
     if [ -n "$candidate" ]; then
       remote_home="$candidate/turboism-home"
       if "${ssh_cmd[@]}" "$ssh_host" "[ -d '$remote_home' ]"; then

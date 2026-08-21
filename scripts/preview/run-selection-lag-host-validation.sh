@@ -35,30 +35,8 @@ bundle_root="$repo_root/build/manual-test/$worktree_id/selection-lag-validation"
 probe_jar="$repo_root/build/selection-lag-probe.jar"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-# Host-idle gate (memory #353/#558): if any unrelated Cubism / Proton process
-# is running, pause and wait for the host to become idle. Never kill or clear
-# unrelated processes. The generic runner re-checks golden-prefix usage before
-# staging.
-if [ "${1:-}" != "--dry-run" ]; then
-  ssh_key="${SSH_KEY:-$HOME/.ssh/id_ed25519_validation}"
-  ssh_host="${SSH_HOST:-local-user@validation-host.invalid}"
-  idle_deadline=$((SECONDS + 600))
-  while [ "$SECONDS" -lt "$idle_deadline" ]; do
-    busy="$("${ssh_cmd:-ssh}" -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10 \
-      "$ssh_host" \
-      "pgrep -af 'CubismEditor5|CECubismEditorApp|wineserver' 2>/dev/null | grep -v 'pgrep' || true" 2>/dev/null || true)"
-    if [ -z "$busy" ]; then
-      break
-    fi
-    echo "[selection-lag] host busy; waiting for unrelated Cubism/Proton processes to exit: $busy" >&2
-    sleep 15
-  done
-  if [ -n "${busy:-}" ]; then
-    echo "error: host did not become idle within 600s" >&2
-    exit 1
-  fi
-fi
-
+# The generic runner stages a purpose-named project copy inside an independent
+# CoW prefix, so unrelated exact-host sessions can stay open concurrently.
 exec bash "$runner" \
   --name selection-lag \
   --version "$version" \
@@ -73,7 +51,6 @@ exec bash "$runner" \
   --require-fixture-unchanged \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   --jvm-option "-Dturboism.validation.hostVersion=$version" \
-  --jvm-option '-Dturboism.validation.fixtureName=fixture.cmo3' \
   --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
   --jvm-option '-Dturboism.validation.thresholdMs=100' \
   --ready-marker 'SELECTION_LAG_PROBE_READY' \

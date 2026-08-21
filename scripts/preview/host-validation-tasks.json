@@ -1,0 +1,187 @@
+{
+  "format": "turboism.host-validation.tasks",
+  "schemaVersion": 1,
+  "defaultSchedulerRoot": "/home/local-user/TurboismValidation/.scheduler",
+  "resources": {
+    "host-slot": {
+      "capacity": 4,
+      "description": "One isolated Cubism project/prefix/home session; performance tasks reserve all slots."
+    },
+    "display-input": {
+      "capacity": 1,
+      "description": "Exclusive X11 keyboard, mouse, window activation, or resize automation on DISPLAY :0."
+    },
+    "performance-host": {
+      "capacity": 1,
+      "description": "Exclusive performance-sensitive host capacity for FPS, JFR, CPU/GPU, or latency evidence."
+    },
+    "interactive-desktop": {
+      "capacity": 1,
+      "description": "Exclusive human-operated desktop session."
+    }
+  },
+  "tasks": {
+    "backup": {
+      "description": "Automated backup host validation.",
+      "command": "scripts/preview/run-backup-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "backup-interactive": {
+      "description": "Human-operated WebDAV backup session.",
+      "command": "scripts/preview/run-backup-interactive-session.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1}
+    },
+    "clipmask-viewer": {
+      "description": "Clip-mask viewer SDK and host validation.",
+      "command": "scripts/preview/run-clipmask-viewer-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "core-acquisition": {
+      "description": "Cubism Core acquisition validation.",
+      "command": "scripts/preview/run-core-acquisition-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "dialog-automation": {
+      "description": "Host-dialog automation validation requiring an explicit fixture identity.",
+      "command": "scripts/preview/run-dialog-automation-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1},
+      "runnable": false,
+      "blockedReason": "The wrapper requires caller-supplied --fixture-remote and --fixture-sha256 runner arguments."
+    },
+    "fps": {
+      "description": "FPS counting and render-driving validation; machine-exclusive performance evidence.",
+      "command": "scripts/preview/run-fps-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 4, "display-input": 1, "performance-host": 1}
+    },
+    "host-locale": {
+      "description": "Host locale projection validation.",
+      "command": "scripts/preview/run-host-locale-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "defaultVariant": "system",
+      "variants": {
+        "system": ["{version}", "{runLabel}", "--locale", "system"],
+        "en": ["{version}", "{runLabel}", "--locale", "en"],
+        "ja": ["{version}", "{runLabel}", "--locale", "ja"],
+        "ko": ["{version}", "{runLabel}", "--locale", "ko"],
+        "zh-Hans": ["{version}", "{runLabel}", "--locale", "zh-Hans"],
+        "zh-Hant": ["{version}", "{runLabel}", "--locale", "zh-Hant"]
+      },
+      "resources": {"host-slot": 1}
+    },
+    "parameter": {
+      "description": "Parameter and Editor-object validation.",
+      "command": "scripts/preview/run-parameter-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "defaultVariant": "matrix",
+      "variants": {
+        "matrix": ["{version}", "matrix", "{runLabel}"],
+        "model-edit-level": ["{version}", "model-edit-level", "{runLabel}"],
+        "wave1": ["{version}", "wave1", "{runLabel}"],
+        "statistics-read": ["{version}", "statistics-read", "{runLabel}"],
+        "binding-read": ["{version}", "binding-read", "{runLabel}"],
+        "binding-matrix": ["{version}", "binding-matrix", "{runLabel}"],
+        "parameter-menu-smoke": ["{version}", "parameter-menu-smoke", "{runLabel}"],
+        "persist-write": ["{version}", "persist-write", "{runLabel}"],
+        "persist-read": ["{version}", "persist-read", "{runLabel}"],
+        "plugin-scope-close": ["{version}", "plugin-scope-close", "{runLabel}"],
+        "document-close": ["{version}", "document-close", "{runLabel}"],
+        "native-control-background": ["{version}", "native-control-background", "{runLabel}"],
+        "native-control-background-document-close": ["{version}", "native-control-background-document-close", "{runLabel}"],
+        "native-control-background-persist-write": ["{version}", "native-control-background-persist-write", "{runLabel}"],
+        "native-control-background-persist-reopen": ["{version}", "native-control-background-persist-reopen", "{runLabel}"],
+        "native-control-background-persist-final": ["{version}", "native-control-background-persist-final", "{runLabel}"]
+      },
+      "resources": {"host-slot": 1}
+    },
+    "parameter-batch-transfer": {
+      "description": "Parameter batch-transfer SDK validation.",
+      "command": "scripts/preview/run-parameter-batch-transfer-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "psd-clip-mask": {
+      "description": "PSD clip-mask read/write/Undo/Redo validation.",
+      "command": "scripts/preview/run-psd-clip-mask-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "defaultVariant": "matrix",
+      "variants": {
+        "read": ["{version}", "read", "{runLabel}"],
+        "matrix": ["{version}", "matrix", "{runLabel}"]
+      },
+      "resources": {"host-slot": 1}
+    },
+    "psd-pass-through": {
+      "description": "PSD pass-through sanitize validation.",
+      "command": "scripts/preview/run-psd-pass-through-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "defaultVariant": "original",
+      "variants": {
+        "original": ["{version}", "original", "{runLabel}"],
+        "repaired": ["{version}", "repaired", "{runLabel}"]
+      },
+      "resources": {"host-slot": 1}
+    },
+    "recent-preview": {
+      "description": "Recent-file preview and popup validation.",
+      "command": "scripts/preview/run-recent-preview-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "selection-lag": {
+      "description": "Selection latency evidence; machine-exclusive to keep thresholds meaningful.",
+      "command": "scripts/preview/run-selection-lag-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 4, "performance-host": 1}
+    },
+    "separate-save-path": {
+      "description": "Separate project/export save-path validation.",
+      "command": "scripts/preview/run-separate-save-path-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "startup-suppression": {
+      "description": "Splash, update-check, and information-dialog suppression validation.",
+      "command": "scripts/preview/run-startup-suppression-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "status-bar": {
+      "description": "Native status-bar contribution validation.",
+      "command": "scripts/preview/run-status-bar-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "theme": {
+      "description": "Theme and host appearance validation.",
+      "command": "scripts/preview/run-theme-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    },
+    "workspace": {
+      "description": "Workspace switching and reconnect validation.",
+      "command": "scripts/preview/run-workspace-host-validation.sh",
+      "versions": ["5203", "5302"],
+      "arguments": ["{version}", "{runLabel}"],
+      "resources": {"host-slot": 1}
+    }
+  }
+}
