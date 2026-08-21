@@ -568,17 +568,17 @@ public final class ConfigMergeRegression {
                     "dev.turboism.plugin.clipmask",
                     "dev.turboism.plugin.perfopt",
                     "dev.turboism.plugin.renderopt",
-                    "dev.turboism.plugin.mesh",
+                    "dev.turboism.plugin.mesh-edit-mirror-axis-enhance",
                     "dev.turboism.plugin.other"));
             List<String> disabled = ConfigMerge.mergeDisabled(
-                    seed, java.util.Set.of("dev.turboism.plugin.mesh"),
-                    java.util.Set.of("dev.turboism.plugin.mesh"), false);
+                    seed, java.util.Set.of("dev.turboism.plugin.mesh-edit-mirror-axis-enhance"),
+                    java.util.Set.of("dev.turboism.plugin.mesh-edit-mirror-axis-enhance"), false);
             check("retired ids pruned from disabledPlugins",
                     !disabled.contains("dev.turboism.plugin.logfilter")
                             && !disabled.contains("dev.turboism.plugin.clipmask")
                             && !disabled.contains("dev.turboism.plugin.perfopt")
                             && !disabled.contains("dev.turboism.plugin.renderopt")
-                            && !disabled.contains("dev.turboism.plugin.mesh")
+                            && !disabled.contains("dev.turboism.plugin.mesh-edit-mirror-axis-enhance")
                             && disabled.contains("dev.turboism.plugin.other")
                             && disabled.equals(disabled.stream().sorted().toList()));
 
