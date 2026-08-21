@@ -69,7 +69,7 @@ Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubis
 ./gradlew validateThemeHost5203
 ```
 
-Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
+Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Multiple isolated project copies can be scheduled with `python3 scripts/preview/host_validation.py`; see [HOST_VALIDATION_SCHEDULING.md](HOST_VALIDATION_SCHEDULING.md) for resource and lease rules. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
 
 ## API policy
 
