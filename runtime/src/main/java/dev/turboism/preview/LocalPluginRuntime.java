@@ -292,6 +292,11 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 log
             ));
         } catch (Exception failure) {
+            log.error(
+                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                "Plugin lifecycle: built-in load failed",
+                failure
+            );
             close();
             throw new IllegalStateException("Runtime-owned core failed to load", failure);
         }
