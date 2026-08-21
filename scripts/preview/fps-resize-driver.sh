@@ -14,42 +14,36 @@
 set -u
 export DISPLAY=${DISPLAY:-:0}
 
-# 1. Wait for the newest fps task directory (created by the generic runner
-#    before staging) that already carries the copied fixture.
-task=""
-start_epoch=$(date +%s)
-for _ in $(seq 1 300); do
-  candidate=$(ls -dt <local-home>/TurboismValidation/fps/*/ 2>/dev/null | head -1 | tr -d '/')
-  if [ -n "$candidate" ] && [ "$(stat -c %Y "$candidate" 2>/dev/null || echo 0)" -ge $((start_epoch - 10)) ] \
-    && [ -f "$candidate/fixture.cmo3" ]; then
-    task="$candidate"
-    break
-  fi
-  sleep 1
-done
-[ -n "$task" ] || exit 0
+# The wrapper passes a unique suffix of its purpose-named project copy. Never
+# discover a run by "newest task" because multiple validation windows may start
+# together.
+selector=${1:-}
+[ -n "$selector" ] || exit 0
+case "$selector" in */*|*\\*) exit 0 ;; esac
 
-# 2. Wait for the Cubism JVM whose command line carries the task fixture path.
+# 1. Wait for the Cubism JVM whose command line carries the unique project suffix.
+pid=""
+for _ in $(seq 1 300); do
   while read -r p; do
     cmd=$(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null || true)
     cmd=${cmd//\\/\/}
     case "$cmd" in
-      *"$task/fixture.cmo3"*) pid=$p; break ;;
+      *"$selector"*) pid=$p; break ;;
     esac
-  done < <(pgrep -f "fixture.cmo3" 2>/dev/null || true)
+  done < <(pgrep -f -- "$selector" 2>/dev/null || true)
   [ -n "$pid" ] && break
   sleep 1
 done
 [ -n "$pid" ] || exit 0
 start_ticks_before=$(awk '{print $22}' "/proc/$pid/stat")
 
-# 3. Wait for the visible fixture-titled window of that exact JVM.
+# 2. Wait for the visible project-titled window of that exact JVM.
 win=""
 for _ in $(seq 1 120); do
   while read -r c; do
     t=$(xdotool getwindowname "$c" 2>/dev/null || true)
     case "$t" in
-      *fixture.cmo3*) win=$c; break ;;
+      *"$selector"*) win=$c; break ;;
     esac
   done < <(xdotool search --onlyvisible --pid "$pid" 2>/dev/null || true)
   [ -n "$win" ] && break
@@ -57,7 +51,7 @@ for _ in $(seq 1 120); do
 done
 [ -n "$win" ] || exit 0
 
-# 4. Bounded resize bursts covering the exerciser sampling window; identity
+# 3. Bounded resize bursts covering the exerciser sampling window; identity
 #    and window ownership are revalidated before every resize.
 eval "$(xdotool getwindowgeometry --shell "$win" 2>/dev/null || true)"
 end=$((SECONDS + 240))
