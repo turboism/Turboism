@@ -205,9 +205,9 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     /**
      * Records an ERROR-level line together with a throwable. The cause chain is written to the log
-     * file up to eight levels deep as class name plus sanitized message; a stack trace is never
-     * written. A failing sink or a failing file write is swallowed — logging never propagates an
-     * exception to its caller.
+     * file up to eight levels deep as class name plus sanitized message, followed by at most 24
+     * stack frames per cause. A failing sink or a failing file write is swallowed — logging never
+     * propagates an exception to its caller.
      *
      * @param component short subsystem tag included in the line
      * @param message the text; sanitized before it reaches the file, the sink and stdout
