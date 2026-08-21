@@ -60,6 +60,11 @@ final class PreviewPluginLoader {
         final List<LocalPluginRuntime.PluginFailure> failures
     ) {
         final PluginDescriptor descriptor = candidate.descriptor();
+        log.info(
+            descriptor.id(),
+            "Plugin lifecycle: load started name=" + descriptor.name()
+                + " version=" + descriptor.version()
+        );
         final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
         runtime.transitionTo(PluginLifecycleState.RESOLVED);
         final LoadResources resources = new LoadResources();
@@ -72,7 +77,8 @@ final class PreviewPluginLoader {
             loaded.add(loadedPlugin);
             log.info(
                 descriptor.id(),
-                "Loaded plugin " + descriptor.name() + " " + descriptor.version()
+                "Plugin lifecycle: load succeeded name=" + descriptor.name()
+                    + " version=" + descriptor.version()
                     + " entrypoints=" + resources.entrypoints.size()
             );
             return PreviewPluginSummaryFactory.active(loadedPlugin);
@@ -115,8 +121,12 @@ final class PreviewPluginLoader {
             resources.initialized++;
         }
         runtime.transitionTo(PluginLifecycleState.LOADED);
+        log.info(
+            candidate.descriptor().id(),
+            "Plugin lifecycle: initialized entrypoints=" + resources.initialized
+        );
 
-        enableAll(resources, runtime);
+        enableAll(resources, runtime, candidate.descriptor().id());
         parameterHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
@@ -216,18 +226,25 @@ final class PreviewPluginLoader {
         );
     }
 
-    private static void enableAll(
+    private void enableAll(
         final LoadResources resources,
-        final PluginRuntime runtime
+        final PluginRuntime runtime,
+        final String pluginId
     ) throws Exception {
+        log.info(pluginId, "Plugin lifecycle: enable started");
         try {
             for (TurboismPlugin entrypoint : resources.entrypoints) {
                 entrypoint.enable();
                 resources.enabled++;
             }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
+            log.info(
+                pluginId,
+                "Plugin lifecycle: enable succeeded entrypoints=" + resources.enabled
+            );
         } catch (Exception failure) {
             runtime.transitionTo(PluginLifecycleState.ENABLE_FAILED);
+            log.error(pluginId, "Plugin lifecycle: enable failed", failure);
             throw failure;
         }
     }
@@ -250,7 +267,11 @@ final class PreviewPluginLoader {
             runtime.state().name(),
             safeMessage(failure)
         ));
-        log.error(candidate.descriptor().id(), "Plugin load failed", failure);
+        log.error(
+            candidate.descriptor().id(),
+            "Plugin lifecycle: load failed state=" + runtime.state(),
+            failure
+        );
     }
 
     private void cleanupFailed(
