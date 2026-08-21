@@ -1,12 +1,12 @@
 {
   "format": "turboism.plugin.meta",
   "schemaVersion": 3,
-  "id": "dev.turboism.plugin.mesh",
-  "name": "Mesh Inspector and Mirror-Axis Tools",
+  "id": "dev.turboism.plugin.mesh-edit-mirror-axis-enhance",
+  "name": "Mesh Edit Mirror Axis Enhance",
   "version": "0.1.0",
-  "description": "Inspects mesh/deformer state and contributes the bounded mirror-axis rotation control for verified Cubism hosts.",
+  "description": "Enhances Cubism mesh editing with mirror-axis rotation and exact-host mirror-tool parity.",
   "entrypoints": [
-    "dev.turboism.plugin.mesh.MeshPlugin"
+    "dev.turboism.plugin.mesheditmirroraxisenhance.MeshEditMirrorAxisEnhancePlugin"
   ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [

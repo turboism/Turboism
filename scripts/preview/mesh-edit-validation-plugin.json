@@ -1,0 +1,45 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.mesh-edit",
+  "name": "Windows Mesh Edit Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only public SDK probe for direct mesh mutations, native Undo/Redo, and task-scoped save/reopen persistence.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.WindowsMeshEditValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Snapshot the active mesh, selection, and native history during exact-host validation."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Perform bounded direct mesh mutations, native Undo/Redo, and mesh-mode completion."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Save only the task-scoped copied validation fixture after persistence mutations and cleanup."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}
