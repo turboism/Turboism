@@ -12,7 +12,7 @@ from pathlib import Path
 
 REVIEWED = ("5.2.03", "5.3.02")
 HELPER = r'''
-import dev.turboism.sdk.Cubism;
+import dev.turboism.sdk.CubismEditor;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -20,7 +20,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 
-public final class DumpCubismAvailability {
+public final class DumpCubismEditorAvailability {
     public static void main(String[] args) throws Exception {
         List<Class<?>> types = List.of(
             Class.forName("dev.turboism.sdk.cubism.model.Part"),
@@ -30,17 +30,17 @@ public final class DumpCubismAvailability {
         );
         List<String> rows = new ArrayList<>();
         for (Class<?> type : types) {
-            Cubism typeAvailability = type.getAnnotation(Cubism.class);
+            CubismEditor typeAvailability = type.getAnnotation(CubismEditor.class);
             if (typeAvailability == null) continue;
             if (type.isEnum()) {
                 rows.add(json(type.getName(), "type", Arrays.asList(typeAvailability.value())));
                 continue;
             }
             Method[] methods = type.getDeclaredMethods();
-            Arrays.sort(methods, Comparator.comparing(DumpCubismAvailability::methodId));
+            Arrays.sort(methods, Comparator.comparing(DumpCubismEditorAvailability::methodId));
             for (Method method : methods) {
                 if (!Modifier.isPublic(method.getModifiers())) continue;
-                Cubism methodAvailability = method.getAnnotation(Cubism.class);
+                CubismEditor methodAvailability = method.getAnnotation(CubismEditor.class);
                 String[] versions = methodAvailability == null
                     ? typeAvailability.value()
                     : methodAvailability.value();
@@ -77,14 +77,14 @@ def parse_args() -> argparse.Namespace:
 def matrix(sdk_jar: Path) -> list[dict[str, object]]:
     with tempfile.TemporaryDirectory(prefix="turboism-cubism-docs-") as directory:
         root = Path(directory)
-        source = root / "DumpCubismAvailability.java"
+        source = root / "DumpCubismEditorAvailability.java"
         source.write_text(HELPER, encoding="utf-8")
         subprocess.run(
             ["javac", "-cp", str(sdk_jar), "-d", str(root), str(source)],
             check=True,
         )
         completed = subprocess.run(
-            ["java", "-cp", f"{root}:{sdk_jar}", "DumpCubismAvailability"],
+            ["java", "-cp", f"{root}:{sdk_jar}", "DumpCubismEditorAvailability"],
             check=True,
             capture_output=True,
             text=True,
@@ -96,7 +96,7 @@ def matrix(sdk_jar: Path) -> list[dict[str, object]]:
 
 def validate(rows: list[dict[str, object]]) -> None:
     if not rows:
-        raise SystemExit("no @Cubism availability declarations found")
+        raise SystemExit("no @CubismEditor availability declarations found")
     for row in rows:
         versions = row["versions"]
         if not versions or len(versions) != len(set(versions)):
@@ -112,7 +112,7 @@ def render(rows: list[dict[str, object]]) -> str:
     lines = [
         "# Cubism Editor API availability",
         "",
-        "This file is generated from runtime-visible `@Cubism` metadata in the compiled SDK. ",
+        "This file is generated from runtime-visible `@CubismEditor` metadata in the compiled SDK. ",
         "Versions are exact reviewed Cubism Editor versions; ranges are not accepted.",
         "",
     ]
@@ -132,8 +132,13 @@ def main() -> None:
     output = args.output.resolve()
     if args.check:
         if not output.is_file() or output.read_text(encoding="utf-8") != generated:
-            raise SystemExit(f"Cubism API availability documentation is stale: {output}")
-        print(f"PASS: Cubism API availability documentation matches {len(generated.splitlines())} generated lines")
+            raise SystemExit(
+                f"Cubism Editor API availability documentation is stale: {output}"
+            )
+        print(
+            "PASS: Cubism Editor API availability documentation matches "
+            f"{len(generated.splitlines())} generated lines"
+        )
         return
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(generated, encoding="utf-8")

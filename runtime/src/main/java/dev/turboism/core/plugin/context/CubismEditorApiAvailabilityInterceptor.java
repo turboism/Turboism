@@ -1,7 +1,7 @@
 package dev.turboism.core.plugin.context;
 
-import dev.turboism.sdk.Cubism;
-import dev.turboism.sdk.cubism.CubismApiUnavailableException;
+import dev.turboism.sdk.CubismEditor;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
@@ -26,14 +26,14 @@ import java.util.concurrent.CompletionStage;
 import java.util.function.Supplier;
 
 /** Applies exact Cubism Editor availability policy to one plugin's SDK object graph. */
-final class CubismApiAvailabilityInterceptor {
+final class CubismEditorApiAvailabilityInterceptor {
 
     private static final Set<String> REVIEWED_VERSIONS = Set.of("5.2.03", "5.3.02");
 
     private final Supplier<Optional<String>> activeVersion;
     private final Map<Object, Map<Class<?>, Object>> proxies = new IdentityHashMap<>();
 
-    CubismApiAvailabilityInterceptor(final Supplier<Optional<String>> activeVersion) {
+    CubismEditorApiAvailabilityInterceptor(final Supplier<Optional<String>> activeVersion) {
         this.activeVersion = Objects.requireNonNull(activeVersion, "activeVersion");
     }
 
@@ -83,7 +83,7 @@ final class CubismApiAvailabilityInterceptor {
     }
 
     private final class Handler implements InvocationHandler {
-        private final CubismApiAvailabilityInterceptor owner = CubismApiAvailabilityInterceptor.this;
+        private final CubismEditorApiAvailabilityInterceptor owner = CubismEditorApiAvailabilityInterceptor.this;
         private final Object delegate;
         private final Class<?> sdkInterface;
 
@@ -112,15 +112,15 @@ final class CubismApiAvailabilityInterceptor {
             return switch (method.getName()) {
                 case "equals" -> proxy == arguments[0];
                 case "hashCode" -> System.identityHashCode(proxy);
-                case "toString" -> "CubismApiProxy[" + sdkInterface.getName() + "]";
+                case "toString" -> "CubismEditorApiProxy[" + sdkInterface.getName() + "]";
                 default -> throw new IllegalStateException("Unexpected Object method: " + method);
             };
         }
     }
 
     private void enforce(final Method method) {
-        final Cubism declaration = method.getAnnotation(Cubism.class) != null
-            ? method.getAnnotation(Cubism.class)
+        final CubismEditor declaration = method.getAnnotation(CubismEditor.class) != null
+            ? method.getAnnotation(CubismEditor.class)
             : effectiveTypeAvailability(method.getDeclaringClass());
         if (declaration == null) {
             return;
@@ -132,14 +132,14 @@ final class CubismApiAvailabilityInterceptor {
         if (current.isPresent() && supported.contains(current.orElseThrow())) {
             return;
         }
-        throw new CubismApiUnavailableException(apiId(method), current, supported);
+        throw new CubismEditorApiUnavailableException(apiId(method), current, supported);
     }
 
-    private static List<String> normalizedVersions(final Cubism declaration, final Method method) {
+    private static List<String> normalizedVersions(final CubismEditor declaration, final Method method) {
         final List<String> versions = List.of(declaration.value());
         if (versions.isEmpty() || versions.stream().anyMatch(version -> !REVIEWED_VERSIONS.contains(version))
             || new LinkedHashSet<>(versions).size() != versions.size()) {
-            throw new IllegalStateException("Invalid @Cubism declaration on " + apiId(method));
+            throw new IllegalStateException("Invalid @CubismEditor declaration on " + apiId(method));
         }
         return versions;
     }
@@ -259,16 +259,16 @@ final class CubismApiAvailabilityInterceptor {
 
     private static boolean declaresAnnotatedMethod(final Class<?> type) {
         for (Method method : type.getMethods()) {
-            if (method.isAnnotationPresent(Cubism.class)) return true;
+            if (method.isAnnotationPresent(CubismEditor.class)) return true;
         }
         return false;
     }
 
-    private static Cubism effectiveTypeAvailability(final Class<?> type) {
-        final Cubism direct = type.getAnnotation(Cubism.class);
+    private static CubismEditor effectiveTypeAvailability(final Class<?> type) {
+        final CubismEditor direct = type.getAnnotation(CubismEditor.class);
         if (direct != null) return direct;
         for (Class<?> parent : type.getInterfaces()) {
-            final Cubism inherited = effectiveTypeAvailability(parent);
+            final CubismEditor inherited = effectiveTypeAvailability(parent);
             if (inherited != null) return inherited;
         }
         return null;
