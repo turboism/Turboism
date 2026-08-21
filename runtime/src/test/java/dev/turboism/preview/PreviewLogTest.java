@@ -148,5 +148,6 @@ class PreviewLogTest {
                 + "[alias=cubism.editor-model.parameter-group.add, failureKind=INVOCATION]"
         ));
         assertTrue(content.contains("caused by java.lang.IllegalAccessException: fixture"));
+        assertTrue(content.contains("\tat dev.turboism.preview.PreviewLogTest."));
     }
 }
