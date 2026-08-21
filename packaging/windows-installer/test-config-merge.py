@@ -45,7 +45,7 @@ EXPECTED_PATHS = [
     ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:mcp",
-    ":plugins:mesh",
+    ":plugins:mesh-edit-mirror-axis-enhance",
     ":plugins:palette-label-style",
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
