@@ -72,8 +72,8 @@ restart.
 ## Setup (per run, on the Windows host)
 
 1. Copy the whole bundle to a task-scoped directory, e.g. `Z:\TurboismValidation\<task>\home`.
-2. Copy the disposable fixture model next to it: `Z:\TurboismValidation\<task>\home\fixture.cmo3`.
-   Keep the original model untouched and hash it before/after the run.
+2. Copy the disposable fixture model next to it and name the copy after this validation purpose/run, for example `Z:\TurboismValidation\<task>\workspace-5302-r1-<run-id>.cmo3`.
+   Keep the original model untouched and hash it before/after the run. Other exact-host windows may remain open when they use different task-scoped project copies, homes, and CoW prefixes.
 3. Edit `launch-workspace-validation.bat.template`:
    - `CUBISM_BAT` → official BAT of the exact version under test (5.2 or 5.3);
    - `TURBOISM_HOME` → the task-scoped bundle directory;
@@ -87,8 +87,8 @@ A mismatched record or artifact fails closed at resolver creation.
 
 ## Launch and readiness
 
-Close every other Cubism/Proton process for the task, then run
-`launch-workspace-validation.bat`. Wait for:
+Ensure this task's project-copy name, Turboism home, and CoW prefix are unique, then run
+`launch-workspace-validation.bat`. Other task-scoped Cubism windows do not need to close. Wait for:
 
 - `logs\turboism.log` containing `Host adapter ... connected` (host=ACTIVE);
 - an actual modeling document open on the fixture;

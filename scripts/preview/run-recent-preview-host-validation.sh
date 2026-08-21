@@ -53,9 +53,7 @@ exec bash "$runner" \
   --plugin "$bundle_root/plugins/recent-preview-validation-probe.jar:recent-preview-validation-probe.jar" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
-  --fixture-name 'fixture.cmo3' \
   --jvm-option "-Dturboism.validation.hostVersion=$version" \
-  --jvm-option '-Dturboism.validation.fixtureName=fixture.cmo3' \
   --jvm-option '-Dturboism.validation.runId={TASK_ID}' \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   --ready-marker 'Windows recent preview validation probe initialized' \
