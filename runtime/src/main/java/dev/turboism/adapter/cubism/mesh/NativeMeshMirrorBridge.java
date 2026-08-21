@@ -9,6 +9,7 @@ import java.util.List;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
+import dev.turboism.sdk.cubism.mesh.MeshEditTool;
 import dev.turboism.sdk.cubism.mesh.MeshPointRef;
 import dev.turboism.sdk.cubism.mesh.MeshSnapshot;
 import dev.turboism.sdk.cubism.mesh.MirrorAxisState;
@@ -28,6 +29,8 @@ public final class NativeMeshMirrorBridge {
      */
     private static final AtomicReference<PendingAttach> PENDING = new AtomicReference<>();
     private static final AtomicBoolean CONTROL_ATTACHED = new AtomicBoolean();
+    /** Movement success is high-frequency; report presence once per bridge installation. */
+    private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
     private static final Consumer<String> DEFAULT_DIAGNOSTIC = System.err::println;
     private static final AtomicReference<Consumer<String>> DIAGNOSTIC =
         new AtomicReference<>(DEFAULT_DIAGNOSTIC);
@@ -82,6 +85,7 @@ public final class NativeMeshMirrorBridge {
         CURRENT_CONTEXT.set(null);
         PENDING.set(null);
         CONTROL_ATTACHED.set(false);
+        MOVE_APPLIED_REPORTED.set(false);
         MIRROR_OVERRIDE.set(null);
         EDGE_UNDO_GROUP.remove();
         LIVE_EDIT.remove();
@@ -91,6 +95,8 @@ public final class NativeMeshMirrorBridge {
         COLLECTED_CONTRIBUTIONS.remove();
         PARTICIPATION.resetSession();
         COUNTERPARTS.resetSession();
+        TOOL_ELIGIBILITY.resetSession();
+        MOVE_PARTICIPATION.resetSession();
         DIAGNOSTIC.set(DEFAULT_DIAGNOSTIC);
     }
 
@@ -134,6 +140,28 @@ public final class NativeMeshMirrorBridge {
         final Object source
     ) {
         return adjust(original, mirrorState, source, true);
+    }
+
+    /** Widens the exact 5.2.03 native predicate only for plugin-registered host-neutral tools. */
+    public static boolean adjustToolEligibility(final boolean original, final Object nativeTool) {
+        if (original || INSTALLED.get() == null || nativeTool == null) return original;
+        try {
+            final MeshEditTool tool = nativeTool instanceof Enum<?> value
+                ? meshEditTool(value.name())
+                : MeshEditTool.UNKNOWN;
+            return tool != MeshEditTool.UNKNOWN && TOOL_ELIGIBILITY.isExtended(tool);
+        } catch (Throwable failure) {
+            diagnostic("TOOL_ELIGIBILITY_FAILED reason=" + failure.getClass().getName());
+            return original;
+        }
+    }
+
+    private static MeshEditTool meshEditTool(final String name) {
+        try {
+            return MeshEditTool.valueOf(name);
+        } catch (IllegalArgumentException failure) {
+            return MeshEditTool.UNKNOWN;
+        }
     }
 
     public static boolean adjustHit(
@@ -535,6 +563,10 @@ public final class NativeMeshMirrorBridge {
         new RuntimeMeshEditParticipation();
     private static final RuntimeMeshMirrorCounterparts COUNTERPARTS =
         new RuntimeMeshMirrorCounterparts();
+    private static final RuntimeMeshMirrorToolEligibility TOOL_ELIGIBILITY =
+        new RuntimeMeshMirrorToolEligibility();
+    private static final RuntimeMeshMirrorMoveParticipation MOVE_PARTICIPATION =
+        new RuntimeMeshMirrorMoveParticipation();
 
     /** The services a plugin reaches through its context; owned here so the bridge can dispatch. */
     public static RuntimeMeshEditParticipation participation() {
@@ -544,6 +576,15 @@ public final class NativeMeshMirrorBridge {
     public static RuntimeMeshMirrorCounterparts counterparts() {
         return COUNTERPARTS;
     }
+
+    public static RuntimeMeshMirrorToolEligibility toolEligibility() {
+        return TOOL_ELIGIBILITY;
+    }
+
+    public static RuntimeMeshMirrorMoveParticipation moveParticipation() {
+        return MOVE_PARTICIPATION;
+    }
+
     /** Live host objects for the edit currently being dispatched; never escapes to a plugin. */
     private static final ThreadLocal<LiveEdit> LIVE_EDIT = new ThreadLocal<>();
     /** Exact host points selected by the default resolver, scoped to the current dispatch only. */
@@ -558,7 +599,9 @@ public final class NativeMeshMirrorBridge {
         Object pack,
         Object mirror,
         List<Object> sourcePoints,
-        List<Object> sourceEdges
+        List<Object> sourceEdges,
+        boolean pointSourcesById,
+        boolean endpointEdgeSources
     ) { }
 
     record ProvenanceMark(int points, int edges, int defaults, int collected) { }
@@ -672,13 +715,149 @@ public final class NativeMeshMirrorBridge {
     }
 
     /**
-     * Called just before the host's own point deletion. The argument order mirrors the
-     * operands already on the stack at that call, so no local slots have to be allocated.
+     * Moves unselected mirror counterparts immediately before the exact 5.2.03 host loop moves
+     * its selected source points. The enclosing native drag already owns the whole-mesh Undo
+     * snapshots, so this deliberately opens no second edit group.
      */
+    public static void mirrorMoveSelected(final Object pack) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null || !binding.enabled || pack == null) return;
+            if (!MOVE_PARTICIPATION.hasParticipants()) {
+                diagnostic("MOVE_PARTICIPATION_SKIPPED reason=NO_PARTICIPANT");
+                return;
+            }
+            final Object mirror = hostMirror(pack);
+            if (mirror == null || !hostMirrorEnabled(mirror, pack)) return;
+            final Object scale = call(pack, "aL", new Class<?>[0]);
+            if (!(scale instanceof Number number)) return;
+            final float tolerance = 20.0f * number.floatValue();
+            int moved = 0;
+            for (Object context : contexts(pack)) {
+                final Object delta = call(context, "p", new Class<?>[0]);
+                final Object mesh = call(context, "b", new Class<?>[0]);
+                if (delta == null || mesh == null) continue;
+                final Object selection = call(mesh, "getSelection", new Class<?>[0]);
+                final Object selector = call(selection, "getPointSelector", new Class<?>[0]);
+                if (!(selector instanceof Iterable<?> selected)) continue;
+
+                final List<Object> selectedRefs = new ArrayList<>();
+                final List<Integer> selectedIds = new ArrayList<>();
+                for (Object reference : selected) {
+                    selectedRefs.add(reference);
+                    final Object live = compatiblePoint(mesh, reference);
+                    if (live != null) selectedIds.add(pointId(live));
+                }
+                for (Object reference : selectedRefs) {
+                    final Object source = compatiblePoint(mesh, reference);
+                    if (source == null) continue;
+                    final float weight = selectionWeight(selector, reference);
+                    final Object counterpart = counterpartPoint(
+                        mirror, source, mesh, pack, context, tolerance
+                    );
+                    if (counterpart == null || selectedIds.contains(pointId(counterpart))) continue;
+                    final Object sourcePosition = call(source, "getPos", new Class<?>[0]);
+                    if (sourcePosition == null) continue;
+                    final Object target = call(
+                        sourcePosition, "plus", new Class<?>[] {delta.getClass()}, delta
+                    );
+                    final Object mirroredTarget = mirrorPoint(context, mirror, target);
+                    if (mirroredTarget == null) continue;
+                    final Method move = movePointMethod(counterpart.getClass(), mirroredTarget.getClass());
+                    if (move == null) continue;
+                    move.invoke(counterpart, mirroredTarget, weight);
+                    moved++;
+                }
+            }
+            if (moved > 0 && MOVE_APPLIED_REPORTED.compareAndSet(false, true)) {
+                diagnostic("MOVE_PARTICIPATION_APPLIED count=" + moved);
+            }
+        } catch (Throwable failure) {
+            diagnostic("MOVE_PARTICIPATION_FAILED reason=" + failure.getClass().getName());
+        }
+    }
+
+    static Object compatiblePoint(final Object mesh, final Object reference)
+        throws ReflectiveOperationException {
+        if (reference == null) return null;
+        for (Method method : mesh.getClass().getMethods()) {
+            if (!method.getName().equals("getCompatiblePointRef") || method.getParameterCount() != 1) {
+                continue;
+            }
+            if (!method.getParameterTypes()[0].isInstance(reference)) continue;
+            return method.invoke(mesh, reference);
+        }
+        return containsIdentity(points(mesh), reference) ? reference : null;
+    }
+
+    private static float selectionWeight(final Object selector, final Object reference)
+        throws ReflectiveOperationException {
+        for (Method method : selector.getClass().getMethods()) {
+            if (!method.getName().equals("getWeight") || method.getParameterCount() != 2) continue;
+            final Class<?>[] parameters = method.getParameterTypes();
+            if (!parameters[0].isInstance(reference) || parameters[1] != float.class) continue;
+            final Object value = method.invoke(selector, reference, 0.0f);
+            return value instanceof Number number ? number.floatValue() : 0.0f;
+        }
+        throw new NoSuchMethodException("mesh point selection weight");
+    }
+
+    private static Object mirrorPoint(
+        final Object context,
+        final Object mirror,
+        final Object point
+    ) throws ReflectiveOperationException {
+        if (point == null) return null;
+        final Class<?> vector = point.getClass();
+        final Object local = call(context, "b", new Class<?>[] {vector}, point);
+        final Object mirrored = local == null ? null : call(mirror, "a", new Class<?>[] {vector}, local);
+        return mirrored == null ? null : call(context, "a", new Class<?>[] {vector}, mirrored);
+    }
+
+    /**
+     * Point-tool route: native 5.3 deletes mirror points and every incident mirror edge.
+     * The argument order mirrors the operands already on the stack at the host deletion call.
+     */
+    public static void mirrorDeletePointAction(
+        final Object sources,
+        final Object groupUndo,
+        final Object pack
+    ) {
+        mirrorDeletePoints(sources, groupUndo, pack, true);
+    }
+
     public static void mirrorDeletePoints(
         final Object sources,
         final Object groupUndo,
         final Object pack
+    ) {
+        mirrorDeletePoints(sources, groupUndo, pack, false);
+    }
+
+    /** Eraser route: source points are candidate-mesh handles, resolved by id in each live mesh. */
+    public static void mirrorDeleteEraserPoints(
+        final Object sources,
+        final Object pack,
+        final Object groupUndo
+    ) {
+        mirrorDeletePoints(sources, groupUndo, pack, true, true);
+    }
+
+    private static void mirrorDeletePoints(
+        final Object sources,
+        final Object groupUndo,
+        final Object pack,
+        final boolean removeIncidentEdges
+    ) {
+        mirrorDeletePoints(sources, groupUndo, pack, removeIncidentEdges, false);
+    }
+
+    private static void mirrorDeletePoints(
+        final Object sources,
+        final Object groupUndo,
+        final Object pack,
+        final boolean removeIncidentEdges,
+        final boolean pointSourcesById
     ) {
         try {
             final Binding binding = INSTALLED.get();
@@ -699,17 +878,25 @@ public final class NativeMeshMirrorBridge {
             final List<MeshPointRef> sourceRefs = pointRefs(pack, sourcePoints);
             final DispatchState previous = pushDispatchState();
             try {
-                final MeshEditContribution contribution = dispatch(
-                    binding, mirror, pack, sourcePoints, List.of(), sourceRefs, List.of()
-                );
+                final MeshEditContribution contribution = pointSourcesById
+                    ? dispatch(
+                        binding, mirror, pack, sourcePoints, List.of(), sourceRefs, List.of(),
+                        true, false
+                    )
+                    : dispatch(
+                        binding, mirror, pack, sourcePoints, List.of(), sourceRefs, List.of()
+                    );
                 if (contribution.isEmpty()) {
                     diagnostic("PARTICIPATION_EMPTY kind=POINTS");
                     return;
                 }
-                final int deleted = applyPointDeletions(pack, groupUndo, contribution, sourcePoints);
-                diagnostic(deleted == 0
+                final PointDeletionResult deleted = applyPointDeletions(
+                    pack, groupUndo, contribution, sourcePoints, removeIncidentEdges
+                );
+                diagnostic(deleted.points() == 0
                     ? "PARTICIPATION_REJECTED kind=POINTS reason=NO_LIVE_MATCH"
-                    : "PARTICIPATION_APPLIED kind=POINTS count=" + deleted);
+                    : "PARTICIPATION_APPLIED kind=POINTS count=" + deleted.points()
+                        + " incidentEdges=" + deleted.edges());
             } finally {
                 restoreDispatchState(previous);
             }
@@ -732,8 +919,25 @@ public final class NativeMeshMirrorBridge {
         final List<MeshPointRef> points,
         final List<MeshEdgeRef> edges
     ) throws ReflectiveOperationException {
+        return dispatch(
+            binding, mirror, pack, sourcePoints, sourceEdges, points, edges, false, false
+        );
+    }
+
+    private static MeshEditContribution dispatch(
+        final Binding binding,
+        final Object mirror,
+        final Object pack,
+        final List<Object> sourcePoints,
+        final List<Object> sourceEdges,
+        final List<MeshPointRef> points,
+        final List<MeshEdgeRef> edges,
+        final boolean pointSourcesById,
+        final boolean endpointEdgeSources
+    ) throws ReflectiveOperationException {
         final LiveEdit live = new LiveEdit(
-            pack, mirror, List.copyOf(sourcePoints), List.copyOf(sourceEdges)
+            pack, mirror, List.copyOf(sourcePoints), List.copyOf(sourceEdges),
+            pointSourcesById, endpointEdgeSources
         );
         final LiveEdit previous = LIVE_EDIT.get();
         LIVE_EDIT.set(live);
@@ -750,11 +954,12 @@ public final class NativeMeshMirrorBridge {
     }
 
     /** Contributions are revalidated against the live mesh; a stale id is dropped, never guessed. */
-    private static int applyPointDeletions(
+    private static PointDeletionResult applyPointDeletions(
         final Object pack,
         final Object groupUndo,
         final MeshEditContribution contribution,
-        final List<Object> sources
+        final List<Object> sources,
+        final boolean removeIncidentEdges
     ) throws ReflectiveOperationException {
         final List<Object> live = new ArrayList<>();
         final List<Object> resolved = DEFAULT_COUNTERPART_POINTS.get();
@@ -762,18 +967,55 @@ public final class NativeMeshMirrorBridge {
         final List<MeshPointRef> custom = customPointContributions(contribution);
         final List<Object> customMatches = uniqueCustomPointMatches(pack, custom, sources);
         live.addAll(customMatches);
-        if (live.isEmpty()) return 0;
+        if (live.isEmpty()) return new PointDeletionResult(0, 0);
+
+        final int edges = removeIncidentEdges
+            ? removeIncidentEdgesInto(pack, live, groupUndo)
+            : 0;
         final Object editMode = call(pack, "aP", new Class<?>[0]);
         final Method delete = declaredMethod(
             editMode.getClass(), "delete_exe", List.class, groupUndo.getClass()
         );
         if (delete == null) {
             diagnostic("PARTICIPATION_REJECTED kind=POINTS reason=NO_DELETE_EXE");
-            return 0;
+            return new PointDeletionResult(0, edges);
         }
         delete.invoke(editMode, List.of(live), groupUndo);
-        return live.size();
+        return new PointDeletionResult(live.size(), edges);
     }
+
+    private static int removeIncidentEdgesInto(
+        final Object pack,
+        final List<Object> points,
+        final Object groupUndo
+    ) throws ReflectiveOperationException {
+        int removed = 0;
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", new Class<?>[0]);
+            if (mesh == null) continue;
+            final List<Integer> ids = new ArrayList<>();
+            for (Object point : points) {
+                if (containsIdentity(NativeMeshMirrorBridge.points(mesh), point)) {
+                    ids.add(pointId(point));
+                }
+            }
+            if (ids.isEmpty()) continue;
+            final List<Object> incident = new ArrayList<>();
+            for (Object edge : edges(mesh)) {
+                final Object first = call(edge, "getIndex1", new Class<?>[0]);
+                final Object second = call(edge, "getIndex2", new Class<?>[0]);
+                if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
+                if ((ids.contains(start.intValue()) || ids.contains(end.intValue()))
+                    && !containsSame(incident, edge)) {
+                    incident.add(edge);
+                }
+            }
+            removed += removeLiveEdgesInto(mesh, incident, groupUndo);
+        }
+        return removed;
+    }
+
+    private record PointDeletionResult(int points, int edges) { }
 
     private static List<MeshPointRef> pointRefs(final Object pack, final List<Object> points)
         throws ReflectiveOperationException {
@@ -796,6 +1038,168 @@ public final class NativeMeshMirrorBridge {
         EDGE_UNDO_GROUP.set(groupUndo);
     }
 
+    /** Low-volume route marker: emitted only when the exact transformed edge action executes. */
+    public static void edgeDeleteActionEntered() {
+        diagnostic("EDGE_DELETE_ACTION_ENTER");
+    }
+
+    /** Low-volume route marker for the real brush/drag eraser action. */
+    public static void eraserDeleteActionEntered() {
+        diagnostic("ERASER_DELETE_ACTION_ENTER");
+    }
+
+    /**
+     * Mirrors the exact 5.3.02 eraser structure: counterpart edges are resolved and removed
+     * separately through every context's live edit mesh, and every child Undo is attached to the
+     * current outer "Eraser" group. The caller's source list is never changed; the original
+     * 5.2.03 handler call therefore proceeds exactly as before after this method returns.
+     */
+    public static void mirrorDeleteEraserEdges(
+        final Object sources,
+        final Object pack,
+        final Object groupUndo
+    ) {
+        try {
+            final Binding binding = INSTALLED.get();
+            if (binding == null) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=UNBOUND");
+                return;
+            }
+            if (!binding.enabled) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=DISABLED");
+                return;
+            }
+            if (pack == null) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=NULL_PACK");
+                return;
+            }
+            if (groupUndo == null) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=NO_UNDO_GROUP");
+                return;
+            }
+            if (!(sources instanceof List<?> rawSources)) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=INVALID_SOURCES");
+                return;
+            }
+            if (!binding.participation.hasParticipants()) {
+                diagnostic("PARTICIPATION_SKIPPED reason=NO_PARTICIPANT");
+                return;
+            }
+            final Object mirror = hostMirror(pack);
+            if (mirror == null) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=NO_MIRROR");
+                return;
+            }
+            if (!hostMirrorEnabled(mirror, pack)) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=MIRROR_DISABLED");
+                return;
+            }
+
+            final List<Object> sourceEdges = new ArrayList<>();
+            for (Object edge : rawSources) if (edge != null) sourceEdges.add(edge);
+            if (sourceEdges.isEmpty()) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=NO_SOURCES");
+                return;
+            }
+            final List<MeshEdgeRef> sourceRefs = edgeRefs(sourceEdges);
+            if (sourceRefs.isEmpty()) {
+                diagnostic("ERASER_DELETE_SKIPPED reason=NO_SOURCE_REFS");
+                return;
+            }
+
+            final DispatchState previous = pushDispatchState();
+            try {
+                final MeshEditContribution contribution = dispatch(
+                    binding, mirror, pack, List.of(), sourceEdges, List.of(), sourceRefs,
+                    false, true
+                );
+                if (contribution.isEmpty()) {
+                    diagnostic("PARTICIPATION_EMPTY kind=ERASER_EDGES");
+                    return;
+                }
+                final int removed = applyEraserEdgeDeletions(
+                    pack, mirror, groupUndo, contribution, sourceEdges
+                );
+                diagnostic(removed == 0
+                    ? "PARTICIPATION_REJECTED kind=ERASER_EDGES reason=NO_LIVE_MATCH"
+                    : "PARTICIPATION_APPLIED kind=ERASER_EDGES count=" + removed);
+            } finally {
+                restoreDispatchState(previous);
+            }
+        } catch (Throwable failure) {
+            diagnostic("PARTICIPATION_FAILED kind=ERASER_EDGES reason="
+                + failure.getClass().getName());
+        }
+    }
+
+    private static List<MeshEdgeRef> edgeRefs(final List<Object> edges)
+        throws ReflectiveOperationException {
+        final List<MeshEdgeRef> refs = new ArrayList<>();
+        for (Object edge : edges) {
+            final Object first = call(edge, "getIndex1", new Class<?>[0]);
+            final Object second = call(edge, "getIndex2", new Class<?>[0]);
+            if (first instanceof Number start && second instanceof Number end
+                && start.intValue() != end.intValue()) {
+                refs.add(new MeshEdgeRef(
+                    start.intValue(), end.intValue(),
+                    dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN
+                ));
+            }
+        }
+        return refs;
+    }
+
+    /** Native-style endpoint reconstruction for eraser sources, plus plugin custom output. */
+    private static int applyEraserEdgeDeletions(
+        final Object pack,
+        final Object mirror,
+        final Object groupUndo,
+        final MeshEditContribution contribution,
+        final List<Object> sources
+    ) throws ReflectiveOperationException {
+        final List<MeshEdgeRef> custom = customEdgeContributions(contribution);
+        int removed = 0;
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", new Class<?>[0]);
+            if (mesh == null) continue;
+            final List<Object> live = new ArrayList<>();
+            for (Object source : sources) {
+                final Object counterpart = counterpartEdge(
+                    mirror, source, mesh, pack, context
+                );
+                if (counterpart != null && !containsSame(live, counterpart)) {
+                    live.add(counterpart);
+                }
+            }
+            for (MeshEdgeRef ref : custom) {
+                for (Object candidate : edges(mesh)) {
+                    if (!edgeMatches(candidate, ref) || containsSame(live, candidate)) continue;
+                    live.add(candidate);
+                }
+            }
+            removed += removeLiveEdgesInto(mesh, live, groupUndo);
+        }
+        return removed;
+    }
+
+    private static int removeLiveEdgesInto(
+        final Object mesh,
+        final List<Object> live,
+        final Object groupUndo
+    ) throws ReflectiveOperationException {
+        if (live.isEmpty()) return 0;
+        final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+        if (handler == null) return 0;
+        final Method remove = declaredMethod(handler.getClass(), "a", List.class);
+        if (remove == null || !hasUndoAttachmentMethod(groupUndo)) return 0;
+        final Object undo = remove.invoke(handler, live);
+        if (undo == null) return 0;
+        final Method plusAssign = declaredMethod(groupUndo.getClass(), "plusAssign", undo.getClass());
+        if (plusAssign == null) throw new NoSuchMethodException("mesh edge undo attachment");
+        plusAssign.invoke(groupUndo, undo);
+        return live.size();
+    }
+
     /**
      * Called just before the host's own edge removal. The undo group lives in a local of the
      * host method rather than on the stack here, so it is captured at the point the host
@@ -807,8 +1211,26 @@ public final class NativeMeshMirrorBridge {
         EDGE_UNDO_GROUP.remove();
         try {
             final Binding binding = INSTALLED.get();
-            if (binding == null || !binding.enabled
-                || pack == null || edge == null || groupUndo == null) return;
+            if (binding == null) {
+                diagnostic("EDGE_DELETE_SKIPPED reason=UNBOUND");
+                return;
+            }
+            if (!binding.enabled) {
+                diagnostic("EDGE_DELETE_SKIPPED reason=DISABLED");
+                return;
+            }
+            if (pack == null) {
+                diagnostic("EDGE_DELETE_SKIPPED reason=NULL_PACK");
+                return;
+            }
+            if (edge == null) {
+                diagnostic("EDGE_DELETE_SKIPPED reason=NULL_EDGE");
+                return;
+            }
+            if (groupUndo == null) {
+                diagnostic("EDGE_DELETE_SKIPPED reason=NO_UNDO_GROUP");
+                return;
+            }
             if (!binding.participation.hasParticipants()) {
                 diagnostic("PARTICIPATION_SKIPPED reason=NO_PARTICIPANT");
                 return;
@@ -962,13 +1384,23 @@ public final class NativeMeshMirrorBridge {
         final Object pack,
         final Object context
     ) throws ReflectiveOperationException {
+        final Object scale = call(pack, "aL", new Class<?>[0]);
+        if (!(scale instanceof Number number)) return null;
+        return counterpartPoint(mirror, source, mesh, pack, context, number.floatValue());
+    }
+
+    private static Object counterpartPoint(
+        final Object mirror,
+        final Object source,
+        final Object mesh,
+        final Object pack,
+        final Object context,
+        final float tolerance
+    ) throws ReflectiveOperationException {
         final Object position = call(source, "getPos", new Class<?>[0]);
-        if (position == null) return null;
-        final Class<?> vector = position.getClass();
-        final Object local = call(context, "b", new Class<?>[] {vector}, position);
-        final Object mirrored = local == null ? null : call(mirror, "a", new Class<?>[] {vector}, local);
-        final Object target = mirrored == null ? null : call(context, "a", new Class<?>[] {vector}, mirrored);
+        final Object target = mirrorPoint(context, mirror, position);
         if (target == null) return null;
+        final Class<?> vector = target.getClass();
 
         Object nearest = null;
         float best = Float.MAX_VALUE;
@@ -983,10 +1415,7 @@ public final class NativeMeshMirrorBridge {
                 nearest = candidate;
             }
         }
-        if (nearest == null) return null;
-        final Object scale = call(pack, "aL", new Class<?>[0]);
-        if (!(scale instanceof Number number)) return null;
-        return best < number.floatValue() ? nearest : null;
+        return nearest != null && best < tolerance ? nearest : null;
     }
 
     /** Edge counterpart: mirror both endpoints, rebuild the edge id-ordered, keep it only if it exists. */
@@ -1011,14 +1440,7 @@ public final class NativeMeshMirrorBridge {
         if (startId == endId) return null;
 
         final Object type = call(edge, "getType", new Class<?>[0]);
-        Constructor<?> constructor = null;
-        for (Constructor<?> candidate : edge.getClass().getConstructors()) {
-            final Class<?>[] parameters = candidate.getParameterTypes();
-            if (parameters.length == 3 && parameters[0] == int.class && parameters[1] == int.class) {
-                constructor = candidate;
-                break;
-            }
-        }
+        final Constructor<?> constructor = edgeConstructor(edge.getClass(), type);
         if (constructor == null) return null;
         final Object rebuilt = startId < endId
             ? constructor.newInstance(startId, endId, type)
@@ -1026,6 +1448,35 @@ public final class NativeMeshMirrorBridge {
         final Object edges = call(mesh, "getEdges", new Class<?>[0]);
         if (!(edges instanceof Collection<?> collection)) return null;
         for (Object candidate : collection) if (rebuilt.equals(candidate)) return candidate;
+        return null;
+    }
+
+    private static Constructor<?> edgeConstructor(
+        final Class<?> sourceType,
+        final Object edgeType
+    ) {
+        final Class<?> edgeClass = edgeType == null ? null : edgeType.getClass().getEnclosingClass();
+        for (Class<?> current = sourceType; current != null; current = current.getSuperclass()) {
+            if (edgeClass != null && current == edgeClass) break;
+            final Constructor<?> constructor = threeArgumentEdgeConstructor(current);
+            if (constructor != null) return constructor;
+        }
+        return edgeClass == null ? null : threeArgumentEdgeConstructor(edgeClass);
+    }
+
+    private static Constructor<?> threeArgumentEdgeConstructor(final Class<?> type) {
+        for (Constructor<?> candidate : type.getDeclaredConstructors()) {
+            final Class<?>[] parameters = candidate.getParameterTypes();
+            if (parameters.length != 3 || parameters[0] != int.class || parameters[1] != int.class) {
+                continue;
+            }
+            try {
+                candidate.setAccessible(true);
+                return candidate;
+            } catch (RuntimeException ignored) {
+                return null;
+            }
+        }
         return null;
     }
 
@@ -1166,22 +1617,46 @@ public final class NativeMeshMirrorBridge {
     static boolean canMovePoint(final Object point) throws ReflectiveOperationException {
         final Object current = call(point, "getPos", new Class<?>[0]);
         if (current == null) return false;
-        try {
-            current.getClass().getConstructor(float.class, float.class);
-        } catch (NoSuchMethodException failure) {
-            return false;
-        }
-        return declaredMethod(point.getClass(), "moveToOnLocal", current.getClass(), float.class) != null;
+        return vectorConstructor(current.getClass()) != null
+            && movePointMethod(point.getClass(), current.getClass()) != null;
     }
 
     static void movePoint(final Object point, final float x, final float y)
         throws ReflectiveOperationException {
         final Object current = call(point, "getPos", new Class<?>[0]);
         if (current == null) throw new NoSuchMethodException("mesh point position");
-        final Constructor<?> vector = current.getClass().getConstructor(float.class, float.class);
-        final Method move = declaredMethod(point.getClass(), "moveToOnLocal", current.getClass(), float.class);
+        final Constructor<?> vector = vectorConstructor(current.getClass());
+        if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
+        final Method move = movePointMethod(point.getClass(), current.getClass());
         if (move == null) throw new NoSuchMethodException("mesh point movement");
         move.invoke(point, vector.newInstance(x, y), 1.0f);
+    }
+
+    private static Constructor<?> vectorConstructor(final Class<?> vectorType) {
+        try {
+            final Constructor<?> constructor = vectorType.getDeclaredConstructor(float.class, float.class);
+            constructor.setAccessible(true);
+            return constructor;
+        } catch (ReflectiveOperationException | RuntimeException failure) {
+            return null;
+        }
+    }
+
+    private static Method movePointMethod(final Class<?> pointType, final Class<?> vectorType) {
+        for (Class<?> current = pointType; current != null; current = current.getSuperclass()) {
+            for (Method method : current.getDeclaredMethods()) {
+                if (!method.getName().equals("moveToOnLocal") || method.getParameterCount() != 2) continue;
+                final Class<?>[] parameters = method.getParameterTypes();
+                if (!parameters[0].isAssignableFrom(vectorType) || parameters[1] != float.class) continue;
+                try {
+                    method.setAccessible(true);
+                    return method;
+                } catch (RuntimeException ignored) {
+                    return null;
+                }
+            }
+        }
+        return null;
     }
 
     static boolean canAddEdge(final Object mesh, final MeshEdgeRef edge) {

@@ -61,16 +61,22 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         for (Object context : NativeMeshMirrorBridge.contexts(live.pack())) {
             final Object mesh = NativeMeshMirrorBridge.call(context, "b", new Class<?>[0]);
             if (mesh == null) continue;
+            final List<Object> compatibleSources = new ArrayList<>();
             for (Object source : live.sourcePoints()) {
-                final Object sourceMesh = NativeMeshMirrorBridge.pointMesh(source);
-                if (sourceMesh != null && sourceMesh != mesh) continue;
-                if (sourceMesh == null && !NativeMeshMirrorBridge.containsIdentity(
-                    NativeMeshMirrorBridge.points(mesh), source
-                )) continue;
+                final Object compatible = live.pointSourcesById()
+                    ? NativeMeshMirrorBridge.pointById(
+                        mesh, NativeMeshMirrorBridge.pointId(source)
+                    )
+                    : NativeMeshMirrorBridge.compatiblePoint(mesh, source);
+                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
+                    compatibleSources, compatible
+                )) compatibleSources.add(compatible);
+            }
+            for (Object compatible : compatibleSources) {
                 final Object counterpart = NativeMeshMirrorBridge.counterpartPoint(
-                    live.mirror(), source, mesh, live.pack(), context
+                    live.mirror(), compatible, mesh, live.pack(), context
                 );
-                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(live.sourcePoints(), counterpart)
+                if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(compatibleSources, counterpart)
                     || NativeMeshMirrorBridge.containsIdentity(seenPoints, counterpart)) continue;
                 final int id = NativeMeshMirrorBridge.pointId(counterpart);
                 final MeshPointRef ref = toRef(counterpart, id);
@@ -80,15 +86,21 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
                     points.add(ref);
                 }
             }
+            final List<Object> compatibleEdges = new ArrayList<>();
             for (Object source : live.sourceEdges()) {
-                if (!NativeMeshMirrorBridge.containsIdentity(
-                    NativeMeshMirrorBridge.edges(mesh), source
-                )) continue;
+                final Object compatible = live.endpointEdgeSources()
+                    ? endpointCompatibleEdge(mesh, source)
+                    : compatibleEdge(mesh, source);
+                if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
+                    compatibleEdges, compatible
+                )) compatibleEdges.add(compatible);
+            }
+            for (Object compatible : compatibleEdges) {
                 final Object counterpart = NativeMeshMirrorBridge.counterpartEdge(
-                    live.mirror(), source, mesh, live.pack(), context
+                    live.mirror(), compatible, mesh, live.pack(), context
                 );
                 if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(
-                    live.sourceEdges(), counterpart
+                    compatibleEdges, counterpart
                 )) continue;
                 final MeshEdgeRef ref = toEdgeRef(counterpart);
                 if (ref != null) {
@@ -100,6 +112,27 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         return points.isEmpty() && edges.isEmpty()
             ? MeshEditContribution.none()
             : new MeshEditContribution(points, edges);
+    }
+
+    private static Object compatibleEdge(final Object mesh, final Object reference)
+        throws ReflectiveOperationException {
+        if (reference == null) return null;
+        for (Object candidate : NativeMeshMirrorBridge.edges(mesh)) {
+            if (candidate == reference) return candidate;
+        }
+        return null;
+    }
+
+    /**
+     * The native eraser supplies candidate-edge wrappers rather than identities from
+     * {@code context.b()}. 5.3.02 reconstructs those sources by endpoint ids independently in
+     * each current context; this mode is deliberately confined to the eraser dispatch so the
+     * discrete edge action keeps its stricter exact-identity mesh selection.
+     */
+    private static Object endpointCompatibleEdge(final Object mesh, final Object reference)
+        throws ReflectiveOperationException {
+        final MeshEdgeRef ref = toEdgeRef(reference);
+        return ref == null ? null : liveEdge(mesh, ref);
     }
 
     /** The opt-in path: materialise the mesh and ask the plugin once per source point. */

@@ -133,6 +133,113 @@ final class MeshMirrorNativeMethodTransformerTest {
     }
 
     @Test
+    void exact52AddsTheToolEligibilityBridgeButExact53DoesNot() {
+        final MeshMirrorHostProfile exact52 = MeshMirrorHostProfile.reviewed52();
+        final byte[] transformed52 = new MeshMirrorNativeMethodTransformer(exact52, null).transform(
+            null, null, exact52.meshEditorOwner(), null, null,
+            fixture(exact52.meshEditorOwner(), exact52)
+        );
+        assertNotNull(transformed52);
+        assertEquals(
+            List.of("adjustPoint", "adjustAxisPoint", "adjustHit", "adjustToolEligibility"),
+            bridgeCalls(transformed52)
+        );
+
+        final MeshMirrorHostProfile exact53 = MeshMirrorHostProfile.reviewed52And53();
+        final byte[] transformed53 = new MeshMirrorNativeMethodTransformer(exact53, null).transform(
+            null, null, exact53.meshEditorOwner(), null, null,
+            fixture(exact53.meshEditorOwner(), exact53)
+        );
+        assertNotNull(transformed53);
+        assertEquals(
+            List.of("adjustPoint", "adjustAxisPoint", "adjustHit"),
+            bridgeCalls(transformed53)
+        );
+    }
+
+    @Test
+    void exact52AddsTheSelectedMovementBridgeButExact53DoesNot() {
+        final MeshMirrorHostProfile exact52 = MeshMirrorHostProfile.reviewed52();
+        final byte[] transformed52 = new MeshMirrorNativeMethodTransformer(exact52, null).transform(
+            null, null, exact52.selectedPointMove().owner(), null, null,
+            fixture(exact52.selectedPointMove().owner(), exact52)
+        );
+        assertNotNull(transformed52);
+        assertEquals(List.of("mirrorMoveSelected"), bridgeCalls(transformed52));
+
+        final MeshMirrorHostProfile exact53 = MeshMirrorHostProfile.reviewed52And53();
+        assertNull(exact53.selectedPointMove());
+        assertNull(new MeshMirrorNativeMethodTransformer(exact53, null).transform(
+            null, null, "com/live2d/cubism/view/context/action/action_meshEditor/d",
+            null, null, fixture("fixture/Other", exact53)
+        ));
+    }
+
+    @Test
+    void selectedMovementInjectionExecutesBeforeTheUnmodifiedHostBody() throws Exception {
+        final String owner = "fixture/SelectedPointMovementAction";
+        final MeshMirrorHostProfile shared = MeshMirrorHostProfile.reviewed52And53();
+        final MeshMirrorHostProfile profile = new MeshMirrorHostProfile(
+            shared.meshEditorOwner(), shared.mirrorPointMethod(), shared.mirrorAxisPointMethod(),
+            shared.mirrorPointDescriptor(), shared.mirrorHitMethod(), shared.mirrorHitDescriptor(),
+            shared.mirrorWidgetOwner(), shared.mirrorWidgetMethod(), shared.mirrorWidgetDescriptor(),
+            shared.mirrorAxisDrawOwner(), shared.mirrorAxisDrawMethod(), shared.mirrorAxisDrawDescriptor(),
+            null,
+            new MeshMirrorHostProfile.SelectedPointMove(owner, "c", "(Ljava/lang/Object;)V"),
+            null
+        );
+        final ClassWriter writer = new ClassWriter(ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        writer.visit(Opcodes.V17, Opcodes.ACC_PUBLIC, owner, null, "java/lang/Object", null);
+        final MethodVisitor constructor = writer.visitMethod(
+            Opcodes.ACC_PUBLIC, "<init>", "()V", null, null
+        );
+        constructor.visitCode();
+        constructor.visitVarInsn(Opcodes.ALOAD, 0);
+        constructor.visitMethodInsn(
+            Opcodes.INVOKESPECIAL, "java/lang/Object", "<init>", "()V", false
+        );
+        constructor.visitInsn(Opcodes.RETURN);
+        constructor.visitMaxs(0, 0);
+        constructor.visitEnd();
+        final MethodVisitor movement = writer.visitMethod(
+            Opcodes.ACC_PUBLIC, "c", "(Ljava/lang/Object;)V", null, null
+        );
+        movement.visitCode();
+        movement.visitMethodInsn(
+            Opcodes.INVOKESTATIC,
+            "dev/turboism/adapter/cubism/mesh/MeshMirrorNativeMethodTransformerTest$MovementRecorder",
+            "hostBody",
+            "()V",
+            false
+        );
+        movement.visitInsn(Opcodes.RETURN);
+        movement.visitMaxs(0, 0);
+        movement.visitEnd();
+        writer.visitEnd();
+
+        final byte[] transformed = new MeshMirrorNativeMethodTransformer(profile, null).transform(
+            null, null, owner, null, null, writer.toByteArray()
+        );
+        assertNotNull(transformed);
+        final Class<?> type = new ClassLoader(getClass().getClassLoader()) {
+            Class<?> define() {
+                return defineClass(owner.replace('/', '.'), transformed, 0, transformed.length);
+            }
+        }.define();
+        MovementRecorder.calls = 0;
+        type.getMethod("c", Object.class).invoke(type.getDeclaredConstructor().newInstance(), new Object());
+        assertEquals(1, MovementRecorder.calls);
+    }
+
+    public static final class MovementRecorder {
+        static int calls;
+
+        public static void hostBody() {
+            calls++;
+        }
+    }
+
+    @Test
     void transformedBytecodeRemainsJvmVerifiableWithFrames() throws Exception {
         final MeshMirrorHostProfile profile = MeshMirrorHostProfile.reviewed52And53();
         final MeshMirrorNativeMethodTransformer transformer =
@@ -182,12 +289,28 @@ final class MeshMirrorNativeMethodTransformerTest {
             method(writer, profile.mirrorPointMethod(), profile.mirrorPointDescriptor(), Opcodes.ARETURN);
             method(writer, profile.mirrorAxisPointMethod(), profile.mirrorPointDescriptor(), Opcodes.ARETURN);
             method(writer, profile.mirrorHitMethod(), profile.mirrorHitDescriptor(), Opcodes.IRETURN);
+            if (profile.toolEligibility() != null) {
+                method(
+                    writer,
+                    profile.toolEligibility().method(),
+                    profile.toolEligibility().descriptor(),
+                    Opcodes.IRETURN
+                );
+            }
         }
         if (owner.equals(profile.mirrorWidgetOwner())) {
             method(writer, profile.mirrorWidgetMethod(), profile.mirrorWidgetDescriptor(), Opcodes.ARETURN);
         }
         if (owner.equals(profile.mirrorAxisDrawOwner())) {
             method(writer, profile.mirrorAxisDrawMethod(), profile.mirrorAxisDrawDescriptor(), Opcodes.RETURN);
+        }
+        if (profile.selectedPointMove() != null && owner.equals(profile.selectedPointMove().owner())) {
+            method(
+                writer,
+                profile.selectedPointMove().method(),
+                profile.selectedPointMove().descriptor(),
+                Opcodes.RETURN
+            );
         }
         method(writer, "unrelated", "()V", Opcodes.RETURN);
         writer.visitEnd();

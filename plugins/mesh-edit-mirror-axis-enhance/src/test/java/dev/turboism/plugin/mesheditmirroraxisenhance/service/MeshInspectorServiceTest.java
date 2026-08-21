@@ -1,4 +1,4 @@
-package dev.turboism.plugin.mesh.service;
+package dev.turboism.plugin.mesheditmirroraxisenhance.service;
 
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
