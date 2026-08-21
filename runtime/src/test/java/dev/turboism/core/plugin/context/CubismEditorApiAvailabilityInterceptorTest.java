@@ -73,9 +73,84 @@ class CubismEditorApiAvailabilityInterceptorTest {
         assertSame(delegate, received.get());
     }
 
+    @Test
+    void expandsInclusiveReviewedRangesWithoutAdmittingUnknownHosts() {
+        final RangeExample supported = proxy(
+            new RangeExampleImpl(), RangeExample.class, Optional.of("5.3.02")
+        );
+        supported.ranged();
+
+        final RangeExample unknown = proxy(
+            new RangeExampleImpl(), RangeExample.class, Optional.of("5.2.04")
+        );
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
+            unknown::ranged
+        );
+        assertEquals(List.of("5.2.03", "5.3.02"), failure.supportedVersions());
+    }
+
+    @Test
+    void appliesExclusionsAfterPositiveSelection() {
+        final ExcludedExample proxy = proxy(
+            new ExcludedExampleImpl(), ExcludedExample.class, Optional.of("5.3.02")
+        );
+
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
+            proxy::call
+        );
+        assertEquals(List.of("5.2.03"), failure.supportedVersions());
+    }
+
+    @Test
+    void intersectsInheritedTypeAndMethodDeclarations() {
+        final ChildExample on5203 = proxy(
+            new ChildExampleImpl(), ChildExample.class, Optional.of("5.2.03")
+        );
+        assertThrows(CubismEditorApiUnavailableException.class, on5203::shared);
+        assertThrows(CubismEditorApiUnavailableException.class, on5203::narrow);
+
+        final ChildExample on5302 = proxy(
+            new ChildExampleImpl(), ChildExample.class, Optional.of("5.3.02")
+        );
+        on5302.shared();
+        on5302.narrow();
+    }
+
+    @Test
+    void exclusionOnlyDeclarationMayProhibitEveryReviewedVersion() {
+        final ProhibitedExample prohibited = proxy(
+            new ProhibitedExampleImpl(), ProhibitedExample.class, Optional.of("5.3.02")
+        );
+
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
+            prohibited::call
+        );
+        assertEquals(List.of(), failure.supportedVersions());
+    }
+
+    @Test
+    void rejectsInvalidMixedAndReverseRangeDeclarations() {
+        final InvalidExample invalid = proxy(
+            new InvalidExampleImpl(), InvalidExample.class, Optional.of("5.3.02")
+        );
+        assertThrows(IllegalStateException.class, invalid::mixed);
+        assertThrows(IllegalStateException.class, invalid::reverse);
+    }
+
     private static Example proxy(final Example delegate, final Optional<String> version) {
-        return (Example) new CubismEditorApiAvailabilityInterceptor(() -> version)
-            .wrapForTesting(delegate, Example.class);
+        return proxy(delegate, Example.class, version);
+    }
+
+    private static <T> T proxy(
+        final T delegate,
+        final Class<T> type,
+        final Optional<String> version
+    ) {
+        return new CubismEditorApiAvailabilityInterceptor(() -> version)
+            .wrapForTesting(delegate, type);
     }
 
     @CubismEditor({"5.2.03", "5.3.02"})
@@ -114,5 +189,64 @@ class CubismEditorApiAvailabilityInterceptorTest {
         }
 
         @Override public void accept(final Example example) { }
+    }
+
+    @CubismEditor(from = "5.2.03", to = "5.3.02")
+    interface RangeExample {
+        void ranged();
+    }
+
+    static final class RangeExampleImpl implements RangeExample {
+        @Override public void ranged() { }
+    }
+
+    @CubismEditor(exclude = "5.3.02")
+    interface ExcludedExample {
+        void call();
+    }
+
+    static final class ExcludedExampleImpl implements ExcludedExample {
+        @Override public void call() { }
+    }
+
+    @CubismEditor({"5.2.03", "5.3.02"})
+    interface ParentExample {
+        void shared();
+    }
+
+    @CubismEditor(from = "5.3.02")
+    interface ChildExample extends ParentExample {
+        @CubismEditor("5.3.02")
+        @Override void shared();
+
+        @CubismEditor("5.3.02")
+        void narrow();
+    }
+
+    static final class ChildExampleImpl implements ChildExample {
+        @Override public void shared() { }
+        @Override public void narrow() { }
+    }
+
+    @CubismEditor(exclude = {"5.2.03", "5.3.02"})
+    interface ProhibitedExample {
+        void call();
+    }
+
+    static final class ProhibitedExampleImpl implements ProhibitedExample {
+        @Override public void call() { }
+    }
+
+    interface InvalidExample {
+        @CubismEditor(value = "5.3.02", from = "5.2.03")
+        void mixed();
+
+        @CubismEditor(from = "5.3.02", to = "5.2.03")
+        void reverse();
+    }
+
+    static final class InvalidExampleImpl implements InvalidExample {
+        @Override public void mixed() { }
+        @Override public void reverse() { }
     }
 }

@@ -34,6 +34,16 @@ class CubismEditorAvailabilityContractTest {
             new String[] {"5.3.02"},
             Example.class.getMethod("narrow").getAnnotation(CubismEditor.class).value()
         );
+        final CubismEditor ranged = RangeExample.class.getAnnotation(CubismEditor.class);
+        assertArrayEquals(new String[0], ranged.value());
+        assertEquals("5.2.03", ranged.from());
+        assertEquals("5.5.01", ranged.to());
+        assertArrayEquals(new String[] {"5.3.03"}, ranged.exclude());
+        final CubismEditor inverse = InverseExample.class.getAnnotation(CubismEditor.class);
+        assertArrayEquals(new String[0], inverse.value());
+        assertEquals("", inverse.from());
+        assertEquals("", inverse.to());
+        assertArrayEquals(new String[] {"5.3.03"}, inverse.exclude());
     }
 
     @Test
@@ -49,11 +59,26 @@ class CubismEditorAvailabilityContractTest {
         assertEquals(List.of("5.3.02"), failure.supportedVersions());
         assertTrue(failure.getMessage().contains("5.2.03"));
         assertTrue(failure.getMessage().contains("5.3.02"));
+
+        final var prohibited = new CubismEditorApiUnavailableException(
+            "dev.turboism.sdk.Example#prohibited()",
+            Optional.of("5.3.02"),
+            List.of()
+        );
+        assertEquals(List.of(), prohibited.supportedVersions());
     }
 
     @CubismEditor({"5.2.03", "5.3.02"})
     private interface Example {
         @CubismEditor("5.3.02")
         void narrow();
+    }
+
+    @CubismEditor(from = "5.2.03", to = "5.5.01", exclude = "5.3.03")
+    private interface RangeExample {
+    }
+
+    @CubismEditor(exclude = "5.3.03")
+    private interface InverseExample {
     }
 }
