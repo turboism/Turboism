@@ -81,6 +81,7 @@ public final class PluginManager {
     }
 
     private void enableRuntime(final PluginRuntime runtime) {
+        logInfo(runtime, "Plugin lifecycle: enable started");
         int enabled = 0;
         try {
             for (TurboismPlugin entrypoint : runtime.entrypoints()) {
@@ -88,6 +89,7 @@ public final class PluginManager {
                 enabled++;
             }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
+            logInfo(runtime, "Plugin lifecycle: enable succeeded entrypoints=" + enabled);
         } catch (Exception exception) {
             disablePrefixReverse(runtime.entrypoints(), enabled, runtime);
             closeDisposableScope(runtime, "ENABLE_FAILED");
@@ -123,6 +125,7 @@ public final class PluginManager {
     }
 
     private void disableRuntime(final PluginRuntime runtime) {
+        logInfo(runtime, "Plugin lifecycle: disable started");
         boolean failed = false;
         final List<TurboismPlugin> entries = runtime.entrypoints();
         for (int index = entries.size() - 1; index >= 0; index--) {
@@ -135,7 +138,9 @@ public final class PluginManager {
         }
         if (failed) {
             runtime.transitionTo(PluginLifecycleState.DISABLE_FAILED);
+            return;
         }
+        logInfo(runtime, "Plugin lifecycle: disable succeeded entrypoints=" + entries.size());
     }
 
     private static PluginTask lifecycleTask(
@@ -164,6 +169,7 @@ public final class PluginManager {
     }
 
     private void shutdownRuntime(final PluginRuntime runtime) {
+        logInfo(runtime, "Plugin lifecycle: shutdown started");
         boolean failed = false;
         final List<TurboismPlugin> entries = runtime.entrypoints();
         for (int index = entries.size() - 1; index >= 0; index--) {
@@ -182,7 +188,9 @@ public final class PluginManager {
             return;
         }
         runtime.transitionTo(PluginLifecycleState.SHUTDOWN);
+        logInfo(runtime, "Plugin lifecycle: shutdown succeeded entrypoints=" + entries.size());
         runtime.transitionTo(PluginLifecycleState.UNLOADED);
+        logInfo(runtime, "Plugin lifecycle: unload succeeded");
     }
 
     private void disablePrefixReverse(
@@ -222,7 +230,10 @@ public final class PluginManager {
         final Exception exception
     ) {
         if (runtime.context() != null) {
-            runtime.context().logger().error(code + ": " + exception.getMessage(), exception);
+            runtime.context().logger().error(
+                "Plugin lifecycle stage failed: " + code,
+                exception
+            );
         }
         report.addProblem(
             code,
@@ -230,6 +241,15 @@ public final class PluginManager {
             runtime.id(),
             StartupReport.Severity.ERROR
         );
+    }
+
+    private static void logInfo(
+        final PluginRuntime runtime,
+        final String message
+    ) {
+        if (runtime.context() != null) {
+            runtime.context().logger().info(message);
+        }
     }
 
     /**
