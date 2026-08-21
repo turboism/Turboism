@@ -4,8 +4,6 @@ import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.sdk.cubism.boundingbox.BoundingBoxWriteCommand;
 import dev.turboism.sdk.cubism.deformer.DeformerWriteCommand;
 import dev.turboism.sdk.cubism.id.ModelId;
-import dev.turboism.sdk.cubism.mesh.MeshWriteCommand;
-import dev.turboism.sdk.cubism.mesh.MirrorWritebackCommand;
 import dev.turboism.sdk.cubism.psd.PsdBindingWriteCommand;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.transaction.TransactionException;
@@ -148,15 +146,9 @@ public class FakeHostWriteAdapter implements HostWriteAdapter, HostSnapshotSourc
                 throw error(clipMaskCommand.commandId(), INVALID_COMMAND, "Clip-mask command requires at least one clipped mesh");
             }
             document.addOperation(clipMaskCommand.commandId());
-        } else if (command instanceof MeshWriteCommand meshCommand) {
-            validateModel(document, meshCommand.modelId(), meshCommand.commandId());
-            document.addOperation(meshCommand.commandId());
         } else if (command instanceof DeformerWriteCommand deformerCommand) {
             validateModel(document, deformerCommand.modelId(), deformerCommand.commandId());
             document.addOperation(deformerCommand.commandId());
-        } else if (command instanceof MirrorWritebackCommand mirrorCommand) {
-            validateModel(document, mirrorCommand.modelId(), mirrorCommand.commandId());
-            document.addOperation(mirrorCommand.commandId());
         } else if (command instanceof PsdBindingWriteCommand psdCommand) {
             validateModel(document, psdCommand.modelId(), psdCommand.commandId());
             document.addOperation(psdCommand.commandId());

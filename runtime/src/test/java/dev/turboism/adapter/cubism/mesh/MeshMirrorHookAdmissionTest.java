@@ -40,7 +40,7 @@ final class MeshMirrorHookAdmissionTest {
             "Mesh",
             "0.1.0",
             state,
-            Path.of("mesh.jar"),
+            Path.of("mesh-edit-mirror-axis-enhance.jar"),
             List.of("cubism.mesh.mirror-axis-angle"),
             permissions,
             null,
