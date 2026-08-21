@@ -1,6 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.Cubism;
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -12,7 +12,7 @@ import java.util.Optional;
 
 /** One evaluated Cubism drawable/ArtMesh. */
 @PreviewApi
-@Cubism({"5.2.03", "5.3.02"})
+@CubismEditor({"5.2.03", "5.3.02"})
 public interface Drawable {
 
     ArtMeshId id();
@@ -172,7 +172,7 @@ public interface Drawable {
     }
 
     /** Sets this ArtMesh's alpha composition (Inspector {@code alphaComposition}). */
-    @Cubism("5.3.02")
+    @CubismEditor("5.3.02")
     default void setAlphaComposition(final AlphaComposition composition) {
         throw unavailable("ArtMesh alpha composition editing");
     }
