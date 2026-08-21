@@ -262,6 +262,6 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             ),
             backupCoordinator
         );
-        return new CubismApiAvailabilityInterceptor(cubismEditorVersion).intercept(services);
+        return new CubismEditorApiAvailabilityInterceptor(cubismEditorVersion).intercept(services);
     }
 }

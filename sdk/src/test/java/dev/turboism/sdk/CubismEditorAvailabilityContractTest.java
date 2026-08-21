@@ -1,6 +1,6 @@
 package dev.turboism.sdk;
 
-import dev.turboism.sdk.cubism.CubismApiUnavailableException;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import org.junit.jupiter.api.Test;
 
 import java.lang.annotation.ElementType;
@@ -14,28 +14,31 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class CubismAvailabilityContractTest {
+class CubismEditorAvailabilityContractTest {
 
     @Test
     void annotationIsRuntimeVisibleOnTypesAndMethods() throws Exception {
-        assertEquals(RetentionPolicy.RUNTIME, Cubism.class.getAnnotation(Retention.class).value());
+        assertEquals(
+            RetentionPolicy.RUNTIME,
+            CubismEditor.class.getAnnotation(Retention.class).value()
+        );
         assertArrayEquals(
             new ElementType[] {ElementType.TYPE, ElementType.METHOD},
-            Cubism.class.getAnnotation(Target.class).value()
+            CubismEditor.class.getAnnotation(Target.class).value()
         );
         assertArrayEquals(
             new String[] {"5.2.03", "5.3.02"},
-            Example.class.getAnnotation(Cubism.class).value()
+            Example.class.getAnnotation(CubismEditor.class).value()
         );
         assertArrayEquals(
             new String[] {"5.3.02"},
-            Example.class.getMethod("narrow").getAnnotation(Cubism.class).value()
+            Example.class.getMethod("narrow").getAnnotation(CubismEditor.class).value()
         );
     }
 
     @Test
     void unavailableExceptionExposesStructuredImmutableDetails() {
-        final var failure = new CubismApiUnavailableException(
+        final var failure = new CubismEditorApiUnavailableException(
             "dev.turboism.sdk.Example#narrow()",
             Optional.of("5.2.03"),
             List.of("5.3.02")
@@ -48,9 +51,9 @@ class CubismAvailabilityContractTest {
         assertTrue(failure.getMessage().contains("5.3.02"));
     }
 
-    @Cubism({"5.2.03", "5.3.02"})
+    @CubismEditor({"5.2.03", "5.3.02"})
     private interface Example {
-        @Cubism("5.3.02")
+        @CubismEditor("5.3.02")
         void narrow();
     }
 }
