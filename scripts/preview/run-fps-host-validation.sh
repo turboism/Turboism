@@ -5,26 +5,17 @@
 # hook and the exerciser records renderSceneCalls evidence.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-fps-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
-case "$version" in
-  5203)
-    fixture_src='/home/local-user/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-    fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
-    ;;
-  5302)
-    fixture_src='/home/local-user/Documents/测试 混合模式.cmo3'
-    fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
-    ;;
-  *)
-    echo "error: version must be 5203 or 5302" >&2
-    exit 2
-    ;;
-esac
+turboism_select_fixture "$version" || exit 2
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
@@ -55,8 +46,8 @@ fixture_selector="-$run_nonce-$fixture_suffix"
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 driver_pid=''
 runner_args=("$@")
-ssh_host='local-user@validation-host.invalid'
-ssh_key="$HOME/.ssh/id_ed25519_validation"
+ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
+ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
 for ((index = 0; index < ${#runner_args[@]}; index++)); do
   case "${runner_args[index]}" in
     --ssh-host)

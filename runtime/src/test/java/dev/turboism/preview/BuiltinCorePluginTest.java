@@ -11,9 +11,9 @@ class BuiltinCorePluginTest {
     @Test
     void jarSourceUrl_stripsJarPrefixAndEntrySuffix() throws Exception {
         assertEquals(
-            "file:/Z:/home/local-user/turboism-agent.jar",
+            "file:/Z:/home/developer/turboism-agent.jar",
             BuiltinCorePlugin.jarSourceUrl(new URL(
-                "jar:file:/Z:/home/local-user/turboism-agent.jar!/META-INF/turboism/core-plugin.json"
+                "jar:file:/Z:/home/developer/turboism-agent.jar!/META-INF/turboism/core-plugin.json"
             )).toExternalForm()
         );
     }

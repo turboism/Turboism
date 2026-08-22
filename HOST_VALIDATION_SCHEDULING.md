@@ -30,11 +30,17 @@ Different exact Cubism versions may run concurrently because each task owns its 
 
 A task can reserve more than one unit. FPS and selection-lag tasks reserve every `host-slot`, so their measurements are not contaminated by other Cubism sessions. An interactive task also reserves `display-input`, preventing automation from acting on the operator's window.
 
-Resource leases live on the validation host under:
+Resource leases live on the validation host under the locally configured scheduler root:
 
 ```text
-/home/local-user/TurboismValidation/.scheduler/leases/<resource>/slot-<n>/
+${TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT}/leases/<resource>/slot-<n>/
 ```
+
+If `TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT` is omitted, the dispatcher uses
+`${TURBOISM_HOST_VALIDATION_REMOTE_ROOT}/.scheduler`. Copy `.env.example` to the
+ignored `.env` and set machine-specific SSH, Proton, remote-root, and fixture
+paths there; exported variables override `.env`. The loader parses assignments
+as data and never executes `.env` as shell code.
 
 Each lease records an owner, task spec, start time, and heartbeat. Acquisition uses atomic remote directory creation. A dispatcher releases only leases whose owner token matches its own. Stale lease removal is never automatic; it requires an explicit age threshold and `--force`.
 
