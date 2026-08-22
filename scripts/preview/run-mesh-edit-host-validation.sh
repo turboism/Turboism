@@ -2,6 +2,10 @@
 # Exact-host wrapper for the direct mesh edit validation probe.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-mesh-edit-host-validation.sh <matrix|persistence> [run-label] [runner-options...]" >&2
   exit 2
@@ -22,8 +26,8 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/manual-test/$worktree_id/mesh-edit-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
-fixture='/home/local-user/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
+turboism_select_fixture 5203 || exit 2
+fixture="$fixture_src"
 
 [ -f "$bundle/turboism-agent.jar" ] || { echo "bundle missing: $bundle" >&2; exit 1; }
 

@@ -10,6 +10,9 @@
 # and result files. The runner never launches Cubism's Java main class directly.
 set -euo pipefail
 
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -47,10 +50,10 @@ Common options:
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
-  --ssh-host <user@host, default local-user@validation-host.invalid>
-  --ssh-key <path>
-  --golden-prefix <host path, default /home/local-user/.proton>
-  --remote-root <host path, default /home/local-user/TurboismValidation>
+  --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
+  --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
+  --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
+  --remote-root <host path, or TURBOISM_HOST_VALIDATION_REMOTE_ROOT>
   --local-evidence-dir <local path>
   --display <X display, default :0>
   --proton-wrapper <host executable, default shorin-proton-wrapper>
@@ -136,14 +139,14 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
-ssh_host='local-user@validation-host.invalid'
-ssh_key="$HOME/.ssh/id_ed25519_validation"
-golden_prefix='/home/local-user/.proton'
-remote_root='/home/local-user/TurboismValidation'
+ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
+ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
+golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
+remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
 local_evidence_dir=''
 display=':0'
 proton_wrapper='shorin-proton-wrapper'
-proton_runner='/home/local-user/.local/share/Steam/compatibilitytools.d/GE-Proton10-34/proton'
+proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
 keep_prefix=0
 dry_run=0
 
@@ -194,6 +197,11 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
+[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
+[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+[ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
+[ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
+[ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
 name="$(safe_label "$name")"
 run_label="$(safe_label "$run_label")"
 [ -n "$name" ] || fail "validation name becomes empty after sanitization"

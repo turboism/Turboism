@@ -60,6 +60,7 @@ class PathRuleTest(unittest.TestCase):
         for p in ["src/main/java/dev/turboism/App.java",
                   "packaging/plugin.json",
                   ".gitignore",
+                  ".env.example",
                   "CONTRIBUTING.md",
                   "scripts/dev/build-worktree.sh",
                   "docs/migration/guide.md",
@@ -93,7 +94,7 @@ class PathRuleTest(unittest.TestCase):
             ".AGENTS.md.swp": "basename:.agents.md.swp",
             ".env": "basename:.env",
             "a/.env.production": "basename:.env.*",
-            ".env.example": "basename:.env.*",
+            "svc/.env.example": "basename:.env.*",
             "svc/.env.sample": "basename:.env.*",
             ".envrc": "basename:.envrc",
             "local.properties": "basename:local.properties",
@@ -145,6 +146,15 @@ class ContentRuleTest(unittest.TestCase):
         }
         for text, name in cases.items():
             self.assertIn(name, crh.scan_content(text.encode()), text)
+
+    def test_repository_local_machine_values_are_forbidden(self):
+        cases = {
+            "fixture=" + "/home/" + "r" + "ain/project.cmo3": "local-machine-home",
+            "ssh=" + "r" + "ain" + "@172.17.0.1": "local-machine-ssh-host",
+            "key=id_ed25519_" + "turboism_arch_rebuild": "local-machine-ssh-key-name",
+        }
+        for text, rule in cases.items():
+            self.assertIn(rule, crh.scan_repository_content("script.sh", text.encode()))
 
     def test_secret_value_never_printed(self):
         secret = ghp(1)
@@ -262,6 +272,24 @@ class ModeTest(unittest.TestCase):
         self.assertNotIn("Traceback", out.stderr)
         self.assertNotIn("TypeError", out.stderr)
         self.assertIn("refusing (fail closed)", out.stderr)
+    def test_worktree_mode_scans_tracked_index_without_reading_ignored_env(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-worktree-"))
+        (Path(repo) / ".gitignore").write_text(".env\n")
+        (Path(repo) / "config.txt").write_text("fixture=/remote/fixture.cmo3\n")
+        commit_all(repo, "base")
+        (Path(repo) / ".env").write_text(
+            "TURBOISM_HOST_VALIDATION_SSH_HOST=" + "r" + "ain" + "@172.17.0.1\n"
+        )
+        out = run_checker(repo, "--worktree")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
+        (Path(repo) / "config.txt").write_text(
+            "fixture=" + "/home/" + "r" + "ain/project.cmo3\n"
+        )
+        out = run_checker(repo, "--worktree")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("value-signature=local-machine-home", out.stdout)
+
     def test_staged_mode(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-staged-"))
         (Path(repo) / "ok.txt").write_text("fine\n")

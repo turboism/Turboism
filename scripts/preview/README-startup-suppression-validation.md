@@ -58,7 +58,7 @@ and defaults to no injection).
 
 ## Evidence
 
-Remote task root: `/home/local-user/TurboismValidation/startup-suppression/<version>-<label>/<taskId>/`
+Remote task root: `${TURBOISM_HOST_VALIDATION_REMOTE_ROOT}/startup-suppression/<version>-<label>/<taskId>/`
 Local evidence: `build/host-validation/startup-suppression/<version>/<taskId>/`
 
 Key files:

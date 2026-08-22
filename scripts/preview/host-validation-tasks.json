@@ -1,7 +1,6 @@
 {
   "format": "turboism.host-validation.tasks",
   "schemaVersion": 1,
-  "defaultSchedulerRoot": "/home/local-user/TurboismValidation/.scheduler",
   "resources": {
     "host-slot": {
       "capacity": 4,
@@ -120,17 +119,6 @@
       "variants": {
         "read": ["{version}", "read", "{runLabel}"],
         "matrix": ["{version}", "matrix", "{runLabel}"]
-      },
-      "resources": {"host-slot": 1}
-    },
-    "psd-pass-through": {
-      "description": "PSD pass-through sanitize validation.",
-      "command": "scripts/preview/run-psd-pass-through-host-validation.sh",
-      "versions": ["5203", "5302"],
-      "defaultVariant": "original",
-      "variants": {
-        "original": ["{version}", "original", "{runLabel}"],
-        "repaired": ["{version}", "repaired", "{runLabel}"]
       },
       "resources": {"host-slot": 1}
     },
