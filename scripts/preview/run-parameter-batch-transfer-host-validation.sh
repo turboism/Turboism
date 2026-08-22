@@ -11,6 +11,10 @@
 # The runner records terminal PASS/FAIL from the result properties file.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-parameter-batch-transfer-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
   exit 2
@@ -25,12 +29,13 @@ fi
 
 case "$version" in
   5302)
-    fixture_src='<local-home>/TurboismValidation/parameter-batch-transfer/manual-5302/manual-pbt-5302-20260808T045249Z/fixture.cmo3'
-    fixture_sha256='8b1718d2976eabffc8d85ea10343003aadea784230094e5397a41acbc17a20b8'
+    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302 \
+      "Cubism 5.3.02 parameter-batch-transfer fixture path" || exit 2
+    fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302"
+    fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302_SHA256"
     ;;
   5203)
-    fixture_src='<local-home>/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-    fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
+    turboism_select_fixture 5203 || exit 2
     ;;
   *)
     echo "error: version must be 5302 or 5203" >&2

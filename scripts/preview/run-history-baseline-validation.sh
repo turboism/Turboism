@@ -3,6 +3,9 @@
 # plugin plus the test-only history probes, via the generic host-validation
 # runner (official BAT only). Probes live outside the formal bundle.
 set -euo pipefail
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
 
@@ -17,12 +20,14 @@ fi
 local_evidence="$repo_root/build/host-validation/history-baseline/5302"
 
 [ -f "$bundle/turboism-agent.jar" ] || { echo "bundle missing: $bundle" >&2; exit 1; }
+turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302 \
+  "Cubism 5.3.02 history fixture path" || exit 2
 
 args=(--name history-baseline --version 5302
   --bundle-root "$bundle"
   --agent "$bundle/turboism-agent.jar"
   --home-config "$bundle/home-config.json"
-  --fixture-remote <local-home>/TurboismValidation/tab-topbar-regression-20260729-151717/5.3.02/model/fixture.cmo3
+  --fixture-remote "$TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302"
   --fixture-sha256 57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4
   --require-fixture-unchanged
   --ready-marker "Plugin load complete"

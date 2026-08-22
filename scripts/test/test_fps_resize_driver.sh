@@ -57,6 +57,10 @@ if fps_parse_geometry $'WINDOW=42\nWIDTH=40\nHEIGHT=720' >/dev/null; then
 fi
 
 wrapper_source=$(<"$wrapper")
+[[ "$wrapper_source" == *'ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"'* ]] \
+  || fail "FPS wrapper does not read the local SSH host configuration"
+[[ "$wrapper_source" == *'ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"'* ]] \
+  || fail "FPS wrapper does not read the local SSH key configuration"
 [[ "$wrapper_source" == *'ssh_host="${runner_args[index + 1]}"'* ]] \
   || fail "FPS wrapper does not reuse the runner SSH host"
 [[ "$wrapper_source" == *'ssh_key="${runner_args[index + 1]}"'* ]] \

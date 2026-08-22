@@ -46,6 +46,11 @@ Daily development:
 ./gradlew devCheck
 ```
 
+`devCheck` includes a read-only repository-hygiene gate. It scans tracked index
+content for secret signatures, local-only configuration, and known developer
+machine paths; it never opens or deletes the ignored `.env`. Keep machine-specific
+validation placement in `.env` by copying the commented `.env.example` template.
+
 Run focused tests named by the current SDD acceptance conditions after the feature slice is coherent. A bare multi-project `check` is intentionally not the daily command because it expands every subproject's test task.
 
 Runtime and packaged integration:
