@@ -7,24 +7,15 @@
 #   run-startup-suppression-host-validation.sh <5302|5203> [run-label] [generic-runner-options...]
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 version="${1:?usage: run-startup-suppression-host-validation.sh <5302|5203> [run-label] [options...]}"
 run_label="${2:-r1}"
 shift 2 2>/dev/null || shift 1 2>/dev/null || true
 
-case "$version" in
-  5302)
-    fixture_src='/home/local-user/Documents/测试 混合模式.cmo3'
-    fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
-    ;;
-  5203)
-    fixture_src='/home/local-user/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-    fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
-    ;;
-  *)
-    echo "error: version must be 5302 or 5203" >&2
-    exit 2
-    ;;
-esac
+turboism_select_fixture "$version" || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"

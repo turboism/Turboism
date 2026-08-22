@@ -37,6 +37,36 @@ class SchedulerError(RuntimeError):
     pass
 
 
+def parse_local_env(path: Path) -> dict[str, str]:
+    """Parse TURBOISM_* key/value data without executing the local file."""
+    if not path.is_file():
+        return {}
+    values: dict[str, str] = {}
+    assignment = re.compile(r"^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip() or line.lstrip().startswith("#"):
+            continue
+        match = assignment.fullmatch(line)
+        if match is None:
+            raise SchedulerError("invalid .env assignment (values are not printed)")
+        name, value = match.groups()
+        if not name.startswith("TURBOISM_"):
+            raise SchedulerError(f".env key must start with TURBOISM_: {name}")
+        value = value.strip()
+        if not value.startswith(("\"", "'")) and any(character.isspace() for character in value):
+            raise SchedulerError(
+                f"unquoted whitespace in .env key {name} (value is not printed)"
+            )
+        if value.startswith(("\"", "'")):
+            if len(value) < 2 or value[-1] != value[0]:
+                raise SchedulerError(
+                    f"unmatched quote in .env key {name} (value is not printed)"
+                )
+            value = value[1:-1]
+        values[name] = value
+    return values
+
+
 @dataclasses.dataclass(frozen=True)
 class Resource:
     name: str
@@ -118,7 +148,7 @@ def validate_remote_root(value: str) -> str:
     return value.rstrip("/") or "/"
 
 
-def load_manifest(path: Path) -> Manifest:
+def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Manifest:
     manifest_path = path.resolve()
     try:
         raw = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -129,9 +159,12 @@ def load_manifest(path: Path) -> Manifest:
         raise SchedulerError(f"manifest format must be {FORMAT}")
     if data.get("schemaVersion") != SCHEMA_VERSION:
         raise SchedulerError(f"manifest schemaVersion must be {SCHEMA_VERSION}")
-    scheduler_root = validate_remote_root(require_string(
-        data.get("defaultSchedulerRoot"), "defaultSchedulerRoot"
-    ))
+    placement = os.environ if environment is None else environment
+    scheduler_root = placement.get("TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT", "").strip()
+    if not scheduler_root:
+        remote_root = placement.get("TURBOISM_HOST_VALIDATION_REMOTE_ROOT", "").strip()
+        if remote_root:
+            scheduler_root = remote_root.rstrip("/") + "/.scheduler"
 
     resource_values = require_dict(data.get("resources"), "resources")
     resources: dict[str, Resource] = {}
@@ -258,6 +291,31 @@ def parse_request(spec: str, run_label: str, manifest: Manifest) -> Request:
     elif separator:
         raise SchedulerError(f"task {name} does not define variants")
     return Request(task, version, variant, run_label)
+
+
+def resolve_placement(
+    args: argparse.Namespace,
+    manifest: Manifest,
+    environment: dict[str, str] | None = None,
+) -> tuple[str, Path, str]:
+    placement = os.environ if environment is None else environment
+    ssh_host = (args.ssh_host or placement.get("TURBOISM_HOST_VALIDATION_SSH_HOST", "")).strip()
+    ssh_key_value = (args.ssh_key or placement.get("TURBOISM_HOST_VALIDATION_SSH_KEY", "")).strip()
+    scheduler_root = (args.scheduler_root or manifest.scheduler_root).strip()
+    if not ssh_host:
+        raise SchedulerError(
+            "SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
+        )
+    if not ssh_key_value:
+        raise SchedulerError(
+            "SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+        )
+    if not scheduler_root:
+        raise SchedulerError(
+            "scheduler root is required; set --scheduler-root, TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT, "
+            "or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
+        )
+    return ssh_host, Path(ssh_key_value), validate_remote_root(scheduler_root)
 
 
 def render_command(request: Request, manifest: Manifest, ssh_host: str, ssh_key: Path) -> list[str]:
@@ -569,14 +627,18 @@ def show_plan(requests: list[Request], manifest: Manifest, ssh_host: str, ssh_ke
     return 0 if all(request.task.runnable for request in requests) else 1
 
 
-def run_requests(args: argparse.Namespace, requests: list[Request], manifest: Manifest) -> int:
+def run_requests(
+    args: argparse.Namespace,
+    requests: list[Request],
+    manifest: Manifest,
+    environment: dict[str, str] | None = None,
+) -> int:
     blocked = [request for request in requests if not request.task.runnable]
     if blocked:
         details = "; ".join(f"{item.spec}: {item.task.blocked_reason}" for item in blocked)
         raise SchedulerError(f"cannot run blocked tasks: {details}")
-    leases = RemoteLeases(
-        args.ssh_host, Path(args.ssh_key), args.scheduler_root or manifest.scheduler_root, manifest.resources
-    )
+    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
+    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
     waves = plan_waves(requests, manifest.resources)
     stop = threading.Event()
     previous_handlers: dict[int, Any] = {}
@@ -600,8 +662,8 @@ def run_requests(args: argparse.Namespace, requests: list[Request], manifest: Ma
                 for request in wave:
                     sequence += 1
                     futures.append((request, executor.submit(
-                        run_one, request, sequence, manifest, leases, args.ssh_host,
-                        Path(args.ssh_key), args.wait_seconds, args.poll_seconds, stop,
+                        run_one, request, sequence, manifest, leases, ssh_host,
+                        ssh_key, args.wait_seconds, args.poll_seconds, stop,
                     )))
                 for request, future in futures:
                     try:
@@ -630,10 +692,13 @@ def run_requests(args: argparse.Namespace, requests: list[Request], manifest: Ma
     return 1 if failures else 0
 
 
-def status_command(args: argparse.Namespace, manifest: Manifest) -> int:
-    leases = RemoteLeases(
-        args.ssh_host, Path(args.ssh_key), args.scheduler_root or manifest.scheduler_root, manifest.resources
-    )
+def status_command(
+    args: argparse.Namespace,
+    manifest: Manifest,
+    environment: dict[str, str] | None = None,
+) -> int:
+    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
+    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
     rows = leases.status()
     if not rows:
         print("no active host-validation leases")
@@ -653,12 +718,15 @@ def status_command(args: argparse.Namespace, manifest: Manifest) -> int:
     return 0
 
 
-def release_stale_command(args: argparse.Namespace, manifest: Manifest) -> int:
+def release_stale_command(
+    args: argparse.Namespace,
+    manifest: Manifest,
+    environment: dict[str, str] | None = None,
+) -> int:
     if not args.force:
         raise SchedulerError("release-stale requires --force")
-    leases = RemoteLeases(
-        args.ssh_host, Path(args.ssh_key), args.scheduler_root or manifest.scheduler_root, manifest.resources
-    )
+    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
+    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
     released = leases.release_stale(args.older_than)
     if not released:
         print("no stale host-validation leases released")
@@ -669,10 +737,8 @@ def release_stale_command(args: argparse.Namespace, manifest: Manifest) -> int:
 
 
 def add_remote_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--ssh-host", default="local-user@validation-host.invalid")
-    parser.add_argument(
-        "--ssh-key", default=str(Path.home() / ".ssh" / "id_ed25519_validation")
-    )
+    parser.add_argument("--ssh-host")
+    parser.add_argument("--ssh-key")
     parser.add_argument("--scheduler-root")
 
 
@@ -711,7 +777,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser(default_manifest)
     args = parser.parse_args(argv)
     try:
-        manifest = load_manifest(Path(args.manifest))
+        root = Path(__file__).resolve().parents[2]
+        placement = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
+        placement.update(os.environ)
+        manifest = load_manifest(Path(args.manifest), placement)
         if args.command == "list":
             return list_tasks(manifest)
         if args.command in {"plan", "run"}:
@@ -719,16 +788,17 @@ def main(argv: list[str] | None = None) -> int:
                 raise SchedulerError("run label must be a safe bounded label")
             requests = [parse_request(spec, args.run_label, manifest) for spec in args.tasks]
             if args.command == "plan":
-                return show_plan(requests, manifest, args.ssh_host, Path(args.ssh_key))
+                ssh_host, ssh_key, _scheduler_root = resolve_placement(args, manifest, placement)
+                return show_plan(requests, manifest, ssh_host, ssh_key)
             if args.wait_seconds < 1 or args.poll_seconds < 1:
                 raise SchedulerError("wait and poll intervals must be positive integers")
-            return run_requests(args, requests, manifest)
+            return run_requests(args, requests, manifest, placement)
         if args.command == "status":
-            return status_command(args, manifest)
+            return status_command(args, manifest, placement)
         if args.command == "release-stale":
             if args.older_than < 300:
                 raise SchedulerError("release-stale --older-than must be at least 300 seconds")
-            return release_stale_command(args, manifest)
+            return release_stale_command(args, manifest, placement)
         raise SchedulerError(f"unknown command: {args.command}")
     except SchedulerError as failure:
         print(f"host-validation scheduler: {failure}", file=sys.stderr)

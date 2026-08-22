@@ -278,6 +278,25 @@ val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
 
+val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for tracked paths, local configuration, and secret-value hygiene rules."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_remote_hygiene.py",
+        "scripts/test/test_check_remote_hygiene.py"
+    )
+    commandLine("python3", "scripts/test/test_check_remote_hygiene.py")
+}
+
+val checkRepositoryHygiene by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rejects tracked secrets, developer-machine paths, and local-only configuration before daily development checks pass."
+    dependsOn(checkRemoteHygieneSelfTest)
+    workingDir(rootDir)
+    commandLine("python3", "scripts/check_remote_hygiene.py", "--worktree")
+}
+
 val devCheck by tasks.registering {
     group = "verification"
     description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
@@ -288,6 +307,7 @@ val devCheck by tasks.registering {
         checkPackageLayout,
         "checkModuleBoundaries",
         "checkCodeQuality",
+        checkRepositoryHygiene,
         checkEditorModelAliases,
         checkCubismEditorApiAvailabilityDocs,
         "checkSdkV4ExactApiCompatibility",
