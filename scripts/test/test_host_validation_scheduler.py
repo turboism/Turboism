@@ -33,7 +33,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
         expected = {
             "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
             "dialog-automation", "fps", "host-locale", "parameter",
-            "parameter-batch-transfer", "psd-clip-mask", "psd-pass-through",
+            "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
             "startup-suppression", "status-bar", "theme", "workspace",
         }
@@ -48,6 +48,24 @@ class HostValidationSchedulerTest(unittest.TestCase):
             self.manifest.tasks["backup-interactive"].resources,
         )
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
+
+    def test_local_env_loads_data_without_overriding_exported_values(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            env_file = Path(directory) / ".env"
+            env_file.write_text(
+                "# local-only\n"
+                "TURBOISM_HOST_VALIDATION_SSH_HOST=env@example.invalid\n"
+                "TURBOISM_HOST_VALIDATION_FIXTURE_5302='/remote/fixture with spaces.cmo3'\n",
+                encoding="utf-8",
+            )
+            host_key = "TURBOISM_HOST_VALIDATION_SSH_HOST"
+            fixture_key = "TURBOISM_HOST_VALIDATION_FIXTURE_5302"
+            values = scheduler.parse_local_env(env_file)
+            environment = {host_key: "exported@example.invalid"}
+            for name, value in values.items():
+                environment.setdefault(name, value)
+            self.assertEqual("exported@example.invalid", environment[host_key])
+            self.assertEqual("/remote/fixture with spaces.cmo3", environment[fixture_key])
 
     def test_parser_selects_default_and_explicit_variants(self) -> None:
         default = self.request("parameter:5302")
@@ -95,6 +113,8 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with contextlib.redirect_stdout(output):
             self.assertEqual(0, scheduler.main([
                 "plan", "workspace:5302", "fps:5203", "--run-label", "offline",
+                "--ssh-host", "operator@example", "--ssh-key", "/tmp/scheduler-key",
+                "--scheduler-root", "/remote/scheduler",
             ]))
         rendered = output.getvalue()
         self.assertIn("wave 1:", rendered)

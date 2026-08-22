@@ -53,8 +53,10 @@ INITIALIZE.md
 .agent-artifacts/
 
 # Remote-hygiene policy: environment values / local state (never committed)
+# `.env.example` is the documented placeholder-only template and stays tracked.
 .env
 .env.*
+!.env.example
 .envrc
 local.properties
 *.local.*
