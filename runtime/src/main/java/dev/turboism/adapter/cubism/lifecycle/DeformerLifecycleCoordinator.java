@@ -5,6 +5,8 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
+import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.model.Deformer;
@@ -413,6 +415,29 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     } catch (Throwable failure) { logHookFailure(plugin, "beforeSetRotationDeformerBaseAngle", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final RotationDeformer detached = DetachedRotationDeformer.capture(
+                    deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form()
+                );
+                effective = broker.publishRuntimeTransform(
+                    RotationDeformerBaseAngleEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final RotationDeformerBaseAngleEvent.Before.Callback callback =
+                            RotationDeformerBaseAngleEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public RotationDeformerBaseAngleEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((RotationDeformerBaseAngleEvent.Before) event).angle()
+                );
+            }
             if (!Float.isFinite(effective)) throw new IllegalArgumentException("Rotation Deformer base angle must be finite.");
             final float oldValue = deformer.baseAngle();
             nativeOperation.accept(effective);
@@ -421,6 +446,19 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (Float.compare(oldValue, newValue) != 0) hook.onRotationDeformerBaseAngleChanged(deformer, oldValue, newValue);
                 hook.afterSetRotationDeformerBaseAngle(deformer, newValue);
             });
+            if (broker != null) {
+                final RotationDeformer detached = DetachedRotationDeformer.capture(
+                    deformer, deformer.getOpacity(), newValue, deformer.form()
+                );
+                if (Float.compare(oldValue, newValue) != 0) {
+                    broker.publishRuntime(new RotationDeformerBaseAngleEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new RotationDeformerBaseAngleEvent.After(
+                    detached, newValue
+                ));
+            }
         });
     }
 
@@ -453,6 +491,30 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceRotationDeformerForm", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final RotationDeformer detached = DetachedRotationDeformer.capture(
+                    deformer, deformer.getOpacity(), deformer.baseAngle(), deformer.form()
+                );
+                effective = broker.publishRuntimeTransform(
+                    RotationDeformerFormEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final RotationDeformerFormEvent.Before.Callback callback =
+                            RotationDeformerFormEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public RotationDeformerFormEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((RotationDeformerFormEvent.Before) event).form(),
+                    Objects::nonNull
+                );
+            }
             final RotationDeformerForm oldValue = deformer.form();
             nativeOperation.accept(effective);
             final RotationDeformerForm newValue = deformer.form();
@@ -460,6 +522,19 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (!oldValue.equals(newValue)) hook.onRotationDeformerFormChanged(deformer, oldValue, newValue);
                 hook.afterReplaceRotationDeformerForm(deformer, newValue);
             });
+            if (broker != null) {
+                final RotationDeformer detached = DetachedRotationDeformer.capture(
+                    deformer, deformer.getOpacity(), deformer.baseAngle(), newValue
+                );
+                if (!oldValue.equals(newValue)) {
+                    broker.publishRuntime(new RotationDeformerFormEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new RotationDeformerFormEvent.After(
+                    detached, newValue
+                ));
+            }
         });
     }
 

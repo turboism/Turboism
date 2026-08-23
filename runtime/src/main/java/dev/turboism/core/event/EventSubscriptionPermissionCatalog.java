@@ -13,6 +13,8 @@ import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
+import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
+import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
@@ -80,7 +82,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)
             || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.Before.class)
             || subscriptionType.isAssignableFrom(DeformerLockEvent.Before.class)
-            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.Before.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -104,7 +108,11 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DeformerLockEvent.On.class)
             || subscriptionType.isAssignableFrom(DeformerLockEvent.After.class)
             || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.On.class)
-            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.After.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.On.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.After.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.On.class)
+            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
