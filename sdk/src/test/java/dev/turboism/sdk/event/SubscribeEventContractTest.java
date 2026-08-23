@@ -22,6 +22,26 @@ class SubscribeEventContractTest {
         assertTrue(EventBus.TurboismEvent.class.isAssignableFrom(SampleEvent.class));
     }
 
+    @Test
+    void generatedCatalogSpiUsesTypedDirectHandlers() throws Exception {
+        assertEquals(
+            Class.class,
+            GeneratedSubscriberCatalog.class.getMethod("entrypointType").getReturnType()
+        );
+        assertTrue(EventSubscriberHandler.class.isAnnotationPresent(FunctionalInterface.class));
+        assertEquals(
+            void.class,
+            EventSubscriberRegistrar.class.getMethod(
+                "register",
+                Class.class,
+                EventPriority.class,
+                int.class,
+                String.class,
+                EventSubscriberHandler.class
+            ).getReturnType()
+        );
+    }
+
     private static final class Subscriber {
 
         @SubscribeEvent(priority = EventPriority.HIGH)
