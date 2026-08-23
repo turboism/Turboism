@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.sdk.event.cubism.EditorExitEvent;
+import dev.turboism.sdk.event.cubism.EditorStartupEvent;
+
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
@@ -25,6 +29,7 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     private final Object registrationLock = new Object();
     private final AtomicBoolean startupPublished = new AtomicBoolean(false);
     private volatile EditorLifecycleSnapshot current;
+    private volatile RuntimeEventBroker eventBroker;
 
     public EditorLifecycleCoordinator() {
         this(new PluginWorkExecutorRegistry(1, 64, ignored -> { }, Clock.systemUTC()));
@@ -32,6 +37,19 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
 
     public EditorLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Editor", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Editor lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -105,6 +123,12 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         );
         current = editor;
         if (!startupPublished.compareAndSet(false, true)) return;
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntime(new EditorStartupEvent.Before(editor));
+            broker.publishRuntime(new EditorStartupEvent.On(editor));
+            broker.publishRuntime(new EditorStartupEvent.After(editor));
+        }
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
             if (plugin.observeAllowed()) publishStartupTo(registration, editor);
@@ -116,6 +140,10 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         final EditorLifecycleSnapshot editor = Optional.ofNullable(current).orElseGet(
             () -> new EditorLifecycleSnapshot(hostVersion, Instant.now())
         );
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntime(new EditorExitEvent.Before(editor));
+        }
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
@@ -165,6 +193,13 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
                     logFailure(plugin, "afterEditorExit", callbackFailure);
                 }
             }
+        }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            if (accepted) {
+                broker.publishRuntime(new EditorExitEvent.On(currentExit.editor()));
+            }
+            broker.publishRuntime(new EditorExitEvent.After(result));
         }
     }
 
