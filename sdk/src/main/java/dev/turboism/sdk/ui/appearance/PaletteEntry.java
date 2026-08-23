@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Optional;
 
 /** One model-owned projection of a verified Cubism palette entry. */
-@PreviewApi
 public interface PaletteEntry {
 
     Registration overrideFontSize(float points);

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -17,7 +16,6 @@ import java.util.Objects;
  * @param expectedRevision the {@link AppearanceStatus#revision()} the caller last observed; the
  *     apply is rejected if the current revision has moved on, giving optimistic concurrency
  */
-@PreviewApi
 public record AppearanceRequest(
     String appearanceId,
     AppearanceBase base,

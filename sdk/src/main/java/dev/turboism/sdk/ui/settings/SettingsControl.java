@@ -1,13 +1,11 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
 /** Toolkit-neutral controls supported by the shared Turboism settings window. */
-@PreviewApi
 public sealed interface SettingsControl permits
     SettingsControl.Choice,
     SettingsControl.Toggle,

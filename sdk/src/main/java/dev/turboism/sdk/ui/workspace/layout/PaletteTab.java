@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -10,7 +9,6 @@ import java.util.Objects;
  * contributions can be matched with their {@code turboism:&lt;plugin&gt;:&lt;contributionId&gt;}
  * naming.
  */
-@PreviewApi
 public record PaletteTab(String paletteId) {
 
     public PaletteTab {

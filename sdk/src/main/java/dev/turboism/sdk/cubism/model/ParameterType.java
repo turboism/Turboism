@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Version-neutral semantic type of one Cubism parameter. */
-@PreviewApi
 public enum ParameterType {
     /** The active backend cannot safely determine the parameter type. */
     UNKNOWN,

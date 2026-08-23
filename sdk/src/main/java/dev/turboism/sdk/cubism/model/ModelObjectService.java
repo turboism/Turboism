@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -11,7 +10,6 @@ import java.util.Objects;
  * <p>Implementations use the active Editor authoring model as the write source of truth and fail
  * before mutation when the current host route is unavailable.</p>
  */
-@PreviewApi
 public interface ModelObjectService {
 
     List<ModelObjectDescriptor> list();
@@ -32,7 +30,6 @@ public interface ModelObjectService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements ModelObjectService {
         INSTANCE;
 

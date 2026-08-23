@@ -1,11 +1,9 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.concurrent.CompletionStage;
 
 /** Handle for a running or queued script execution. */
-@PreviewApi
 public interface ScriptRunHandle extends AutoCloseable {
 
     ScriptExecutionId id();

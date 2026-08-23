@@ -77,6 +77,7 @@ public record GraalHostConfiguration(
         return new GraalHostConfiguration(true, javaBinary, classpath, mainClass, timeout);
     }
 
+    /** @return a configuration that keeps the external Graal host disabled */
     public static GraalHostConfiguration disabled() {
         return new GraalHostConfiguration(false, "", "", DEFAULT_MAIN_CLASS, 10_000L);
     }

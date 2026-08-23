@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 
 /**
@@ -12,7 +11,6 @@ import dev.turboism.sdk.cubism.event.CubismOperationEvent;
  * fact; for state mutations, confirmation requires an actual change. {@code after}
  * runs after every normal completion.</p>
  */
-@PreviewApi
 public interface SemanticOperationHooks {
 
     /** Runs synchronously before the semantic operation is invoked. */

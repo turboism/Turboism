@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.Objects;
 
 /** Atomic Editor authoring definition for one Cubism parameter. */
-@PreviewApi
 public record ParameterDefinition(
     ParameterId id,
     String name,

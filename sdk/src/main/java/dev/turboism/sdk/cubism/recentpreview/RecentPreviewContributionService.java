@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.recentpreview;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.plugin.Registration;
 
 /**
@@ -8,7 +7,6 @@ import dev.turboism.sdk.plugin.Registration;
  * menu listeners, tracks the hovered item, and renders contributed content next to it;
  * plugins only provide {@link RecentPreviewRenderer}s.
  */
-@PreviewApi
 public interface RecentPreviewContributionService {
 
     /**
@@ -31,7 +29,6 @@ public interface RecentPreviewContributionService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements RecentPreviewContributionService {
         INSTANCE;
 

@@ -1,13 +1,11 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 /** Plugin-owned read/write binding used by one declarative settings control. */
-@PreviewApi
 public interface SettingsBinding<T> {
 
     T read();

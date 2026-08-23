@@ -167,9 +167,3 @@ class ClassInfo:
 class ParsedClass:
     info: ClassInfo
     cp: ConstantPool
-
-
-@dataclass(frozen=True)
-class TierMarkerFacts:
-    direct_markers: dict[str, bool]
-    invalid_usages: tuple[str, ...]
