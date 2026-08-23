@@ -120,12 +120,14 @@ val stageInstallerPayload by tasks.registering {
     // Task providers as inputs: the built bootstrap/plugin JARs (their outputs
     // are tracked without realizing them at configuration time).
     inputs.files(project(":bootstrap").tasks.named("jar"))
+    inputs.files(project(":graal-host").tasks.named("windowsPreviewDist"))
     pluginModuleNames.forEach { module ->
         inputs.files(project(":plugins:$module").tasks.named("jar"))
     }
     installerTemplateFiles.forEach { inputs.file(it) }
     outputs.dir(payloadDir)
     dependsOn(project(":bootstrap").tasks.named("jar"))
+    dependsOn(project(":graal-host").tasks.named("windowsPreviewDist"))
     pluginModuleNames.forEach { module -> dependsOn(project(":plugins:$module").tasks.named("jar")) }
     doLast {
         val version = requireInstallerVersion()
@@ -138,6 +140,27 @@ val stageInstallerPayload by tasks.registering {
             from(agentJar)
             into(stage)
             rename { "turboism-agent.jar" }
+        }
+        val graalHost = project(":graal-host").layout.buildDirectory
+            .dir("windows-preview/graal-host/lib").get().asFile
+        if (!graalHost.isDirectory) {
+            throw GradleException("Windows Graal host closure is missing: ${graalHost.absolutePath}")
+        }
+        copy {
+            from(graalHost)
+            into(stage.resolve("graal/lib"))
+        }
+        val requiredGraalLibraries = listOf(
+            "graal-host-", "jackson-annotations-", "jackson-core-", "jackson-databind-",
+            "collections-", "jniutils-", "js-isolate-windows-amd64-community-",
+            "nativebridge-", "nativeimage-", "polyglot-", "truffle-api-", "word-"
+        )
+        val stagedGraalLibraries = stage.resolve("graal/lib").listFiles()?.map { it.name }.orEmpty()
+        val missingGraalLibraries = requiredGraalLibraries.filter { prefix ->
+            stagedGraalLibraries.none { it.startsWith(prefix) && it.endsWith(".jar") }
+        }
+        if (missingGraalLibraries.isNotEmpty()) {
+            throw GradleException("Staged Windows Graal host closure is incomplete: $missingGraalLibraries")
         }
         pluginModuleNames.forEach { module ->
             val jarTask = project(":plugins:$module").tasks.named("jar").get()

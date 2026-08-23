@@ -47,6 +47,22 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsCubismJvmLauncherSelection() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("cubismJvm", "graalvm");
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void rejectsUnknownCubismJvmLauncherSelection() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("cubismJvm", "other");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_CUBISM_JVM"));
+    }
+
+    @Test
     void rejectsUnknownStartupField() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("unknownStartupFlag", true);

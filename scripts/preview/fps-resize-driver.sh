@@ -19,7 +19,8 @@ export DISPLAY=${DISPLAY:-:0}
 task=""
 start_epoch=$(date +%s)
 for _ in $(seq 1 300); do
-  candidate=$(ls -dt <local-home>/TurboismValidation/fps/*/ 2>/dev/null | head -1 | tr -d '/')
+  candidate=$(ls -dt <local-home>/TurboismValidation/fps/*/*/ 2>/dev/null | head -1)
+  candidate=${candidate%/}
   if [ -n "$candidate" ] && [ "$(stat -c %Y "$candidate" 2>/dev/null || echo 0)" -ge $((start_epoch - 10)) ] \
     && [ -f "$candidate/fixture.cmo3" ]; then
     task="$candidate"
@@ -30,6 +31,8 @@ done
 [ -n "$task" ] || exit 0
 
 # 2. Wait for the Cubism JVM whose command line carries the task fixture path.
+pid=""
+for _ in $(seq 1 300); do
   while read -r p; do
     cmd=$(tr '\0' ' ' < "/proc/$p/cmdline" 2>/dev/null || true)
     cmd=${cmd//\\/\/}

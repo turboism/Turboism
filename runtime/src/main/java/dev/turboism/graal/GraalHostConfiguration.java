@@ -39,7 +39,7 @@ public record GraalHostConfiguration(
     /**
      * Resolves an opt-in host without changing Cubism's JVM. Explicit system properties win,
      * then TURBOISM_GRAALVM_HOME/GRAALVM_HOME are considered. The default classpath expects
-     * a packaged {@code <turboism.home>/graal/*} directory.
+     * packaged host libraries under {@code <turboism.home>/graal/lib/*}.
      */
     public static GraalHostConfiguration resolve(final Path turboismHome) {
         final Path home = Objects.requireNonNull(turboismHome, "turboismHome")
@@ -63,11 +63,13 @@ public record GraalHostConfiguration(
             return disabled();
         }
 
-        final String classpath = firstNonBlank(
+        final String explicitClasspath = firstNonBlank(
             System.getProperty("turboism.graal.classpath", ""),
-            System.getenv("TURBOISM_GRAAL_CLASSPATH"),
-            home.resolve("graal").resolve("*").toString()
+            System.getenv("TURBOISM_GRAAL_CLASSPATH")
         );
+        final String classpath = explicitClasspath.isBlank()
+            ? home.resolve("graal").resolve("lib").toString() + File.separator + "*"
+            : explicitClasspath;
         final String mainClass = System.getProperty(
             "turboism.graal.mainClass", DEFAULT_MAIN_CLASS
         );

@@ -197,6 +197,7 @@ public final class RuntimeConfigRepository {
         hooks.putArray("disabledIds");
         hooks.putArray("denylistedClasses");
         hooks.putObject("startup");
+        root.putObject("launcher").put("cubismJvm", "graalvm");
         return root;
     }
 }

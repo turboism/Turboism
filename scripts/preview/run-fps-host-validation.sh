@@ -57,7 +57,7 @@ if [ -r "$driver" ]; then
   driver_pid=$!
 fi
 trap 'if [ -n "$driver_pid" ]; then kill "$driver_pid" 2>/dev/null || true; fi' EXIT
-exec bash "$runner" \
+bash "$runner" \
   --name fps \
   --version "$version" \
   --run-label "$run_label" \

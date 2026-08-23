@@ -3,7 +3,8 @@
 param(
     [Alias("Home")]
     [string]$HomePath = "",
-    [switch]$Cleanup
+    [switch]$Cleanup,
+    [switch]$RetirePlugins
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
@@ -20,9 +21,28 @@ $statePath = Join-Path $turboismHome "cubism-installations.json"
 $configPath = Join-Path $turboismHome "config.json"
 $pluginDir = Join-Path $turboismHome "plugins"
 
+if ($Cleanup -and $RetirePlugins) {
+    Write-Error "Cleanup and RetirePlugins are mutually exclusive"
+    exit 1
+}
 if ($Cleanup) {
     try {
-        Invoke-CubismManagedCleanup -TurboismHome $turboismHome -StatePath $statePath
+        if (Test-Path -LiteralPath $statePath) {
+            Invoke-CubismManagedCleanup -TurboismHome $turboismHome -StatePath $statePath
+        }
+        else {
+            Remove-CubismEmptyBackupDirectories -TurboismHome $turboismHome
+        }
+        exit 0
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        exit 1
+    }
+}
+if ($RetirePlugins) {
+    try {
+        Remove-TurboismRetiredPlugins -TurboismHome $turboismHome
         exit 0
     }
     catch {

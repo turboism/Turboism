@@ -9,6 +9,8 @@ import java.util.function.Supplier;
 /** One-shot Runtime-owned service handoff consumed only by the built-in core instance. */
 public record CorePluginServices(
     RuntimeSettingsService settings,
+    CubismJvmSettingsService cubismJvmSettings,
+    dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
     CorePluginManagement plugins,
     FloatingPanelActions floatingPanelActions,
     RuntimeLogReader logs
@@ -17,7 +19,14 @@ public record CorePluginServices(
         final RuntimeSettingsService settings,
         final CorePluginManagement plugins
     ) {
-        this(settings, plugins, FloatingPanelActions.unavailable(), RuntimeLogReader.unavailable());
+        this(
+            settings,
+            CubismJvmSettingsService.unavailable(),
+            dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
+            plugins,
+            FloatingPanelActions.unavailable(),
+            RuntimeLogReader.unavailable()
+        );
     }
 
     public interface FloatingPanelActions {
@@ -33,6 +42,11 @@ public record CorePluginServices(
 
     public CorePluginServices {
         settings = Objects.requireNonNull(settings, "settings");
+        cubismJvmSettings = Objects.requireNonNull(cubismJvmSettings, "cubismJvmSettings");
+        settingsContributions = Objects.requireNonNull(
+            settingsContributions,
+            "settingsContributions"
+        );
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");
         logs = Objects.requireNonNull(logs, "logs");
