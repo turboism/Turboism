@@ -196,7 +196,9 @@ public final class RuntimeEventBroker {
             route.sort(SUBSCRIPTION_ORDER);
             dispatchPlans.clear();
         }
-        replayRetained(subscription);
+        if (requireOwner(key).lifecycleSnapshot() == OwnerLifecycle.ACTIVE) {
+            replayRetained(subscription);
+        }
         return () -> remove(type, subscription);
     }
 
