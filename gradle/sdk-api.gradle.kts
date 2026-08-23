@@ -18,6 +18,10 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
+val sdkV5ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v5-exact.json")
+val sdkV5TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v5.json")
+val sdkV5DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v5.json")
+val sdkV5ExactCommit = "afe3e8a69f5ad22ecb2f35a63575d1fa9ea585d6"
 // Re-issued after exact Cubism Editor availability became public SDK metadata. The reviewed
 // canonical delta includes the @CubismEditor range and exclusion attributes, its structured
 // unavailability exception, and runtime-visible exact-version annotations on the reviewed model
@@ -156,8 +160,8 @@ val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
 }
 
 val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies the current SDK JAR's reviewed v4 API tiers and direct PreviewApi roots."
+    group = "historical verification"
+    description = "Audits the immutable reviewed v4 API tiers and direct PreviewApi roots."
     dependsOn(":sdk:jar")
     inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy, sdkV4DirectPreviewLedger, sdkJarArtifact)
     inputs.property("expectedCommit", sdkV4ExactCommit)
@@ -172,6 +176,45 @@ val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
             "--tier-policy", sdkV4TierPolicy.asFile.absolutePath,
             "--initial-preview-ledger", sdkV4DirectPreviewLedger.asFile.absolutePath,
             "--tier-trust-version", "v4"
+        )
+    }
+}
+
+val checkSdkV5ExactApiCompatibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the current SDK JAR exactly matches the reviewed v5 API baseline."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkV5ExactBaseline, sdkJarArtifact)
+    inputs.property("expectedCommit", sdkV5ExactCommit)
+    doFirst {
+        commandLine(
+            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+            "--input", sdkJarArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--baseline", sdkV5ExactBaseline.asFile.absolutePath,
+            "--expected-commit", sdkV5ExactCommit
+        )
+    }
+}
+
+val checkSdkV5TierCompatibility by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies the current SDK JAR's reviewed v5 API tiers and direct PreviewApi roots."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkV5ExactBaseline, sdkV5TierPolicy, sdkV5DirectPreviewLedger, sdkJarArtifact)
+    inputs.property("expectedCommit", sdkV5ExactCommit)
+    doFirst {
+        commandLine(
+            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
+            "--input", sdkJarArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
+            "--package-prefix", "dev.turboism.sdk",
+            "--baseline", sdkV5ExactBaseline.asFile.absolutePath,
+            "--expected-commit", sdkV5ExactCommit,
+            "--tier-policy", sdkV5TierPolicy.asFile.absolutePath,
+            "--initial-preview-ledger", sdkV5DirectPreviewLedger.asFile.absolutePath,
+            "--tier-trust-version", "v5"
         )
     }
 }
