@@ -71,6 +71,43 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
+    void closedRegistrationSuppressesQueuedDelivery() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final CountDownLatch blockerEntered = new CountDownLatch(1);
+        final CountDownLatch releaseBlocker = new CountDownLatch(1);
+        final CountDownLatch closedDelivered = new CountDownLatch(1);
+        broker.subscribe(subscriber.key(), TestEvent.class, event -> {
+            if ("block".equals(event.value())) {
+                blockerEntered.countDown();
+                await(releaseBlocker);
+            }
+        });
+        final dev.turboism.sdk.plugin.Registration registration = broker.subscribe(
+            subscriber.key(),
+            TestEvent.class,
+            event -> {
+                if ("queued".equals(event.value())) {
+                    closedDelivered.countDown();
+                }
+            }
+        );
+        publisher.activate();
+        subscriber.activate();
+
+        broker.publish(publisher.key(), new TestEvent("block"));
+        assertTrue(blockerEntered.await(1, TimeUnit.SECONDS));
+        broker.publish(publisher.key(), new TestEvent("queued"));
+        registration.close();
+        releaseBlocker.countDown();
+
+        assertFalse(closedDelivered.await(100, TimeUnit.MILLISECONDS));
+        scheduler.shutdown();
+    }
+
+    @Test
     void admittedOwnerStagesSubscriptionsUntilActivation() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
