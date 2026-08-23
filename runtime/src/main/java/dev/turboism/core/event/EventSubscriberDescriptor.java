@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
+import dev.turboism.core.runtime.ContextClassLoaderScope;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -76,7 +77,14 @@ public record EventSubscriberDescriptor(
     }
 
     public void invoke(final EventBus.TurboismEvent event) throws Throwable {
-        handler.handle(event);
+        final ClassLoader classLoader = entrypoint.getClass().getClassLoader();
+        if (classLoader == null) {
+            handler.handle(event);
+            return;
+        }
+        try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(classLoader)) {
+            handler.handle(event);
+        }
     }
 
     private static EventSubscriberHandler<EventBus.TurboismEvent> reflective(
