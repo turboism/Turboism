@@ -455,6 +455,7 @@ public final class PreviewReportDocuments {
         payload.set("taskFailures", JSON.createArrayNode());
         payload.set("storageFailures", JSON.createArrayNode());
         payload.set("configFailures", JSON.createArrayNode());
+        payload.set("eventFailures", JSON.createArrayNode());
         payload.set("shutdownCounts", shutdownCounts(0, 0, 0, 0));
         payload.set("cleanupCounts", emptyCleanupCounts());
         return payload;

@@ -116,7 +116,8 @@ final class PreviewReportTruncator {
             case "PREVIEW_RUNTIME" -> List.of(
                 phase(target(payload, "taskFailures", 0)),
                 phase(target(payload, "storageFailures", 0)),
-                phase(target(payload, "configFailures", 0))
+                phase(target(payload, "configFailures", 0)),
+                phase(target(payload, "eventFailures", 0))
             );
             case "PLUGIN_LOAD" -> pluginLoadPhases(payload);
             case "CAPABILITY" -> capabilityPhases(payload);
