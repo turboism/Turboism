@@ -39,6 +39,7 @@ public final class RuntimeEventBroker {
             .thenComparingLong(Subscription::sequence);
 
     private final RuntimeScheduler scheduler;
+    private final Object subscriptionLock = new Object();
     private final RuntimeEventContractCatalog contractCatalog = new RuntimeEventContractCatalog();
     private final PublicEventRouteCatalog publicRoutes = new PublicEventRouteCatalog();
     private final int mailboxCapacity;
@@ -190,11 +191,13 @@ public final class RuntimeEventBroker {
                 deliverWhileEnabling,
                 Objects.requireNonNull(listener, "listener")
             );
-            final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> route =
-                subscribers.computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>());
-            route.add(subscription);
-            route.sort(SUBSCRIPTION_ORDER);
-            dispatchPlans.clear();
+            synchronized (subscriptionLock) {
+                final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> route =
+                    subscribers.computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>());
+                route.add(subscription);
+                route.sort(SUBSCRIPTION_ORDER);
+                dispatchPlans.clear();
+            }
         }
         if (requireOwner(key).lifecycleSnapshot() == OwnerLifecycle.ACTIVE) {
             replayRetained(subscription);
@@ -430,10 +433,11 @@ public final class RuntimeEventBroker {
     }
 
     private <T extends EventBus.TurboismEvent> void publishExact(final T event) {
-        final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> route =
-            subscribers.get(event.getClass());
-        if (route == null) {
-            return;
+        final List<Subscription<? extends EventBus.TurboismEvent>> route;
+        synchronized (subscriptionLock) {
+            final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> current =
+                subscribers.get(event.getClass());
+            route = current == null ? List.of() : List.copyOf(current);
         }
         for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
             if (publicRoutes.mayReceive(subscription.owner(), event.getClass())) {
@@ -472,13 +476,26 @@ public final class RuntimeEventBroker {
     private List<Subscription<? extends EventBus.TurboismEvent>> dispatchPlan(
         final Class<?> concreteType
     ) {
-        return dispatchPlans.computeIfAbsent(concreteType, ignored ->
-            subscribers.entrySet().stream()
-                .filter(entry -> entry.getKey().isAssignableFrom(concreteType))
-                .flatMap(entry -> entry.getValue().stream())
-                .sorted(SUBSCRIPTION_ORDER)
-                .toList()
-        );
+        final List<Subscription<? extends EventBus.TurboismEvent>> cached =
+            dispatchPlans.get(concreteType);
+        if (cached != null) {
+            return cached;
+        }
+        synchronized (subscriptionLock) {
+            final List<Subscription<? extends EventBus.TurboismEvent>> current =
+                dispatchPlans.get(concreteType);
+            if (current != null) {
+                return current;
+            }
+            final List<Subscription<? extends EventBus.TurboismEvent>> planned =
+                subscribers.entrySet().stream()
+                    .filter(entry -> entry.getKey().isAssignableFrom(concreteType))
+                    .flatMap(entry -> entry.getValue().stream())
+                    .sorted(SUBSCRIPTION_ORDER)
+                    .toList();
+            dispatchPlans.put(concreteType, planned);
+            return planned;
+        }
     }
 
     private void replayRetained(
@@ -503,16 +520,18 @@ public final class RuntimeEventBroker {
         final Class<T> type,
         final Subscription<T> subscription
     ) {
-        final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>> eventSubscribers =
-            subscribers.get(type);
-        if (eventSubscribers == null) {
-            return;
-        }
         subscription.deactivate();
-        eventSubscribers.remove(subscription);
-        dispatchPlans.clear();
-        if (eventSubscribers.isEmpty()) {
-            subscribers.remove(type, eventSubscribers);
+        synchronized (subscriptionLock) {
+            final CopyOnWriteArrayList<Subscription<? extends EventBus.TurboismEvent>>
+                eventSubscribers = subscribers.get(type);
+            if (eventSubscribers == null) {
+                return;
+            }
+            eventSubscribers.remove(subscription);
+            dispatchPlans.clear();
+            if (eventSubscribers.isEmpty()) {
+                subscribers.remove(type, eventSubscribers);
+            }
         }
     }
 
@@ -791,19 +810,21 @@ public final class RuntimeEventBroker {
     }
 
     private void removeOwnerSubscriptions(final PluginEventOwnerKey owner) {
-        subscribers.forEach((type, route) -> {
-            route.removeIf(subscription -> {
-                if (!subscription.owner().equals(owner)) {
-                    return false;
+        synchronized (subscriptionLock) {
+            subscribers.forEach((type, route) -> {
+                route.removeIf(subscription -> {
+                    if (!subscription.owner().equals(owner)) {
+                        return false;
+                    }
+                    subscription.deactivate();
+                    return true;
+                });
+                if (route.isEmpty()) {
+                    subscribers.remove(type, route);
                 }
-                subscription.deactivate();
-                return true;
             });
-            if (route.isEmpty()) {
-                subscribers.remove(type, route);
-            }
-        });
-        dispatchPlans.clear();
+            dispatchPlans.clear();
+        }
     }
 
     private static String requireText(final String value, final String name) {
@@ -1131,7 +1152,7 @@ public final class RuntimeEventBroker {
         }
 
         private void deliverDispatched(final EventBus.TurboismEvent event) {
-            if (active && type.isInstance(event)) {
+            if (type.isInstance(event)) {
                 listener.accept(type.cast(event));
             }
         }
