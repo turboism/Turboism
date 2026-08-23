@@ -118,7 +118,12 @@ class PreviewReportSnapshotFactoryTest {
             null,
             new LocalPluginRuntime.LoadReport(List.of(), List.of(), List.of()),
             List.of(),
-            new RuntimeFailureSnapshot(List.of(task), List.of(storage), List.of(config)),
+            new RuntimeFailureSnapshot(
+                List.of(task),
+                List.of(storage),
+                List.of(config),
+                List.of()
+            ),
             false
         ).get(PreviewReportType.PREVIEW_RUNTIME);
 
@@ -129,7 +134,7 @@ class PreviewReportSnapshotFactoryTest {
         assertEquals("CONFIG_FAILED", report.path("payload").path("configFailures").get(0)
             .path("code").textValue());
         assertThrows(UnsupportedOperationException.class, () -> new RuntimeFailureSnapshot(
-            List.of(task), List.of(storage), List.of(config)
+            List.of(task), List.of(storage), List.of(config), List.of()
         ).taskFailures().add(task));
     }
 
