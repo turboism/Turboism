@@ -274,6 +274,43 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
 }
 
+val checkPluginEventReference by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies deterministic first-party plugin public-event documentation."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/plugin_event_metadata.py",
+        "scripts/test/generate_plugin_event_reference.py",
+        "docs/events/plugin-public-event-reference.md",
+        fileTree("plugins") {
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+        }
+    )
+    commandLine(
+        "python3",
+        "scripts/test/generate_plugin_event_reference.py",
+        "--root",
+        rootDir.absolutePath,
+        "--output",
+        "docs/events/plugin-public-event-reference.md",
+        "--check"
+    )
+}
+
+val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
+    group = "release verification"
+    description = "Verifies schema-v4 plugin event metadata in market release sidecars."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/plugin_event_metadata.py",
+        "scripts/release/prepare-market-release.py",
+        "scripts/test/test_prepare_market_release.py",
+        "packaging/market-plugins.json",
+        ".github/workflows/publish-selected-plugins.yml"
+    )
+    commandLine("python3", "scripts/test/test_prepare_market_release.py")
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
@@ -312,6 +349,7 @@ val devCheck by tasks.registering {
         checkCubismEditorApiAvailabilityDocs,
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
+        checkPluginEventReference,
         "validatePluginMeta",
         "checkOfficialPluginI18nCompleteness",
         checkOfficialPluginReadmes
@@ -587,6 +625,7 @@ tasks.register("checkRelease") {
         "checkSdkV2ExactApiCompatibility",
         "checkSdkV3ExactApiCompatibility",
         "checkSdkV3TierCompatibility",
+        checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs"
     )
