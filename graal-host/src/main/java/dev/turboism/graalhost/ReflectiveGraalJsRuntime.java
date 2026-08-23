@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Reflective Graal Polyglot adapter.
@@ -20,7 +21,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * host process can be launched with a modern GraalVM runtime. Polyglot and JavaScript
  * artifacts are runtime-only dependencies of this module.</p>
  */
-final class ReflectiveGraalJsRuntime {
+final class ReflectiveGraalJsRuntime implements AutoCloseable {
 
     private static final String LANGUAGE = "js";
     private static final String BOOTSTRAP = """
@@ -30,15 +31,39 @@ final class ReflectiveGraalJsRuntime {
             const raw = __turboismCall(operation, JSON.stringify(payload));
             return JSON.parse(raw);
           };
+          const ids = (values) => Array.from(values, value => String(value));
+          const numericValue = (value) => {
+            if (typeof value !== 'number' || !Number.isFinite(value)) {
+              throw new TypeError('Parameter value must be a finite number.');
+            }
+            return value;
+          };
           const parameters = Object.freeze({
             list: () => invoke('cubism.parameters.list'),
+            snapshot: () => invoke('cubism.parameters.snapshot'),
             get: (id) => invoke('cubism.parameters.get', { id: String(id) }),
-            set: (id, value) => invoke('cubism.parameters.set', { id: String(id), value: Number(value) })
+            getMany: (values) => invoke('cubism.parameters.getMany', { ids: ids(values) }),
+            set: (id, value) => invoke('cubism.parameters.set', {
+              id: String(id),
+              value: numericValue(value)
+            }),
+            setMany: (changes) => invoke('cubism.parameters.setMany', {
+              changes: Array.from(changes, change => ({
+                id: String(change.id),
+                value: numericValue(change.value)
+              }))
+            }),
+            reset: (id) => invoke('cubism.parameters.reset', { id: String(id) }),
+            resetMany: (values) => invoke('cubism.parameters.resetMany', { ids: ids(values) })
+          });
+          const model = Object.freeze({
+            snapshot: () => invoke('cubism.model.snapshot')
           });
           globalThis.turboism = Object.freeze({
             args: Object.freeze(JSON.parse(__turboismArgsJson)),
             cubism: Object.freeze({
               status: () => invoke('cubism.status'),
+              model,
               parameters
             })
           });
@@ -46,11 +71,33 @@ final class ReflectiveGraalJsRuntime {
         """;
 
     private final ObjectMapper mapper;
+    /**
+     * Engine metadata and compiled guest code are shared for the lifetime of this
+     * isolated host process. Guest globals never live here: every execution still
+     * receives a new sandboxed Context and fresh bindings.
+     */
+    private final Object engine;
     private final Availability availability;
+    private final AtomicInteger contextsCreated = new AtomicInteger();
+    private final AtomicBoolean closed = new AtomicBoolean(false);
 
     ReflectiveGraalJsRuntime(final ObjectMapper mapper) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
-        this.availability = probeAvailability();
+        Object created = null;
+        Availability detected;
+        try {
+            created = newEngine();
+            probeContext(created);
+            detected = new Availability(true, System.getProperty("java.vm.name", "unknown") + " / "
+                + System.getProperty("java.version", "unknown"));
+        } catch (Throwable failure) {
+            closeEngine(created);
+            created = null;
+            detected = new Availability(false, "UNTRUSTED GraalJS context is unavailable: "
+                + safeMessage(unwrap(failure), "unknown error"));
+        }
+        this.engine = created;
+        this.availability = detected;
     }
 
     Availability availability() {
@@ -67,6 +114,13 @@ final class ReflectiveGraalJsRuntime {
         Objects.requireNonNull(arguments, "arguments");
         Objects.requireNonNull(hostCall, "hostCall");
         Objects.requireNonNull(control, "control");
+        if (closed.get()) {
+            return ExecutionResult.failed(
+                "GRAAL_RUNTIME_CLOSED",
+                "GraalJS runtime is closed.",
+                ""
+            );
+        }
         if (!availability.available()) {
             return ExecutionResult.failed("GRAAL_RUNTIME_UNAVAILABLE", availability.detail(), "");
         }
@@ -93,6 +147,14 @@ final class ReflectiveGraalJsRuntime {
             if (polyglotBoolean(cause, "isCancelled")) {
                 return ExecutionResult.cancelled(safeMessage(cause, "Script execution was cancelled."), output);
             }
+            final GraalHostMain.HostCallException hostFailure = hostFailure(cause);
+            if (hostFailure != null) {
+                return ExecutionResult.failed(
+                    hostFailure.code(),
+                    safeMessage(hostFailure, "Script host call failed."),
+                    output
+                );
+            }
             return ExecutionResult.failed(
                 "SCRIPT_EVALUATION_FAILED",
                 safeMessage(cause, "Script evaluation failed."),
@@ -110,7 +172,37 @@ final class ReflectiveGraalJsRuntime {
         closeContext(control.context(), true);
     }
 
+    private Object newEngine() throws ReflectiveOperationException {
+        final Class<?> engineClass = Class.forName("org.graalvm.polyglot.Engine");
+        final Object builder = engineClass.getMethod("newBuilder", String[].class)
+            .invoke(null, (Object) new String[] {LANGUAGE});
+        final Class<?> sandboxClass = Class.forName("org.graalvm.polyglot.SandboxPolicy");
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        final Object untrusted = Enum.valueOf(
+            (Class<? extends Enum>) sandboxClass.asSubclass(Enum.class), "UNTRUSTED"
+        );
+        invokeBuilder(builder, "sandbox", new Class<?>[] {sandboxClass}, untrusted);
+        invokeBuilder(
+            builder, "out", new Class<?>[] {java.io.OutputStream.class},
+            java.io.OutputStream.nullOutputStream()
+        );
+        invokeBuilder(
+            builder, "err", new Class<?>[] {java.io.OutputStream.class},
+            java.io.OutputStream.nullOutputStream()
+        );
+        option(builder, "engine.MaxIsolateMemory", "256MB");
+        return builder.getClass().getMethod("build").invoke(builder);
+    }
+
     private Object newContext(
+        final ByteArrayOutputStream stdout,
+        final ByteArrayOutputStream stderr
+    ) throws ReflectiveOperationException {
+        return newContext(engine, stdout, stderr);
+    }
+
+    private Object newContext(
+        final Object selectedEngine,
         final ByteArrayOutputStream stdout,
         final ByteArrayOutputStream stderr
     ) throws ReflectiveOperationException {
@@ -119,23 +211,24 @@ final class ReflectiveGraalJsRuntime {
             .getMethod("newBuilder", String[].class)
             .invoke(null, (Object) new String[] {LANGUAGE});
 
-        final Class<?> sandboxClass = Class.forName("org.graalvm.polyglot.SandboxPolicy");
-        @SuppressWarnings({"unchecked", "rawtypes"})
-        final Object untrusted = Enum.valueOf((Class<? extends Enum>) sandboxClass.asSubclass(Enum.class), "UNTRUSTED");
-        invokeBuilder(builder, "sandbox", new Class<?>[] {sandboxClass}, untrusted);
+        final Class<?> engineClass = Class.forName("org.graalvm.polyglot.Engine");
+        invokeBuilder(builder, "engine", new Class<?>[] {engineClass}, selectedEngine);
         invokeBuilder(builder, "out", new Class<?>[] {java.io.OutputStream.class}, stdout);
         invokeBuilder(builder, "err", new Class<?>[] {java.io.OutputStream.class}, stderr);
 
-        // UNTRUSTED requires explicit bounded resources. The whole engine also lives in
-        // a separate Turboism-owned OS process, providing a second failure boundary.
-        option(builder, "engine.MaxIsolateMemory", "256MB");
+        // A fresh Context owns guest globals and bindings for one execution. The shared
+        // Engine retains only engine-level metadata/code and remains in this OS process.
         option(builder, "sandbox.MaxHeapMemory", "128MB");
         option(builder, "sandbox.MaxCPUTime", "10s");
         option(builder, "sandbox.MaxASTDepth", "128");
         option(builder, "sandbox.MaxThreads", "1");
-        option(builder, "sandbox.MaxOutputStreamSize", "1MB");
-        option(builder, "sandbox.MaxErrorStreamSize", "1MB");
-        return builder.getClass().getMethod("build").invoke(builder);
+        // Each stream is capped below the 4 MiB protocol envelope's worst-case
+        // six-character JSON escaping expansion; stdout and stderr may be combined.
+        option(builder, "sandbox.MaxOutputStreamSize", "256KB");
+        option(builder, "sandbox.MaxErrorStreamSize", "256KB");
+        final Object context = builder.getClass().getMethod("build").invoke(builder);
+        contextsCreated.incrementAndGet();
+        return context;
     }
 
     private static void option(final Object builder, final String key, final String value)
@@ -216,20 +309,46 @@ final class ReflectiveGraalJsRuntime {
         }
     }
 
-    private Availability probeAvailability() {
+    private void probeContext(final Object candidateEngine) throws ReflectiveOperationException {
+        Class.forName("org.graalvm.polyglot.Context");
+        Class.forName("org.graalvm.polyglot.SandboxPolicy");
+        Class.forName("org.graalvm.polyglot.proxy.ProxyExecutable");
+        if (candidateEngine == null) {
+            throw new IllegalStateException("Graal Engine is unavailable");
+        }
         Object context = null;
         try {
-            Class.forName("org.graalvm.polyglot.Context");
-            Class.forName("org.graalvm.polyglot.SandboxPolicy");
-            Class.forName("org.graalvm.polyglot.proxy.ProxyExecutable");
-            context = newContext(new ByteArrayOutputStream(), new ByteArrayOutputStream());
-            return new Availability(true, System.getProperty("java.vm.name", "unknown") + " / "
-                + System.getProperty("java.version", "unknown"));
-        } catch (Throwable failure) {
-            return new Availability(false, "UNTRUSTED GraalJS context is unavailable: "
-                + safeMessage(unwrap(failure), "unknown error"));
+            context = newContext(
+                candidateEngine, new ByteArrayOutputStream(), new ByteArrayOutputStream()
+            );
         } finally {
             closeContext(context, false);
+        }
+    }
+
+    private static void closeEngine(final Object engine) {
+        if (engine == null) {
+            return;
+        }
+        try {
+            engine.getClass().getMethod("close").invoke(engine);
+        } catch (ReflectiveOperationException ignored) {
+            // The host process remains the final cleanup boundary.
+        }
+    }
+
+    Object engineForTest() {
+        return engine;
+    }
+
+    int contextsCreatedForTest() {
+        return contextsCreated.get();
+    }
+
+    @Override
+    public void close() {
+        if (closed.compareAndSet(false, true)) {
+            closeEngine(engine);
         }
     }
 
@@ -239,6 +358,34 @@ final class ReflectiveGraalJsRuntime {
             current = invocation.getCause();
         }
         return current;
+    }
+
+    private static GraalHostMain.HostCallException hostFailure(final Throwable failure) {
+        Throwable current = failure;
+        for (int depth = 0; current != null && depth < 16; depth++) {
+            if (current instanceof GraalHostMain.HostCallException hostFailure) {
+                return hostFailure;
+            }
+            final Throwable hostException = polyglotHostException(current);
+            if (hostException instanceof GraalHostMain.HostCallException hostFailure) {
+                return hostFailure;
+            }
+            current = current.getCause();
+        }
+        return null;
+    }
+
+    private static Throwable polyglotHostException(final Throwable failure) {
+        try {
+            final Method isHostException = failure.getClass().getMethod("isHostException");
+            if (!Boolean.TRUE.equals(isHostException.invoke(failure))) {
+                return null;
+            }
+            final Object hostException = failure.getClass().getMethod("asHostException").invoke(failure);
+            return hostException instanceof Throwable throwable ? throwable : null;
+        } catch (ReflectiveOperationException ignored) {
+            return null;
+        }
     }
 
     private static boolean polyglotBoolean(final Throwable failure, final String methodName) {

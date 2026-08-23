@@ -20,6 +20,37 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationArguments") {
+    group = "verification"
+    description = "Verifies Cubism host-validation path validation and remote argument transport offline."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
+}
+
+tasks.register<Exec>("checkGraalScriptHostValidationDryRun") {
+    group = "verification"
+    description = "Verifies the Graal script host-validation wrapper uses configurable Java and packaged wildcard classpath."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_graal_script_host_validation_dry_run.sh")
+}
+
+tasks.register<Exec>("checkGraalPreviewLauncherContract") {
+    group = "verification"
+    description = "Verifies ProbeOnly validates a configured Graal library closure without claiming host readiness."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_graal_preview_launcher_contract.sh")
+}
+
+tasks.register("checkGraalScriptHostValidation") {
+    group = "verification"
+    description = "Runs offline Graal script host-validation contracts."
+    dependsOn(
+        "checkCubismHostValidationArguments",
+        "checkGraalScriptHostValidationDryRun",
+        "checkGraalPreviewLauncherContract"
+    )
+}
+
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
     description = "Verifies baseline localization-key completeness for participating official plugins."

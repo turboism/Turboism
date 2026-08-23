@@ -57,10 +57,6 @@ public interface UiHostCapabilityService {
      * Contributes a runtime-rendered panel owned by the calling plugin.
      * Control action IDs resolve through that plugin's {@code ActionRegistry}.
      */
-    /**
-     * Contributes a runtime-rendered panel owned by the calling plugin.
-     * Control action IDs resolve through that plugin's {@code ActionRegistry}.
-     */
 
     /** Opens a bounded runtime-rendered single-choice dialog. */
     default Optional<String> choose(final ChoiceDialogRequest request) {
@@ -68,6 +64,18 @@ public interface UiHostCapabilityService {
     }
 
     Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution);
+
+    /**
+     * Contributes a toolkit-neutral control to the shared Turboism settings window.
+     * Requires {@code turboism.ui.settings.contribute}; the registration is owned
+     * by the calling plugin's disposable scope.
+     */
+    default Registration contributeSettings(
+        final dev.turboism.sdk.ui.settings.SettingsContribution contribution
+    ) {
+        Objects.requireNonNull(contribution, "contribution");
+        throw new UnsupportedOperationException("settings contribution is unavailable");
+    }
 
     /**
      * Activates an embedded panel owned by the calling plugin.

@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.bulk-api",
+  "name": "Validation Bulk API",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [
+    "turboism.cubism.model.read"
+  ],
+  "sourceSha256": "0133eefe68932fc4cdd72a06bb50d2b6e8ede112bac071ae274d53559eb64177"
+}
