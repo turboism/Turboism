@@ -6,6 +6,7 @@ import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -19,6 +20,8 @@ final class PreviewPluginShutdown {
     private final PartHookRegistry partHookRegistry;
     private final EditorObjectHookRegistry editorObjectHookRegistry;
     private final ProjectLifecycleHookRegistry projectLifecycleHookRegistry;
+    private final java.util.Set<LocalPluginRuntime.LoadedPlugin> retainedGenerations =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     PreviewPluginShutdown(
         final PreviewLog log,
@@ -72,17 +75,67 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) throws Throwable {
         final String id = loadedPlugin.runtime().id();
+        loadedPlugin.eventOwner().beginClosing();
+        final boolean eventQuiesced = loadedPlugin.eventOwner().awaitQuiescence(
+            Duration.ofSeconds(5)
+        );
         projectLifecycleHookRegistry.unregister(id);
         editorObjectHookRegistry.unregister(id);
         partHookRegistry.unregister(id);
         parameterHookRegistry.unregister(id);
         closeHook.run(id, "close");
-        final PreviewPluginShutdownResult result = stages.close(loadedPlugin, id);
+        final PreviewPluginShutdownResult result = stages.close(
+            loadedPlugin, id, eventQuiesced
+        );
+        if (!eventQuiesced) {
+            retainedGenerations.add(loadedPlugin);
+            scheduleRetainedCleanup(loadedPlugin);
+        }
         log.info(id, "Plugin unloaded with state " + loadedPlugin.runtime().state());
+        if (eventQuiesced) {
+            loadedPlugin.eventOwner().close();
+        }
         return PreviewPluginSummaryFactory.create(
             loadedPlugin, result.disableState(), result.shutdownState(), result.unloadState(),
             result.scopeCleanupState(), result.classloaderCleanupState(), result.failures()
         );
+    }
+
+    private void scheduleRetainedCleanup(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        final Thread reaper = new Thread(
+            () -> reapRetainedGeneration(loadedPlugin),
+            "turboism-event-zombie-" + safePluginId(loadedPlugin)
+        );
+        reaper.setDaemon(true);
+        reaper.setContextClassLoader(PreviewPluginShutdown.class.getClassLoader());
+        reaper.start();
+    }
+
+    private void reapRetainedGeneration(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        try {
+            if (!loadedPlugin.eventOwner().awaitQuiescence(Duration.ofDays(3650))) {
+                return;
+            }
+            final String id = safePluginId(loadedPlugin);
+            final PreviewPluginShutdownResult result = stages.close(
+                loadedPlugin, id, true
+            );
+            if ("SUCCEEDED".equals(result.classloaderCleanupState())) {
+                loadedPlugin.eventOwner().close();
+                retainedGenerations.remove(loadedPlugin);
+                log.info(id, "Retained plugin generation cleanup succeeded");
+            }
+        } catch (Throwable failure) {
+            tryLogStableFailure(safePluginId(loadedPlugin), "PLUGIN_RETAINED_CLEANUP_FAILED");
+        }
+    }
+
+    int retainedGenerationCount() {
+        return retainedGenerations.size();
     }
 
     private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(

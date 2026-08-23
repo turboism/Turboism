@@ -1,9 +1,11 @@
 package dev.turboism.preview;
 
+import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.service.read.M12ReadSnapshotSource;
 import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -38,6 +40,7 @@ final class PreviewPluginServicesFactory {
 
     private final Path home;
     private final RuntimeScheduler scheduler;
+    private final RuntimeEventBroker eventBroker;
     private final RuntimeHostAdapterAccess hostAccess;
     private final SharedAsyncHostReadLane hostReadLane;
     private final PreviewLog log;
@@ -52,7 +55,11 @@ final class PreviewPluginServicesFactory {
         final PreviewLog log,
         final RuntimeFailureCollector failureCollector
     ) {
-        this(home, scheduler, hostAccess, hostReadLane, log, failureCollector, CubismHostLocale.resolve());
+        this(
+            home, scheduler, hostAccess, hostReadLane, log, failureCollector,
+            hostAccess.parameterLifecycle(), hostAccess.partLifecycle(),
+            CubismHostLocale.resolve()
+        );
     }
 
     PreviewPluginServicesFactory(
@@ -64,8 +71,40 @@ final class PreviewPluginServicesFactory {
         final RuntimeFailureCollector failureCollector,
         final Locale effectiveLocale
     ) {
+        this(
+            home, scheduler, hostAccess, hostReadLane, log, failureCollector,
+            hostAccess.parameterLifecycle(), hostAccess.partLifecycle(), effectiveLocale
+        );
+    }
+
+    PreviewPluginServicesFactory(
+        final Path home,
+        final RuntimeScheduler scheduler,
+        final RuntimeHostAdapterAccess hostAccess,
+        final SharedAsyncHostReadLane hostReadLane,
+        final PreviewLog log,
+        final RuntimeFailureCollector failureCollector,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator partLifecycle,
+        final Locale effectiveLocale
+    ) {
         this.home = home;
         this.scheduler = scheduler;
+        this.eventBroker = new RuntimeEventBroker(
+            scheduler,
+            64,
+            diagnostic -> log.warn(
+                diagnostic.owner().pluginId(),
+                "Event delivery " + diagnostic.code()
+                    + (diagnostic.eventType().isBlank()
+                        ? ""
+                        : " event=" + diagnostic.eventType())
+            )
+        );
+        Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
+            .attachEventBroker(eventBroker);
+        Objects.requireNonNull(partLifecycle, "partLifecycle")
+            .attachEventBroker(eventBroker);
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;
@@ -73,10 +112,19 @@ final class PreviewPluginServicesFactory {
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
+    RuntimeEventBroker.Owner admitEventOwner(final String pluginId) {
+        return eventBroker.admit(pluginId);
+    }
+
+    RuntimeEventBroker eventBroker() {
+        return eventBroker;
+    }
+
     PreviewPluginServices create(
         final PluginDescriptor descriptor,
         final ClassLoader classLoader,
-        final DisposableScope scope
+        final DisposableScope scope,
+        final RuntimeEventBroker.Owner eventOwner
     ) throws IOException {
         final RuntimeUiScheduler uiScheduler = new RuntimeUiScheduler(scheduler, descriptor.id());
         scope.register(uiScheduler);
@@ -84,7 +132,9 @@ final class PreviewPluginServicesFactory {
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final RuntimePluginTaskScheduler tasks = tasks(descriptor, scope, evidence);
         final Set<String> permissions = permissionIds(descriptor);
-        final CorePluginContext.Dependencies dependencies = dependencies(descriptor, paths, uiScheduler, scope);
+        final CorePluginContext.Dependencies dependencies = dependencies(
+            descriptor, paths, uiScheduler, scope, eventOwner
+        );
         return new PreviewPluginServices(
             dependencies, localization(descriptor, classLoader), tasks,
             storage(descriptor, paths, permissions, tasks, scope, evidence),
@@ -98,14 +148,16 @@ final class PreviewPluginServicesFactory {
         final PluginDescriptor descriptor,
         final PluginHomePaths paths,
         final RuntimeUiScheduler uiScheduler,
-        final DisposableScope scope
+        final DisposableScope scope,
+        final RuntimeEventBroker.Owner eventOwner
     ) {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
             new PreviewDiagnosticReport(), scope,
             EmptyHostSnapshotSource.INSTANCE,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
-            event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector
+            event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector,
+            eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key()
         );
     }
 
