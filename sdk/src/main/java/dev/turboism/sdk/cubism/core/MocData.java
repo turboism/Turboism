@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Defensive-copy wrapper for MOC bytes submitted for inspection. */
-@PreviewApi
 public final class MocData {
     private final byte[] bytes;
 

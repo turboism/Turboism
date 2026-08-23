@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.history;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Structured, immutable detail for a history entry when its semantics are known safely. */
-@PreviewApi
 public record HistoryAction(
     Kind kind,
     String targetType,

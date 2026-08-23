@@ -1,6 +1,5 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import dev.turboism.sdk.ui.appearance.UiColor;
 
@@ -16,7 +15,6 @@ import java.util.Optional;
  * the seven named keys map to fixed RGB values, and {@code custom} routes to
  * the runtime-rendered color form dialog.</p>
  */
-@PreviewApi
 public final class LabelStylePresets {
 
     public static final String NONE_KEY = "none";

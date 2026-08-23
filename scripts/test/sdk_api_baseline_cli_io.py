@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION
-from sdk_api_tiers import canonical_json
 
 FORMAT = "turboism.sdk.api-baseline"
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
@@ -102,12 +101,3 @@ def _verify_canonical_dump(canonical: Any) -> None:
         raise BaselineError("baseline canonical dump SHA-256 is invalid")
     if type(canonical["lineCount"]) is not int or canonical["lineCount"] < 3:
         raise BaselineError("baseline canonical dump line count is invalid")
-
-
-def write_tier_report(path: Path, records: list[str], tiers: dict[str, str]) -> None:
-    from sdk_api_baseline import canonical_identity
-    entries = [
-        {"identity": canonical_identity(record), "tier": tiers[canonical_identity(record)]}
-        for record in sorted(records)
-    ]
-    write_output(path, canonical_json({"entries": entries, "format": "turboism.sdk.api-tier-report", "schemaVersion": 1}))

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.io.File;
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.Objects;
  * implementation is isolated: the backup result is never corrupted by a
  * target failure (the runtime records the failure and continues).</p>
  */
-@PreviewApi
 public interface BackupSyncTarget {
 
     /**
@@ -30,7 +28,6 @@ public interface BackupSyncTarget {
         return Noop.INSTANCE;
     }
 
-    @PreviewApi
     enum Noop implements BackupSyncTarget {
         INSTANCE;
 

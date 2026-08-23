@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.write;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 
@@ -15,7 +14,6 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
  * @param objectId the object to operate on
  * @param operation non-blank operation name, validated for shape only
  */
-@PreviewApi
 public record WriteModelObjectCommand(String commandId, ModelId modelId, ModelObjectId objectId, String operation) implements CubismWriteCommand {
     /**
      * Validates the record components.

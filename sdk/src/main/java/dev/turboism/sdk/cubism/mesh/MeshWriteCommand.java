@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
@@ -20,7 +19,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param operation the operation name to perform, passed through verbatim to the executor; must
  *     not be {@code null} or blank
  */
-@PreviewApi
 public record MeshWriteCommand(
     String commandId,
     ModelId modelId,

@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Version-neutral MOC format version. */
-@PreviewApi
 public enum MocVersion {
     UNKNOWN,
     V3_0,

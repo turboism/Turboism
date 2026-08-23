@@ -23,7 +23,7 @@ from cubism_core_selector_policy import (  # noqa: E402
 )
 
 POLICY = ROOT / "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
-PACK_52 = ROOT / "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json"
+PACK_52 = ROOT / "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
 PACK_53 = ROOT / "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
 
 
@@ -64,7 +64,7 @@ def main() -> int:
     require(
         validated["summary"]["versions"]
         == {
-            "5.2": {"entryCount": 72},
+            "5.2.03": {"entryCount": 72},
             "5.3.02": {"entryCount": 74},
         },
         "selector profile counts drifted",
@@ -87,7 +87,7 @@ def main() -> int:
     version = selector(roster, "GET_VERSION")
     require(
         version["role"] == "VERSION_PROBE"
-        and version["profiles"] == ["5.2", "5.3.02"],
+        and version["profiles"] == ["5.2.03", "5.3.02"],
         "version probe selector drifted",
     )
     require(
@@ -160,7 +160,7 @@ def main() -> int:
         for entry in mutation["selectors"]
         if entry["constant"] == "PARAMETERS_GET_REPEATS"
     )
-    target["profiles"] = ["5.2", "5.3.02"]
+    target["profiles"] = ["5.2.03", "5.3.02"]
     expect_invalid(
         "profile coverage mismatch",
         lambda: validate_policy(mutation, packs),
@@ -169,7 +169,7 @@ def main() -> int:
     pack_mutation = copy.deepcopy(load_json(PACK_52))
     pack_mutation["entries"] = pack_mutation["entries"][:-1]
     mutated_packs = {
-        "5.2": classify_pack(pack_mutation),
+        "5.2.03": classify_pack(pack_mutation),
         "5.3.02": packs["5.3.02"],
     }
     expect_invalid(
