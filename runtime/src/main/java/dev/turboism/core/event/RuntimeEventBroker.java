@@ -250,9 +250,10 @@ public final class RuntimeEventBroker {
         Objects.requireNonNull(eventFactory, "eventFactory");
         Objects.requireNonNull(candidate, "candidate");
         float current = initialValue;
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(eventType)) {
+        final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
+        for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !owner.beginSynchronousDelivery(subscription)) {
+            if (owner == null || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
             try {
@@ -311,9 +312,10 @@ public final class RuntimeEventBroker {
         Objects.requireNonNull(candidate, "candidate");
         Objects.requireNonNull(validator, "validator");
         T current = initialValue;
-        for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(eventType)) {
+        final List<Subscription<? extends EventBus.TurboismEvent>> route = dispatchPlan(eventType);
+        for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !owner.beginSynchronousDelivery(subscription)) {
+            if (owner == null || !owner.beginSynchronousDeliverySnapshot(subscription)) {
                 continue;
             }
             try {
@@ -998,11 +1000,11 @@ public final class RuntimeEventBroker {
             }
         }
 
-        private boolean beginSynchronousDelivery(
+        private boolean beginSynchronousDeliverySnapshot(
             final Subscription<? extends EventBus.TurboismEvent> subscription
         ) {
             synchronized (monitor) {
-                if (!subscription.active() || !subscription.accepts(lifecycle)) {
+                if (!subscription.accepts(lifecycle)) {
                     return false;
                 }
                 runningDeliveries++;
