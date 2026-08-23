@@ -275,7 +275,12 @@ public final class RuntimeEventBroker {
                         }
                     } catch (ThreadDeath | VirtualMachineError fatal) {
                         throw fatal;
-                    } catch (Throwable ignored) {
+                    } catch (Throwable failure) {
+                        diagnose(new DeliveryDiagnostic(
+                            owner.key(),
+                            eventType.getName(),
+                            DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                        ));
                         // The checkpoint in current remains authoritative for later subscribers.
                     }
                 }
@@ -331,7 +336,12 @@ public final class RuntimeEventBroker {
                         }
                     } catch (ThreadDeath | VirtualMachineError fatal) {
                         throw fatal;
-                    } catch (Throwable ignored) {
+                    } catch (Throwable failure) {
+                        diagnose(new DeliveryDiagnostic(
+                            owner.key(),
+                            eventType.getName(),
+                            DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                        ));
                         // The checkpoint in current remains authoritative for later subscribers.
                     }
                 }

@@ -1,6 +1,7 @@
 package dev.turboism.preview;
 
 import dev.turboism.core.lifecycle.PluginLifecycleState;
+import dev.turboism.core.runtime.ContextClassLoaderScope;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -66,7 +67,9 @@ final class PreviewPluginShutdownStages {
         log.info(id, "Plugin lifecycle: disable started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
-            try {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                loadedPlugin.classLoader()
+            )) {
                 loadedPlugin.entrypoints().get(index).disable();
             } catch (Throwable exception) {
                 failed = true;
@@ -96,7 +99,9 @@ final class PreviewPluginShutdownStages {
         log.info(id, "Plugin lifecycle: shutdown started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
-            try {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                loadedPlugin.classLoader()
+            )) {
                 loadedPlugin.entrypoints().get(index).shutdown();
             } catch (Throwable exception) {
                 failed = true;
