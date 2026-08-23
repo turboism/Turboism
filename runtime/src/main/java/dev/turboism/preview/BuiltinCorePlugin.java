@@ -66,7 +66,7 @@ final class BuiltinCorePlugin {
                     eventSubscribers
                 );
             }
-            context.eventOwner().registerAnnotated(eventSubscribers);
+            context.eventOwner().registerAnnotated(eventSubscribers, List.of(plugin));
             runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
             context.eventOwner().beginInitializing();
             plugin.init(context.context());
