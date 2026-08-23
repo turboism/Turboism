@@ -1,6 +1,16 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.sdk.event.EventPriority;
+import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
@@ -12,50 +22,64 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ParameterLifecycleCoordinatorTest {
 
     @Test
-    void coordinatesParameterSetterInPluginAndEntrypointOrder() {
-        final List<String> events = new ArrayList<>();
+    void appliesBeforeTransformsInRegistrationAndEntrypointOrder() {
+        final List<String> transforms = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
         coordinator.register(plugin(
             "plugin-a",
-            List.of(new HalvingHook(), new RecordingHook("a2", events))
+            List.of(new TransformingHook("a1", transforms, value -> value * 0.5F),
+                new TransformingHook("a2", transforms, value -> value + 3.0F))
         ));
         coordinator.register(plugin(
             "plugin-b",
-            List.of(new ClampingHook(), new RecordingHook("b2", events))
+            List.of(new TransformingHook("b1", transforms, value -> Math.min(value, 20.0F)))
         ));
         final MutableParameter parameter = new MutableParameter(0.0F);
 
         coordinator.setValue(parameter, 100.0F, parameter::write);
-        coordinator.awaitIdle();
 
         assertEquals(20.0F, parameter.getValue());
-        assertEquals(4, events.size());
-        assertEquals(1, events.stream().filter(value -> value.equals("a2:on:0.0->20.0")).count());
-        assertEquals(1, events.stream().filter(value -> value.equals("a2:after:20.0")).count());
-        assertEquals(1, events.stream().filter(value -> value.equals("b2:on:0.0->20.0")).count());
-        assertEquals(1, events.stream().filter(value -> value.equals("b2:after:20.0")).count());
-        assertEquals(
-            events.indexOf("a2:on:0.0->20.0") + 1,
-            events.indexOf("a2:after:20.0")
-        );
-        assertEquals(
-            events.indexOf("b2:on:0.0->20.0") + 1,
-            events.indexOf("b2:after:20.0")
-        );
+        assertEquals(List.of("a1:100.0", "a2:50.0", "b1:53.0"), transforms);
     }
 
     @Test
-    void unchangedCompletionPublishesOnlyAfterAndNativeFailurePublishesNothing() {
+    void failingAndNonFiniteBeforeHooksPreserveThePriorEffectiveValue() {
+        final List<String> transforms = new ArrayList<>();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.register(plugin("plugin-a", List.of(
+            new TransformingHook("first", transforms, value -> value * 0.5F),
+            new ThrowingBeforeHook(),
+            new NonFiniteBeforeHook(),
+            new TransformingHook("last", transforms, value -> value + 1.0F)
+        )));
+        final MutableParameter parameter = new MutableParameter(0.0F);
+
+        coordinator.setValue(parameter, 8.0F, parameter::write);
+
+        assertEquals(5.0F, parameter.getValue());
+        assertEquals(List.of("first:8.0", "last:4.0"), transforms);
+    }
+
+    @Test
+    void completionPublishesChangedOnlyOnAndAlwaysAfterForSuccessfulWrites() {
         final List<String> events = new ArrayList<>();
         final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
         coordinator.register(plugin("plugin-a", List.of(new RecordingHook("a", events))));
@@ -66,13 +90,99 @@ class ParameterLifecycleCoordinatorTest {
         assertEquals(List.of("a:after:5.0"), events);
 
         events.clear();
+        coordinator.setValue(parameter, 9.0F, parameter::write);
+        coordinator.awaitIdle();
+        assertEquals(List.of("a:on:5.0->9.0", "a:after:9.0"), events);
+    }
+
+    @Test
+    void annotatedBeforeTransformsSynchronouslyWithCheckpointRestoreAndSealing() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner firstOwner = broker.admit("annotated-a");
+        final RuntimeEventBroker.Owner secondOwner = broker.admit("annotated-b");
+        final List<String> callbacks = new ArrayList<>();
+        final AtomicReference<ParameterValueEvent.Before> retained = new AtomicReference<>();
+        firstOwner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+            new AnnotatedBeforeSubscriber(callbacks, retained)
+        )));
+        secondOwner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+            new LaterAnnotatedBeforeSubscriber(callbacks)
+        )));
+        firstOwner.activate();
+        secondOwner.activate();
+        final MutableParameter parameter = new MutableParameter(0.0F);
+
+        coordinator.setValue(parameter, 8.0F, parameter::write);
+
+        assertEquals(5.0F, parameter.getValue());
+        assertEquals(List.of("first:8.0", "throw:4.0", "non-finite:4.0", "last:4.0"), callbacks);
+        assertThrows(IllegalStateException.class, () -> retained.get().setValue(100.0F));
+        scheduler.shutdown();
+    }
+
+    @Test
+    void annotatedCompletionPublishesDetachedChangedOnlyOnAndAlwaysAfter() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner observer = broker.admit("annotated-observer");
+        final CountDownLatch deliveries = new CountDownLatch(3);
+        final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        final AtomicReference<Parameter> observed = new AtomicReference<>();
+        observer.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+            new AnnotatedCompletionSubscriber(events, observed, deliveries)
+        )));
+        observer.activate();
+        final MutableParameter parameter = new MutableParameter(5.0F);
+
+        coordinator.setValue(parameter, 5.0F, parameter::write);
+        coordinator.setValue(parameter, 9.0F, parameter::write);
+
+        assertTrue(deliveries.await(1, TimeUnit.SECONDS));
+        assertEquals(List.of("after:5.0", "on:5.0->9.0", "after:9.0"), events);
+        assertNotSame(parameter, observed.get());
+        assertEquals(9.0F, observed.get().getValue());
+        assertThrows(UnsupportedOperationException.class, () -> observed.get().setValue(1.0F));
+        scheduler.shutdown();
+    }
+
+    @Test
+    void nativeFailurePreservesValueAndPublishesNoCallbacks() {
+        final List<String> events = new ArrayList<>();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.register(plugin("plugin-a", List.of(new RecordingHook("a", events))));
+        final MutableParameter parameter = new MutableParameter(5.0F);
+
         assertThrows(IllegalStateException.class, () ->
             coordinator.setValue(parameter, 9.0F, ignored -> {
                 throw new IllegalStateException("native failed");
             })
         );
         coordinator.awaitIdle();
+
+        assertEquals(5.0F, parameter.getValue());
         assertEquals(List.of(), events);
+    }
+
+    @Test
+    void callbackFailuresDoNotPreventLaterCallbacksOrSuccessfulWrites() {
+        final List<String> events = new ArrayList<>();
+        final ParameterLifecycleCoordinator coordinator = new ParameterLifecycleCoordinator();
+        coordinator.register(plugin("plugin-a", List.of(
+            new ThrowingCallbackHook(),
+            new RecordingHook("survives", events)
+        )));
+        final MutableParameter parameter = new MutableParameter(0.0F);
+
+        coordinator.setValue(parameter, 7.0F, parameter::write);
+        coordinator.awaitIdle();
+
+        assertEquals(7.0F, parameter.getValue());
+        assertEquals(List.of("survives:on:0.0->7.0", "survives:after:7.0"), events);
     }
 
     @Test
@@ -247,17 +357,31 @@ class ParameterLifecycleCoordinatorTest {
         );
     }
 
-    private static final class HalvingHook implements CubismPlugin {
+    private record TransformingHook(
+        String name,
+        List<String> transforms,
+        java.util.function.UnaryOperator<Float> transformation
+    ) implements CubismPlugin {
         @Override
         public float beforeSetParameterValue(final Parameter parameter, final float value) {
-            return value * 0.5F;
+            transforms.add(name + ":" + value);
+            return transformation.apply(value);
         }
     }
 
-    private static final class ClampingHook implements CubismPlugin {
+    private static final class ThrowingCallbackHook implements CubismPlugin {
         @Override
-        public float beforeSetParameterValue(final Parameter parameter, final float value) {
-            return Math.min(value, 20.0F);
+        public void onParameterValueChanged(
+            final Parameter parameter,
+            final float oldValue,
+            final float newValue
+        ) {
+            throw new IllegalStateException("on callback failed");
+        }
+
+        @Override
+        public void afterSetParameterValue(final Parameter parameter, final float value) {
+            throw new IllegalStateException("after callback failed");
         }
     }
 
@@ -288,6 +412,107 @@ class ParameterLifecycleCoordinatorTest {
         @Override
         public void afterSetParameterValue(final Parameter parameter, final float value) {
             events.add(name + ":after:" + value);
+        }
+    }
+
+    public static final class AnnotatedBeforeSubscriber {
+        private final List<String> callbacks;
+        private final AtomicReference<ParameterValueEvent.Before> retained;
+
+        private AnnotatedBeforeSubscriber(
+            final List<String> callbacks,
+            final AtomicReference<ParameterValueEvent.Before> retained
+        ) {
+            this.callbacks = callbacks;
+            this.retained = retained;
+        }
+
+        @SubscribeEvent(priority = EventPriority.HIGHEST)
+        public void first(final ParameterValueEvent.Before event) {
+            callbacks.add("first:" + event.value());
+            retained.set(event);
+            event.setValue(event.value() * 0.5F);
+        }
+
+        @SubscribeEvent(priority = EventPriority.HIGH)
+        public void throwing(final ParameterValueEvent.Before event) {
+            callbacks.add("throw:" + event.value());
+            event.setValue(100.0F);
+            throw new IllegalStateException("restore candidate");
+        }
+
+        @SubscribeEvent
+        public void nonFinite(final ParameterValueEvent.Before event) {
+            callbacks.add("non-finite:" + event.value());
+            event.setValue(Float.NaN);
+        }
+    }
+
+    public static final class LaterAnnotatedBeforeSubscriber {
+        private final List<String> callbacks;
+
+        private LaterAnnotatedBeforeSubscriber(final List<String> callbacks) {
+            this.callbacks = callbacks;
+        }
+
+        @SubscribeEvent(priority = EventPriority.LOW)
+        public void last(final ParameterValueEvent.Before event) {
+            callbacks.add("last:" + event.value());
+            event.setValue(event.value() + 1.0F);
+        }
+    }
+
+    public static final class AnnotatedCompletionSubscriber {
+        private final List<String> events;
+        private final AtomicReference<Parameter> observed;
+        private final CountDownLatch deliveries;
+
+        private AnnotatedCompletionSubscriber(
+            final List<String> events,
+            final AtomicReference<Parameter> observed,
+            final CountDownLatch deliveries
+        ) {
+            this.events = events;
+            this.observed = observed;
+            this.deliveries = deliveries;
+        }
+
+        @SubscribeEvent
+        public void on(final ParameterValueEvent.On event) {
+            observed.set(event.parameter());
+            events.add("on:" + event.oldValue() + "->" + event.newValue());
+            deliveries.countDown();
+        }
+
+        @SubscribeEvent
+        public void after(final ParameterValueEvent.After event) {
+            observed.set(event.parameter());
+            events.add("after:" + event.finalValue());
+            deliveries.countDown();
+        }
+    }
+
+    private static RuntimeScheduler scheduler() {
+        return new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(
+                1,
+                8,
+                ignored -> { },
+                Clock.fixed(Instant.parse("2026-08-23T00:00:00Z"), ZoneOffset.UTC)
+            ),
+            new NoOpSidecarDispatcher(),
+            ignored -> { }
+        );
+    }
+
+    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
+        @Override
+        public CompletionStage<SidecarResult> dispatch(
+            final PluginTask task,
+            final Runnable callback
+        ) {
+            return CompletableFuture.completedFuture(SidecarResult.success(""));
         }
     }
 

@@ -13,7 +13,8 @@ import dev.turboism.config.RuntimePluginConfigRegistry;
 import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.core.action.RuntimeActionRegistry;
 import dev.turboism.core.diagnostics.StartupReport;
-import dev.turboism.core.event.RuntimeEventBus;
+import dev.turboism.core.event.PluginEventBus;
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.menu.RuntimeMenuRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
@@ -1136,6 +1137,78 @@ public final class CorePluginContext implements PluginContext {
                 uiHostStateSource,
                 cubismAuditSink,
                 clock,
+                failureSink,
+                new RuntimeEventBroker(runtimeScheduler)
+            );
+        }
+
+        /** Internal composition overload sharing one event broker across plugin contexts. */
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock,
+            RuntimeFailureSink failureSink,
+            RuntimeEventBroker eventBroker
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock,
+                failureSink,
+                eventBroker,
+                Objects.requireNonNull(eventBroker, "eventBroker").legacyOwner(descriptor.id())
+            );
+        }
+
+        /** Internal composition overload bound to one admitted plugin event generation. */
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock,
+            RuntimeFailureSink failureSink,
+            RuntimeEventBroker eventBroker,
+            dev.turboism.core.event.PluginEventOwnerKey eventOwner
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock,
                 defaultServices(
                     descriptor,
                     permissionsFromDescriptor(descriptor),
@@ -1144,7 +1217,9 @@ public final class CorePluginContext implements PluginContext {
                     cubismAuditSink,
                     clock,
                     logger,
-                    RuntimeFailureSink.require(failureSink)
+                    RuntimeFailureSink.require(failureSink),
+                    Objects.requireNonNull(eventBroker, "eventBroker"),
+                    Objects.requireNonNull(eventOwner, "eventOwner")
                 )
             );
         }
@@ -1206,7 +1281,9 @@ public final class CorePluginContext implements PluginContext {
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
             PluginLogger logger,
-            RuntimeFailureSink failureSink
+            RuntimeFailureSink failureSink,
+            RuntimeEventBroker eventBroker,
+            dev.turboism.core.event.PluginEventOwnerKey eventOwner
         ) {
             PermissionChecker checker = PermissionChecker.from(
                 new CubismPermissionGate(descriptor.id(), permissions, cubismAuditSink, clock)
@@ -1214,7 +1291,7 @@ public final class CorePluginContext implements PluginContext {
             Consumer<StartupReport.DiagnosticProblem> diagnosticSink = problem ->
                 logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path());
             return new DefaultServices(
-                new RuntimeEventBus(runtimeScheduler, descriptor.id(), checker),
+                new PluginEventBus(eventBroker, eventOwner, checker),
                 new RuntimeActionRegistry(runtimeScheduler, diagnosticSink, descriptor.id(), checker),
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),

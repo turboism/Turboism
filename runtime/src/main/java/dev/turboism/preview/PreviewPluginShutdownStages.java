@@ -16,15 +16,32 @@ final class PreviewPluginShutdownStages {
 
     PreviewPluginShutdownResult close(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
-        final String id
+        final String id,
+        final boolean eventQuiesced
     ) {
         log.info(id, "Plugin lifecycle: close started");
         final List<LocalPluginRuntime.PluginSummaryFailure> failures = new ArrayList<>();
+        if (!eventQuiesced) {
+            failures.add(failure(
+                "PLUGIN_EVENT_QUIESCENCE_FAILED", "event-quiescence",
+                "Plugin event callbacks did not quiesce before cleanup."
+            ));
+            logFailure(id, "PLUGIN_EVENT_QUIESCENCE_FAILED");
+            log.warn(id, "Plugin lifecycle: close deferred until event callbacks quiesce");
+            return new PreviewPluginShutdownResult(
+                "NOT_STARTED", "NOT_STARTED", "FAILED",
+                "NOT_STARTED", "NOT_STARTED", failures
+            );
+        }
         final String disableState = disable(loadedPlugin, failures, id);
         final String shutdownState = shutdown(loadedPlugin, failures, id);
         final ScopeResult scope = closeScope(loadedPlugin, failures, id);
-        final String classloaderState = closeClassLoader(loadedPlugin, scope.closed(), failures, id);
-        final String unloadState = unload(loadedPlugin, scope.closed(), classloaderState, id);
+        final String classloaderState = closeClassLoader(
+            loadedPlugin, scope.closed(), eventQuiesced, failures, id
+        );
+        final String unloadState = unload(
+            loadedPlugin, scope.closed(), eventQuiesced, classloaderState, id
+        );
         log.info(
             id,
             "Plugin lifecycle: close complete disable=" + disableState
@@ -122,10 +139,11 @@ final class PreviewPluginShutdownStages {
     private String closeClassLoader(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final boolean scopeClosed,
+        final boolean eventQuiesced,
         final List<LocalPluginRuntime.PluginSummaryFailure> failures,
         final String id
     ) {
-        if (!scopeClosed) {
+        if (!scopeClosed || !eventQuiesced) {
             failures.add(failure(
                 "PLUGIN_CLASSLOADER_RETAINED", "classloader-cleanup",
                 "Plugin classloader was retained because cleanup did not quiesce."
@@ -150,11 +168,12 @@ final class PreviewPluginShutdownStages {
     private String unload(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final boolean scopeClosed,
+        final boolean eventQuiesced,
         final String classloaderState,
         final String id
     ) {
         if (loadedPlugin.runtime().state() == PluginLifecycleState.SHUTDOWN
-            && scopeClosed && "SUCCEEDED".equals(classloaderState)) {
+            && scopeClosed && eventQuiesced && "SUCCEEDED".equals(classloaderState)) {
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.UNLOADED);
             log.info(id, "Plugin lifecycle: unload succeeded");
             return "SUCCEEDED";
@@ -163,6 +182,7 @@ final class PreviewPluginShutdownStages {
             id,
             "Plugin lifecycle: unload failed state=" + loadedPlugin.runtime().state()
                 + " scopeClosed=" + scopeClosed
+                + " eventQuiesced=" + eventQuiesced
                 + " classloader=" + classloaderState
         );
         return "FAILED";
