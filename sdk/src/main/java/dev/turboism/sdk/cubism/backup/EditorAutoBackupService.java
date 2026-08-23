@@ -54,13 +54,14 @@ public interface EditorAutoBackupService {
      * {@code updateAutoBackup} trigger, then polls the backup directory and the
      * document timestamps until the artifacts appear (or the timeout expires).
      *
-     * <p>The returned stage completes with the {@link BackupCompletedEvent} on
-     * success, or exceptionally (sanitized) when the host call failed, the
-     * polling timed out, or the service is unavailable. Sync targets registered
+     * <p>The returned stage completes with a {@link BackupRunResult} on success,
+     * or exceptionally (sanitized) when the host call failed, the polling timed
+     * out, or the service is unavailable. The runtime separately publishes a
+     * detached {@link BackupCompletedEvent}. Sync targets registered
      * via {@link #registerSyncTarget} are invoked with the new files after
      * completion; target failures never fail the backup result.</p>
      */
-    CompletionStage<BackupCompletedEvent> backupNow();
+    CompletionStage<BackupRunResult> backupNow();
 
     /**
      * Backs up a just-saved document through the verified host {@code saveDocument}
@@ -73,7 +74,8 @@ public interface EditorAutoBackupService {
      * ({@code getAllFileContents} + {@code IFileContent.getFile}); the matched
      * content is saved as {@code <name>_backup<yyyy_MMdd_HHmm>.<ext>} into the
      * host backup directory (only there, never touching the original document),
-     * the artifact is polled for, and the returned stage completes with the
+     * the artifact is polled for, and the returned stage completes with a
+     * {@link BackupRunResult}. The runtime separately publishes a detached
      * {@link BackupCompletedEvent}. Sync targets registered via
      * {@link #registerSyncTarget} are invoked with the new file after
      * completion; target failures never fail the backup result.</p>
@@ -89,7 +91,7 @@ public interface EditorAutoBackupService {
      *         no pack content matches the snapshot, the host call failed, the
      *         artifact polling timed out, or the service is unavailable
      */
-    CompletionStage<BackupCompletedEvent> backupAfterSave(ProjectContentSnapshot saved);
+    CompletionStage<BackupRunResult> backupAfterSave(ProjectContentSnapshot saved);
 
     /**
      * Registers a sync target invoked with the new backup files after each
@@ -123,14 +125,14 @@ public interface EditorAutoBackupService {
         }
 
         @Override
-        public CompletionStage<BackupCompletedEvent> backupNow() {
+        public CompletionStage<BackupRunResult> backupNow() {
             return CompletableFuture.failedStage(
                 new UnsupportedOperationException("auto-backup service is not available")
             );
         }
 
         @Override
-        public CompletionStage<BackupCompletedEvent> backupAfterSave(final ProjectContentSnapshot saved) {
+        public CompletionStage<BackupRunResult> backupAfterSave(final ProjectContentSnapshot saved) {
             Objects.requireNonNull(saved, "saved");
             return CompletableFuture.failedStage(
                 new UnsupportedOperationException("auto-backup service is not available")

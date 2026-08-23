@@ -56,12 +56,12 @@ final class EditorAutoBackupServiceContractTest {
         assertThrows(UnsupportedOperationException.class, service::statuses);
         assertThrows(UnsupportedOperationException.class, () -> service.updateSettings(
             new EditorAutoBackupSettings(true, 5, 50, null)));
-        final CompletionStage<BackupCompletedEvent> stage = service.backupNow();
+        final CompletionStage<BackupRunResult> stage = service.backupNow();
         assertTrue(stage.toCompletableFuture().isDone());
         assertTrue(stage.toCompletableFuture().isCompletedExceptionally());
         service.registerSyncTarget(BackupSyncTarget.noop()).close();
 
-        final CompletionStage<BackupCompletedEvent> afterSave = service.backupAfterSave(
+        final CompletionStage<BackupRunResult> afterSave = service.backupAfterSave(
             new ProjectContentSnapshot("model:1", "model.cmo3", ProjectContentKind.MODEL,
                 java.util.Optional.empty(), List.of())
         );
@@ -89,13 +89,22 @@ final class EditorAutoBackupServiceContractTest {
         assertThrows(IllegalArgumentException.class, () -> new EditorAutoBackupStatus(" ", null, 0, 0, false));
 
         final File artifact = new File("backup/model_backup2026_08_08_1200.cmo3");
-        final BackupCompletedEvent event = new BackupCompletedEvent(
+        final BackupRunResult result = new BackupRunResult(
             42L, List.of(artifact), List.of(status)
         );
-        assertEquals(42L, event.completedAtMillis());
-        assertEquals(List.of(artifact), event.newBackupFiles());
+        assertEquals(42L, result.completedAtMillis());
+        assertEquals(List.of(artifact), result.newBackupFiles());
+
+        final BackupCompletedEvent event = new BackupCompletedEvent(
+            42L,
+            List.of(new BackupArtifact(artifact.getName(), 128L, true)),
+            List.of(new BackupDocumentStatus("model.cmo3", 1000L, 900L, true))
+        );
+        assertEquals("model_backup2026_08_08_1200.cmo3", event.artifacts().get(0).fileName());
+        assertEquals(128L, event.artifacts().get(0).sizeBytes());
         assertThrows(NullPointerException.class, () -> new BackupCompletedEvent(0L, null, List.of()));
         assertThrows(NullPointerException.class, () -> new BackupCompletedEvent(0L, List.of(), null));
+        assertThrows(IllegalArgumentException.class, () -> new BackupArtifact("../secret", 1L, false));
     }
 
     private static Object invokeDefault(
