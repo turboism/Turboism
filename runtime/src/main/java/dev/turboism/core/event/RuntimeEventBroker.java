@@ -679,6 +679,7 @@ public final class RuntimeEventBroker {
                         + " state=" + state.lifecycle()
                 );
             }
+            publicRoutes.activate(owner);
             state.lifecycle(OwnerLifecycle.ACTIVE);
         }
         replayRetained(owner);
