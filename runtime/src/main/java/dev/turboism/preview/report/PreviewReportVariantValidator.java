@@ -91,7 +91,8 @@ final class PreviewReportVariantValidator {
             payload,
             Set.of(
                 "host", "adapterState", "runtimeState", "taskFailures",
-                "storageFailures", "configFailures", "shutdownCounts", "cleanupCounts"
+                "storageFailures", "configFailures", "eventFailures", "shutdownCounts",
+                "cleanupCounts"
             ),
             Set.of(),
             "UNKNOWN_FIELD",
@@ -115,6 +116,7 @@ final class PreviewReportVariantValidator {
         validateFailureArray(payload.get("taskFailures"), "taskFailures");
         validateFailureArray(payload.get("storageFailures"), "storageFailures");
         validateFailureArray(payload.get("configFailures"), "configFailures");
+        validateFailureArray(payload.get("eventFailures"), "eventFailures");
         validateShutdownCounts(payload.get("shutdownCounts"));
         validateCleanupCounts(payload.get("cleanupCounts"));
     }
