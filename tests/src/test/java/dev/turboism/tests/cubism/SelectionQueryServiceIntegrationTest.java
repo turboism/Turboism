@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.service.query.HierarchyNode;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.fake.FakeCubismHost;
 import org.junit.jupiter.api.Test;
@@ -47,18 +48,19 @@ class SelectionQueryServiceIntegrationTest {
     }
 
     @Test
-    void subscribedListenerReceivesEventWhenSelectionChanges() throws CubismServiceException {
+    void subscribedListenerReceivesEventWhenSelectionChanges() throws Exception {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
-        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
-        final List<SelectionChangedEvent> events = new ArrayList<>();
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = selectionEnvironment(host);
+        final List<SelectionChangedEvent> events = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-        environment.context().selectionQuery().onSelectionChanged(events::add);
+        environment.context().eventBus().subscribe(SelectionChangedEvent.class, events::add);
+        environment.context().selectionQuery().currentSelection();
         host.clearSelection();
         host.select("mesh-face");
         environment.context().selectionQuery().currentSelection();
 
-        assertEquals(1, events.size());
+        waitForEvent(events);
         assertEquals(List.of(new ModelObjectId("param-angle-x")), events.get(0).previousSelection().selectedModelObjectIds());
         assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
     }
@@ -67,15 +69,38 @@ class SelectionQueryServiceIntegrationTest {
     void closedRegistrationStopsSelectionChangeEvents() throws CubismServiceException {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
-        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = selectionEnvironment(host);
         final List<SelectionChangedEvent> events = new ArrayList<>();
 
-        final Registration registration = environment.context().selectionQuery().onSelectionChanged(events::add);
+        final Registration registration = environment.context().eventBus().subscribe(
+            SelectionChangedEvent.class,
+            events::add
+        );
+        environment.context().selectionQuery().currentSelection();
         registration.close();
         host.clearSelection();
         host.select("mesh-face");
         environment.context().selectionQuery().currentSelection();
 
         assertEquals(List.of(), events);
+    }
+
+    private static CubismQueryIntegrationSupport.QueryEnvironment selectionEnvironment(
+        final FakeCubismHost host
+    ) {
+        return CubismQueryIntegrationSupport.environment(
+            host,
+            MODEL_READ_PERMISSION,
+            PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
+            PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE
+        );
+    }
+
+    private static void waitForEvent(final List<SelectionChangedEvent> events) throws Exception {
+        final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
+        while (events.isEmpty() && System.nanoTime() < deadline) {
+            Thread.sleep(10);
+        }
+        assertEquals(1, events.size());
     }
 }

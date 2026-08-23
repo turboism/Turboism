@@ -14,6 +14,7 @@ import java.util.Objects;
 /** Validates and deterministically catalogs annotated plugin entrypoint methods. */
 public final class EntrypointSubscriberCatalog {
 
+    /** Inspects entrypoints and returns their validated, deterministically ordered subscribers. */
     public List<EventSubscriberDescriptor> inspect(final List<?> entrypoints) {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();

@@ -40,6 +40,7 @@ public sealed interface DrawableLockEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted lock-state edit. */
         public static Callback openCallback(
             final Drawable drawable,
             final boolean requestedLocked,
@@ -50,8 +51,10 @@ public sealed interface DrawableLockEvent extends TurboismEvent
 
         @Override public Drawable drawable() { return drawable; }
         public boolean requestedLocked() { return requestedLocked; }
+        /** Returns the candidate lock-state value that will be applied. */
         public boolean locked() { return locked; }
 
+        /** Replaces the candidate lock-state value for the current callback. */
         public void setLocked(final boolean locked) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.locked = locked;
@@ -69,6 +72,7 @@ public sealed interface DrawableLockEvent extends TurboismEvent
                 event = new Before(drawable, requestedLocked, locked, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

@@ -33,6 +33,7 @@ public final class PartHookRegistry {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }
 
+    /** Returns the shared coordinator that owns Part lifecycle delivery. */
     public PartLifecycleCoordinator coordinator() {
         return coordinator;
     }
@@ -331,6 +332,7 @@ public final class PartHookRegistry {
         ));
     }
 
+    /** Removes legacy Part hooks registered for the plugin identifier. */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (lifecycleLock) {
@@ -345,6 +347,7 @@ public final class PartHookRegistry {
         }
     }
 
+    /** Removes Part event adapters owned by the exact plugin generation. */
     public void unregister(final PluginEventOwnerKey owner) {
         final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
         synchronized (lifecycleLock) {

@@ -2,6 +2,7 @@ package dev.turboism.tests.cubism;
 
 import dev.turboism.sdk.cubism.CubismServiceException;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.test.fake.FakeCubismHost;
 import org.junit.jupiter.api.Test;
@@ -21,10 +22,14 @@ class QueryServiceListenerCleanupTest {
     void listenerRemovedOnRegistrationClose() throws CubismServiceException {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
-        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = selectionEnvironment(host);
         final AtomicInteger callCount = new AtomicInteger();
 
-        final Registration registration = environment.context().selectionQuery().onSelectionChanged(event -> callCount.incrementAndGet());
+        final Registration registration = environment.context().eventBus().subscribe(
+            SelectionChangedEvent.class,
+            event -> callCount.incrementAndGet()
+        );
+        environment.context().selectionQuery().currentSelection();
         registration.close();
         host.clearSelection();
         host.select("mesh-face");
@@ -37,10 +42,14 @@ class QueryServiceListenerCleanupTest {
     void listenerRemovedOnPluginDisableLifecycle() throws Exception {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
         host.select("param-angle-x");
-        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = selectionEnvironment(host);
         final List<SelectionChangedEvent> events = new ArrayList<>();
 
-        environment.disposableScope().register(environment.context().selectionQuery().onSelectionChanged(events::add));
+        environment.disposableScope().register(environment.context().eventBus().subscribe(
+            SelectionChangedEvent.class,
+            events::add
+        ));
+        environment.context().selectionQuery().currentSelection();
         environment.disposableScope().close();
         host.clearSelection();
         host.select("mesh-face");
@@ -55,7 +64,7 @@ class QueryServiceListenerCleanupTest {
     @Test
     void closedListenerRegistrationDoesNotRetainListenerObject() throws CubismServiceException {
         final FakeCubismHost host = CubismQueryIntegrationSupport.sampleHost();
-        final CubismQueryIntegrationSupport.QueryEnvironment environment = CubismQueryIntegrationSupport.environment(host, MODEL_READ_PERMISSION);
+        final CubismQueryIntegrationSupport.QueryEnvironment environment = selectionEnvironment(host);
         final WeakReference<ListenerProbe> reference = closedListenerReference(environment);
 
         forceGc();
@@ -68,9 +77,23 @@ class QueryServiceListenerCleanupTest {
     ) throws CubismServiceException {
         final ListenerProbe probe = new ListenerProbe();
         final WeakReference<ListenerProbe> reference = new WeakReference<>(probe);
-        final Registration registration = environment.context().selectionQuery().onSelectionChanged(probe::onSelectionChanged);
+        final Registration registration = environment.context().eventBus().subscribe(
+            SelectionChangedEvent.class,
+            probe::onSelectionChanged
+        );
         registration.close();
         return reference;
+    }
+
+    private static CubismQueryIntegrationSupport.QueryEnvironment selectionEnvironment(
+        final FakeCubismHost host
+    ) {
+        return CubismQueryIntegrationSupport.environment(
+            host,
+            MODEL_READ_PERMISSION,
+            PermissionIds.TURBOISM_EVENT_SUBSCRIBE,
+            PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE
+        );
     }
 
     private static void forceGc() {

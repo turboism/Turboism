@@ -25,13 +25,13 @@ API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {
-    "5.2": ROOT
-    / "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+    "5.2.03": ROOT
+    / "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
     "5.3.02": ROOT
     / "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
 }
 CORE_PROFILES = {
-    "5.2": ROOT / "cubism-ref/profiles/draft/cubism-5.2.json",
+    "5.2.03": ROOT / "cubism-ref/profiles/draft/cubism-5.2.03.json",
     "5.3.02": ROOT / "cubism-ref/profiles/draft/cubism-5.3.02.json",
 }
 
@@ -141,7 +141,7 @@ def test_inventory_facts(
     api_53: dict[str, Any],
 ) -> None:
     expected = {
-        "5.2": {
+        "5.2.03": {
             "classCount": 22,
             "publicCallableCount": 158,
             "publicFieldCount": 19,
@@ -199,7 +199,7 @@ def test_inventory_facts(
 
     names_52 = set(classes(api_52))
     names_53 = set(classes(api_53))
-    require(not names_52 - names_53, "5.2 unexpectedly has unique public classes")
+    require(not names_52 - names_53, "5.2.03 unexpectedly has unique public classes")
     require(
         names_53 - names_52
         == {
@@ -232,7 +232,7 @@ def test_inventory_facts(
             member["name"] == "isRepeat" and member["descriptor"] == "()Z"
             for member in repeat_members_52
         ),
-        "5.2 unexpectedly exposes parameter repeat",
+        "5.2.03 unexpectedly exposes parameter repeat",
     )
 
 
@@ -775,7 +775,7 @@ def main() -> int:
     test_generated_reference(api_52, api_53)
     print(
         "PASS: Cubism Core public API inventory "
-        "(5.2=22/158/19, 5.3.02=27/194/43)"
+        "(5.2.03=22/158/19, 5.3.02=27/194/43)"
     )
     return 0
 
