@@ -180,7 +180,9 @@ final class PreviewPluginLoader {
             candidate.descriptor(),
             resources.entrypoints,
             contextBundle.context().logger(),
-            resources.scope
+            resources.scope,
+            contextFactory.eventBroker(),
+            resources.eventOwner.key()
         );
         resources.projectLifecycleHooksRegistered = true;
         return new LocalPluginRuntime.LoadedPlugin(
