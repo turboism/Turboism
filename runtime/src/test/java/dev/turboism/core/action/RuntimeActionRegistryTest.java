@@ -1,12 +1,15 @@
 package dev.turboism.core.action;
 
 import dev.turboism.core.diagnostics.StartupReport;
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -117,6 +120,53 @@ class RuntimeActionRegistryTest {
         assertEquals(1, secondExecutions.get());
         assertEquals(1, problems.size());
         assertEquals("ACTION_DUPLICATE_ID", problems.get(0).code());
+    }
+
+    @Test
+    void acceptedInvocationPublishesDetachedUiFact() throws Exception {
+        problems.clear();
+        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events =
+            new CopyOnWriteArrayList<>();
+        scheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+            SidecarDispatcher.noop(),
+            events::add
+        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
+        final AtomicReference<ActionInvocationEvent> observed = new AtomicReference<>();
+        final CountDownLatch delivered = new CountDownLatch(1);
+        broker.subscribe(observer.key(), ActionInvocationEvent.class, event -> {
+            observed.set(event);
+            delivered.countDown();
+        });
+        observer.activate();
+        final RuntimeActionRegistry registry = new RuntimeActionRegistry(
+            scheduler,
+            problems::add,
+            PLUGIN_ID,
+            PermissionChecker.allowAll(),
+            broker
+        );
+        registry.register("test.action", new TestAction(
+            "test.action",
+            "Test Action",
+            ignored -> { }
+        ));
+
+        registry.execute("test.action", new ActionRegistry.ActionContext() {
+            @Override
+            public java.util.Optional<UiActionEvent> uiEvent() {
+                return java.util.Optional.of(UiActionEvent.toggle("enabled", true));
+            }
+        });
+
+        assertTrue(delivered.await(1, TimeUnit.SECONDS));
+        assertEquals(PLUGIN_ID, observed.get().pluginId());
+        assertEquals("test.action", observed.get().actionId());
+        assertTrue(observed.get().uiEvent().isPresent());
+        assertEquals("enabled", observed.get().uiEvent().orElseThrow().sourceId());
     }
 
     @Test
