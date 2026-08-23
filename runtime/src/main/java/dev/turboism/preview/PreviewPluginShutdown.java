@@ -80,10 +80,10 @@ final class PreviewPluginShutdown {
         final boolean eventQuiesced = loadedPlugin.eventOwner().awaitQuiescence(
             Duration.ofSeconds(5)
         );
-        projectLifecycleHookRegistry.unregister(id);
-        editorObjectHookRegistry.unregister(id);
-        partHookRegistry.unregister(id);
-        parameterHookRegistry.unregister(id);
+        projectLifecycleHookRegistry.unregister(loadedPlugin.eventOwner().key());
+        editorObjectHookRegistry.unregister(loadedPlugin.eventOwner().key());
+        partHookRegistry.unregister(loadedPlugin.eventOwner().key());
+        parameterHookRegistry.unregister(loadedPlugin.eventOwner().key());
         closeHook.run(id, "close");
         final PreviewPluginShutdownResult result = stages.close(
             loadedPlugin, id, eventQuiesced
