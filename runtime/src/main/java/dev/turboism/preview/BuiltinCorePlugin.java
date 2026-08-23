@@ -87,7 +87,8 @@ final class BuiltinCorePlugin {
             );
             return new LocalPluginRuntime.LoadedPlugin(
                 artifact, runtime, List.of(plugin), scope, resources,
-                context.localization(), context.cleanupEvidence(), context.eventOwner()
+                context.localization(), context.cleanupEvidence(), context.eventOwner(),
+                context.context()
             );
         } catch (Throwable failure) {
             final boolean eventQuiesced = closeEventOwner(context, log);

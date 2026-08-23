@@ -107,6 +107,7 @@ public final class CorePluginContext implements PluginContext {
     private final dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation meshMirrorMoveParticipationService;
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
+    private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
@@ -530,7 +531,16 @@ public final class CorePluginContext implements PluginContext {
             ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
         this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
-            .create(this.dependencies);
+            .create(
+                this.dependencies,
+                taskScheduler instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
+                    ? runtimeTasks
+                    : null
+            );
+        this.backupCoordinator = this.cubismServices.backupService()
+            instanceof dev.turboism.adapter.cubism.backup.AutoBackupCoordinator coordinator
+                ? coordinator
+                : null;
         this.mainToolbarRegistry = dependencies.mainToolbar();
         this.paletteToolbarRegistry = dependencies.paletteToolbar();
         this.paletteFilterRegistry = dependencies.paletteFilter();
@@ -873,6 +883,13 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup() {
         return cubismServices.backupService();
+    }
+
+    /** Stops plugin-owned backup work before plugin lifecycle shutdown clears plugin state. */
+    public void quiesceBackupOperations() {
+        if (backupCoordinator != null) {
+            backupCoordinator.close();
+        }
     }
 
     @Override
