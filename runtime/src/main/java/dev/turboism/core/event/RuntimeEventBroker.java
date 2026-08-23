@@ -51,17 +51,20 @@ public final class RuntimeEventBroker {
     private final ConcurrentMap<Class<?>, List<Subscription<? extends EventBus.TurboismEvent>>> dispatchPlans =
         new ConcurrentHashMap<>();
     private final Consumer<DeliveryDiagnostic> diagnosticSink;
+    private final Consumer<SubscriberFailure> subscriberFailureSink;
+    private final ConcurrentMap<PluginEventOwnerKey, EventFailureInterceptor> failureInterceptors =
+        new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, AtomicReference<?>> runtimeObservationBaselines =
         new ConcurrentHashMap<>();
     private final ConcurrentMap<Class<?>, EventBus.TurboismEvent> retainedRuntimeEvents =
         new ConcurrentHashMap<>();
 
     public RuntimeEventBroker(final RuntimeScheduler scheduler) {
-        this(scheduler, DEFAULT_MAILBOX_CAPACITY, ignored -> { });
+        this(scheduler, DEFAULT_MAILBOX_CAPACITY, ignored -> { }, ignored -> { });
     }
 
     RuntimeEventBroker(final RuntimeScheduler scheduler, final int mailboxCapacity) {
-        this(scheduler, mailboxCapacity, ignored -> { });
+        this(scheduler, mailboxCapacity, ignored -> { }, ignored -> { });
     }
 
     public RuntimeEventBroker(
@@ -69,12 +72,25 @@ public final class RuntimeEventBroker {
         final int mailboxCapacity,
         final Consumer<DeliveryDiagnostic> diagnosticSink
     ) {
+        this(scheduler, mailboxCapacity, diagnosticSink, ignored -> { });
+    }
+
+    public RuntimeEventBroker(
+        final RuntimeScheduler scheduler,
+        final int mailboxCapacity,
+        final Consumer<DeliveryDiagnostic> diagnosticSink,
+        final Consumer<SubscriberFailure> subscriberFailureSink
+    ) {
         this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
         if (mailboxCapacity < 1) {
             throw new IllegalArgumentException("mailboxCapacity must be positive");
         }
         this.mailboxCapacity = mailboxCapacity;
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
+        this.subscriberFailureSink = Objects.requireNonNull(
+            subscriberFailureSink,
+            "subscriberFailureSink"
+        );
     }
 
     /** Validates shared public event payload classes before plugin code is initialized. */
@@ -209,18 +225,28 @@ public final class RuntimeEventBroker {
         final String pluginId,
         final List<EventSubscriberDescriptor> descriptors
     ) {
-        return registerAnnotated(legacyOwner(pluginId), descriptors);
+        return registerAnnotated(legacyOwner(pluginId), descriptors, List.of());
     }
 
     public List<Registration> registerAnnotated(
         final PluginEventOwnerKey owner,
         final List<EventSubscriberDescriptor> descriptors
     ) {
+        return registerAnnotated(owner, descriptors, List.of());
+    }
+
+    public List<Registration> registerAnnotated(
+        final PluginEventOwnerKey owner,
+        final List<EventSubscriberDescriptor> descriptors,
+        final List<?> entrypoints
+    ) {
         final PluginEventOwnerKey key = requireSubscribableOwner(owner);
         final List<EventSubscriberDescriptor> values = List.copyOf(
             Objects.requireNonNull(descriptors, "descriptors")
         );
         values.forEach(descriptor -> publicRoutes.requireSubscription(key, descriptor.eventType()));
+        final EventFailureInterceptor interceptor = new EventFailureInterceptor(entrypoints);
+        failureInterceptors.put(key, interceptor);
         final EventSubscriberInvoker invoker = new EventSubscriberInvoker();
         return List.copyOf(values.stream()
             .map(descriptor -> subscribeDescriptor(key, descriptor, invoker))
@@ -376,12 +402,18 @@ public final class RuntimeEventBroker {
             descriptor.entrypointOrdinal(),
             descriptor.methodOrdinal(),
             true,
-            event -> invokeSafely(invoker, descriptor, (EventBus.TurboismEvent) event)
+            event -> invokeSafely(
+                owner,
+                invoker,
+                descriptor,
+                (EventBus.TurboismEvent) event
+            )
         );
         return registration;
     }
 
-    private static void invokeSafely(
+    private void invokeSafely(
+        final PluginEventOwnerKey owner,
         final EventSubscriberInvoker invoker,
         final EventSubscriberDescriptor descriptor,
         final EventBus.TurboismEvent event
@@ -390,13 +422,43 @@ public final class RuntimeEventBroker {
             invoker.invoke(descriptor, event);
         } catch (ThreadDeath | VirtualMachineError fatal) {
             throw fatal;
-        } catch (RuntimeException | Error failure) {
-            throw failure;
         } catch (Throwable failure) {
+            final EventFailureInterceptor interceptor = failureInterceptors.get(owner);
+            final boolean advised = interceptor != null
+                && interceptor.intercept(owner.pluginId(), descriptor, event, failure);
+            recordSubscriberFailure(owner, descriptor, event, failure, advised);
+            if (failure instanceof RuntimeException runtimeFailure) {
+                throw runtimeFailure;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
             throw new IllegalStateException(
                 "Event subscriber failed: " + descriptor.canonicalSignature(),
                 failure
             );
+        }
+    }
+
+    private void recordSubscriberFailure(
+        final PluginEventOwnerKey owner,
+        final EventSubscriberDescriptor descriptor,
+        final EventBus.TurboismEvent event,
+        final Throwable failure,
+        final boolean advised
+    ) {
+        try {
+            subscriberFailureSink.accept(new SubscriberFailure(
+                owner,
+                descriptor.failureBoundary(),
+                event.getClass().getName(),
+                failure.getClass().getName(),
+                advised
+            ));
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable ignored) {
+            // Structured failure collection cannot alter subscriber containment.
         }
     }
 
@@ -788,6 +850,7 @@ public final class RuntimeEventBroker {
             state.lifecycle(OwnerLifecycle.CLOSED);
         }
         owners.remove(owner, state);
+        failureInterceptors.remove(owner);
         publicRoutes.remove(owner);
     }
 
@@ -857,6 +920,13 @@ public final class RuntimeEventBroker {
             return broker.registerAnnotated(key, descriptors);
         }
 
+        public List<Registration> registerAnnotated(
+            final List<EventSubscriberDescriptor> descriptors,
+            final List<?> entrypoints
+        ) {
+            return broker.registerAnnotated(key, descriptors, entrypoints);
+        }
+
         public void beginInitializing() {
             broker.beginInitializing(key);
         }
@@ -898,6 +968,21 @@ public final class RuntimeEventBroker {
         CLOSING,
         QUIESCED,
         CLOSED
+    }
+
+    public record SubscriberFailure(
+        PluginEventOwnerKey owner,
+        String operationId,
+        String eventType,
+        String exceptionType,
+        boolean advised
+    ) {
+        public SubscriberFailure {
+            owner = Objects.requireNonNull(owner, "owner");
+            operationId = requireText(operationId, "operationId");
+            eventType = requireText(eventType, "eventType");
+            exceptionType = requireText(exceptionType, "exceptionType");
+        }
     }
 
     public record DeliveryDiagnostic(

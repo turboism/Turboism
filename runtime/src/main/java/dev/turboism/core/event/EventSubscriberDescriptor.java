@@ -3,6 +3,8 @@ package dev.turboism.core.event;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
 import dev.turboism.sdk.event.EventSubscriberHandler;
+import dev.turboism.sdk.failure.FailureBoundary;
+import dev.turboism.sdk.failure.NoFailureInterception;
 import dev.turboism.core.runtime.ContextClassLoaderScope;
 
 import java.lang.reflect.InvocationTargetException;
@@ -74,6 +76,27 @@ public record EventSubscriberDescriptor(
             canonicalSignature,
             untyped
         );
+    }
+
+    public String failureBoundary() {
+        if (method == null) {
+            return "event.subscribe";
+        }
+        final FailureBoundary methodBoundary = method.getAnnotation(FailureBoundary.class);
+        if (methodBoundary != null) {
+            return requireText(methodBoundary.value(), "@FailureBoundary value");
+        }
+        final FailureBoundary typeBoundary = entrypoint.getClass().getAnnotation(
+            FailureBoundary.class
+        );
+        return typeBoundary == null
+            ? "event.subscribe"
+            : requireText(typeBoundary.value(), "@FailureBoundary value");
+    }
+
+    public boolean noFailureInterception() {
+        return entrypoint.getClass().isAnnotationPresent(NoFailureInterception.class)
+            || (method != null && method.isAnnotationPresent(NoFailureInterception.class));
     }
 
     public void invoke(final EventBus.TurboismEvent event) throws Throwable {
