@@ -155,6 +155,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                     Objects.requireNonNull(immutableContent, "content")
                 )
                 : ProjectFileOperationResult.rejected(current.operation(), immutableContent);
+        final boolean completedSuccessfully = result.succeeded();
         for (Consumer<ProjectFileOperationResult> listener : completionListeners) {
             try {
                 listener.accept(result);
@@ -164,7 +165,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         }
         final RuntimeEventBroker broker = eventBroker;
         if (broker != null) {
-            if (succeeded) {
+            if (completedSuccessfully) {
                 broker.publishRuntime(new ProjectFileLifecycleEvent.On(
                     current.operation(),
                     Objects.requireNonNull(immutableContent, "content")
@@ -178,12 +179,14 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
             submit(registration, () -> {
                 if (current.operation().kind() == ProjectContentKind.MODEL) {
                     for (ModelFileHooks hook : plugin.modelHooks()) {
-                        if (succeeded) invokeOnModel(plugin, hook, current.operation(), immutableContent);
+                        if (completedSuccessfully) {
+                            invokeOnModel(plugin, hook, current.operation(), immutableContent);
+                        }
                         invokeAfterModel(plugin, hook, current.operation(), result);
                     }
                 } else if (current.operation().kind() == ProjectContentKind.ANIMATION) {
                     for (AnimationFileHooks hook : plugin.animationHooks()) {
-                        if (succeeded) {
+                        if (completedSuccessfully) {
                             invokeOnAnimation(plugin, hook, current.operation(), immutableContent);
                         }
                         invokeAfterAnimation(plugin, hook, current.operation(), result);
