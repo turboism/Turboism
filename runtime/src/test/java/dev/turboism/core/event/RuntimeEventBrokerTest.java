@@ -556,6 +556,13 @@ class RuntimeEventBrokerTest {
                 ignored -> { }
             )
         );
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(
+                dev.turboism.sdk.action.ActionInvocationEvent.class,
+                ignored -> { }
+            )
+        );
         scheduler.shutdown();
     }
 
@@ -578,6 +585,16 @@ class RuntimeEventBrokerTest {
                     1L
                 )),
                 0L
+            ))
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new dev.turboism.sdk.action.ActionInvocationEvent(
+                "dev.example.publisher",
+                "forged.action",
+                java.util.Optional.empty(),
+                false,
+                false
             ))
         );
         scheduler.shutdown();
