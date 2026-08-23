@@ -7,7 +7,9 @@ import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
+import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
@@ -246,6 +248,20 @@ public final class EditorObjectHookRegistry {
                             event.deformer(), event.opacity()
                         )), sink, adapters
                     );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 15, entrypoint,
+                        "beforeSetDeformerVisible", DeformerVisibilityEvent.Before.class,
+                        event -> event.setVisible(hooks.beforeSetDeformerVisible(
+                            event.deformer(), event.visible()
+                        )), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 18, entrypoint,
+                        "beforeSetDeformerLocked", DeformerLockEvent.Before.class,
+                        event -> event.setLocked(hooks.beforeSetDeformerLocked(
+                            event.deformer(), event.locked()
+                        )), sink, adapters
+                    );
                 }
                 if (hasPermission(plugin, OBSERVE_PERMISSION)) {
                     adapt(
@@ -260,6 +276,34 @@ public final class EditorObjectHookRegistry {
                         "afterSetDeformerOpacity", DeformerOpacityEvent.After.class,
                         event -> hooks.afterSetDeformerOpacity(
                             event.deformer(), event.finalOpacity()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 16, entrypoint,
+                        "onDeformerVisibilityChanged", DeformerVisibilityEvent.On.class,
+                        event -> hooks.onDeformerVisibilityChanged(
+                            event.deformer(), event.oldVisible(), event.newVisible()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 17, entrypoint,
+                        "afterSetDeformerVisible", DeformerVisibilityEvent.After.class,
+                        event -> hooks.afterSetDeformerVisible(
+                            event.deformer(), event.finalVisible()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 19, entrypoint,
+                        "onDeformerLockChanged", DeformerLockEvent.On.class,
+                        event -> hooks.onDeformerLockChanged(
+                            event.deformer(), event.oldLocked(), event.newLocked()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 20, entrypoint,
+                        "afterSetDeformerLocked", DeformerLockEvent.After.class,
+                        event -> hooks.afterSetDeformerLocked(
+                            event.deformer(), event.finalLocked()
                         ), sink, adapters
                     );
                 }
@@ -435,6 +479,18 @@ public final class EditorObjectHookRegistry {
                         dev.turboism.sdk.cubism.model.Deformer.class,
                         float.class,
                         float.class
+                    };
+                case "beforeSetDeformerVisible", "afterSetDeformerVisible",
+                     "beforeSetDeformerLocked", "afterSetDeformerLocked" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Deformer.class,
+                        boolean.class
+                    };
+                case "onDeformerVisibilityChanged", "onDeformerLockChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Deformer.class,
+                        boolean.class,
+                        boolean.class
                     };
                 default -> throw new IllegalArgumentException(
                     "Unknown editor-object hook method: " + methodName
