@@ -3,7 +3,10 @@ package dev.turboism.core.event;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
+import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -66,7 +69,10 @@ public final class EventSubscriptionPermissionCatalog {
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.Before.class)
             || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
             || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DrawableLockEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -76,7 +82,13 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(PartNameEvent.On.class)
             || subscriptionType.isAssignableFrom(PartNameEvent.After.class)
             || subscriptionType.isAssignableFrom(DrawableOpacityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.After.class)
+            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.On.class)
+            || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.After.class)
+            || subscriptionType.isAssignableFrom(DrawableLockEvent.On.class)
+            || subscriptionType.isAssignableFrom(DrawableLockEvent.After.class)
+            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.On.class)
+            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);

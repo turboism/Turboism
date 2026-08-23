@@ -3,7 +3,10 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
+import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
+import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
@@ -59,7 +62,7 @@ public final class EditorObjectHookRegistry {
                 throw new IllegalStateException("Editor-object hooks already registered for " + descriptor.id());
             }
             unregisterHooks(descriptor.id());
-            registerHooks(token, descriptor, entrypoints, logger);
+            registerHooks(token, descriptor, entrypoints, logger, true);
         }
     }
 
@@ -90,7 +93,7 @@ public final class EditorObjectHookRegistry {
             }
             try {
                 pluginScope.register(ownership::close);
-                registerHooks(ownership.token, plugin, entrypoints, logger);
+                registerHooks(ownership.token, plugin, entrypoints, logger, true);
                 ownership.installed = true;
             } catch (RuntimeException | Error failure) {
                 ownerships.remove(plugin.id(), ownership);
@@ -109,45 +112,128 @@ public final class EditorObjectHookRegistry {
         final RuntimeEventBroker broker,
         final PluginEventOwnerKey owner
     ) {
-        register(descriptor, entrypoints, logger, scope);
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
+        final List<? extends TurboismPlugin> instances = List.copyOf(
+            Objects.requireNonNull(entrypoints, "entrypoints")
+        );
+        final PluginLogger sink = Objects.requireNonNull(logger, "logger");
+        final DisposableScope pluginScope = Objects.requireNonNull(scope, "scope");
+        final RuntimeEventBroker runtimeBroker = Objects.requireNonNull(broker, "broker");
+        final PluginEventOwnerKey eventOwner = Objects.requireNonNull(owner, "owner");
+        final HookOwnership ownership = new HookOwnership(plugin.id());
+        synchronized (lifecycleLock) {
+            if (ownerships.putIfAbsent(plugin.id(), ownership) != null) {
+                throw new IllegalStateException(
+                    "Editor-object hooks already registered for " + plugin.id()
+                );
+            }
+            try {
+                pluginScope.register(ownership::close);
+                registerHooks(
+                    ownership.token, plugin, instances, sink, false
+                );
+                ownership.installed = true;
+            } catch (RuntimeException | Error failure) {
+                ownerships.remove(plugin.id(), ownership);
+                unregisterHooks(plugin.id(), ownership.token);
+                throw failure;
+            }
+        }
         if (!hasPermission(plugin, INTERCEPT_PERMISSION)
             && !hasPermission(plugin, OBSERVE_PERMISSION)) {
             return;
         }
         final List<Registration> adapters = new java.util.ArrayList<>();
         int entrypointOrdinal = 0;
-        for (TurboismPlugin entrypoint : Objects.requireNonNull(entrypoints, "entrypoints")) {
+        for (TurboismPlugin entrypoint : instances) {
             if (entrypoint instanceof DrawableHooks hooks) {
-                if (hasPermission(plugin, INTERCEPT_PERMISSION)
-                    && overrides(entrypoint, "beforeSetDrawableOpacity")
-                    && !subscribes(entrypoint, DrawableOpacityEvent.Before.class)) {
-                    adapters.add(broker.subscribeAdapter(
-                        owner, DrawableOpacityEvent.Before.class, entrypointOrdinal, 0,
+                if (hasPermission(plugin, INTERCEPT_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 0, entrypoint,
+                        "beforeSetDrawableOpacity", DrawableOpacityEvent.Before.class,
                         event -> event.setOpacity(hooks.beforeSetDrawableOpacity(
                             event.drawable(), event.opacity()
-                        ))
-                    ));
+                        )), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 3, entrypoint,
+                        "beforeSetDrawableVisible", DrawableVisibilityEvent.Before.class,
+                        event -> event.setVisible(hooks.beforeSetDrawableVisible(
+                            event.drawable(), event.visible()
+                        )), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 6, entrypoint,
+                        "beforeSetDrawableLocked", DrawableLockEvent.Before.class,
+                        event -> event.setLocked(hooks.beforeSetDrawableLocked(
+                            event.drawable(), event.locked()
+                        )), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 9, entrypoint,
+                        "beforeReplaceDrawableGeometry", DrawableGeometryEvent.Before.class,
+                        event -> event.setGeometry(hooks.beforeReplaceDrawableGeometry(
+                            event.drawable(), event.geometry()
+                        )), sink, adapters
+                    );
                 }
-                if (hasPermission(plugin, OBSERVE_PERMISSION)
-                    && overrides(entrypoint, "onDrawableOpacityChanged")
-                    && !subscribes(entrypoint, DrawableOpacityEvent.On.class)) {
-                    adapters.add(broker.subscribeAdapter(
-                        owner, DrawableOpacityEvent.On.class, entrypointOrdinal, 1,
+                if (hasPermission(plugin, OBSERVE_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 1, entrypoint,
+                        "onDrawableOpacityChanged", DrawableOpacityEvent.On.class,
                         event -> hooks.onDrawableOpacityChanged(
                             event.drawable(), event.oldOpacity(), event.newOpacity()
-                        )
-                    ));
-                }
-                if (hasPermission(plugin, OBSERVE_PERMISSION)
-                    && overrides(entrypoint, "afterSetDrawableOpacity")
-                    && !subscribes(entrypoint, DrawableOpacityEvent.After.class)) {
-                    adapters.add(broker.subscribeAdapter(
-                        owner, DrawableOpacityEvent.After.class, entrypointOrdinal, 2,
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 2, entrypoint,
+                        "afterSetDrawableOpacity", DrawableOpacityEvent.After.class,
                         event -> hooks.afterSetDrawableOpacity(
                             event.drawable(), event.finalOpacity()
-                        )
-                    ));
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 4, entrypoint,
+                        "onDrawableVisibilityChanged", DrawableVisibilityEvent.On.class,
+                        event -> hooks.onDrawableVisibilityChanged(
+                            event.drawable(), event.oldVisible(), event.newVisible()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 5, entrypoint,
+                        "afterSetDrawableVisible", DrawableVisibilityEvent.After.class,
+                        event -> hooks.afterSetDrawableVisible(
+                            event.drawable(), event.finalVisible()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 7, entrypoint,
+                        "onDrawableLockChanged", DrawableLockEvent.On.class,
+                        event -> hooks.onDrawableLockChanged(
+                            event.drawable(), event.oldLocked(), event.newLocked()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 8, entrypoint,
+                        "afterSetDrawableLocked", DrawableLockEvent.After.class,
+                        event -> hooks.afterSetDrawableLocked(
+                            event.drawable(), event.finalLocked()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 10, entrypoint,
+                        "onDrawableGeometryChanged", DrawableGeometryEvent.On.class,
+                        event -> hooks.onDrawableGeometryChanged(
+                            event.drawable(), event.oldGeometry(), event.newGeometry()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 11, entrypoint,
+                        "afterReplaceDrawableGeometry", DrawableGeometryEvent.After.class,
+                        event -> hooks.afterReplaceDrawableGeometry(
+                            event.drawable(), event.finalGeometry()
+                        ), sink, adapters
+                    );
                 }
             }
             entrypointOrdinal++;
@@ -157,7 +243,7 @@ public final class EditorObjectHookRegistry {
         }
         eventAdapters.put(plugin.id(), List.copyOf(adapters));
         try {
-            scope.register(() -> closeEventAdapters(plugin.id()));
+            pluginScope.register(() -> closeEventAdapters(plugin.id()));
         } catch (RuntimeException | Error failure) {
             closeEventAdapters(plugin.id());
             unregister(plugin.id());
@@ -169,7 +255,8 @@ public final class EditorObjectHookRegistry {
         final Object token,
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
-        final PluginLogger logger
+        final PluginLogger logger,
+        final boolean includeDrawable
     ) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
         final List<? extends TurboismPlugin> ordered = Objects.requireNonNull(entrypoints, "entrypoints");
@@ -184,7 +271,7 @@ public final class EditorObjectHookRegistry {
             .filter(SemanticOperationHooks.class::isInstance)
             .map(SemanticOperationHooks.class::cast)
             .toList();
-        if (!drawableHooks.isEmpty()) {
+        if (includeDrawable && !drawableHooks.isEmpty()) {
             coordinator.drawable().register(token, new DrawableLifecycleCoordinator.PluginHooks(
                 plugin, drawableHooks, pluginLogger, intercept, observe
             ));
@@ -244,6 +331,34 @@ public final class EditorObjectHookRegistry {
         }
     }
 
+    private static <T extends dev.turboism.sdk.event.EventBus.TurboismEvent> void adapt(
+        final RuntimeEventBroker broker,
+        final PluginEventOwnerKey owner,
+        final int entrypointOrdinal,
+        final int methodOrdinal,
+        final TurboismPlugin entrypoint,
+        final String methodName,
+        final Class<T> eventType,
+        final java.util.function.Consumer<T> invocation,
+        final PluginLogger logger,
+        final List<Registration> installed
+    ) {
+        if (!overrides(entrypoint, methodName) || subscribes(entrypoint, eventType)) {
+            return;
+        }
+        installed.add(broker.subscribeAdapter(
+            owner, eventType, entrypointOrdinal, methodOrdinal, event -> {
+                try {
+                    invocation.accept(event);
+                } catch (ThreadDeath | VirtualMachineError fatal) {
+                    throw fatal;
+                } catch (Throwable failure) {
+                    throw hookFailure(logger, methodName, failure);
+                }
+            }
+        ));
+    }
+
     private static boolean overrides(final Object entrypoint, final String methodName) {
         try {
             final Class<?>[] parameterTypes = switch (methodName) {
@@ -257,6 +372,29 @@ public final class EditorObjectHookRegistry {
                         dev.turboism.sdk.cubism.model.Drawable.class,
                         float.class,
                         float.class
+                    };
+                case "beforeSetDrawableVisible", "afterSetDrawableVisible",
+                     "beforeSetDrawableLocked", "afterSetDrawableLocked" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        boolean.class
+                    };
+                case "onDrawableVisibilityChanged", "onDrawableLockChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        boolean.class,
+                        boolean.class
+                    };
+                case "beforeReplaceDrawableGeometry", "afterReplaceDrawableGeometry" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        dev.turboism.sdk.cubism.model.ArtMeshGeometry.class
+                    };
+                case "onDrawableGeometryChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        dev.turboism.sdk.cubism.model.ArtMeshGeometry.class,
+                        dev.turboism.sdk.cubism.model.ArtMeshGeometry.class
                     };
                 default -> throw new IllegalArgumentException(
                     "Unknown editor-object hook method: " + methodName
@@ -272,6 +410,21 @@ public final class EditorObjectHookRegistry {
                 failure
             );
         }
+    }
+
+    private static RuntimeException hookFailure(
+        final PluginLogger logger,
+        final String phase,
+        final Throwable failure
+    ) {
+        try {
+            logger.error("Cubism Drawable lifecycle hook failed safely: " + phase, failure);
+        } catch (Throwable ignored) {
+            // Diagnostic failure must not replace the hook failure.
+        }
+        return failure instanceof RuntimeException runtimeFailure
+            ? runtimeFailure
+            : new IllegalStateException("Legacy Drawable hook failed: " + phase, failure);
     }
 
     private static boolean subscribes(
