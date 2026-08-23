@@ -35,7 +35,7 @@ public final class EditorObjectHookRegistry {
 
     private final EditorObjectLifecycleCoordinator coordinator;
     private final ConcurrentHashMap<String, HookOwnership> ownerships = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, List<Registration>> eventAdapters =
+    private final ConcurrentHashMap<PluginEventOwnerKey, List<Registration>> eventAdapters =
         new ConcurrentHashMap<>();
     private final Object lifecycleLock = new Object();
 
@@ -409,11 +409,18 @@ public final class EditorObjectHookRegistry {
         if (adapters.isEmpty()) {
             return;
         }
-        eventAdapters.put(plugin.id(), List.copyOf(adapters));
+        final List<Registration> installed = List.copyOf(adapters);
+        if (eventAdapters.putIfAbsent(eventOwner, installed) != null) {
+            closeEventAdapters(installed);
+            unregister(plugin.id());
+            throw new IllegalStateException(
+                "Editor-object event adapters already registered for " + eventOwner
+            );
+        }
         try {
-            pluginScope.register(() -> closeEventAdapters(plugin.id()));
+            pluginScope.register(() -> closeEventAdapters(eventOwner));
         } catch (RuntimeException | Error failure) {
-            closeEventAdapters(plugin.id());
+            closeEventAdapters(eventOwner);
             unregister(plugin.id());
             throw failure;
         }
@@ -491,11 +498,28 @@ public final class EditorObjectHookRegistry {
         coordinator.semantic().unregister(pluginId, token);
     }
 
+    public void unregister(final PluginEventOwnerKey owner) {
+        closeEventAdapters(Objects.requireNonNull(owner, "owner"));
+    }
+
     private void closeEventAdapters(final String pluginId) {
-        final List<Registration> adapters = eventAdapters.remove(pluginId);
-        if (adapters == null) {
-            return;
+        eventAdapters.entrySet().removeIf(entry -> {
+            if (!entry.getKey().pluginId().equals(pluginId)) {
+                return false;
+            }
+            closeEventAdapters(entry.getValue());
+            return true;
+        });
+    }
+
+    private void closeEventAdapters(final PluginEventOwnerKey owner) {
+        final List<Registration> adapters = eventAdapters.remove(owner);
+        if (adapters != null) {
+            closeEventAdapters(adapters);
         }
+    }
+
+    private static void closeEventAdapters(final List<Registration> adapters) {
         for (int index = adapters.size() - 1; index >= 0; index--) {
             adapters.get(index).close();
         }
