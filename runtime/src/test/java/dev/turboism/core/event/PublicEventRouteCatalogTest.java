@@ -23,6 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -208,10 +209,116 @@ class PublicEventRouteCatalogTest {
         scheduler.shutdown();
     }
 
+    @Test
+    void admittedReplacementDoesNotRevokeActiveProviderAuthority() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor(
+            "[1.0.0,2.0.0)",
+            ABI,
+            true
+        ));
+        final CountDownLatch delivered = new CountDownLatch(1);
+        broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> delivered.countDown());
+        provider.activate();
+        consumer.activate();
+
+        broker.admit(providerDescriptor());
+        broker.publish(provider.key(), new PublicFixtureEvent("during-reload"));
+
+        assertTrue(delivered.await(1, TimeUnit.SECONDS));
+        scheduler.shutdown();
+    }
+
+    @Test
+    void replacementBecomesAuthoritativeOnlyAfterActivation() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
+        provider.activate();
+        final RuntimeEventBroker.Owner replacement = broker.admit(providerDescriptor());
+
+        assertDoesNotThrow(
+            () -> broker.publish(provider.key(), new PublicFixtureEvent("before-activation"))
+        );
+        replacement.activate();
+        assertThrows(
+            IllegalStateException.class,
+            () -> broker.publish(provider.key(), new PublicFixtureEvent("stale"))
+        );
+        assertDoesNotThrow(
+            () -> broker.publish(replacement.key(), new PublicFixtureEvent("active"))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void pendingReplacementDoesNotChangeProviderContractUsedForNewConsumers() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
+        provider.activate();
+        broker.admit(providerDescriptor("2.0.0"));
+
+        assertDoesNotThrow(() -> broker.admit(consumerDescriptor(
+            "[1.0.0,2.0.0)",
+            ABI,
+            true
+        )));
+        scheduler.shutdown();
+    }
+
+    @Test
+    void failedReplacementActivationLeavesPreviousProviderAuthoritative() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor(
+            "[1.0.0,2.0.0)",
+            ABI,
+            true
+        ));
+        provider.activate();
+        consumer.activate();
+        final RuntimeEventBroker.Owner replacement = broker.admit(providerDescriptor(
+            "2.0.0"
+        ));
+
+        assertThrows(IllegalArgumentException.class, replacement::activate);
+        assertDoesNotThrow(
+            () -> broker.publish(provider.key(), new PublicFixtureEvent("still-active"))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void publicImportRetainsRoutingPolicyWhileProviderIsAbsent() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor(
+            "[1.0.0,2.0.0)",
+            ABI,
+            false
+        ));
+        final RuntimeEventBroker.Owner undeclared = broker.admit("dev.example.undeclared");
+
+        broker.subscribe(consumer.key(), PublicFixtureEvent.class, ignored -> { });
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> broker.subscribe(undeclared.key(), PublicFixtureEvent.class, ignored -> { })
+        );
+        scheduler.shutdown();
+    }
+
     private static PluginDescriptor providerDescriptor() {
+        return providerDescriptor("1.4.0");
+    }
+
+    private static PluginDescriptor providerDescriptor(final String version) {
         return descriptor(
             PROVIDER,
-            "1.4.0",
+            version,
             List.of(),
             List.of(new CorePluginDescriptor.CoreEventExport(
                 EVENT_ID,
