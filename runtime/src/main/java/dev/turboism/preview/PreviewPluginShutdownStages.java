@@ -34,6 +34,14 @@ final class PreviewPluginShutdownStages {
                 "NOT_STARTED", "NOT_STARTED", failures
             );
         }
+        final boolean backupQuiesced = quiesceBackup(loadedPlugin, failures, id);
+        if (!backupQuiesced) {
+            log.warn(id, "Plugin lifecycle: close deferred until backup work quiesces");
+            return new PreviewPluginShutdownResult(
+                "NOT_STARTED", "NOT_STARTED", "FAILED",
+                "NOT_STARTED", "NOT_STARTED", failures
+            );
+        }
         final String disableState = disable(loadedPlugin, failures, id);
         final String shutdownState = shutdown(loadedPlugin, failures, id);
         final ScopeResult scope = closeScope(loadedPlugin, failures, id);
@@ -53,6 +61,27 @@ final class PreviewPluginShutdownStages {
             disableState, shutdownState, unloadState,
             scope.state(), classloaderState, failures
         );
+    }
+
+    private boolean quiesceBackup(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin,
+        final List<LocalPluginRuntime.PluginSummaryFailure> failures,
+        final String id
+    ) {
+        try {
+            if (loadedPlugin.context() != null) {
+                loadedPlugin.context().quiesceBackupOperations();
+            }
+            return true;
+        } catch (Throwable exception) {
+            failures.add(failure(
+                "PLUGIN_BACKUP_QUIESCENCE_FAILED",
+                "backup-quiescence",
+                "Plugin backup work did not quiesce before lifecycle shutdown."
+            ));
+            logFailure(id, "PLUGIN_BACKUP_QUIESCENCE_FAILED");
+            return false;
+        }
     }
 
     private String disable(

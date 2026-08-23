@@ -117,6 +117,40 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
+    void closedRegistrationDoesNotChangeSynchronousTransformSnapshot() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.transform");
+        final AtomicReference<dev.turboism.sdk.plugin.Registration> second =
+            new AtomicReference<>();
+        broker.subscribe(
+            subscriber.key(),
+            TestTransformEvent.class,
+            event -> {
+                event.value += 1;
+                second.get().close();
+            }
+        );
+        second.set(broker.subscribe(
+            subscriber.key(),
+            TestTransformEvent.class,
+            event -> event.value *= 2
+        ));
+        subscriber.activate();
+
+        final int transformed = broker.publishRuntimeTransform(
+            TestTransformEvent.class,
+            2,
+            value -> new TestTransformCallback(value),
+            event -> ((TestTransformEvent) event).value,
+            ignored -> true
+        );
+
+        assertEquals(6, transformed);
+        scheduler.shutdown();
+    }
+
+    @Test
     void manualSubscriberRunsWithPluginContextClassLoader() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
@@ -659,6 +693,32 @@ class RuntimeEventBrokerTest {
     }
 
     public record TestEvent(String value) implements TurboismEvent {
+    }
+
+    private static final class TestTransformEvent implements TurboismEvent {
+        private int value;
+
+        private TestTransformEvent(final int value) {
+            this.value = value;
+        }
+    }
+
+    private static final class TestTransformCallback
+        implements RuntimeEventBroker.TransformCallback {
+        private final TestTransformEvent event;
+
+        private TestTransformCallback(final int value) {
+            event = new TestTransformEvent(value);
+        }
+
+        @Override
+        public TurboismEvent event() {
+            return event;
+        }
+
+        @Override
+        public void close() {
+        }
     }
 
     private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
