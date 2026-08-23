@@ -1,5 +1,6 @@
 package dev.turboism.core.event;
 
+import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -14,6 +15,7 @@ public final class PluginEventBus implements EventBus {
     private final RuntimeEventBroker broker;
     private final PluginEventOwnerKey owner;
     private final PermissionChecker permissionChecker;
+    private final ClassLoader pluginClassLoader;
     private final boolean legacyExactRouting;
 
     public PluginEventBus(
@@ -25,6 +27,7 @@ public final class PluginEventBus implements EventBus {
             broker,
             Objects.requireNonNull(broker, "broker").legacyOwner(pluginId),
             permissionChecker,
+            null,
             true
         );
     }
@@ -34,18 +37,29 @@ public final class PluginEventBus implements EventBus {
         final PluginEventOwnerKey owner,
         final PermissionChecker permissionChecker
     ) {
-        this(broker, owner, permissionChecker, false);
+        this(broker, owner, permissionChecker, null, false);
+    }
+
+    public PluginEventBus(
+        final RuntimeEventBroker broker,
+        final PluginEventOwnerKey owner,
+        final PermissionChecker permissionChecker,
+        final ClassLoader pluginClassLoader
+    ) {
+        this(broker, owner, permissionChecker, pluginClassLoader, false);
     }
 
     private PluginEventBus(
         final RuntimeEventBroker broker,
         final PluginEventOwnerKey owner,
         final PermissionChecker permissionChecker,
+        final ClassLoader pluginClassLoader,
         final boolean legacyExactRouting
     ) {
         this.broker = Objects.requireNonNull(broker, "broker");
         this.owner = Objects.requireNonNull(owner, "owner");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
+        this.pluginClassLoader = pluginClassLoader;
         this.legacyExactRouting = legacyExactRouting;
     }
 
@@ -56,7 +70,17 @@ public final class PluginEventBus implements EventBus {
     ) {
         permissionChecker.check(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, "event.subscribe");
         EventSubscriptionPermissionCatalog.check(type, permissionChecker);
-        return broker.subscribe(owner, type, listener);
+        final Consumer<T> callback = Objects.requireNonNull(listener, "listener");
+        if (pluginClassLoader == null) {
+            return broker.subscribe(owner, type, callback);
+        }
+        return broker.subscribe(owner, type, event -> {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                pluginClassLoader
+            )) {
+                callback.accept(event);
+            }
+        });
     }
 
     @Override
