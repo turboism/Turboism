@@ -50,6 +50,7 @@ public final class PluginJarContract {
         rejectRetiredId(descriptor, logicalPath);
         final Set<String> content = Set.copyOf(entryNames);
         validateEntrypoints(descriptor, content, logicalPath);
+        validatePublicEventTypes(descriptor, content, logicalPath);
         validateResourceRoots(descriptor, content, logicalPath);
         validateI18n(descriptor, content, logicalPath);
         rejectUndeclaredResources(descriptor, content, logicalPath);
@@ -77,6 +78,24 @@ public final class PluginJarContract {
             require(
                 content.contains(classPath),
                 "PLUGIN_ENTRYPOINT_CLASS_MISSING",
+                logicalPath + "!/" + classPath
+            );
+        }
+    }
+
+    private static void validatePublicEventTypes(
+        final PluginDescriptor descriptor,
+        final Set<String> content,
+        final String logicalPath
+    ) throws PluginJarContractException {
+        final Set<String> contractTypes = new LinkedHashSet<>();
+        descriptor.eventExports().forEach(exported -> contractTypes.add(exported.eventType()));
+        descriptor.eventImports().forEach(imported -> contractTypes.add(imported.eventType()));
+        for (String eventType : contractTypes) {
+            final String classPath = eventType.replace('.', '/') + ".class";
+            require(
+                !content.contains(classPath),
+                "PLUGIN_PUBLIC_EVENT_API_EMBEDDED",
                 logicalPath + "!/" + classPath
             );
         }

@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-/** Parses schema-version-2 and schema-version-3 plugin.json into the SDK descriptor contract. */
+/** Parses schema-version-2 through schema-version-4 plugin.json into the SDK descriptor contract. */
 public final class PluginDescriptorParser {
 
     private final ObjectMapper mapper = new ObjectMapper();
@@ -60,9 +60,9 @@ public final class PluginDescriptorParser {
     /**
      * Validates an already-parsed manifest tree.
      *
-     * <p>The schema is chosen from the document itself: {@code schemaVersion} 3 selects the v3
-     * validator and enables the {@code category} and {@code tags} fields; anything else, including
-     * an absent field, is treated as version 2, for which those two components are empty.</p>
+     * <p>The schema is chosen from the document itself: version 3 adds classification and version 4
+     * adds public event exports/imports. An absent version retains the version 2 compatibility
+     * contract; any unsupported declared version fails schema validation.</p>
      *
      * @param root the manifest as a JSON tree
      * @param source label used in validation error paths, for diagnostics only
@@ -77,9 +77,9 @@ public final class PluginDescriptorParser {
 
     private PluginDescriptor parseNode(final JsonNode root, final String source)
         throws DescriptorParseException {
-        final boolean schemaV3 = root.path("schemaVersion").asInt(2) == 3;
-        final PluginMetaValidator validator =
-            schemaV3 ? PluginMetaValidator.v3() : new PluginMetaValidator();
+        final int schemaVersion = root.path("schemaVersion").asInt(2);
+        final boolean classified = schemaVersion >= 3;
+        final PluginMetaValidator validator = PluginMetaValidator.forSchemaVersion(schemaVersion);
         final List<SchemaValidationError> errors = validator.validate(root, source);
         if (!errors.isEmpty()) {
             final SchemaValidationError first = errors.get(0);
@@ -101,8 +101,10 @@ public final class PluginDescriptorParser {
             parsePermissions(root),
             listOrEmpty(root, "capabilities"),
             parseEnvironment(root),
-            schemaV3 ? Optional.of(root.get("category").asText()) : Optional.empty(),
-            schemaV3 ? listOrEmpty(root, "tags") : List.of()
+            classified ? Optional.of(root.get("category").asText()) : Optional.empty(),
+            classified ? listOrEmpty(root, "tags") : List.of(),
+            schemaVersion == 4 ? parseEventExports(root) : List.of(),
+            schemaVersion == 4 ? parseEventImports(root) : List.of()
         );
     }
 
@@ -169,6 +171,40 @@ public final class PluginDescriptorParser {
                 permission.has("reason")
                     ? Optional.of(permission.get("reason").asText())
                     : Optional.empty()
+            )
+        ));
+        return List.copyOf(result);
+    }
+
+    private static List<PluginDescriptor.EventExport> parseEventExports(final JsonNode root) {
+        if (!root.has("eventExports")) {
+            return List.of();
+        }
+        final List<PluginDescriptor.EventExport> result = new ArrayList<>();
+        root.get("eventExports").forEach(exported -> result.add(
+            new CorePluginDescriptor.CoreEventExport(
+                exported.get("id").asText(),
+                exported.get("contractVersion").asText(),
+                exported.get("eventType").asText(),
+                exported.get("abiSha256").asText()
+            )
+        ));
+        return List.copyOf(result);
+    }
+
+    private static List<PluginDescriptor.EventImport> parseEventImports(final JsonNode root) {
+        if (!root.has("eventImports")) {
+            return List.of();
+        }
+        final List<PluginDescriptor.EventImport> result = new ArrayList<>();
+        root.get("eventImports").forEach(imported -> result.add(
+            new CorePluginDescriptor.CoreEventImport(
+                imported.get("provider").asText(),
+                imported.get("eventId").asText(),
+                imported.get("contractVersion").asText(),
+                imported.get("eventType").asText(),
+                imported.get("abiSha256").asText(),
+                !imported.has("required") || imported.get("required").asBoolean()
             )
         ));
         return List.copyOf(result);

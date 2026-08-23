@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkSubmission;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.EventPriority;
+import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.time.Duration;
@@ -38,6 +39,7 @@ public final class RuntimeEventBroker {
 
     private final RuntimeScheduler scheduler;
     private final RuntimeEventContractCatalog contractCatalog = new RuntimeEventContractCatalog();
+    private final PublicEventRouteCatalog publicRoutes = new PublicEventRouteCatalog();
     private final int mailboxCapacity;
     private final AtomicLong sequence = new AtomicLong();
     private final ConcurrentMap<String, AtomicLong> generations = new ConcurrentHashMap<>();
@@ -69,9 +71,23 @@ public final class RuntimeEventBroker {
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
     }
 
+    /** Validates shared public event payload classes before plugin code is initialized. */
+    public void preflight(final PluginDescriptor descriptor) {
+        publicRoutes.preflight(descriptor);
+    }
+
     /** Admits one inactive plugin generation whose subscriptions can be staged before activation. */
     public Owner admit(final String pluginId) {
-        final String id = requireText(pluginId, "pluginId");
+        return admit(requireText(pluginId, "pluginId"), null);
+    }
+
+    /** Admits one generation and registers its descriptor-declared public event contracts. */
+    public Owner admit(final PluginDescriptor descriptor) {
+        final PluginDescriptor value = Objects.requireNonNull(descriptor, "descriptor");
+        return admit(requireText(value.id(), "descriptor.id"), value);
+    }
+
+    private Owner admit(final String id, final PluginDescriptor descriptor) {
         final long generation = generations
             .computeIfAbsent(id, ignored -> new AtomicLong())
             .incrementAndGet();
@@ -80,7 +96,15 @@ public final class RuntimeEventBroker {
         if (owners.putIfAbsent(key, state) != null) {
             throw new IllegalStateException("Plugin event owner generation already exists: " + key);
         }
-        return new Owner(this, key);
+        try {
+            if (descriptor != null) {
+                publicRoutes.admit(key, descriptor);
+            }
+            return new Owner(this, key);
+        } catch (RuntimeException | Error failure) {
+            owners.remove(key, state);
+            throw failure;
+        }
     }
 
     public PluginEventOwnerKey legacyOwner(final String pluginId) {
@@ -103,6 +127,7 @@ public final class RuntimeEventBroker {
         final Class<T> type,
         final Consumer<T> listener
     ) {
+        publicRoutes.requireSubscription(owner, type);
         return subscribe(owner, type, EventPriority.NORMAL, 0, 0, true, listener);
     }
 
@@ -168,8 +193,12 @@ public final class RuntimeEventBroker {
         final List<EventSubscriberDescriptor> descriptors
     ) {
         final PluginEventOwnerKey key = requireSubscribableOwner(owner);
+        final List<EventSubscriberDescriptor> values = List.copyOf(
+            Objects.requireNonNull(descriptors, "descriptors")
+        );
+        values.forEach(descriptor -> publicRoutes.requireSubscription(key, descriptor.eventType()));
         final EventSubscriberInvoker invoker = new EventSubscriberInvoker();
-        return List.copyOf(Objects.requireNonNull(descriptors, "descriptors").stream()
+        return List.copyOf(values.stream()
             .map(descriptor -> subscribeDescriptor(key, descriptor, invoker))
             .toList());
     }
@@ -335,6 +364,7 @@ public final class RuntimeEventBroker {
         requireActiveOwner(publisher, "publish");
         final T value = Objects.requireNonNull(event, "event");
         contractCatalog.requirePluginPublicationAllowed(publisher, value);
+        publicRoutes.requirePublication(publisher, value);
         publishExact(value);
     }
 
@@ -345,6 +375,7 @@ public final class RuntimeEventBroker {
         requireActiveOwner(publisher, "publish");
         final T value = Objects.requireNonNull(event, "event");
         contractCatalog.requirePluginPublicationAllowed(publisher, value);
+        publicRoutes.requirePublication(publisher, value);
         publishRuntime(value);
     }
 
@@ -355,6 +386,7 @@ public final class RuntimeEventBroker {
         requireActiveOwner(publisher, "publish");
         final T value = Objects.requireNonNull(event, "event");
         contractCatalog.requirePluginPublicationAllowed(publisher, value);
+        publicRoutes.requirePublication(publisher, value);
         publishExact(value);
     }
 
@@ -365,7 +397,9 @@ public final class RuntimeEventBroker {
             return;
         }
         for (Subscription<? extends EventBus.TurboismEvent> subscription : route) {
-            enqueue(event, subscription);
+            if (publicRoutes.mayReceive(subscription.owner(), event.getClass())) {
+                enqueue(event, subscription);
+            }
         }
     }
 
@@ -375,7 +409,9 @@ public final class RuntimeEventBroker {
         for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(
             value.getClass()
         )) {
-            enqueue(value, subscription);
+            if (publicRoutes.mayReceive(subscription.owner(), value.getClass())) {
+                enqueue(value, subscription);
+            }
         }
     }
 
@@ -412,7 +448,7 @@ public final class RuntimeEventBroker {
         final T event,
         final Subscription<? extends EventBus.TurboismEvent> subscription
     ) {
-        if (!subscription.type().isInstance(event)) {
+        if (!subscription.active() || !subscription.type().isInstance(event)) {
             return;
         }
         final OwnerState owner = owners.get(subscription.owner());
@@ -661,6 +697,7 @@ public final class RuntimeEventBroker {
             state.lifecycle(OwnerLifecycle.CLOSED);
         }
         owners.remove(owner, state);
+        publicRoutes.remove(owner);
     }
 
     private OwnerLifecycle lifecycle(final PluginEventOwnerKey owner) {
@@ -1011,7 +1048,7 @@ public final class RuntimeEventBroker {
         }
 
         private void deliverDispatched(final EventBus.TurboismEvent event) {
-            if (type.isInstance(event)) {
+            if (active && type.isInstance(event)) {
                 listener.accept(type.cast(event));
             }
         }

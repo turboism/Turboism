@@ -24,6 +24,8 @@ public final class PluginDescriptorSnapshot {
     private final Environment environment;
     private final Optional<String> category;
     private final List<String> tags;
+    private final List<EventExport> eventExports;
+    private final List<EventImport> eventImports;
 
     static PluginDescriptorSnapshot copyOf(final PluginDescriptor source) {
         return new PluginDescriptorSnapshot(source);
@@ -58,6 +60,17 @@ public final class PluginDescriptorSnapshot {
         );
         category = source.category();
         tags = List.copyOf(source.tags());
+        eventExports = source.eventExports().stream()
+            .map(value -> new EventExport(
+                value.id(), value.contractVersion(), value.eventType(), value.abiSha256()
+            ))
+            .toList();
+        eventImports = source.eventImports().stream()
+            .map(value -> new EventImport(
+                value.providerId(), value.eventId(), value.contractVersion(), value.eventType(),
+                value.abiSha256(), value.required()
+            ))
+            .toList();
     }
 
     /** @return the plugin's declared identity */
@@ -111,6 +124,12 @@ public final class PluginDescriptorSnapshot {
     /** @return declared directory tags */
     public List<String> tags() { return tags; }
 
+    /** @return provider-owned public event contracts */
+    public List<EventExport> eventExports() { return eventExports; }
+
+    /** @return dependency-owned public event contracts consumed by the plugin */
+    public List<EventImport> eventImports() { return eventImports; }
+
     /**
      * One declared plugin author.
      *
@@ -159,6 +178,26 @@ public final class PluginDescriptorSnapshot {
      * @param reason why the plugin needs it, when declared
      */
     public record Permission(String id, String scope, Optional<String> reason) {
+    }
+
+    /** Public event exported by the provider plugin. */
+    public record EventExport(
+        String id,
+        String contractVersion,
+        String eventType,
+        String abiSha256
+    ) {
+    }
+
+    /** Public event imported from a declared dependency. */
+    public record EventImport(
+        String providerId,
+        String eventId,
+        String contractVersion,
+        String eventType,
+        String abiSha256,
+        boolean required
+    ) {
     }
 
     /**
