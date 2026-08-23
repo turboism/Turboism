@@ -9,6 +9,7 @@ import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
 import dev.turboism.core.event.EventSubscriberDescriptor;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.plugin.PluginRuntime;
+import dev.turboism.core.runtime.ContextClassLoaderScope;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -139,7 +140,11 @@ final class PreviewPluginLoader {
         resources.eventOwner.beginInitializing();
 
         for (TurboismPlugin entrypoint : resources.entrypoints) {
-            entrypoint.init(contextBundle.context());
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                resources.classLoader
+            )) {
+                entrypoint.init(contextBundle.context());
+            }
             resources.initialized++;
         }
         runtime.transitionTo(PluginLifecycleState.LOADED);
@@ -282,7 +287,11 @@ final class PreviewPluginLoader {
         log.info(pluginId, "Plugin lifecycle: enable started");
         try {
             for (TurboismPlugin entrypoint : resources.entrypoints) {
-                entrypoint.enable();
+                try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                    resources.classLoader
+                )) {
+                    entrypoint.enable();
+                }
                 resources.enabled++;
             }
             runtime.transitionTo(PluginLifecycleState.ENABLED);
