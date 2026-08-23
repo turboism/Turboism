@@ -28,6 +28,8 @@ public final class ProjectLifecycleHookRegistry {
     private final EditorLifecycleCoordinator editor;
     private final java.util.Map<PluginEventOwnerKey, List<Registration>> eventAdapters =
         new java.util.HashMap<>();
+    private final java.util.Map<PluginEventOwnerKey, Object> compatibilityTokens =
+        new java.util.HashMap<>();
 
     public ProjectLifecycleHookRegistry(
         final ProjectFileLifecycleCoordinator projectFiles,
@@ -156,7 +158,7 @@ public final class ProjectLifecycleHookRegistry {
         final RuntimeEventBroker runtimeBroker = Objects.requireNonNull(broker, "broker");
         final PluginEventOwnerKey eventOwner = Objects.requireNonNull(owner, "owner");
         final PluginLogger sink = Objects.requireNonNull(logger, "logger");
-        registerProjectCompatibility(plugin, ordered, sink, pluginScope);
+        registerProjectCompatibility(plugin, ordered, sink, pluginScope, eventOwner);
         if (!hasPermission(plugin, OBSERVE_PERMISSION)) {
             return;
         }
@@ -198,7 +200,10 @@ public final class ProjectLifecycleHookRegistry {
                 pluginScope.register(() -> closeEventAdapters(eventOwner));
             } catch (RuntimeException | Error failure) {
                 closeEventAdapters(eventOwner);
-                unregister(plugin.id());
+                final Object compatibilityToken = compatibilityTokens.remove(eventOwner);
+                if (compatibilityToken != null) {
+                    editor.unregister(plugin.id(), compatibilityToken);
+                }
                 throw failure;
             }
         }
@@ -208,12 +213,40 @@ public final class ProjectLifecycleHookRegistry {
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
         final PluginLogger logger,
-        final DisposableScope scope
+        final DisposableScope scope,
+        final PluginEventOwnerKey owner
     ) {
         final List<? extends TurboismPlugin> editorOnly = entrypoints.stream()
             .filter(EditorLifecycleHooks.class::isInstance)
             .toList();
-        register(descriptor, editorOnly, logger, scope);
+        if (editorOnly.isEmpty()) {
+            return;
+        }
+        final Object token = new Object();
+        final boolean observeAllowed = hasPermission(descriptor, OBSERVE_PERMISSION);
+        final List<EditorLifecycleHooks> editorHooks = editorOnly.stream()
+            .map(EditorLifecycleHooks.class::cast)
+            .toList();
+        synchronized (lifecycleLock) {
+            editor.register(token, new EditorLifecycleCoordinator.PluginHooks(
+                descriptor,
+                editorHooks,
+                logger,
+                observeAllowed
+            ));
+            if (compatibilityTokens.putIfAbsent(owner, token) != null) {
+                editor.unregister(descriptor.id(), token);
+                throw new IllegalStateException(
+                    "Editor compatibility hooks already registered for " + owner
+                );
+            }
+            try {
+                scope.register(() -> unregisterCompatibility(owner, descriptor.id(), token));
+            } catch (RuntimeException | Error failure) {
+                unregisterCompatibility(owner, descriptor.id(), token);
+                throw failure;
+            }
+        }
     }
 
     /**
@@ -225,6 +258,13 @@ public final class ProjectLifecycleHookRegistry {
     public void unregister(final String pluginId) {
         synchronized (lifecycleLock) {
             closeEventAdapters(pluginId);
+            compatibilityTokens.entrySet().removeIf(entry -> {
+                if (!entry.getKey().pluginId().equals(pluginId)) {
+                    return false;
+                }
+                editor.unregister(pluginId, entry.getValue());
+                return true;
+            });
             projectFiles.unregister(pluginId);
             editor.unregister(pluginId);
         }
@@ -543,7 +583,24 @@ public final class ProjectLifecycleHookRegistry {
 
     public void unregister(final PluginEventOwnerKey owner) {
         synchronized (lifecycleLock) {
-            closeEventAdapters(Objects.requireNonNull(owner, "owner"));
+            final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
+            closeEventAdapters(key);
+            final Object token = compatibilityTokens.remove(key);
+            if (token != null) {
+                editor.unregister(key.pluginId(), token);
+            }
+        }
+    }
+
+    private void unregisterCompatibility(
+        final PluginEventOwnerKey owner,
+        final String pluginId,
+        final Object token
+    ) {
+        synchronized (lifecycleLock) {
+            if (compatibilityTokens.remove(owner, token)) {
+                editor.unregister(pluginId, token);
+            }
         }
     }
 
