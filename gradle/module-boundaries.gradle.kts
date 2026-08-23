@@ -75,7 +75,12 @@ private fun checkProjectDependencies(subproject: Project, state: BoundaryState) 
             checkResolvedBoundaryComponents(config, subproject, setOf(":sdk"), state)
         }
         subproject.path.startsWith(":plugins:") -> {
-            checkDeclaredBoundaryDependencies(subproject, setOf(":sdk"), "Plugin", state)
+            checkDeclaredBoundaryDependencies(
+                subproject,
+                setOf(":sdk", ":event-processor"),
+                "Plugin",
+                state
+            )
             checkResolvedBoundaryComponents(config, subproject, setOf(subproject.path, ":sdk"), state)
         }
     }
@@ -89,19 +94,27 @@ private fun checkDeclaredBoundaryDependencies(
 ) {
     project.configurations
         .filter { it.name in productionDependencyConfigurations }
-        .flatMap { it.dependencies.toList() }
-        .distinct()
-        .forEach { dependency ->
-            if (dependency is ProjectDependency) {
-                val path = dependency.dependencyProject.path
-                if (path !in allowedProjectPaths) {
-                    state.reject("$ownerLabel ${project.path} may not depend on project component $path")
+        .forEach { configuration ->
+            configuration.dependencies.forEach { dependency ->
+                if (dependency is ProjectDependency) {
+                    val path = dependency.dependencyProject.path
+                    val admittedProcessor = ownerLabel == "Plugin"
+                        && configuration.name == "annotationProcessor"
+                        && path == ":event-processor"
+                    val admitted = path in allowedProjectPaths
+                        && (path != ":event-processor" || admittedProcessor)
+                    if (!admitted) {
+                        state.reject(
+                            "$ownerLabel ${project.path} may not depend on project component $path " +
+                                "from ${configuration.name}"
+                        )
+                    }
+                } else {
+                    state.reject(
+                        "$ownerLabel ${project.path} may only declare approved project dependencies; " +
+                            "found ${dependencyIdentity(dependency)} in ${configuration.name}"
+                    )
                 }
-            } else {
-                state.reject(
-                    "$ownerLabel ${project.path} may only declare approved project dependencies; " +
-                        "found ${dependencyIdentity(dependency)}"
-                )
             }
         }
 }

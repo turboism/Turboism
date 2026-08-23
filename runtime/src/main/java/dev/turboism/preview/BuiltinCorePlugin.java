@@ -2,7 +2,7 @@ package dev.turboism.preview;
 
 import java.net.URLClassLoader;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
-import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -55,7 +55,10 @@ final class BuiltinCorePlugin {
             context = contexts.create(descriptor, resources, scope);
             plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
             runtime.setEntrypoints(List.of(plugin));
-            final var eventSubscribers = new EntrypointSubscriberCatalog().inspect(List.of(plugin));
+            final var eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
+                List.of(plugin),
+                loader
+            );
             if (!eventSubscribers.isEmpty()) {
                 requireEventSubscribePermission(descriptor);
                 EventSubscriptionPermissionCatalog.requireDeclared(

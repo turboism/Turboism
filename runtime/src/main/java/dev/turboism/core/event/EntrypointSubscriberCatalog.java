@@ -18,24 +18,33 @@ public final class EntrypointSubscriberCatalog {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
-            final Object entrypoint = Objects.requireNonNull(
-                values.get(entrypointOrdinal),
-                "entrypoint"
-            );
-            validateDeclaredMethods(entrypoint.getClass());
-            final List<Method> methods = Arrays.stream(entrypoint.getClass().getMethods())
-                .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
-                .filter(method -> !method.isBridge() && !method.isSynthetic())
-                .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
-                .toList();
-            for (int methodOrdinal = 0; methodOrdinal < methods.size(); methodOrdinal++) {
-                descriptors.add(descriptor(
-                    entrypoint,
-                    methods.get(methodOrdinal),
-                    entrypointOrdinal,
-                    methodOrdinal
-                ));
-            }
+            descriptors.addAll(inspectOne(
+                Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint"),
+                entrypointOrdinal
+            ));
+        }
+        return List.copyOf(descriptors);
+    }
+
+    List<EventSubscriberDescriptor> inspectOne(
+        final Object entrypoint,
+        final int entrypointOrdinal
+    ) {
+        final Object value = Objects.requireNonNull(entrypoint, "entrypoint");
+        validateDeclaredMethods(value.getClass());
+        final List<Method> methods = Arrays.stream(value.getClass().getMethods())
+            .filter(method -> method.isAnnotationPresent(SubscribeEvent.class))
+            .filter(method -> !method.isBridge() && !method.isSynthetic())
+            .sorted(Comparator.comparing(EntrypointSubscriberCatalog::signature))
+            .toList();
+        final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
+        for (int methodOrdinal = 0; methodOrdinal < methods.size(); methodOrdinal++) {
+            descriptors.add(descriptor(
+                value,
+                methods.get(methodOrdinal),
+                entrypointOrdinal,
+                methodOrdinal
+            ));
         }
         return List.copyOf(descriptors);
     }
