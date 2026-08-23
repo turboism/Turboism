@@ -75,6 +75,9 @@
         <pack id="turboism-common" name="Turboism Core" required="true" installGroups="full,lite">
             <description>Turboism agent and common runtime files.</description>
             <file src="__STAGE_REL__/turboism-agent.jar" targetdir="$INSTALL_PATH" override="true"/>
+            <fileset dir="__STAGE_REL__/graal/lib" targetdir="$INSTALL_PATH/graal/lib" override="true" os="windows">
+                <include name="*.jar"/>
+            </fileset>
             <file src="__STAGE_REL__/LICENSE.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.zh.txt" targetdir="$INSTALL_PATH" override="true"/>

@@ -13,6 +13,7 @@ public final class PermissionIds {
     public static final String TURBOISM_UI_DIALOG_CONTRIBUTE = "turboism.ui.dialog.contribute";
     public static final String TURBOISM_UI_DIALOG_AUTOMATE = "turboism.ui.dialog.automate";
     public static final String TURBOISM_UI_PANEL_CONTRIBUTE = "turboism.ui.panel.contribute";
+    public static final String TURBOISM_UI_SETTINGS_CONTRIBUTE = "turboism.ui.settings.contribute";
     public static final String TURBOISM_UI_FILE_CHOOSER_REQUEST = "turboism.ui.file-chooser.request";
     public static final String TURBOISM_UI_STATUS_NOTIFY = "turboism.ui.status.notify";
     public static final String TURBOISM_UI_APPEARANCE_MODIFY = "turboism.ui.appearance.modify";
