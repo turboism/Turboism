@@ -5,6 +5,7 @@ import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
+import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
@@ -342,6 +343,30 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     } catch (Throwable failure) { logHookFailure(plugin, "beforeReplaceWarpDeformerGrid", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final WarpDeformer detached = DetachedWarpDeformer.capture(
+                    deformer, deformer.getOpacity(), deformer.grid()
+                );
+                effective = broker.publishRuntimeTransform(
+                    WarpDeformerGridEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final WarpDeformerGridEvent.Before.Callback callback =
+                            WarpDeformerGridEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public WarpDeformerGridEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((WarpDeformerGridEvent.Before) event).grid(),
+                    Objects::nonNull
+                );
+            }
             final WarpGrid oldValue = deformer.grid();
             nativeOperation.accept(effective);
             final WarpGrid newValue = deformer.grid();
@@ -349,6 +374,17 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (!oldValue.equals(newValue)) hook.onWarpDeformerGridChanged(deformer, oldValue, newValue);
                 hook.afterReplaceWarpDeformerGrid(deformer, newValue);
             });
+            if (broker != null) {
+                final WarpDeformer detached = DetachedWarpDeformer.capture(
+                    deformer, deformer.getOpacity(), newValue
+                );
+                if (!oldValue.equals(newValue)) {
+                    broker.publishRuntime(new WarpDeformerGridEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new WarpDeformerGridEvent.After(detached, newValue));
+            }
         });
     }
 
