@@ -24,7 +24,8 @@ Strictness rules (fail closed):
   * only known ``:plugins:*`` modules; ``:plugins:core`` and retired plugin
     ids are rejected; duplicate descriptor ids are rejected;
   * descriptor version is authoritative strict MAJOR.MINOR.PATCH;
-  * schemaVersion 3 with a category and ordered non-empty tags is required;
+  * schemaVersion 3 or 4 with a category and ordered non-empty tags is required;
+  * schema-v4 public event exports/imports are normalized into store metadata;
   * ``cubismVersions`` is non-empty strict MAJOR.MINOR.PATCH only when the
     descriptor requires Cubism, and must be empty otherwise;
   * selected plugins need complete nonblank ``plugin.name`` and
@@ -53,6 +54,12 @@ import tempfile
 import urllib.parse
 import zipfile
 from pathlib import Path
+
+SCRIPTS_DIR = Path(__file__).resolve().parents[1]
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
+
+from plugin_event_metadata import EventMetadataError, normalize_event_metadata, validate_event_routes
 
 DESCRIPTOR_ENTRY = "META-INF/turboism/plugin.json"
 SIDECAR_NAME = "market-release.json"
@@ -301,8 +308,13 @@ def derive_descriptor(document: dict, module: str) -> dict:
             raise MarketError(f"plugins/{module}: descriptor {key!r} must be a nonblank string")
         return value
 
-    if document.get("schemaVersion") != 3:
-        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3")
+    schema_version = document.get("schemaVersion")
+    if schema_version not in (3, 4):
+        raise MarketError(f"plugins/{module}: descriptor schemaVersion must be 3 or 4")
+    try:
+        event_exports, event_imports = normalize_event_metadata(document, f"plugins/{module}")
+    except EventMetadataError as failure:
+        raise MarketError(str(failure)) from failure
     plugin_id = text("id")
     if plugin_id in RETIRED_PLUGIN_IDS:
         raise MarketError(f"plugins/{module}: plugin id {plugin_id!r} is retired")
@@ -357,6 +369,8 @@ def derive_descriptor(document: dict, module: str) -> dict:
         "environment": {"requiresCubism": environment["requiresCubism"], "ui": ui},
         "dependencies": list(dependencies),
         "permissions": list(permissions),
+        "eventExports": event_exports,
+        "eventImports": event_imports,
         "i18n": {"baseName": base_name, "locales": list(locales)},
     }
 
@@ -443,6 +457,13 @@ def validate_selection(repo_root: Path, manifest_path: Path) -> list:
             "descriptor": descriptor,
             "localizations": localizations,
         })
+    try:
+        validate_event_routes(
+            [item["descriptor"] for item in prepared],
+            require_providers=True,
+        )
+    except EventMetadataError as failure:
+        raise MarketError(str(failure)) from failure
     return prepared
 
 
@@ -538,6 +559,8 @@ def build_sidecar(revision: str, prepared: list) -> dict:
                 "environment": descriptor["environment"],
                 "dependencies": descriptor["dependencies"],
                 "permissions": descriptor["permissions"],
+                "publishedEvents": descriptor["eventExports"],
+                "subscribedEvents": descriptor["eventImports"],
             },
             "localizations": {
                 locale: {"name": entry["plugin.name"],
