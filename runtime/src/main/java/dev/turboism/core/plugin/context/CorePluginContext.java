@@ -1407,7 +1407,13 @@ public final class CorePluginContext implements PluginContext {
                     checker,
                     pluginClassLoader
                 ),
-                new RuntimeActionRegistry(runtimeScheduler, diagnosticSink, descriptor.id(), checker),
+                new RuntimeActionRegistry(
+                    runtimeScheduler,
+                    diagnosticSink,
+                    descriptor.id(),
+                    checker,
+                    eventBroker
+                ),
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
