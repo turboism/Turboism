@@ -172,6 +172,28 @@ class PluginJarContractTest {
     }
 
     @Test
+    void publicEventApiClassMustNotBeEmbeddedInPluginJar() {
+        final String eventType = "dev.turboism.sdk.event.shared.ProviderReadyEvent";
+        final PluginDescriptor base = descriptorWithLocales(List.of("base"));
+        final PluginDescriptor descriptor = new PublicEventDescriptor(base, eventType);
+
+        final PluginJarContract.PluginJarContractException exception = assertThrows(
+            PluginJarContract.PluginJarContractException.class,
+            () -> PluginJarContract.validate(
+                descriptor,
+                List.of(
+                    ENTRYPOINT_CLASS,
+                    BASE_NAME + ".properties",
+                    eventType.replace('.', '/') + ".class"
+                ),
+                "plugins/public-event.jar"
+            )
+        );
+
+        assertEquals("PLUGIN_PUBLIC_EVENT_API_EMBEDDED", exception.code());
+    }
+
+    @Test
     void everyRetiredFakePluginIdIsRejectedBeforeContentChecks() {
         // Given any valid descriptor carrying one of the four retired ids and a
         // JAR whose content would otherwise satisfy the full contract
@@ -191,6 +213,35 @@ class PluginJarContractTest {
             // Then the retired id is rejected with the typed diagnostic, filename-independent
             assertEquals("PLUGIN_RETIRED_ID", exception.code());
             assertTrue(exception.path().contains(retiredId));
+        }
+    }
+
+    private record PublicEventDescriptor(
+        PluginDescriptor delegate,
+        String eventType
+    ) implements PluginDescriptor {
+        @Override public String id() { return delegate.id(); }
+        @Override public String name() { return delegate.name(); }
+        @Override public String version() { return delegate.version(); }
+        @Override public String description() { return delegate.description(); }
+        @Override public List<String> entrypoints() { return delegate.entrypoints(); }
+        @Override public String turboismApi() { return delegate.turboismApi(); }
+        @Override public List<Author> authors() { return delegate.authors(); }
+        @Override public String license() { return delegate.license(); }
+        @Override public Optional<String> website() { return delegate.website(); }
+        @Override public List<String> resources() { return delegate.resources(); }
+        @Override public I18n i18n() { return delegate.i18n(); }
+        @Override public List<DependencyRef> dependencies() { return delegate.dependencies(); }
+        @Override public List<PermissionRef> permissions() { return delegate.permissions(); }
+        @Override public List<String> capabilities() { return delegate.capabilities(); }
+        @Override public Environment environment() { return delegate.environment(); }
+        @Override public List<EventExport> eventExports() {
+            return List.of(new EventExport() {
+                @Override public String id() { return "provider.ready"; }
+                @Override public String contractVersion() { return "1.0.0"; }
+                @Override public String eventType() { return PublicEventDescriptor.this.eventType; }
+                @Override public String abiSha256() { return "a".repeat(64); }
+            });
         }
     }
 

@@ -68,6 +68,51 @@ public interface PluginDescriptor {
         return List.of();
     }
 
+    /**
+     * Public event contracts this plugin provides to declared dependents.
+     *
+     * <p>The provider plugin id is implicit in this descriptor. Event ids are
+     * stable within that provider and contract versions govern payload ABI.</p>
+     *
+     * @return immutable exports in declaration order
+     */
+    default List<EventExport> eventExports() {
+        return List.of();
+    }
+
+    /**
+     * Public event contracts this plugin consumes from declared dependencies.
+     *
+     * @return immutable imports in declaration order
+     */
+    default List<EventImport> eventImports() {
+        return List.of();
+    }
+
+    interface EventExport {
+        String id();
+
+        String contractVersion();
+
+        String eventType();
+
+        String abiSha256();
+    }
+
+    interface EventImport {
+        String providerId();
+
+        String eventId();
+
+        String contractVersion();
+
+        String eventType();
+
+        String abiSha256();
+
+        boolean required();
+    }
+
     interface Author {
         String name();
 
