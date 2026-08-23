@@ -608,6 +608,8 @@ class CorePluginContextDescriptorPermissionsTest {
             "turboism.ui.menu.contribute",
             "turboism.event.subscribe",
             "turboism.event.publish",
+            "turboism.cubism.model.intercept",
+            "turboism.cubism.model.observe",
             "turboism.ui.toolbar.main.contribute",
             "turboism.ui.toolbar.palette.contribute",
             "turboism.ui.context-menu.contribute",
