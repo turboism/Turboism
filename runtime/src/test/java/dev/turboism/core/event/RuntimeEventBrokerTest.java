@@ -247,10 +247,16 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
-    void manualSubscriberFailureReachesThePluginWorkFailureBoundary() throws Exception {
-        final List<PluginWorkBudgetEvent> diagnostics = new CopyOnWriteArrayList<>();
-        final RuntimeScheduler scheduler = scheduler(diagnostics);
-        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+    void manualSubscriberFailureIsContainedAsAnEventDiagnostic() throws Exception {
+        final List<PluginWorkBudgetEvent> workDiagnostics = new CopyOnWriteArrayList<>();
+        final List<RuntimeEventBroker.DeliveryDiagnostic> eventDiagnostics =
+            new CopyOnWriteArrayList<>();
+        final RuntimeScheduler scheduler = scheduler(workDiagnostics);
+        final RuntimeEventBroker broker = new RuntimeEventBroker(
+            scheduler,
+            64,
+            eventDiagnostics::add
+        );
         final PluginEventBus eventBus = new PluginEventBus(
             broker,
             "dev.example.failure",
@@ -266,13 +272,16 @@ class RuntimeEventBrokerTest {
 
         assertTrue(laterSubscriber.await(1, TimeUnit.SECONDS));
         final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-        while (diagnostics.stream().noneMatch(event ->
-            event.pluginId().equals("dev.example.failure")
-                && event.phase() == PluginWorkBudgetEvent.Phase.FAILED
+        while (eventDiagnostics.stream().noneMatch(event ->
+            event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
         ) && System.nanoTime() < deadline) {
             Thread.onSpinWait();
         }
-        assertTrue(diagnostics.stream().anyMatch(event ->
+        assertTrue(eventDiagnostics.stream().anyMatch(event ->
+            event.code() == RuntimeEventBroker.DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                && event.owner().pluginId().equals("dev.example.failure")
+        ));
+        assertFalse(workDiagnostics.stream().anyMatch(event ->
             event.pluginId().equals("dev.example.failure")
                 && event.phase() == PluginWorkBudgetEvent.Phase.FAILED
         ));
