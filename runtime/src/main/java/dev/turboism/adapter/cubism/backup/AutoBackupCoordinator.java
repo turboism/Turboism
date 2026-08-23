@@ -254,11 +254,15 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                 // coalesced into the in-flight backup and observes its outcome.
                 return existing.operation.stage();
             }
-            final Operation operation = submitLocked(
+            final Operation operation = operation(
                 "backupAfterSave",
                 () -> runBackupAfterSave(saved)
             );
-            pendingSaves.put(key, new Pending(now, operation));
+            final Pending pending = new Pending(now, operation);
+            pendingSaves.put(key, pending);
+            if (!executeLocked(operation)) {
+                pendingSaves.remove(key, pending);
+            }
             return operation.stage();
         }
     }
@@ -277,22 +281,38 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         final String operationName,
         final java.util.function.Supplier<BackupRunResult> action
     ) {
-        final Operation operation = new Operation(operationName, action, completion());
+        final Operation operation = operation(operationName, action);
+        executeLocked(operation);
+        return operation;
+    }
+
+    private Operation operation(
+        final String operationName,
+        final java.util.function.Supplier<BackupRunResult> action
+    ) {
+        return new Operation(operationName, action, completion());
+    }
+
+    private boolean executeLocked(final Operation operation) {
         operations.add(operation);
         try {
             hostThread.execute(operation);
+            return true;
         } catch (RejectedExecutionException exception) {
             operations.remove(operation);
             operation.cancel();
+            return false;
         }
-        return operation;
     }
 
     private PluginCompletionFuture<BackupRunResult> completion() {
         if (pluginTasks == null) {
             return new PluginCompletionFuture<>(Runnable::run);
         }
-        return new PluginCompletionFuture<>(pluginTasks::dispatchContinuation);
+        return new PluginCompletionFuture<>(
+            pluginTasks::dispatchContinuation,
+            this::acceptsContinuations
+        );
     }
     @Override
     public Registration registerSyncTarget(final BackupSyncTarget target) {
@@ -583,6 +603,12 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         }
     }
 
+    private boolean acceptsContinuations() {
+        synchronized (lifecycleLock) {
+            return active;
+        }
+    }
+
     private void remove(final Operation operation) {
         synchronized (lifecycleLock) {
             operations.remove(operation);
@@ -622,7 +648,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
                     settle(action.get());
                 }
             } catch (Throwable failure) {
-                diagnostics.accept(name + ":failed " + failure.getClass().getName());
+                diagnose(name + ":failed " + failure.getClass().getName());
                 settleExceptionally(sanitize(failure));
             } finally {
                 finish();
@@ -652,6 +678,16 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
         private void finish() {
             remove(this);
+        }
+    }
+
+    private void diagnose(final String message) {
+        try {
+            diagnostics.accept(message);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable ignored) {
+            // Diagnostics cannot keep a plugin-facing completion stage unsettled.
         }
     }
 
