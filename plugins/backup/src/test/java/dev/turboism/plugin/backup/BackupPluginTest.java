@@ -35,6 +35,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -233,6 +234,32 @@ final class BackupPluginTest {
     }
 
     @Test
+    void lateSaveCompletionAfterShutdownDoesNotReenterPluginState() throws Exception {
+        final FakeContext context = new FakeContext();
+        final CompletableFuture<dev.turboism.sdk.cubism.backup.BackupRunResult> pending =
+            new CompletableFuture<>();
+        context.backupAfterSave = pending;
+        final BackupPlugin plugin = new BackupPlugin();
+        plugins.add(plugin);
+        plugin.init(context);
+        context.registry.completeSchema();
+        assertTrue(context.awaitLog("WebDAV backup sync binding initialized", Duration.ofSeconds(2)));
+        plugin.enable();
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "model:test", "model.cmo3", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            java.util.Optional.empty(), List.of()
+        ));
+        plugin.shutdown();
+        plugins.remove(plugin);
+
+        assertDoesNotThrow(() -> pending.completeExceptionally(
+            new IllegalStateException("late completion")
+        ));
+        Thread.sleep(100L);
+        assertFalse(context.hasLog("SAVE_BACKUP_FAILED"));
+    }
+
+    @Test
     void saveTriggeredTempArtifactsAreDeletedAfterTheEvent() throws Exception {
         FakeContext context = new FakeContext();
         BackupPlugin plugin = new BackupPlugin();
@@ -290,6 +317,7 @@ final class BackupPluginTest {
         final RecordingEventBus bus = new RecordingEventBus();
         java.nio.file.Path hostBackupDir;
         List<java.io.File> backupFiles = List.of();
+        CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave;
 
         @Override
         public PluginDescriptor descriptor() {
@@ -378,6 +406,9 @@ final class BackupPluginTest {
                 public CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave(
                     final dev.turboism.sdk.cubism.ProjectContentSnapshot saved
                 ) {
+                    if (backupAfterSave != null) {
+                        return backupAfterSave;
+                    }
                     return CompletableFuture.completedFuture(new dev.turboism.sdk.cubism.backup.BackupRunResult(
                         1_000L, backupFiles, List.of()
                     ));

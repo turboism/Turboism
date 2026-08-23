@@ -76,6 +76,10 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) throws Throwable {
         final String id = loadedPlugin.runtime().id();
+        // Teardown is deliberately outside the EventBus lifecycle: once closing begins,
+        // disable()/shutdown() cannot publish or add subscribers. This cancels queued
+        // callbacks before plugin state starts disappearing and makes unload quiescence
+        // authoritative rather than relying on each plugin to stop event traffic itself.
         loadedPlugin.eventOwner().beginClosing();
         final boolean eventQuiesced = loadedPlugin.eventOwner().awaitQuiescence(
             Duration.ofSeconds(5)
@@ -88,8 +92,11 @@ final class PreviewPluginShutdown {
         final PreviewPluginShutdownResult result = stages.close(
             loadedPlugin, id, eventQuiesced
         );
-        if (!eventQuiesced) {
-            retainedGenerations.add(loadedPlugin);
+        final boolean retryableCleanup = !eventQuiesced
+            || result.failures().stream().anyMatch(failure ->
+                "PLUGIN_BACKUP_QUIESCENCE_FAILED".equals(failure.code())
+            );
+        if (retryableCleanup && retainedGenerations.add(loadedPlugin)) {
             scheduleRetainedCleanup(loadedPlugin);
         }
         log.info(id, "Plugin unloaded with state " + loadedPlugin.runtime().state());
@@ -122,14 +129,25 @@ final class PreviewPluginShutdown {
                 return;
             }
             final String id = safePluginId(loadedPlugin);
-            final PreviewPluginShutdownResult result = stages.close(
-                loadedPlugin, id, true
-            );
-            if ("SUCCEEDED".equals(result.classloaderCleanupState())) {
-                loadedPlugin.eventOwner().close();
-                retainedGenerations.remove(loadedPlugin);
-                log.info(id, "Retained plugin generation cleanup succeeded");
+            while (retainedGenerations.contains(loadedPlugin)) {
+                final PreviewPluginShutdownResult result = stages.close(
+                    loadedPlugin, id, true
+                );
+                if ("SUCCEEDED".equals(result.classloaderCleanupState())) {
+                    loadedPlugin.eventOwner().close();
+                    retainedGenerations.remove(loadedPlugin);
+                    log.info(id, "Retained plugin generation cleanup succeeded");
+                    return;
+                }
+                if (result.failures().stream().noneMatch(failure ->
+                    "PLUGIN_BACKUP_QUIESCENCE_FAILED".equals(failure.code())
+                )) {
+                    return;
+                }
+                Thread.sleep(1_000L);
             }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
         } catch (Throwable failure) {
             tryLogStableFailure(safePluginId(loadedPlugin), "PLUGIN_RETAINED_CLEANUP_FAILED");
         }
@@ -162,10 +180,10 @@ final class PreviewPluginShutdown {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin
     ) {
         try {
-            projectLifecycleHookRegistry.unregister(safePluginId(loadedPlugin));
-            editorObjectHookRegistry.unregister(safePluginId(loadedPlugin));
-            partHookRegistry.unregister(safePluginId(loadedPlugin));
-            parameterHookRegistry.unregister(safePluginId(loadedPlugin));
+            projectLifecycleHookRegistry.unregister(loadedPlugin.eventOwner().key());
+            editorObjectHookRegistry.unregister(loadedPlugin.eventOwner().key());
+            partHookRegistry.unregister(loadedPlugin.eventOwner().key());
+            parameterHookRegistry.unregister(loadedPlugin.eventOwner().key());
             closeHook.run(safePluginId(loadedPlugin), "fallback-summary");
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.SHUTDOWN_FAILED);
         } catch (Throwable ignored) {

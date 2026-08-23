@@ -25,6 +25,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -219,6 +222,109 @@ class AutoBackupCoordinatorTest {
         service.close();
         assertThrows(IllegalStateException.class, service::settings);
         assertThrows(IllegalStateException.class, service::backupNow);
+    }
+
+    @Test
+    void closeSettlesQueuedBackupStagesInsteadOfLeavingThemIncomplete() throws Exception {
+        final ThreadPoolExecutor hostThread = new ThreadPoolExecutor(
+            1,
+            1,
+            0L,
+            TimeUnit.MILLISECONDS,
+            new LinkedBlockingQueue<>(),
+            runnable -> {
+                final Thread thread = new Thread(runnable, "test-autobackup-host");
+                thread.setDaemon(true);
+                return thread;
+            }
+        );
+        final CountDownLatch blockerStarted = new CountDownLatch(1);
+        final CountDownLatch releaseBlocker = new CountDownLatch(1);
+        hostThread.execute(() -> {
+            blockerStarted.countDown();
+            try {
+                releaseBlocker.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(blockerStarted.await(1, TimeUnit.SECONDS));
+        final FakeHost host = new FakeHost();
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+            AutoBackupAdapter.connected(host.operations()),
+            new RecordingEventSink(),
+            Clock.systemUTC(),
+            60_000L,
+            ignored -> { },
+            null,
+            hostThread
+        );
+        final CompletionStage<BackupRunResult> stage = service.backupNow();
+
+        service.close();
+        releaseBlocker.countDown();
+
+        assertThrows(
+            java.util.concurrent.ExecutionException.class,
+            () -> stage.toCompletableFuture().get(1, TimeUnit.SECONDS)
+        );
+        assertTrue(stage.toCompletableFuture().isDone());
+    }
+
+    @Test
+    void closeWaitsForAnAlreadyRunningContinuationBeforeReturning() throws Exception {
+        final dev.turboism.sdk.plugin.DisposableScope scope =
+            new dev.turboism.sdk.plugin.DisposableScope();
+        final dev.turboism.core.runtime.RuntimeScheduler runtimeScheduler =
+            new dev.turboism.core.runtime.RuntimeScheduler(
+                new dev.turboism.core.runtime.DefaultWorkBudgetPolicy(),
+                new dev.turboism.core.runtime.work.PluginWorkExecutorRegistry(
+                    1,
+                    8,
+                    ignored -> { },
+                    Clock.systemUTC()
+                ),
+                dev.turboism.core.runtime.sidecar.SidecarDispatcher.noop(),
+                ignored -> { }
+            );
+        final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks =
+            new dev.turboism.task.RuntimePluginTaskScheduler(
+                "dev.example.backup",
+                runtimeScheduler,
+                scope
+            );
+        final FakeHost host = new FakeHost();
+        final AutoBackupCoordinator service = new AutoBackupCoordinator(
+            AutoBackupAdapter.connected(host.operations()),
+            new RecordingEventSink(),
+            Clock.systemUTC(),
+            60_000L,
+            ignored -> { },
+            pluginTasks
+        );
+        final CountDownLatch callbackStarted = new CountDownLatch(1);
+        final CountDownLatch releaseCallback = new CountDownLatch(1);
+        service.backupAfterSave(snapshot("model.cmo3")).whenComplete((ignored, failure) -> {
+            callbackStarted.countDown();
+            try {
+                releaseCallback.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(callbackStarted.await(5, TimeUnit.SECONDS));
+        final CountDownLatch closeReturned = new CountDownLatch(1);
+        final Thread closeThread = new Thread(() -> {
+            service.close();
+            closeReturned.countDown();
+        }, "test-autobackup-close");
+        closeThread.start();
+
+        assertFalse(closeReturned.await(100, TimeUnit.MILLISECONDS));
+        releaseCallback.countDown();
+        assertTrue(closeReturned.await(5, TimeUnit.SECONDS));
+        scope.close();
+        runtimeScheduler.shutdown();
     }
 
     @Test

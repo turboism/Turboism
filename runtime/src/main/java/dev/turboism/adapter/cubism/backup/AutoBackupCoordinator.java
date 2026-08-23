@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.backup;
 
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.task.PluginCompletionFuture;
+import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.sdk.cubism.backup.BackupArtifact;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.backup.BackupDocumentStatus;
@@ -21,13 +23,16 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -74,10 +79,15 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     private final Clock clock;
     private final long pollTimeoutMillis;
     private final long pollIntervalMillis;
+    private static final long CLOSE_TIMEOUT_SECONDS = 5L;
+
     private final Consumer<String> diagnostics;
     private final CopyOnWriteArrayList<BackupSyncTarget> syncTargets = new CopyOnWriteArrayList<>();
     private final ExecutorService hostThread;
-    private final AtomicBoolean closed = new AtomicBoolean(false);
+    private final RuntimePluginTaskScheduler pluginTasks;
+    private final Object lifecycleLock = new Object();
+    private final Set<Operation> operations = new HashSet<>();
+    private boolean active = true;
 
     private final ConcurrentHashMap<String, Pending> pendingSaves = new ConcurrentHashMap<>();
 
@@ -102,7 +112,26 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
             Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
             clock,
             pollTimeoutMillis,
-            diagnostics
+            diagnostics,
+            null
+        );
+    }
+
+    public AutoBackupCoordinator(
+        final AutoBackupAdapter adapter,
+        final RuntimeEventBroker eventBroker,
+        final Clock clock,
+        final long pollTimeoutMillis,
+        final Consumer<String> diagnostics,
+        final RuntimePluginTaskScheduler pluginTasks
+    ) {
+        this(
+            adapter,
+            Objects.requireNonNull(eventBroker, "eventBroker")::publishRuntime,
+            clock,
+            pollTimeoutMillis,
+            diagnostics,
+            pluginTasks
         );
     }
 
@@ -112,7 +141,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         final Clock clock,
         final long pollTimeoutMillis
     ) {
-        this(adapter, eventSink, clock, pollTimeoutMillis, reason -> { });
+        this(adapter, eventSink, clock, pollTimeoutMillis, reason -> { }, null);
     }
 
     AutoBackupCoordinator(
@@ -121,6 +150,37 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         final Clock clock,
         final long pollTimeoutMillis,
         final Consumer<String> diagnostics
+    ) {
+        this(adapter, eventSink, clock, pollTimeoutMillis, diagnostics, null);
+    }
+
+    AutoBackupCoordinator(
+        final AutoBackupAdapter adapter,
+        final Consumer<BackupCompletedEvent> eventSink,
+        final Clock clock,
+        final long pollTimeoutMillis,
+        final Consumer<String> diagnostics,
+        final RuntimePluginTaskScheduler pluginTasks
+    ) {
+        this(
+            adapter,
+            eventSink,
+            clock,
+            pollTimeoutMillis,
+            diagnostics,
+            pluginTasks,
+            Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host"))
+        );
+    }
+
+    AutoBackupCoordinator(
+        final AutoBackupAdapter adapter,
+        final Consumer<BackupCompletedEvent> eventSink,
+        final Clock clock,
+        final long pollTimeoutMillis,
+        final Consumer<String> diagnostics,
+        final RuntimePluginTaskScheduler pluginTasks,
+        final ExecutorService hostThread
     ) {
         this.adapter = Objects.requireNonNull(adapter, "adapter");
         this.eventSink = Objects.requireNonNull(eventSink, "eventSink");
@@ -131,7 +191,8 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
         this.pollTimeoutMillis = pollTimeoutMillis;
         this.pollIntervalMillis = Math.min(POLL_INTERVAL_MILLIS, pollTimeoutMillis);
         this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
-        this.hostThread = Executors.newSingleThreadExecutor(daemon("turboism-autobackup-host"));
+        this.pluginTasks = pluginTasks;
+        this.hostThread = Objects.requireNonNull(hostThread, "hostThread");
     }
 
     @Override
@@ -172,54 +233,66 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     @Override
     public CompletionStage<BackupRunResult> backupNow() {
-        requireOpen();
-        final CompletableFuture<BackupRunResult> result = new CompletableFuture<>();
-        hostThread.execute(() -> {
-            try {
-                result.complete(runBackupNow());
-            } catch (Throwable failure) {
-                diagnostics.accept("backupNow:failed " + failure.getClass().getName());
-                result.completeExceptionally(sanitize(failure));
-            }
-        });
-        return result;
+        return submit("backupNow", this::runBackupNow);
     }
 
     @Override
     public CompletionStage<BackupRunResult> backupAfterSave(final ProjectContentSnapshot saved) {
         Objects.requireNonNull(saved, "saved");
-        requireOpen();
         final String key = saveKey(saved);
         final long now = clock.millis();
-        // Lazy expiry keeps the debounce map bounded to one entry per live document.
-        pendingSaves.entrySet().removeIf(
-            entry -> now - entry.getValue().scheduledAtMillis >= SAVE_DEBOUNCE_WINDOW_MILLIS
-        );
-        final CompletableFuture<BackupRunResult> result = new CompletableFuture<>();
-        final Pending[] chosen = new Pending[1];
-        pendingSaves.compute(key, (ignored, existing) -> {
+        synchronized (lifecycleLock) {
+            requireOpenLocked();
+            // Lazy expiry keeps the debounce map bounded to one entry per live document.
+            pendingSaves.entrySet().removeIf(
+                entry -> now - entry.getValue().scheduledAtMillis >= SAVE_DEBOUNCE_WINDOW_MILLIS
+            );
+            final Pending existing = pendingSaves.get(key);
             if (existing != null
                 && now - existing.scheduledAtMillis < SAVE_DEBOUNCE_WINDOW_MILLIS) {
                 // Idempotent debounce: a save within the per-document window is
                 // coalesced into the in-flight backup and observes its outcome.
-                chosen[0] = existing;
-                return existing;
+                return existing.operation.stage();
             }
-            chosen[0] = new Pending(now, result);
-            return chosen[0];
-        });
-        if (chosen[0].stage != result) {
-            return chosen[0].stage;
+            final Operation operation = submitLocked(
+                "backupAfterSave",
+                () -> runBackupAfterSave(saved)
+            );
+            pendingSaves.put(key, new Pending(now, operation));
+            return operation.stage();
         }
-        hostThread.execute(() -> {
-            try {
-                result.complete(runBackupAfterSave(saved));
-            } catch (Throwable failure) {
-                diagnostics.accept("backupAfterSave:failed " + failure.getClass().getName());
-                result.completeExceptionally(sanitize(failure));
-            }
-        });
-        return result;
+    }
+
+    private CompletionStage<BackupRunResult> submit(
+        final String operationName,
+        final java.util.function.Supplier<BackupRunResult> action
+    ) {
+        synchronized (lifecycleLock) {
+            requireOpenLocked();
+            return submitLocked(operationName, action).stage();
+        }
+    }
+
+    private Operation submitLocked(
+        final String operationName,
+        final java.util.function.Supplier<BackupRunResult> action
+    ) {
+        final Operation operation = new Operation(operationName, action, completion());
+        operations.add(operation);
+        try {
+            hostThread.execute(operation);
+        } catch (RejectedExecutionException exception) {
+            operations.remove(operation);
+            operation.cancel();
+        }
+        return operation;
+    }
+
+    private PluginCompletionFuture<BackupRunResult> completion() {
+        if (pluginTasks == null) {
+            return new PluginCompletionFuture<>(Runnable::run);
+        }
+        return new PluginCompletionFuture<>(pluginTasks::dispatchContinuation);
     }
     @Override
     public Registration registerSyncTarget(final BackupSyncTarget target) {
@@ -231,8 +304,38 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
 
     @Override
     public void close() {
-        if (closed.compareAndSet(false, true)) {
-            hostThread.shutdownNow();
+        final List<Operation> toCancel;
+        synchronized (lifecycleLock) {
+            if (active) {
+                active = false;
+                toCancel = List.copyOf(operations);
+                pendingSaves.clear();
+            } else {
+                toCancel = List.of();
+            }
+        }
+        toCancel.forEach(Operation::cancel);
+        // Repeat the interrupt and bounded wait on every close attempt. A previous
+        // lifecycle pass may have timed out; a retained-generation reaper must be
+        // able to retry quiescence rather than treating active=false as success.
+        hostThread.shutdownNow();
+        try {
+            if (!hostThread.awaitTermination(CLOSE_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                throw new IllegalStateException(
+                    "Auto-backup host operations did not quiesce before scope close"
+                );
+            }
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                "Interrupted while waiting for auto-backup host operation quiescence",
+                exception
+            );
+        }
+        if (pluginTasks != null) {
+            pluginTasks.awaitContinuationQuiescence(
+                java.time.Duration.ofSeconds(CLOSE_TIMEOUT_SECONDS)
+            );
         }
     }
 
@@ -414,7 +517,7 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     /** In-flight save-triggered backup pending per document (debounce + coalescing). */
-    private record Pending(long scheduledAtMillis, CompletableFuture<BackupRunResult> stage) { }
+    private record Pending(long scheduledAtMillis, Operation operation) { }
 
     private boolean lastAutoBackupAdvanced(final List<AutoBackupAdapter.Document> before) {
         final List<AutoBackupAdapter.Document> now = adapter.documents();
@@ -469,8 +572,86 @@ public final class AutoBackupCoordinator implements EditorAutoBackupService, Aut
     }
 
     private void requireOpen() {
-        if (closed.get()) {
+        synchronized (lifecycleLock) {
+            requireOpenLocked();
+        }
+    }
+
+    private void requireOpenLocked() {
+        if (!active) {
             throw new IllegalStateException("auto-backup coordinator is closed");
+        }
+    }
+
+    private void remove(final Operation operation) {
+        synchronized (lifecycleLock) {
+            operations.remove(operation);
+        }
+    }
+
+    private final class Operation implements Runnable {
+        private final String name;
+        private final java.util.function.Supplier<BackupRunResult> action;
+        private final PluginCompletionFuture<BackupRunResult> completion;
+        private final AtomicBoolean started = new AtomicBoolean(false);
+        private final AtomicBoolean settled = new AtomicBoolean(false);
+        private Operation(
+            final String name,
+            final java.util.function.Supplier<BackupRunResult> action,
+            final PluginCompletionFuture<BackupRunResult> completion
+        ) {
+            this.name = Objects.requireNonNull(name, "name");
+            this.action = Objects.requireNonNull(action, "action");
+            this.completion = Objects.requireNonNull(completion, "completion");
+        }
+
+        private CompletionStage<BackupRunResult> stage() {
+            return completion.stage();
+        }
+
+        @Override
+        public void run() {
+            if (!started.compareAndSet(false, true) || settled.get()) {
+                finish();
+                return;
+            }
+            try {
+                if (Thread.currentThread().isInterrupted()) {
+                    cancel();
+                } else {
+                    settle(action.get());
+                }
+            } catch (Throwable failure) {
+                diagnostics.accept(name + ":failed " + failure.getClass().getName());
+                settleExceptionally(sanitize(failure));
+            } finally {
+                finish();
+            }
+        }
+
+        private void cancel() {
+            settleExceptionally(new IllegalStateException(
+                "auto-backup operation is unavailable during plugin scope close"
+            ));
+            if (!started.get()) {
+                finish();
+            }
+        }
+
+        private void settle(final BackupRunResult result) {
+            if (settled.compareAndSet(false, true)) {
+                completion.settle(result);
+            }
+        }
+
+        private void settleExceptionally(final Throwable failure) {
+            if (settled.compareAndSet(false, true)) {
+                completion.settleExceptionally(failure);
+            }
+        }
+
+        private void finish() {
+            remove(this);
         }
     }
 

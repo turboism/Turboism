@@ -186,8 +186,15 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         );
     }
 
+    CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
+        return create(dependencies, null);
+    }
+
     @Override
-    public CubismContextServices create(final CorePluginContext.Dependencies dependencies) {
+    public CubismContextServices create(
+        final CorePluginContext.Dependencies dependencies,
+        final dev.turboism.task.RuntimePluginTaskScheduler pluginTasks
+    ) {
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
             dependencies.descriptor().id(),
             dependencies.permissions(),
@@ -239,7 +246,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             dependencies.eventBroker(),
             dependencies.clock(),
             AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
-            reason -> dependencies.logger().warn("auto-backup " + reason)
+            reason -> dependencies.logger().warn("auto-backup " + reason),
+            pluginTasks
         );
         dependencies.disposableScope().register(backupCoordinator::close);
         final CubismContextServices services = new CubismContextServices(

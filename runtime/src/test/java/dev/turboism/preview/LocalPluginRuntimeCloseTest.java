@@ -523,7 +523,8 @@ class LocalPluginRuntimeCloseTest {
             URLClassLoader.class,
             RuntimePluginLocalization.class,
             CleanupEvidenceCollector.class,
-            dev.turboism.core.event.RuntimeEventBroker.Owner.class
+            dev.turboism.core.event.RuntimeEventBroker.Owner.class,
+            dev.turboism.core.plugin.context.CorePluginContext.class
         );
         constructor.setAccessible(true);
         final Object value = constructor.newInstance(
@@ -534,7 +535,8 @@ class LocalPluginRuntimeCloseTest {
             fixture.loader(),
             fixture.localization(),
             cleanupEvidence,
-            activeEventOwner(runtime, fixture.runtime().id())
+            activeEventOwner(runtime, fixture.runtime().id()),
+            null
         );
         final Field field = LocalPluginRuntime.class.getDeclaredField("loaded");
         field.setAccessible(true);
