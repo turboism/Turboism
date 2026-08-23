@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.cubism.ProjectFileOperation;
@@ -26,6 +28,7 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
     private final LifecycleCallbackExecutor callbacks;
     private final Object registrationLock = new Object();
+    private volatile RuntimeEventBroker eventBroker;
     private final CopyOnWriteArrayList<Consumer<ProjectFileOperationResult>> completionListeners =
         new CopyOnWriteArrayList<>();
 
@@ -35,6 +38,19 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
 
     public ProjectFileLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Project-file", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Project-file lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -102,8 +118,6 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
     /** Executes the synchronous before phase and returns a correlation object for completion. */
     public Invocation begin(final ProjectFileOperation operation) {
         final ProjectFileOperation request = Objects.requireNonNull(operation, "operation");
-        System.out.println("LIFECYCLE-COORD:method=begin kind=" + request.kind()
-            + " op=" + request.operation() + " hooks=" + plugins.size());
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();
             if (!plugin.observeAllowed()) continue;
@@ -117,6 +131,10 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
                 }
             }
         }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntime(new ProjectFileLifecycleEvent.Before(request));
+        }
         return new Invocation(request);
     }
 
@@ -128,8 +146,6 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
         final Throwable failure
     ) {
         final Invocation current = Objects.requireNonNull(invocation, "invocation");
-        System.out.println("LIFECYCLE-COORD:method=complete kind=" + current.operation().kind()
-            + " op=" + current.operation().operation() + " hooks=" + plugins.size());
         final ProjectContentSnapshot immutableContent = content;
         final ProjectFileOperationResult result = failure != null
             ? ProjectFileOperationResult.failed(current.operation(), immutableContent, failure)
@@ -145,6 +161,16 @@ public final class ProjectFileLifecycleCoordinator implements AutoCloseable {
             } catch (Throwable ignored) {
                 // Runtime cleanup listeners fail open and must not block plugin callbacks.
             }
+        }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            if (succeeded) {
+                broker.publishRuntime(new ProjectFileLifecycleEvent.On(
+                    current.operation(),
+                    Objects.requireNonNull(immutableContent, "content")
+                ));
+            }
+            broker.publishRuntime(new ProjectFileLifecycleEvent.After(result));
         }
         for (Registration registration : plugins) {
             final PluginHooks plugin = registration.plugin();

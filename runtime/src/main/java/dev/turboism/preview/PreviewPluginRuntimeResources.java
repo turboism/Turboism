@@ -85,10 +85,14 @@ record PreviewPluginRuntimeResources(
         final EditorObjectHookRegistry editorObjectHookRegistry = new EditorObjectHookRegistry(
             Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle")
         );
+        final ProjectFileLifecycleCoordinator runtimeProjectFileLifecycle =
+            Objects.requireNonNull(projectFileLifecycle, "projectFileLifecycle");
+        final EditorLifecycleCoordinator runtimeEditorLifecycle =
+            Objects.requireNonNull(editorLifecycleEvents, "editorLifecycleEvents");
         final ProjectLifecycleHookRegistry projectLifecycleHookRegistry =
             new ProjectLifecycleHookRegistry(
-                Objects.requireNonNull(projectFileLifecycle, "projectFileLifecycle"),
-                Objects.requireNonNull(editorLifecycleEvents, "editorLifecycleEvents")
+                runtimeProjectFileLifecycle,
+                runtimeEditorLifecycle
             );
         return assemble(
             normalizedHome, runtimeScheduler, runtimeHostAccess, lane, runtimeLog, collector,
@@ -143,6 +147,9 @@ record PreviewPluginRuntimeResources(
             home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory,
             parameterHookRegistry.coordinator(), partHookRegistry.coordinator(),
             editorObjectHookRegistry.coordinator(), effectiveLocale
+        );
+        projectLifecycleHookRegistry.projectFiles().attachEventBroker(
+            contextFactory.eventBroker()
         );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(

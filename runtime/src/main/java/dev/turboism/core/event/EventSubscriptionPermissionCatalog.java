@@ -14,6 +14,7 @@ import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
+import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
@@ -116,7 +117,10 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.On.class)
             || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)
             || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.On.class)
-            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)
+            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.Before.class)
+            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.On.class)
+            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
