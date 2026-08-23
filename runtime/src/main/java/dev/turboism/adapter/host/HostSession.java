@@ -94,7 +94,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new AppearanceCoordinator(dynamicAppearance);
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
-    private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
+    private final dev.turboism.ui.table.RuntimeSceneTableService sceneTable = sceneTableHost.service();
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator =
         new PaletteAppearanceCoordinator();
     private final dev.turboism.ui.filter.PaletteFilterHostOperations paletteFilterHost =

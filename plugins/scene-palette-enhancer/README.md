@@ -62,6 +62,8 @@ No capabilities are declared in the plugin manifest.
 |---|---|---|
 | `turboism.file.read` | `application` | Restores per-project Scene palette manual order. |
 | `turboism.file.write` | `application` | Persists per-project Scene palette manual order. |
+| `turboism.event.subscribe` | `application` | Registers generated annotation subscribers. |
+| `turboism.ui.scene-table.observe` | `application` | Observes Runtime-owned Scene palette snapshots, header clicks, and reorder changes. |
 
 ## Privacy and data
 

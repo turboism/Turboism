@@ -70,6 +70,8 @@ This official plugin is a **store candidate**, not yet a published store listing
 | `turboism.action.register` | `application` | Register the clipmask-viewer.open.viewer action behind the Turboism tab button and menu item. |
 | `turboism.ui.menu.contribute` | `application` | Expose the clip-mask duplicate checker through the Turboism menu. |
 | `turboism.ui.status.notify` | `application` | Notify GUID copy results. |
+| `turboism.event.subscribe` | `application` | Registers the generated selection observation subscriber. |
+| `turboism.cubism.selection.observe` | `application` | Synchronizes an open viewer with pull-detected selection changes. |
 
 ## Privacy and data
 
