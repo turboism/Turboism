@@ -30,6 +30,16 @@
       "id": "turboism.file.write",
       "scope": "application",
       "reason": "Persists per-project Scene palette manual order."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Subscribes to Runtime-owned Scene palette observations."
+    },
+    {
+      "id": "turboism.ui.scene-table.observe",
+      "scope": "application",
+      "reason": "Observes Scene palette snapshots, header clicks, and manual reorder changes."
     }
   ],
   "capabilities": [],

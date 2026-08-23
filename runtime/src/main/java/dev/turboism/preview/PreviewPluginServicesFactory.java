@@ -111,6 +111,9 @@ final class PreviewPluginServicesFactory {
             .attachEventBroker(eventBroker);
         Objects.requireNonNull(hostAccess, "hostAccess").appearanceCoordinator()
             .attachEventBroker(eventBroker);
+        if (hostAccess.sceneTable() instanceof dev.turboism.ui.table.RuntimeSceneTableService sceneTable) {
+            sceneTable.attachEventBroker(eventBroker);
+        }
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;

@@ -1,6 +1,5 @@
 package dev.turboism.plugin.scenepalette;
 
-import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.table.SceneTableService;
 
 import java.util.ArrayList;
@@ -19,9 +18,6 @@ final class SceneTableSorter implements AutoCloseable {
     private final ManualOrderStore store;
     private final Consumer<String> debug;
     private final Map<String, String> baseHeaders = new HashMap<>();
-    private Registration headerClicks = () -> { };
-    private Registration snapshots = () -> { };
-    private Registration orderChanges = () -> { };
     private SceneTableService.TableSnapshot snapshot;
     private List<String> manualOrder = List.of();
     private String scopeId = "";
@@ -51,13 +47,7 @@ final class SceneTableSorter implements AutoCloseable {
         this.debug = Objects.requireNonNull(debug, "debug");
     }
 
-    void enable() {
-        headerClicks = service.onHeaderClick(SceneTableService.SCENE_TABLE_ID, this::onHeaderClick);
-        snapshots = service.onSnapshot(SceneTableService.SCENE_TABLE_ID, this::onSnapshot);
-        orderChanges = service.onItemOrderChanged(SceneTableService.SCENE_TABLE_ID, this::onItemOrderChanged);
-    }
-
-    private void onSnapshot(final SceneTableService.TableSnapshot next) {
+    void onSnapshot(final SceneTableService.TableSnapshot next) {
         snapshot = next;
         next.columns().forEach(column -> baseHeaders.putIfAbsent(column.id(), stripMarker(column.label())));
         final List<String> liveOrder = next.items().stream().map(SceneTableService.Item::id).toList();
@@ -95,13 +85,13 @@ final class SceneTableSorter implements AutoCloseable {
         if (!scopeId.isBlank()) store.save(scopeId, manualOrder);
     }
 
-    private void onItemOrderChanged(final SceneTableService.ItemOrderChanged changed) {
+    void onItemOrderChanged(final SceneTableService.ItemOrderChanged changed) {
         if (!Objects.equals(scopeId, changed.scopeId())) return;
         manualOrder = List.copyOf(changed.itemIds());
         persistManualOrder();
     }
 
-    private void onHeaderClick(final SceneTableService.HeaderClick click) {
+    void onHeaderClick(final SceneTableService.HeaderClick click) {
         if (!Objects.equals(sortColumn, click.columnId())) {
             sortColumn = click.columnId();
             ascending = false;
@@ -193,12 +183,6 @@ final class SceneTableSorter implements AutoCloseable {
     @Override
     public void close() {
         service.setManualReordering(SceneTableService.SCENE_TABLE_ID, false);
-        snapshots.close();
-        headerClicks.close();
-        orderChanges.close();
-        snapshots = () -> { };
-        headerClicks = () -> { };
-        orderChanges = () -> { };
         snapshot = null;
         scopeGeneration++;
         scopeId = "";

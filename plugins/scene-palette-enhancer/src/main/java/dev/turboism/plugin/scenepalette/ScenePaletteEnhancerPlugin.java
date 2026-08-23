@@ -1,7 +1,11 @@
 package dev.turboism.plugin.scenepalette;
 
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
+import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
+import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 
 import java.util.Objects;
 
@@ -27,7 +31,27 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
             ManualOrderStore.storage(context.storage(), context.logger()),
             context.logger()
         );
-        sorter.enable();
+    }
+
+    @SubscribeEvent
+    public void onHeaderClick(final SceneTableHeaderClickEvent event) {
+        if (sorter != null) {
+            sorter.onHeaderClick(event.click());
+        }
+    }
+
+    @SubscribeEvent
+    public void onSnapshot(final SceneTableSnapshotEvent event) {
+        if (sorter != null) {
+            sorter.onSnapshot(event.snapshot());
+        }
+    }
+
+    @SubscribeEvent
+    public void onItemOrderChanged(final SceneTableItemOrderEvent event) {
+        if (sorter != null) {
+            sorter.onItemOrderChanged(event.change());
+        }
     }
 
     @Override
