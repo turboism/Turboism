@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
+import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
@@ -174,20 +175,51 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             final RuntimeEventBroker broker = eventBroker;
             if (broker != null) {
                 broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
+                publishModelUpdateBefore(broker, event);
             }
             final boolean confirmed = Objects.requireNonNull(invocation, "invocation").get();
             publishCompletion(event, confirmed);
             if (broker != null) {
                 if (confirmed) {
                     broker.publishRuntime(new CubismOperationLifecycleEvent.On(event));
+                    publishModelUpdateOn(broker, event);
                 }
                 broker.publishRuntime(new CubismOperationLifecycleEvent.After(
                     event, confirmed
                 ));
+                publishModelUpdateAfter(broker, event, confirmed);
             }
         } finally {
             operations.remove(semantic);
             if (operations.isEmpty()) active.remove();
+        }
+    }
+
+    private static void publishModelUpdateBefore(
+        final RuntimeEventBroker broker,
+        final CubismOperationEvent event
+    ) {
+        if (event.operation() == CubismOperation.UPDATE_MODEL) {
+            broker.publishRuntime(new ModelUpdateEvent.Before(event));
+        }
+    }
+
+    private static void publishModelUpdateOn(
+        final RuntimeEventBroker broker,
+        final CubismOperationEvent event
+    ) {
+        if (event.operation() == CubismOperation.UPDATE_MODEL) {
+            broker.publishRuntime(new ModelUpdateEvent.On(event));
+        }
+    }
+
+    private static void publishModelUpdateAfter(
+        final RuntimeEventBroker broker,
+        final CubismOperationEvent event,
+        final boolean confirmed
+    ) {
+        if (confirmed && event.operation() == CubismOperation.UPDATE_MODEL) {
+            broker.publishRuntime(new ModelUpdateEvent.After(event));
         }
     }
 
