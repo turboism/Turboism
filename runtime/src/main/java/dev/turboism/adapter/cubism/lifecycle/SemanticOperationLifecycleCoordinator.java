@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
@@ -24,6 +26,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     private final LifecycleCallbackExecutor callbacks;
     private final Object registrationLock = new Object();
     private final AtomicLong sequence = new AtomicLong();
+    private volatile RuntimeEventBroker eventBroker;
     private final ThreadLocal<EnumSet<CubismOperation>> active =
         ThreadLocal.withInitial(() -> EnumSet.noneOf(CubismOperation.class));
 
@@ -35,6 +38,19 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
     /** Creates a coordinator with an explicit bounded callback executor. */
     public SemanticOperationLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Semantic operation", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Semantic lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /** Replaces one plugin's hook entrypoints. */
@@ -155,8 +171,20 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         );
         try {
             invokeBefore(event);
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
+            }
             final boolean confirmed = Objects.requireNonNull(invocation, "invocation").get();
             publishCompletion(event, confirmed);
+            if (broker != null) {
+                if (confirmed) {
+                    broker.publishRuntime(new CubismOperationLifecycleEvent.On(event));
+                }
+                broker.publishRuntime(new CubismOperationLifecycleEvent.After(
+                    event, confirmed
+                ));
+            }
         } finally {
             operations.remove(semantic);
             if (operations.isEmpty()) active.remove();
