@@ -137,7 +137,7 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
-    void initializingOwnerMayPublishManualEventsWithoutActivatingAnnotatedSubscribers() throws Exception {
+    void initializingOwnerMayPublishToAnnotatedSubscribersDuringLifecycle() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
         final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.initializing");
@@ -157,7 +157,7 @@ class RuntimeEventBrokerTest {
         broker.publish(publisher.key(), new TestEvent("init"));
 
         assertTrue(manualDelivered.await(1, TimeUnit.SECONDS));
-        assertFalse(annotatedDelivered.await(100, TimeUnit.MILLISECONDS));
+        assertTrue(annotatedDelivered.await(1, TimeUnit.SECONDS));
         publisher.beginEnabling();
         publisher.activate();
         scheduler.shutdown();
