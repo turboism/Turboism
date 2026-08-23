@@ -2,7 +2,9 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
+import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
@@ -203,6 +205,30 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerVisible", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(
+                    deformer, deformer.getOpacity()
+                );
+                effective = broker.publishRuntimeTransform(
+                    DeformerVisibilityEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DeformerVisibilityEvent.Before.Callback callback =
+                            DeformerVisibilityEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DeformerVisibilityEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DeformerVisibilityEvent.Before) event).visible(),
+                    ignored -> true
+                );
+            }
             final boolean oldValue = deformer.visible();
             nativeOperation.accept(effective);
             final boolean newValue = deformer.visible();
@@ -210,6 +236,17 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (oldValue != newValue) hook.onDeformerVisibilityChanged(deformer, oldValue, newValue);
                 hook.afterSetDeformerVisible(deformer, newValue);
             });
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(
+                    deformer, deformer.getOpacity()
+                );
+                if (oldValue != newValue) {
+                    broker.publishRuntime(new DeformerVisibilityEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DeformerVisibilityEvent.After(detached, newValue));
+            }
         });
     }
 
@@ -233,6 +270,30 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerLocked", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(
+                    deformer, deformer.getOpacity()
+                );
+                effective = broker.publishRuntimeTransform(
+                    DeformerLockEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DeformerLockEvent.Before.Callback callback =
+                            DeformerLockEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DeformerLockEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DeformerLockEvent.Before) event).locked(),
+                    ignored -> true
+                );
+            }
             final boolean oldValue = deformer.locked();
             nativeOperation.accept(effective);
             final boolean newValue = deformer.locked();
@@ -240,6 +301,17 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (oldValue != newValue) hook.onDeformerLockChanged(deformer, oldValue, newValue);
                 hook.afterSetDeformerLocked(deformer, newValue);
             });
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(
+                    deformer, deformer.getOpacity()
+                );
+                if (oldValue != newValue) {
+                    broker.publishRuntime(new DeformerLockEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DeformerLockEvent.After(detached, newValue));
+            }
         });
     }
 
