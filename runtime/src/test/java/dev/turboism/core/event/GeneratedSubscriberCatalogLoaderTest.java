@@ -5,6 +5,8 @@ import dev.turboism.sdk.event.EventSubscriberRegistrar;
 import dev.turboism.sdk.event.GeneratedSubscriberCatalog;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
+import dev.turboism.sdk.failure.FailureBoundary;
+import dev.turboism.sdk.failure.NoFailureInterception;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -74,7 +76,11 @@ class GeneratedSubscriberCatalogLoaderTest {
                 new GeneratedSubscriberCatalogLoader().inspect(List.of(subscriber), loader);
 
             assertEquals(1, descriptors.size());
-            org.junit.jupiter.api.Assertions.assertNull(descriptors.get(0).method());
+            assertEquals("on", descriptors.get(0).method().getName());
+            assertEquals("event.generated", descriptors.get(0).failureBoundary());
+            org.junit.jupiter.api.Assertions.assertTrue(
+                descriptors.get(0).noFailureInterception()
+            );
             assertEquals(EventPriority.HIGH, descriptors.get(0).priority());
         }
     }
@@ -183,6 +189,8 @@ class GeneratedSubscriberCatalogLoaderTest {
     public record TestEvent(String value) implements TurboismEvent { }
 
     public static final class FixtureSubscriber {
+        @FailureBoundary("event.generated")
+        @NoFailureInterception
         public void on(final TestEvent event) { }
     }
 
