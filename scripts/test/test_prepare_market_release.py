@@ -402,6 +402,32 @@ class ManifestValidationTest(unittest.TestCase):
         ])
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_schema_v4_required_provider_may_already_be_published(self):
+        path = make_module(
+            self.tmp,
+            "consumer",
+            "dev.turboism.plugin.consumer",
+            False,
+            schema_version=4,
+            dependencies=[{"id": "dev.turboism.plugin.provider", "version": "[0.1.0,0.2.0)"}],
+            event_imports=[{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "model.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": "a" * 64,
+                "required": True,
+            }],
+        )
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\ninclude("plugins:consumer")\n')
+        self.fixture.build_modules([("consumer", path.read_bytes())])
+        result = self.plan([
+            {"project": ":plugins:consumer", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_schema_v4_event_import_requires_dependency(self):
         path = make_module(
             self.tmp,
