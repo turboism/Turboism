@@ -5,7 +5,7 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
-import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.GeneratedSubscriberCatalogLoader;
 import dev.turboism.core.event.EventSubscriberDescriptor;
 import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.plugin.PluginRuntime;
@@ -110,8 +110,9 @@ final class PreviewPluginLoader {
             resources.classLoader
         ));
         runtime.setEntrypoints(resources.entrypoints);
-        resources.eventSubscribers = new EntrypointSubscriberCatalog().inspect(
-            resources.entrypoints
+        resources.eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
+            resources.entrypoints,
+            resources.classLoader
         );
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
