@@ -4,6 +4,7 @@ param(
     [Alias("Home")]
     [string]$HomePath = "",
     [string]$CubismRoot = "",
+    [string]$CubismJava = "",
     [string]$ProjectPath = "",
     [ValidateSet("normal", "d3d")]
     [string]$Variant = "normal",
@@ -33,6 +34,8 @@ $messages = @{
         D3DMissing = "The selected Cubism installation has no official D3D BAT: {0}"
         ProjectMissing = "Project or file does not exist: {0}"
         Ready = "Managed Cubism launch: {0} ({1})"
+        Jvm = "Cubism JVM: {0}"
+        GraalFallback = "GraalVM is unavailable. This launch will use Cubism bundled Java instead. Install GraalVM from https://www.graalvm.org/downloads/ and select it again in Turboism Settings."
         Probe = "Managed launch probe passed."
     }
     zh = @{
@@ -47,6 +50,8 @@ $messages = @{
         D3DMissing = "所选 Cubism 安装没有官方 D3D BAT：{0}"
         ProjectMissing = "项目或文件不存在：{0}"
         Ready = "托管 Cubism 启动：{0}（{1}）"
+        Jvm = "Cubism JVM：{0}"
+        GraalFallback = "未检测到 GraalVM，本次启动将改用 Cubism 内置 Java。请从 https://www.graalvm.org/downloads/ 安装 GraalVM，然后在 Turboism 设置中重新选择。"
         Probe = "托管启动探针通过。"
     }
     ja = @{
@@ -61,6 +66,8 @@ $messages = @{
         D3DMissing = "選択した Cubism インストールに公式 D3D BAT がありません：{0}"
         ProjectMissing = "プロジェクトまたはファイルがありません：{0}"
         Ready = "管理対象 Cubism を起動：{0}（{1}）"
+        Jvm = "Cubism JVM：{0}"
+        GraalFallback = "GraalVM が見つからないため、今回は Cubism 同梱 Java を使用します。https://www.graalvm.org/downloads/ から GraalVM をインストールし、Turboism 設定で再度選択してください。"
         Probe = "管理起動プローブに成功しました。"
     }
 }
@@ -125,10 +132,56 @@ if (-not [string]::IsNullOrWhiteSpace($ProjectPath)) {
 $batArguments += @($CubismArguments)
 Write-Host ($M.Ready -f $cubism.Version, $cubism.CanonicalRoot)
 
+$cubismJvm = Read-CubismJvmPreference -TurboismHome $turboismHome
+$javaOverride = ""
+if (-not [string]::IsNullOrWhiteSpace($CubismJava)) {
+    $javaOverride = Resolve-CubismGraalJava -TurboismHome $turboismHome -ExplicitJava $CubismJava
+    $cubismJvm = "graalvm"
+}
+elseif ($cubismJvm -eq "bundled") {
+    # The persisted recovery choice is authoritative. Environment discovery
+    # must not silently turn bundled mode back into GraalVM.
+    $javaOverride = ""
+}
+else {
+    $javaOverride = Find-CubismGraalJava -TurboismHome $turboismHome
+    if ([string]::IsNullOrWhiteSpace($javaOverride)) {
+        $cubismJvm = "bundled"
+        Write-Warning $M.GraalFallback
+    }
+}
+Write-Host ($M.Jvm -f $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { $cubism.Java }))
+$graalHost = Resolve-TurboismGraalHost `
+    -TurboismHome $turboismHome `
+    -PreferredJava $(if ($cubismJvm -eq "graalvm") { $javaOverride } else { "" })
+
 if ($ProbeOnly) {
     Write-Host $M.Probe
     exit 0
 }
 
-$exitCode = Invoke-CubismOfficialBat -OfficialBat $officialBat -CubismRoot $cubism.CanonicalRoot -TurboismHome $turboismHome -Agent $agent -Arguments $batArguments
+$launchBat = $officialBat
+$temporaryBat = ""
+try {
+    if ($cubismJvm -eq "graalvm") {
+        $temporaryBat = New-CubismJavaOverrideBat `
+            -OfficialBat $officialBat `
+            -CubismRoot $cubism.CanonicalRoot `
+            -TurboismHome $turboismHome `
+            -JavaExecutable $javaOverride
+        $launchBat = $temporaryBat
+    }
+    $exitCode = Invoke-CubismOfficialBat `
+        -OfficialBat $launchBat `
+        -CubismRoot $cubism.CanonicalRoot `
+        -TurboismHome $turboismHome `
+        -Agent $agent `
+        -GraalHost $graalHost `
+        -Arguments $batArguments
+}
+finally {
+    if (-not [string]::IsNullOrWhiteSpace($temporaryBat) -and (Test-Path -LiteralPath $temporaryBat -PathType Leaf)) {
+        Remove-Item -LiteralPath $temporaryBat -Force -ErrorAction SilentlyContinue
+    }
+}
 exit $exitCode

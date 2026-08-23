@@ -6,7 +6,15 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-/** Runtime-managed script discovery and execution. */
+/**
+ * Runtime-managed, out-of-process JavaScript discovery and execution.
+ *
+ * <p>Scripts are bounded automation programs, not Java plugin entrypoints. They receive
+ * JSON-shaped values through an explicit permission-checked bridge and pay cross-process
+ * protocol costs for host calls. Prefer immutable snapshots and bulk operations; use a
+ * Java plugin when code needs lifecycle hooks, UI registrations, the complete SDK, reviewed
+ * host/native adaptation, or latency-sensitive/per-frame work.</p>
+ */
 @PreviewApi
 public interface ScriptService {
 

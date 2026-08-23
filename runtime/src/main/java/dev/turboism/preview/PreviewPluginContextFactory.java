@@ -67,6 +67,10 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         );
     }
 
+    Object hostAccessIdentity() {
+        return hostAccess;
+    }
+
     PluginContextBundle create(
         final PluginDescriptor descriptor,
         final ClassLoader pluginClassLoader,

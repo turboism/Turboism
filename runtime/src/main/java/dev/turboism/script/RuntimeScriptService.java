@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.function.Consumer;
@@ -38,7 +39,23 @@ public final class RuntimeScriptService implements ScriptService {
         final GraalHostManager host,
         final Consumer<String> diagnostics
     ) {
-        this.registry = new ScriptRegistry(turboismHome, diagnostics);
+        this(
+            new ScriptRegistry(turboismHome, diagnostics),
+            context,
+            scope,
+            host,
+            diagnostics
+        );
+    }
+
+    RuntimeScriptService(
+        final ScriptRegistry registry,
+        final PluginContext context,
+        final DisposableScope scope,
+        final GraalHostManager host,
+        final Consumer<String> diagnostics
+    ) {
+        this.registry = Objects.requireNonNull(registry, "registry");
         this.context = Objects.requireNonNull(context, "context");
         this.scope = Objects.requireNonNull(scope, "scope");
         this.host = Objects.requireNonNull(host, "host");
@@ -62,16 +79,27 @@ public final class RuntimeScriptService implements ScriptService {
         final Optional<ScriptRegistry.InstalledScript> installed = registry.find(request.scriptId());
         if (installed.isEmpty()) {
             return completedFailure(
-                new ScriptExecutionId("missing-" + request.scriptId().value()),
+                missingExecutionId(request.scriptId()),
                 ScriptRunStatus.REJECTED,
                 "SCRIPT_NOT_FOUND",
                 "Installed script was not found: " + request.scriptId()
             );
         }
         final ScriptRegistry.InstalledScript script = installed.orElseThrow();
+        final String source;
+        try {
+            source = script.source();
+        } catch (RuntimeException failure) {
+            return completedFailure(
+                missingExecutionId(request.scriptId()),
+                ScriptRunStatus.REJECTED,
+                "SCRIPT_SOURCE_INVALID",
+                sourceFailureMessage(failure)
+            );
+        }
         final GraalHostManager.Execution execution = host.submit(
             script.descriptor().id().value(),
-            script.source(),
+            source,
             request.arguments(),
             new RuntimeScriptHostBridge(context, script.descriptor())
         );
@@ -95,6 +123,26 @@ public final class RuntimeScriptService implements ScriptService {
     @Override
     public boolean available() {
         return host.configured();
+    }
+
+    private static ScriptExecutionId missingExecutionId(final ScriptId id) {
+        final String value = id.value();
+        final String suffix = "-" + UUID.randomUUID();
+        final int visibleIdLength = 128 - "missing-".length() - suffix.length();
+        return new ScriptExecutionId(
+            "missing-" + value.substring(0, Math.min(value.length(), visibleIdLength)) + suffix
+        );
+    }
+
+    private static String sourceFailureMessage(final RuntimeException failure) {
+        final String message = failure.getMessage();
+        if (message == null || message.isBlank()) {
+            return "Installed script source could not be loaded safely.";
+        }
+        final String normalized = message.replace('\r', ' ').replace('\n', ' ').trim();
+        return normalized.length() <= 1024
+            ? normalized
+            : normalized.substring(0, 1024);
     }
 
     private ScriptRunHandle completedFailure(
