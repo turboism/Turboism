@@ -11,6 +11,7 @@ import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
+import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -29,6 +30,7 @@ final class RuntimeEventContractCatalog {
             DeformerOpacityEvent.class,
             DeformerVisibilityEvent.class,
             DeformerLockEvent.class,
+            WarpDeformerGridEvent.class,
             PartNameEvent.class
         );
 
