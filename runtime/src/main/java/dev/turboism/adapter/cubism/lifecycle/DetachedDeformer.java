@@ -8,7 +8,7 @@ import dev.turboism.sdk.cubism.model.IntSequence;
 import java.util.Objects;
 
 /** Immutable, host-detached Deformer projection for event delivery. */
-final class DetachedDeformer implements Deformer {
+class DetachedDeformer implements Deformer {
     private static final IntSequence EMPTY_INTS = new IntSequence() {
         @Override public int size() { return 0; }
         @Override public int get(final int index) { throw new IndexOutOfBoundsException(index); }
@@ -21,7 +21,7 @@ final class DetachedDeformer implements Deformer {
     private final int parentPartIndex;
     private final int parentDeformerIndex;
 
-    private DetachedDeformer(final Deformer source, final float opacity) {
+    DetachedDeformer(final Deformer source, final float opacity) {
         id = source.id();
         this.opacity = opacity;
         multiplyColor = optional(
