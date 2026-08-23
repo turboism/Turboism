@@ -91,8 +91,13 @@ public final class RuntimeActionRegistry implements ActionRegistry {
             return;
         }
 
+        PluginTask task = new PluginTask("action.handle", ownerPluginId, "action:" + key, "none");
+        final boolean accepted = scheduler.dispatch(
+            task,
+            () -> registered.action().handler().accept(context)
+        );
         final RuntimeEventBroker broker = eventBroker;
-        if (broker != null) {
+        if (accepted && broker != null) {
             broker.publishRuntime(new ActionInvocationEvent(
                 ownerPluginId,
                 key,
@@ -101,8 +106,6 @@ public final class RuntimeActionRegistry implements ActionRegistry {
                 context.panelTabSelection().isPresent()
             ));
         }
-        PluginTask task = new PluginTask("action.handle", ownerPluginId, "action:" + key, "none");
-        scheduler.dispatch(task, () -> registered.action().handler().accept(context));
     }
 
     private void emitDuplicate(String id) {
