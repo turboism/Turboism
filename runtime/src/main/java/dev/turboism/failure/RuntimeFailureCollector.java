@@ -77,7 +77,8 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
             return new RuntimeFailureSnapshot(
                 snapshot(entries.get(RuntimeFailureDomain.TASK)),
                 snapshot(entries.get(RuntimeFailureDomain.STORAGE)),
-                snapshot(entries.get(RuntimeFailureDomain.CONFIG))
+                snapshot(entries.get(RuntimeFailureDomain.CONFIG)),
+                snapshot(entries.get(RuntimeFailureDomain.EVENT))
             );
         }
     }

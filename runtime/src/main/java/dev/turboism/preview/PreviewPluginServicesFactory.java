@@ -106,6 +106,22 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                     + (diagnostic.eventType().isBlank()
                         ? ""
                         : " event=" + diagnostic.eventType())
+            ),
+            failure -> failureCollector.record(
+                dev.turboism.failure.RuntimeFailureDomain.EVENT,
+                new dev.turboism.failure.RuntimeFailure(
+                    "EVENT_SUBSCRIBER_FAILED",
+                    "ERROR",
+                    "event-delivery",
+                    failure.owner().pluginId(),
+                    failure.operationId(),
+                    null,
+                    "Event subscriber failed: event=" + failure.eventType()
+                        + " exception=" + failure.exceptionType()
+                        + " advised=" + failure.advised(),
+                    null,
+                    1L
+                )
             )
         );
         Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")

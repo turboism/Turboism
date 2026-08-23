@@ -4,5 +4,6 @@ package dev.turboism.failure;
 public enum RuntimeFailureDomain {
     TASK,
     STORAGE,
-    CONFIG
+    CONFIG,
+    EVENT
 }
