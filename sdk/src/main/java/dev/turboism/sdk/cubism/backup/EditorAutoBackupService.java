@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -20,7 +19,6 @@ import java.util.concurrent.CompletionStage;
  * verified and fails closed to UNAVAILABLE when any required selector is
  * missing or the host slice is not connected.</p>
  */
-@PreviewApi
 public interface EditorAutoBackupService {
 
     /**
@@ -102,7 +100,6 @@ public interface EditorAutoBackupService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements EditorAutoBackupService {
         INSTANCE;
 

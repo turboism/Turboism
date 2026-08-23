@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Lifecycle status of a write transaction. */
-@PreviewApi
 public enum TransactionStatus {
     /** Transaction is open and accepts write operations. */
     OPEN,

@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Color;
 
 import java.util.Objects;
 
 /** Configures the Editor grid using the observed spacing and color fields. */
-@PreviewApi
 public record EditorGridSettingsRequest(int spacingPixels, Color color) implements EditorParameterizedRequest {
     /**
      * Host-verified bounds: the native dialog slider spans [5, min(documentWidth, documentHeight)]

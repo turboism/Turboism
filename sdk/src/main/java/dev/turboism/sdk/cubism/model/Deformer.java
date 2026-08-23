@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.model.DeformerAppearance;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -9,7 +8,6 @@ import java.util.List;
 import java.util.Optional;
 
 /** One Cubism deformer. */
-@PreviewApi
 public interface Deformer {
 
     DeformerId id();

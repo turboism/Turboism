@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
@@ -18,7 +17,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * @param sourceMeshId the mesh whose geometry is read; must not be {@code null}
  * @param targetMeshId the mesh the mirrored geometry is written to; must not be {@code null}
  */
-@PreviewApi
 public record MirrorWritebackCommand(
     String commandId,
     ModelId modelId,
