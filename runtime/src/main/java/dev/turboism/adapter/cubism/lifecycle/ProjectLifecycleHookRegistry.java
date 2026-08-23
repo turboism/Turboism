@@ -6,6 +6,8 @@ import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.EditorLifecycleHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
+import dev.turboism.sdk.event.cubism.EditorExitEvent;
+import dev.turboism.sdk.event.cubism.EditorStartupEvent;
 import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -173,6 +175,12 @@ public final class ProjectLifecycleHookRegistry {
                     sink, installed
                 );
             }
+            if (entrypoint instanceof EditorLifecycleHooks hooks) {
+                adaptEditor(
+                    runtimeBroker, eventOwner, entrypointOrdinal, entrypoint, hooks,
+                    sink, installed
+                );
+            }
             entrypointOrdinal++;
         }
         if (installed.isEmpty()) {
@@ -214,6 +222,88 @@ public final class ProjectLifecycleHookRegistry {
             closeEventAdapters(pluginId);
             projectFiles.unregister(pluginId);
             editor.unregister(pluginId);
+        }
+    }
+
+    private static void adaptEditor(
+        final RuntimeEventBroker broker,
+        final PluginEventOwnerKey owner,
+        final int entrypointOrdinal,
+        final TurboismPlugin entrypoint,
+        final EditorLifecycleHooks hooks,
+        final PluginLogger logger,
+        final List<Registration> installed
+    ) {
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 24, entrypoint,
+            "beforeEditorStartup", EditorStartupEvent.Before.class,
+            event -> hooks.beforeEditorStartup(event.editor()), logger, installed
+        );
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 25, entrypoint,
+            "onEditorStarted", EditorStartupEvent.On.class,
+            event -> hooks.onEditorStarted(event.editor()), logger, installed
+        );
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 26, entrypoint,
+            "afterEditorStartup", EditorStartupEvent.After.class,
+            event -> hooks.afterEditorStartup(event.editor()), logger, installed
+        );
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 27, entrypoint,
+            "beforeEditorExit", EditorExitEvent.Before.class,
+            event -> hooks.beforeEditorExit(event.editor()), logger, installed
+        );
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 28, entrypoint,
+            "onEditorExiting", EditorExitEvent.On.class,
+            event -> hooks.onEditorExiting(event.editor()), logger, installed
+        );
+        adaptEditorState(
+            broker, owner, entrypointOrdinal, 29, entrypoint,
+            "afterEditorExit", EditorExitEvent.After.class,
+            event -> hooks.afterEditorExit(event.result()), logger, installed
+        );
+    }
+
+    private static <T extends dev.turboism.sdk.event.EventBus.TurboismEvent> void adaptEditorState(
+        final RuntimeEventBroker broker,
+        final PluginEventOwnerKey owner,
+        final int entrypointOrdinal,
+        final int methodOrdinal,
+        final TurboismPlugin entrypoint,
+        final String methodName,
+        final Class<T> eventType,
+        final java.util.function.Consumer<T> callback,
+        final PluginLogger logger,
+        final List<Registration> installed
+    ) {
+        if (!overridesEditor(entrypoint, methodName) || subscribes(entrypoint, eventType)) {
+            return;
+        }
+        installed.add(broker.subscribeAdapter(
+            owner, eventType, entrypointOrdinal, methodOrdinal,
+            event -> invoke(logger, methodName, () -> callback.accept(event))
+        ));
+    }
+
+    private static boolean overridesEditor(
+        final Object entrypoint,
+        final String methodName
+    ) {
+        final Class<?> parameterType = methodName.equals("afterEditorExit")
+            ? dev.turboism.sdk.cubism.EditorExitResult.class
+            : dev.turboism.sdk.cubism.EditorLifecycleSnapshot.class;
+        try {
+            final java.lang.reflect.Method method = entrypoint.getClass()
+                .getMethod(methodName, parameterType);
+            return method.getDeclaringClass() != EditorLifecycleHooks.class
+                && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+        } catch (NoSuchMethodException failure) {
+            throw new IllegalStateException(
+                "Editor lifecycle hook contract is unavailable: " + methodName,
+                failure
+            );
         }
     }
 

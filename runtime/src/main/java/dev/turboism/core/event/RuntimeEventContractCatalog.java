@@ -6,6 +6,8 @@ import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.EditorExitEvent;
+import dev.turboism.sdk.event.cubism.EditorStartupEvent;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
@@ -39,6 +41,8 @@ final class RuntimeEventContractCatalog {
             RotationDeformerFormEvent.class,
             CubismOperationLifecycleEvent.class,
             ProjectFileLifecycleEvent.class,
+            EditorStartupEvent.class,
+            EditorExitEvent.class,
             PartNameEvent.class
         );
 
