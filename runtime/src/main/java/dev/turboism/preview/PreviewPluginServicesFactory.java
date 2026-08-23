@@ -19,6 +19,8 @@ import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.storage.StorageRoot;
+import dev.turboism.performance.RuntimePerformanceEventPublisher;
+import dev.turboism.performance.RuntimePerformanceProbeService;
 import dev.turboism.runtime.log.CubismLogServiceHost;
 import dev.turboism.storage.RuntimePluginStorage;
 import dev.turboism.task.RuntimePluginTaskScheduler;
@@ -37,7 +39,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /** Creates the shared service graph for one preview plugin scope. */
-final class PreviewPluginServicesFactory {
+final class PreviewPluginServicesFactory implements AutoCloseable {
 
     private final Path home;
     private final RuntimeScheduler scheduler;
@@ -47,6 +49,8 @@ final class PreviewPluginServicesFactory {
     private final PreviewLog log;
     private final RuntimeFailureCollector failureCollector;
     private final Locale effectiveLocale;
+    private final RuntimePerformanceProbeService performanceProbe;
+    private final RuntimePerformanceEventPublisher performanceEvents;
 
     PreviewPluginServicesFactory(
         final Path home,
@@ -118,6 +122,19 @@ final class PreviewPluginServicesFactory {
         if (hostAccess.cubismLog() instanceof CubismLogServiceHost cubismLog) {
             cubismLog.attachEventBroker(eventBroker, scheduler);
         }
+        this.performanceProbe = new RuntimePerformanceProbeService(
+            "runtime.performance",
+            dev.turboism.permissions.PermissionChecker.allowAll(),
+            Clock.systemUTC()
+        );
+        eventBroker.observationBaseline(
+            dev.turboism.sdk.performance.PerformanceProbeService.class
+        ).set(performanceProbe);
+        this.performanceEvents = new RuntimePerformanceEventPublisher(
+            performanceProbe,
+            eventBroker,
+            scheduler
+        );
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;
@@ -139,6 +156,15 @@ final class PreviewPluginServicesFactory {
 
     RuntimeEventBroker eventBroker() {
         return eventBroker;
+    }
+
+    @Override
+    public void close() {
+        performanceEvents.close();
+        performanceProbe.close();
+        eventBroker.observationBaseline(
+            dev.turboism.sdk.performance.PerformanceProbeService.class
+        ).compareAndSet(performanceProbe, null);
     }
 
     PreviewPluginServices create(

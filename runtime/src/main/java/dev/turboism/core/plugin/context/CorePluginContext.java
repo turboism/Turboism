@@ -116,7 +116,7 @@ public final class CorePluginContext implements PluginContext {
     private final RecentPreviewContributionService recentPreviewContributionService;
     private dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
 
-    private volatile dev.turboism.performance.RuntimePerformanceProbeService performanceStatsService;
+    private volatile dev.turboism.sdk.performance.PerformanceProbeService performanceStatsService;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     public CorePluginContext(final Dependencies dependencies) {
         this(dependencies, RuntimeHostAdapters.safeMode(), null, null, null, null, null);
@@ -1008,11 +1008,26 @@ public final class CorePluginContext implements PluginContext {
     public dev.turboism.sdk.performance.PerformanceProbeService performanceStats() {
         synchronized (this) {
             if (performanceStatsService == null) {
-                performanceStatsService = new dev.turboism.performance.RuntimePerformanceProbeService(
-                    dependencies.descriptor().id(),
-                    dev.turboism.permissions.PermissionChecker.from(dependencies.permissions()),
-                    dependencies.clock()
-                );
+                final dev.turboism.sdk.performance.PerformanceProbeService shared =
+                    dependencies.eventBroker()
+                        .observationBaseline(
+                            dev.turboism.sdk.performance.PerformanceProbeService.class
+                        )
+                        .get();
+                performanceStatsService = shared == null
+                    ? new dev.turboism.performance.RuntimePerformanceProbeService(
+                        dependencies.descriptor().id(),
+                        dev.turboism.permissions.PermissionChecker.from(
+                            dependencies.permissions()
+                        ),
+                        dependencies.clock()
+                    )
+                    : new dev.turboism.performance.PermissionCheckedPerformanceProbeService(
+                        shared,
+                        dev.turboism.permissions.PermissionChecker.from(
+                            dependencies.permissions()
+                        )
+                    );
             }
             return performanceStatsService;
         }

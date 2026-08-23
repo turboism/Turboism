@@ -51,7 +51,8 @@ import java.util.function.Consumer;
  * tick baseline and publishes the per-window pause (ms) as the GC Pause
  * series. Disk I/O stays unbound this phase.
  */
-public final class RuntimePerformanceProbeService implements PerformanceProbeService {
+public final class RuntimePerformanceProbeService
+    implements PerformanceProbeService, AutoCloseable {
 
     public static final String CHART_CPU = "cpu";
     public static final String CHART_FPS = "fps";
@@ -259,6 +260,16 @@ public final class RuntimePerformanceProbeService implements PerformanceProbeSer
             }
         } finally {
             running.set(false);
+        }
+    }
+
+    @Override
+    public void close() {
+        synchronized (lifecycle) {
+            consumers.clear();
+            if (sampler != null || hook != null) {
+                stopSampling();
+            }
         }
     }
 
