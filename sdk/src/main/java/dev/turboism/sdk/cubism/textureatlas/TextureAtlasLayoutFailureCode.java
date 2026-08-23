@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Machine-readable reason a texture-atlas layout apply did not take effect.
@@ -8,7 +7,6 @@ import dev.turboism.sdk.PreviewApi;
  * <p>Codes are the stable part of a failure; the accompanying message is diagnostic text and must
  * not be parsed. Callers should branch on the code alone.</p>
  */
-@PreviewApi
 public enum TextureAtlasLayoutFailureCode {
     /** The calling plugin does not hold the permission required to modify the atlas layout. */
     PERMISSION_DENIED,

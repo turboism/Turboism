@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** One immutable placement inside a complete atlas layout plan. */
-@PreviewApi
 public record TextureAtlasPlacement(
     String textureId,
     int pageIndex,

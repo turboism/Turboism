@@ -40,18 +40,21 @@ See [ROADMAP.md](ROADMAP.md) for the active order.
 
 ## Verification
 
-Daily development:
+During implementation, run the narrowest affected compile or test task, for example:
+
+```bash
+./gradlew :sdk:test --tests '<affected test class>'
+./gradlew :runtime:test --tests '<affected test class>'
+./gradlew :plugins:<plugin>:test
+```
+
+After a meaningful implementation slice is coherent, run the fast structural gate:
 
 ```bash
 ./gradlew devCheck
 ```
 
-`devCheck` includes a read-only repository-hygiene gate. It scans tracked index
-content for secret signatures, local-only configuration, and known developer
-machine paths; it never opens or deletes the ignored `.env`. Keep machine-specific
-validation placement in `.env` by copying the commented `.env.example` template.
-
-Run focused tests named by the current SDD acceptance conditions after the feature slice is coherent. A bare multi-project `check` is intentionally not the daily command because it expands every subproject's test task.
+A bare multi-project `check` is intentionally not the daily command because it expands every subproject's test task.
 
 Runtime and packaged integration:
 
@@ -59,10 +62,18 @@ Runtime and packaged integration:
 ./gradlew checkIntegration
 ```
 
+Full automated verification for a coherent completed change:
+
+```bash
+./gradlew checkCompletedCommit
+```
+
+`checkCompletedCommit` includes ordinary tests, integration, documentation and metadata checks, API-tool selftests, and repository hygiene selftests. It is the normal completed-change gate.
+
 Release-oriented verification:
 
 ```bash
-./gradlew checkRelease
+./gradlew checkRelease -PinstallerVersion=<release-version>
 ```
 
 Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubism-host-validation.sh` is the shared exact-host runner: it clones a task-scoped Proton prefix, stages any test-only SDK plugins, launches the official `CubismEditor5.bat`, polls structured readiness/results, collects hashes and logs, and cleans up only the current process tree. Feature wrappers provide their own plugins and assertions:
@@ -74,13 +85,15 @@ Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubis
 ./gradlew validateThemeHost5203
 ```
 
-Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Multiple isolated project copies can be scheduled with `python3 scripts/preview/host_validation.py`; see [HOST_VALIDATION_SCHEDULING.md](HOST_VALIDATION_SCHEDULING.md) for resource and lease rules. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
+Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
 
 ## API policy
 
-New SDK APIs are Preview by default. Promotion to Stable is explicit release work and must establish a compatibility baseline from the released artifact; historical phase snapshots are not reused as current gates.
+Turboism publishes one public SDK tier. Removing the former preview marker does not remove or disable implemented SDK functionality. Before the first formal release, maintainers review the generated public classfile surface; the first released SDK artifact establishes the compatibility baseline for later releases.
 
-Ordinary getters, setters and Preview additions do not require a dedicated capability row, permission, schema, ADR or migration report. Permissions describe real risk boundaries rather than individual methods.
+Cubism Editor version availability is declared with `@CubismEditor` at public type or method boundaries and with exact-version catalogs where finer command granularity is required. Permissions, active-session state, verified adapters, and backend capabilities remain independent runtime checks.
+
+Ordinary additive getters and setters do not require a dedicated capability row, permission, schema, ADR, or migration report. Permissions describe real risk boundaries rather than individual methods.
 
 ## Cubism and Editor state
 
@@ -95,9 +108,9 @@ parameter.setValue(parameter.getValue() + 1.0f);
 
 For an Editor-attached model, the Editor authoring model remains the only write source of truth. Runtime routes writes through validation, host-thread dispatch, transaction, Undo, dirty-state handling and version-specific providers. Cubism Core is used for evaluation and result reads rather than as a second independently synchronized authoring state.
 
-## Local documentation
+## Documentation tracking
 
-`docs/` and `docs_internal/` are local-only working areas and are ignored by Git. Repository builds, tests, and release tooling must depend only on tracked code and machine assets such as `cubism-ref/`, `validation/`, and `packaging/`.
+`docs/` is ignored by default so local research and working notes do not enter Git accidentally. Reviewed current documentation, ADRs, and archive indexes may be explicitly tracked; archived documents are historical evidence rather than current authority. `docs_internal/` remains local-only. Repository builds, tests, and release tooling must depend only on explicitly tracked code, documentation contracts, and machine assets such as `cubism-ref/`, `validation/`, and `packaging/`.
 
 ## Compliance
 

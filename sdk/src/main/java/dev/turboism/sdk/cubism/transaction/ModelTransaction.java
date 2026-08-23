@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
 /**
@@ -8,7 +7,6 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
  * All write operations must be performed within an open transaction.
  * Transactions are single-use: once committed or rolled back, the instance is invalid.
  */
-@PreviewApi
 public interface ModelTransaction {
 
     /** Returns the current status of this transaction. */

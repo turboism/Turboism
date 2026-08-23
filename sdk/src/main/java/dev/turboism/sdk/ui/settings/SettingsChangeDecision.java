@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Validation result for a proposed settings value before it enters the form state. */
-@PreviewApi
 public record SettingsChangeDecision(
     boolean accepted,
     String title,
@@ -25,14 +23,30 @@ public record SettingsChangeDecision(
         }
     }
 
+    /** @return an accepted decision carrying no rejection UI */
     public static SettingsChangeDecision allow() {
         return new SettingsChangeDecision(true, "", "", Optional.empty());
     }
 
+    /**
+     * Creates a rejected decision without a help link.
+     *
+     * @param title localized rejection title
+     * @param message localized rejection message
+     * @return a rejected decision
+     */
     public static SettingsChangeDecision rejected(final String title, final String message) {
         return new SettingsChangeDecision(false, title, message, Optional.empty());
     }
 
+    /**
+     * Creates a rejected decision with a bounded help link.
+     *
+     * @param title localized rejection title
+     * @param message localized rejection message
+     * @param link help link displayed with the rejection
+     * @return a rejected decision
+     */
     public static SettingsChangeDecision rejected(
         final String title,
         final String message,

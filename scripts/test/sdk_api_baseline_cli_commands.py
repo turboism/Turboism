@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import argparse
+import json
 from pathlib import Path
 
-from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, canonical_records_for_tiers, sha256_bytes
-from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output, write_tier_report
-from sdk_api_tiers import canonical_json, verify_tier_compatible
+from sdk_api_baseline import BaselineError, GENERATOR_VERSION, SCHEMA_VERSION, canonical_dump, sha256_bytes
+from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, load_baseline, write_output
 
 
 def capture(args: argparse.Namespace) -> None:
@@ -14,6 +14,10 @@ def capture(args: argparse.Namespace) -> None:
         raise BaselineError("commit must be exactly 40 lowercase hexadecimal characters")
     dump, artifact_sha, artifact_size = canonical_dump(args.input, args.package_prefix)
     write_output(args.output, canonical_json(_baseline_value(args, dump, artifact_sha, artifact_size)))
+
+
+def canonical_json(value: object) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode("utf-8")
 
 
 def _baseline_value(args, dump, artifact_sha, artifact_size):
@@ -31,11 +35,7 @@ def _baseline_value(args, dump, artifact_sha, artifact_size):
 def verify(args: argparse.Namespace, exact: bool) -> None:
     baseline = load_baseline(args.baseline)
     _verify_expected_commit(args, baseline)
-    reference_dump = _verify_reference_binding(args, baseline, exact)
-    _verify_tier_options(args, exact)
-    if not exact and args.tier_policy:
-        _verify_tiers(args, baseline)
-        return
+    reference_dump = _verify_reference_binding(args, baseline)
     _verify_records(args, baseline, reference_dump, exact)
 
 
@@ -44,13 +44,10 @@ def _verify_expected_commit(args, baseline):
         raise BaselineError(f"baseline is bound to {baseline['commit']}, expected {args.expected_commit}")
 
 
-def _verify_reference_binding(args, baseline, exact: bool):
+def _verify_reference_binding(args, baseline):
     dump, artifact_sha, artifact_size = canonical_dump(args.reference_input, args.package_prefix)
     artifact = baseline["artifact"]
-    # Exact audits bind both the archive bytes and its canonical API. Compatible/tier
-    # audits intentionally bind only the canonical API so a reproducibly rebuilt
-    # historical JAR is usable even when ZIP container metadata differs byte-for-byte.
-    if exact and (artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]):
+    if artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]:
         raise BaselineError(_artifact_binding_mismatch(artifact, artifact_sha, artifact_size))
     canonical = baseline["canonicalDump"]
     if sha256_bytes(dump) != canonical["sha256"] or len(dump.decode("utf-8").splitlines()) != canonical["lineCount"]:
@@ -60,33 +57,6 @@ def _verify_reference_binding(args, baseline, exact: bool):
 
 def _artifact_binding_mismatch(expected, actual_sha, actual_size):
     return f"reviewed reference artifact binding mismatch: expected {expected['sha256']}/{expected['size']}, found {actual_sha}/{actual_size}"
-
-
-def _verify_tier_options(args, exact):
-    if exact and (args.tier_policy or args.tier_report or args.initial_preview_ledger):
-        raise BaselineError("tier policy/report is only supported by verify-compatible")
-    if not exact and (args.tier_report or args.initial_preview_ledger) and not args.tier_policy:
-        raise BaselineError("tier report/ledger requires --tier-policy")
-
-
-def _verify_tiers(args, baseline):
-    if args.initial_preview_ledger is None:
-        raise BaselineError("tier policy requires --initial-preview-ledger")
-    reference_records, _facts, _sha, _size = canonical_records_for_tiers(args.reference_input, args.package_prefix)
-    current_records, facts, _sha, _size = canonical_records_for_tiers(args.input, args.package_prefix)
-    tiers = verify_tier_compatible(
-        policy_path=args.tier_policy,
-        initial_ledger_path=args.initial_preview_ledger,
-        baseline=baseline,
-        reference_records=reference_records,
-        current_records=current_records,
-        current_markers=facts.direct_markers,
-        invalid_marker_usages=facts.invalid_usages,
-        trust_version=args.tier_trust_version,
-    )
-    if args.tier_report:
-        write_tier_report(args.tier_report, current_records, tiers)
-    print(f"SDK API baseline tier-compatible verification passed: baseline={len(reference_records)} current={len(current_records)}")
 
 
 def _verify_records(args, baseline, reference_dump, exact):

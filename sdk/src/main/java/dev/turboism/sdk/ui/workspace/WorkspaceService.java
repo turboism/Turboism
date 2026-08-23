@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -16,7 +15,6 @@ import java.util.concurrent.CompletionStage;
  * touch UI afterwards must hop back themselves. Implementations report host refusal through
  * {@link WorkspaceOperationResult} rather than by failing the stage.
  */
-@PreviewApi
 public interface WorkspaceService {
 
     /**

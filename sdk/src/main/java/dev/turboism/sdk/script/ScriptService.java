@@ -1,6 +1,5 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,7 +14,6 @@ import java.util.concurrent.CompletableFuture;
  * Java plugin when code needs lifecycle hooks, UI registrations, the complete SDK, reviewed
  * host/native adaptation, or latency-sensitive/per-frame work.</p>
  */
-@PreviewApi
 public interface ScriptService {
 
     List<ScriptDescriptor> list();
@@ -32,7 +30,6 @@ public interface ScriptService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements ScriptService {
         INSTANCE;
 
