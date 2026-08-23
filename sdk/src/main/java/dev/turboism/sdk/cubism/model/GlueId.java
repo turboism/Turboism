@@ -1,10 +1,8 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import java.util.Objects;
 
 /** Stable ID of one Cubism Glue. */
-@PreviewApi
 public record GlueId(String value) {
 
     public GlueId {

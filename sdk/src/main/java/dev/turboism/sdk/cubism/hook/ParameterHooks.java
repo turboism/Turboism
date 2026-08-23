@@ -1,10 +1,8 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Parameter;
 
 /** Override-based lifecycle hooks for Cubism parameters. */
-@PreviewApi
 public interface ParameterHooks {
 
     default float beforeSetParameterValue(

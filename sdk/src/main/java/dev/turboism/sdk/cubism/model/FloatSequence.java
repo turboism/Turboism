@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Immutable indexed float sequence. */
-@PreviewApi
 public interface FloatSequence {
 
     int size();

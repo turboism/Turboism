@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Plugin-owned panel handle contributed into the native texture-atlas editor
@@ -8,7 +7,6 @@ import dev.turboism.sdk.PreviewApi;
  * panel content through this semantic surface; the host renderer and its
  * concrete widget type are owned by the runtime adapter.
  */
-@PreviewApi
 public interface TextureAtlasEditorPanel {
 
     /** Replaces the panel's displayed text. */

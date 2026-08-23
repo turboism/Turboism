@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 
@@ -13,7 +12,6 @@ import java.util.List;
  * ({@code setValue}/{@code setOpacity} stay unavailable). Closing the model releases
  * the Core instance.</p>
  */
-@PreviewApi
 public interface OwnedModel extends AutoCloseable {
 
     /** Core native handle of the owned {@code CubismModel} instance. */

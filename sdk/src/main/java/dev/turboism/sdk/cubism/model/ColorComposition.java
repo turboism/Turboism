@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Version-neutral Cubism drawable color-composition (color blending) mode.
@@ -9,7 +8,6 @@ import dev.turboism.sdk.PreviewApi;
  * constant name. Cubism 5.2 hosts expose only {@link #NORMAL}, {@link #ADD} and
  * {@link #MULTIPLY}; all other values fail closed on those hosts.
  */
-@PreviewApi
 public enum ColorComposition {
     NORMAL,
     ADD,

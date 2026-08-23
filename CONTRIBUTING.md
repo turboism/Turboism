@@ -23,8 +23,10 @@ Run the checker on your staged files and on the outgoing commit range:
 
 ```sh
 python3 scripts/check_remote_hygiene.py --staged
-python3 scripts/check_remote_hygiene.py --all
+python3 scripts/check_remote_hygiene.py --outgoing main..HEAD
 ```
+
+Replace `main` with the intended remote base when pushing another branch lineage. The `--all` mode audits all reachable historical commits and is reserved for history-cleanup work; existing remote history is not a normal change gate.
 
 Local `pre-commit` and `pre-push` hooks are installed (untracked, local-only)
 with:
@@ -38,33 +40,45 @@ push is refused.
 
 ## Verification
 
+During implementation, run the narrowest affected compile or test task. Examples:
+
 ```sh
-python3 scripts/test/test_check_remote_hygiene.py
+./gradlew :sdk:test --tests '<affected test class>'
+./gradlew :runtime:test --tests '<affected test class>'
+./gradlew :plugins:<plugin>:test
 ```
 
-## Build and test
+After a meaningful implementation slice, run the fast structural gate:
+
+```sh
+./gradlew devCheck
+```
+
+When a coherent change is complete, run the full automated repository gate once:
+
+```sh
+./gradlew checkCompletedCommit
+```
+
+`checkRelease -PinstallerVersion=<release-version>` adds supply-chain, historical, Java-installer, and other release-artifact checks and is reserved for release-oriented work. Exact-host validation is selected explicitly by feature and version; it requires a separately installed, licensed Live2D Cubism Editor and is never part of a default aggregate.
+
+The public SDK has one tier. `@CubismEditor` and exact command catalogs describe Editor-version availability; permissions, session state, verified adapters, and capabilities remain separate runtime checks.
+
+Do not commit generated runtime logs, prompts or transcripts, agent/tool output, local absolute paths, proprietary Cubism material, raw host traces, credentials, or verification claims without a reproducible tracked command or accepted evidence source.
+
+Run repository hygiene checks before completing and pushing a change:
+
+```sh
+python3 scripts/test/test_check_remote_hygiene.py
+python3 scripts/check_remote_hygiene.py --staged
+python3 scripts/check_remote_hygiene.py --outgoing main..HEAD
+```
+
+Use `--all` only for an explicit audit of all reachable repository history, not as the normal completed-change or push gate.
+
+## Build requirements
 
 - **Java**: a JDK 17 toolchain is required (`java` and `javac` on `PATH`).
-- **Build from source**:
-
-  ```sh
-  ./gradlew devCheck
-  ```
-
-- **Runtime and packaged integration**:
-
-  ```sh
-  ./gradlew checkIntegration
-  ```
-
-- **Release-oriented verification**:
-
-  ```sh
-  ./gradlew checkRelease
-  ```
-
-- **Exact-host validation** is opt-in and requires a separately installed,
-  licensed Live2D Cubism Editor; it is not part of any default gate.
 
 See the project documentation at https://docs.turboism.dev for the current
 architecture and contributor guidance.

@@ -1,13 +1,11 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Locale;
 import java.util.Objects;
 import java.util.regex.Pattern;
 
 /** Bounded semantic colors understood by the Editor appearance capability. */
-@PreviewApi
 public record AppearancePalette(
     String accent,
     String background,

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 
@@ -12,7 +11,6 @@ import java.util.List;
  * unchanged, without remapping or clamping. The ordinary
  * {@link #transfer(ParameterBindingTransferPlan)} operation keeps its existing semantics.</p>
  */
-@PreviewApi
 public interface ParameterBindingBatchOperations {
 
     void invert(List<ParameterBindingTarget> targets);

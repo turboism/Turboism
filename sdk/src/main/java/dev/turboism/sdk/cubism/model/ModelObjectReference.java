@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Typed identity of one model object in the active document. */
-@PreviewApi
 public record ModelObjectReference(ModelObjectKind kind, String id) {
 
     public ModelObjectReference {

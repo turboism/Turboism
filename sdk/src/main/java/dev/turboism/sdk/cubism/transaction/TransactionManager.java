@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -9,7 +8,6 @@ import dev.turboism.sdk.plugin.PluginContext;
  * Manages write transactions for plugins.
  * Each transaction is scoped to one plugin identity and one document.
  */
-@PreviewApi
 public interface TransactionManager {
 
     /**

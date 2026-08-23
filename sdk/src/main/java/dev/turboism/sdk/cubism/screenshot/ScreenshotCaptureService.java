@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -10,7 +9,6 @@ import java.util.concurrent.CompletionStage;
  * the host UI thread; failures (unavailable surface, target changed, permission) are
  * reported on the returned stage and never escape the calling thread.
  */
-@PreviewApi
 public interface ScreenshotCaptureService {
 
     CompletionStage<ScreenshotCaptureResult> capture(ScreenshotCaptureRequest request);
@@ -20,7 +18,6 @@ public interface ScreenshotCaptureService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements ScreenshotCaptureService {
         INSTANCE;
 

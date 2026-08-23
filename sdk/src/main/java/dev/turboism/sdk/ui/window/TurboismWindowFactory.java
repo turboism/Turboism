@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.window;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.awt.Dialog;
 import java.awt.Frame;
@@ -35,7 +34,6 @@ import javax.swing.JFrame;
  * cached lazily; a missing or corrupted resource degrades gracefully to
  * {@code null} without throwing.
  */
-@PreviewApi
 public final class TurboismWindowFactory {
 
     private static final String WINDOW_ICON_RESOURCE =
