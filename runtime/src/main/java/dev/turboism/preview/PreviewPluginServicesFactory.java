@@ -58,7 +58,7 @@ final class PreviewPluginServicesFactory {
         this(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
             hostAccess.parameterLifecycle(), hostAccess.partLifecycle(),
-            CubismHostLocale.resolve()
+            hostAccess.editorObjectLifecycle(), CubismHostLocale.resolve()
         );
     }
 
@@ -73,7 +73,8 @@ final class PreviewPluginServicesFactory {
     ) {
         this(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
-            hostAccess.parameterLifecycle(), hostAccess.partLifecycle(), effectiveLocale
+            hostAccess.parameterLifecycle(), hostAccess.partLifecycle(),
+            hostAccess.editorObjectLifecycle(), effectiveLocale
         );
     }
 
@@ -86,6 +87,7 @@ final class PreviewPluginServicesFactory {
         final RuntimeFailureCollector failureCollector,
         final ParameterLifecycleCoordinator parameterLifecycle,
         final dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator partLifecycle,
+        final dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final Locale effectiveLocale
     ) {
         this.home = home;
@@ -104,6 +106,8 @@ final class PreviewPluginServicesFactory {
         Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
             .attachEventBroker(eventBroker);
         Objects.requireNonNull(partLifecycle, "partLifecycle")
+            .attachEventBroker(eventBroker);
+        Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle")
             .attachEventBroker(eventBroker);
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;

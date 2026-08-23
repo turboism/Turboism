@@ -53,7 +53,7 @@ final class PreviewPluginContextFactory {
         this(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
             fileChooserHistory, hostAccess.parameterLifecycle(), hostAccess.partLifecycle(),
-            effectiveLocale
+            hostAccess.editorObjectLifecycle(), effectiveLocale
         );
     }
 
@@ -67,6 +67,7 @@ final class PreviewPluginContextFactory {
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
         final dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator parameterLifecycle,
         final dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator partLifecycle,
+        final dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator editorObjectLifecycle,
         final Locale effectiveLocale
     ) {
         this.hostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
@@ -77,6 +78,7 @@ final class PreviewPluginContextFactory {
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
             Objects.requireNonNull(parameterLifecycle, "parameterLifecycle"),
             Objects.requireNonNull(partLifecycle, "partLifecycle"),
+            Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle"),
             Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
     }
