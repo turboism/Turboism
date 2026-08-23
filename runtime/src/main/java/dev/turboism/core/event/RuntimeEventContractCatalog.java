@@ -21,6 +21,10 @@ import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
+import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
+import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -49,7 +53,11 @@ final class RuntimeEventContractCatalog {
             EditorExitEvent.class,
             PartNameEvent.class,
             AppearanceChangedEvent.class,
-            BackupCompletedEvent.class
+            BackupCompletedEvent.class,
+            SelectionChangedEvent.class,
+            SceneTableHeaderClickEvent.class,
+            SceneTableSnapshotEvent.class,
+            SceneTableItemOrderEvent.class
         );
 
     void requirePluginPublicationAllowed(

@@ -1,21 +1,12 @@
 package dev.turboism.sdk.ui.table;
 
-import dev.turboism.sdk.plugin.Registration;
-
 import java.util.List;
 import java.util.Map;
-import java.util.function.Consumer;
 
 /** Preview API for the native Scene palette table. */
 public interface SceneTableService {
 
     String SCENE_TABLE_ID = "scene";
-
-    Registration onHeaderClick(String tableId, Consumer<HeaderClick> listener);
-
-    Registration onSnapshot(String tableId, Consumer<TableSnapshot> listener);
-
-    Registration onItemOrderChanged(String tableId, Consumer<ItemOrderChanged> listener);
 
     void setHeader(String tableId, String columnId, String label);
 
@@ -67,21 +58,6 @@ public interface SceneTableService {
 
     enum Unavailable implements SceneTableService {
         INSTANCE;
-
-        @Override
-        public Registration onHeaderClick(final String tableId, final Consumer<HeaderClick> listener) {
-            return () -> { };
-        }
-
-        @Override
-        public Registration onSnapshot(final String tableId, final Consumer<TableSnapshot> listener) {
-            return () -> { };
-        }
-
-        @Override
-        public Registration onItemOrderChanged(final String tableId, final Consumer<ItemOrderChanged> listener) {
-            return () -> { };
-        }
 
         @Override
         public void setHeader(final String tableId, final String columnId, final String label) {

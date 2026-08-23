@@ -23,6 +23,10 @@ import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
+import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
+import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
@@ -97,11 +101,19 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
-        if (AppearanceChangedEvent.class.isAssignableFrom(subscriptionType)) {
+        if (subscriptionType.isAssignableFrom(AppearanceChangedEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_UI_APPEARANCE_OBSERVE);
         }
-        if (BackupCompletedEvent.class.isAssignableFrom(subscriptionType)) {
+        if (subscriptionType.isAssignableFrom(BackupCompletedEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(SelectionChangedEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(SceneTableHeaderClickEvent.class)
+            || subscriptionType.isAssignableFrom(SceneTableSnapshotEvent.class)
+            || subscriptionType.isAssignableFrom(SceneTableItemOrderEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_UI_SCENE_TABLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
