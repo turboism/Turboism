@@ -8,6 +8,8 @@ import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.EditorExitEvent;
+import dev.turboism.sdk.event.cubism.EditorStartupEvent;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
@@ -120,7 +122,13 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)
             || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.Before.class)
             || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.On.class)
-            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(ProjectFileLifecycleEvent.After.class)
+            || subscriptionType.isAssignableFrom(EditorStartupEvent.Before.class)
+            || subscriptionType.isAssignableFrom(EditorStartupEvent.On.class)
+            || subscriptionType.isAssignableFrom(EditorStartupEvent.After.class)
+            || subscriptionType.isAssignableFrom(EditorExitEvent.Before.class)
+            || subscriptionType.isAssignableFrom(EditorExitEvent.On.class)
+            || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
