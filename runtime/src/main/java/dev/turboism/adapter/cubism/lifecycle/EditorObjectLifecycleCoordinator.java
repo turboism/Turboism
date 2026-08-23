@@ -42,7 +42,12 @@ public final class EditorObjectLifecycleCoordinator implements AutoCloseable {
 
     /** Attaches the session event broker to every migrated editor-object family. */
     public void attachEventBroker(final dev.turboism.core.event.RuntimeEventBroker broker) {
-        drawable.attachEventBroker(Objects.requireNonNull(broker, "broker"));
+        final dev.turboism.core.event.RuntimeEventBroker value = Objects.requireNonNull(
+            broker,
+            "broker"
+        );
+        drawable.attachEventBroker(value);
+        deformer.attachEventBroker(value);
     }
 
     @Override public void close() {

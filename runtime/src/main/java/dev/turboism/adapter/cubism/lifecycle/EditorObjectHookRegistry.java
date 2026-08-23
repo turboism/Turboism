@@ -7,6 +7,7 @@ import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
@@ -62,7 +63,7 @@ public final class EditorObjectHookRegistry {
                 throw new IllegalStateException("Editor-object hooks already registered for " + descriptor.id());
             }
             unregisterHooks(descriptor.id());
-            registerHooks(token, descriptor, entrypoints, logger, true);
+            registerHooks(token, descriptor, entrypoints, logger, true, true);
         }
     }
 
@@ -93,7 +94,7 @@ public final class EditorObjectHookRegistry {
             }
             try {
                 pluginScope.register(ownership::close);
-                registerHooks(ownership.token, plugin, entrypoints, logger, true);
+                registerHooks(ownership.token, plugin, entrypoints, logger, true, true);
                 ownership.installed = true;
             } catch (RuntimeException | Error failure) {
                 ownerships.remove(plugin.id(), ownership);
@@ -130,7 +131,7 @@ public final class EditorObjectHookRegistry {
             try {
                 pluginScope.register(ownership::close);
                 registerHooks(
-                    ownership.token, plugin, instances, sink, false
+                    ownership.token, plugin, instances, sink, false, false
                 );
                 ownership.installed = true;
             } catch (RuntimeException | Error failure) {
@@ -236,6 +237,33 @@ public final class EditorObjectHookRegistry {
                     );
                 }
             }
+            if (entrypoint instanceof DeformerHooks hooks) {
+                if (hasPermission(plugin, INTERCEPT_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 12, entrypoint,
+                        "beforeSetDeformerOpacity", DeformerOpacityEvent.Before.class,
+                        event -> event.setOpacity(hooks.beforeSetDeformerOpacity(
+                            event.deformer(), event.opacity()
+                        )), sink, adapters
+                    );
+                }
+                if (hasPermission(plugin, OBSERVE_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 13, entrypoint,
+                        "onDeformerOpacityChanged", DeformerOpacityEvent.On.class,
+                        event -> hooks.onDeformerOpacityChanged(
+                            event.deformer(), event.oldOpacity(), event.newOpacity()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 14, entrypoint,
+                        "afterSetDeformerOpacity", DeformerOpacityEvent.After.class,
+                        event -> hooks.afterSetDeformerOpacity(
+                            event.deformer(), event.finalOpacity()
+                        ), sink, adapters
+                    );
+                }
+            }
             entrypointOrdinal++;
         }
         if (adapters.isEmpty()) {
@@ -256,7 +284,8 @@ public final class EditorObjectHookRegistry {
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
         final PluginLogger logger,
-        final boolean includeDrawable
+        final boolean includeDrawable,
+        final boolean includeDeformer
     ) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
         final List<? extends TurboismPlugin> ordered = Objects.requireNonNull(entrypoints, "entrypoints");
@@ -276,7 +305,7 @@ public final class EditorObjectHookRegistry {
                 plugin, drawableHooks, pluginLogger, intercept, observe
             ));
         }
-        if (!deformerHooks.isEmpty()) {
+        if (includeDeformer && !deformerHooks.isEmpty()) {
             coordinator.deformer().register(token, new DeformerLifecycleCoordinator.PluginHooks(
                 plugin, deformerHooks, pluginLogger, intercept, observe
             ));
@@ -396,6 +425,17 @@ public final class EditorObjectHookRegistry {
                         dev.turboism.sdk.cubism.model.ArtMeshGeometry.class,
                         dev.turboism.sdk.cubism.model.ArtMeshGeometry.class
                     };
+                case "beforeSetDeformerOpacity", "afterSetDeformerOpacity" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Deformer.class,
+                        float.class
+                    };
+                case "onDeformerOpacityChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Deformer.class,
+                        float.class,
+                        float.class
+                    };
                 default -> throw new IllegalArgumentException(
                     "Unknown editor-object hook method: " + methodName
                 );
@@ -403,6 +443,7 @@ public final class EditorObjectHookRegistry {
             final java.lang.reflect.Method method = entrypoint.getClass()
                 .getMethod(methodName, parameterTypes);
             return method.getDeclaringClass() != DrawableHooks.class
+                && method.getDeclaringClass() != DeformerHooks.class
                 && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException(
@@ -418,13 +459,13 @@ public final class EditorObjectHookRegistry {
         final Throwable failure
     ) {
         try {
-            logger.error("Cubism Drawable lifecycle hook failed safely: " + phase, failure);
+            logger.error("Cubism editor-object lifecycle hook failed safely: " + phase, failure);
         } catch (Throwable ignored) {
             // Diagnostic failure must not replace the hook failure.
         }
         return failure instanceof RuntimeException runtimeFailure
             ? runtimeFailure
-            : new IllegalStateException("Legacy Drawable hook failed: " + phase, failure);
+            : new IllegalStateException("Legacy editor-object hook failed: " + phase, failure);
     }
 
     private static boolean subscribes(
