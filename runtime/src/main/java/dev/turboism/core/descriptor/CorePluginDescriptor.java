@@ -30,6 +30,8 @@ import java.util.Optional;
  * @param environment host requirements such as whether Cubism itself must be present
  * @param category directory category, empty when unclassified
  * @param tags unmodifiable copy of the free-form tags, empty when the manifest declared none
+ * @param eventExports public event contracts provided to declared dependents
+ * @param eventImports public event contracts consumed from declared dependencies
  */
 public record CorePluginDescriptor(
     String id,
@@ -48,8 +50,37 @@ public record CorePluginDescriptor(
     List<String> capabilities,
     Environment environment,
     Optional<String> category,
-    List<String> tags
+    List<String> tags,
+    List<EventExport> eventExports,
+    List<EventImport> eventImports
 ) implements PluginDescriptor {
+
+    /** Compatibility constructor for schema v2/v3 descriptors without public events. */
+    public CorePluginDescriptor(
+        final String id,
+        final String name,
+        final String version,
+        final String description,
+        final List<String> entrypoints,
+        final String turboismApi,
+        final List<Author> authors,
+        final String license,
+        final Optional<String> website,
+        final List<String> resources,
+        final I18n i18n,
+        final List<DependencyRef> dependencies,
+        final List<PermissionRef> permissions,
+        final List<String> capabilities,
+        final Environment environment,
+        final Optional<String> category,
+        final List<String> tags
+    ) {
+        this(
+            id, name, version, description, entrypoints, turboismApi, authors, license,
+            website, resources, i18n, dependencies, permissions, capabilities,
+            environment, category, tags, List.of(), List.of()
+        );
+    }
 
     public CorePluginDescriptor {
         entrypoints = List.copyOf(entrypoints);
@@ -60,6 +91,8 @@ public record CorePluginDescriptor(
         capabilities = List.copyOf(capabilities);
         category = category == null ? Optional.empty() : category;
         tags = tags == null ? List.of() : List.copyOf(tags);
+        eventExports = eventExports == null ? List.of() : List.copyOf(eventExports);
+        eventImports = eventImports == null ? List.of() : List.copyOf(eventImports);
     }
 
     /**
@@ -115,6 +148,26 @@ public record CorePluginDescriptor(
         String scope,
         Optional<String> reason
     ) implements PermissionRef {
+    }
+
+    /** One provider-owned public event contract. */
+    public record CoreEventExport(
+        String id,
+        String contractVersion,
+        String eventType,
+        String abiSha256
+    ) implements EventExport {
+    }
+
+    /** One dependency-owned public event contract consumed by this plugin. */
+    public record CoreEventImport(
+        String providerId,
+        String eventId,
+        String contractVersion,
+        String eventType,
+        String abiSha256,
+        boolean required
+    ) implements EventImport {
     }
 
     /**

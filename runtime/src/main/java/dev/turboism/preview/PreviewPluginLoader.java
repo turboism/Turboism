@@ -99,6 +99,7 @@ final class PreviewPluginLoader {
         final PluginRuntime runtime,
         final LoadResources resources
     ) throws Exception {
+        contextFactory.preflightEventContracts(candidate.descriptor());
         resources.classLoader = new URLClassLoader(
             new URL[]{candidate.jar().toUri().toURL()},
             resolvePluginParent(TurboismPlugin.class.getClassLoader())

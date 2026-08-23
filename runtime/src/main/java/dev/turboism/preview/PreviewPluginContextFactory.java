@@ -87,6 +87,10 @@ final class PreviewPluginContextFactory {
         return servicesFactory.eventBroker();
     }
 
+    void preflightEventContracts(final PluginDescriptor descriptor) {
+        servicesFactory.preflightEventContracts(descriptor);
+    }
+
     PluginContextBundle create(
         final PluginDescriptor descriptor,
         final ClassLoader pluginClassLoader,
@@ -102,7 +106,7 @@ final class PreviewPluginContextFactory {
             requestedDescriptor.id(), requestedClassLoader
         ));
         final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner =
-            servicesFactory.admitEventOwner(requestedDescriptor.id());
+            servicesFactory.admitEventOwner(requestedDescriptor);
         try {
             final PreviewPluginServices services = servicesFactory.create(
                 requestedDescriptor,
