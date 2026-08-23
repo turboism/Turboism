@@ -7,6 +7,7 @@ import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -72,7 +73,8 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)
             || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.Before.class)
             || subscriptionType.isAssignableFrom(DrawableLockEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -88,7 +90,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DrawableLockEvent.On.class)
             || subscriptionType.isAssignableFrom(DrawableLockEvent.After.class)
             || subscriptionType.isAssignableFrom(DrawableGeometryEvent.On.class)
-            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)
+            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.On.class)
+            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
