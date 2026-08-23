@@ -60,15 +60,20 @@ def write_manifest(repo_root: Path, plugins: list) -> Path:
 
 
 def make_module(repo_root: Path, name: str, plugin_id: str, requires_cubism: bool,
-                version: str = "0.1.0", locales=None, en_description=None):
+                version: str = "0.1.0", locales=None, en_description=None,
+                schema_version: int = 3, dependencies=None, event_exports=None,
+                event_imports=None):
     """Create a tracked descriptor plus i18n catalogs for a plugin module."""
     locales = locales or ("en", "ja", "ko", "zh-Hans", "zh-Hant")
+    dependencies = list(dependencies or [])
+    event_exports = list(event_exports or [])
+    event_imports = list(event_imports or [])
     resources = repo_root / "plugins" / name / "src/main/resources"
     i18n_dir = resources / I18N
     i18n_dir.mkdir(parents=True)
     descriptor = {
         "format": "turboism.plugin.meta",
-        "schemaVersion": 3,
+        "schemaVersion": schema_version,
         "id": plugin_id,
         "name": f"{name} plugin",
         "version": version,
@@ -80,7 +85,7 @@ def make_module(repo_root: Path, name: str, plugin_id: str, requires_cubism: boo
         "website": "https://turboism.dev",
         "resources": [],
         "i18n": {"baseName": BASE_NAME, "locales": list(locales)},
-        "dependencies": [],
+        "dependencies": dependencies,
         "permissions": [{"id": "turboism.cubism.model.read", "scope": "application",
                          "reason": "fixture"}],
         "capabilities": ["cubism.model.objects.read"],
@@ -88,6 +93,9 @@ def make_module(repo_root: Path, name: str, plugin_id: str, requires_cubism: boo
         "tags": ["fixture", "test"],
         "category": "workflow",
     }
+    if schema_version == 4:
+        descriptor["eventExports"] = event_exports
+        descriptor["eventImports"] = event_imports
     descriptor_path = resources / DESCRIPTOR_ENTRY
     descriptor_path.write_text(json.dumps(descriptor, indent=2) + "\n")
     (i18n_dir / "messages.properties").write_text(
@@ -349,6 +357,76 @@ class ManifestValidationTest(unittest.TestCase):
              "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
         ], expect_ok=False)
 
+    def test_schema_v4_event_routes_accepted(self):
+        digest = "a" * 64
+        provider = make_module(
+            self.tmp,
+            "provider",
+            "dev.turboism.plugin.provider",
+            False,
+            schema_version=4,
+            event_exports=[{
+                "id": "model.ready",
+                "contractVersion": "1.0.0",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": digest,
+            }],
+        )
+        consumer = make_module(
+            self.tmp,
+            "consumer",
+            "dev.turboism.plugin.consumer",
+            False,
+            schema_version=4,
+            dependencies=[{"id": "dev.turboism.plugin.provider", "version": "[0.1.0,0.2.0)"}],
+            event_imports=[{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "model.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": digest,
+                "required": True,
+            }],
+        )
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\ninclude("plugins:consumer", "plugins:provider")\n')
+        self.fixture.build_modules([
+            ("provider", provider.read_bytes()),
+            ("consumer", consumer.read_bytes()),
+        ])
+        result = self.plan([
+            {"project": ":plugins:consumer", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+            {"project": ":plugins:provider", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+        ])
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_schema_v4_event_import_requires_dependency(self):
+        path = make_module(
+            self.tmp,
+            "consumer",
+            "dev.turboism.plugin.consumer",
+            False,
+            schema_version=4,
+            event_imports=[{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "model.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": "a" * 64,
+                "required": False,
+            }],
+        )
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\ninclude("plugins:consumer")\n')
+        self.fixture.build_modules([("consumer", path.read_bytes())])
+        result = self.plan([
+            {"project": ":plugins:consumer", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+        ], expect_ok=False)
+        self.assertIn("declared dependency", result.stderr)
+
     def test_missing_category_or_tags_rejected(self):
         path = self.fixture.mcp_descriptor
         text = path.read_text().replace('"category": "workflow",', '')
@@ -467,6 +545,8 @@ class StagingTest(unittest.TestCase):
         self.assertEqual(mcp["descriptor"]["turboismApi"], "[0.1.0,0.2.0)")
         self.assertEqual(mcp["descriptor"]["environment"],
                          {"requiresCubism": True, "ui": "none"})
+        self.assertEqual(mcp["descriptor"]["publishedEvents"], [])
+        self.assertEqual(mcp["descriptor"]["subscribedEvents"], [])
         self.assertEqual(mcp["descriptor"]["author"], "Turboism Contributors")
         self.assertEqual(mcp["localizations"]["en"]["name"], "en mcp plugin")
         self.assertEqual(mcp["localizations"]["en"]["description"],
@@ -476,6 +556,69 @@ class StagingTest(unittest.TestCase):
         backup = artifacts[0]
         self.assertEqual(backup["policy"]["channel"], "stable")
         self.assertEqual(backup["policy"]["cubismVersions"], ["5.2.03", "5.3.02"])
+
+    def test_schema_v4_sidecar_publishes_event_metadata(self):
+        digest = "a" * 64
+        provider = make_module(
+            self.tmp,
+            "provider",
+            "dev.turboism.plugin.provider",
+            False,
+            schema_version=4,
+            event_exports=[{
+                "id": "model.ready",
+                "contractVersion": "1.0.0",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": digest,
+            }],
+        )
+        consumer = make_module(
+            self.tmp,
+            "consumer",
+            "dev.turboism.plugin.consumer",
+            False,
+            schema_version=4,
+            dependencies=[{"id": "dev.turboism.plugin.provider", "version": "[0.1.0,0.2.0)"}],
+            event_imports=[{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "model.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+                "abiSha256": digest,
+                "required": True,
+            }],
+        )
+        (self.tmp / "settings.gradle.kts").write_text(
+            'rootProject.name = "fixture"\ninclude("plugins:consumer", "plugins:provider")\n')
+        self.manifest = self.fixture.write_manifest([
+            {"project": ":plugins:consumer", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+            {"project": ":plugins:provider", "channel": "stable", "cubismVersions": [],
+             "repository": "https://example.invalid/a", "support": "https://example.invalid/b"},
+        ])
+        self.fixture.build_modules([
+            ("consumer", consumer.read_bytes()),
+            ("provider", provider.read_bytes()),
+        ])
+
+        self.stage()
+
+        sidecar = json.loads((self.output / "market-release.json").read_text())
+        by_id = {item["descriptor"]["id"]: item["descriptor"] for item in sidecar["artifacts"]}
+        self.assertEqual(by_id["dev.turboism.plugin.provider"]["publishedEvents"], [{
+            "id": "model.ready",
+            "contractVersion": "1.0.0",
+            "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+            "abiSha256": digest,
+        }])
+        self.assertEqual(by_id["dev.turboism.plugin.consumer"]["subscribedEvents"], [{
+            "provider": "dev.turboism.plugin.provider",
+            "eventId": "model.ready",
+            "contractVersion": "[1.0.0,2.0.0)",
+            "eventType": "dev.turboism.sdk.fixture.ModelReadyEvent",
+            "abiSha256": digest,
+            "required": True,
+        }])
 
     def test_byte_identical_rerun(self):
         self.stage()

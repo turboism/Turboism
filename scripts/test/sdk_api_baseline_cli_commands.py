@@ -47,7 +47,9 @@ def _verify_expected_commit(args, baseline):
 def _verify_reference_binding(args, baseline):
     dump, artifact_sha, artifact_size = canonical_dump(args.reference_input, args.package_prefix)
     artifact = baseline["artifact"]
-    if artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]:
+    if args.reference_binding == "artifact" and (
+        artifact_sha != artifact["sha256"] or artifact_size != artifact["size"]
+    ):
         raise BaselineError(_artifact_binding_mismatch(artifact, artifact_sha, artifact_size))
     canonical = baseline["canonicalDump"]
     if sha256_bytes(dump) != canonical["sha256"] or len(dump.decode("utf-8").splitlines()) != canonical["lineCount"]:

@@ -18,6 +18,7 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
+val sdkV4HistoricalReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v4-historical-reference.jar")
 val sdkV5ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v5-exact.json")
 val sdkV5TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v5.json")
 val sdkV5DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v5.json")
@@ -27,6 +28,10 @@ val sdkV5ExactCommit = "afe3e8a69f5ad22ecb2f35a63575d1fa9ea585d6"
 // unavailability exception, and runtime-visible exact-version annotations on the reviewed model
 // declarations. The final artifact binding includes the standard-Javadoc doclint cleanup.
 val sdkV4ExactCommit = "86a85caa544da4d46ac9f9db5683ad4ded2612f6"
+// The synchronized SDK source snapshot whose canonical API dump exactly matches the immutable v4
+// baseline. Source reconstruction deliberately validates the reviewed API contract rather than
+// depending on the historical Gradle JAR container bytes.
+val sdkV4HistoricalReferenceCommit = "873e3f3be5850d538b3686bd59b02c1e3f6f2322"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
@@ -141,43 +146,71 @@ val checkSdkV3TierCompatibility by tasks.registering(Exec::class) {
     )
 }
 
+val prepareSdkV4HistoricalReference by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Reconstructs the reviewed v4 SDK API reference from its pinned source snapshot."
+    workingDir(rootDir)
+    inputs.file(sdkApiReferenceBuilder)
+    inputs.property("historicalCommit", sdkV4HistoricalReferenceCommit)
+    outputs.file(sdkV4HistoricalReferenceArtifact)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiReferenceBuilder.asFile.absolutePath,
+        "--root", rootDir.absolutePath,
+        "--commit", sdkV4HistoricalReferenceCommit,
+        "--output", sdkV4HistoricalReferenceArtifact.get().asFile.absolutePath
+    )
+}
+
 val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies the current SDK JAR exactly matches the reviewed v4 API baseline."
-    dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkJarArtifact)
+    group = "historical verification"
+    description = "Audits the immutable reviewed v4 canonical API contract against its historical source snapshot."
+    dependsOn(prepareSdkV4HistoricalReference)
+    inputs.files(
+        sdkApiHelperFiles,
+        sdkV4ExactBaseline,
+        sdkApiReferenceBuilder,
+        sdkV4HistoricalReferenceArtifact
+    )
     inputs.property("expectedCommit", sdkV4ExactCommit)
-    doFirst {
-        commandLine(
-            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-            "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
-            "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV4ExactCommit
-        )
-    }
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
+        "--input", sdkV4HistoricalReferenceArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV4HistoricalReferenceArtifact.get().asFile.absolutePath,
+        "--reference-binding", "canonical",
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV4ExactCommit
+    )
 }
 
 val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
     group = "historical verification"
-    description = "Audits the immutable reviewed v4 API tiers and direct PreviewApi roots."
-    dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy, sdkV4DirectPreviewLedger, sdkJarArtifact)
+    description = "Audits the immutable reviewed v4 API tiers against its historical source snapshot."
+    dependsOn(prepareSdkV4HistoricalReference)
+    inputs.files(
+        sdkApiHelperFiles,
+        sdkV4ExactBaseline,
+        sdkV4TierPolicy,
+        sdkV4DirectPreviewLedger,
+        sdkApiReferenceBuilder,
+        sdkV4HistoricalReferenceArtifact
+    )
     inputs.property("expectedCommit", sdkV4ExactCommit)
-    doFirst {
-        commandLine(
-            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
-            "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
-            "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV4ExactCommit,
-            "--tier-policy", sdkV4TierPolicy.asFile.absolutePath,
-            "--initial-preview-ledger", sdkV4DirectPreviewLedger.asFile.absolutePath,
-            "--tier-trust-version", "v4"
-        )
-    }
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
+        "--input", sdkV4HistoricalReferenceArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV4HistoricalReferenceArtifact.get().asFile.absolutePath,
+        "--reference-binding", "canonical",
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV4ExactCommit,
+        "--tier-policy", sdkV4TierPolicy.asFile.absolutePath,
+        "--initial-preview-ledger", sdkV4DirectPreviewLedger.asFile.absolutePath,
+        "--tier-trust-version", "v4"
+    )
 }
 
 val checkSdkV5ExactApiCompatibility by tasks.registering(Exec::class) {
