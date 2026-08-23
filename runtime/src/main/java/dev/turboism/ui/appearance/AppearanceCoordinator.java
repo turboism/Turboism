@@ -5,7 +5,7 @@ import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.appearance.AppearanceRequest;
 import dev.turboism.sdk.appearance.AppearanceRestoreResult;
 import dev.turboism.sdk.appearance.AppearanceStatus;
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.core.event.RuntimeEventBroker;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -15,19 +15,26 @@ public final class AppearanceCoordinator implements AutoCloseable {
 
     private final Object monitor = new Object();
     private final AppearanceHostProvider provider;
-    private final EventBus eventBus;
+    private volatile RuntimeEventBroker eventBroker;
     private Owner activeOwner;
     private AppearanceHostProvider.RestorePoint restorePoint;
     private AppearanceStatus status;
     private boolean closed;
 
-    public AppearanceCoordinator(
-        final AppearanceHostProvider provider,
-        final EventBus eventBus
-    ) {
+    public AppearanceCoordinator(final AppearanceHostProvider provider) {
         this.provider = Objects.requireNonNull(provider, "provider");
-        this.eventBus = Objects.requireNonNull(eventBus, "eventBus");
         this.status = provider.readStatus();
+    }
+
+    /** Attaches the session Broker used for Runtime-owned appearance observations. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (monitor) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException("Appearance event Broker is already attached");
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -105,7 +112,7 @@ public final class AppearanceCoordinator implements AutoCloseable {
                 final AppearanceHostProvider.ApplyOutcome outcome = provider.apply(request);
                 status = appliedStatus(request, previous.revision() + (outcome == AppearanceHostProvider.ApplyOutcome.APPLIED ? 1 : 0));
                 if (outcome == AppearanceHostProvider.ApplyOutcome.APPLIED) {
-                    eventBus.publish(new AppearanceChangedEvent(previous, status, pluginId));
+                    publish(new AppearanceChangedEvent(previous, status, pluginId));
                     return applyResult(AppearanceApplyResult.Outcome.APPLIED, null);
                 }
                 return applyResult(AppearanceApplyResult.Outcome.NO_CHANGE, null);
@@ -158,7 +165,7 @@ public final class AppearanceCoordinator implements AutoCloseable {
                 activeOwner = null;
                 restorePoint = null;
                 if (!status.equals(previous)) {
-                    eventBus.publish(new AppearanceChangedEvent(previous, status, pluginId));
+                    publish(new AppearanceChangedEvent(previous, status, pluginId));
                 }
                 return restoreResult(AppearanceRestoreResult.Outcome.RESTORED, null);
             } catch (RuntimeException restoreFailure) {
@@ -210,6 +217,13 @@ public final class AppearanceCoordinator implements AutoCloseable {
                 AppearanceApplyResult.Outcome.FAILED_RESTORE,
                 "appearance.apply.restore-failed"
             );
+        }
+    }
+
+    private void publish(final AppearanceChangedEvent event) {
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntime(event);
         }
     }
 

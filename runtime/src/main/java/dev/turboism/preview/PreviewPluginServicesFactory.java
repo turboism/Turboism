@@ -109,6 +109,8 @@ final class PreviewPluginServicesFactory {
             .attachEventBroker(eventBroker);
         Objects.requireNonNull(editorObjectLifecycle, "editorObjectLifecycle")
             .attachEventBroker(eventBroker);
+        Objects.requireNonNull(hostAccess, "hostAccess").appearanceCoordinator()
+            .attachEventBroker(eventBroker);
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
         this.log = log;

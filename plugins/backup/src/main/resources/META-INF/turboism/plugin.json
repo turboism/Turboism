@@ -32,9 +32,9 @@
       "reason": "Subscribes to BackupCompletedEvent to upload new backup artifacts."
     },
     {
-      "id": "turboism.event.publish",
+      "id": "turboism.cubism.backup.observe",
       "scope": "application",
-      "reason": "The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus."
+      "reason": "Observes privacy-safe Runtime backup completion facts to upload command-owned artifacts."
     },
     {
       "id": "turboism.config.plugin.write",

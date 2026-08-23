@@ -68,6 +68,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.ui.menu", "turboism.ui.toolbar", "turboism.ui.palette",
         "turboism.cubism.project.read", "turboism.cubism.model.read", "turboism.cubism.model.write",
         "turboism.cubism.model.observe", "turboism.cubism.model.intercept",
+        "turboism.cubism.backup.observe",
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.cubism.recent-file.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
@@ -79,7 +80,8 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.ui.recent-preview.contribute",
         "turboism.ui.dialog.contribute", "turboism.ui.dialog.automate", "turboism.ui.panel.contribute",
         "turboism.ui.file-chooser.request", "turboism.ui.status.notify",
-        "turboism.ui.appearance.modify", "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
+        "turboism.ui.appearance.modify", "turboism.ui.appearance.observe",
+        "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
         "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
         "turboism.performance.stats.read", "turboism.host.unsafe"
     );

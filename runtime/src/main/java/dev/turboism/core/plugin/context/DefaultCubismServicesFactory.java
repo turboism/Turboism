@@ -236,7 +236,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         );
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
             autoBackup,
-            dependencies.eventBus(),
+            dependencies.eventBroker(),
             dependencies.clock(),
             AutoBackupCoordinator.DEFAULT_POLL_TIMEOUT_MILLIS,
             reason -> dependencies.logger().warn("auto-backup " + reason)
