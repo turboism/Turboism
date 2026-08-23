@@ -150,7 +150,7 @@ final class PreviewPluginServicesFactory {
         final RuntimePluginTaskScheduler tasks = tasks(descriptor, scope, evidence);
         final Set<String> permissions = permissionIds(descriptor);
         final CorePluginContext.Dependencies dependencies = dependencies(
-            descriptor, paths, uiScheduler, scope, eventOwner
+            descriptor, paths, uiScheduler, scope, eventOwner, classLoader
         );
         return new PreviewPluginServices(
             dependencies, localization(descriptor, classLoader), tasks,
@@ -166,7 +166,8 @@ final class PreviewPluginServicesFactory {
         final PluginHomePaths paths,
         final RuntimeUiScheduler uiScheduler,
         final DisposableScope scope,
-        final RuntimeEventBroker.Owner eventOwner
+        final RuntimeEventBroker.Owner eventOwner,
+        final ClassLoader classLoader
     ) {
         return new CorePluginContext.Dependencies(
             descriptor, new PreviewPluginLogger(log, descriptor.id()), paths, uiScheduler, scheduler,
@@ -174,7 +175,8 @@ final class PreviewPluginServicesFactory {
             EmptyHostSnapshotSource.INSTANCE,
             M12ReadSnapshotSource.EMPTY, new PreviewUiHostStateSource(paths),
             event -> log.debug(descriptor.id(), event.toString()), Clock.systemUTC(), failureCollector,
-            eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key()
+            eventBroker, Objects.requireNonNull(eventOwner, "eventOwner").key(),
+            Objects.requireNonNull(classLoader, "classLoader")
         );
     }
 
