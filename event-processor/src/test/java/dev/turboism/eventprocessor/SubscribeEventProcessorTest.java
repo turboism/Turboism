@@ -107,6 +107,59 @@ class SubscribeEventProcessorTest {
     }
 
     @Test
+    void distinguishesNestedAndUnderscoredEntrypointCatalogNames() throws Exception {
+        final Compilation result = compile(Map.of(
+            "fixture/A_B.java", """
+                package fixture;
+                import dev.turboism.sdk.event.SubscribeEvent;
+                import dev.turboism.sdk.event.TurboismEvent;
+                public final class A_B {
+                    @SubscribeEvent public void on(TestEvent event) { }
+                    public record TestEvent(String value) implements TurboismEvent { }
+                }
+                """,
+            "fixture/A.java", """
+                package fixture;
+                import dev.turboism.sdk.event.SubscribeEvent;
+                public final class A {
+                    public static final class B {
+                        @SubscribeEvent public void on(A_B.TestEvent event) { }
+                    }
+                }
+                """
+        ));
+
+        assertTrue(result.succeeded());
+        assertTrue(Files.isRegularFile(result.generated().resolve(
+            "fixture/A__B__TurboismSubscriberCatalog.java"
+        )));
+        assertTrue(Files.isRegularFile(result.generated().resolve(
+            "fixture/A_N_B__TurboismSubscriberCatalog.java"
+        )));
+        assertEquals(2, Files.readAllLines(result.classes().resolve(
+            "META-INF/services/dev.turboism.sdk.event.GeneratedSubscriberCatalog"
+        )).size());
+    }
+
+    @Test
+    void rejectsNonReifiableSubscriberTypeAtCompileTime() throws Exception {
+        final Compilation result = compile("""
+            package fixture;
+            import dev.turboism.sdk.event.SubscribeEvent;
+            import dev.turboism.sdk.event.TurboismEvent;
+            public final class Subscriber {
+                @SubscribeEvent public void invalid(GenericEvent<String> event) { }
+                public record GenericEvent<T>(T value) implements TurboismEvent { }
+            }
+            """);
+
+        assertFalse(result.succeeded());
+        assertTrue(result.diagnostics().getDiagnostics().stream().anyMatch(diagnostic ->
+            diagnostic.getMessage(java.util.Locale.ROOT).contains("reifiable")
+        ));
+    }
+
+    @Test
     void rejectsInvalidSubscriberAtCompileTime() throws Exception {
         final Compilation result = compile("""
             package fixture;
