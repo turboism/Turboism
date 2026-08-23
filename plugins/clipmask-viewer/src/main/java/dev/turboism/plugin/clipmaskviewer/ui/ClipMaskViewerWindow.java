@@ -282,6 +282,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         }
     }
 
+    /** Updates the viewer from a detached Cubism selection summary. */
     public void applySelection(final SelectionSummary summary) {
         final Set<String> guids = new LinkedHashSet<>();
         summary.selectedArtMeshIds().forEach(id -> guids.add(id.value()));

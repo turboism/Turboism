@@ -42,6 +42,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
         public static Callback openCallback(
             final Deformer deformer,
             final boolean requestedVisible,
@@ -52,8 +53,10 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
 
         @Override public Deformer deformer() { return deformer; }
         public boolean requestedVisible() { return requestedVisible; }
+        /** Returns the candidate visibility value that will be applied. */
         public boolean visible() { return visible; }
 
+        /** Replaces the candidate visibility value for the current callback. */
         public void setVisible(final boolean visible) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.visible = visible;
@@ -71,6 +74,7 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
                 event = new Before(deformer, requestedVisible, visible, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

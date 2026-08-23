@@ -78,6 +78,7 @@ public record EventSubscriberDescriptor(
         );
     }
 
+    /** Returns the subscriber failure boundary declared on its method or entrypoint type. */
     public String failureBoundary() {
         final FailureBoundary methodBoundary = method.getAnnotation(FailureBoundary.class);
         if (methodBoundary != null) {
@@ -91,6 +92,7 @@ public record EventSubscriberDescriptor(
             : requireText(typeBoundary.value(), "@FailureBoundary value");
     }
 
+    /** Returns whether centralized failure interception is disabled for this subscriber. */
     public boolean noFailureInterception() {
         return entrypoint.getClass().isAnnotationPresent(NoFailureInterception.class)
             || (method != null && method.isAnnotationPresent(NoFailureInterception.class));
@@ -127,6 +129,7 @@ public record EventSubscriberDescriptor(
         return signature.substring(separator + 1, parameters);
     }
 
+    /** Invokes the subscriber under its entrypoint ClassLoader context. */
     public void invoke(final EventBus.TurboismEvent event) throws Throwable {
         final ClassLoader classLoader = entrypoint.getClass().getClassLoader();
         if (classLoader == null) {

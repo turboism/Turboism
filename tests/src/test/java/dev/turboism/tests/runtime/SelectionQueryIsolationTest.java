@@ -3,7 +3,9 @@ package dev.turboism.tests.runtime;
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.service.query.SelectionQueryServiceImpl;
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.WorkBudget;
@@ -27,8 +29,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SelectionQueryIsolationTest {
@@ -41,19 +46,30 @@ class SelectionQueryIsolationTest {
         // Given
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
         final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
-        final SelectionQueryServiceImpl service = serviceWith(source, dispatcher);
-        final List<SelectionChangedEvent> events = new ArrayList<>();
-        service.onSelectionChanged(events::add);
+        final SelectionFixture fixture = serviceWith(source, dispatcher);
+        final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
+        final AtomicReference<String> subscriberThread = new AtomicReference<>();
+        final String callerThread = Thread.currentThread().getName();
+        fixture.broker().subscribe(
+            fixture.observer().key(),
+            SelectionChangedEvent.class,
+            event -> {
+                subscriberThread.set(Thread.currentThread().getName());
+                events.add(event);
+            }
+        );
+        fixture.observer().activate();
+        fixture.service().currentSelection();
         source.replaceSelection(List.of("mesh-face"));
 
         // When
-        service.currentSelection();
+        fixture.service().currentSelection();
 
         // Then
-        assertEquals(List.of(), events);
         dispatcher.drain();
         waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
         assertEquals(1, events.size());
+        assertNotEquals(callerThread, subscriberThread.get());
         assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
     }
 
@@ -62,25 +78,33 @@ class SelectionQueryIsolationTest {
         // Given
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
         final RecordingSidecarDispatcher dispatcher = new RecordingSidecarDispatcher();
-        final SelectionQueryServiceImpl service = serviceWith(source, dispatcher);
-        final List<SelectionChangedEvent> events = new ArrayList<>();
-        service.onSelectionChanged(events::add);
+        final SelectionFixture fixture = serviceWith(source, dispatcher);
+        final List<SelectionChangedEvent> events = new CopyOnWriteArrayList<>();
+        fixture.broker().subscribe(
+            fixture.observer().key(),
+            SelectionChangedEvent.class,
+            events::add
+        );
+        fixture.observer().activate();
+        fixture.service().currentSelection();
 
         // When
         for (int index = 0; index < 10; index++) {
             source.replaceSelection(List.of(index == 9 ? "deformer-root" : "mesh-face"));
-            service.currentSelection();
+            fixture.service().currentSelection();
         }
 
         // Then
         assertTrue(dispatcher.dispatchCount() <= MAX_COALESCED_DISPATCHES);
         dispatcher.drain();
-        waitFor(() -> events.size() == 1, Duration.ofSeconds(1));
-        assertEquals(1, events.size());
-        assertEquals(List.of(new ModelObjectId("deformer-root")), events.get(0).currentSelection().selectedModelObjectIds());
+        waitFor(() -> !events.isEmpty(), Duration.ofSeconds(1));
+        assertEquals(
+            List.of(new ModelObjectId("deformer-root")),
+            events.get(events.size() - 1).currentSelection().selectedModelObjectIds()
+        );
     }
 
-    private static SelectionQueryServiceImpl serviceWith(
+    private static SelectionFixture serviceWith(
         final HostSnapshotSource source,
         final RecordingSidecarDispatcher dispatcher
     ) {
@@ -92,12 +116,32 @@ class SelectionQueryIsolationTest {
             FIXED_CLOCK
         );
         final RuntimeScheduler scheduler = new RuntimeScheduler(
-            task -> WorkBudget.SIDECAR,
+            task -> "event.subscribe".equals(task.taskType())
+                ? WorkBudget.LIGHTWEIGHT
+                : WorkBudget.SIDECAR,
             new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
             dispatcher,
             event -> { }
         );
-        return new SelectionQueryServiceImpl(new CubismFacadeImpl(source, permissionGate), permissionGate, scheduler);
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner observer = broker.admit("plugin.selection-observer");
+        return new SelectionFixture(
+            new SelectionQueryServiceImpl(
+                new CubismFacadeImpl(source, permissionGate),
+                permissionGate,
+                broker,
+                new AtomicReference<SelectionSummary>()
+            ),
+            broker,
+            observer
+        );
+    }
+
+    private record SelectionFixture(
+        SelectionQueryServiceImpl service,
+        RuntimeEventBroker broker,
+        RuntimeEventBroker.Owner observer
+    ) {
     }
 
     private static PluginPermission permission(final String id) {

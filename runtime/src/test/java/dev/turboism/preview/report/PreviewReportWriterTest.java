@@ -178,6 +178,7 @@ class PreviewReportWriterTest {
             addFailure((ArrayNode) payload.path("taskFailures"), "task-" + index + "-" + "x".repeat(900));
             addFailure((ArrayNode) payload.path("storageFailures"), "storage-" + index + "-" + "x".repeat(900));
             addFailure((ArrayNode) payload.path("configFailures"), "config-" + index + "-" + "x".repeat(900));
+            addFailure((ArrayNode) payload.path("eventFailures"), "event-" + index + "-" + "x".repeat(900));
         }
         final Path state = temporary.resolve("categories");
         assertTrue(new PreviewReportWriter(state, ignored -> { }).write(
@@ -194,6 +195,9 @@ class PreviewReportWriterTest {
         }
         for (JsonNode failure : payloadWritten.path("configFailures")) {
             assertTrue(failure.path("message").asText().startsWith("config-"));
+        }
+        for (JsonNode failure : payloadWritten.path("eventFailures")) {
+            assertTrue(failure.path("message").asText().startsWith("event-"));
         }
     }
 
