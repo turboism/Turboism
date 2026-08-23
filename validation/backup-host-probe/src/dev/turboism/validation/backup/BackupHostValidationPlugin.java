@@ -5,7 +5,7 @@ import com.sun.net.httpserver.HttpServer;
 import dev.turboism.plugin.backup.webdav.WebDavConfig;
 import dev.turboism.plugin.backup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
-import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
@@ -461,7 +461,7 @@ public final class BackupHostValidationPlugin implements TurboismPlugin {
             final Registration registration = webDav == null
                 ? null
                 : backup.registerSyncTarget(webDav.target);
-            final BackupCompletedEvent event;
+            final BackupRunResult event;
             try {
                 event = backup.backupNow().toCompletableFuture()
                     .get(120, TimeUnit.SECONDS);

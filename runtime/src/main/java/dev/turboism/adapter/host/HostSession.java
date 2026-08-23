@@ -10,7 +10,6 @@ import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.ui.action.RuntimeEditorUiActionRouter;
 import dev.turboism.ui.appearance.AppearanceCoordinator;
 import dev.turboism.ui.appearance.DynamicAppearanceHostProvider;
@@ -92,19 +91,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private volatile dev.turboism.ui.context.NativeObjectContextMenuBridge.Handler objectContextMenuHandler;
     private volatile dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler;
     private final AppearanceCoordinator appearanceCoordinator =
-        new AppearanceCoordinator(dynamicAppearance, new EventBus() {
-            @Override
-            public <T extends TurboismEvent> dev.turboism.sdk.plugin.Registration subscribe(
-                final Class<T> type,
-                final java.util.function.Consumer<T> listener
-            ) {
-                return () -> { };
-            }
-
-            @Override
-            public <T extends TurboismEvent> void publish(final T event) {
-            }
-        });
+        new AppearanceCoordinator(dynamicAppearance);
     private final dev.turboism.ui.table.SceneTableHostOperations sceneTableHost =
         new dev.turboism.ui.table.SceneTableHostOperations();
     private final dev.turboism.sdk.ui.table.SceneTableService sceneTable = sceneTableHost.service();
