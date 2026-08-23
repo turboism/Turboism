@@ -1243,6 +1243,45 @@ public final class CorePluginContext implements PluginContext {
                 uiHostStateSource,
                 cubismAuditSink,
                 clock,
+                failureSink,
+                eventBroker,
+                eventOwner,
+                null
+            );
+        }
+
+        /** Internal composition overload with the exact plugin ClassLoader for callback TCCL. */
+        public Dependencies(
+            PluginDescriptor descriptor,
+            PluginLogger logger,
+            PluginPaths paths,
+            UiScheduler uiScheduler,
+            RuntimeScheduler runtimeScheduler,
+            DiagnosticReport diagnostics,
+            DisposableScope disposableScope,
+            HostSnapshotSource hostSnapshotSource,
+            M12ReadSnapshotSource m12ReadSnapshotSource,
+            UiHostStateSource uiHostStateSource,
+            Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            Clock clock,
+            RuntimeFailureSink failureSink,
+            RuntimeEventBroker eventBroker,
+            dev.turboism.core.event.PluginEventOwnerKey eventOwner,
+            ClassLoader pluginClassLoader
+        ) {
+            this(
+                descriptor,
+                logger,
+                paths,
+                uiScheduler,
+                runtimeScheduler,
+                diagnostics,
+                disposableScope,
+                hostSnapshotSource,
+                m12ReadSnapshotSource,
+                uiHostStateSource,
+                cubismAuditSink,
+                clock,
                 defaultServices(
                     descriptor,
                     permissionsFromDescriptor(descriptor),
@@ -1253,7 +1292,8 @@ public final class CorePluginContext implements PluginContext {
                     logger,
                     RuntimeFailureSink.require(failureSink),
                     Objects.requireNonNull(eventBroker, "eventBroker"),
-                    Objects.requireNonNull(eventOwner, "eventOwner")
+                    Objects.requireNonNull(eventOwner, "eventOwner"),
+                    pluginClassLoader
                 ),
                 eventBroker
             );
@@ -1320,7 +1360,8 @@ public final class CorePluginContext implements PluginContext {
             PluginLogger logger,
             RuntimeFailureSink failureSink,
             RuntimeEventBroker eventBroker,
-            dev.turboism.core.event.PluginEventOwnerKey eventOwner
+            dev.turboism.core.event.PluginEventOwnerKey eventOwner,
+            ClassLoader pluginClassLoader
         ) {
             PermissionChecker checker = PermissionChecker.from(
                 new CubismPermissionGate(descriptor.id(), permissions, cubismAuditSink, clock)
@@ -1328,7 +1369,12 @@ public final class CorePluginContext implements PluginContext {
             Consumer<StartupReport.DiagnosticProblem> diagnosticSink = problem ->
                 logger.warn(problem.code() + ": " + problem.message() + " @ " + problem.path());
             return new DefaultServices(
-                new PluginEventBus(eventBroker, eventOwner, checker),
+                new PluginEventBus(
+                    eventBroker,
+                    eventOwner,
+                    checker,
+                    pluginClassLoader
+                ),
                 new RuntimeActionRegistry(runtimeScheduler, diagnosticSink, descriptor.id(), checker),
                 new RuntimeMenuRegistry(runtimeScheduler, descriptor.id(), checker),
                 new RuntimeMainToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
