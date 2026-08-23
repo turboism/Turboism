@@ -6,10 +6,9 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
-import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus;
-import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -27,7 +26,6 @@ import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -110,14 +108,14 @@ class AutoBackupCoordinatorTest {
             new EditorAutoBackupSettings(true, 3, 120, null)
         ));
         assertThrows(RuntimeException.class, service::statuses);
-        CompletionStage<BackupCompletedEvent> stage = service.backupNow();
+        CompletionStage<BackupRunResult> stage = service.backupNow();
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(10, TimeUnit.SECONDS),
             "backupNow must fail closed without verified selectors"
         );
 
-        CompletionStage<BackupCompletedEvent> afterSave = service.backupAfterSave(snapshot("model.cmo3"));
+        CompletionStage<BackupRunResult> afterSave = service.backupAfterSave(snapshot("model.cmo3"));
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> afterSave.toCompletableFuture().get(10, TimeUnit.SECONDS),
@@ -142,7 +140,7 @@ class AutoBackupCoordinatorTest {
     @Test
     void backupNowProducesTheEventWithFreshArtifactsAndPublishesIt() throws Exception {
         FakeHost host = new FakeHost();
-        RecordingEventBus bus = new RecordingEventBus();
+        RecordingEventSink bus = new RecordingEventSink();
         AutoBackupCoordinator service = new AutoBackupCoordinator(
             AutoBackupAdapter.connected(host.operations()),
             bus,
@@ -150,7 +148,7 @@ class AutoBackupCoordinatorTest {
             60_000L
         );
 
-        BackupCompletedEvent event = service.backupNow().toCompletableFuture()
+        BackupRunResult event = service.backupNow().toCompletableFuture()
             .get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
         assertTrue(event.newBackupFiles().get(0).getName().startsWith("model_backup"),
@@ -179,13 +177,13 @@ class AutoBackupCoordinatorTest {
             throw new IllegalStateException("second target exploded");
         });
 
-        BackupCompletedEvent event = service.backupNow().toCompletableFuture()
+        BackupRunResult event = service.backupNow().toCompletableFuture()
             .get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size(), "target failures must not corrupt the result");
         assertEquals(2, received.size(), "every registered target must still be invoked");
 
         first.close();
-        BackupCompletedEvent second = service.backupNow().toCompletableFuture()
+        BackupRunResult second = service.backupNow().toCompletableFuture()
             .get(30, TimeUnit.SECONDS);
         assertEquals(1, second.newBackupFiles().size(), "closed registrations are removed");
     }
@@ -195,7 +193,7 @@ class AutoBackupCoordinatorTest {
         FakeHost host = new FakeHost();
         host.produceArtifact = false;
         AutoBackupCoordinator service = coordinator(host, 1_500L);
-        CompletionStage<BackupCompletedEvent> stage = service.backupNow();
+        CompletionStage<BackupRunResult> stage = service.backupNow();
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
@@ -207,7 +205,7 @@ class AutoBackupCoordinatorTest {
         FakeHost host = new FakeHost();
         host.packPresent = false;
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        CompletionStage<BackupCompletedEvent> stage = service.backupNow();
+        CompletionStage<BackupRunResult> stage = service.backupNow();
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
@@ -226,7 +224,7 @@ class AutoBackupCoordinatorTest {
     @Test
     void backupAfterSaveProducesTheArtifactPublishesTheEventAndSyncs() throws Exception {
         FakeHost host = new FakeHost();
-        RecordingEventBus bus = new RecordingEventBus();
+        RecordingEventSink bus = new RecordingEventSink();
         AutoBackupCoordinator service = new AutoBackupCoordinator(
             AutoBackupAdapter.connected(host.operations()), bus, Clock.systemUTC(), 60_000L
         );
@@ -235,7 +233,7 @@ class AutoBackupCoordinatorTest {
             received.addAll(files);
             throw new IllegalStateException("sync target exploded");
         });
-        BackupCompletedEvent event = service.backupAfterSave(snapshot("model.cmo3"))
+        BackupRunResult event = service.backupAfterSave(snapshot("model.cmo3"))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
         File artifact = event.newBackupFiles().get(0);
@@ -258,14 +256,14 @@ class AutoBackupCoordinatorTest {
         MutableClock clock = new MutableClock(1_000_000L);
         AutoBackupCoordinator service = coordinator(host, clock, 60_000L);
         ProjectContentSnapshot saved = snapshot("model.cmo3");
-        CompletionStage<BackupCompletedEvent> first = service.backupAfterSave(saved);
+        CompletionStage<BackupRunResult> first = service.backupAfterSave(saved);
         clock.advance(1_000L); // still inside the 2s debounce window
-        CompletionStage<BackupCompletedEvent> second = service.backupAfterSave(saved);
+        CompletionStage<BackupRunResult> second = service.backupAfterSave(saved);
         assertSame(first, second, "a save inside the debounce window must coalesce");
         assertEquals(1, first.toCompletableFuture().get(30, TimeUnit.SECONDS).newBackupFiles().size(),
             "one backup for saves inside the window");
         clock.advance(2_000L); // window expired
-        CompletionStage<BackupCompletedEvent> third = service.backupAfterSave(saved);
+        CompletionStage<BackupRunResult> third = service.backupAfterSave(saved);
         assertNotSame(first, third, "a save after the window must start a new backup");
         assertEquals(1, third.toCompletableFuture().get(30, TimeUnit.SECONDS).newBackupFiles().size());
     }
@@ -275,7 +273,7 @@ class AutoBackupCoordinatorTest {
         FakeHost host = new FakeHost();
         host.pack.fileContents = List.of(new FakeHost.FakeGameDataDocument(host, "game.cmo3", 0L, 0L, false));
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        BackupCompletedEvent event = service.backupAfterSave(snapshot("game.cmo3"))
+        BackupRunResult event = service.backupAfterSave(snapshot("game.cmo3"))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
         assertTrue(event.newBackupFiles().get(0).getName().startsWith("game_backup"));
@@ -293,7 +291,7 @@ class AutoBackupCoordinatorTest {
         AutoBackupCoordinator service = coordinator(host, 60_000L);
         // The saved snapshot name differs from the pack file name (runner rename),
         // but the stable document UID matches.
-        BackupCompletedEvent event = service.backupAfterSave(
+        BackupRunResult event = service.backupAfterSave(
                 snapshotWithUids("测试 混合模式.cmo3", List.of("uid-model-1")))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
@@ -313,7 +311,7 @@ class AutoBackupCoordinatorTest {
             new FakeHost.FakeSceneDocument(host, "uid-scene-2"));
         host.pack.fileContents = List.of(animation);
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        BackupCompletedEvent event = service.backupAfterSave(
+        BackupRunResult event = service.backupAfterSave(
                 snapshotWithUids("renamed-anim.motion3.json", List.of("uid-scene-2")))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
@@ -331,7 +329,7 @@ class AutoBackupCoordinatorTest {
         model.uid = "uid-model-1";
         host.pack.fileContents = List.of(model);
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        BackupCompletedEvent event = service.backupAfterSave(
+        BackupRunResult event = service.backupAfterSave(
                 snapshotWithUids("model.cmo3", List.of("uid-other")))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
@@ -346,7 +344,7 @@ class AutoBackupCoordinatorTest {
         host.pack.fileContents = List.of(new FakeHost.FakeModelingDocument(
             host, "model.cmo3", 0L, 0L, false));
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        BackupCompletedEvent event = service.backupAfterSave(snapshot("model.cmo3"))
+        BackupRunResult event = service.backupAfterSave(snapshot("model.cmo3"))
             .toCompletableFuture().get(30, TimeUnit.SECONDS);
         assertEquals(1, event.newBackupFiles().size());
         assertEquals(FakeHost.FakeFileContent.sourceContent("model.cmo3"),
@@ -358,7 +356,7 @@ class AutoBackupCoordinatorTest {
     void backupAfterSaveFailsClosedWhenUidSelectorsAreMissing() throws Exception {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host.resolverWithoutUidSelectors(), 60_000L);
-        CompletionStage<BackupCompletedEvent> stage = service.backupAfterSave(snapshot("model.cmo3"));
+        CompletionStage<BackupRunResult> stage = service.backupAfterSave(snapshot("model.cmo3"));
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
@@ -370,7 +368,7 @@ class AutoBackupCoordinatorTest {
     void backupAfterSaveFailsClosedWhenNoPackContentMatches() throws Exception {
         FakeHost host = new FakeHost();
         AutoBackupCoordinator service = coordinator(host, 60_000L);
-        CompletionStage<BackupCompletedEvent> stage = service.backupAfterSave(snapshot("missing.cmo3"));
+        CompletionStage<BackupRunResult> stage = service.backupAfterSave(snapshot("missing.cmo3"));
         assertThrows(
             java.util.concurrent.ExecutionException.class,
             () -> stage.toCompletableFuture().get(30, TimeUnit.SECONDS)
@@ -387,7 +385,7 @@ class AutoBackupCoordinatorTest {
     private AutoBackupCoordinator coordinator(final VerifiedMemberResolver resolver, final long timeout) {
         return new AutoBackupCoordinator(
             AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(resolver)),
-            new RecordingEventBus(),
+            new RecordingEventSink(),
             Clock.systemUTC(),
             timeout
         );
@@ -396,7 +394,7 @@ class AutoBackupCoordinatorTest {
     private AutoBackupCoordinator coordinator(final FakeHost host, final Clock clock, final long timeout) {
         return new AutoBackupCoordinator(
             AutoBackupAdapter.connected(new VerifiedAutoBackupHostOperations(host.resolver(true))),
-            new RecordingEventBus(),
+            new RecordingEventSink(),
             clock,
             timeout
         );
@@ -441,17 +439,12 @@ class AutoBackupCoordinatorTest {
         }
     }
 
-    private static final class RecordingEventBus implements EventBus {
-        final List<Object> events = new CopyOnWriteArrayList<>();
+    private static final class RecordingEventSink implements java.util.function.Consumer<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> {
+        final List<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> events =
+            new CopyOnWriteArrayList<>();
 
         @Override
-        public <T extends TurboismEvent> Registration subscribe(Class<T> type, Consumer<T> listener) {
-            return () -> {
-            };
-        }
-
-        @Override
-        public <T extends TurboismEvent> void publish(T event) {
+        public void accept(final dev.turboism.sdk.cubism.backup.BackupCompletedEvent event) {
             events.add(event);
         }
     }

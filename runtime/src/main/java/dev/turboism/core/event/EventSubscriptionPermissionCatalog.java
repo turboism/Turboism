@@ -21,6 +21,9 @@ import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.appearance.AppearanceChangedEvent;
+import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.util.LinkedHashSet;
@@ -93,6 +96,12 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)
             || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
+        }
+        if (AppearanceChangedEvent.class.isAssignableFrom(subscriptionType)) {
+            permissions.add(PermissionIds.TURBOISM_UI_APPEARANCE_OBSERVE);
+        }
+        if (BackupCompletedEvent.class.isAssignableFrom(subscriptionType)) {
+            permissions.add(PermissionIds.TURBOISM_CUBISM_BACKUP_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)

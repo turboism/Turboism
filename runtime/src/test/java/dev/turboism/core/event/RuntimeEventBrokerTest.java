@@ -12,6 +12,11 @@ import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.event.TurboismEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.appearance.AppearanceBase;
+import dev.turboism.sdk.appearance.AppearanceChangedEvent;
+import dev.turboism.sdk.appearance.AppearanceStatus;
+import dev.turboism.sdk.cubism.backup.BackupArtifact;
+import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import org.junit.jupiter.api.Test;
@@ -313,6 +318,78 @@ class RuntimeEventBrokerTest {
         );
 
         assertThrows(IllegalArgumentException.class, () -> eventBus.publish(event));
+        scheduler.shutdown();
+    }
+
+    @Test
+    void pluginsCannotForgeRuntimeOwnedAppearanceOrBackupObservations() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.publisher",
+            PermissionChecker.allowAll()
+        );
+        final AppearanceStatus nativeStatus = new AppearanceStatus(
+            AppearanceStatus.Availability.AVAILABLE,
+            AppearanceStatus.Source.NATIVE,
+            java.util.Optional.empty(),
+            AppearanceBase.DARK,
+            0L,
+            java.util.Optional.empty()
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new AppearanceChangedEvent(
+                nativeStatus,
+                new AppearanceStatus(
+                    AppearanceStatus.Availability.AVAILABLE,
+                    AppearanceStatus.Source.PLUGIN_OVERLAY,
+                    java.util.Optional.of("theme"),
+                    AppearanceBase.DARK,
+                    1L,
+                    java.util.Optional.empty()
+                ),
+                "dev.example.publisher"
+            ))
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new BackupCompletedEvent(
+                1L,
+                List.of(new BackupArtifact("model_backup.cmo3", 128L, false)),
+                List.of()
+            ))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void appearanceAndBackupSubscriptionsRequireDomainPermissions() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.subscriber",
+            (permissionId, operation) -> {
+                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
+                    permissionId
+                )) {
+                    return;
+                }
+                throw new CubismPermissionException("missing " + permissionId);
+            }
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(AppearanceChangedEvent.class, ignored -> { })
+        );
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(BackupCompletedEvent.class, ignored -> { })
+        );
         scheduler.shutdown();
     }
 

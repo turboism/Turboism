@@ -1042,8 +1042,42 @@ public final class CorePluginContext implements PluginContext {
         M12ReadSnapshotSource m12ReadSnapshotSource,
         UiHostStateSource uiHostStateSource,
         Consumer<CubismFacadeAuditEvent> cubismAuditSink,
-        Clock clock
+        Clock clock,
+        RuntimeEventBroker eventBroker
     ) {
+        /** Compatibility constructor for internal tests that provide pre-built SDK registries. */
+        public Dependencies(
+            final PluginDescriptor descriptor,
+            final PluginLogger logger,
+            final PluginPaths paths,
+            final List<PluginPermission> permissions,
+            final EventBus eventBus,
+            final ActionRegistry actions,
+            final MenuRegistry menus,
+            final MainToolbarRegistry mainToolbar,
+            final PaletteToolbarRegistry paletteToolbar,
+            final PaletteFilterRegistry paletteFilter,
+            final ContextMenuRegistry contextMenu,
+            final PluginConfigRegistry config,
+            final UiScheduler uiScheduler,
+            final RuntimeScheduler runtimeScheduler,
+            final DiagnosticReport diagnostics,
+            final DisposableScope disposableScope,
+            final HostSnapshotSource hostSnapshotSource,
+            final M12ReadSnapshotSource m12ReadSnapshotSource,
+            final UiHostStateSource uiHostStateSource,
+            final Consumer<CubismFacadeAuditEvent> cubismAuditSink,
+            final Clock clock
+        ) {
+            this(
+                descriptor, logger, paths, permissions, eventBus, actions, menus,
+                mainToolbar, paletteToolbar, paletteFilter, contextMenu, config,
+                uiScheduler, runtimeScheduler, diagnostics, disposableScope,
+                hostSnapshotSource, m12ReadSnapshotSource, uiHostStateSource,
+                cubismAuditSink, clock, new RuntimeEventBroker(runtimeScheduler)
+            );
+        }
+
         /**
          * Production convenience constructor: all runtime registries are created from the
          * permissions declared in the plugin descriptor. This guarantees that the runtime
@@ -1220,7 +1254,8 @@ public final class CorePluginContext implements PluginContext {
                     RuntimeFailureSink.require(failureSink),
                     Objects.requireNonNull(eventBroker, "eventBroker"),
                     Objects.requireNonNull(eventOwner, "eventOwner")
-                )
+                ),
+                eventBroker
             );
         }
 
@@ -1246,7 +1281,8 @@ public final class CorePluginContext implements PluginContext {
             UiHostStateSource uiHostStateSource,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
-            DefaultServices services
+            DefaultServices services,
+            RuntimeEventBroker eventBroker
         ) {
             this(
                 descriptor,
@@ -1269,7 +1305,8 @@ public final class CorePluginContext implements PluginContext {
                 m12ReadSnapshotSource,
                 uiHostStateSource,
                 cubismAuditSink,
-                clock
+                clock,
+                eventBroker
             );
         }
 
@@ -1349,7 +1386,8 @@ public final class CorePluginContext implements PluginContext {
                 m12ReadSnapshotSource,
                 uiHostStateSource,
                 cubismAuditSink,
-                clock
+                clock,
+                eventBroker
             );
         }
 
@@ -1381,7 +1419,8 @@ public final class CorePluginContext implements PluginContext {
                 m12ReadSnapshotSource,
                 uiHostStateSource,
                 cubismAuditSink,
-                clock
+                clock,
+                eventBroker
             );
         }
 
@@ -1407,6 +1446,7 @@ public final class CorePluginContext implements PluginContext {
             uiHostStateSource = Objects.requireNonNull(uiHostStateSource, "uiHostStateSource");
             cubismAuditSink = Objects.requireNonNull(cubismAuditSink, "cubismAuditSink");
             clock = Objects.requireNonNull(clock, "clock");
+            eventBroker = Objects.requireNonNull(eventBroker, "eventBroker");
         }
     }
 }
