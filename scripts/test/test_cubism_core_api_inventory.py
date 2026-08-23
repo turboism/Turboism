@@ -25,13 +25,13 @@ API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {
-    "5.2": ROOT
-    / "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+    "5.2.03": ROOT
+    / "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
     "5.3.02": ROOT
     / "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
 }
 CORE_PROFILES = {
-    "5.2": ROOT / "cubism-ref/profiles/draft/cubism-5.2.json",
+    "5.2.03": ROOT / "cubism-ref/profiles/draft/cubism-5.2.03.json",
     "5.3.02": ROOT / "cubism-ref/profiles/draft/cubism-5.3.02.json",
 }
 
@@ -141,7 +141,7 @@ def test_inventory_facts(
     api_53: dict[str, Any],
 ) -> None:
     expected = {
-        "5.2": {
+        "5.2.03": {
             "classCount": 22,
             "publicCallableCount": 158,
             "publicFieldCount": 19,

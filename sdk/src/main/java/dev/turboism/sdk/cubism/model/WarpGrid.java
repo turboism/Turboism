@@ -1,13 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable Warp Deformer grid committed as one Editor operation. */
-@PreviewApi
 public record WarpGrid(
     int rows,
     int columns,

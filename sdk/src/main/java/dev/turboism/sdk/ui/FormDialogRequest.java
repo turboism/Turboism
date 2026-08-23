@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** Bounded form dialog descriptor (text and color fields) rendered by the runtime. */
-@PreviewApi
 public record FormDialogRequest(
     String id,
     String title,

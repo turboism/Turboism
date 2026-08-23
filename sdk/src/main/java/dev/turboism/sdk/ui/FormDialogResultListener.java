@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Map;
 
@@ -12,7 +11,6 @@ import java.util.Map;
  * or {@code null} for accept/cancel. {@code values} maps field ids to their
  * final values; it is empty when the dialog was cancelled.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface FormDialogResultListener {
 

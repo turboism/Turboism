@@ -1,6 +1,5 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.Objects;
@@ -9,7 +8,6 @@ import java.util.Objects;
  * One dialog row: a bound source snapshot, the chosen target parameter,
  * and whether the transferred binding is inverted.
  */
-@PreviewApi
 public record BatchTransferRow(
     BoundParameterSnapshot snapshot,
     ParameterId target,

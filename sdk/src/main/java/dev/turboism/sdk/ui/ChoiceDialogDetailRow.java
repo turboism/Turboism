@@ -1,11 +1,9 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** One structured label/value row rendered in a runtime choice-dialog detail panel. */
-@PreviewApi
 public record ChoiceDialogDetailRow(
     String label,
     String value,
