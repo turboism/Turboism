@@ -3,7 +3,6 @@ plugins {
 }
 
 dependencies {
-    compileOnly(project(":sdk"))
-    annotationProcessor(project(":event-processor"))
+    implementation(project(":sdk"))
     testImplementation(project(":sdk"))
 }

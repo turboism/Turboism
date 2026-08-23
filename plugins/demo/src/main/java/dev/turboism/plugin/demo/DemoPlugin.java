@@ -3,6 +3,7 @@ package dev.turboism.plugin.demo;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -113,13 +114,14 @@ public class DemoPlugin implements TurboismPlugin {
         Registration configReg = context.config().readScope("demo/config.json");
         context.disposableScope().register(configReg);
 
-        Registration eventReg = context.eventBus().subscribe(DemoEvent.class, event -> {
-            logger.info("DemoPlugin received event: " + event.message());
-        });
-        context.disposableScope().register(eventReg);
         context.eventBus().publish(new DemoEvent("DemoPlugin enabled"));
 
-        logger.info("DemoPlugin enabled: 7 registrations enrolled in disposable scope");
+        logger.info("DemoPlugin enabled: 6 registrations enrolled in disposable scope");
+    }
+
+    @SubscribeEvent
+    public void onDemoEvent(final DemoEvent event) {
+        logger.info("DemoPlugin received event: " + event.message());
     }
 
     @Override

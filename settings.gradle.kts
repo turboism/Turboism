@@ -4,6 +4,7 @@ include(
     "bootstrap",
     "runtime",
     "sdk",
+    "event-processor",
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",

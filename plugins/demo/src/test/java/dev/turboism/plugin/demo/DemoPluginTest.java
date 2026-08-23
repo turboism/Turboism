@@ -33,7 +33,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * plugins:demo previously had no tests (NO-SOURCE); this is the one focused entry-path
  * test: the demo plugin initializes and enables when localization is available, with
- * stable semantic action IDs and all seven registrations enrolled in the scope.
+ * stable semantic action IDs and all six explicit contribution registrations enrolled in scope.
  */
 class DemoPluginTest {
 
