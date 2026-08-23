@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -12,7 +11,6 @@ import java.util.Objects;
  * plan is produced. A non-null planner receives the automatic-layout invocation and
  * the user's parallel-search flag.</p>
  */
-@PreviewApi
 public record TextureAtlasLayoutAlgorithm(
     String id,
     String displayName,

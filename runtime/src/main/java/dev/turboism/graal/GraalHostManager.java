@@ -90,10 +90,20 @@ public final class GraalHostManager implements AutoCloseable {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
     }
 
+    /** @return whether this manager can currently accept script submissions */
     public boolean configured() {
         return configuration.enabled() && !closed.get();
     }
 
+    /**
+     * Submits one bounded script execution to the external Graal host.
+     *
+     * @param scriptId stable script identity
+     * @param source script source text
+     * @param arguments immutable string arguments
+     * @param handler bounded callback for host operations
+     * @return a cancellable execution handle
+     */
     public Execution submit(
         final String scriptId,
         final String source,
@@ -838,6 +848,7 @@ public final class GraalHostManager implements AutoCloseable {
             this.code = code == null || code.isBlank() ? "SCRIPT_HOST_CALL_REJECTED" : code;
         }
 
+        /** @return the bounded failure code returned to the script host */
         public String code() {
             return code;
         }
@@ -850,14 +861,17 @@ public final class GraalHostManager implements AutoCloseable {
             this.delegate = delegate;
         }
 
+        /** @return the unique identity assigned to this execution */
         public ScriptExecutionId id() {
             return delegate.id();
         }
 
+        /** @return the terminal transport result stage */
         public CompletionStage<TransportResult> completion() {
             return delegate.completion();
         }
 
+        /** @return whether this call requested cancellation before terminal completion */
         public boolean cancel() {
             return GraalHostManager.this.cancel(delegate);
         }
@@ -868,6 +882,7 @@ public final class GraalHostManager implements AutoCloseable {
         }
     }
 
+    /** Terminal process-transport result before conversion to the public script result. */
     public record TransportResult(Status status, String code, String message, String output) {
         public TransportResult {
             status = Objects.requireNonNull(status, "status");

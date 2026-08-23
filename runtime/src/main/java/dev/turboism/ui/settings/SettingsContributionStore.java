@@ -46,6 +46,7 @@ public final class SettingsContributionStore implements SettingsContributionSour
         };
     }
 
+    /** Removes every currently registered settings contribution. */
     public synchronized void clear() {
         entries.clear();
     }

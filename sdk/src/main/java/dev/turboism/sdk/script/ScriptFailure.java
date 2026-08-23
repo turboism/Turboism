@@ -1,11 +1,9 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Sanitized failure returned from a script execution. */
-@PreviewApi
 public record ScriptFailure(String code, String message) {
 
     public ScriptFailure {

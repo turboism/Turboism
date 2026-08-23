@@ -363,11 +363,15 @@ class SdkApiSurfaceTest {
         Method typeVariableMethod = GenericTypeFixtures.class.getDeclaredMethod("identity", Object.class);
         Method rawObjectMethod = GenericTypeFixtures.class.getDeclaredMethod("rawObject", Object.class);
         Method wildcardListMethod = GenericTypeFixtures.class.getDeclaredMethod("wildcardList", List.class);
+        Method lowerBoundedWildcardListMethod = GenericTypeFixtures.class.getDeclaredMethod(
+            "lowerBoundedWildcardList", List.class
+        );
         Method objectListMethod = GenericTypeFixtures.class.getDeclaredMethod("objectList", List.class);
         Method boundedWildcardListMethod = GenericTypeFixtures.class.getDeclaredMethod("boundedWildcardList", List.class);
 
         assertMethodTypesAreAllowed(GenericTypeFixtures.class, typeVariableMethod);
         assertMethodTypesAreAllowed(GenericTypeFixtures.class, wildcardListMethod);
+        assertMethodTypesAreAllowed(GenericTypeFixtures.class, lowerBoundedWildcardListMethod);
         assertThrows(AssertionError.class,
             () -> assertMethodTypesAreAllowed(GenericTypeFixtures.class, rawObjectMethod));
         assertThrows(AssertionError.class,
@@ -645,9 +649,10 @@ class SdkApiSurfaceTest {
         } else if (type instanceof WildcardType wildcardType) {
             Type[] upperBounds = wildcardType.getUpperBounds();
             Type[] lowerBounds = wildcardType.getLowerBounds();
-            if (!(lowerBounds.length == 0 && upperBounds.length == 1 && upperBounds[0] == Object.class)) {
-                assertGenericTypesAreAllowed(source, upperBounds, seen);
+            if (lowerBounds.length > 0) {
                 assertGenericTypesAreAllowed(source, lowerBounds, seen);
+            } else if (!(upperBounds.length == 1 && upperBounds[0] == Object.class)) {
+                assertGenericTypesAreAllowed(source, upperBounds, seen);
             }
         }
     }
@@ -720,6 +725,10 @@ class SdkApiSurfaceTest {
         }
 
         private static List<?> wildcardList(List<?> value) {
+            return value;
+        }
+
+        private static List<? super String> lowerBoundedWildcardList(List<? super String> value) {
             return value;
         }
 

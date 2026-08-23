@@ -1,12 +1,10 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable public metadata for one installed script. */
-@PreviewApi
 public record ScriptDescriptor(
     ScriptId id,
     String name,

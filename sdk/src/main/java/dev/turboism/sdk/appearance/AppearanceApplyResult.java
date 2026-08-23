@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -18,7 +17,6 @@ import java.util.Optional;
  * @param status the appearance state observed after the attempt
  * @param diagnosticId host diagnostic reference for a non-clean outcome, never blank when present
  */
-@PreviewApi
 public record AppearanceApplyResult(
     Outcome outcome,
     AppearanceStatus status,
@@ -35,7 +33,6 @@ public record AppearanceApplyResult(
         });
     }
 
-    @PreviewApi
     public enum Outcome {
         APPLIED,
         NO_CHANGE,

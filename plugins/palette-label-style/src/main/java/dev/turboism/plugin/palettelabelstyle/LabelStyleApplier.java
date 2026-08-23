@@ -1,6 +1,5 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -34,7 +33,6 @@ import java.util.Optional;
  * registration. Deformer label backgrounds on the Deformer tab use the native
  * {@code setNativeLabelColor} mechanism (host-persisted, untracked).</p>
  */
-@PreviewApi
 public final class LabelStyleApplier {
 
     /** One user color choice: a preset key ({@code none} included) or a custom color. */

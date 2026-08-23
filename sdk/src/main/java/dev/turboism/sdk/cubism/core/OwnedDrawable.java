@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
 
@@ -15,7 +14,6 @@ import java.util.Objects;
  * flags ({@code BLEND_ADDITIVE=1}, {@code BLEND_MULTIPLICATIVE=2}) because the 5.2
  * public surface has no blend-mode getter.</p>
  */
-@PreviewApi
 public record OwnedDrawable(
     String id,
     byte constantFlag,

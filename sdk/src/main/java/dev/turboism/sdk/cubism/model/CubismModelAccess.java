@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Access to Cubism model objects. */
-@PreviewApi
 public interface CubismModelAccess {
 
     /**

@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.OptionalInt;
 
 /** One plugin-owned control placed inside a named settings tab. */
-@PreviewApi
 public record SettingsContribution(
     String id,
     SettingsTab tab,

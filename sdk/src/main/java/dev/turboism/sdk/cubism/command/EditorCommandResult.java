@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Sanitized result of one semantic Editor command invocation. */
-@PreviewApi
 public record EditorCommandResult(Status status, String commandId) {
     public EditorCommandResult {
         status = Objects.requireNonNull(status, "status");
@@ -21,7 +19,6 @@ public record EditorCommandResult(Status status, String commandId) {
         return status == Status.EXECUTED;
     }
 
-    @PreviewApi
     public enum Status {
         EXECUTED,
         UNAVAILABLE,

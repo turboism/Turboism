@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Immutable auto-backup settings projection of the host's auto-backup manager
@@ -11,7 +10,6 @@ import dev.turboism.sdk.PreviewApi;
  * mutated through this API. It is {@code null} when the host did not expose
  * a backup directory (fail closed).</p>
  */
-@PreviewApi
 public record EditorAutoBackupSettings(
     boolean enabled,
     int intervalMinutes,
