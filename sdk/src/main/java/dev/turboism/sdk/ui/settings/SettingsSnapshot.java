@@ -1,17 +1,16 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.OptionalInt;
 
 /** Immutable runtime aggregate consumed by the shared settings window renderer. */
-@PreviewApi
 public final class SettingsSnapshot {
     private SettingsSnapshot() {
     }
 
+    /** One plugin-owned contribution in the rendered aggregate. */
     public record Entry(String pluginId, SettingsContribution contribution) {
         public Entry {
             pluginId = Objects.requireNonNull(pluginId, "pluginId");
@@ -19,6 +18,7 @@ public final class SettingsSnapshot {
         }
     }
 
+    /** One normalized settings tab and its ordered contributions. */
     public record Tab(
         String id,
         String title,

@@ -1,12 +1,10 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Terminal result of one script execution. */
-@PreviewApi
 public record ScriptRunResult(
     ScriptExecutionId executionId,
     ScriptRunStatus status,
@@ -25,10 +23,27 @@ public record ScriptRunResult(
         }
     }
 
+    /**
+     * Creates a successful terminal result.
+     *
+     * @param id execution identity
+     * @param output bounded script output
+     * @return a successful result
+     */
     public static ScriptRunResult success(final ScriptExecutionId id, final String output) {
         return new ScriptRunResult(id, ScriptRunStatus.SUCCEEDED, output, Optional.empty());
     }
 
+    /**
+     * Creates a non-success terminal result with structured failure details.
+     *
+     * @param id execution identity
+     * @param status non-success status
+     * @param code bounded failure code
+     * @param message bounded failure message
+     * @param output bounded script output produced before termination
+     * @return a failed, rejected, cancelled, or timed-out result
+     */
     public static ScriptRunResult failure(
         final ScriptExecutionId id,
         final ScriptRunStatus status,

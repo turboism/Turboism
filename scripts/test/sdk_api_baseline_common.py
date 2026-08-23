@@ -6,7 +6,6 @@ import struct
 from pathlib import Path
 from typing import Iterable
 
-PREVIEW_ANNOTATION_DESCRIPTOR = "Ldev/turboism/sdk/PreviewApi;"
 SCHEMA_VERSION = 1
 GENERATOR_VERSION = 1
 HEADER = f"sdk-api-schema\t{SCHEMA_VERSION}\n" f"sdk-api-generator\t{GENERATOR_VERSION}\n"

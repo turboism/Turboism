@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * A node of the current workspace dock layout tree.
@@ -14,6 +13,5 @@ import dev.turboism.sdk.PreviewApi;
  * <p>This is a read-only view. No write, selection, or placement information is carried;
  * those belong to later additive capabilities.</p>
  */
-@PreviewApi
 public sealed interface DockComponent permits SplitDock, PaletteDock {
 }

@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.id.TextureAtlasId;
@@ -16,7 +15,6 @@ import java.util.List;
  * (edit-mode begin/end with a registered {@code GroupUndo}); every write is
  * undoable through the Editor's Undo history.</p>
  */
-@PreviewApi
 @CubismEditor({"5.2.03", "5.3.02"})
 public interface ModelTextures {
 

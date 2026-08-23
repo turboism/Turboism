@@ -1,13 +1,11 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.net.URI;
 import java.util.Locale;
 import java.util.Objects;
 
 /** One user-initiated HTTPS link offered after a settings change is rejected. */
-@PreviewApi
 public record SettingsLink(String label, URI uri, String openFailureMessage) {
     public SettingsLink {
         label = requireText(label, "label", 64);

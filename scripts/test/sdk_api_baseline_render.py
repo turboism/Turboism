@@ -22,7 +22,6 @@ from sdk_api_baseline_common import (
     ACC_TRANSIENT,
     ACC_VARARGS,
     ACC_VOLATILE,
-    PREVIEW_ANNOTATION_DESCRIPTOR,
     BaselineError,
     encode_float32_bits,
     encode_float64_bits,
@@ -33,19 +32,17 @@ from sdk_api_baseline_common import (
 from sdk_api_baseline_model import Annotation, Attributes, ClassInfo, ConstantPool
 
 
-def annotations_value(attributes: Attributes, *, exclude_preview_marker: bool = False) -> str:
-    values = _declaration_annotations(attributes, exclude_preview_marker)
+def annotations_value(attributes: Attributes) -> str:
+    values = _declaration_annotations(attributes)
     values.extend(_type_annotations(attributes))
     return encode_list(sorted(values))
 
 
-def _declaration_annotations(attributes: Attributes, exclude_preview_marker: bool) -> list[str]:
-    annotations = (*attributes.visible_annotations, *attributes.invisible_annotations)
+def _declaration_annotations(attributes: Attributes) -> list[str]:
     return [
         f"{visibility}:{annotation.encode()}"
         for visibility, source in (("visible", attributes.visible_annotations), ("invisible", attributes.invisible_annotations))
         for annotation in source
-        if not (exclude_preview_marker and annotation.descriptor == PREVIEW_ANNOTATION_DESCRIPTOR)
     ]
 
 

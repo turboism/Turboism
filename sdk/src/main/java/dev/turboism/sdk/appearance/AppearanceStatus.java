@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -21,7 +20,6 @@ import java.util.Optional;
  * @param diagnosticId host diagnostic reference explaining a non-available state, never blank when
  *     present
  */
-@PreviewApi
 public record AppearanceStatus(
     Availability availability,
     Source source,
@@ -41,7 +39,6 @@ public record AppearanceStatus(
         diagnosticId = text(diagnosticId, "diagnosticId");
     }
 
-    @PreviewApi
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE,
@@ -49,7 +46,6 @@ public record AppearanceStatus(
         SAFE_MODE
     }
 
-    @PreviewApi
     public enum Source {
         NATIVE,
         PLUGIN_OVERLAY

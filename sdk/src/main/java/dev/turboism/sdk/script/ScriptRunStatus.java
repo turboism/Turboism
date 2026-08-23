@@ -1,8 +1,7 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
-@PreviewApi
+/** Terminal state of a submitted script execution. */
 public enum ScriptRunStatus {
     SUCCEEDED,
     FAILED,

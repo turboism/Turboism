@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 
@@ -13,7 +12,6 @@ import java.util.List;
  * Implementations that do not support parallel search simply inherit the two-argument
  * fallback and ignore the flag.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface TextureAtlasLayoutPlanner {
 
@@ -27,7 +25,6 @@ public interface TextureAtlasLayoutPlanner {
      * serial {@link #plan(List, TextureAtlasLayoutConstraints)}; algorithms that can
      * parallelize their search should override this and preserve result determinism.
      */
-    @PreviewApi
     default TextureAtlasLayoutPlan plan(
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints,

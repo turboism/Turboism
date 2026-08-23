@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Typed catalog of Cubism model and Editor operations that may emit a
@@ -12,7 +11,6 @@ import dev.turboism.sdk.PreviewApi;
  * <p>A catalog entry does not enable a host hook or claim host-version support;
  * only a verified runtime producer may emit it.</p>
  */
-@PreviewApi
 public enum CubismOperation {
 
     /** Changes the Editor default-keyform lock. */

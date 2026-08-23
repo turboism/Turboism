@@ -1,13 +1,11 @@
 package dev.turboism.sdk.ui.settings;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.OptionalInt;
 import java.util.regex.Pattern;
 
 /** Stable identity and presentation metadata for a settings tab. */
-@PreviewApi
 public record SettingsTab(String id, String title, OptionalInt index) {
     private static final Pattern ID = Pattern.compile("[a-z0-9][a-z0-9._-]{0,63}");
 

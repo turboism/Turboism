@@ -10,6 +10,12 @@ public final class ProcessSettingsContributions {
     private ProcessSettingsContributions() {
     }
 
+    /**
+     * Returns the process-shared contribution store for one host session.
+     *
+     * @param hostAccess host-session identity, or {@code null} for an isolated store
+     * @return the corresponding contribution store
+     */
     public static synchronized SettingsContributionStore forHost(final Object hostAccess) {
         if (hostAccess == null) return new SettingsContributionStore();
         return STORES.computeIfAbsent(hostAccess, ignored -> new SettingsContributionStore());

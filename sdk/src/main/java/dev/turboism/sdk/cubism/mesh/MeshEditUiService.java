@@ -1,18 +1,15 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
 import java.util.function.Consumer;
 
 /** Declarative contributions for Cubism's native mesh-edit tool area. */
-@PreviewApi
 public interface MeshEditUiService {
 
     Registration contributeMirrorAxisAngleControl(MirrorAxisAngleControl contribution);
 
-    @PreviewApi
     record MirrorAxisAngleControl(
         String contributionId,
         String label,

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.CubismFacade;
 import org.junit.jupiter.api.Test;
 
