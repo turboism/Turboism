@@ -251,6 +251,12 @@ class ClipMaskViewerPluginTest {
         }
 
         @Override
+        public void applySelection(
+            final dev.turboism.sdk.cubism.service.query.SelectionSummary summary
+        ) {
+        }
+
+        @Override
         public void dispose() {
             disposed = true;
         }

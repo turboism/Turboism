@@ -245,7 +245,14 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final CubismContextServices services = new CubismContextServices(
             facade,
             new ParameterQueryServiceImpl(facade, permissionGate),
-            new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
+            new SelectionQueryServiceImpl(
+                facade,
+                permissionGate,
+                dependencies.eventBroker(),
+                dependencies.eventBroker().observationBaseline(
+                    dev.turboism.sdk.cubism.service.query.SelectionSummary.class
+                )
+            ),
             new ModelHierarchyQueryServiceImpl(facade, permissionGate),
             readCapabilityService,
             new dev.turboism.adapter.cubism.model.RuntimeModelObjectService(

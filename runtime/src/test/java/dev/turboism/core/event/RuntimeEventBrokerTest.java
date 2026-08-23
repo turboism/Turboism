@@ -17,7 +17,11 @@ import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.appearance.AppearanceStatus;
 import dev.turboism.sdk.cubism.backup.BackupArtifact;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.service.query.SelectionSummary;
+import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
+import dev.turboism.sdk.ui.table.SceneTableService;
 import dev.turboism.sdk.cubism.model.Parameter;
 import org.junit.jupiter.api.Test;
 
@@ -389,6 +393,60 @@ class RuntimeEventBrokerTest {
         assertThrows(
             CubismPermissionException.class,
             () -> eventBus.subscribe(BackupCompletedEvent.class, ignored -> { })
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void selectionAndSceneTableSubscriptionsRequireDomainPermissions() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.subscriber",
+            (permissionId, operation) -> {
+                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
+                    permissionId
+                )) {
+                    return;
+                }
+                throw new CubismPermissionException("missing " + permissionId);
+            }
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(SelectionChangedEvent.class, ignored -> { })
+        );
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(SceneTableHeaderClickEvent.class, ignored -> { })
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void pluginsCannotForgeRuntimeOwnedSelectionOrSceneTableObservations() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.publisher",
+            PermissionChecker.allowAll()
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new SelectionChangedEvent(
+                SelectionSummary.empty(),
+                SelectionSummary.empty()
+            ))
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new SceneTableHeaderClickEvent(
+                new SceneTableService.HeaderClick(SceneTableService.SCENE_TABLE_ID, "name")
+            ))
         );
         scheduler.shutdown();
     }

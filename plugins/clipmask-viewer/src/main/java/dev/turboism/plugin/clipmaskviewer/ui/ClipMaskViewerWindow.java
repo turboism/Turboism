@@ -3,7 +3,6 @@ package dev.turboism.plugin.clipmaskviewer.ui;
 import dev.turboism.plugin.clipmaskviewer.ClipMaskViewerPlugin.WindowView;
 import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -78,7 +77,6 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     private final CardLayout cards;
     private final JPanel center;
 
-    private Registration selectionRegistration;
     private final List<Registration> statusRegistrations = new ArrayList<>();
 
     public ClipMaskViewerWindow(
@@ -252,11 +250,6 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     }
 
     private void release() {
-        final Registration selection = selectionRegistration;
-        selectionRegistration = null;
-        if (selection != null) {
-            selection.close();
-        }
         for (Registration status : statusRegistrations) {
             status.close();
         }
@@ -289,18 +282,11 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         }
     }
 
-    private void subscribeSelection() {
-        try {
-            selectionRegistration = context.selectionQuery().onSelectionChanged(event -> {
-                final SelectionSummary summary = event.currentSelection();
-                final Set<String> guids = new LinkedHashSet<>();
-                summary.selectedArtMeshIds().forEach(id -> guids.add(id.value()));
-                summary.selectedModelObjectIds().forEach(id -> guids.add(id.value()));
-                SwingUtilities.invokeLater(() -> applyHighlight(guids));
-            });
-        } catch (dev.turboism.sdk.cubism.CubismServiceException | RuntimeException unavailable) {
-            // selection 桥接不可用：不报错，仅不做高亮
-        }
+    public void applySelection(final SelectionSummary summary) {
+        final Set<String> guids = new LinkedHashSet<>();
+        summary.selectedArtMeshIds().forEach(id -> guids.add(id.value()));
+        summary.selectedModelObjectIds().forEach(id -> guids.add(id.value()));
+        SwingUtilities.invokeLater(() -> applyHighlight(guids));
     }
 
     private void applyHighlight(final Set<String> guids) {
@@ -369,13 +355,5 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         table.getColumnModel().getColumn(1).setPreferredWidth(120);
         table.getColumnModel().getColumn(2).setPreferredWidth(560);
         return table;
-    }
-
-    @Override
-    public void addNotify() {
-        super.addNotify();
-        if (selectionRegistration == null) {
-            subscribeSelection();
-        }
     }
 }
