@@ -24,8 +24,9 @@ public final class GeneratedSubscriberCatalogLoader {
         final ClassLoader pluginClassLoader
     ) {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
-        final ClassLoader loader = Objects.requireNonNull(pluginClassLoader, "pluginClassLoader");
-        final Map<Class<?>, GeneratedSubscriberCatalog> catalogs = load(loader);
+        final Map<Class<?>, GeneratedSubscriberCatalog> catalogs = pluginClassLoader == null
+            ? Map.of()
+            : load(pluginClassLoader);
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
             final Object entrypoint = Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint");
