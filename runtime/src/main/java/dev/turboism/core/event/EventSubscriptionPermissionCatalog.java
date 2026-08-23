@@ -6,6 +6,7 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
@@ -84,7 +85,8 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DeformerLockEvent.Before.class)
             || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)
             || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.Before.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)
+            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -112,7 +114,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.On.class)
             || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.After.class)
             || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.On.class)
-            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.After.class)
+            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.On.class)
+            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);

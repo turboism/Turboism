@@ -48,6 +48,7 @@ public final class EditorObjectLifecycleCoordinator implements AutoCloseable {
         );
         drawable.attachEventBroker(value);
         deformer.attachEventBroker(value);
+        semantic.attachEventBroker(value);
     }
 
     @Override public void close() {
