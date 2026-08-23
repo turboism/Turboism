@@ -40,6 +40,7 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted opacity edit. */
         public static Callback openCallback(
             final Drawable drawable,
             final float requestedOpacity,
@@ -50,8 +51,10 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
 
         @Override public Drawable drawable() { return drawable; }
         public float requestedOpacity() { return requestedOpacity; }
+        /** Returns the candidate opacity value that will be applied. */
         public float opacity() { return opacity; }
 
+        /** Replaces the candidate opacity value for the current callback. */
         public void setOpacity(final float opacity) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.opacity = opacity;
@@ -69,6 +72,7 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
                 event = new Before(drawable, requestedOpacity, opacity, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

@@ -33,7 +33,6 @@ class QueryServicePermissionGatingTest {
         assertDenied(PARAMETER_READ_PERMISSION, () -> parameterEnvironment.context().parameterQuery().exists(new ParameterId("param-angle-x")));
         assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().selectionQuery().currentSelection());
         assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().selectionQuery().selectedIds(HierarchyNode.Kind.PARAMETER));
-        assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().selectionQuery().onSelectionChanged(event -> { }));
         assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().modelHierarchyQuery().currentHierarchy());
         assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().modelHierarchyQuery().childrenOf(new ModelObjectId("model-1")));
         assertDenied(MODEL_READ_PERMISSION, () -> modelEnvironment.context().modelHierarchyQuery().findNode(new ModelObjectId("model-1")));

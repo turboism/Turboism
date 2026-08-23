@@ -14,6 +14,7 @@ public final class ContextClassLoaderScope implements AutoCloseable {
         thread.setContextClassLoader(Objects.requireNonNull(classLoader, "classLoader"));
     }
 
+    /** Binds the current thread context ClassLoader until the returned scope is closed. */
     public static ContextClassLoaderScope bind(final ClassLoader classLoader) {
         return new ContextClassLoaderScope(classLoader);
     }

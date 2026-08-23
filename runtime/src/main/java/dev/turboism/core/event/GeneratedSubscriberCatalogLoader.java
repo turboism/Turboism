@@ -19,6 +19,7 @@ public final class GeneratedSubscriberCatalogLoader {
 
     private final EntrypointSubscriberCatalog fallback = new EntrypointSubscriberCatalog();
 
+    /** Loads a generated subscriber catalog, falling back to validated reflection when absent. */
     public List<EventSubscriberDescriptor> inspect(
         final List<?> entrypoints,
         final ClassLoader pluginClassLoader
@@ -81,10 +82,15 @@ public final class GeneratedSubscriberCatalogLoader {
                     catalog.entrypointType(),
                     "generated catalog entrypointType"
                 );
-                if (catalogType.getClassLoader() != loader
-                    || entrypointType.getClassLoader() != loader) {
+                if (catalogType.getClassLoader() != loader) {
+                    // Parent classpaths may publish catalogs for other plugins. They are not
+                    // candidates for this artifact and must not make an otherwise valid plugin
+                    // fail discovery.
+                    continue;
+                }
+                if (entrypointType.getClassLoader() != loader) {
                     throw new IllegalArgumentException(
-                        "Generated subscriber catalog must belong to the plugin artifact: "
+                        "Generated subscriber catalog entrypoint must belong to the plugin artifact: "
                             + catalogType.getName()
                     );
                 }

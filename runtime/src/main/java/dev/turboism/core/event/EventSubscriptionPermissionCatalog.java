@@ -43,6 +43,7 @@ public final class EventSubscriptionPermissionCatalog {
 
     private EventSubscriptionPermissionCatalog() { }
 
+    /** Checks every permission required to subscribe to the requested event type. */
     public static void check(
         final Class<? extends EventBus.TurboismEvent> subscriptionType,
         final PermissionChecker permissionChecker
@@ -60,6 +61,7 @@ public final class EventSubscriptionPermissionCatalog {
         }
     }
 
+    /** Validates that a descriptor declares permissions required by its subscribers. */
     public static void requireDeclared(
         final PluginDescriptor descriptor,
         final List<EventSubscriberDescriptor> subscribers

@@ -33,6 +33,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
         );
     }
 
+    /** Forwards a scene-table header click to the active palette sorter. */
     @SubscribeEvent
     public void onHeaderClick(final SceneTableHeaderClickEvent event) {
         if (sorter != null) {
@@ -40,6 +41,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
         }
     }
 
+    /** Forwards the latest scene-table snapshot to the active palette sorter. */
     @SubscribeEvent
     public void onSnapshot(final SceneTableSnapshotEvent event) {
         if (sorter != null) {
@@ -47,6 +49,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
         }
     }
 
+    /** Forwards a scene-table order change to the active palette sorter. */
     @SubscribeEvent
     public void onItemOrderChanged(final SceneTableItemOrderEvent event) {
         if (sorter != null) {

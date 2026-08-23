@@ -43,6 +43,7 @@ public final class EditorObjectHookRegistry {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }
 
+    /** Returns the shared coordinator that owns editor-object lifecycle delivery. */
     public EditorObjectLifecycleCoordinator coordinator() {
         return coordinator;
     }
@@ -498,6 +499,7 @@ public final class EditorObjectHookRegistry {
         coordinator.semantic().unregister(pluginId, token);
     }
 
+    /** Removes every editor-object event adapter owned by the plugin generation. */
     public void unregister(final PluginEventOwnerKey owner) {
         closeEventAdapters(Objects.requireNonNull(owner, "owner"));
     }

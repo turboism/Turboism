@@ -65,7 +65,7 @@ class CubismLogServiceHostTest {
 
         host.publish(
             CubismLogService.LogLevel.ERROR,
-            "file=/home/local-user/private/model.cmo3 Authorization: BearerToken " + longSuffix,
+            "file=/home/test-user/private/model.cmo3 Authorization: BearerToken " + longSuffix,
             7L
         );
 

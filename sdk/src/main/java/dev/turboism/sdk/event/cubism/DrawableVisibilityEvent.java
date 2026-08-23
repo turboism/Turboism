@@ -42,6 +42,7 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted visibility edit. */
         public static Callback openCallback(
             final Drawable drawable,
             final boolean requestedVisible,
@@ -52,8 +53,10 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
 
         @Override public Drawable drawable() { return drawable; }
         public boolean requestedVisible() { return requestedVisible; }
+        /** Returns the candidate visibility value that will be applied. */
         public boolean visible() { return visible; }
 
+        /** Replaces the candidate visibility value for the current callback. */
         public void setVisible(final boolean visible) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.visible = visible;
@@ -71,6 +74,7 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
                 event = new Before(drawable, requestedVisible, visible, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;
