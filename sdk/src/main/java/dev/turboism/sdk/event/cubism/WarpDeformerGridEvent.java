@@ -43,6 +43,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted grid edit. */
         public static Callback openCallback(
             final WarpDeformer deformer,
             final WarpGrid requestedGrid,
@@ -53,8 +54,10 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
 
         @Override public WarpDeformer deformer() { return deformer; }
         public WarpGrid requestedGrid() { return requestedGrid; }
+        /** Returns the candidate grid value that will be applied. */
         public WarpGrid grid() { return grid; }
 
+        /** Replaces the candidate grid value for the current callback. */
         public void setGrid(final WarpGrid grid) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.grid = Objects.requireNonNull(grid, "grid");
@@ -72,6 +75,7 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
                 event = new Before(deformer, requestedGrid, grid, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

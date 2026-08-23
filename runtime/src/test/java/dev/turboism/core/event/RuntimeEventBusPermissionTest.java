@@ -5,8 +5,10 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -47,6 +49,52 @@ class RuntimeEventBusPermissionTest {
             () -> eventBus.subscribe(TestEvent.class, ignored -> { })
         );
         assertEquals("event.subscribe denied", exception.getMessage());
+    }
+
+    @Test
+    void rootSubscriptionChecksOnlyBaselinePermission() {
+        final List<String> checks = new CopyOnWriteArrayList<>();
+        final RuntimeEventBus eventBus = eventBus((permissionId, operation) ->
+            checks.add(permissionId + ":" + operation)
+        );
+
+        final Registration registration = eventBus.subscribe(
+            EventBus.TurboismEvent.class,
+            ignored -> { }
+        );
+
+        assertEquals(
+            List.of(PermissionIds.TURBOISM_EVENT_SUBSCRIBE + ":event.subscribe"),
+            checks
+        );
+        registration.close();
+    }
+
+    @Test
+    void concreteRuntimeEventRequiresItsDomainPermission() {
+        final List<String> checks = new CopyOnWriteArrayList<>();
+        final RuntimeEventBus eventBus = eventBus((permissionId, operation) -> {
+            checks.add(permissionId + ":" + operation);
+            if (PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE.equals(permissionId)) {
+                throw new CubismPermissionException(operation + " denied");
+            }
+        });
+
+        final CubismPermissionException exception = assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(SelectionChangedEvent.class, ignored -> { })
+        );
+
+        assertEquals(
+            "event.subscribe." + SelectionChangedEvent.class.getName() + " denied",
+            exception.getMessage()
+        );
+        assertEquals(List.of(
+            PermissionIds.TURBOISM_EVENT_SUBSCRIBE + ":event.subscribe",
+            PermissionIds.TURBOISM_CUBISM_SELECTION_OBSERVE
+                + ":event.subscribe."
+                + SelectionChangedEvent.class.getName()
+        ), checks);
     }
 
     @Test

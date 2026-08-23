@@ -3,6 +3,7 @@ package dev.turboism.core.action;
 import dev.turboism.core.diagnostics.StartupReport;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
@@ -11,6 +12,7 @@ import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.WorkBudget;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -167,6 +169,59 @@ class RuntimeActionRegistryTest {
         assertEquals("test.action", observed.get().actionId());
         assertTrue(observed.get().uiEvent().isPresent());
         assertEquals("enabled", observed.get().uiEvent().orElseThrow().sourceId());
+    }
+
+    @Test
+    void rejectedInvocationPublishesNoActionFact() throws Exception {
+        problems.clear();
+        final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events =
+            new CopyOnWriteArrayList<>();
+        scheduler = new RuntimeScheduler(
+            task -> "action.handle".equals(task.taskType())
+                ? WorkBudget.REJECTED
+                : WorkBudget.LIGHTWEIGHT,
+            new PluginWorkExecutorRegistry(1, 2, events::add, CLOCK),
+            SidecarDispatcher.noop(),
+            events::add
+        );
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner observer = broker.admit("plugin.action-observer");
+        final AtomicInteger deliveries = new AtomicInteger();
+        broker.subscribe(
+            observer.key(),
+            ActionInvocationEvent.class,
+            ignored -> deliveries.incrementAndGet()
+        );
+        observer.activate();
+        final RuntimeActionRegistry registry = new RuntimeActionRegistry(
+            scheduler,
+            problems::add,
+            PLUGIN_ID,
+            PermissionChecker.allowAll(),
+            broker
+        );
+        final AtomicInteger executions = new AtomicInteger();
+        registry.register("test.action", new TestAction(
+            "test.action",
+            "Test Action",
+            ignored -> executions.incrementAndGet()
+        ));
+
+        registry.execute("test.action", new ActionRegistry.ActionContext() { });
+
+        scheduler.dispatch(
+            new PluginTask(
+                "event.subscribe",
+                "plugin.action-observer",
+                "admission barrier",
+                "none"
+            ),
+            () -> { }
+        );
+        observer.beginClosing();
+        assertTrue(observer.awaitQuiescence(java.time.Duration.ofSeconds(1)));
+        assertEquals(0, executions.get());
+        assertEquals(0, deliveries.get());
     }
 
     @Test

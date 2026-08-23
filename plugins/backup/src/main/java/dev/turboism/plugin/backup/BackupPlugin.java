@@ -341,6 +341,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         }
     }
 
+    /** Observes completed backups and records save-triggered remote-backup activity. */
     @SubscribeEvent
     public void onBackupCompleted(final BackupCompletedEvent event) {
         if (triggerMode == WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {

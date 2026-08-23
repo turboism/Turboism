@@ -168,7 +168,7 @@ class AnnotatedEventSubscriberTest {
     public static final class FailingSubscriber {
         @SubscribeEvent
         public void onEvent(final TestEvent event) {
-            throw new IllegalStateException("private path <local-home>/model.cmo3");
+            throw new IllegalStateException("private path /home/test-user/model.cmo3");
         }
     }
 
