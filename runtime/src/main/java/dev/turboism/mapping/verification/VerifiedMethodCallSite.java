@@ -23,6 +23,17 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
         this.staticMethod = Modifier.isStatic(method.getModifiers());
     }
 
+    /**
+     * Invokes the verified method as a static call.
+     *
+     * @param arguments arguments to pass; a {@code null} array is treated as no
+     *     arguments
+     * @return whatever the host method returned
+     * @throws VerifiedAccessException if the call site is an instance method or
+     *     has been closed ({@code RESOLUTION}), if the invocation cannot be
+     *     resolved safely, or if the host method threw ({@code INVOCATION});
+     *     the host throwable is deliberately not attached
+     */
     public Object invokeStatic(final Object... arguments) {
         if (!staticMethod) {
             throw resolutionFailure("Verified call site is not static.");
@@ -30,6 +41,19 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
         return invokeResolved(null, arguments);
     }
 
+    /**
+     * Invokes the verified method on a receiver, whose type is checked against
+     * the declaring class before the call.
+     *
+     * @param target receiver; must be non-null and an instance of the verified
+     *     declaring class
+     * @param arguments arguments to pass; a {@code null} array is treated as no
+     *     arguments
+     * @return whatever the host method returned
+     * @throws VerifiedAccessException if the call site is static, the target is
+     *     null or of the wrong type, the site is closed, or the host method
+     *     threw; failures stay sanitized either way
+     */
     public Object invoke(final Object target, final Object... arguments) {
         if (staticMethod) {
             throw resolutionFailure("Verified call site is not an instance method.");
@@ -40,6 +64,11 @@ public final class VerifiedMethodCallSite implements AutoCloseable {
         return invokeResolved(target, arguments);
     }
 
+    /**
+     * @return whether {@link #close()} has released the underlying reflection
+     *     object; a closed site rejects every further invocation rather than
+     *     re-resolving
+     */
     public boolean isClosed() {
         return method == null;
     }

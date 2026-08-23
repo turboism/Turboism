@@ -1,16 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 
-/**
- * Version-neutral Cubism alpha-composition (transparency blending) mode for
- * both the drawable (ArtMesh) and Part Inspector surfaces.
- *
- * <p>Mirrors the Editor {@code AlphaComposition} enum introduced in Cubism 5.3
- * (evidence: 5302-src {@code Parts_wrapperForInspector$alphaComposition$1});
- * on Cubism 5.2 hosts alpha-composition writes fail closed.</p>
- */
+/** Cubism alpha-composition mode for drawable and Part Inspector surfaces. */
 @PreviewApi
+@CubismEditor("5.3.02")
 public enum AlphaComposition {
     OVER,
     ATOP,

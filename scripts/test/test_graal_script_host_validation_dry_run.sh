@@ -22,18 +22,30 @@ printf 'agent\n' > "$bundle/turboism-agent.jar"
 printf 'probe\n' > "$probe"
 printf 'library\n' > "$bundle/graal/lib/graal-host-any-version.jar"
 printf 'console.log(1);\n' > "$scripts_root/example/main.js"
+printf 'key\n' > "$tmp/key"
 
 TURBOISM_WORKTREE_ID="$worktree_id" \
 TURBOISM_GRAAL_JAVA='C:\Program Files\GraalVM\bin\java.exe' \
 TURBOISM_CUBISM_JAVA='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe' \
 TURBOISM_GRAAL_VALIDATION_PROBE="$probe" \
 TURBOISM_GRAAL_VALIDATION_SCRIPTS="$scripts_root" \
+TURBOISM_HOST_VALIDATION_SSH_HOST='test@example.invalid' \
+TURBOISM_HOST_VALIDATION_SSH_KEY="$tmp/key" \
+TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX='/tmp/turboism-golden' \
+TURBOISM_HOST_VALIDATION_REMOTE_ROOT='/tmp/turboism-validation' \
+TURBOISM_HOST_VALIDATION_PROTON_RUNNER='/tmp/proton' \
 bash "$wrapper" r-dry --dry-run > "$tmp/out"
 
 grep -Fq 'name=graal-script' "$tmp/out" || fail 'wrapper did not delegate to the Graal validation runner'
 grep -Fq 'homeDirCount=2' "$tmp/out" || fail 'wrapper did not stage scripts and packaged Graal libraries'
-grep -Fq 'jvmOption.2=-Dturboism.graal.classpath={HOME}\graal\lib\*' "$tmp/out" \
-  || fail 'wrapper does not use the packaged wildcard classpath'
+classpath_line="$(grep -F 'jvmOption.2=-Dturboism.graal.classpath=' "$tmp/out")"
+case "$classpath_line" in
+  *'\turboism-home\graal\lib\*') ;;
+  *) fail 'wrapper does not resolve the packaged wildcard classpath inside Turboism home' ;;
+esac
+if [[ "$classpath_line" == *'{HOME}'* ]]; then
+  fail 'runner did not resolve the Turboism home placeholder'
+fi
 grep -Fq 'jvmOption.1=-Dturboism.graal.java=C:\Program Files\GraalVM\bin\java.exe' "$tmp/out" \
   || fail 'TURBOISM_GRAAL_JAVA was not transported'
 grep -Fq 'jvmOption.1.quoted="-Dturboism.graal.java=C:\Program Files\GraalVM\bin\java.exe"' "$tmp/out" \

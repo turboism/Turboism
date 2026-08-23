@@ -2,6 +2,10 @@
 # Status-bar adapter for exact-host validation: 5.2.03 and 5.3.02 both run the visible manager/compact matrix.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-status-bar-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
   exit 2
@@ -22,8 +26,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-fixture_src='<local-home>/Documents/测试 混合模式.cmo3'
-fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
+turboism_select_fixture 5302 || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"

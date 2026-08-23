@@ -39,6 +39,7 @@ final class DefaultCubismServicesFactoryTestSupport {
         );
         return new DefaultCubismServicesFactory(
             hostAdapters,
+            () -> java.util.Optional.of("5.3.02"),
             modelAccess,
             unavailableCoreRuntime(),
             parameterLifecycle,

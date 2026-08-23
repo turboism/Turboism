@@ -89,9 +89,9 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
         "scripts/test/test_cubism_core_api_inventory.py",
         "cubism-ref/index.md",
         fileTree("cubism-ref/core-api/observed") { include("*.json") },
-        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
-        "cubism-ref/profiles/draft/cubism-5.2.json",
+        "cubism-ref/profiles/draft/cubism-5.2.03.json",
         "cubism-ref/profiles/draft/cubism-5.3.02.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
@@ -118,10 +118,101 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
         "cubism-ref/core-api/policy/cubism-core-selector-policy.json",
-        "cubism-ref/mapping-packs/draft/cubism-5.2-core-model-read.json",
+        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
         "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
+}
+
+val checkCodeQualitySelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs negative fixtures proving each code-quality rule fails closed."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_code_quality.py",
+        "scripts/test/test_check_code_quality.py"
+    )
+    commandLine("python3", "scripts/test/test_check_code_quality.py")
+}
+
+/*
+ * Wired into devCheck as a ratchet: the digest, naming and asset rules are enforced absolutely,
+ * and Javadoc is enforced as a non-increasing maximum so new undocumented public API is blocked
+ * immediately while the existing backlog burns down.
+ * -PturboismCodeQualityRules selects a subset; -PturboismCodeQualityStrict=true demands zero.
+ */
+tasks.register<Exec>("checkCodeQuality") {
+    group = "verification"
+    description =
+        "Rejects new undocumented public API, duplicated reviewed host digests, version-encoding " +
+            "type names, and retired governance tokens in machine assets."
+    dependsOn(checkCodeQualitySelfTest)
+    workingDir(rootDir)
+    inputs.files("scripts/test/check_code_quality.py")
+    inputs.files(
+        fileTree("sdk/src/main/java") { include("**/*.java") },
+        fileTree("runtime/src/main/java") { include("**/*.java") },
+        fileTree("bootstrap/src/main/java") { include("**/*.java") },
+        fileTree("plugins") { include("**/src/main/java/**/*.java") },
+        fileTree("cubism-ref") { include("**/*.json") }
+    )
+    val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
+    val strict = providers.gradleProperty("turboismCodeQualityStrict")
+    doFirst {
+        val rules = selectedRules.getOrElse("javadoc,digests,naming,assets")
+        val command = mutableListOf(
+            "python3", "scripts/test/check_code_quality.py", rootDir.absolutePath,
+            "--rules", rules
+        )
+        if (strict.getOrElse("false") != "true") {
+            command += "--ratchet"
+        }
+        commandLine(command)
+    }
+}
+
+/*
+ * Editor-model is the one capability family whose aliases are inline literals rather than
+ * constants, so it has no Verified*HostOperations.methodAliasesUsed() for a test to compare
+ * against. The repository test used a hand-maintained list instead, which drifted until it
+ * matched neither the implementation nor the record. This derives both sides.
+ */
+val checkEditorModelAliases by tasks.registering(Exec::class) {
+    group = "verification"
+    description =
+        "Rejects Editor-model selector aliases the implementation invokes without a reviewed " +
+            "record, and holds the unused-alias count non-increasing."
+    workingDir(rootDir)
+    inputs.files("scripts/test/check_editor_model_aliases.py")
+    inputs.files(
+        fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
+        "cubism-ref/verification/cubism-5.2.03-editor-model.json",
+        "cubism-ref/verification/cubism-5.3.02-editor-model.json"
+    )
+    commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
+}
+
+val checkCubismEditorApiAvailabilityDocs by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies generated exact Cubism Editor SDK availability documentation."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/generate_cubism_editor_api_availability.py",
+        fileTree("sdk/src/main/java/dev/turboism/sdk/cubism") { include("**/*.java") },
+        "sdk/src/main/java/dev/turboism/sdk/CubismEditor.java"
+    )
+    val report = layout.buildDirectory.file("reports/cubism-editor-api-availability.md")
+    outputs.file(report)
+    val sdkJar = project(":sdk").tasks.named<org.gradle.jvm.tasks.Jar>("jar")
+        .flatMap { it.archiveFile }
+    doFirst {
+        commandLine(
+            "python3", "scripts/test/generate_cubism_editor_api_availability.py",
+            "--sdk-jar", sdkJar.get().asFile.absolutePath,
+            "--output", report.get().asFile.absolutePath
+        )
+    }
 }
 
 val checkPackageLayout by tasks.registering(Exec::class) {
@@ -201,21 +292,60 @@ val checkDuplicateJavaImports by tasks.registering {
     }
 }
 
+val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Verifies every official release plugin has a store-ready README matching its descriptor."
+    workingDir(rootDir)
+    inputs.file("packaging/release-plugins.txt")
+    inputs.file("scripts/test/check_official_plugin_readmes.py")
+    inputs.files(fileTree("plugins") {
+        include("*/README.md")
+        include("*/src/main/resources/META-INF/turboism/plugin.json")
+    })
+    commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
+}
+
 val productionClasses = subprojects
     .filterNot { it.path == ":tests" }
     .map { "${it.path}:classes" }
+
+val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed fixtures for tracked paths, local configuration, and secret-value hygiene rules."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/check_remote_hygiene.py",
+        "scripts/test/test_check_remote_hygiene.py"
+    )
+    commandLine("python3", "scripts/test/test_check_remote_hygiene.py")
+}
+
+val checkRepositoryHygiene by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Rejects tracked secrets, developer-machine paths, and local-only configuration before daily development checks pass."
+    dependsOn(checkRemoteHygieneSelfTest)
+    workingDir(rootDir)
+    commandLine("python3", "scripts/check_remote_hygiene.py", "--worktree")
+}
 
 val devCheck by tasks.registering {
     group = "verification"
     description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
     dependsOn(
         productionClasses,
+        ":sdk:javadoc",
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
+        "checkCodeQuality",
+        checkRepositoryHygiene,
+        checkEditorModelAliases,
+        checkCubismEditorApiAvailabilityDocs,
+        "checkSdkV4ExactApiCompatibility",
         "checkSdkV4TierCompatibility",
         "validatePluginMeta",
-        "checkOfficialPluginI18nCompleteness"
+        "checkOfficialPluginI18nCompleteness",
+        checkOfficialPluginReadmes
     )
 }
 

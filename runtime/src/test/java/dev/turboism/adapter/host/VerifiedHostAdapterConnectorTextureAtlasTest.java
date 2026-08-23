@@ -27,7 +27,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
     void keepsTheProviderUninstalledUntilExactTextureAtlasSelectorsAreAdmitted() throws Exception {
         final RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
         final VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
-            EditorModelVerificationManifest.CUBISM_VERSION,
+            EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             Set.of("cubism.editor-model.read"),
             List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
@@ -83,7 +83,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
             VerifiedCubism520TextureAtlasLayoutProvider.class,
             VerifiedHostAdapterConnector.textureAtlasProvider(
                 TestVerifiedResolvers.create(
-                    "5.2.0",
+                    "5.2.03",
                     VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                     capability,
                     selectors520,
@@ -117,7 +117,7 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
         ));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
             TestVerifiedResolvers.create(
-                "5.2.0",
+                "5.2.03",
                 VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 capability,
                 selectors520.subList(1, selectors520.size()),

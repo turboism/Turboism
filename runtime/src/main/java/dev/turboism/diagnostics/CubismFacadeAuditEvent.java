@@ -5,6 +5,22 @@ import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import java.time.Instant;
 import java.util.Objects;
 
+/**
+ * One audit record of a permission-guarded Cubism facade call, produced at the moment access
+ * was decided.
+ *
+ * <p>Text components are validated in the compact constructor, so a recorded event always
+ * names a plugin, a permission and an operation. The event carries no result field: it
+ * records that the check happened and at what severity, not what the call went on to do.
+ *
+ * @param pluginId the plugin whose call was checked; must not be null or blank
+ * @param permissionId the permission the call demanded; must not be null or blank
+ * @param operationId the guarded facade operation; must not be null or blank
+ * @param capabilityId narrower capability the operation targeted, or null when the operation
+ *                     is not capability-qualified; must not be blank when present
+ * @param severity how the emitter classified this event; must not be null
+ * @param timestamp when the check was decided, taken from the emitter's clock; must not be null
+ */
 public record CubismFacadeAuditEvent(
     String pluginId,
     String permissionId,

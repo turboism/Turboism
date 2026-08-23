@@ -28,6 +28,15 @@ public final class ProjectLifecycleHookRegistry {
         this.editor = Objects.requireNonNull(editor, "editor");
     }
 
+    /**
+     * Registers a plugin's model, animation, and editor lifecycle hooks for the lifetime of the host
+     * session, with no scope-bound detachment.
+     *
+     * @param descriptor identity and permissions of the registering plugin
+     * @param entrypoints the plugin's entrypoint instances, in invocation order
+     * @param logger sink for hook failures raised by this plugin
+     * @throws NullPointerException when any argument is null
+     */
     public void register(
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
@@ -36,6 +45,19 @@ public final class ProjectLifecycleHookRegistry {
         register(descriptor, entrypoints, logger, null);
     }
 
+    /**
+     * Registers a plugin's project-file and editor lifecycle hooks, filtered from the ordered
+     * entrypoints by the hook interfaces they implement. Observation capability comes from the
+     * descriptor's declared permissions; a plugin lacking it is still registered but receives no
+     * callbacks. When {@code scope} is non-null any earlier registration for this plugin id is dropped
+     * first and this generation detaches on scope disposal, with rollback if arming the scope fails.
+     *
+     * @param descriptor identity and permissions of the registering plugin
+     * @param entrypoints the plugin's entrypoint instances, in invocation order
+     * @param logger sink for hook failures raised by this plugin
+     * @param scope plugin scope whose disposal unregisters this generation, or null for session scope
+     * @throws NullPointerException when {@code descriptor}, {@code entrypoints} or {@code logger} is null
+     */
     public void register(
         final PluginDescriptor descriptor,
         final List<? extends TurboismPlugin> entrypoints,
@@ -100,6 +122,12 @@ public final class ProjectLifecycleHookRegistry {
         }
     }
 
+    /**
+     * Detaches every project-file and editor lifecycle registration held under the given plugin id,
+     * regardless of generation. Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     */
     public void unregister(final String pluginId) {
         synchronized (lifecycleLock) {
             projectFiles.unregister(pluginId);

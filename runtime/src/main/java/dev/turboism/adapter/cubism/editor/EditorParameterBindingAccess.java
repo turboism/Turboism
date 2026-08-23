@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
 import dev.turboism.sdk.cubism.id.ParameterId;

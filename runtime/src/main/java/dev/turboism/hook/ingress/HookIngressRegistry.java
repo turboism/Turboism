@@ -28,14 +28,26 @@ public final class HookIngressRegistry {
         this.specs = Map.copyOf(keyed);
     }
 
+    /**
+     * @return a registry holding the built-in
+     *     {@link DefaultHookIngressSpecs#DEFAULT_SPECS}
+     */
     public static HookIngressRegistry defaults() {
         return new HookIngressRegistry(DefaultHookIngressSpecs.DEFAULT_SPECS);
     }
 
+    /**
+     * @param hookId the ingress identity to look up; {@code null} simply misses
+     * @return the registered spec, or empty when no ingress carries that id
+     */
     public Optional<HookIngressSpec> find(String hookId) {
         return Optional.ofNullable(specs.get(hookId));
     }
 
+    /**
+     * @return every registered spec in registration order, as an unmodifiable view of
+     *     the registry’s immutable backing map
+     */
     public Collection<HookIngressSpec> specs() {
         return specs.values();
     }

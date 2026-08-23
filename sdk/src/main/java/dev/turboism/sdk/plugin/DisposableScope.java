@@ -11,6 +11,15 @@ public final class DisposableScope implements AutoCloseable {
     private final List<AutoCloseable> closeables = new ArrayList<>();
     private boolean closed = false;
 
+    /**
+     * Adds a closeable to this scope so it is closed when the scope closes.
+     *
+     * @param closeable the resource to take ownership of
+     * @return a handle that detaches the closeable from this scope and closes it
+     *     immediately, swallowing any failure from that close
+     * @throws IllegalStateException when the scope has already been closed; the
+     *     closeable is then not registered and not closed
+     */
     public Registration register(AutoCloseable closeable) {
         synchronized (this) {
             if (closed) {

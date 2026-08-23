@@ -2,6 +2,11 @@ package dev.turboism.sdk.cubism.transaction;
 
 import dev.turboism.sdk.PreviewApi;
 
+/**
+ * Signals that a transaction's staged writes could not be applied to the Cubism host,
+ * leaving the model in whatever state the failed commit produced. Carries error code 1201
+ * at {@code ERROR} severity.
+ */
 @PreviewApi
 public class CommitFailedException extends TransactionException {
 

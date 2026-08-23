@@ -18,6 +18,22 @@ public final class PluginMetaValidationCli {
     private PluginMetaValidationCli() {
     }
 
+    /**
+     * Validates every supplied {@code plugin.json} and reports the verdict through the process exit
+     * code, for the Gradle repository gate to act on.
+     *
+     * <p>All files are validated before anything is reported, so one bad descriptor does not hide the
+     * others. The validator is chosen per file from that file's own {@code schemaVersion}, defaulting
+     * to {@code 2} when the field is absent or non-numeric. Findings go to standard error as
+     * {@code source:path: code message}; the success line goes to standard output.
+     *
+     * <p>Exits with status {@code 1} when no arguments were given or when any file produced a
+     * finding, and returns normally otherwise. Note that a file that cannot be read or is not valid
+     * JSON aborts with an {@code IOException} rather than a finding.
+     *
+     * @param args paths to the {@code plugin.json} files to validate; at least one is required
+     * @throws IOException if any file cannot be read or parsed as JSON
+     */
     public static void main(String[] args) throws IOException {
         if (args.length == 0) {
             System.err.println("No plugin.json files were provided for validation.");

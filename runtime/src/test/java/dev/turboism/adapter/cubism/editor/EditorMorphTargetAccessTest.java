@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorMorphTargetSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -122,7 +122,6 @@ class EditorMorphTargetAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable.morph-target-set", ObjectSource.class, "morphTargetSet", desc(MorphTargetSet.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.morph-target-set.class", internal(MorphTargetSet.class)));
         selectors.add(method("cubism.editor-model.morph-target-set.morph-targets", MorphTargetSet.class, "morphTargets", "()Ljava/util/List;"));
-        selectors.add(method("cubism.editor-model.morph-target-set.remove", MorphTargetSet.class, "remove", "(L" + internal(HostMorphTarget.class) + ";)V"));
         selectors.add(StaticSelector.field("cubism.editor-model.morph-target-utils.instance", internal(MorphTargetParameterUtils.class), "a",
             "L" + internal(MorphTargetParameterUtils.class) + ";",
             StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));

@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract;
-import dev.turboism.mapping.verification.EditorDefaultKeyformLockWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Objects;

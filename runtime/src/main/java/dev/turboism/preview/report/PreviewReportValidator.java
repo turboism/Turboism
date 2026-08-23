@@ -42,6 +42,22 @@ public final class PreviewReportValidator {
     private PreviewReportValidator() {
     }
 
+    /**
+     * Validates one preview report document against the frozen v1 contract.
+     *
+     * <p>The check is strict and total: the bytes must be non-empty, at most
+     * {@link #MAX_REPORT_BYTES}, and UTF-8 without a byte-order mark; the JSON must parse with
+     * duplicate-key detection and no trailing tokens; the envelope must carry exactly the seven
+     * known fields with no extras; and the payload must satisfy the rules for its declared report
+     * type. Nothing is repaired or defaulted — the first violation throws.
+     *
+     * @param bytes the raw report document
+     * @return the validated report, holding a defensive copy of the parsed document
+     * @throws NullPointerException if {@code bytes} is {@code null}
+     * @throws PreviewReportValidationException if any contract rule is violated, carrying a code
+     *     such as {@code REPORT_SIZE}, {@code UTF8_BOM}, {@code MALFORMED_JSON},
+     *     {@code UNKNOWN_FIELD}, or {@code BAD_REPORT_TYPE}
+     */
     public static ValidatedReport validate(final byte[] bytes) {
         Objects.requireNonNull(bytes, "bytes");
         if (bytes.length == 0 || bytes.length > MAX_REPORT_BYTES) {
@@ -74,6 +90,22 @@ public final class PreviewReportValidator {
         return new ValidatedReport(reportType, runtimeId, root);
     }
 
+    /**
+     * Validates a complete report set and the cross-report invariants a single document cannot
+     * establish.
+     *
+     * <p>Beyond validating each document, this requires that the map holds exactly the four
+     * {@link PreviewReportType} keys, that each document's declared type matches the key it was
+     * filed under, and that every report carries the same runtime id — so a set cannot silently
+     * mix documents from two different preview sessions.
+     *
+     * @param reports the four report documents keyed by type
+     * @return an unmodifiable map of validated reports, one per type
+     * @throws NullPointerException if the map or any of its four values is {@code null}
+     * @throws PreviewReportValidationException with code {@code INCOMPLETE_REPORT_SET},
+     *     {@code REPORT_TYPE_MISMATCH}, or {@code MIXED_RUNTIME_ID}, or any code raised by
+     *     {@link #validate(byte[])}
+     */
     public static Map<PreviewReportType, ValidatedReport> validateSet(
         final Map<PreviewReportType, byte[]> reports
     ) {
@@ -137,10 +169,30 @@ public final class PreviewReportValidator {
             && bytes[2] == (byte) 0xBF;
     }
 
+    /**
+     * Applies the same path rule the validator enforces on report path fields, exposed so
+     * producers can check a path before writing it.
+     *
+     * @param path the candidate path string
+     * @return whether the path is acceptable inside a report — reports never carry absolute or
+     *     escaping filesystem paths
+     */
     public static boolean isRelativePath(final String path) {
         return PreviewReportValidationSupport.isRelativePath(path);
     }
 
+    /**
+     * A report document that has passed the full v1 contract check, together with the two envelope
+     * facts callers usually need without re-reading the tree.
+     *
+     * <p>The document is defensively copied on the way in and again on every
+     * {@link #document()} call, so neither the producer nor a consumer can mutate validated
+     * state after the fact.
+     *
+     * @param reportType the type declared in the envelope, already checked against the payload
+     * @param runtimeId the runtime session the report belongs to
+     * @param document the validated report tree; copied in and copied out
+     */
     public record ValidatedReport(
         PreviewReportType reportType,
         String runtimeId,

@@ -35,10 +35,25 @@ public record StaticSelector(
         }
     }
 
+    /**
+     * Selector for a class, using the alias as its mapping id.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @return the exact selector
+     */
     public static StaticSelector classSelector(final String alias, final String ownerInternalName) {
         return classSelector(alias, alias, ownerInternalName);
     }
 
+    /**
+     * Selector for a class.
+     *
+     * @param mappingId mapping-pack identity this selector came from
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @return the exact selector
+     */
     public static StaticSelector classSelector(
         final String mappingId,
         final String alias,
@@ -47,6 +62,15 @@ public record StaticSelector(
         return new StaticSelector(mappingId, alias, Kind.CLASS, ownerInternalName, "", "", 0, 0);
     }
 
+    /**
+     * Selector for an instance method, with no required access flags.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @return the exact selector
+     */
     public static StaticSelector method(
         final String alias,
         final String ownerInternalName,
@@ -56,6 +80,16 @@ public record StaticSelector(
         return method(alias, alias, ownerInternalName, memberName, descriptor, 0);
     }
 
+    /**
+     * Selector for an instance method. Static members are rejected.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector method(
         final String alias,
         final String ownerInternalName,
@@ -66,6 +100,18 @@ public record StaticSelector(
         return method(alias, alias, ownerInternalName, memberName, descriptor, requiredAccessFlags);
     }
 
+    /**
+     * Selector for an instance method with an explicit mapping id. Static members are
+     * rejected, so an instance selector can never silently bind a static member.
+     *
+     * @param mappingId mapping-pack identity this selector came from
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector method(
         final String mappingId,
         final String alias,
@@ -86,6 +132,16 @@ public record StaticSelector(
         );
     }
 
+    /**
+     * Selector for a static method, using the alias as its mapping id.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector staticMethod(
         final String alias,
         final String ownerInternalName,
@@ -96,6 +152,17 @@ public record StaticSelector(
         return staticMethod(alias, alias, ownerInternalName, memberName, descriptor, requiredAccessFlags);
     }
 
+    /**
+     * Selector for a static method. {@code ACC_STATIC} is required, not merely allowed.
+     *
+     * @param mappingId mapping-pack identity this selector came from
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector staticMethod(
         final String mappingId,
         final String alias,
@@ -116,6 +183,15 @@ public record StaticSelector(
         );
     }
 
+    /**
+     * Selector for a constructor.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector constructor(
         final String alias,
         final String ownerInternalName,
@@ -134,6 +210,16 @@ public record StaticSelector(
         );
     }
 
+    /**
+     * Selector for a field.
+     *
+     * @param alias stable alias callers resolve this selector by
+     * @param ownerInternalName JVM internal name of the declaring class
+     * @param memberName the member's exact name in the host artifact
+     * @param descriptor the member's exact JVM descriptor
+     * @param requiredAccessFlags access flags the member must carry
+     * @return the exact selector
+     */
     public static StaticSelector field(
         final String alias,
         final String ownerInternalName,

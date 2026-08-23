@@ -1,12 +1,12 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorDeformerInspectorSelectorContract;
-import dev.turboism.mapping.verification.EditorGlueInspectorSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
-import dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract;
-import dev.turboism.mapping.verification.EditorInspectorDrawableWrite52SelectorContract;
-import dev.turboism.mapping.verification.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;

@@ -20,6 +20,15 @@ import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
 
+/**
+ * Reads and writes the on-disk form of a theme package: two required properties files, an
+ * optional generator-metadata file, and optional README and LICENSE text.
+ *
+ * <p>Decoding treats its input as untrusted and reports issues instead of throwing, enforcing
+ * bounds on entry count, per-entry and total size, and key count, and refusing absolute paths,
+ * backslashes, {@code ..} segments and nesting deeper than one directory. Encoding is
+ * deterministic and omits empty optional fields rather than writing blanks. Not instantiable.
+ */
 public final class ThemePackageCodec {
 
     public static final String THEME_PROPERTIES = "theme.properties";
@@ -43,6 +52,22 @@ public final class ThemePackageCodec {
     private ThemePackageCodec() {
     }
 
+    /**
+     * Decodes package entries into theme data, or reports every reason it could not.
+     *
+     * <p>Entries may sit at the archive root or inside a single directory, but not both and not
+     * deeper; the directory name is not required to match the theme id. Validation proceeds in
+     * stages - structure and size, then properties parsing, then unknown keys, then metadata -
+     * and stops at the first stage that produced issues, so the returned list describes one stage
+     * rather than everything wrong at once. Ids are accepted when
+     * {@link ThemePackageCatalog#isValidId} passes or the id names a reviewed builtin, and the
+     * decoded {@code builtIn} flag is set from that catalog rather than from the file, so a
+     * package cannot declare itself builtin.
+     *
+     * @param rawEntries the package's files; must not be null and must contain no nulls
+     * @return a valid result carrying the theme, or an invalid one listing the issues found
+     * @throws NullPointerException if the list or any entry is null
+     */
     public static DecodeResult decode(final List<ThemePackageEntry> rawEntries) {
         Objects.requireNonNull(rawEntries, "rawEntries");
         final List<Issue> issues = new ArrayList<>();
@@ -128,6 +153,19 @@ public final class ThemePackageCodec {
             : invalid(issues);
     }
 
+    /**
+     * Encodes a theme as the flat set of files that make up an unpacked package directory.
+     *
+     * <p>Optional metadata fields are omitted rather than written empty, {@code built-in} is
+     * written only when true, and the generator, README and LICENSE files appear only when the
+     * theme has that content - so a round trip through {@link #decode} does not accumulate empty
+     * entries. Names are relative, with no directory prefix. The returned map and its arrays are
+     * not shared with the caller's theme.
+     *
+     * @param data the theme to encode; must not be null
+     * @return an unmodifiable map of relative file name to file content, in write order
+     * @throws NullPointerException if {@code data} is null
+     */
     public static Map<String, byte[]> encodeDirectory(final ThemePackageData data) {
         Objects.requireNonNull(data, "data");
         final LinkedHashMap<String, byte[]> result = new LinkedHashMap<>();
@@ -158,6 +196,14 @@ public final class ThemePackageCodec {
         return immutableBytes(result);
     }
 
+    /**
+     * Encodes a theme as the entries of a ZIP package, which nests the files under a single
+     * directory named after the theme id.
+     *
+     * @param data the theme to encode; must not be null
+     * @return an unmodifiable map of {@code <id>/<file>} to file content, in write order
+     * @throws NullPointerException if {@code data} is null
+     */
     public static Map<String, byte[]> encodeZip(final ThemePackageData data) {
         final LinkedHashMap<String, byte[]> wrapped = new LinkedHashMap<>();
         for (Map.Entry<String, byte[]> entry : encodeDirectory(data).entrySet()) {
@@ -166,6 +212,26 @@ public final class ThemePackageCodec {
         return immutableBytes(wrapped);
     }
 
+    /**
+     * Applies the user's decision about an incoming theme whose id already exists.
+     *
+     * <p>Overwriting a builtin is refused outright - builtins are not replaceable. Saving under a
+     * new id requires that id to be well-formed and unused by both existing and builtin themes,
+     * and clears the copy's {@code builtIn} flag while keeping the rest of the metadata and all
+     * content. Cancelling is reported as an issue, not silence, so callers can distinguish it
+     * from a failure. This method only decides and rewrites; it installs nothing.
+     *
+     * @param data the incoming theme; must not be null
+     * @param existingIds ids already installed; must not be null
+     * @param builtInIds ids of reviewed builtins, which may never be overwritten; must not be null
+     * @param outcome the user's decision; must not be null
+     * @param saveAsId the new id, read only when the outcome is {@code SAVE_AS_NEW}
+     * @return an accepted result carrying the theme to install - the original for an overwrite, a
+     *         re-identified copy for save-as - or a rejected one carrying
+     *         {@code CONFLICT_CANCELLED}, {@code CONFLICT_BUILTIN}, {@code SAVE_AS_ID_INVALID} or
+     *         {@code SAVE_AS_ID_CONFLICT}
+     * @throws NullPointerException if any argument other than {@code saveAsId} is null
+     */
     public static ConflictResult resolveConflict(
         final ThemePackageData data,
         final Set<String> existingIds,
@@ -394,28 +460,55 @@ public final class ThemePackageCodec {
         return new ConflictResult(Optional.empty(), List.of(new Issue(code, subject)));
     }
 
+    /**
+     * The outcome of decoding one package.
+     *
+     * @param theme the decoded theme, present only when decoding succeeded; must not be null
+     * @param issues the reasons decoding failed, defensively copied; empty on success
+     */
     public record DecodeResult(Optional<ThemePackageData> theme, List<Issue> issues) {
         public DecodeResult {
             theme = Objects.requireNonNull(theme, "theme");
             issues = List.copyOf(issues);
         }
 
+        /**
+         * @return whether a theme was decoded with no issues at all; issues are never merely advisory
+         */
         public boolean valid() {
             return theme.isPresent() && issues.isEmpty();
         }
     }
 
+    /**
+     * The outcome of resolving one id conflict.
+     *
+     * @param theme the theme to install, present only when the decision was accepted; must not be
+     *              null
+     * @param issues the reasons the decision was refused, defensively copied; empty on acceptance
+     */
     public record ConflictResult(Optional<ThemePackageData> theme, List<Issue> issues) {
         public ConflictResult {
             theme = Objects.requireNonNull(theme, "theme");
             issues = List.copyOf(issues);
         }
 
+        /**
+         * @return whether the decision was carried out and {@link #theme()} may be installed; false
+         *         for a cancelled or refused conflict
+         */
         public boolean accepted() {
             return theme.isPresent() && issues.isEmpty();
         }
     }
 
+    /**
+     * One reason a decode or conflict resolution failed.
+     *
+     * @param code what went wrong; must not be null
+     * @param subject the entry name, key or id the problem concerns, empty when it applies to the
+     *                package as a whole
+     */
     public record Issue(IssueCode code, String subject) {
         public Issue {
             code = Objects.requireNonNull(code, "code");

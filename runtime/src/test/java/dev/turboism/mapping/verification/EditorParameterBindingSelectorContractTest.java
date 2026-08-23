@@ -1,5 +1,8 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -18,7 +21,7 @@ class EditorParameterBindingSelectorContractTest {
 
     @ParameterizedTest
     @CsvSource({
-        "Cubism-5.2, cubism-5.2-editor-model.json",
+        "Cubism-5.2, cubism-5.2.03-editor-model.json",
         "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
     })
     void exactRecordVerifiesTheCompleteParameterBindingContract(

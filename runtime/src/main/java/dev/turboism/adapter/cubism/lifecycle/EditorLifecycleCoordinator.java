@@ -34,6 +34,15 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Editor", executors);
     }
 
+    /**
+     * Registers a plugin's editor lifecycle hooks, replacing any earlier registration under the same
+     * plugin id and discarding that plugin's pending callbacks. If startup has already been published
+     * and the plugin is permitted to observe, the startup callbacks are replayed to it immediately so
+     * late-loaded plugins are not silently skipped.
+     *
+     * @param plugin descriptor, entrypoints and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks hooks = Objects.requireNonNull(plugin, "plugin");
         final Registration registration = new Registration(new Object(), hooks);
@@ -57,6 +66,13 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue.
+     * Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     */
     public void unregister(final String pluginId) {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -152,6 +168,10 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Blocks until every startup callback queued so far has finished. Exit callbacks are dispatched
+     * synchronously and so are already complete when {@code completeExit} returns.
+     */
     public void awaitIdle() {
         callbacks.awaitIdle();
     }
@@ -219,12 +239,26 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
 
     private record Registration(Object token, PluginHooks plugin) { }
 
+    /**
+     * Token handed from {@code beginExit} to {@code completeExit} so both phases report the same
+     * editor snapshot even if the current snapshot changes in between.
+     *
+     * @param editor the editor state observed when the exit command began; never null
+     */
     public record ExitInvocation(EditorLifecycleSnapshot editor) {
         public ExitInvocation {
             editor = Objects.requireNonNull(editor, "editor");
         }
     }
 
+    /**
+     * One plugin's participation in the editor lifecycle.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param entrypoints the plugin's editor lifecycle hooks, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param observeAllowed whether this plugin receives startup and exit callbacks at all
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends EditorLifecycleHooks> entrypoints,

@@ -1,5 +1,24 @@
 package dev.turboism.plugin.projectpanel.b1.domain;
 
+/**
+ * Immutable state of the project panel, plus the pure transition rules that advance it.
+ *
+ * <p>All transitions return a {@link ProjectPanelReduction} rather than mutating: on success a new
+ * state with {@code revision} incremented, on refusal this same instance with a reason. Nothing here
+ * touches the Cubism host or any UI, so it is safe to evaluate off the host thread.
+ *
+ * <p>Construction normalises a {@code null} {@code active} to {@link Active#INACTIVE} and rejects a
+ * negative {@code revision} or any counter outside 0..1,000,000 with {@link IllegalArgumentException}.
+ *
+ * @param active whether the panel is currently observing project events
+ * @param lastPhase the most recent phase applied, {@code null} before any phase has been seen
+ * @param openingCount how many times {@link ProjectPhase#OPENING} has been applied
+ * @param openedCount how many times {@link ProjectPhase#OPENED} has been applied
+ * @param closingCount how many times {@link ProjectPhase#CLOSING} has been applied
+ * @param closedCount how many times {@link ProjectPhase#CLOSED} has been applied
+ * @param revision monotonically increasing count of accepted transitions; never negative, and
+ *                 unchanged by a refused transition
+ */
 public record ProjectPanelStateModel(
     Active active,
     ProjectPhase lastPhase,
@@ -22,10 +41,28 @@ public record ProjectPanelStateModel(
         }
     }
 
+    /**
+     * @return the starting state: inactive, no phase seen, all counters and the revision at zero
+     */
     public static ProjectPanelStateModel defaults() {
         return hydrate(null, 0, 0, 0, 0);
     }
 
+    /**
+     * Rebuilds a state from persisted counters, for example when the panel is restored across a
+     * session.
+     *
+     * <p>The result is always {@link Active#INACTIVE} with {@code revision} reset to zero: activation
+     * and revision are runtime facts and are deliberately not restored.
+     *
+     * @param lastPhase the phase last seen before persisting, or {@code null} if none was
+     * @param openingCount restored OPENING count
+     * @param openedCount restored OPENED count
+     * @param closingCount restored CLOSING count
+     * @param closedCount restored CLOSED count
+     * @return the rehydrated state
+     * @throws IllegalArgumentException if any counter is negative or exceeds 1,000,000
+     */
     public static ProjectPanelStateModel hydrate(
         final ProjectPhase lastPhase,
         final int openingCount,
@@ -38,6 +75,12 @@ public record ProjectPanelStateModel(
         );
     }
 
+    /**
+     * Marks the panel as observing project events.
+     *
+     * @return {@link ProjectPhaseResult#APPLIED} with an activated state and an advanced revision, or
+     *         {@link ProjectPhaseResult#DUPLICATE} with this state unchanged if already active
+     */
     public ProjectPanelReduction activate() {
         if (active == Active.ACTIVE) {
             return reduction(ProjectPhaseResult.DUPLICATE);
@@ -47,6 +90,13 @@ public record ProjectPanelStateModel(
         ), ProjectPhaseResult.APPLIED);
     }
 
+    /**
+     * Stops the panel observing project events. Counters and {@code lastPhase} are retained, so a
+     * later {@link #activate()} resumes from the same history.
+     *
+     * @return {@link ProjectPhaseResult#APPLIED} with a deactivated state and an advanced revision, or
+     *         {@link ProjectPhaseResult#DUPLICATE} with this state unchanged if already inactive
+     */
     public ProjectPanelReduction deactivate() {
         if (active == Active.INACTIVE) {
             return reduction(ProjectPhaseResult.DUPLICATE);
@@ -56,6 +106,19 @@ public record ProjectPanelStateModel(
         ), ProjectPhaseResult.APPLIED);
     }
 
+    /**
+     * Applies a project phase transition, incrementing that phase's counter when accepted.
+     *
+     * <p>Refusals, checked in this order and each leaving the state untouched:
+     * {@link ProjectPhaseResult#INACTIVE} when the panel is not active;
+     * {@link ProjectPhaseResult#DUPLICATE} when {@code next} is {@code null} or equals the current
+     * phase; {@link ProjectPhaseResult#INVALID_TRANSITION} when the phase cannot follow the previous
+     * one (from no phase, only OPENING or OPENED are reachable); and
+     * {@link ProjectPhaseResult#COUNTER_LIMIT} once that phase's counter reaches 1,000,000.
+     *
+     * @param next the phase to move to; {@code null} is treated as a duplicate, not an error
+     * @return the resulting state paired with the verdict; never {@code null}
+     */
     public ProjectPanelReduction apply(final ProjectPhase next) {
         if (active == Active.INACTIVE) {
             return reduction(ProjectPhaseResult.INACTIVE);
@@ -112,6 +175,7 @@ public record ProjectPanelStateModel(
         }
     }
 
+    /** Whether the panel is currently observing project lifecycle events. */
     public enum Active {
         INACTIVE,
         ACTIVE

@@ -14,12 +14,31 @@ public final class TextureAtlasLayoutCoordinator implements AutoCloseable {
     private long generation;
     private boolean closed;
 
+    /**
+     * Attaches the layout provider that subsequent reads and applies will target.
+     *
+     * <p>Bumps the generation, so any plan prepared against the previously connected provider
+     * is thereafter rejected as stale rather than applied to the new one. Reconnecting over an
+     * existing provider is allowed.
+     *
+     * @param provider the authoring provider to serve; must not be null
+     * @throws NullPointerException if {@code provider} is null
+     * @throws IllegalStateException if this coordinator has been closed
+     */
     public synchronized void connect(final TextureAtlasLayoutProvider provider) {
         requireOpen();
         this.provider = Objects.requireNonNull(provider, "provider");
         generation++;
     }
 
+    /**
+     * Detaches the current provider, leaving the coordinator open but without a capability.
+     *
+     * <p>Bumps the generation so plans prepared against the detached provider can never be
+     * applied. Applies attempted afterwards report
+     * {@code TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE} instead of throwing. A no-op
+     * once closed.
+     */
     public synchronized void deactivate() {
         if (closed) return;
         provider = null;

@@ -65,7 +65,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
         VerifiedTextureAtlasAutoLayoutHookInstaller.fromVerifiedResolver(
             instrumentation,
             resolver(
-                "5.2.0",
+                "5.2.03",
                 VerifiedCubism520TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
                 Set.of(VerifiedTextureAtlasAutoLayoutHookInstaller.CAPABILITY_ID)
             ),
@@ -134,12 +134,12 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
             "(Ljava/lang/Object;)Z",
             StaticSelector.ACCESS_PUBLIC
         ));
-        for (String alias : version.equals("5.2.0")
+        for (String alias : version.equals("5.2.03")
             ? VerifiedCubism520TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
             : VerifiedCubism5302TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES) {
             selectors.add(StaticSelector.classSelector(alias, owner));
         }
-        for (String alias : version.equals("5.2.0")
+        for (String alias : version.equals("5.2.03")
             ? VerifiedCubism520TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
             : VerifiedCubism5302TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES) {
             if (alias.equals(VerifiedTextureAtlasAutoLayoutHookInstaller.DIALOG_INIT_ALIAS)) {
@@ -150,7 +150,7 @@ class VerifiedTextureAtlasAutoLayoutHookInstallerTest {
                 selectors.add(StaticSelector.classSelector(alias, owner));
             }
         }
-        for (String alias : version.equals("5.2.0")
+        for (String alias : version.equals("5.2.03")
             ? java.util.Set.<String>of()
             : VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES) {
             if (alias.equals(VerifiedTextureAtlasAutoLayoutHookInstaller.STATISTICS_VIEW_INIT_ALIAS)) {

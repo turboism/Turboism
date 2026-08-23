@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 
@@ -13,14 +14,8 @@ public record ProjectLifecycleHostProfile(
     String hostVersion,
     List<ProjectLifecycleNativeMethodTransformer.Binding> bindings
 ) {
-    private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
-    private static final HostArtifactDigest CUBISM_53 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
+    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
+    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
 
     public ProjectLifecycleHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
@@ -28,12 +23,22 @@ public record ProjectLifecycleHostProfile(
         if (bindings.isEmpty()) throw new IllegalArgumentException("bindings must not be empty");
     }
 
+    /**
+     * Resolves the reviewed lifecycle bindings for a host artifact. Only the two admitted Cubism Editor
+     * builds are recognised — 5.2.03 and 5.3.02 — and both currently share the same reviewed method
+     * selectors for model open, animation open, editor exit, and model/animation save and close.
+     *
+     * @param artifact digest of the host artifact actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed Cubism build, in which
+     *     case no lifecycle transformation may be installed
+     * @throws NullPointerException when {@code artifact} is null
+     */
     public static Optional<ProjectLifecycleHostProfile> forArtifact(
         final HostArtifactDigest artifact
     ) {
         Objects.requireNonNull(artifact, "artifact");
         final String version;
-        if (artifact.equals(CUBISM_52)) version = "5.2.0";
+        if (artifact.equals(CUBISM_52)) version = "5.2.03";
         else if (artifact.equals(CUBISM_53)) version = "5.3.02";
         else return Optional.empty();
 

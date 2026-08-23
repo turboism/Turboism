@@ -2,6 +2,17 @@ package dev.turboism.core.diagnostics;
 
 import java.util.Objects;
 
+/**
+ * Diagnostic record of one decision the plugin work-budget governor made about
+ * a background task.
+ *
+ * @param pluginId id of the plugin that owns the task
+ * @param taskId   id of the governed task
+ * @param phase    the point in the task’s life this event describes
+ * @param decision where the governor placed the work, or that it refused it
+ * @param severity how prominently the event should be reported
+ * @throws NullPointerException when any component is {@code null}
+ */
 public record PluginWorkBudgetEvent(
     String pluginId,
     String taskId,
@@ -20,6 +31,10 @@ public record PluginWorkBudgetEvent(
         severity = Objects.requireNonNull(severity, "severity");
     }
 
+    /**
+     * @return the stable diagnostic code {@value #CODE}, identical for every
+     *     instance, used to route and filter this event kind
+     */
     public String code() {
         return CODE;
     }

@@ -86,6 +86,15 @@ public final class RuntimeMenuRegistry implements MenuRegistry {
         );
     }
 
+    /**
+     * Swaps in the authority that owns this plugin's menu contributions. Permitted only while no
+     * contributions are live, or when rebinding the same authority, so existing menu entries can never
+     * be reassigned to a different owner.
+     *
+     * @param authority the editor UI contribution authority to bind
+     * @throws NullPointerException when {@code authority} is null
+     * @throws IllegalStateException when contributions are already registered under another authority
+     */
     public synchronized void bindContributionAuthority(
         final EditorUiContributionAuthority authority
     ) {

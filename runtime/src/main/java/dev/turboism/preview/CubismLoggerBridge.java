@@ -48,13 +48,19 @@ final class CubismLoggerBridge implements PreviewLog.Sink {
     }
 
     @Override
-    public void write(final PreviewLog.Level level, final String line, final Throwable failure) {
+    public void write(
+        final PreviewLog.Level level,
+        final String component,
+        final String message,
+        final Throwable failure
+    ) {
         final Method method = failure == null ? plainMethods[level.ordinal()] : failureMethods[level.ordinal()];
+        final String hostMessage = "[" + component + "] " + message;
         try {
             if (failure == null) {
-                method.invoke(logger, line);
+                method.invoke(logger, hostMessage);
             } else {
-                method.invoke(logger, line, failure);
+                method.invoke(logger, hostMessage, failure);
             }
         } catch (IllegalAccessException exception) {
             throw new IllegalStateException("Cubism logger method is inaccessible", exception);

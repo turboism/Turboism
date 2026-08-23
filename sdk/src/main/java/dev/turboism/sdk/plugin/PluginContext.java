@@ -16,7 +16,12 @@ import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.cubism.mesh.MeshMirrorAxisService;
+import dev.turboism.sdk.cubism.mesh.MeshEditParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshEditService;
 import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorCounterparts;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorMoveParticipation;
+import dev.turboism.sdk.cubism.mesh.MeshMirrorToolEligibility;
 import dev.turboism.sdk.cubism.model.ModelObjectService;
 import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
@@ -56,6 +61,14 @@ public interface PluginContext {
 
     PluginDescriptor descriptor();
 
+    /**
+     * Returns the framework logger scoped to {@link #descriptor() the current plugin}.
+     *
+     * <p>Every record automatically carries the plugin descriptor id and is written to Turboism's
+     * session log and, when available, Cubism's host logger.</p>
+     *
+     * @return the current plugin's logger
+     */
     PluginLogger logger();
 
     PluginPaths paths();
@@ -140,6 +153,31 @@ public interface PluginContext {
     @PreviewApi
     default MeshMirrorAxisService meshMirrorAxis() {
         throw new UnsupportedOperationException("meshMirrorAxis service is not available");
+    }
+
+    @PreviewApi
+    default MeshEditService meshEdit() {
+        throw new UnsupportedOperationException("meshEdit service is not available");
+    }
+
+    @PreviewApi
+    default MeshEditParticipation meshEditParticipation() {
+        throw new UnsupportedOperationException("meshEditParticipation service is not available");
+    }
+
+    @PreviewApi
+    default MeshMirrorCounterparts meshMirrorCounterparts() {
+        throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
+    }
+
+    @PreviewApi
+    default MeshMirrorToolEligibility meshMirrorToolEligibility() {
+        throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
+    }
+
+    @PreviewApi
+    default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
+        throw new UnsupportedOperationException("meshMirrorMoveParticipation service is not available");
     }
 
     @PreviewApi

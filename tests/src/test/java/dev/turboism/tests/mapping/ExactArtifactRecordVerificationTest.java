@@ -58,20 +58,20 @@ class ExactArtifactRecordVerificationTest {
     }
 
     private static final Map<String, List<Slice>> PRODUCTION_RECORDS = Map.of(
-        "5.2", List.of(
-            new Slice("cubism-5.2-project-workspace.json",
+        "5.2.03", List.of(
+            new Slice("cubism-5.2.03-project-workspace.json",
                 (r, a, l) -> new VerifiedProjectWorkspaceResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-editor-model.json",
+            new Slice("cubism-5.2.03-editor-model.json",
                 (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-ui-main-toolbar.json",
+            new Slice("cubism-5.2.03-ui-main-toolbar.json",
                 (r, a, l) -> new VerifiedMainToolbarResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-ui-embedded-panel.json",
+            new Slice("cubism-5.2.03-ui-embedded-panel.json",
                 (r, a, l) -> new VerifiedEmbeddedPanelResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-ui-top-menu.json",
+            new Slice("cubism-5.2.03-ui-top-menu.json",
                 (r, a, l) -> new VerifiedTopMenuResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-ui-bounding-box-overlay.json",
+            new Slice("cubism-5.2.03-ui-bounding-box-overlay.json",
                 (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
-            new Slice("cubism-5.2-workspace-control.json",
+            new Slice("cubism-5.2.03-workspace-control.json",
                 (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))
         ),
         "5.3.02", List.of(

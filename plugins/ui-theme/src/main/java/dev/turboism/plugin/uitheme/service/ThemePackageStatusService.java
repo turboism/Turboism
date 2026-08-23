@@ -10,6 +10,13 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Reports the host's theme-package status and drives the user-facing import prompt.
+ *
+ * <p>Read-only with respect to themes: it reads the host status snapshot and asks for a file and a
+ * confirmation, but installs nothing itself. The capability id constants name the permissions this
+ * service's operations require of the host.
+ */
 public final class ThemePackageStatusService {
 
     public static final String THEME_STATUS_READ_CAPABILITY = "cubism.theme.status.read";
@@ -28,6 +35,12 @@ public final class ThemePackageStatusService {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
     }
 
+    /**
+     * Reads the host theme status and posts it as a status notification.
+     *
+     * <p>An absent snapshot is normal on a host without theme support and is reported as a
+     * {@code WARNING} notification rather than thrown.
+     */
     public void checkThemeStatus() {
         final Optional<ThemeStatusSnapshot> status = statusReadCapability.readStatus();
         if (status.isPresent()) {
@@ -46,6 +59,13 @@ public final class ThemePackageStatusService {
         ));
     }
 
+    /**
+     * Prompts for a {@code .zip} theme package and, once the user confirms the overwrite dialog, posts
+     * an import-started notification.
+     *
+     * <p>Announces the intent only: this method reads no bytes and installs nothing. Cancelling either
+     * the file chooser or the confirmation leaves no notification and no effect.
+     */
     public void handleThemePackageImport() {
         uiHost.requestFile(new FileChooserRequest(
             "ui-theme.package.import.file",

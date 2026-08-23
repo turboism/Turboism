@@ -10,6 +10,13 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+/**
+ * Decides which discovered theme packages may be offered, and why the rest may not.
+ *
+ * <p>Pure and deterministic: given the same metadata list it always produces the same
+ * accepted, rejected and issue lists in the same order. Rejection is reported, never thrown -
+ * one bad package never prevents the others being catalogued. Not instantiable.
+ */
 public final class ThemePackageCatalog {
 
     private static final int MAX_CANDIDATES = 256;
@@ -26,6 +33,22 @@ public final class ThemePackageCatalog {
     private ThemePackageCatalog() {
     }
 
+    /**
+     * Classifies every candidate as accepted or rejected, recording one issue per rejection.
+     *
+     * <p>Candidates are validated in order: a catalog over 256 entries rejects everything at once;
+     * then id syntax, name presence and field-length limits; then duplicate ids, which reject
+     * every colliding entry rather than picking a winner; then parent references - self-parent,
+     * missing parent, inheritance cycles, and chains deeper than 16. Finally rejection propagates
+     * transitively, repeatedly, so a theme inheriting from a rejected one is rejected too. Each
+     * candidate keeps only its first issue code. Results are sorted by id then by input position,
+     * so ordering does not depend on the input order or on hash iteration.
+     *
+     * @param metadata the discovered package headers, in discovery order; must not be null and
+     *                 must contain no nulls
+     * @return the accepted and rejected candidates plus the issues explaining every rejection
+     * @throws NullPointerException if the list or any element is null
+     */
     public static Result build(final List<ThemePackageMetadata> metadata) {
         Objects.requireNonNull(metadata, "metadata");
         final List<Candidate> candidates = new ArrayList<>();
@@ -110,6 +133,14 @@ public final class ThemePackageCatalog {
         return result(candidates, rejected, issues);
     }
 
+    /**
+     * Tests whether a string is a syntactically usable theme id: two dot-separated lowercase
+     * segments, each starting with a letter and containing only letters, digits and hyphens,
+     * with no hyphen immediately before the dot or at the end, and at most 64 characters overall.
+     *
+     * @param value the candidate id; null is simply invalid
+     * @return whether the id is well-formed - says nothing about whether such a theme exists
+     */
     public static boolean isValidId(final String value) {
         if (value == null || value.length() > 64 || !ID.matcher(value).matches()) {
             return false;
@@ -207,16 +238,34 @@ public final class ThemePackageCatalog {
         return left.compareTo(right);
     }
 
+    /**
+     * A package under consideration, paired with where it appeared in the input.
+     *
+     * @param ordinal the candidate's position in the input list, used as the tie-break that keeps
+     *                ordering deterministic when ids match
+     * @param metadata the package header; must not be null
+     */
     public record Candidate(int ordinal, ThemePackageMetadata metadata) {
         public Candidate {
             metadata = Objects.requireNonNull(metadata, "metadata");
         }
 
+        /**
+         * @return the package's id, or the empty string when it declares none, so candidates can be
+         *         compared and grouped without null handling
+         */
         public String id() {
             return metadata.id() == null ? "" : metadata.id();
         }
     }
 
+    /**
+     * One reason a candidate was rejected.
+     *
+     * @param id the rejected candidate's id, empty when it declared none
+     * @param code why it was rejected - the first failure found, not necessarily the only one
+     * @param ordinal the rejected candidate's position in the input list
+     */
     public record Issue(String id, IssueCode code, int ordinal) {
         public Issue {
             id = id == null ? "" : id;
@@ -224,6 +273,17 @@ public final class ThemePackageCatalog {
         }
     }
 
+    /**
+     * The complete classification of one catalog build.
+     *
+     * <p>All three lists are defensively copied, so the result is immutable. Together the
+     * accepted and rejected lists account for every input candidate, and every rejected candidate
+     * has exactly one issue.
+     *
+     * @param accepted candidates that may be offered, sorted by id then input position
+     * @param rejected candidates that may not, in the same ordering
+     * @param issues one issue per rejected candidate, sorted by id, code then input position
+     */
     public record Result(List<Candidate> accepted, List<Candidate> rejected, List<Issue> issues) {
         public Result {
             accepted = List.copyOf(accepted);

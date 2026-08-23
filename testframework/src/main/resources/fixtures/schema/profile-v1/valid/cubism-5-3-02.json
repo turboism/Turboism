@@ -3,7 +3,7 @@
   "schemaVersion": 1,
   "profileId": "cubism-5.3.02",
   "product": "cubism-editor",
-  "versionRange": "[5.3.02,5.3.03)",
+  "cubismVersion": "5.3.02",
   "fingerprintStrategy": "none",
   "mappingPacks": [
     "cubism-5.3.02"

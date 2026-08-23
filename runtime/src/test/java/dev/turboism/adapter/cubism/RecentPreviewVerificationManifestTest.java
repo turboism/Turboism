@@ -25,7 +25,7 @@ class RecentPreviewVerificationManifestTest {
             projectResolver("5.3.02", loader), panelResolver("5.3.02", loader)
         ));
         assertTrue(RecentPreviewVerificationManifest.authorizes(
-            projectResolver("5.2.0", loader), panelResolver("5.2.03", loader)
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
         ));
         assertTrue(RecentPreviewVerificationManifest.CAPABILITY_IDS.contains("cubism.recent-file.read"));
         assertTrue(RecentPreviewVerificationManifest.CAPABILITY_IDS.contains("cubism.screenshot.capture"));

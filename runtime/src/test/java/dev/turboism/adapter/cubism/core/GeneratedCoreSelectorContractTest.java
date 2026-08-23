@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -17,7 +17,7 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractBindsTheExactProfileSets() {
         assertEquals(
-            "a0f14a73201282f50e6970181d2277ad2ce8fa9c121e7b45fc525bcaa474e699",
+            "7aacb00831078e4b56567841ad43c406f1ee0f243c003a4204b8ef8a7a9db1c2",
             CorePublicApiSelectorContract.SELECTOR_ROSTER_SHA256
         );
         assertEquals(9, CorePublicApiSelectorContract.VERSION_PROBE_ALIASES.size());
@@ -27,7 +27,7 @@ class GeneratedCoreSelectorContractTest {
         );
         assertEquals(
             72,
-            CorePublicApiSelectorContract.requiredAliasesFor("5.2")
+            CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")
                 .orElseThrow()
                 .size()
         );
@@ -39,7 +39,7 @@ class GeneratedCoreSelectorContractTest {
         );
         assertEquals(
             55,
-            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.2")
+            CorePublicApiSelectorContract.structuralMethodAliasesFor("5.2.03")
                 .orElseThrow()
                 .size()
         );
@@ -60,7 +60,7 @@ class GeneratedCoreSelectorContractTest {
                 .contains(CorePublicApiSelectorContract.MODEL_GET_RENDER_ORDERS)
         );
         assertFalse(
-            CorePublicApiSelectorContract.requiredAliasesFor("5.2")
+            CorePublicApiSelectorContract.requiredAliasesFor("5.2.03")
                 .orElseThrow()
                 .contains(CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS)
         );
@@ -69,8 +69,8 @@ class GeneratedCoreSelectorContractTest {
     @Test
     void generatedContractRoutesOnlySupportedExactProfiles() {
         assertEquals(
-            "cubism-core-public-5.2",
-            CorePublicApiSelectorContract.providerIdFor("5.2").orElseThrow()
+            "cubism-core-public-5.2.03",
+            CorePublicApiSelectorContract.providerIdFor("5.2.03").orElseThrow()
         );
         assertEquals(
             "cubism-core-public-5.3.02",
@@ -102,7 +102,7 @@ class GeneratedCoreSelectorContractTest {
     void generatedSetsRemainImmutable() {
         assertThrows(
             UnsupportedOperationException.class,
-            () -> CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2.add("bad")
+            () -> CorePublicApiSelectorContract.REQUIRED_ALIASES_5_2_03.add("bad")
         );
     }
 }

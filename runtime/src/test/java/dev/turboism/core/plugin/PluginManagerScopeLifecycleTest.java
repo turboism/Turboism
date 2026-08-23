@@ -6,6 +6,7 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import org.junit.jupiter.api.Test;
 
@@ -66,6 +67,42 @@ class PluginManagerScopeLifecycleTest {
         // Then
         assertTrue(scopeClosed.get());
         scheduler.shutdown();
+    }
+
+    @Test
+    void successfulLifecycleStagesAreLoggedThroughPluginLogger() throws Exception {
+        // Given
+        RuntimeScheduler scheduler = scheduler();
+        PluginManager manager = new PluginManager(scheduler);
+        List<String> messages = new CopyOnWriteArrayList<>();
+        PluginRuntime runtime = runtime(new TurboismPlugin() { });
+        runtime.setContext(PluginManagerTestFixtures.context(
+            new DisposableScope(),
+            recordingLogger(messages)
+        ));
+        runtime.transitionTo(PluginLifecycleState.LOADED);
+        manager.registerDescriptor(runtime);
+
+        try {
+            // When
+            manager.enable(PLUGIN_ID);
+            awaitState(runtime, PluginLifecycleState.ENABLED);
+            manager.disable(PLUGIN_ID);
+            awaitState(runtime, PluginLifecycleState.DISABLED);
+            manager.shutdown(PLUGIN_ID);
+            awaitState(runtime, PluginLifecycleState.UNLOADED);
+
+            // Then
+            assertTrue(messages.contains("Plugin lifecycle: enable started"));
+            assertTrue(messages.contains("Plugin lifecycle: enable succeeded entrypoints=1"));
+            assertTrue(messages.contains("Plugin lifecycle: disable started"));
+            assertTrue(messages.contains("Plugin lifecycle: disable succeeded entrypoints=1"));
+            assertTrue(messages.contains("Plugin lifecycle: shutdown started"));
+            assertTrue(messages.contains("Plugin lifecycle: shutdown succeeded entrypoints=1"));
+            assertTrue(messages.contains("Plugin lifecycle: unload succeeded"));
+        } finally {
+            scheduler.shutdown();
+        }
     }
 
     @Test
@@ -165,6 +202,35 @@ class PluginManagerScopeLifecycleTest {
         AtomicBoolean scopeClosed = new AtomicBoolean(false);
         scope.register(() -> scopeClosed.set(true));
         return scopeClosed;
+    }
+
+    private static PluginLogger recordingLogger(List<String> messages) {
+        return new PluginLogger() {
+            @Override
+            public void debug(String message) {
+                messages.add(message);
+            }
+
+            @Override
+            public void info(String message) {
+                messages.add(message);
+            }
+
+            @Override
+            public void warn(String message) {
+                messages.add(message);
+            }
+
+            @Override
+            public void error(String message) {
+                messages.add(message);
+            }
+
+            @Override
+            public void error(String message, Throwable throwable) {
+                messages.add(message);
+            }
+        };
     }
 
     private static void awaitState(PluginRuntime runtime, PluginLifecycleState expectedState) throws InterruptedException {

@@ -22,6 +22,24 @@ public final class HookIngressDispatcher {
         this.eventSink = Objects.requireNonNull(eventSink, "eventSink");
     }
 
+    /**
+     * Validates one hook firing against its registered spec and forwards the SDK event
+     * to the sink.
+     *
+     * <p>Fails closed: an unregistered hook, a production-enabled spec, or an event name
+     * the spec does not declare all throw before the sink is touched. Plugin logic is
+     * never run inline here — the sink only enqueues.</p>
+     *
+     * @param hookId       registered ingress identity
+     * @param emittedEvent the event name the caller claims to be emitting; must equal the
+     *                     spec’s declared event
+     * @param event        the SDK-safe event DTO to forward; carries no raw hook arguments
+     * @return the spec that admitted this dispatch
+     * @throws IllegalArgumentException when {@code hookId} is unknown, or
+     *     {@code emittedEvent} disagrees with the spec
+     * @throws IllegalStateException when the spec is production-enabled
+     * @throws NullPointerException when {@code event} is {@code null}
+     */
     public HookIngressSpec dispatch(String hookId, String emittedEvent, EventBus.TurboismEvent event) {
         Objects.requireNonNull(event, "event");
         HookIngressSpec spec = registry.find(hookId)

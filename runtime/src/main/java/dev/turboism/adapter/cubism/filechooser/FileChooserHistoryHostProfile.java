@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.filechooser;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,14 +23,8 @@ public record FileChooserHistoryHostProfile(
     List<String> exportContextClassNames
 ) {
 
-    private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
-    private static final HostArtifactDigest CUBISM_53 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
+    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
+    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
 
     private static final String FILE_CHOOSER_CLASS = "com/live2d/ui/window/n";
     private static final String EXPORTER_CONTEXT_CLASS = "com.live2d.cubism.doc.model.exporter.b";
@@ -60,12 +55,24 @@ public record FileChooserHistoryHostProfile(
         return FILE_CHOOSER_CLASS;
     }
 
+    /**
+     * Resolves the reviewed selector set for a host artifact.
+     *
+     * <p>Only the two admitted Cubism builds are recognised: 5.2.03 and 5.3.02. They share the
+     * save-dialog method bindings and differ only in the app-controller export-context class name.
+     * Any other artifact yields empty, which is the fail-closed signal that the file-chooser hook
+     * must not be installed against an unreviewed host.
+     *
+     * @param artifact digest of the host jar actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed build
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
     public static Optional<FileChooserHistoryHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         final String version;
         final List<String> contextClasses;
         if (artifact.equals(CUBISM_52)) {
-            version = "5.2.0";
+            version = "5.2.03";
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
         } else if (artifact.equals(CUBISM_53)) {
             version = "5.3.02";

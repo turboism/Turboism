@@ -32,6 +32,21 @@ public final class SwingPanelViewRenderer {
 
     private SwingPanelViewRenderer() { }
 
+    /**
+     * Renders a panel value using the locale the Cubism host is currently running in.
+     *
+     * <p>Must be called on the Swing event dispatch thread: it builds live components. The
+     * returned tree is freshly created and owned by the caller; the immutable {@code view} is not
+     * retained, so a changed value requires a new render.
+     *
+     * @param view the panel value to realise
+     * @param action sink invoked when a control fires, receiving the control's action id and, for
+     *     value-carrying controls, the new value
+     * @return the root Swing component for {@code view}
+     * @throws NullPointerException if either argument is {@code null}
+     * @throws IllegalArgumentException if the tree holds a node kind this renderer does not
+     *     support, or an image node whose bytes are not a readable PNG
+     */
     public static JComponent render(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action
@@ -40,6 +55,20 @@ public final class SwingPanelViewRenderer {
         Objects.requireNonNull(action, "action");
         return renderNode(view, action, false, dev.turboism.i18n.CubismHostLocale.resolve());
     }
+    /**
+     * Renders a panel value using an explicit locale, which affects only runtime-supplied chrome
+     * such as collapsible-section affordances; plugin-supplied text is used verbatim.
+     *
+     * <p>Must be called on the Swing event dispatch thread.
+     *
+     * @param view the panel value to realise
+     * @param action sink invoked when a control fires
+     * @param locale locale for runtime-generated UI text
+     * @return the root Swing component for {@code view}
+     * @throws NullPointerException if {@code view} or {@code action} is {@code null}
+     * @throws IllegalArgumentException if the tree holds an unsupported node kind, or an image
+     *     node whose bytes are not a readable PNG
+     */
     public static JComponent render(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action,

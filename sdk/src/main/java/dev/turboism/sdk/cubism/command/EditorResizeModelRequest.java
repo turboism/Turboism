@@ -12,10 +12,12 @@ public record EditorResizeModelRequest(int percent) implements EditorParameteriz
         }
     }
 
+    /** @return the parameterized command this request drives: resize model document */
     public EditorParameterizedCommand command() {
         return EditorParameterizedCommand.RESIZE_MODEL_DOCUMENT;
     }
 
+    /** @return the host command identifier of {@link #command()}, for logging and dispatch */
     public String commandId() {
         return command().id();
     }

@@ -27,13 +27,13 @@ class WorkspaceValidationAgentTest {
 
         final Options configured = Options.parse(
             "home=/tmp/val;timeoutSeconds=90;hostClass=com.live2d.cubism.CEAppCtrl;"
-                + "workspaceControlRecord=/bundle/cubism-5.2-workspace-control.json;"
+                + "workspaceControlRecord=/bundle/cubism-5.2.03-workspace-control.json;"
                 + "allowDegradedRuntime=true",
             Path.of("/ignored")
         );
         assertEquals(Path.of("/tmp/val"), configured.home());
         assertEquals(Duration.ofSeconds(90), configured.timeout());
-        assertEquals(Path.of("/bundle/cubism-5.2-workspace-control.json"),
+        assertEquals(Path.of("/bundle/cubism-5.2.03-workspace-control.json"),
             configured.recordOverride());
         assertTrue(configured.allowDegradedRuntime());
 

@@ -19,6 +19,17 @@ public record VerticalToolbarContributionDescriptor(
         contribution = Objects.requireNonNull(contribution, "contribution");
     }
 
+    /**
+     * Projects a validated UI contribution into the host-neutral descriptor the vertical-toolbar
+     * provider consumes.
+     *
+     * @param contribution a contribution whose family is {@code VERTICAL_TOOLBAR} and whose
+     *     descriptor is a {@link VerticalToolbarContribution}
+     * @return the descriptor pairing the owning plugin id with the strip payload
+     * @throws NullPointerException if {@code contribution} is {@code null}
+     * @throws IllegalArgumentException if the contribution is not a vertical-toolbar
+     *     contribution, or its identity's contribution id disagrees with the payload's own id
+     */
     public static VerticalToolbarContributionDescriptor from(
         final EditorUiContribution<?> contribution
     ) {
