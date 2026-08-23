@@ -1,50 +1,41 @@
 package dev.turboism.ui.table;
 
-import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
+import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.function.Consumer;
 
 /** Runtime-owned Scene table bridge; native hosts call the publish methods. */
 public final class RuntimeSceneTableService implements SceneTableService {
 
     private final Host host;
-    private final List<Consumer<HeaderClick>> headerListeners = new CopyOnWriteArrayList<>();
-    private final List<Consumer<TableSnapshot>> snapshotListeners = new CopyOnWriteArrayList<>();
-    private final List<Consumer<ItemOrderChanged>> orderListeners = new CopyOnWriteArrayList<>();
+    private volatile RuntimeEventBroker eventBroker;
     private volatile TableSnapshot latestSnapshot;
 
     public RuntimeSceneTableService(final Host host) {
         this.host = Objects.requireNonNull(host, "host");
     }
 
-    @Override
-    public Registration onHeaderClick(final String tableId, final Consumer<HeaderClick> listener) {
-        requireSceneTable(tableId);
-        final Consumer<HeaderClick> registered = Objects.requireNonNull(listener, "listener");
-        headerListeners.add(registered);
-        return () -> headerListeners.remove(registered);
-    }
-
-    @Override
-    public Registration onSnapshot(final String tableId, final Consumer<TableSnapshot> listener) {
-        requireSceneTable(tableId);
-        final Consumer<TableSnapshot> registered = Objects.requireNonNull(listener, "listener");
-        snapshotListeners.add(registered);
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (this) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException("Scene-table event Broker is already attached");
+            }
+            eventBroker = value;
+        }
         final TableSnapshot current = latestSnapshot;
-        if (current != null) registered.accept(current);
-        return () -> snapshotListeners.remove(registered);
+        if (current != null) {
+            value.publishRuntimeRetained(new SceneTableSnapshotEvent(current));
+        }
     }
 
-    @Override
-    public Registration onItemOrderChanged(final String tableId, final Consumer<ItemOrderChanged> listener) {
-        requireSceneTable(tableId);
-        final Consumer<ItemOrderChanged> registered = Objects.requireNonNull(listener, "listener");
-        orderListeners.add(registered);
-        return () -> orderListeners.remove(registered);
+    public java.util.Optional<TableSnapshot> latestSnapshot() {
+        return java.util.Optional.ofNullable(latestSnapshot);
     }
 
     @Override
@@ -74,52 +65,40 @@ public final class RuntimeSceneTableService implements SceneTableService {
         host.setManualReordering(enabled);
     }
 
-    /**
-     * Fans a native Scene header click out to every subscribed plugin listener, in registration
-     * order, on the calling thread — which for a real host is the Swing event dispatch thread.
-     *
-     * <p>Listener exceptions are not caught: one failing listener aborts delivery to the rest.
-     *
-     * @param columnId identifier of the clicked column; must not be blank
-     * @throws NullPointerException if {@code columnId} is {@code null}
-     * @throws IllegalArgumentException if {@code columnId} is blank
-     */
+    /** Publishes a detached header-click observation without invoking plugin code on Swing EDT. */
     public void publishHeaderClick(final String columnId) {
-        final HeaderClick event = new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"));
-        headerListeners.forEach(listener -> listener.accept(event));
+        publish(new SceneTableHeaderClickEvent(
+            new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"))
+        ));
     }
 
-    /**
-     * Records the snapshot as the current table state and delivers it to every subscribed listener
-     * on the calling thread.
-     *
-     * <p>The retained snapshot is replayed immediately to any listener that subscribes later, so a
-     * plugin registering after the palette attached still sees the table.
-     *
-     * @param snapshot the new table state; its table id must be the Scene table
-     * @throws NullPointerException if {@code snapshot} is {@code null}
-     * @throws IllegalArgumentException if the snapshot names a different table
-     */
+    /** Records and asynchronously publishes the latest detached Scene-table state. */
     public void publishSnapshot(final TableSnapshot snapshot) {
         final TableSnapshot event = Objects.requireNonNull(snapshot, "snapshot");
         requireSceneTable(event.tableId());
         latestSnapshot = event;
-        snapshotListeners.forEach(listener -> listener.accept(event));
+        publishRetained(new SceneTableSnapshotEvent(event));
     }
 
-    /**
-     * Delivers a reorder event to every subscribed listener on the calling thread.
-     *
-     * <p>Unlike a snapshot, the event is not retained and is never replayed to a later subscriber.
-     *
-     * @param event the reorder that occurred; its table id must be the Scene table
-     * @throws NullPointerException if {@code event} is {@code null}
-     * @throws IllegalArgumentException if the event names a different table
-     */
+    /** Publishes a detached native reorder observation without retaining it for replay. */
     public void publishItemOrderChanged(final ItemOrderChanged event) {
         final ItemOrderChanged published = Objects.requireNonNull(event, "event");
         requireSceneTable(published.tableId());
-        orderListeners.forEach(listener -> listener.accept(published));
+        publish(new SceneTableItemOrderEvent(published));
+    }
+
+    private void publish(final dev.turboism.sdk.event.TurboismEvent event) {
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntime(event);
+        }
+    }
+
+    private void publishRetained(final dev.turboism.sdk.event.TurboismEvent event) {
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            broker.publishRuntimeRetained(event);
+        }
     }
 
     private static void requireSceneTable(final String tableId) {

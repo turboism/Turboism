@@ -2,14 +2,15 @@ package dev.turboism.sdk.cubism.event;
 
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
+import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
-/** Selection transition observed by the Cubism query interface. */
+/** Runtime-owned selection transition detected while reading a fresh host snapshot. */
 @PreviewApi
 public record SelectionChangedEvent(
     SelectionSummary previousSelection,
     SelectionSummary currentSelection
-) {
+) implements TurboismEvent {
     public SelectionChangedEvent {
         previousSelection = Objects.requireNonNull(previousSelection, "previousSelection");
         currentSelection = Objects.requireNonNull(currentSelection, "currentSelection");
