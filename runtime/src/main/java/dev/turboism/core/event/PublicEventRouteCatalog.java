@@ -92,7 +92,7 @@ final class PublicEventRouteCatalog {
             Map.copyOf(dependencies)
         );
         requireUnambiguousClaims(provider);
-        validateImports(provider);
+        validateImports(provider, false);
         admitted.put(key, provider);
     }
 
@@ -101,7 +101,14 @@ final class PublicEventRouteCatalog {
         if (provider == null) {
             return;
         }
-        validateImports(provider);
+        final Provider current = active.get(owner.pluginId());
+        if (current != null
+            && current.owner().generation() >= owner.generation()) {
+            throw new IllegalStateException(
+                "Public event provider activation generation is not newer: " + owner
+            );
+        }
+        validateImports(provider, true);
         validateConsumers(provider);
         active.put(owner.pluginId(), provider);
         retained.put(owner.pluginId(), provider);
@@ -111,6 +118,9 @@ final class PublicEventRouteCatalog {
         final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
         final Provider removed = admitted.remove(key);
         active.computeIfPresent(key.pluginId(), (ignored, current) ->
+            current.owner().equals(key) ? null : current
+        );
+        retained.computeIfPresent(key.pluginId(), (ignored, current) ->
             current.owner().equals(key) ? null : current
         );
         if (removed == null) {
@@ -211,9 +221,14 @@ final class PublicEventRouteCatalog {
         }
     }
 
-    private void validateImports(final Provider consumer) {
+    private void validateImports(
+        final Provider consumer,
+        final boolean requireActiveProviders
+    ) {
         for (Import imported : consumer.imports().values()) {
-            final Provider provider = effectiveProvider(imported.route().providerId());
+            final Provider provider = requireActiveProviders
+                ? active.get(imported.route().providerId())
+                : effectiveProvider(imported.route().providerId());
             if (provider == null) {
                 if (imported.required()) {
                     throw new IllegalArgumentException(
