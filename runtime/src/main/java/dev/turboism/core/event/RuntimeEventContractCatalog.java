@@ -5,7 +5,9 @@ import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
+import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -25,6 +27,8 @@ final class RuntimeEventContractCatalog {
             DrawableLockEvent.class,
             DrawableGeometryEvent.class,
             DeformerOpacityEvent.class,
+            DeformerVisibilityEvent.class,
+            DeformerLockEvent.class,
             PartNameEvent.class
         );
 
