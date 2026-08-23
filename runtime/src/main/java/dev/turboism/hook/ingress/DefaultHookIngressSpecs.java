@@ -2,6 +2,13 @@ package dev.turboism.hook.ingress;
 
 import java.util.List;
 
+/**
+ * The built-in set of semantic hook ingress definitions the runtime ships with.
+ *
+ * <p>Every entry is production-disabled and declared {@code enqueue-only}: the
+ * ingress may hand a normalized SDK event to the mailbox and nothing more. This
+ * holder is not instantiable.</p>
+ */
 public final class DefaultHookIngressSpecs {
 
     public static final List<HookIngressSpec> DEFAULT_SPECS = List.of(

@@ -13,17 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedCorePublicApiResolverFactoryTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolveSibling(
-        "turboism-legacy"
-    ).resolve("cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
     private final VerifiedCorePublicApiResolverFactory factory =
         new VerifiedCorePublicApiResolverFactory();
 
     @Test
     void admitsPinnedCoreArtifactsForBothSupportedProfiles() throws Exception {
-        assertAdmitted("5.2", "5.2.0");
-        assertAdmitted("5.3.02", "5.3.2");
+        assertAdmitted("5.2.03", "5.2.03");
+        assertAdmitted("5.3.02", "5.3.02");
     }
 
     @Test
@@ -31,7 +29,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
         Path artifact = coreArtifact("5.3.02");
         try (URLClassLoader loader = loader(artifact)) {
             assertThrows(IllegalArgumentException.class, () -> factory.create(
-                "5.2", record("5.2"), artifact, loader
+                "5.2.03", record("5.2.03"), artifact, loader
             ));
         }
     }
@@ -39,7 +37,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
     @Test
     void rejectsRuntimeClassesFromAnotherCoreArtifact() throws Exception {
         Path reviewed = coreArtifact("5.3.02");
-        try (URLClassLoader wrongLoader = loader(coreArtifact("5.2"))) {
+        try (URLClassLoader wrongLoader = loader(coreArtifact("5.2.03"))) {
             assertThrows(IllegalArgumentException.class, () -> factory.create(
                 "5.3.02", record("5.3.02"), reviewed, wrongLoader
             ));
@@ -69,7 +67,7 @@ class VerifiedCorePublicApiResolverFactoryTest {
             assertTrue(resolver.authorizes(
                 "adapter.core-model.readonly",
                 java.util.Set.of("cubism.geometry.read"),
-                dev.turboism.mapping.verification.CorePublicApiSelectorContract
+                dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract
                     .requiredAliasesFor(profile)
                     .orElseThrow()
             ));
@@ -84,8 +82,9 @@ class VerifiedCorePublicApiResolverFactoryTest {
     }
 
     private static Path coreArtifact(final String profile) {
+        final String evidenceDirectory = "5.2.03".equals(profile) ? "5.2" : profile;
         return LEGACY_EVIDENCE.resolve(
-            "Cubism-" + profile + "/jars/Live2DCubismCore.jar"
+            "Cubism-" + evidenceDirectory + "/jars/Live2DCubismCore.jar"
         );
     }
 
@@ -96,14 +95,4 @@ class VerifiedCorePublicApiResolverFactoryTest {
         );
     }
 
-    private static Path locateProjectRoot() {
-        Path current = Path.of(System.getProperty("user.dir")).toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) {
-            throw new IllegalStateException("could not locate Turboism project root");
-        }
-        return current;
-    }
 }

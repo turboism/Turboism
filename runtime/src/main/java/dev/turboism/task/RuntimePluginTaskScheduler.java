@@ -274,16 +274,35 @@ public final class RuntimePluginTaskScheduler implements PluginTaskScheduler, Au
         schedulerLease.close();
     }
 
+    /**
+     * Hands a continuation to the runtime's completion dispatcher, so it runs under the same
+     * accounting and thread discipline as continuations chained off a plugin task.
+     *
+     * @param continuation the work to dispatch; must not be {@code null}
+     * @throws NullPointerException if {@code continuation} is {@code null}
+     */
     public void dispatchContinuation(final Runnable continuation) {
         completionDispatcher.dispatchPluginContinuation(
             Objects.requireNonNull(continuation, "continuation")
         );
     }
 
+    /**
+     * Blocks the calling thread until no continuation is queued or running.
+     *
+     * <p>Waits indefinitely — use the timed overload where a stuck plugin continuation must not hang
+     * the caller. Do not call this from the dispatcher's own thread.
+     */
     public void awaitContinuationQuiescence() {
         completionDispatcher.awaitQuiescence();
     }
 
+    /**
+     * Blocks the calling thread until no continuation is queued or running, or the timeout elapses.
+     *
+     * @param timeout how long to wait before giving up; must not be {@code null}
+     * @throws NullPointerException if {@code timeout} is {@code null}
+     */
     public void awaitContinuationQuiescence(final Duration timeout) {
         completionDispatcher.awaitQuiescence(Objects.requireNonNull(timeout, "timeout"));
     }

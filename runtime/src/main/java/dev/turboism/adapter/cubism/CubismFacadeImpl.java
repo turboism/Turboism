@@ -45,6 +45,18 @@ import java.util.function.Consumer;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
+/**
+ * The runtime's implementation of the plugin-facing Cubism facade.
+ *
+ * <p>Every accessor is permission-checked and scope-checked: reads require the corresponding
+ * {@code turboism.cubism.*} permission of the owning plugin, and any call made after that plugin has
+ * been disabled fails with {@link IllegalStateException} rather than touching the host, so a leaked
+ * facade reference cannot outlive its plugin.
+ *
+ * <p>The snapshots handed out are immutable projections of host state taken at call time; they do not
+ * track later host changes. Calls are expected to originate on the Cubism host thread. Where the host
+ * offers no capability, the facade degrades to empty snapshots and no-op services instead of throwing.
+ */
 public final class CubismFacadeImpl implements CubismFacade {
 
     public static final String PROJECT_READ_PERMISSION = "turboism.cubism.project.read";
@@ -653,6 +665,17 @@ public final class CubismFacadeImpl implements CubismFacade {
         return runtimeSnapshot();
     }
 
+    /**
+     * Reads the runtime snapshot together with the host invalidation token it was taken at.
+     *
+     * <p>Callers that cache a snapshot can compare the version to decide whether a re-read is needed;
+     * an unchanged version means the host reported no invalidation between the two reads.
+     *
+     * @return the snapshot and the host version it was observed at
+     * @throws IllegalStateException     if the owning plugin has been disabled, making this facade
+     *                                   reference stale
+     * @throws CubismPermissionException if the owning plugin lacks the required read permission
+     */
     public SnapshotWithVersion runtimeWithVersion() {
         requireActiveScope();
         final CubismRuntimeSnapshot snapshot = runtimeSnapshot();
@@ -788,6 +811,15 @@ public final class CubismFacadeImpl implements CubismFacade {
             || selection.activeDeformerId().isPresent();
     }
 
+    /**
+     * The snapshot used when no host state is observable: no project, document or model, an empty
+     * selection, and empty collections throughout.
+     *
+     * <p>Returned instead of null or an exception so callers can render a consistent empty state. It
+     * requires neither permission nor an active scope, since it reads nothing from the host.
+     *
+     * @return a fully empty runtime snapshot
+     */
     public static CubismRuntimeSnapshot emptyRuntimeSnapshot() {
         return new CubismRuntimeSnapshot(
             Optional.empty(),

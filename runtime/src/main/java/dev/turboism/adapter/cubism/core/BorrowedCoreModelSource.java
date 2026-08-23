@@ -171,6 +171,11 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
         return interrupted;
     }
 
+    /**
+     * @return the generation of the currently published borrowed model, read under the source
+     *     monitor; it is incremented on every replacement and on close, so a lease holder can
+     *     detect that the model it borrowed is no longer the active one
+     */
     public long currentGeneration() {
         synchronized (monitor) {
             return generation;

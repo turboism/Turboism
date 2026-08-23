@@ -86,6 +86,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         if (!admit(loader, protectionDomain)) return null;
 
         final boolean[] transformed = {false};
+        final boolean[] linkedInjected = {false};
         try {
             final ClassReader reader = new ClassReader(classfileBuffer);
             final ClassWriter writer = new ClassWriter(
@@ -128,7 +129,32 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                         @Override
                         public void visitCode() {
                             super.visitCode();
-                            if (kind == Kind.DRAW) {
+                            if (kind == Kind.SELECTED_POINT_MOVE) {
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorMoveSelected",
+                                    "(Ljava/lang/Object;)V",
+                                    false
+                                );
+                            } else if (kind == Kind.EDGE_DELETE) {
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "edgeDeleteActionEntered",
+                                    "()V",
+                                    false
+                                );
+                            } else if (kind == Kind.ERASER_DELETE) {
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "eraserDeleteActionEntered",
+                                    "()V",
+                                    false
+                                );
+                            } else if (kind == Kind.DRAW) {
                                 visitVarInsn(Opcodes.ALOAD, 0);
                                 visitVarInsn(Opcodes.FLOAD, 1);
                                 visitVarInsn(Opcodes.ILOAD, 2);
@@ -145,6 +171,115 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                 visitJumpInsn(Opcodes.IFEQ, continueLabel);
                                 visitInsn(Opcodes.RETURN);
                                 visitLabel(continueLabel);
+                            }
+                        }
+
+                        /**
+                         * Linked deletion is injected by intercepting the host's own deletion
+                         * call rather than at a fixed offset, so the mirror step always lands
+                         * immediately before the host deletes. Operands are duplicated on the
+                         * stack; no local variable slots are allocated, so the host method's
+                         * own frame layout is untouched.
+                         */
+                        @Override
+                        public void visitMethodInsn(
+                            final int callOpcode,
+                            final String callOwner,
+                            final String callName,
+                            final String callDescriptor,
+                            final boolean isInterface
+                        ) {
+                            final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+                            if (linked == null) {
+                                super.visitMethodInsn(callOpcode, callOwner, callName, callDescriptor, isInterface);
+                                return;
+                            }
+                            if (kind == Kind.POINT_DELETE
+                                && callOwner.equals(linked.pointDeleteOwner())
+                                && callName.equals(linked.pointDeleteMethod())
+                                && callDescriptor.equals(linked.pointDeleteDescriptor())) {
+                                // stack: editMode, sources, groupUndo
+                                visitInsn(Opcodes.DUP2);
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorDeletePointAction",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                                linkedInjected[0] = true;
+                            } else if (kind == Kind.ERASER_DELETE
+                                && callOwner.equals(linked.eraserRemoveOwner())
+                                && callName.equals(linked.eraserRemoveMethod())
+                                && callDescriptor.equals(linked.eraserRemoveDescriptor())) {
+                                // stack: parent undo, handler, source edge list
+                                // The exact action parameters put pack in local 1 and the current
+                                // outer "Eraser" GroupUndo in local 3. Delete mirror counterparts
+                                // into that group separately, as 5.3.02 does, and leave all three
+                                // original operands untouched for the host's source deletion.
+                                visitInsn(Opcodes.DUP);
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitVarInsn(Opcodes.ALOAD, 3);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorDeleteEraserEdges",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                                linkedInjected[0] = true;
+                            } else if (kind == Kind.ERASER_DELETE
+                                && callOwner.equals(linked.eraserPointRemoveOwner())
+                                && callName.equals(linked.eraserPointRemoveMethod())
+                                && callDescriptor.equals(linked.eraserPointRemoveDescriptor())) {
+                                // stack: parent undo, handler, source point list, false
+                                // Preserve the native operands while mirroring the same point list
+                                // into the current outer Eraser Undo immediately beforehand.
+                                visitInsn(Opcodes.DUP2);
+                                visitInsn(Opcodes.POP);
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitVarInsn(Opcodes.ALOAD, 3);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorDeleteEraserPoints",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                                linkedInjected[0] = true;
+                            } else if (kind == Kind.EDGE_DELETE
+                                && callOwner.equals(linked.edgeRemoveOwner())
+                                && callName.equals(linked.edgeRemoveMethod())
+                                && callDescriptor.equals(linked.edgeRemoveDescriptor())) {
+                                // stack: mesh, edge
+                                visitInsn(Opcodes.DUP);
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "mirrorDeleteEdge",
+                                    "(Ljava/lang/Object;Ljava/lang/Object;)V",
+                                    false
+                                );
+                                linkedInjected[0] = true;
+                            }
+                            super.visitMethodInsn(callOpcode, callOwner, callName, callDescriptor, isInterface);
+                            if (kind == Kind.EDGE_DELETE
+                                && callOwner.equals(linked.edgeUndoOwner())
+                                && callName.equals(linked.edgeUndoMethod())
+                                && callDescriptor.equals(linked.edgeUndoDescriptor())) {
+                                // The edge action keeps its undo group in a local, so capture it
+                                // as it is produced. It is consumed at the removeEdge site above,
+                                // which runs after the host's own snapshot undo is registered.
+                                visitInsn(Opcodes.DUP);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "rememberEdgeUndoGroup",
+                                    "(Ljava/lang/Object;)V",
+                                    false
+                                );
                             }
                         }
 
@@ -189,6 +324,15 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                                     "(ZLjava/lang/Object;Ljava/lang/Object;F)Z",
                                     false
                                 );
+                            } else if (kind == Kind.TOOL_ELIGIBILITY && opcode == Opcodes.IRETURN) {
+                                visitVarInsn(Opcodes.ALOAD, 1);
+                                visitMethodInsn(
+                                    Opcodes.INVOKESTATIC,
+                                    BRIDGE,
+                                    "adjustToolEligibility",
+                                    "(ZLjava/lang/Object;)Z",
+                                    false
+                                );
                             } else if (kind == Kind.WIDGET && opcode == Opcodes.ARETURN) {
                                 visitVarInsn(Opcodes.ALOAD, 0);
                                 visitMethodInsn(
@@ -212,6 +356,15 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
                 outcome(Outcome.TARGET_UNCHANGED, "MESH_MIRROR_TARGET_UNCHANGED owner=" + className);
                 return null;
             }
+            // Matching the enclosing action method is not enough: if the deletion call we
+            // intercept is absent, the rewrite would be a no-op reported as success. Refuse it.
+            if (isLinkedDeletionOwner(className) && !linkedInjected[0]) {
+                reject(
+                    Outcome.LINKED_DELETION_NOT_INJECTED,
+                    "MESH_MIRROR_LINKED_DELETION_NOT_INJECTED owner=" + className
+                );
+                return null;
+            }
             final byte[] transformedBytes = writer.toByteArray();
             outcome(Outcome.TARGET_TRANSFORMED, "MESH_MIRROR_TARGET_TRANSFORMED owner=" + className);
             return transformedBytes;
@@ -221,14 +374,17 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         }
     }
 
+    /** @return the exact host class loader admitted by a successful transformation, or null */
     public ClassLoader admittedClassLoader() {
         return admittedClassLoader.get();
     }
 
+    /** @return the latest fail-closed transformation outcome */
     public Outcome outcome() {
         return outcome.get();
     }
 
+    /** @return whether the exact target method was transformed successfully */
     public boolean targetTransformed() {
         return outcome.get() == Outcome.TARGET_TRANSFORMED;
     }
@@ -290,6 +446,9 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
             if (name.equals(profile.mirrorPointMethod()) && descriptor.equals(profile.mirrorPointDescriptor())) return Kind.POINT;
             if (name.equals(profile.mirrorAxisPointMethod()) && descriptor.equals(profile.mirrorPointDescriptor())) return Kind.AXIS_POINT;
             if (name.equals(profile.mirrorHitMethod()) && descriptor.equals(profile.mirrorHitDescriptor())) return Kind.HIT;
+            final MeshMirrorHostProfile.ToolEligibility eligibility = profile.toolEligibility();
+            if (eligibility != null && name.equals(eligibility.method())
+                && descriptor.equals(eligibility.descriptor())) return Kind.TOOL_ELIGIBILITY;
         }
         if (owner.equals(profile.mirrorWidgetOwner())
             && name.equals(profile.mirrorWidgetMethod())
@@ -297,13 +456,43 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         if (owner.equals(profile.mirrorAxisDrawOwner())
             && name.equals(profile.mirrorAxisDrawMethod())
             && descriptor.equals(profile.mirrorAxisDrawDescriptor())) return Kind.DRAW;
+        final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
+        if (move != null && owner.equals(move.owner()) && name.equals(move.method())
+            && descriptor.equals(move.descriptor())) return Kind.SELECTED_POINT_MOVE;
+        final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+        if (linked != null) {
+            if (owner.equals(linked.pointActionOwner())
+                && name.equals(linked.pointActionMethod())
+                && descriptor.equals(linked.pointActionDescriptor())) return Kind.POINT_DELETE;
+            if (owner.equals(linked.edgeActionOwner())
+                && name.equals(linked.edgeActionMethod())
+                && descriptor.equals(linked.edgeActionDescriptor())) return Kind.EDGE_DELETE;
+            if (owner.equals(linked.eraserActionOwner())
+                && name.equals(linked.eraserActionMethod())
+                && descriptor.equals(linked.eraserActionDescriptor())) return Kind.ERASER_DELETE;
+        }
         return null;
     }
 
+    private boolean isLinkedDeletionOwner(final String owner) {
+        final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+        return linked != null
+            && (linked.pointActionOwner().equals(owner)
+                || linked.edgeActionOwner().equals(owner)
+                || linked.eraserActionOwner().equals(owner));
+    }
+
     private boolean isTargetOwner(final String owner) {
-        return profile.meshEditorOwner().equals(owner)
+        if (profile.meshEditorOwner().equals(owner)
             || profile.mirrorWidgetOwner().equals(owner)
-            || profile.mirrorAxisDrawOwner().equals(owner);
+            || profile.mirrorAxisDrawOwner().equals(owner)) return true;
+        final MeshMirrorHostProfile.SelectedPointMove move = profile.selectedPointMove();
+        if (move != null && move.owner().equals(owner)) return true;
+        final MeshMirrorHostProfile.LinkedDeletion linked = profile.linkedDeletion();
+        return linked != null
+            && (linked.pointActionOwner().equals(owner)
+                || linked.edgeActionOwner().equals(owner)
+                || linked.eraserActionOwner().equals(owner));
     }
 
     private static Path codeSourcePath(final ProtectionDomain protectionDomain) {
@@ -324,6 +513,7 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         NONE,
         TARGET_TRANSFORMED,
         TARGET_UNCHANGED,
+        LINKED_DELETION_NOT_INJECTED,
         LOADER_MISMATCH,
         ARTIFACT_MISMATCH,
         BOOTSTRAP_LOADER_REJECTED,
@@ -332,5 +522,8 @@ public final class MeshMirrorNativeMethodTransformer implements ClassFileTransfo
         TRANSFORMATION_FAILED
     }
 
-    private enum Kind { POINT, AXIS_POINT, HIT, WIDGET, DRAW }
+    private enum Kind {
+        POINT, AXIS_POINT, HIT, TOOL_ELIGIBILITY, WIDGET, DRAW, SELECTED_POINT_MOVE,
+        POINT_DELETE, EDGE_DELETE, ERASER_DELETE
+    }
 }

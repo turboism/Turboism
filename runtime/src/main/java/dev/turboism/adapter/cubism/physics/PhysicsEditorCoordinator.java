@@ -56,6 +56,17 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         return () -> clearContribution(requested);
     }
 
+    /**
+     * Attaches the registered contribution to a newly constructed host Physics Settings panel.
+     *
+     * <p>Does nothing when the coordinator is closed or no contribution has been registered. The
+     * actual installation is marshalled onto the Swing event dispatch thread, so this may be called
+     * from whatever host thread built the panel.
+     *
+     * @param panel the host panel to attach to
+     * @param profile reviewed selectors for the running host build
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public void onPanelConstructed(final Object panel, final PhysicsEditorHostProfile profile) {
         Objects.requireNonNull(panel, "panel");
         Objects.requireNonNull(profile, "profile");

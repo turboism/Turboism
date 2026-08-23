@@ -46,6 +46,11 @@ Daily development:
 ./gradlew devCheck
 ```
 
+`devCheck` includes a read-only repository-hygiene gate. It scans tracked index
+content for secret signatures, local-only configuration, and known developer
+machine paths; it never opens or deletes the ignored `.env`. Keep machine-specific
+validation placement in `.env` by copying the commented `.env.example` template.
+
 Run focused tests named by the current SDD acceptance conditions after the feature slice is coherent. A bare multi-project `check` is intentionally not the daily command because it expands every subproject's test task.
 
 Runtime and packaged integration:
@@ -69,7 +74,7 @@ Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubis
 ./gradlew validateThemeHost5203
 ```
 
-Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
+Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Multiple isolated project copies can be scheduled with `python3 scripts/preview/host_validation.py`; see [HOST_VALIDATION_SCHEDULING.md](HOST_VALIDATION_SCHEDULING.md) for resource and lease rules. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
 
 ## API policy
 

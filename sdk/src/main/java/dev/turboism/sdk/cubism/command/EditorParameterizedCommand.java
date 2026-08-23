@@ -87,10 +87,20 @@ public enum EditorParameterizedCommand {
         this.supportedVersions = Set.copyOf(supportedVersions);
     }
 
+    /**
+     * @return the host command identifier: the constant name lowercased and dot-separated,
+     *     computed with {@code Locale.ROOT} so it does not shift with the default locale
+     */
     public String id() {
         return name().toLowerCase(java.util.Locale.ROOT).replace('_', '.');
     }
 
+    /**
+     * @return {@link Availability#TYPED_CONTRACT_VERIFIED} for the handful of commands that already
+     *     have a verified request record behind them, and {@link Availability#EVIDENCE_REQUIRED}
+     *     for every other constant — those are inventoried but not yet callable with a typed
+     *     request
+     */
     public Availability availability() {
         return switch (this) {
             case EXTERNAL_APP_SETTING, GRID_SETTING, MODEL_SETTING, MODELING_STATISTICS, RESIZE_MODEL_DOCUMENT -> Availability.TYPED_CONTRACT_VERIFIED;
@@ -98,6 +108,12 @@ public enum EditorParameterizedCommand {
         };
     }
 
+    /**
+     * @param cubismVersion an exact Editor version string such as {@code "5.2.03"}; compared for
+     *     equality, never parsed as a range
+     * @return whether this command was observed on that version; a few constants are
+     *     version-exclusive (for example {@code FADE_SETTING} on 5.3.02 only)
+     */
     public boolean supports(final String cubismVersion) {
         return supportedVersions.contains(cubismVersion);
     }

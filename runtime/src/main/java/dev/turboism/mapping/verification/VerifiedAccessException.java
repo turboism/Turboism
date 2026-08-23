@@ -19,10 +19,19 @@ public final class VerifiedAccessException extends RuntimeException {
         this.failureKind = Objects.requireNonNull(failureKind, "failureKind");
     }
 
+    /**
+     * @return the verified selector alias that failed, which names the host
+     *     member without exposing it
+     */
     public String alias() {
         return alias;
     }
 
+    /**
+     * @return whether the call site itself could not be used
+     *     ({@code RESOLUTION}) or the host method ran and threw
+     *     ({@code INVOCATION}); the host throwable itself is never carried
+     */
     public FailureKind failureKind() {
         return failureKind;
     }

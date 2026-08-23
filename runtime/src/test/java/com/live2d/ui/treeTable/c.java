@@ -5,7 +5,7 @@ package com.live2d.ui.treeTable;
  * {@code ui-control-appearance} verification records (alias
  * {@code cubism.ui-control-appearance.part.node-source}): Cubism 5.2.03 exposes {@code h()}
  * and 5.3.02 exposes {@code i()} as the node→source accessor {@code ()Ljava/lang/Object;}.
- * See {@code cubism-ref/verification/cubism-5.2-ui-control-appearance.json} (mappingId
+ * See {@code cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json} (mappingId
  * {@code cubism.mapping.5_2.ui_control_appearance.method.node_source}) and
  * {@code cubism-ref/verification/cubism-5.3.02-ui-control-appearance.json} (mappingId
  * {@code cubism.mapping.5_3_02.ui_control_appearance.method.node_source}).

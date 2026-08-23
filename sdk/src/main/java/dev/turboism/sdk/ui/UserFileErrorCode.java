@@ -1,5 +1,11 @@
 package dev.turboism.sdk.ui;
 
+/**
+ * Why a user-file request, read, or write did not succeed.
+ *
+ * <p>These are the only failure classifications the SDK exposes; the runtime
+ * maps host and I/O conditions onto them so plugins never see host detail.</p>
+ */
 public enum UserFileErrorCode {
     PERMISSION_DENIED,
     INVALID_GRANT,

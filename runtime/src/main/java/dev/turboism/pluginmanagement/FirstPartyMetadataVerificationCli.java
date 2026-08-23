@@ -34,6 +34,16 @@ public final class FirstPartyMetadataVerificationCli {
     private FirstPartyMetadataVerificationCli() {
     }
 
+    /**
+     * Verifies each explicitly supplied descriptor/JAR pair and reports the outcome on standard output.
+     * Every pair is checked before any failure is reported, so one bad package does not hide the rest.
+     *
+     * <p>Exits with status 2 when the argument list is empty or not an even number of paths, 1 when at
+     * least one package was rejected, and 0 when every pair matched its reviewed tracked metadata.
+     *
+     * @param args alternating tracked descriptor JSON paths and built plugin JAR paths
+     * @throws IOException when a descriptor or JAR cannot be read at all
+     */
     public static void main(String[] args) throws IOException {
         if (args.length == 0 || (args.length & 1) != 0) {
             System.err.println("Pass pairs of <tracked-descriptor.json> <built-plugin.jar>.");

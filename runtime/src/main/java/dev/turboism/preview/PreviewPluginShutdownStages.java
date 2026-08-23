@@ -18,13 +18,21 @@ final class PreviewPluginShutdownStages {
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final String id
     ) {
+        log.info(id, "Plugin lifecycle: close started");
         final List<LocalPluginRuntime.PluginSummaryFailure> failures = new ArrayList<>();
         final String disableState = disable(loadedPlugin, failures, id);
         final String shutdownState = shutdown(loadedPlugin, failures, id);
         final ScopeResult scope = closeScope(loadedPlugin, failures, id);
         final String classloaderState = closeClassLoader(loadedPlugin, scope.closed(), failures, id);
+        final String unloadState = unload(loadedPlugin, scope.closed(), classloaderState, id);
+        log.info(
+            id,
+            "Plugin lifecycle: close complete disable=" + disableState
+                + " shutdown=" + shutdownState
+                + " unload=" + unloadState
+        );
         return new PreviewPluginShutdownResult(
-            disableState, shutdownState, unload(loadedPlugin, scope.closed(), classloaderState),
+            disableState, shutdownState, unloadState,
             scope.state(), classloaderState, failures
         );
     }
@@ -35,8 +43,10 @@ final class PreviewPluginShutdownStages {
         final String id
     ) {
         if (loadedPlugin.runtime().state() != PluginLifecycleState.ENABLED) {
+            log.debug(id, "Plugin lifecycle: disable not required state=" + loadedPlugin.runtime().state());
             return "NOT_REQUIRED";
         }
+        log.info(id, "Plugin lifecycle: disable started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
             try {
@@ -54,6 +64,10 @@ final class PreviewPluginShutdownStages {
         loadedPlugin.runtime().transitionTo(
             failed ? PluginLifecycleState.DISABLE_FAILED : PluginLifecycleState.DISABLED
         );
+        log.info(
+            id,
+            "Plugin lifecycle: disable " + (failed ? "failed" : "succeeded")
+        );
         return failed ? "FAILED" : "SUCCEEDED";
     }
 
@@ -62,6 +76,7 @@ final class PreviewPluginShutdownStages {
         final List<LocalPluginRuntime.PluginSummaryFailure> failures,
         final String id
     ) {
+        log.info(id, "Plugin lifecycle: shutdown started");
         boolean failed = false;
         for (int index = loadedPlugin.entrypoints().size() - 1; index >= 0; index--) {
             try {
@@ -78,6 +93,10 @@ final class PreviewPluginShutdownStages {
         }
         loadedPlugin.runtime().transitionTo(
             failed ? PluginLifecycleState.SHUTDOWN_FAILED : PluginLifecycleState.SHUTDOWN
+        );
+        log.info(
+            id,
+            "Plugin lifecycle: shutdown " + (failed ? "failed" : "succeeded")
         );
         return failed ? "FAILED" : "SUCCEEDED";
     }
@@ -128,16 +147,24 @@ final class PreviewPluginShutdownStages {
         }
     }
 
-    private static String unload(
+    private String unload(
         final LocalPluginRuntime.LoadedPlugin loadedPlugin,
         final boolean scopeClosed,
-        final String classloaderState
+        final String classloaderState,
+        final String id
     ) {
         if (loadedPlugin.runtime().state() == PluginLifecycleState.SHUTDOWN
             && scopeClosed && "SUCCEEDED".equals(classloaderState)) {
             loadedPlugin.runtime().transitionTo(PluginLifecycleState.UNLOADED);
+            log.info(id, "Plugin lifecycle: unload succeeded");
             return "SUCCEEDED";
         }
+        log.warn(
+            id,
+            "Plugin lifecycle: unload failed state=" + loadedPlugin.runtime().state()
+                + " scopeClosed=" + scopeClosed
+                + " classloader=" + classloaderState
+        );
         return "FAILED";
     }
 
@@ -152,7 +179,7 @@ final class PreviewPluginShutdownStages {
     private void logFailure(final String component, final String code) {
         log.error(
             component,
-            "Runtime shutdown stage failed safely: " + code,
+            "Plugin lifecycle stage failed safely: " + code,
             new IllegalStateException(code)
         );
     }

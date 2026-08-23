@@ -41,6 +41,13 @@ public final class PluginCategoryRegistry {
         return REGISTERED;
     }
 
+    /**
+     * Tests membership in the reviewed official category set. Grants nothing: an unregistered category
+     * still loads, it is only presented as {@link #FALLBACK}.
+     *
+     * @param category declared category id, may be null
+     * @return true only for a non-null id that is an official category
+     */
     public static boolean isRegistered(final String category) {
         return category != null && REGISTERED.contains(category);
     }

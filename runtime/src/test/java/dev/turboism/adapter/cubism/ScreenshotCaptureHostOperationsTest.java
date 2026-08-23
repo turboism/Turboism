@@ -139,7 +139,7 @@ class ScreenshotCaptureHostOperationsTest {
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", loader), panelResolver("5.2.03", loader)
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
         );
         ProjectHost.setRoot(projectChain(current));
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
@@ -162,7 +162,7 @@ class ScreenshotCaptureHostOperationsTest {
         final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", loader), panelResolver("5.2.03", loader)
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
         );
         ProjectHost.setRoot(projectChain(current));
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));

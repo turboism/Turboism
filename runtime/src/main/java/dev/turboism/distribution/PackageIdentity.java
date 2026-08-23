@@ -2,6 +2,14 @@ package dev.turboism.distribution;
 
 import java.util.Objects;
 
+/**
+ * Immutable identity of an inspected distribution package: what the archive claims to be, plus the
+ * raw bytes actually observed while reading it.
+ *
+ * <p>Construction rejects blank text fields, a {@code sha256} that is not 64 lowercase hex
+ * characters, a negative size, and a non-positive Java version. Instances are created only by the
+ * inspectors in this package.
+ */
 public final class PackageIdentity {
     private final String sha256;
     private final long size;
@@ -23,11 +31,22 @@ public final class PackageIdentity {
         this.javaVersion = javaVersion;
     }
 
+    /** @return SHA-256 of the raw archive bytes as observed during inspection, 64 lowercase hex characters */
     public String sha256() { return sha256; }
+
+    /** @return byte length of the raw archive as read during inspection; never negative */
     public long size() { return size; }
+
+    /** @return the package's declared identifier, never blank */
     public String id() { return id; }
+
+    /** @return the package's declared release version, never blank */
     public String version() { return version; }
+
+    /** @return the Turboism API version the package declares it targets, never blank */
     public String apiVersion() { return apiVersion; }
+
+    /** @return the minimum Java runtime version the package declares; always positive */
     public int javaVersion() { return javaVersion; }
 
     @Override public boolean equals(Object other) {

@@ -5,6 +5,16 @@ import dev.turboism.sdk.event.EventBus;
 
 import java.util.Objects;
 
+/**
+ * Published on the event bus after the effective appearance changes, carrying both sides of the
+ * transition and the plugin that caused it.
+ *
+ * <p>The compact constructor rejects {@code null} components and a blank origin plugin id.
+ *
+ * @param previous the appearance status in force before the change
+ * @param current the appearance status in force after the change
+ * @param originPluginId the plugin whose request caused the change, never blank
+ */
 @PreviewApi
 public record AppearanceChangedEvent(
     AppearanceStatus previous,

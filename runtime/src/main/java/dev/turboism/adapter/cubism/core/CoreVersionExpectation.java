@@ -14,6 +14,12 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
         exactVersion = Objects.requireNonNull(exactVersion, "exactVersion");
     }
 
+    /**
+     * @param major Core runtime major component
+     * @param minor Core runtime minor component
+     * @param patch Core runtime patch component
+     * @return an expectation pinned to exactly that runtime tuple
+     */
     public static CoreVersionExpectation exact(
         final int major,
         final int minor,
@@ -26,14 +32,19 @@ public record CoreVersionExpectation(CoreRuntimeVersion exactVersion) {
     public static CoreVersionExpectation reviewedProfile(final String profile) {
         Objects.requireNonNull(profile, "profile");
         return switch (profile) {
-            case "5.2", "5.2.0" -> exact(5, 0, 256);
-            case "5.3.02", "5.3.2" -> exact(6, 0, 257);
+            case "5.2.03" -> exact(5, 0, 256);
+            case "5.3.02" -> exact(6, 0, 257);
             default -> throw new IllegalArgumentException(
                 "unsupported Cubism Core profile: " + profile
             );
         };
     }
 
+    /**
+     * @param actual runtime version probed from the loaded Core
+     * @return true only on an exact tuple equality; no range or compatibility rule is applied
+     * @throws NullPointerException if {@code actual} is null
+     */
     public boolean matches(final CoreRuntimeVersion actual) {
         return exactVersion.equals(Objects.requireNonNull(actual, "actual"));
     }

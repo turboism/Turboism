@@ -140,7 +140,7 @@ MANIFEST_EXPECTED = [
     ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:mcp",
-    ":plugins:mesh",
+    ":plugins:mesh-edit-mirror-axis-enhance",
     ":plugins:palette-label-style",
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
@@ -524,7 +524,7 @@ def assert_config_merge(jar):
         "schemaVersion": 1,
         "worktreeId": "old-worktree",
         "pluginDirs": ["plugins"],
-        "disabledPlugins": ["dev.turboism.plugin.mesh", "dev.turboism.plugin.other"],
+        "disabledPlugins": ["dev.turboism.plugin.mesh-edit-mirror-axis-enhance", "dev.turboism.plugin.other"],
         "logLevel": "DEBUG",
         "maxLogStorageMiB": 128,
         "hooks": {"enabled": True, "names": ["a", "b"]},
@@ -640,7 +640,7 @@ def assert_number_preservation(jar):
                 '"exp":1.5e10,'
                 '"tiny":0.0000001,'
                 '"negExp":-2.5e-300,'
-                '"disabledPlugins":["dev.turboism.plugin.mesh"]}')
+                '"disabledPlugins":["dev.turboism.plugin.mesh-edit-mirror-axis-enhance"]}')
     with open(os.path.join(target, "config.json"), "w") as f:
         f.write(existing)
     clear_task_lock()

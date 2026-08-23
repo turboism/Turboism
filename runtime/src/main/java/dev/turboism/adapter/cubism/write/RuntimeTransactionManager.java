@@ -18,6 +18,16 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Opens, tracks, and closes model write transactions on behalf of plugins.
+ *
+ * <p>Opening requires the {@value #TURBOISM_CUBISM_WRITE} permission and
+ * captures a host snapshot up front so rollback is always possible.
+ * Transaction work is dispatched onto the runtime scheduler and awaited
+ * with a one-second timeout; a rejected dispatch, an interruption, a
+ * failure, or that timeout each surface as a
+ * {@link TransactionException} rather than leaving the caller blocked.</p>
+ */
 public final class RuntimeTransactionManager implements TransactionManager {
 
     public static final String TURBOISM_CUBISM_WRITE = "turboism.cubism.model.write";
@@ -73,11 +83,27 @@ public final class RuntimeTransactionManager implements TransactionManager {
         return transaction;
     }
 
+    /**
+     * Looks up the transaction currently registered for a plugin and document,
+     * without opening one and without requiring write permission.
+     *
+     * @param pluginId owning plugin
+     * @param documentId document to look up; must be non-null and non-blank
+     * @return the registered transaction, or empty if there is none
+     * @throws IllegalArgumentException if {@code documentId} is blank
+     */
     public Optional<ModelTransaction> query(final String pluginId, final DocumentId documentId) {
         requireDocumentId(documentId, "documentId");
         return registry.query(pluginId, documentId).map(ModelTransaction.class::cast);
     }
 
+    /**
+     * Releases a transaction's registry slot without committing or rolling it
+     * back. Host state is left exactly as the transaction left it.
+     *
+     * @param transaction transaction to unregister
+     * @throws TransactionException if the transaction does not own its slot
+     */
     public void close(final RuntimeModelTransaction transaction) throws TransactionException {
         registry.close(transaction);
     }

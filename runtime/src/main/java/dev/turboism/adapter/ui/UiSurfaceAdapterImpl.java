@@ -9,6 +9,14 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+/**
+ * Default {@link UiSurfaceAdapter}: either a live host binding or a permanent safe mode.
+ *
+ * <p>Dialog and file-chooser calls are gated per capability on host version and host support, and
+ * every host failure is converted into a diagnostic -- an {@link AdapterHostException} into its own
+ * diagnostic, any other {@link RuntimeException} into a validation failure -- so no host exception
+ * reaches the caller.</p>
+ */
 public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
 
     private final Optional<HostOperations> host;
@@ -17,10 +25,20 @@ public final class UiSurfaceAdapterImpl implements UiSurfaceAdapter {
         this.host = Objects.requireNonNull(host, "host");
     }
 
+    /**
+     * @param host live UI host operations
+     * @return an adapter bound to the given host, still subject to per-call version and capability
+     *     gating
+     * @throws NullPointerException if {@code host} is null
+     */
     public static UiSurfaceAdapter connected(final HostOperations host) {
         return new UiSurfaceAdapterImpl(Optional.of(Objects.requireNonNull(host, "host")));
     }
 
+    /**
+     * @return an adapter with no host behind it; every operation reports
+     *     {@link SafeModeDiagnostic.Code#ADAPTER_UNAVAILABLE} for its capability
+     */
     public static UiSurfaceAdapter safeMode() {
         return new UiSurfaceAdapterImpl(Optional.empty());
     }

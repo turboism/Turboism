@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CoreMocInfoSelectorContract;
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -208,7 +208,7 @@ class CoreEvaluatedJoinTest {
             new TestCoreApiFixture.Moc(6),
             canvasReads::incrementAndGet
         );
-        try (Harness harness = harness("5.2", withMoc)) {
+        try (Harness harness = harness("5.2.03", withMoc)) {
             final IllegalStateException failure = assertThrows(
                 IllegalStateException.class,
                 () -> harness.join().mocInfo()

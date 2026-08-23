@@ -19,6 +19,15 @@ public record ProjectFileOperationResult(
         }
     }
 
+    /**
+     * Result for an operation the host carried through to completion.
+     *
+     * @param request the operation being reported on
+     * @param content the resulting project content; required, since a successful operation always
+     *     produced one
+     * @return a result with no failure type
+     * @throws NullPointerException if {@code request} or {@code content} is null
+     */
     public static ProjectFileOperationResult succeeded(
         final ProjectFileOperation request,
         final ProjectContentSnapshot content
@@ -31,6 +40,16 @@ public record ProjectFileOperationResult(
         );
     }
 
+    /**
+     * Result for an operation that threw. Only the throwable's class name is retained — never its
+     * message or stack trace — so host paths and user data cannot leak to plugins through a result.
+     *
+     * @param request the operation being reported on
+     * @param content content the host had produced before failing; may be null, recorded as absent
+     * @param failure the throwable that ended the operation
+     * @return an unsuccessful result whose failure type is the throwable's fully qualified class name
+     * @throws NullPointerException if {@code request} or {@code failure} is null
+     */
     public static ProjectFileOperationResult failed(
         final ProjectFileOperation request,
         final ProjectContentSnapshot content,
@@ -44,6 +63,16 @@ public record ProjectFileOperationResult(
         );
     }
 
+    /**
+     * Result for an operation the host declined to perform. Distinguished from
+     * {@link #failed(ProjectFileOperation, ProjectContentSnapshot, Throwable)} by carrying no
+     * failure type: nothing went wrong, the operation simply was not permitted or not applicable.
+     *
+     * @param request the operation being reported on
+     * @param content content associated with the request; may be null, recorded as absent
+     * @return an unsuccessful result with an empty failure type
+     * @throws NullPointerException if {@code request} is null
+     */
     public static ProjectFileOperationResult rejected(
         final ProjectFileOperation request,
         final ProjectContentSnapshot content

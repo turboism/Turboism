@@ -59,6 +59,12 @@ public final class PsdClipMaskImportService {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
     }
 
+    /**
+     * Contributes this plugin's collapsible section, holding the single import button, to the shared
+     * core Turboism panel rather than owning a side panel of its own.
+     *
+     * @return the contribution's registration; closing it removes the section
+     */
     public Registration registerSection() {
         // Reuse the core Turboism tab (turboism.panel.main) like the clip-mask
         // viewer plugin instead of owning a side panel.
@@ -78,6 +84,18 @@ public final class PsdClipMaskImportService {
         ));
     }
 
+    /**
+     * Runs the whole import: plan from the active model, show the preview, and on confirmation commit
+     * every assignment in one batch.
+     *
+     * <p>Reports the outcome as a value and always posts a matching status notification; it does not
+     * throw for an unavailable model or a failed apply. Cancelling the preview performs zero writes, as
+     * does {@code NO_WRITE} when the plan is empty. Confirmation is the explicit overwrite consent: the
+     * identity and plan are re-verified against a freshly obtained model, and any change since the
+     * preview aborts with zero writes.
+     *
+     * @return the outcome plus applied, skipped and failure counts
+     */
     public ImportResult importClipMasks() {
         final PlannedImport planned = buildPlannedImport();
         if (planned == null) {

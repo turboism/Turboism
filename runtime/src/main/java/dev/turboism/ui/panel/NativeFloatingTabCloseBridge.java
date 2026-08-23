@@ -14,6 +14,13 @@ public final class NativeFloatingTabCloseBridge {
     private NativeFloatingTabCloseBridge() {
     }
 
+    /**
+     * Installs the single process-wide close handler.
+     *
+     * @param handler policy consulted before each native floating-tab close
+     * @throws NullPointerException if {@code handler} is {@code null}
+     * @throws IllegalStateException if a handler is already installed
+     */
     public static void install(final Handler handler) {
         final Handler requested = Objects.requireNonNull(handler, "handler");
         if (!HANDLER.compareAndSet(null, requested)) {
@@ -21,6 +28,12 @@ public final class NativeFloatingTabCloseBridge {
         }
     }
 
+    /**
+     * Removes {@code handler} if it is the currently installed one; otherwise does nothing, so a
+     * late uninstall cannot detach a successor's handler.
+     *
+     * @param handler the handler to remove
+     */
     public static void uninstall(final Handler handler) {
         HANDLER.compareAndSet(handler, null);
     }

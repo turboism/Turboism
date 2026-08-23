@@ -102,5 +102,5 @@ hash before and after (`--require-fixture-unchanged`). If the default fixture
 turns out to have no clip-mask relationships, override it through runner
 options, e.g.
 `bash scripts/preview/run-clipmask-viewer-host-validation.sh 5302 r2 \
-  --fixture-remote /home/local-user/Downloads/heavy.cmo3 \
+  --fixture-remote "$TURBOISM_HOST_VALIDATION_FIXTURE_5302" \
   --fixture-sha256 029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`.

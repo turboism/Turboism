@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorInspectorDrawableWrite52SelectorContract;
-import dev.turboism.mapping.verification.EditorInspectorDrawableWriteSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class EditorInspectorDrawableWriteTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setIdAppliesTheInspectorEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -55,7 +55,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setIdSkipsUnchangedAndRejectsInvalidIds(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -76,7 +76,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setTargetDeformerMovesToDeformerOrRoot(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -102,7 +102,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setClippingMaskIdsResolvesDrawablesAndRejectsUnknown(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -123,7 +123,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setInvertedMaskGatesOnTheCubism40TargetVersion(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -147,7 +147,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setDrawOrderClampsAndUsesTheKeyformUndoEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -169,7 +169,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void colorsGateOnTheCubism42TargetVersionAndWriteFormColors(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -199,7 +199,7 @@ public class EditorInspectorDrawableWriteTest {
     void setColorCompositionFailsClosedOn52HostValues() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
-        final var mesh = new EditorBackedCubismModelAccess(resolver("5.2.0", true), "session-a")
+        final var mesh = new EditorBackedCubismModelAccess(resolver("5.2.03", true), "session-a")
             .active().drawables().find(new ArtMeshId("ArtMeshFace"));
 
         mesh.setColorComposition(ColorComposition.MULTIPLY);
@@ -230,7 +230,7 @@ public class EditorInspectorDrawableWriteTest {
     void setAlphaCompositionFailsClosedOn52AndWritesOn5302() {
         final Fixture fixture52 = new Fixture();
         Host.document = fixture52.document;
-        final var mesh52 = new EditorBackedCubismModelAccess(resolver("5.2.0", true), "session-a")
+        final var mesh52 = new EditorBackedCubismModelAccess(resolver("5.2.03", true), "session-a")
             .active().drawables().find(new ArtMeshId("ArtMeshFace"));
         assertThrows(UnsupportedOperationException.class,
             () -> mesh52.setAlphaComposition(AlphaComposition.ATOP));
@@ -246,7 +246,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setCullingWritesSourceAndRefreshesShader(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -265,7 +265,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void setUserDataWritesTheSource(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -280,7 +280,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void inspectorWritesRequireTheDedicatedCapability(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -308,7 +308,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void hostSetterFailureRollsBackTheEnvelope(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -324,7 +324,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void undoListenerRefreshesInstancesAndPalettes(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -484,7 +484,7 @@ public class EditorInspectorDrawableWriteTest {
             method("cubism.editor-model.glue-source.target-art-mesh-a", ObjectSource.class, "id", desc(Id.class)),
             method("cubism.editor-model.glue-source.target-art-mesh-b", ObjectSource.class, "id", desc(Id.class))
         ));
-        if (!"5.2.0".equals(version)) {
+        if (!"5.2.03".equals(version)) {
             selectors.add(StaticSelector.staticMethod("cubism.editor-model.alpha-composition.values", internal(AlphaCompositionHost.class), "values", "()[" + alphaCompositionType(), StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC));
             selectors.add(method("cubism.editor-model.art-mesh-source.set-alpha-composition", ArtMeshSource.class, "setAlphaComposition", "(" + alphaCompositionType() + ")V"));
         }
@@ -492,7 +492,7 @@ public class EditorInspectorDrawableWriteTest {
     }
 
     private static Class<?> colorCompositionClass(final String version) {
-        return "5.2.0".equals(version) ? ColorCompositionHost52.class : ColorCompositionHost.class;
+        return "5.2.03".equals(version) ? ColorCompositionHost52.class : ColorCompositionHost.class;
     }
     private static String colorCompositionType(final String version) {
         return type(colorCompositionClass(version));

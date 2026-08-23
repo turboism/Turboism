@@ -10,16 +10,37 @@ public final class NativeFloatingFrameDisposeBridge {
     private NativeFloatingFrameDisposeBridge() {
     }
 
+    /**
+     * Installs the single process-wide disposal handler.
+     *
+     * @param handler cleanup invoked after a palette frame is disposed
+     * @throws IllegalStateException if a handler is already installed
+     */
     public static void install(final Handler handler) {
         if (!HANDLER.compareAndSet(null, handler)) {
             throw new IllegalStateException("floating-frame dispose bridge is already installed");
         }
     }
 
+    /**
+     * Removes {@code handler} if it is the currently installed one; otherwise does nothing, so a
+     * late uninstall cannot detach a successor's handler.
+     *
+     * @param handler the handler to remove
+     */
     public static void uninstall(final Handler handler) {
         HANDLER.compareAndSet(handler, null);
     }
 
+    /**
+     * Entry point called from the verified frame-disposal hook, on the host UI thread.
+     *
+     * <p>Fail-closed: no handler or a {@code null} frame means no cleanup runs, and a handler
+     * that throws — including an {@link Error} — is caught and logged to {@code System.err}
+     * rather than propagating into host disposal.
+     *
+     * @param frame the frame that was disposed
+     */
     public static void afterDispose(final Object frame) {
         final Handler handler = HANDLER.get();
         if (handler == null || frame == null) {

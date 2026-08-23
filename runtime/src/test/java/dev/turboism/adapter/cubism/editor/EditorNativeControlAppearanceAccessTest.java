@@ -1,8 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceReadSelectorContract;
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceWriteSelectorContract;
-import dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;

@@ -107,6 +107,29 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         );
     }
 
+    /**
+     * Creates a plugin-scoped appearance projection bound to one plugin generation.
+     *
+     * <p>Nothing is validated against the host here: the generation suppliers are consulted lazily on
+     * each call, so a projection created before the model or host moves on simply starts returning
+     * unavailable facades instead of throwing.
+     *
+     * @param pluginId the plugin this projection answers for; must not be {@code null} or blank
+     * @param pluginGeneration the plugin incarnation this projection is bound to; must be positive
+     * @param permissionChecker gate consulted before any appearance is exposed; must not be
+     *     {@code null}
+     * @param source the host snapshot the current scope is captured from; must not be {@code null}
+     * @param coordinator owner of the transient palette overrides; must not be {@code null}
+     * @param currentModelGeneration supplies the live model generation; when non-{@code null}, a
+     *     caller-supplied generation that disagrees with it yields unavailable facades
+     * @param hostGeneration supplies the live host UI generation; must not be {@code null}
+     * @param providerGeneration supplies the live appearance-provider generation; must not be
+     *     {@code null}
+     * @param nativeAuthoring seam for writing native label colours; must not be {@code null}
+     * @return a projection that is active until closed, never {@code null}
+     * @throws IllegalArgumentException if {@code pluginId} is blank or {@code pluginGeneration} is not
+     *     positive
+     */
     public static RuntimeModelAppearanceAccess create(
         final String pluginId,
         final long pluginGeneration,
@@ -159,23 +182,61 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         Objects.requireNonNull(scope, "scope").register(this::close);
     }
 
+    /**
+     * Projects the appearance of one part, identified by a live host object.
+     *
+     * @param part the part whose appearance is projected; must not be {@code null}
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code PartAppearance.unavailable()} when this
+     *     projection is closed, the generation no longer matches, or no scope could be captured —
+     *     failure is reported as an inert facade, not an exception
+     * @throws NullPointerException if {@code part} is {@code null}
+     */
     public PartAppearance part(final Part part, final long modelGeneration) {
         final Bound bound = bound(part, modelGeneration, "part");
         return bound == null ? PartAppearance.unavailable() : new PartFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one deformer, identified by a live host object.
+     *
+     * @param deformer the deformer whose appearance is projected; must not be {@code null}
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code DeformerAppearance.unavailable()} when
+     *     this projection is closed, the generation no longer matches, or no scope could be captured
+     * @throws NullPointerException if {@code deformer} is {@code null}
+     */
     public DeformerAppearance deformer(final Deformer deformer, final long modelGeneration) {
         final Bound bound = bound(deformer, modelGeneration, "deformer");
         return bound == null ? DeformerAppearance.unavailable()
             : new DeformerFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one parameter, identified by a live host object.
+     *
+     * @param parameter the parameter whose appearance is projected; must not be {@code null}
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code ParameterAppearance.unavailable()} when
+     *     this projection is closed, the generation no longer matches, or no scope could be captured
+     * @throws NullPointerException if {@code parameter} is {@code null}
+     */
     public ParameterAppearance parameter(final Parameter parameter, final long modelGeneration) {
         final Bound bound = bound(parameter, modelGeneration, "parameter");
         return bound == null ? ParameterAppearance.unavailable()
             : new ParameterFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one parameter group, identified by a live host object.
+     *
+     * @param group the parameter group whose appearance is projected; must not be {@code null}
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or
+     *     {@code ParameterGroupAppearance.unavailable()} when this projection is closed, the
+     *     generation no longer matches, or no scope could be captured
+     * @throws NullPointerException if {@code group} is {@code null}
+     */
     public ParameterGroupAppearance parameterGroup(
         final ParameterGroup group,
         final long modelGeneration
@@ -185,11 +246,32 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             : new ParameterGroupFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Always returns an unavailable facade: there is no verified art-mesh renderer seam to attach a
+     * palette projection to, and the runtime will not manufacture one.
+     *
+     * <p>Use the id-based drawable overload instead, which routes through the verified deformer-tree
+     * and Part-tree seams.
+     *
+     * @param drawable ignored
+     * @param modelGeneration ignored
+     * @return {@code DrawableAppearance.unavailable()}, always
+     */
     public DrawableAppearance drawable(final Drawable drawable, final long modelGeneration) {
         // No verified ArtMesh renderer seam exists. Do not manufacture a palette projection.
         return DrawableAppearance.unavailable();
     }
 
+    /**
+     * Projects the appearance of one part by id, without needing a live host object.
+     *
+     * @param modelId the model the part belongs to; a scope whose model differs yields an unavailable
+     *     facade
+     * @param partId the part id used as the palette lookup key
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code PartAppearance.unavailable()} when this
+     *     projection is closed, the model or generation does not match, or the id is blank
+     */
     public PartAppearance part(
         final String modelId,
         final String partId,
@@ -199,6 +281,16 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
         return bound == null ? PartAppearance.unavailable() : new PartFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one deformer by id, without needing a live host object.
+     *
+     * @param modelId the model the deformer belongs to; a scope whose model differs yields an
+     *     unavailable facade
+     * @param deformerId the deformer id used as the palette lookup key
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code DeformerAppearance.unavailable()} when
+     *     this projection is closed, the model or generation does not match, or the id is blank
+     */
     public DeformerAppearance deformer(
         final String modelId,
         final String deformerId,
@@ -209,6 +301,16 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             : new DeformerFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one parameter by id, without needing a live host object.
+     *
+     * @param modelId the model the parameter belongs to; a scope whose model differs yields an
+     *     unavailable facade
+     * @param parameterId the parameter id used as the palette lookup key
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code ParameterAppearance.unavailable()} when
+     *     this projection is closed, the model or generation does not match, or the id is blank
+     */
     public ParameterAppearance parameter(
         final String modelId,
         final String parameterId,
@@ -219,6 +321,17 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             : new ParameterFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one parameter group by id, without needing a live host object.
+     *
+     * @param modelId the model the group belongs to; a scope whose model differs yields an unavailable
+     *     facade
+     * @param groupId the group id used as the palette lookup key
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or
+     *     {@code ParameterGroupAppearance.unavailable()} when this projection is closed, the model or
+     *     generation does not match, or the id is blank
+     */
     public ParameterGroupAppearance parameterGroup(
         final String modelId,
         final String groupId,
@@ -229,6 +342,19 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             : new ParameterGroupFacade(bound.scope(), bound.id());
     }
 
+    /**
+     * Projects the appearance of one art mesh by id.
+     *
+     * <p>Unlike the object-based overload, this one does resolve: art-mesh rows render through the
+     * verified deformer-tree and Part-tree seams on the DEFORMER_PART palette.
+     *
+     * @param modelId the model the art mesh belongs to; a scope whose model differs yields an
+     *     unavailable facade
+     * @param drawableId the art mesh id used as the palette lookup key
+     * @param modelGeneration the model generation the caller believes it is working against
+     * @return a facade bound to the captured scope, or {@code DrawableAppearance.unavailable()} when
+     *     this projection is closed, the model or generation does not match, or the id is blank
+     */
     public DrawableAppearance drawable(
         final String modelId,
         final String drawableId,

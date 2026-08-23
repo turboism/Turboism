@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.filechooser;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -12,21 +13,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class FileChooserHistoryHostProfileTest {
 
-    private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
-    private static final HostArtifactDigest CUBISM_53 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
+    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
+    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
 
     @Test
     void fiveTwoProfileCarriesReviewedSelectors() {
         final FileChooserHistoryHostProfile profile =
             FileChooserHistoryHostProfile.forArtifact(CUBISM_52).orElseThrow();
 
-        assertEquals("5.2.0", profile.hostVersion());
+        assertEquals("5.2.03", profile.hostVersion());
         assertEquals("com/live2d/ui/window/n", profile.fileChooserClassInternalName());
         assertEquals(
             List.of(

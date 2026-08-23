@@ -19,6 +19,12 @@ public record ContextMenuSelection(
         items = List.copyOf(Objects.requireNonNull(items, "items"));
     }
 
+    /**
+     * One selected Editor object, identified by kind and id rather than by a native handle.
+     *
+     * @param kind what sort of object was selected
+     * @param id the host's identifier for it; never blank
+     */
     @PreviewApi
     public record Item(
         ContextMenuRegistry.ObjectKind kind,

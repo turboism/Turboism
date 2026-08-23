@@ -17,6 +17,14 @@ public final class StartupSuppressionInstaller {
 
     private StartupSuppressionInstaller() {
     }
+
+    /**
+     * Locates the single host artifact admitted from the startup class path.
+     *
+     * @param classPath process class path to inspect
+     * @param workingDirectory directory used to resolve relative entries
+     * @return the located host artifact, or empty when admission is ambiguous or unavailable
+     */
     public static java.util.Optional<Path> locateHostArtifact(
         final String classPath,
         final Path workingDirectory
@@ -28,6 +36,32 @@ public final class StartupSuppressionInstaller {
             : java.util.Optional.empty();
     }
 
+    /**
+     * Admits or refuses bounded Cubism startup suppression, and installs the class-file
+     * transformer when every admission gate passes.
+     *
+     * <p>Runs synchronously during premain, before the target class is loaded. The gates,
+     * in order: the loaded policy must actually request suppression and not be in safe
+     * mode; the attachment must be premain, never agentmain; the host artifact must be
+     * locatable, readable, and digest-match a reviewed profile; and the target class must
+     * not already be loaded. Any gate that fails returns a completed installation with the
+     * matching status and touches nothing.</p>
+     *
+     * <p>Fails closed throughout: an unreadable or unreviewed artifact, or a transformer
+     * that could not be added, is reported as a status rather than thrown. Diagnostic
+     * codes are pushed to the consumer, whose own exceptions are swallowed so reporting
+     * can never disturb official startup.</p>
+     *
+     * @param mode             how the agent was attached; only {@code PREMAIN} is admitted
+     * @param instrumentation  the JVM instrumentation used to add and later remove the transformer
+     * @param turboismHome     Turboism home directory the startup policy is loaded from
+     * @param classPath        class path searched for the Cubism host artifact; may be {@code null}
+     * @param workingDirectory directory the artifact search is anchored at
+     * @param diagnostic       sink for diagnostic codes; exceptions it throws are ignored
+     * @return an installation carrying the outcome status and the loaded policy; when the
+     *     status is {@code INSTALLED} it also owns the transformer and removes it on close
+     * @throws NullPointerException when any argument other than {@code classPath} is {@code null}
+     */
     public static Installation install(
         final AttachmentMode mode,
         final Instrumentation instrumentation,
@@ -195,14 +229,26 @@ public final class StartupSuppressionInstaller {
             return new Installation(Status.INSTALLED, policy, instrumentation, transformer);
         }
 
+        /**
+         * @return why suppression was or was not installed; only {@code INSTALLED} means the
+         *     transformer is active
+         */
         public Status status() {
             return status;
         }
 
+        /**
+         * @return the startup policy that was loaded from Turboism home, present whatever the
+         *     admission outcome
+         */
         public RuntimeStartupConfig policy() {
             return policy;
         }
 
+        /**
+         * @return the transformer own outcome name, or {@code "NOT_INSTALLED"} when no
+         *     transformer was ever added because admission stopped earlier
+         */
         public String transformOutcome() {
             return transformer == null ? "NOT_INSTALLED" : transformer.outcome().name();
         }

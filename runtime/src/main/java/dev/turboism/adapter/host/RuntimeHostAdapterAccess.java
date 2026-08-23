@@ -26,6 +26,12 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 
     RuntimeHostAdapters adapters();
 
+    /**
+     * @return the exact reviewed Cubism Editor version of the active connection,
+     *     or empty while no verified Editor-model slice is active
+     */
+    java.util.Optional<String> cubismEditorVersion();
+
     CubismModelAccess modelAccess();
 
     CubismHistory history();
@@ -93,6 +99,7 @@ public sealed interface RuntimeHostAdapterAccess permits HostSession, SessionRun
 final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess {
 
     private final RuntimeHostAdapters adapters;
+    private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;
     private final CubismModelAccess modelAccess;
     private final CubismHistory history;
     private final HostSnapshotSource modelAppearanceSource;
@@ -130,6 +137,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
 
     SessionRuntimeHostAdapterAccess(
         final RuntimeHostAdapters adapters,
+        final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
         final CubismModelAccess modelAccess,
         final CubismHistory history,
         final HostSnapshotSource modelAppearanceSource,
@@ -166,6 +174,9 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
     ) {
         this.adapters = java.util.Objects.requireNonNull(adapters, "adapters");
+        this.cubismEditorVersion = java.util.Objects.requireNonNull(
+            cubismEditorVersion, "cubismEditorVersion"
+        );
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.history = java.util.Objects.requireNonNull(history, "history");
         this.modelAppearanceSource = java.util.Objects.requireNonNull(
@@ -266,6 +277,13 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
     }
 
     @Override
+    public java.util.Optional<String> cubismEditorVersion() {
+        return java.util.Objects.requireNonNull(
+            cubismEditorVersion.get(), "cubismEditorVersion.get()"
+        );
+    }
+
+    @Override
     public CubismModelAccess modelAccess() {
         return modelAccess;
     }
@@ -275,6 +293,7 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return history;
     }
 
+    /** @return the snapshot source used only by model-appearance projections. */
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
@@ -421,14 +440,17 @@ final class SessionRuntimeHostAdapterAccess implements RuntimeHostAdapterAccess 
         return workspaceLayoutCoordinator;
     }
 
+    /** @return the texture-atlas editor UI this access was composed with. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
         return textureAtlasEditorUi;
     }
 
+    /** @return the texture-atlas editor session this access was composed with. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
         return textureAtlasEditorSession;
     }
 
+    /** @return the registry of texture-atlas layout algorithms available to plugins. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
     }

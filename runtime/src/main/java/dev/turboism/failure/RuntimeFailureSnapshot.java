@@ -21,6 +21,10 @@ public record RuntimeFailureSnapshot(
         configFailures = List.copyOf(Objects.requireNonNull(configFailures, "configFailures"));
     }
 
+    /**
+     * @return the shared snapshot with no failures in any domain; safe to share because the record
+     *     and all three lists are immutable
+     */
     public static RuntimeFailureSnapshot empty() {
         return EMPTY;
     }

@@ -74,11 +74,32 @@ public final class RuntimeSceneTableService implements SceneTableService {
         host.setManualReordering(enabled);
     }
 
+    /**
+     * Fans a native Scene header click out to every subscribed plugin listener, in registration
+     * order, on the calling thread — which for a real host is the Swing event dispatch thread.
+     *
+     * <p>Listener exceptions are not caught: one failing listener aborts delivery to the rest.
+     *
+     * @param columnId identifier of the clicked column; must not be blank
+     * @throws NullPointerException if {@code columnId} is {@code null}
+     * @throws IllegalArgumentException if {@code columnId} is blank
+     */
     public void publishHeaderClick(final String columnId) {
         final HeaderClick event = new HeaderClick(SCENE_TABLE_ID, requireText(columnId, "columnId"));
         headerListeners.forEach(listener -> listener.accept(event));
     }
 
+    /**
+     * Records the snapshot as the current table state and delivers it to every subscribed listener
+     * on the calling thread.
+     *
+     * <p>The retained snapshot is replayed immediately to any listener that subscribes later, so a
+     * plugin registering after the palette attached still sees the table.
+     *
+     * @param snapshot the new table state; its table id must be the Scene table
+     * @throws NullPointerException if {@code snapshot} is {@code null}
+     * @throws IllegalArgumentException if the snapshot names a different table
+     */
     public void publishSnapshot(final TableSnapshot snapshot) {
         final TableSnapshot event = Objects.requireNonNull(snapshot, "snapshot");
         requireSceneTable(event.tableId());
@@ -86,6 +107,15 @@ public final class RuntimeSceneTableService implements SceneTableService {
         snapshotListeners.forEach(listener -> listener.accept(event));
     }
 
+    /**
+     * Delivers a reorder event to every subscribed listener on the calling thread.
+     *
+     * <p>Unlike a snapshot, the event is not retained and is never replayed to a later subscriber.
+     *
+     * @param event the reorder that occurred; its table id must be the Scene table
+     * @throws NullPointerException if {@code event} is {@code null}
+     * @throws IllegalArgumentException if the event names a different table
+     */
     public void publishItemOrderChanged(final ItemOrderChanged event) {
         final ItemOrderChanged published = Objects.requireNonNull(event, "event");
         requireSceneTable(published.tableId());

@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -19,14 +20,8 @@ public record PhysicsEditorHostProfile(
     String commitMethod,
     String rollbackMethod
 ) {
-    private static final HostArtifactDigest CUBISM_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
-    private static final HostArtifactDigest CUBISM_53 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
+    private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
+    private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
 
     public PhysicsEditorHostProfile {
         panelOwnerInternalName = text(panelOwnerInternalName, "panelOwnerInternalName");
@@ -42,6 +37,17 @@ public record PhysicsEditorHostProfile(
         rollbackMethod = text(rollbackMethod, "rollbackMethod");
     }
 
+    /**
+     * Resolves the reviewed selector tuple for a host artifact.
+     *
+     * <p>Only the two admitted Cubism builds are recognised, 5.2.03 and 5.3.02, and both map to the
+     * identical selector tuple. Any other artifact yields empty, which is the fail-closed signal that
+     * the physics editor hook must not be installed against an unreviewed host.
+     *
+     * @param artifact digest of the host jar actually loaded
+     * @return the matching profile, or empty when the artifact is not a reviewed build
+     * @throws NullPointerException if {@code artifact} is {@code null}
+     */
     public static Optional<PhysicsEditorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
         if (!artifact.equals(CUBISM_52) && !artifact.equals(CUBISM_53)) return Optional.empty();
