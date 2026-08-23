@@ -5,6 +5,9 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.PartHookRegistry;
 import dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHookRegistry;
+import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.EventSubscriberDescriptor;
+import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -27,6 +30,8 @@ final class PreviewPluginLoader {
     private final PartHookRegistry partHookRegistry;
     private final EditorObjectHookRegistry editorObjectHookRegistry;
     private final ProjectLifecycleHookRegistry projectLifecycleHookRegistry;
+    private final java.util.Set<LoadResources> retainedFailures =
+        java.util.concurrent.ConcurrentHashMap.newKeySet();
 
     PreviewPluginLoader(
         final PreviewPluginContextFactory contextFactory,
@@ -105,6 +110,9 @@ final class PreviewPluginLoader {
             resources.classLoader
         ));
         runtime.setEntrypoints(resources.entrypoints);
+        resources.eventSubscribers = new EntrypointSubscriberCatalog().inspect(
+            resources.entrypoints
+        );
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
 
         resources.scope = new DisposableScope();
@@ -113,8 +121,20 @@ final class PreviewPluginLoader {
             resources.classLoader,
             resources.scope
         );
+        resources.eventOwner = contextBundle.eventOwner();
+        if (!resources.eventSubscribers.isEmpty()) {
+            requireEventSubscribePermission(candidate.descriptor());
+            EventSubscriptionPermissionCatalog.requireDeclared(
+                candidate.descriptor(),
+                resources.eventSubscribers
+            );
+        }
+        resources.eventRegistrations = contextBundle.eventOwner().registerAnnotated(
+            resources.eventSubscribers
+        );
         runtime.setContext(contextBundle.context());
         logLocalization(candidate.descriptor(), contextBundle);
+        resources.eventOwner.beginInitializing();
 
         for (TurboismPlugin entrypoint : resources.entrypoints) {
             entrypoint.init(contextBundle.context());
@@ -126,19 +146,25 @@ final class PreviewPluginLoader {
             "Plugin lifecycle: initialized entrypoints=" + resources.initialized
         );
 
+        resources.eventOwner.beginEnabling();
         enableAll(resources, runtime, candidate.descriptor().id());
+        resources.eventOwner.activate();
         parameterHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
             contextBundle.context().logger(),
-            resources.scope
+            resources.scope,
+            contextFactory.eventBroker(),
+            resources.eventOwner.key()
         );
         resources.parameterHooksRegistered = true;
         partHookRegistry.register(
             candidate.descriptor(),
             resources.entrypoints,
             contextBundle.context().logger(),
-            resources.scope
+            resources.scope,
+            contextFactory.eventBroker(),
+            resources.eventOwner.key()
         );
         resources.partHooksRegistered = true;
         editorObjectHookRegistry.register(
@@ -162,7 +188,8 @@ final class PreviewPluginLoader {
             resources.scope,
             resources.classLoader,
             contextBundle.localization(),
-            contextBundle.cleanupEvidence()
+            contextBundle.cleanupEvidence(),
+            contextBundle.eventOwner()
         );
     }
 
@@ -210,6 +237,21 @@ final class PreviewPluginLoader {
             || !Modifier.isPublic(constructor.getModifiers())) {
             throw new IllegalArgumentException(
                 "Plugin entrypoint and no-arg constructor must be public: " + type.getName()
+            );
+        }
+    }
+
+    private static void requireEventSubscribePermission(final PluginDescriptor descriptor) {
+        final boolean allowed = descriptor.permissions().stream().anyMatch(permission ->
+            dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
+                permission.id()
+            )
+        );
+        if (!allowed) {
+            throw new IllegalArgumentException(
+                "@SubscribeEvent requires "
+                    + dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE
+                    + ": " + descriptor.id()
             );
         }
     }
@@ -278,6 +320,12 @@ final class PreviewPluginLoader {
         final LoadResources resources,
         final String pluginId
     ) {
+        final boolean eventQuiesced = closeEventOwnerAfterFailure(resources.eventOwner, pluginId);
+        if (!eventQuiesced) {
+            retainedFailures.add(resources);
+            scheduleRetainedFailureCleanup(resources, pluginId);
+            return;
+        }
         if (resources.projectLifecycleHooksRegistered) {
             projectLifecycleHookRegistry.unregister(pluginId);
             resources.projectLifecycleHooksRegistered = false;
@@ -297,7 +345,83 @@ final class PreviewPluginLoader {
         disableEnabledAfterFailure(resources, pluginId);
         shutdownConstructedAfterFailure(resources, pluginId);
         final boolean scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
-        closeLoaderAfterFailure(resources.classLoader, scopeClosed, pluginId);
+        closeLoaderAfterFailure(resources.classLoader, scopeClosed, eventQuiesced, pluginId);
+    }
+
+    private void scheduleRetainedFailureCleanup(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        final Thread reaper = new Thread(
+            () -> reapRetainedFailure(resources, pluginId),
+            "turboism-event-load-zombie-" + pluginId
+        );
+        reaper.setDaemon(true);
+        reaper.setContextClassLoader(PreviewPluginLoader.class.getClassLoader());
+        reaper.start();
+    }
+
+    private void reapRetainedFailure(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        try {
+            if (!resources.eventOwner.awaitQuiescence(java.time.Duration.ofDays(3650))) {
+                return;
+            }
+            resources.eventOwner.close();
+            cleanupFailedAfterEventQuiescence(resources, pluginId);
+            retainedFailures.remove(resources);
+            log.info(pluginId, "Retained failed plugin generation cleanup succeeded");
+        } catch (Throwable failure) {
+            log.error(pluginId, "Retained failed plugin generation cleanup failed safely", failure);
+        }
+    }
+
+    private void cleanupFailedAfterEventQuiescence(
+        final LoadResources resources,
+        final String pluginId
+    ) {
+        if (resources.projectLifecycleHooksRegistered) {
+            projectLifecycleHookRegistry.unregister(pluginId);
+            resources.projectLifecycleHooksRegistered = false;
+        }
+        if (resources.editorObjectHooksRegistered) {
+            editorObjectHookRegistry.unregister(pluginId);
+            resources.editorObjectHooksRegistered = false;
+        }
+        if (resources.partHooksRegistered) {
+            partHookRegistry.unregister(pluginId);
+            resources.partHooksRegistered = false;
+        }
+        if (resources.parameterHooksRegistered) {
+            parameterHookRegistry.unregister(pluginId);
+            resources.parameterHooksRegistered = false;
+        }
+        disableEnabledAfterFailure(resources, pluginId);
+        shutdownConstructedAfterFailure(resources, pluginId);
+        final boolean scopeClosed = closeScopeAfterFailure(resources.scope, pluginId);
+        closeLoaderAfterFailure(resources.classLoader, scopeClosed, true, pluginId);
+    }
+
+    private boolean closeEventOwnerAfterFailure(
+        final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner,
+        final String pluginId
+    ) {
+        if (eventOwner == null) {
+            return true;
+        }
+        eventOwner.beginClosing();
+        if (!eventOwner.awaitQuiescence(java.time.Duration.ofSeconds(5))) {
+            log.error(
+                pluginId,
+                "Plugin event owner retained after load failure because callbacks did not quiesce",
+                new IllegalStateException("Plugin event callbacks are still active")
+            );
+            return false;
+        }
+        eventOwner.close();
+        return true;
     }
 
     private void disableEnabledAfterFailure(
@@ -345,16 +469,21 @@ final class PreviewPluginLoader {
     private void closeLoaderAfterFailure(
         final URLClassLoader classLoader,
         final boolean scopeClosed,
+        final boolean eventQuiesced,
         final String pluginId
     ) {
         if (classLoader == null) {
             return;
         }
-        if (!scopeClosed) {
+        if (!scopeClosed || !eventQuiesced) {
             log.error(
                 pluginId,
                 "Plugin classloader retained after load failure because cleanup did not quiesce",
-                new IllegalStateException("Plugin scope cleanup is incomplete")
+                new IllegalStateException(
+                    !scopeClosed
+                        ? "Plugin scope cleanup is incomplete"
+                        : "Plugin event callbacks are still active"
+                )
             );
             return;
         }
@@ -375,6 +504,9 @@ final class PreviewPluginLoader {
     private static final class LoadResources {
         private URLClassLoader classLoader;
         private DisposableScope scope;
+        private dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner;
+        private List<EventSubscriberDescriptor> eventSubscribers = List.of();
+        private List<dev.turboism.sdk.plugin.Registration> eventRegistrations = List.of();
         private final List<TurboismPlugin> entrypoints = new ArrayList<>();
         private int initialized;
         private int enabled;

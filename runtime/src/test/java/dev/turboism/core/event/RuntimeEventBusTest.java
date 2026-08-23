@@ -28,6 +28,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.sdk.plugin.Registration;
+
 class RuntimeEventBusTest {
 
     private static final String PLUGIN_ID = "dev.turboism.plugin.demo";
@@ -107,6 +109,46 @@ class RuntimeEventBusTest {
         // Then
         assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(2, deliveries.get());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void baseTypeSubscriberDoesNotReceiveSubtypeUnderLegacyExactRouting() throws InterruptedException {
+        RuntimeScheduler scheduler = scheduler();
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        AtomicInteger baseDeliveries = new AtomicInteger();
+        CountDownLatch concreteDelivered = new CountDownLatch(1);
+        eventBus.subscribe(EventBus.TurboismEvent.class, ignored -> baseDeliveries.incrementAndGet());
+        eventBus.subscribe(TestEvent.class, ignored -> concreteDelivered.countDown());
+
+        eventBus.publish(new TestEvent("exact-only"));
+
+        assertTrue(concreteDelivered.await(1, TimeUnit.SECONDS));
+        assertEquals(0, baseDeliveries.get());
+        scheduler.shutdown();
+    }
+
+    @Test
+    void selfUnsubscribeDoesNotChangeDeliveryAlreadyDispatched() throws InterruptedException {
+        RuntimeScheduler scheduler = scheduler();
+        RuntimeEventBus eventBus = new RuntimeEventBus(scheduler, PLUGIN_ID, PermissionChecker.allowAll());
+        CountDownLatch firstDelivered = new CountDownLatch(1);
+        AtomicInteger deliveries = new AtomicInteger();
+        AtomicReference<Registration> registration = new AtomicReference<>();
+        registration.set(eventBus.subscribe(TestEvent.class, ignored -> {
+            deliveries.incrementAndGet();
+            registration.get().close();
+            firstDelivered.countDown();
+        }));
+
+        eventBus.publish(new TestEvent("first"));
+        assertTrue(firstDelivered.await(1, TimeUnit.SECONDS));
+        CountDownLatch sentinel = new CountDownLatch(1);
+        eventBus.subscribe(TestEvent.class, ignored -> sentinel.countDown());
+        eventBus.publish(new TestEvent("second"));
+
+        assertTrue(sentinel.await(1, TimeUnit.SECONDS));
+        assertEquals(1, deliveries.get());
         scheduler.shutdown();
     }
 
