@@ -386,10 +386,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
         DisposableScope scope,
         URLClassLoader classLoader,
         RuntimePluginLocalization localization,
-        CleanupEvidenceCollector cleanupEvidence
+        CleanupEvidenceCollector cleanupEvidence,
+        dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner
     ) {
         LoadedPlugin {
             entrypoints = List.copyOf(entrypoints);
+            eventOwner = Objects.requireNonNull(eventOwner, "eventOwner");
         }
     }
 

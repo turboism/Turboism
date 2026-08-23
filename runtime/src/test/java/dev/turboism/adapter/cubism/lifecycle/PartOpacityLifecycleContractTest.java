@@ -1,6 +1,17 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.hook.PartHooks;
+import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.event.cubism.PartNameEvent;
+import dev.turboism.sdk.event.cubism.PartOpacityEvent;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -10,6 +21,11 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.Clock;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -62,6 +78,36 @@ class PartOpacityLifecycleContractTest {
         coordinator.setOpacity(part, 0.8F, part::write);
         coordinator.awaitIdle();
         assertEquals(List.of("on:0.5->0.8", "after:0.8"), events);
+    }
+
+    @Test
+    void annotatedPartEventsTransformAndPublishDetachedCompletion() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PartLifecycleCoordinator coordinator = new PartLifecycleCoordinator();
+        coordinator.attachEventBroker(broker);
+        final RuntimeEventBroker.Owner owner = broker.admit("part-events");
+        final CountDownLatch completion = new CountDownLatch(4);
+        final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+        owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+            new PartEventSubscriber(events, completion)
+        )));
+        owner.activate();
+        final MutablePart part = new MutablePart(0.5F);
+
+        coordinator.setOpacity(part, 1.0F, part::write);
+        coordinator.setName(part, "Clip", part::writeName);
+
+        org.junit.jupiter.api.Assertions.assertTrue(completion.await(1, TimeUnit.SECONDS));
+        assertEquals(0.75F, part.getOpacity());
+        assertEquals("Clip A", part.name());
+        assertEquals(List.of(
+            "opacity:on:0.5->0.75",
+            "opacity:after:0.75",
+            "name:on:PartArmL->Clip A",
+            "name:after:Clip A"
+        ), events);
+        scheduler.shutdown();
     }
 
     @Test
@@ -162,6 +208,74 @@ class PartOpacityLifecycleContractTest {
         assertEquals(List.of(), events);
     }
 
+
+    public static final class PartEventSubscriber {
+        private final List<String> events;
+        private final CountDownLatch completion;
+
+        private PartEventSubscriber(
+            final List<String> events,
+            final CountDownLatch completion
+        ) {
+            this.events = events;
+            this.completion = completion;
+        }
+
+        @SubscribeEvent
+        public void beforeOpacity(final PartOpacityEvent.Before event) {
+            event.setOpacity(event.opacity() * 0.75F);
+        }
+
+        @SubscribeEvent
+        public void onOpacity(final PartOpacityEvent.On event) {
+            events.add("opacity:on:" + event.oldOpacity() + "->" + event.newOpacity());
+            completion.countDown();
+        }
+
+        @SubscribeEvent
+        public void afterOpacity(final PartOpacityEvent.After event) {
+            events.add("opacity:after:" + event.finalOpacity());
+            assertThrows(UnsupportedOperationException.class, () -> event.part().setOpacity(1.0F));
+            completion.countDown();
+        }
+
+        @SubscribeEvent
+        public void beforeName(final PartNameEvent.Before event) {
+            event.setName(event.name() + " A");
+        }
+
+        @SubscribeEvent
+        public void onName(final PartNameEvent.On event) {
+            events.add("name:on:" + event.oldName() + "->" + event.newName());
+            completion.countDown();
+        }
+
+        @SubscribeEvent
+        public void afterName(final PartNameEvent.After event) {
+            events.add("name:after:" + event.finalName());
+            assertThrows(UnsupportedOperationException.class, () -> event.part().setName("Root"));
+            completion.countDown();
+        }
+    }
+
+    private static RuntimeScheduler scheduler() {
+        return new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
+            new NoOpSidecarDispatcher(),
+            ignored -> { }
+        );
+    }
+
+    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
+        @Override
+        public CompletionStage<SidecarResult> dispatch(
+            final PluginTask task,
+            final Runnable callback
+        ) {
+            return CompletableFuture.completedFuture(SidecarResult.success(""));
+        }
+    }
 
     private static PartHooks recordingHook(final List<String> events) {
         return new PartHooks() {

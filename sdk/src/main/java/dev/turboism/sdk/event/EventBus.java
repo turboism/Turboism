@@ -13,7 +13,11 @@ public interface EventBus {
 
     <T extends TurboismEvent> void publish(T event);
 
+    /**
+     * Legacy nested event marker retained while event implementations migrate
+     * to the top-level {@link dev.turboism.sdk.event.TurboismEvent} contract.
+     */
     interface TurboismEvent {
-        // marker
+        // compatibility marker
     }
 }
