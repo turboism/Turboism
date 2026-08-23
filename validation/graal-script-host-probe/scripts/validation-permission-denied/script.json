@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.permission-denied",
+  "name": "Validation Permission Denied",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [],
+  "sourceSha256": "8c17f1fd4d8cdc987e5aefddf18c5269e0ba6026f9dab9da32e65a4a7f20c9b0"
+}

@@ -632,7 +632,8 @@ public final class CorePluginContext implements PluginContext {
                 this.dependencies.disposableScope(),
                 adapters.statusToolbar(),
                 adapters.uiSurface(),
-                localization
+                localization,
+                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
             )
             : new RuntimeUiHostCapabilityService(
                 uiPermissionChecker,
@@ -642,6 +643,7 @@ public final class CorePluginContext implements PluginContext {
                 adapters.statusToolbar(),
                 adapters.uiSurface(),
                 localization,
+                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
                 hostAccess.editorUiContributions(),
                 hostAccess.embeddedPanelActivation(),
                 (contributionId, callback) -> this.dependencies.runtimeScheduler().dispatch(

@@ -98,6 +98,13 @@ BUNDLED = [
 BUNDLED_IDS = [i for i, _ in BUNDLED]
 BUNDLED_MODULES = sorted(m for _, m in BUNDLED)
 UNRELATED = "dev.turboism.plugin.not-bundled"
+RETIRED_IDS = [
+    "dev.turboism.plugin.clipmask",
+    "dev.turboism.plugin.logfilter",
+    "dev.turboism.plugin.perfopt",
+    "dev.turboism.plugin.renderopt",
+]
+RETIRED_MODULES = ["clip-mask", "log-filter", "perf-opt", "render-opt"]
 
 load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
@@ -180,7 +187,7 @@ def nsis_merge(unchecked, existing):
 
 
 def build_config_json(disabled):
-    parts = ['{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"]']
+    parts = ['{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"],"launcher":{"cubismJvm":"graalvm"}']
     if disabled:
         parts.append(',"disabledPlugins":["' + '","'.join(disabled) + '"]')
     parts.append("}\r\n")
@@ -192,6 +199,8 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
     - 先由 RemoveBundledFromExistingDisabled 从既有列表逐 id 移除全部捆绑 id；
     - 再合并本次未勾选插件（Lite 下 ModeLeave 已取消全部 Section → 全部捆绑 id）。"""
     existing = extract_existing_disabled(existing_text) if existing_text is not None else []
+    for retired in RETIRED_IDS:
+        existing = remove_item(existing, retired)
     for bid in bundled_ids:
         existing = remove_item(existing, bid)
     if mode == "lite":
@@ -200,11 +209,12 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
 
 
 def nsis_jars_after(mode, prev_jars):
-    """镜像隐藏载荷 Section：Full($Mode==1) 安装全部插件 JAR；Lite 不写任何 JAR
-    （此前安装的 JAR 保留，但被 disabledPlugins=全部捆绑 id 禁用）。"""
+    """镜像 NSIS 升级：先按受控历史模块名退休旧官方 JAR，再执行
+    隐藏载荷 Section。Full($Mode==1) 安装全部当前插件，Lite 不写新 JAR。"""
+    retained = [module for module in prev_jars if module not in RETIRED_MODULES]
     if mode == "full":
-        return sorted(BUNDLED_MODULES)
-    return sorted(prev_jars)
+        return sorted(set(retained) | set(BUNDLED_MODULES))
+    return sorted(retained)
 
 
 def uninstall_statements():
@@ -221,6 +231,64 @@ def find_stmt(texts, pred):
         if pred(t):
             return i
     return None
+
+
+def check_nsis_retirement_contract():
+    """NSIS 升级必须与 Java 安装器共同退休四个历史模块/id。"""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    call = "-RetirePlugins"
+    check("R1 NSIS 通过身份校验 helper 执行退休", call in text)
+    check("R1 NSIS 从当前 staging 提取退休 helper",
+          '${STAGING_DIR}/configure_turboism.ps1' in text
+          and '${STAGING_DIR}/cubism-launch-common.ps1' in text
+          and '$PLUGINSDIR\\Turboism-retire' in text)
+    lines = text.splitlines()
+    exec_index = next(i for i, line in enumerate(lines)
+                      if "ExecWait" in line and call in line)
+    guard = "\n".join(lines[exec_index:exec_index + 6])
+    check("R1 NSIS 退休失败关闭",
+          "$0 != 0" in guard and "PluginRetireError" in guard and "Abort" in guard)
+    check("R1 配置器公开 RetirePlugins 模式",
+          "[switch]$RetirePlugins" in configure
+          and "Remove-TurboismRetiredPlugins" in configure)
+    check("R1 退休授权读取嵌入 plugin.json id",
+          "function Remove-TurboismRetiredPlugins" in common
+          and "META-INF/turboism/plugin.json" in common)
+    for ident in RETIRED_IDS:
+        check("R1 身份校验 helper 包含退休 id " + ident,
+              ident in common)
+        check("R2 NSIS 从 disabledPlugins 删除退休 id " + ident,
+              'StrCpy $1 "%s"' % ident in text)
+
+
+def check_graal_fallback_contract():
+    """Managed launch must recover from a missing saved/default GraalVM choice.
+
+    Explicit ``-CubismJava`` input remains strict, while the persisted/default
+    preference may fall back to the selected Cubism installation's bundled
+    Java and must show the official installation URL.
+    """
+    common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    launcher = (INSTALLER_NSI.parent / "launch-cubism-turboism.ps1").read_text(encoding="utf-8")
+    check("G1 nullable GraalVM discovery helper exists",
+          "function Find-CubismGraalJava" in common and 'return ""' in common)
+    check("G1b discovery requires GraalVM Community 25.2.x release metadata",
+          "function Test-CubismCompatibleGraalJava" in common
+          and 'IMPLEMENTOR="GraalVM' in common
+          and 'GRAALVM_VERSION="25\\.2\\.' in common)
+    check("G2 explicit Cubism Java override remains strict for missing paths",
+          "function Resolve-CubismGraalJava" in common
+          and "no GraalVM java.exe is available" in common
+          and "Resolve-CubismGraalJava -TurboismHome $turboismHome -ExplicitJava $CubismJava" in launcher
+          and "Test-CubismNormalFile $explicit" in common)
+    fallback = launcher[launcher.index('else {\n    $javaOverride = Find-CubismGraalJava'):
+                        launcher.index('Write-Host ($M.Jvm', launcher.index('else {\n    $javaOverride = Find-CubismGraalJava'))]
+    check("G3 saved/default GraalVM falls back to bundled mode",
+          '$cubismJvm = "bundled"' in fallback and "Write-Warning $M.GraalFallback" in fallback)
+    check("G4 fallback warning links the official GraalVM page",
+          "https://www.graalvm.org/downloads/" in launcher)
 
 
 def check_uninstall_postcondition():
@@ -266,7 +334,8 @@ def main():
     out = installer_write_config("full", [], None)
     doc = json.loads(out)
     check("T1 模板字段", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
-          and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
+          and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
+          and doc["launcher"] == {"cubismJvm": "graalvm"})
     check("T1 无 disabledPlugins", "disabledPlugins" not in doc)
 
     # T2: Full、未勾选 2 个、无既有配置 → 升序写出
@@ -343,6 +412,14 @@ def main():
     check("T10 全量捆绑移除 + 无关保留", doc["disabledPlugins"] == sorted([all_ids[0], UNRELATED]),
           str(doc.get("disabledPlugins")))
 
+    # T11: 升级退休切片 —— 四个历史 id 必须从 disabledPlugins 删除，
+    # 无关 id 保留；这是 Java/NSIS 两条安装路径的共同升级契约。
+    existing = json.dumps({"disabledPlugins": RETIRED_IDS + [UNRELATED]})
+    out = installer_write_config("full", [], existing)
+    doc = json.loads(out)
+    check("T11 退休 id 从升级配置移除", doc["disabledPlugins"] == [UNRELATED],
+          str(doc.get("disabledPlugins")))
+
     # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
     # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
     jars = nsis_jars_after("full", [])
@@ -372,19 +449,29 @@ def main():
     doc = json.loads(out)
     check("TI3 Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
 
-    # TI4: Full→Lite → 不写新 JAR（旧 JAR 留盘但被禁用）
+    # TI4: Full→Lite → 不写新 JAR（当前旧 JAR 留盘但被禁用）
     jars = nsis_jars_after("lite", BUNDLED_MODULES)
-    check("TI4 Full→Lite 不写新 JAR（旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
+    check("TI4 Full→Lite 不写新 JAR（当前旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
     existing = '{"disabledPlugins": ["' + a + '"]}'
     out = installer_write_config("lite", [], existing)
     doc = json.loads(out)
     check("TI4 Full→Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
+
+    # TI5: NSIS 升级先删除受控历史模块，再根据当前模式铺设 payload。
+    jars = nsis_jars_after("lite", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
+    check("TI5 Lite 升级退休历史 JAR 并保留未知 JAR",
+          jars == sorted(BUNDLED_MODULES + ["third-party"]), str(jars))
+    jars = nsis_jars_after("full", RETIRED_MODULES + ["third-party"])
+    check("TI5 Full 升级退休历史 JAR、安装当前全量并保留未知 JAR",
+          jars == sorted(BUNDLED_MODULES + ["third-party"]), str(jars))
 
     # 输出有效性：schemaVersion/format 完整
     for label, out in [("T3", out)]:
         doc = json.loads(out)
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
 
+    check_nsis_retirement_contract()
+    check_graal_fallback_contract()
     check_uninstall_postcondition()
     print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")
 
