@@ -62,7 +62,7 @@ No capabilities are declared in the plugin manifest.
 |---|---|---|
 | `turboism.config.plugin.read` | `application` | Reads the backup/webdav.cfg endpoint configuration. |
 | `turboism.event.subscribe` | `application` | Subscribes to BackupCompletedEvent to upload new backup artifacts. |
-| `turboism.event.publish` | `application` | The per-plugin auto-backup coordinator publishes BackupCompletedEvent on this plugin's event bus. |
+| `turboism.cubism.backup.observe` | `application` | Observes privacy-safe Runtime backup completion facts; exact artifacts remain in the initiating command result. |
 | `turboism.config.plugin.write` | `application` | Persists the WebDAV endpoint settings through the backup/webdav.cfg write path with readback confirmation. |
 | `turboism.action.register` | `application` | Registers the backup.webdav.settings.open action behind the Turboism menu item. |
 | `turboism.ui.menu.contribute` | `application` | Exposes the WebDAV 备份设置 settings dialog through the Turboism menu. |
