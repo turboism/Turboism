@@ -12,7 +12,7 @@ import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings;
 import dev.turboism.sdk.cubism.hook.AnimationFileHooks;
 import dev.turboism.sdk.cubism.hook.ModelFileHooks;
-import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -49,7 +49,6 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     private final WebDavSettingsBinding binding = new WebDavSettingsBinding();
     private PluginContext context;
     private volatile WebDavSyncTarget target;
-    private volatile Registration eventRegistration;
     private volatile Registration actionRegistration;
     private volatile Registration menuRegistration;
     private volatile boolean enabled;
@@ -75,7 +74,6 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                     + (failure == null ? result : failure.getClass().getSimpleName()));
             }
         });
-        eventRegistration = context.eventBus().subscribe(BackupCompletedEvent.class, this::onBackupCompleted);
     }
 
     @Override
@@ -101,10 +99,6 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
     @Override
     public void shutdown() {
         disable();
-        if (eventRegistration != null) {
-            eventRegistration.close();
-            eventRegistration = null;
-        }
         binding.shutdown();
         context = null;
     }
@@ -269,6 +263,12 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                             + " message=" + (cause.getMessage() == null ? "" : cause.getMessage())
                     );
                 } else if (event != null) {
+                    for (File file : event.newBackupFiles()) {
+                        if (isTempBackupFile(file)) {
+                            pendingTempFiles.add(file);
+                        }
+                    }
+                    syncCompletedArtifacts(event.newBackupFiles());
                     requireContext().logger().info(
                         "BACKUP_AFTER_SAVE_OK files=" + event.newBackupFiles().size()
                     );
@@ -334,20 +334,18 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         }
     }
 
-    private void onBackupCompleted(final BackupCompletedEvent event) {
-        if (triggerMode != WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
-            return; // AUTO_BACKUP_SYNC: the scanner owns the host artifacts
+    @SubscribeEvent
+    public void onBackupCompleted(final BackupCompletedEvent event) {
+        if (triggerMode == WebDavConfig.RemoteTrigger.SAVE_TRIGGERED) {
+            requireContext().logger().info(
+                "BACKUP_COMPLETED artifacts=" + event.artifacts().size()
+            );
         }
-        for (File file : event.newBackupFiles()) {
-            if (isTempBackupFile(file)) {
-                pendingTempFiles.add(file);
-            }
-        }
+    }
+
+    private void syncCompletedArtifacts(final List<File> files) {
         WebDavSyncTarget active = target;
         if (active == null && lastSavedConfig != null) {
-            // The read-driven construction may never produce a config on the
-            // real host; the dialog-persisted config is deterministic. Build
-            // once, lazily, and use it for this event.
             synchronized (this) {
                 if (target == null) {
                     target = buildTarget(lastSavedConfig);
@@ -361,25 +359,21 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         }
         if (active == null) {
             requireContext().logger().info("WEBDAV_SYNC_SKIPPED reason=target-unavailable");
-            cleanupTempFiles(event.newBackupFiles());
+            cleanupTempFiles(files);
             return;
         }
         try {
-            for (File file : event.newBackupFiles()) {
+            for (File file : files) {
                 requireContext().logger().info("WEBDAV_SYNC_UPLOAD file=" + file.getName());
             }
-            active.sync(event.newBackupFiles());
-            requireContext().logger().info(
-                "WEBDAV_SYNC_COMPLETED files=" + event.newBackupFiles().size()
-            );
+            active.sync(files);
+            requireContext().logger().info("WEBDAV_SYNC_COMPLETED files=" + files.size());
         } catch (RuntimeException | Error failure) {
-            // The failure is isolated here: the backup result itself stays intact.
             requireContext().logger().warn(
                 "WEBDAV_SYNC_FAILED " + failure.getClass().getSimpleName()
             );
         } finally {
-            // The save-triggered artifacts are temporary: uploaded then deleted.
-            cleanupTempFiles(event.newBackupFiles());
+            cleanupTempFiles(files);
         }
     }
 

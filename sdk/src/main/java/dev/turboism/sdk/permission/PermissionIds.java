@@ -23,6 +23,7 @@ public final class PermissionIds {
     public static final String TURBOISM_UI_FILE_CHOOSER_REQUEST = "turboism.ui.file-chooser.request";
     public static final String TURBOISM_UI_STATUS_NOTIFY = "turboism.ui.status.notify";
     public static final String TURBOISM_UI_APPEARANCE_MODIFY = "turboism.ui.appearance.modify";
+    public static final String TURBOISM_UI_APPEARANCE_OBSERVE = "turboism.ui.appearance.observe";
     public static final String TURBOISM_UI_TOOLBAR_CONTRIBUTE = "turboism.ui.toolbar.contribute";
     public static final String TURBOISM_CONFIG_PLUGIN_READ = "turboism.config.plugin.read";
     public static final String TURBOISM_CONFIG_PLUGIN_WRITE = "turboism.config.plugin.write";
@@ -33,6 +34,8 @@ public final class PermissionIds {
         "turboism.cubism.model.observe";
     public static final String TURBOISM_CUBISM_MODEL_INTERCEPT =
         "turboism.cubism.model.intercept";
+    public static final String TURBOISM_CUBISM_BACKUP_OBSERVE =
+        "turboism.cubism.backup.observe";
     public static final String TURBOISM_CUBISM_RECENT_FILE_READ = "turboism.cubism.recent-file.read";
     public static final String TURBOISM_UI_RECENT_PREVIEW_CONTRIBUTE = "turboism.ui.recent-preview.contribute";
     public static final String TURBOISM_EVENT_PUBLISH = "turboism.event.publish";

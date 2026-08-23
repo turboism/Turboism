@@ -19,6 +19,8 @@ import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.appearance.AppearanceChangedEvent;
+import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 
 import java.util.List;
 import java.util.Objects;
@@ -45,7 +47,9 @@ final class RuntimeEventContractCatalog {
             ProjectFileLifecycleEvent.class,
             EditorStartupEvent.class,
             EditorExitEvent.class,
-            PartNameEvent.class
+            PartNameEvent.class,
+            AppearanceChangedEvent.class,
+            BackupCompletedEvent.class
         );
 
     void requirePluginPublicationAllowed(

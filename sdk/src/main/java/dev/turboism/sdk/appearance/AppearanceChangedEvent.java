@@ -6,8 +6,8 @@ import dev.turboism.sdk.event.EventBus;
 import java.util.Objects;
 
 /**
- * Published on the event bus after the effective appearance changes, carrying both sides of the
- * transition and the plugin that caused it.
+ * Runtime-owned observation published after the effective appearance changes, carrying both sides
+ * of the transition and the plugin that caused it.
  *
  * <p>The compact constructor rejects {@code null} components and a blank origin plugin id.
  *

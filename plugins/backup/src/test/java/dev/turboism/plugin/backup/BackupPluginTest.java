@@ -148,9 +148,17 @@ final class BackupPluginTest {
         plugin.applySavedConfig(savedConfig());
         assertTrue(context.awaitLog("WEBDAV_TARGET_READY", Duration.ofSeconds(2)),
             "the dialog-persisted config must build the target without any binding read");
-        context.bus.fire(completedEvent());
-        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=model.cmo3", Duration.ofSeconds(2)),
-            "the event must reach the sync target built from the saved config");
+        final java.nio.file.Path artifact = java.nio.file.Files.createTempFile(
+            "turboism-backup-test-", ".cmo3"
+        );
+        java.nio.file.Files.writeString(artifact, "backup");
+        context.backupFiles = List.of(artifact.toFile());
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "model:test", "model.cmo3", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            java.util.Optional.empty(), List.of()
+        ));
+        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=" + artifact.getFileName(), Duration.ofSeconds(2)),
+            "the command result must reach the sync target built from the saved config");
         assertFalse(context.hasLog("WEBDAV_SYNC_SKIPPED"),
             "a deterministic target must never be skipped");
     }
@@ -166,10 +174,18 @@ final class BackupPluginTest {
         // The pending retry (500ms) wakes with the binding still uninitialized
         // and clears the target; the last-saved config must still serve events.
         Thread.sleep(900L);
-        context.bus.fire(completedEvent());
+        final java.nio.file.Path artifact = java.nio.file.Files.createTempFile(
+            "turboism-backup-lazy-", ".cmo3"
+        );
+        java.nio.file.Files.writeString(artifact, "backup");
+        context.backupFiles = List.of(artifact.toFile());
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "model:test", "model.cmo3", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            java.util.Optional.empty(), List.of()
+        ));
         assertTrue(context.awaitLog("WEBDAV_TARGET_LAZY_REBUILT", Duration.ofSeconds(2)),
             "a nulled target must be rebuilt lazily from the last saved config");
-        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=model.cmo3", Duration.ofSeconds(2)));
+        assertTrue(context.awaitLog("WEBDAV_SYNC_UPLOAD file=" + artifact.getFileName(), Duration.ofSeconds(2)));
         assertFalse(context.hasLog("WEBDAV_SYNC_SKIPPED"),
             "the lazy rebuild must prevent the skip path");
     }
@@ -227,11 +243,13 @@ final class BackupPluginTest {
         java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("turboism-backup-");
         java.nio.file.Path artifact = tempDir.resolve("model_backup2026_08_08_120000.cmo3");
         java.nio.file.Files.writeString(artifact, "temp-content");
-        context.bus.fire(new dev.turboism.sdk.cubism.backup.BackupCompletedEvent(
-            1_000L,
-            List.of(artifact.toFile()),
-            List.of(new dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus(
-                "model.cmo3", "model.cmo3", 1_000L, 900L, false))
+        context.backupFiles = List.of(artifact.toFile());
+        plugin.onModelSaved(new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "model:test",
+            "model.cmo3",
+            dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            java.util.Optional.empty(),
+            List.of()
         ));
         assertTrue(context.awaitLog("WEBDAV_TEMP_CLEANUP file=model_backup2026_08_08_120000.cmo3",
                 Duration.ofSeconds(2)),
@@ -256,9 +274,12 @@ final class BackupPluginTest {
     private static dev.turboism.sdk.cubism.backup.BackupCompletedEvent completedEvent() {
         return new dev.turboism.sdk.cubism.backup.BackupCompletedEvent(
             1_000L,
-            List.of(new java.io.File("model.cmo3")),
-            List.of(new dev.turboism.sdk.cubism.backup.EditorAutoBackupStatus(
-                "model.cmo3", "model.cmo3", 1_000L, 900L, false))
+            List.of(new dev.turboism.sdk.cubism.backup.BackupArtifact(
+                "model_backup.cmo3", 128L, false
+            )),
+            List.of(new dev.turboism.sdk.cubism.backup.BackupDocumentStatus(
+                "model.cmo3", 1_000L, 900L, false
+            ))
         );
     }
 
@@ -268,6 +289,7 @@ final class BackupPluginTest {
         final GatedRegistry registry = new GatedRegistry();
         final RecordingEventBus bus = new RecordingEventBus();
         java.nio.file.Path hostBackupDir;
+        List<java.io.File> backupFiles = List.of();
 
         @Override
         public PluginDescriptor descriptor() {
@@ -346,15 +368,19 @@ final class BackupPluginTest {
                 }
 
                 @Override
-                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> backupNow() {
-                    return CompletableFuture.completedFuture(null);
+                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupNow() {
+                    return CompletableFuture.completedFuture(new dev.turboism.sdk.cubism.backup.BackupRunResult(
+                        1_000L, backupFiles, List.of()
+                    ));
                 }
 
                 @Override
-                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupCompletedEvent> backupAfterSave(
+                public CompletionStage<dev.turboism.sdk.cubism.backup.BackupRunResult> backupAfterSave(
                     final dev.turboism.sdk.cubism.ProjectContentSnapshot saved
                 ) {
-                    return CompletableFuture.completedFuture(null);
+                    return CompletableFuture.completedFuture(new dev.turboism.sdk.cubism.backup.BackupRunResult(
+                        1_000L, backupFiles, List.of()
+                    ));
                 }
 
                 @Override
