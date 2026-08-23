@@ -26,7 +26,7 @@ public final class ProjectLifecycleHookRegistry {
     private final ProjectFileLifecycleCoordinator projectFiles;
     private final Object lifecycleLock = new Object();
     private final EditorLifecycleCoordinator editor;
-    private final java.util.Map<String, List<Registration>> eventAdapters =
+    private final java.util.Map<PluginEventOwnerKey, List<Registration>> eventAdapters =
         new java.util.HashMap<>();
 
     public ProjectLifecycleHookRegistry(
@@ -187,12 +187,17 @@ public final class ProjectLifecycleHookRegistry {
             return;
         }
         synchronized (lifecycleLock) {
-            closeEventAdapters(plugin.id());
-            eventAdapters.put(plugin.id(), List.copyOf(installed));
+            final List<Registration> adapters = List.copyOf(installed);
+            if (eventAdapters.putIfAbsent(eventOwner, adapters) != null) {
+                closeEventAdapters(adapters);
+                throw new IllegalStateException(
+                    "Project lifecycle event adapters already registered for " + eventOwner
+                );
+            }
             try {
-                pluginScope.register(() -> closeEventAdapters(plugin.id()));
+                pluginScope.register(() -> closeEventAdapters(eventOwner));
             } catch (RuntimeException | Error failure) {
-                closeEventAdapters(plugin.id());
+                closeEventAdapters(eventOwner);
                 unregister(plugin.id());
                 throw failure;
             }
@@ -536,9 +541,30 @@ public final class ProjectLifecycleHookRegistry {
         }
     }
 
+    public void unregister(final PluginEventOwnerKey owner) {
+        synchronized (lifecycleLock) {
+            closeEventAdapters(Objects.requireNonNull(owner, "owner"));
+        }
+    }
+
     private void closeEventAdapters(final String pluginId) {
-        final List<Registration> registrations = eventAdapters.remove(pluginId);
-        if (registrations == null) return;
+        eventAdapters.entrySet().removeIf(entry -> {
+            if (!entry.getKey().pluginId().equals(pluginId)) {
+                return false;
+            }
+            closeEventAdapters(entry.getValue());
+            return true;
+        });
+    }
+
+    private void closeEventAdapters(final PluginEventOwnerKey owner) {
+        final List<Registration> registrations = eventAdapters.remove(owner);
+        if (registrations != null) {
+            closeEventAdapters(registrations);
+        }
+    }
+
+    private static void closeEventAdapters(final List<Registration> registrations) {
         for (int index = registrations.size() - 1; index >= 0; index--) {
             registrations.get(index).close();
         }

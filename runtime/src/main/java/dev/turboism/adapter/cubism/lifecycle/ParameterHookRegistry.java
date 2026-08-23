@@ -22,7 +22,7 @@ public final class ParameterHookRegistry {
 
     private final ParameterLifecycleCoordinator coordinator;
     private final Object lifecycleLock = new Object();
-    private final java.util.Map<String, AdapterRegistration> registrations =
+    private final java.util.Map<PluginEventOwnerKey, AdapterRegistration> registrations =
         new java.util.HashMap<>();
 
     public ParameterHookRegistry(final ParameterLifecycleCoordinator coordinator) {
@@ -194,15 +194,17 @@ public final class ParameterHookRegistry {
             List.copyOf(installed)
         );
         synchronized (lifecycleLock) {
-            final AdapterRegistration previous = registrations.put(plugin.id(), registration);
-            if (previous != null) {
-                previous.close();
+            if (registrations.putIfAbsent(eventOwner, registration) != null) {
+                registration.close();
+                throw new IllegalStateException(
+                    "Parameter hook adapters already registered for " + eventOwner
+                );
             }
             if (scope != null) {
                 try {
-                    scope.register(() -> unregisterGeneration(plugin.id(), registration));
+                    scope.register(() -> unregisterGeneration(eventOwner, registration));
                 } catch (RuntimeException | Error failure) {
-                    unregisterGeneration(plugin.id(), registration);
+                    unregisterGeneration(eventOwner, registration);
                     throw failure;
                 }
             }
@@ -213,7 +215,20 @@ public final class ParameterHookRegistry {
         final String id = requireText(pluginId, "pluginId");
         synchronized (lifecycleLock) {
             coordinator.unregister(id);
-            final AdapterRegistration registration = registrations.remove(id);
+            registrations.entrySet().removeIf(entry -> {
+                if (!entry.getKey().pluginId().equals(id)) {
+                    return false;
+                }
+                entry.getValue().close();
+                return true;
+            });
+        }
+    }
+
+    public void unregister(final PluginEventOwnerKey owner) {
+        final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
+        synchronized (lifecycleLock) {
+            final AdapterRegistration registration = registrations.remove(key);
             if (registration != null) {
                 registration.close();
             }
@@ -221,11 +236,11 @@ public final class ParameterHookRegistry {
     }
 
     private void unregisterGeneration(
-        final String pluginId,
+        final PluginEventOwnerKey owner,
         final AdapterRegistration generation
     ) {
         synchronized (lifecycleLock) {
-            if (registrations.remove(pluginId, generation)) {
+            if (registrations.remove(owner, generation)) {
                 generation.close();
             }
         }
