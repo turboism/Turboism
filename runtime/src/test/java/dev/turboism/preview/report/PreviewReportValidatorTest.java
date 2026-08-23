@@ -165,7 +165,7 @@ class PreviewReportValidatorTest {
             """
             {"host":{"product":"Live2D Cubism","version":"UNKNOWN","identityState":"UNKNOWN"},
              "adapterState":"UNAVAILABLE","runtimeState":"RUNNING",
-             "taskFailures":[],"storageFailures":[],"configFailures":[],
+             "taskFailures":[],"storageFailures":[],"configFailures":[],"eventFailures":[],
              "shutdownCounts":{"attempted":0,"succeeded":0,"failed":0,"timedOut":0},
              "cleanupCounts":{"taskHandlesCanceled":0,"taskCompletionsSettled":0,
                "pluginContinuationsDrained":0,"userFileHandlesRevoked":0,

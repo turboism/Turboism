@@ -86,6 +86,10 @@ public final class EventSubscriptionPermissionCatalog {
     static Set<String> requiredPermissions(
         final Class<? extends EventBus.TurboismEvent> subscriptionType
     ) {
+        if (subscriptionType == EventBus.TurboismEvent.class
+            || subscriptionType == dev.turboism.sdk.event.TurboismEvent.class) {
+            return Set.of();
+        }
         final Set<String> permissions = new LinkedHashSet<>();
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.Before.class)
             || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
