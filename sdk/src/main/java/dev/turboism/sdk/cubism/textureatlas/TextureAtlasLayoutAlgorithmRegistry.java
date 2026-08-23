@@ -1,6 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
 import dev.turboism.sdk.PreviewApi;
+import dev.turboism.sdk.plugin.Registration;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,11 +15,12 @@ import java.util.Optional;
 public interface TextureAtlasLayoutAlgorithmRegistry {
 
     /**
-     * Registers an algorithm. Replacing an existing id is allowed; registering a
-     * {@code null} algorithm is rejected.
+     * Registers an algorithm. Replacing an existing id is allowed; closing the
+     * returned registration removes only that exact registration generation.
+     * Registering a {@code null} algorithm is rejected.
      */
     @PreviewApi
-    void register(TextureAtlasLayoutAlgorithm algorithm);
+    Registration register(TextureAtlasLayoutAlgorithm algorithm);
 
     /** Finds a registered algorithm by id, if present. */
     @PreviewApi
