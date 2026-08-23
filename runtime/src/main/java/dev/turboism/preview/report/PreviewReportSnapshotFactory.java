@@ -391,6 +391,7 @@ public final class PreviewReportSnapshotFactory {
         writeFailures((ArrayNode) payload.get("taskFailures"), failures.taskFailures());
         writeFailures((ArrayNode) payload.get("storageFailures"), failures.storageFailures());
         writeFailures((ArrayNode) payload.get("configFailures"), failures.configFailures());
+        writeFailures((ArrayNode) payload.get("eventFailures"), failures.eventFailures());
 
         final long attempted = shutdownAttempted ? summaries.size() : 0;
         final long succeeded = shutdownAttempted

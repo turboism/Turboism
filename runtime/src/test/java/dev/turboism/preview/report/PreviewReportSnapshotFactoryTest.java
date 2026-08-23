@@ -108,6 +108,7 @@ class PreviewReportSnapshotFactoryTest {
         final RuntimeFailure task = failure("TASK_FAILED", "task", "task.run");
         final RuntimeFailure storage = failure("STORAGE_FAILED", "storage", "storage.readUtf8");
         final RuntimeFailure config = failure("CONFIG_FAILED", "config", "config.read");
+        final RuntimeFailure event = failure("EVENT_FAILED", "event", "event.subscribe");
 
         final var report = PreviewReportSnapshotFactory.create(
             "runtime-failures",
@@ -122,7 +123,7 @@ class PreviewReportSnapshotFactoryTest {
                 List.of(task),
                 List.of(storage),
                 List.of(config),
-                List.of()
+                List.of(event)
             ),
             false
         ).get(PreviewReportType.PREVIEW_RUNTIME);
@@ -133,8 +134,10 @@ class PreviewReportSnapshotFactoryTest {
             .path("code").textValue());
         assertEquals("CONFIG_FAILED", report.path("payload").path("configFailures").get(0)
             .path("code").textValue());
+        assertEquals("EVENT_FAILED", report.path("payload").path("eventFailures").get(0)
+            .path("code").textValue());
         assertThrows(UnsupportedOperationException.class, () -> new RuntimeFailureSnapshot(
-            List.of(task), List.of(storage), List.of(config), List.of()
+            List.of(task), List.of(storage), List.of(config), List.of(event)
         ).taskFailures().add(task));
     }
 
