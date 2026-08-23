@@ -252,11 +252,15 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
             return; // AUTO_BACKUP_SYNC: the scanner owns the upload path
         }
         try {
-            context.backup().backupAfterSave(saved).whenComplete((event, failure) -> {
+            final PluginContext callbackContext = context;
+            callbackContext.backup().backupAfterSave(saved).whenComplete((event, failure) -> {
+                if (!enabled || context != callbackContext) {
+                    return;
+                }
                 if (failure != null) {
                     final Throwable cause = failure instanceof java.util.concurrent.CompletionException ce
                         && ce.getCause() != null ? ce.getCause() : failure;
-                    requireContext().logger().warn(
+                    callbackContext.logger().warn(
                         "SAVE_BACKUP_FAILED " + cause.getClass().getSimpleName()
                             + " doc=" + saved.name()
                             + " path=" + saved.filePath().map(Path::toString).orElse("")
@@ -269,15 +273,18 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
                         }
                     }
                     syncCompletedArtifacts(event.newBackupFiles());
-                    requireContext().logger().info(
+                    callbackContext.logger().info(
                         "BACKUP_AFTER_SAVE_OK files=" + event.newBackupFiles().size()
                     );
                 }
             });
         } catch (RuntimeException | Error failure) {
-            requireContext().logger().warn(
-                "SAVE_BACKUP_UNAVAILABLE " + failure.getClass().getSimpleName()
-            );
+            final PluginContext activeContext = context;
+            if (activeContext != null) {
+                activeContext.logger().warn(
+                    "SAVE_BACKUP_UNAVAILABLE " + failure.getClass().getSimpleName()
+                );
+            }
         }
     }
 

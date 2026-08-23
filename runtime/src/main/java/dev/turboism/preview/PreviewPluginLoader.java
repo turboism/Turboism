@@ -200,7 +200,8 @@ final class PreviewPluginLoader {
             resources.classLoader,
             contextBundle.localization(),
             contextBundle.cleanupEvidence(),
-            contextBundle.eventOwner()
+            contextBundle.eventOwner(),
+            contextBundle.context()
         );
     }
 
@@ -342,19 +343,19 @@ final class PreviewPluginLoader {
             return;
         }
         if (resources.projectLifecycleHooksRegistered) {
-            projectLifecycleHookRegistry.unregister(pluginId);
+            projectLifecycleHookRegistry.unregister(resources.eventOwner.key());
             resources.projectLifecycleHooksRegistered = false;
         }
         if (resources.editorObjectHooksRegistered) {
-            editorObjectHookRegistry.unregister(pluginId);
+            editorObjectHookRegistry.unregister(resources.eventOwner.key());
             resources.editorObjectHooksRegistered = false;
         }
         if (resources.partHooksRegistered) {
-            partHookRegistry.unregister(pluginId);
+            partHookRegistry.unregister(resources.eventOwner.key());
             resources.partHooksRegistered = false;
         }
         if (resources.parameterHooksRegistered) {
-            parameterHookRegistry.unregister(pluginId);
+            parameterHookRegistry.unregister(resources.eventOwner.key());
             resources.parameterHooksRegistered = false;
         }
         disableEnabledAfterFailure(resources, pluginId);
@@ -398,19 +399,19 @@ final class PreviewPluginLoader {
         final String pluginId
     ) {
         if (resources.projectLifecycleHooksRegistered) {
-            projectLifecycleHookRegistry.unregister(pluginId);
+            projectLifecycleHookRegistry.unregister(resources.eventOwner.key());
             resources.projectLifecycleHooksRegistered = false;
         }
         if (resources.editorObjectHooksRegistered) {
-            editorObjectHookRegistry.unregister(pluginId);
+            editorObjectHookRegistry.unregister(resources.eventOwner.key());
             resources.editorObjectHooksRegistered = false;
         }
         if (resources.partHooksRegistered) {
-            partHookRegistry.unregister(pluginId);
+            partHookRegistry.unregister(resources.eventOwner.key());
             resources.partHooksRegistered = false;
         }
         if (resources.parameterHooksRegistered) {
-            parameterHookRegistry.unregister(pluginId);
+            parameterHookRegistry.unregister(resources.eventOwner.key());
             resources.parameterHooksRegistered = false;
         }
         disableEnabledAfterFailure(resources, pluginId);
