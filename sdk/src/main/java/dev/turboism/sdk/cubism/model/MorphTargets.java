@@ -1,13 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.List;
 import java.util.NoSuchElementException;
 
 /** Keyform Morph Targets of one Editor object, in stable host order. */
-@PreviewApi
 public interface MorphTargets {
 
     /** Returns all Morph Targets in stable host order. */

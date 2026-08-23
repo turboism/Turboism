@@ -1,6 +1,5 @@
 package dev.turboism.plugin.palettelabelstyle;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry.Location;
@@ -21,7 +20,6 @@ import java.util.TreeMap;
  * the whole file on every change; this class only owns the portable file format,
  * path, and key helpers.</p>
  */
-@PreviewApi
 public final class LabelStylePersistence {
 
     public static final String DEFAULT_PROJECT_ID = "default";

@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Five independent properties of one Cubism palette entry. */
-@PreviewApi
 public record PaletteEntryState(
     Optional<Float> fontSize,
     Optional<Boolean> bold,

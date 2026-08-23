@@ -1,6 +1,5 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBinding;
@@ -18,7 +17,6 @@ import java.util.Objects;
  * BLEND_SHAPE rows transfer through the owner's Morph Targets, KEYFORM_GRID
  * rows through the keyform batch transfer.</p>
  */
-@PreviewApi
 public record BoundParameterSnapshot(
     ParameterId parameterId,
     String name,

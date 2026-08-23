@@ -1,11 +1,9 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Counted result of one batch-transfer apply pass. */
-@PreviewApi
 public record BatchTransferOutcome(
     int applied,
     int failed,

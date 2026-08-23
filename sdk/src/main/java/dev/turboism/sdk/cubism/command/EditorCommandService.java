@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Set;
 
 /** Executes the safe typed subset of native Cubism Editor menu operations. */
-@PreviewApi
 public interface EditorCommandService {
     Set<EditorCommand> available();
 
@@ -20,7 +18,6 @@ public interface EditorCommandService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements EditorCommandService {
         INSTANCE;
 

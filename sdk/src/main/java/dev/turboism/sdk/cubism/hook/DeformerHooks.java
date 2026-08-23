@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
@@ -8,7 +7,6 @@ import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
 /** Override-based lifecycle hooks for Warp and Rotation Deformer authoring writes. */
-@PreviewApi
 public interface DeformerHooks {
     default float beforeSetDeformerOpacity(final Deformer deformer, final float opacity) { return opacity; }
     default void onDeformerOpacityChanged(final Deformer deformer, final float oldOpacity, final float newOpacity) { }

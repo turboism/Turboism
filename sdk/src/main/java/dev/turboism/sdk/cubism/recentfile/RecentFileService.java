@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.recentfile;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 
 /** Read-only projection of the host's Recent Files menu (merged with the current project). */
-@PreviewApi
 public interface RecentFileService {
 
     /**
@@ -20,7 +18,6 @@ public interface RecentFileService {
         return Unavailable.INSTANCE;
     }
 
-    @PreviewApi
     enum Unavailable implements RecentFileService {
         INSTANCE;
 

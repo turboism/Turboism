@@ -133,13 +133,14 @@ public final class TextureAtlasAutoLayoutDialogTransformer implements ClassFileT
         return transformed[0] ? writer.toByteArray() : null;
     }
 
-    /** Best-effort diagnostic file for exact-host dialog transformation evidence. */
+    /** Best-effort diagnostic file for explicitly configured exact-host evidence. */
     private static void diag(final String message) {
+        final String home = System.getProperty("turboism.home");
+        if (home == null || home.isBlank()) return;
         try {
-            final java.nio.file.Path home =
-                java.nio.file.Path.of(System.getProperty("turboism.home", "."));
-            final java.nio.file.Path file =
-                home.resolve("logs").resolve("dialog-transform.log");
+            final java.nio.file.Path file = java.nio.file.Path.of(home)
+                .resolve("logs")
+                .resolve("dialog-transform.log");
             java.nio.file.Files.createDirectories(file.getParent());
             java.nio.file.Files.writeString(
                 file,

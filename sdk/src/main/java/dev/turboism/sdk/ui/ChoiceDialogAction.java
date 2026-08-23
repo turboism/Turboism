@@ -1,11 +1,9 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** One secondary action button rendered inside a runtime choice dialog. */
-@PreviewApi
 public record ChoiceDialogAction(String id, String label) {
     public ChoiceDialogAction {
         Objects.requireNonNull(id, "id");

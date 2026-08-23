@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Configures the active model canvas dimensions in pixels. */
-@PreviewApi
 public record EditorCanvasSettingsRequest(int widthPixels, int heightPixels) implements EditorParameterizedRequest {
     /** Host-verified bounds: the native canvas dialog rejects values below 16 and clamps above 30000. */
     public EditorCanvasSettingsRequest {

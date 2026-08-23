@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Canvas;
 
 /**
@@ -9,7 +8,6 @@ import dev.turboism.sdk.cubism.model.Canvas;
  * <p>Values are copied from the Core {@code CubismCanvasInfo} surface at read time;
  * the projection never holds a Core object.</p>
  */
-@PreviewApi
 public record OwnedCanvasInfo(
     float widthPixels,
     float heightPixels,
