@@ -1,12 +1,10 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Map;
 import java.util.Objects;
 
 /** Request to execute one installed script. */
-@PreviewApi
 public record ScriptRunRequest(
     ScriptId scriptId,
     Map<String, String> arguments

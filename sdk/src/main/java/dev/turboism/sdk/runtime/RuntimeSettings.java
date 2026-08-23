@@ -1,11 +1,9 @@
 package dev.turboism.sdk.runtime;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Immutable global runtime settings edited by Turboism's built-in settings panel. */
-@PreviewApi
 public record RuntimeSettings(
     boolean safeMode,
     String logLevel,

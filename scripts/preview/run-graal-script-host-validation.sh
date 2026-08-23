@@ -9,8 +9,12 @@ usage() {
 Usage: run-graal-script-host-validation.sh [run-label] [options forwarded to run-cubism-host-validation.sh]
 
 Environment:
-  TURBOISM_GRAAL_JAVA   Windows-visible Graal Java path; default is the current
-                        validation host installation if present.
+  TURBOISM_GRAAL_JAVA
+                        Required Windows-visible Graal Java executable.
+  TURBOISM_GRAAL_VALIDATION_FIXTURE_REMOTE
+                        Required validation-host path to the licensed fixture.
+  TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256
+                        Required SHA-256 binding for that fixture.
   TURBOISM_CUBISM_JAVA  Optional Windows-visible Java executable for Cubism itself.
                         The isolated script host remains a separate process.
 EOF
@@ -26,11 +30,27 @@ if [ "${1:-}" = '--help' ]; then
   exit 0
 fi
 
-fixture_src='/home/local-user/Documents/测试 混合模式.cmo3'
-fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
-default_graal_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
-graal_java="${TURBOISM_GRAAL_JAVA:-$default_graal_java}"
+fixture_src="${TURBOISM_GRAAL_VALIDATION_FIXTURE_REMOTE:-}"
+fixture_sha256="${TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256:-}"
+graal_java="${TURBOISM_GRAAL_JAVA:-}"
 cubism_java="${TURBOISM_CUBISM_JAVA:-}"
+
+[ -n "$fixture_src" ] || {
+  echo "error: TURBOISM_GRAAL_VALIDATION_FIXTURE_REMOTE is required" >&2
+  exit 2
+}
+[ -n "$fixture_sha256" ] || {
+  echo "error: TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256 is required" >&2
+  exit 2
+}
+[[ "$fixture_sha256" =~ ^[0-9a-fA-F]{64}$ ]] || {
+  echo "error: TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256 must be 64 hex characters" >&2
+  exit 2
+}
+[ -n "$graal_java" ] || {
+  echo "error: TURBOISM_GRAAL_JAVA is required" >&2
+  exit 2
+}
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"

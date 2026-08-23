@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Signals an attempt to begin a transaction while one is already active on the same scope;
  * transactions do not nest. Carries error code 1001 at {@code ERROR} severity.
  */
-@PreviewApi
 public class TransactionAlreadyActiveException extends TransactionException {
 
     public TransactionAlreadyActiveException(String transactionId, String message) {

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.context;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.permission.RequiresPermission;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -20,7 +19,6 @@ import java.util.function.Predicate;
  * <p>A contribution is validated when it is constructed, not when the menu opens, so an entry that
  * is impossible for its location fails at registration rather than silently never appearing.</p>
  */
-@PreviewApi
 @RequiresPermission("turboism.ui.context-menu.contribute")
 public interface ContextMenuRegistry {
 

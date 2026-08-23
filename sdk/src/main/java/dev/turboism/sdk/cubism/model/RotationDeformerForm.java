@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Immutable Rotation Deformer keyform committed as one Editor operation. */
-@PreviewApi
 public record RotationDeformerForm(
     float angle,
     float originX,

@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Host-neutral identity of a native mesh-edit subtool. */
-@PreviewApi
 public enum MeshEditTool {
     ARROW,
     POINT_ADD,

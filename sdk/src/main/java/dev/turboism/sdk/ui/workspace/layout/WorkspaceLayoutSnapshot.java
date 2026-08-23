@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -15,7 +14,6 @@ import java.util.Optional;
  * {@code root} when the host tree contains no dock components (for example a canvas-only
  * workspace).</p>
  */
-@PreviewApi
 public record WorkspaceLayoutSnapshot(
     Availability availability,
     Optional<DockComponent> root,

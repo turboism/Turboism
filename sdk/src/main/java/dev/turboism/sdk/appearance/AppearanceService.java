@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -14,7 +13,6 @@ import java.util.concurrent.CompletionStage;
  * may only restore an appearance it owns. Where the host offers no appearance control at all,
  * {@link #unavailable()} supplies a conformant no-op implementation.
  */
-@PreviewApi
 public interface AppearanceService {
 
     CompletionStage<AppearanceStatus> current();

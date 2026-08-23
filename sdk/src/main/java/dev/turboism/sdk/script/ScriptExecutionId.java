@@ -1,11 +1,9 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Runtime identity of one script execution. */
-@PreviewApi
 public record ScriptExecutionId(String value) {
 
     public ScriptExecutionId {

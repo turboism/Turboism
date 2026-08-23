@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Signals that a write command failed validation before being staged, so the model is
@@ -8,7 +7,6 @@ import dev.turboism.sdk.PreviewApi;
  * validating caller rather than fixed, allowing per-rule diagnostics; severity is always
  * {@code ERROR}.
  */
-@PreviewApi
 public class WriteValidationException extends TransactionException {
 
     public WriteValidationException(String transactionId, int errorCode, String message) {

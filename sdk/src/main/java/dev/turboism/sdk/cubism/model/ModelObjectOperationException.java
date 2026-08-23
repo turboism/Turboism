@@ -1,14 +1,11 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Stable failure classification for model-object automation. */
-@PreviewApi
 public final class ModelObjectOperationException extends RuntimeException {
 
-    @PreviewApi
     public enum Code {
         UNAVAILABLE,
         NOT_FOUND,
