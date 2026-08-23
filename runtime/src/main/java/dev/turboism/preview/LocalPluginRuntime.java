@@ -340,6 +340,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            contextFactory.close();
             editorLifecycleEvents.close();
             projectFileLifecycle.close();
             editorObjectLifecycle.close();

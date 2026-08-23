@@ -17,7 +17,7 @@ import java.util.Objects;
 import java.util.Locale;
 
 /** Assembles the preview-only PluginContext services owned by one plugin scope. */
-final class PreviewPluginContextFactory {
+final class PreviewPluginContextFactory implements AutoCloseable {
 
     private final RuntimeHostAdapterAccess hostAccess;
     private final Path home;
@@ -89,6 +89,11 @@ final class PreviewPluginContextFactory {
 
     void preflightEventContracts(final PluginDescriptor descriptor) {
         servicesFactory.preflightEventContracts(descriptor);
+    }
+
+    @Override
+    public void close() {
+        servicesFactory.close();
     }
 
     PluginContextBundle create(
