@@ -7,7 +7,6 @@ import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.SelectionSnapshot;
-import dev.turboism.sdk.cubism.hook.ModelHooks;
 import dev.turboism.sdk.cubism.hook.ParameterHooks;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
@@ -68,7 +67,6 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(TurboismPlugin.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(ParameterHooks.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(PartHooks.class.isAssignableFrom(CubismPlugin.class));
-        assertTrue(ModelHooks.class.isAssignableFrom(CubismPlugin.class));
         assertTrue(SemanticOperationHooks.class.isAssignableFrom(CubismPlugin.class));
 
         final CubismPlugin plugin = new CubismPlugin() { };
@@ -78,9 +76,6 @@ class UnifiedCubismModelApiContractTest {
         assertDoesNotThrow(() -> plugin.afterSetParameterValue(null, 1.0f));
         assertDoesNotThrow(() -> plugin.onPartOpacityChanged(null, 0.0f, 1.0f));
         assertDoesNotThrow(() -> plugin.afterSetPartOpacity(null, 1.0f));
-        assertDoesNotThrow(() -> plugin.beforeUpdateModel(null));
-        assertDoesNotThrow(() -> plugin.onModelUpdated(null));
-        assertDoesNotThrow(() -> plugin.afterUpdateModel(null));
         final CubismOperationEvent operation = new CubismOperationEvent(
             1L,
             CubismOperation.OPEN_DOCUMENT,

@@ -10,6 +10,7 @@ import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.event.cubism.EditorExitEvent;
 import dev.turboism.sdk.event.cubism.EditorStartupEvent;
+import dev.turboism.sdk.event.cubism.ModelUpdateEvent;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
@@ -89,7 +90,8 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(WarpDeformerGridEvent.Before.class)
             || subscriptionType.isAssignableFrom(RotationDeformerBaseAngleEvent.Before.class)
             || subscriptionType.isAssignableFrom(RotationDeformerFormEvent.Before.class)
-            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(CubismOperationLifecycleEvent.Before.class)
+            || subscriptionType.isAssignableFrom(ModelUpdateEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -128,7 +130,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(EditorStartupEvent.After.class)
             || subscriptionType.isAssignableFrom(EditorExitEvent.Before.class)
             || subscriptionType.isAssignableFrom(EditorExitEvent.On.class)
-            || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(EditorExitEvent.After.class)
+            || subscriptionType.isAssignableFrom(ModelUpdateEvent.On.class)
+            || subscriptionType.isAssignableFrom(ModelUpdateEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
