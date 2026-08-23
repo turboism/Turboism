@@ -68,7 +68,7 @@ public record EventSubscriberDescriptor(
             handler.handle(eventType.cast(event));
         return new EventSubscriberDescriptor(
             entrypoint,
-            null,
+            generatedMethod(entrypoint, eventType, canonicalSignature),
             eventType,
             priority,
             entrypointOrdinal,
@@ -79,9 +79,6 @@ public record EventSubscriberDescriptor(
     }
 
     public String failureBoundary() {
-        if (method == null) {
-            return "event.subscribe";
-        }
         final FailureBoundary methodBoundary = method.getAnnotation(FailureBoundary.class);
         if (methodBoundary != null) {
             return requireText(methodBoundary.value(), "@FailureBoundary value");
@@ -97,6 +94,37 @@ public record EventSubscriberDescriptor(
     public boolean noFailureInterception() {
         return entrypoint.getClass().isAnnotationPresent(NoFailureInterception.class)
             || (method != null && method.isAnnotationPresent(NoFailureInterception.class));
+    }
+
+    private static <T extends EventBus.TurboismEvent> Method generatedMethod(
+        final Object entrypoint,
+        final Class<T> eventType,
+        final String canonicalSignature
+    ) {
+        final Object target = Objects.requireNonNull(entrypoint, "entrypoint");
+        try {
+            return target.getClass().getMethod(
+                methodName(canonicalSignature),
+                Objects.requireNonNull(eventType, "eventType")
+            );
+        } catch (NoSuchMethodException failure) {
+            throw new IllegalArgumentException(
+                "Generated subscriber method is unavailable: " + canonicalSignature,
+                failure
+            );
+        }
+    }
+
+    private static String methodName(final String canonicalSignature) {
+        final String signature = requireText(canonicalSignature, "canonicalSignature");
+        final int separator = signature.indexOf('#');
+        final int parameters = signature.indexOf('(', separator + 1);
+        if (separator < 0 || parameters <= separator + 1) {
+            throw new IllegalArgumentException(
+                "Generated subscriber canonicalSignature is invalid: " + signature
+            );
+        }
+        return signature.substring(separator + 1, parameters);
     }
 
     public void invoke(final EventBus.TurboismEvent event) throws Throwable {
