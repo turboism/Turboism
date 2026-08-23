@@ -1,18 +1,78 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
+import java.util.List;
 import java.util.Set;
 
-/** Runtime trust root for the Cubism 5.3.02 Editor model read/write binding. */
+/**
+ * Runtime trust root for the Cubism Editor model read/write binding.
+ *
+ * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data. The two versions deliberately authorise different capability and alias sets: 5.2.03
+ * exposes a strict subset, and the family supplies that scope per record.</p>
+ */
 public final class EditorModelVerificationManifest {
 
-    public static final String VERIFICATION_ID = "cubism-5.3.02.editor-model.static";
-    public static final String RECORD_SHA256 =
-"9170b2df5758a5378a197b9798ac7fb370a35e57e38019808d3a4bccf1e3720c";
-    public static final String CUBISM_VERSION = "5.3.02";
-    public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = 41_922_739L;
-    public static final String ARTIFACT_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "cubism-5.2.03.editor-model.static",
+        "76b55c9d04a2e834a652a7d96d3b79a840d354bc532dd95bf72278f6f4524e24",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2.03"
+    );
+
+    /** Reviewed Editor-model record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "cubism-5.3.02.editor-model.static",
+        "36d7b70b6892d171aeb8a2f3ca869641bb4998598516858436f777c0ca74cd46",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.editor-model.read",
@@ -94,17 +154,13 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.parameter-source-set",
         "cubism.editor-model.model-source.root-part",
         "cubism.editor-model.model-source.set-name",
-        "cubism.editor-model.morph-target-set.create-undo",
         "cubism.editor-model.morph-target-set.morph-targets",
-        "cubism.editor-model.morph-target-set.remove",
         "cubism.editor-model.morph-target-utils.instance",
         "cubism.editor-model.morph-target.change-parameter",
         "cubism.editor-model.morph-target.class",
         "cubism.editor-model.morph-target.key-value",
         "cubism.editor-model.morph-target.keyform-guid",
         "cubism.editor-model.morph-target.parameter-guid",
-        "cubism.editor-model.morph-target.set-parameter",
-        "cubism.editor-model.morph-target.set-parameter-and-key-value",
         "cubism.editor-model.parameter-group-handler.add-group-child",
         "cubism.editor-model.parameter-group-handler.add-parameter-child",
         "cubism.editor-model.parameter-group-handler.class",
@@ -112,7 +168,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.parameter-group-guid.create",
         "cubism.editor-model.parameter-group-id.create",
         "cubism.editor-model.parameter-group.create",
-        "cubism.editor-model.parameter-group.guid",
         "cubism.editor-model.parameter-group.handler",
         "cubism.editor-model.parameter-group.set-folder-opened",
         "cubism.editor-model.parameter-group.set-name",
@@ -189,9 +244,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.app-controller.current-document",
         "cubism.editor-model.modeling-document.class",
         "cubism.editor-model.modeling-document.model-source",
-        "cubism.editor-model.modeling-document.last-active-view",
         "cubism.editor-model.modeling-view.class",
-        "cubism.editor-model.modeling-view.model",
         "cubism.editor-model.model-source.class",
         "cubism.editor-model.model-source.name",
         "cubism.editor-model.model-source.guid",
@@ -200,7 +253,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.set-default-keyform-locked",
         "cubism.editor-model.app-controller.edit-level",
         "cubism.editor-model.app-controller.set-edit-level",
-        "cubism.editor-model.model-source.all-parameters",
         "cubism.editor-model.model-source.root-parameter-group",
         "cubism.editor-model.model.class",
         "cubism.editor-model.model.parameter-set",
@@ -314,7 +366,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.update-visible-lock-hierarchy",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
@@ -534,7 +585,6 @@ public final class EditorModelVerificationManifest {
      * are preserved.
      */
     private static final Set<String> PART_INSPECTOR_5302_ONLY_ALIASES = Set.of(
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.clip-guid-list",
         "cubism.editor-model.part-source.alpha-composition",
@@ -551,7 +601,6 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.model-source.update-instances",
         "cubism.editor-model.model.parts",
         "cubism.editor-model.part.class",
-        "cubism.editor-model.part.id",
         "cubism.editor-model.part.source",
         "cubism.editor-model.part.current-keyform",
         "cubism.editor-model.part-source.class",
@@ -579,6 +628,14 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.part-id.value"
     );
 
+    /**
+     * @param artifact digest of the host jar
+     * @return the profile suffix used to name this slice's bundled resources
+     *     (for example {@code 5.3.02}), derived from the reviewed record rather
+     *     than from any version the host reports
+     * @throws IllegalArgumentException if the artifact is not a reviewed Editor
+     *     model build
+     */
     public static String resourceProfileForArtifact(final HostArtifactDigest artifact) {
         return forArtifact(artifact).profileId().substring("cubism-".length());
     }
@@ -586,56 +643,21 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {
-        if (artifact.size() == EditorModelVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(EditorModelVerificationManifest52.ARTIFACT_SHA256)) {
-            return manifest(
-                EditorModelVerificationManifest52.VERIFICATION_ID,
-                EditorModelVerificationManifest52.RECORD_SHA256,
-                EditorModelVerificationManifest52.CUBISM_VERSION,
-                EditorModelVerificationManifest52.PROFILE_ID,
-                EditorModelVerificationManifest52.ARTIFACT_SIZE,
-                EditorModelVerificationManifest52.ARTIFACT_SHA256,
+        final ReviewedSliceRecord record =
+            ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "Editor model");
+        // The two reviewed versions authorise different capability and alias sets: 5.2.03 exposes
+        // a strict subset. The record carries identity; the family supplies the per-version scope.
+        if (RECORD_5_2_03.equals(record)) {
+            return record.toManifest(
+                ADAPTER_SLICE_ID,
                 ObjectContextMenuVerificationManifest.capabilities(cubism52Capabilities()),
                 ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return manifest(
-                VERIFICATION_ID,
-                RECORD_SHA256,
-                CUBISM_VERSION,
-                PROFILE_ID,
-                ARTIFACT_SIZE,
-                ARTIFACT_SHA256,
-                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
-                ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
-            );
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism Editor model artifact"
-        );
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final String verificationId,
-        final String recordSha256,
-        final String cubismVersion,
-        final String profileId,
-        final long artifactSize,
-        final String artifactSha256,
-        final Set<String> capabilityIds,
-        final Set<String> requiredAliases
-    ) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifactSize,
-            artifactSha256,
+        return record.toManifest(
             ADAPTER_SLICE_ID,
-            capabilityIds,
-            requiredAliases
+            ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+            ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
         );
     }
 
@@ -651,7 +673,17 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
-    private static Set<String> cubism52Capabilities() {
+    /**
+     * Returns the capability set the reviewed 5.2.03 Editor-model record authorises.
+     *
+     * <p>5.2.03 is not simply a subset of 5.3.02: three capabilities are <em>substituted</em>
+     * rather than dropped, because part opacity, inspector drawable write and part inspector all
+     * bind different members on that version. This is the single definition of that difference;
+     * callers and tests must not restate it.</p>
+     *
+     * @return an immutable capability set for exact Cubism 5.2.03
+     */
+    public static Set<String> cubism52Capabilities() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
         values.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
         values.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
@@ -676,7 +708,15 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
-    private static Set<String> cubism52Aliases() {
+    /**
+     * Returns the selector aliases the reviewed 5.2.03 Editor-model record authorises.
+     *
+     * <p>Like {@link #cubism52Capabilities()}, this substitutes rather than merely subtracts, and
+     * is the single definition of the 5.2.03 alias scope.</p>
+     *
+     * @return an immutable alias set for exact Cubism 5.2.03
+     */
+    public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);

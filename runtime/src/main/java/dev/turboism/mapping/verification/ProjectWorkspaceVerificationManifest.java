@@ -1,18 +1,42 @@
 package dev.turboism.mapping.verification;
 
+import java.util.List;
 import java.util.Set;
 
-/** Runtime-owned allowlist for the reviewed Cubism 5.3.02 project/workspace evidence. */
+/**
+ * Runtime-owned allowlist for the reviewed Cubism project/workspace evidence.
+ *
+ * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data; every other artifact fails closed.</p>
+ */
 public final class ProjectWorkspaceVerificationManifest {
 
-    public static final String VERIFICATION_ID = "m15.cubism-5.3.02.project-workspace.static";
-    public static final String RECORD_SHA256 =
-        "182659e0b3ccae047689ade53bf42e0b441e8144d996242b0cb888f0a0c61191";
-    public static final String CUBISM_VERSION = "5.3.02";
-    public static final String PROFILE_ID = "cubism-5.3.02";
-    public static final long ARTIFACT_SIZE = 41922739L;
-    public static final String ARTIFACT_SHA256 =
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    /** Cubism version reported for the reviewed 5.2.03 artifact. */
+    public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
+
+    /** Cubism version reported for the reviewed 5.3.02 artifact. */
+    public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Reviewed project/workspace record admitted for exact Cubism 5.2.03. */
+    public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_2_03,
+        "m15.cubism-5.2.03.project-workspace.static",
+        "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
+        CUBISM_VERSION_5_2_03,
+        "cubism-5.2.03"
+    );
+
+    /** Reviewed project/workspace record admitted for exact Cubism 5.3.02. */
+    public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_02,
+        "m15.cubism-5.3.02.project-workspace.static",
+        "182659e0b3ccae047689ade53bf42e0b441e8144d996242b0cb888f0a0c61191",
+        CUBISM_VERSION_5_3_02,
+        "cubism-5.3.02"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+
     public static final String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
     public static final Set<String> CAPABILITY_IDS = Set.of(
         "cubism.project.read",
@@ -44,13 +68,19 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism.guid.value"
     );
 
-    /** Authorizes the complete project/workspace slice for an exact reviewed Cubism version. */
+    /**
+     * Authorizes the complete project/workspace slice for an exact reviewed Cubism version.
+     *
+     * @param resolver the resolver to test, may be null
+     * @return {@code true} only when the resolver reports one reviewed version and authorises
+     *     the full slice, capability and alias set
+     */
     public static boolean authorizes(final VerifiedMemberResolver resolver) {
         if (resolver == null) {
             return false;
         }
-        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION)
-            || resolver.isExactCubismVersion(ProjectWorkspaceVerificationManifest52.CUBISM_VERSION);
+        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION_5_3_02)
+            || resolver.isExactCubismVersion(CUBISM_VERSION_5_2_03);
         return reviewedVersion && resolver.authorizes(
             ADAPTER_SLICE_ID,
             CAPABILITY_IDS,
@@ -61,65 +91,20 @@ public final class ProjectWorkspaceVerificationManifest {
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(
         final HostArtifactDigest artifact
     ) {
-        if (artifact.size() == ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256)) {
-            return manifest(
-                ProjectWorkspaceVerificationManifest52.VERIFICATION_ID,
-                ProjectWorkspaceVerificationManifest52.RECORD_SHA256,
-                ProjectWorkspaceVerificationManifest52.CUBISM_VERSION,
-                ProjectWorkspaceVerificationManifest52.PROFILE_ID,
-                ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE,
-                ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256
-            );
-        }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return manifest(
-                VERIFICATION_ID,
-                RECORD_SHA256,
-                CUBISM_VERSION,
-                PROFILE_ID,
-                ARTIFACT_SIZE,
-                ARTIFACT_SHA256
-            );
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism project/workspace artifact"
-        );
+        return ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "project/workspace")
+            .toManifest(ADAPTER_SLICE_ID, CAPABILITY_IDS, REQUIRED_ALIASES);
     }
 
-    /** Returns the exact reviewed Cubism version for an admitted project/workspace artifact. */
+    /**
+     * Returns the exact reviewed Cubism version for an admitted project/workspace artifact.
+     *
+     * @param artifact the observed host artifact identity
+     * @return the reviewed Cubism version string for that artifact
+     * @throws IllegalArgumentException when the artifact is not reviewed for this family
+     */
     public static String versionForArtifact(final HostArtifactDigest artifact) {
-        if (artifact.size() == ProjectWorkspaceVerificationManifest52.ARTIFACT_SIZE
-            && artifact.sha256().equals(ProjectWorkspaceVerificationManifest52.ARTIFACT_SHA256)) {
-            return ProjectWorkspaceVerificationManifest52.CUBISM_VERSION;
-        }
-        if (artifact.size() == ARTIFACT_SIZE && artifact.sha256().equals(ARTIFACT_SHA256)) {
-            return CUBISM_VERSION;
-        }
-        throw new IllegalArgumentException(
-            "host artifact is not a reviewed Cubism project/workspace artifact"
-        );
-    }
-
-    private static PinnedVerifiedResolverWorkflow.Manifest manifest(
-        final String verificationId,
-        final String recordSha256,
-        final String cubismVersion,
-        final String profileId,
-        final long artifactSize,
-        final String artifactSha256
-    ) {
-        return new PinnedVerifiedResolverWorkflow.Manifest(
-            verificationId,
-            recordSha256,
-            cubismVersion,
-            profileId,
-            artifactSize,
-            artifactSha256,
-            ADAPTER_SLICE_ID,
-            CAPABILITY_IDS,
-            REQUIRED_ALIASES
-        );
+        return ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "project/workspace")
+            .cubismVersion();
     }
 
     private ProjectWorkspaceVerificationManifest() {

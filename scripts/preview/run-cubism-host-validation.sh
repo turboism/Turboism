@@ -10,6 +10,9 @@
 # and result files. The runner never launches Cubism's Java main class directly.
 set -euo pipefail
 
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 usage() {
   cat <<'EOF'
 Usage:
@@ -36,7 +39,9 @@ Common options:
   --home-file <local-file:relative-home-path>   repeatable
   --home-dir <local-directory:relative-home-path> repeatable
   --fixture-sha256 <expected source hash>
-  --fixture-name <remote filename, default fixture.cmo3>
+  --fixture-name <remote filename suffix>
+      The copied project is always prefixed with the generated validation run ID.
+      By default only the source extension is retained; use this for a host-specific suffix.
   --require-fixture-unchanged
   --ready-marker <runtime-log marker>        repeatable
   --failure-marker <runtime-log marker>      repeatable
@@ -51,10 +56,10 @@ Common options:
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
-  --ssh-host <user@host, default local-user@validation-host.invalid>
-  --ssh-key <path>
-  --golden-prefix <host path, default /home/local-user/.proton>
-  --remote-root <host path, default /home/local-user/TurboismValidation>
+  --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
+  --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
+  --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
+  --remote-root <host path, or TURBOISM_HOST_VALIDATION_REMOTE_ROOT>
   --local-evidence-dir <local path>
   --display <X display, default :0>
   --proton-wrapper <host executable, default shorin-proton-wrapper>
@@ -63,9 +68,10 @@ Common options:
   --dry-run
 
 Placeholders in --jvm-option:
-  {TASK_ID}  generated validation run ID
-  {HOME}     Windows path to the task-scoped Turboism home
-  {FIXTURE}  Windows path to the copied fixture
+  {TASK_ID}      generated validation run ID
+  {HOME}         Windows path to the task-scoped Turboism home
+  {FIXTURE}      Windows path to the copied fixture
+  {FIXTURE_NAME} copied fixture basename
 EOF
 }
 
@@ -168,7 +174,7 @@ home_dirs=()
 fixture_remote=''
 fixture_local=''
 fixture_sha256=''
-fixture_name='fixture.cmo3'
+fixture_name=''
 require_fixture_unchanged=0
 ready_markers=()
 failure_markers=()
@@ -187,14 +193,14 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
-ssh_host='local-user@validation-host.invalid'
-ssh_key="$HOME/.ssh/id_ed25519_validation"
-golden_prefix='/home/local-user/.proton'
-remote_root='/home/local-user/TurboismValidation'
+ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
+ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
+golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
+remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
 local_evidence_dir=''
 display=':0'
 proton_wrapper='shorin-proton-wrapper'
-proton_runner='/home/local-user/.local/share/Steam/compatibilitytools.d/GE-Proton10-34/proton'
+proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
 keep_prefix=0
 dry_run=0
 
@@ -249,6 +255,11 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
+[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
+[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+[ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
+[ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
+[ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
 name="$(safe_label "$name")"
 run_label="$(safe_label "$run_label")"
 [ -n "$name" ] || fail "validation name becomes empty after sanitization"
@@ -292,7 +303,9 @@ if [ -n "$fixture_sha256" ]; then
   [[ "$fixture_sha256" =~ ^[0-9a-fA-F]{64}$ ]] || fail "fixture SHA-256 must contain exactly 64 hexadecimal characters"
   fixture_sha256="${fixture_sha256,,}"
 fi
-[[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "fixture name must be a simple filename"
+if [ -n "$fixture_name" ]; then
+  [[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "fixture name must be a simple filename suffix"
+fi
 
 if [ -n "$result_marker" ] && [ -n "$result_file" ]; then
   fail "use only one result mode: --result-marker or --result-file"
@@ -406,7 +419,26 @@ done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-task_id="$name-$version-$run_label-$timestamp"
+if [ "${TURBOISM_HOST_VALIDATION_RUN_NONCE+x}" = x ]; then
+  [[ "$TURBOISM_HOST_VALIDATION_RUN_NONCE" =~ ^[A-Za-z0-9._-]{1,32}$ ]] \
+    || fail "TURBOISM_HOST_VALIDATION_RUN_NONCE must be a safe bounded label"
+  run_nonce="$TURBOISM_HOST_VALIDATION_RUN_NONCE"
+else
+  run_nonce="$(printf '%06d' "$$")"
+fi
+task_id="$name-$version-$run_label-$timestamp-$run_nonce"
+if [ -n "$fixture_name" ]; then
+  fixture_name="$task_id-$fixture_name"
+else
+  source_fixture_name="${fixture_local:+$(basename "$fixture_local")}"
+  source_fixture_name="${source_fixture_name:-$(basename "$fixture_remote")}"
+  case "$source_fixture_name" in
+    *.*) fixture_extension=".${source_fixture_name##*.}" ;;
+    *) fixture_extension='' ;;
+  esac
+  fixture_name="$task_id$fixture_extension"
+fi
+[[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "fixture name must be a simple filename"
 task_dir="$remote_root/$name/$version-$run_label/$task_id"
 home_dir="$task_dir/turboism-home"
 prefix_dir="$task_dir/prefix"
@@ -428,6 +460,9 @@ if [ "$dry_run" = 1 ]; then
     "homeConfigStage=$home_dir/config.json" \
     "fixtureRemote=$fixture_remote" \
     "fixtureLocal=$fixture_local" \
+    "fixtureName=$fixture_name" \
+    "fixturePath=$fixture_path" \
+    "validationFixtureNameJvmOption=-Dturboism.validation.fixtureName=$fixture_name" \
     "taskDir=$task_dir" \
     "homeDir=$home_dir" \
     "pluginStageDir=$home_dir/plugins" \
@@ -464,27 +499,21 @@ if [ "$dry_run" = 1 ]; then
     printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
   done
   for index in "${!jvm_options[@]}"; do
-    printf 'jvmOption.%s=%s\n' "$index" "${jvm_options[$index]}"
-    printf 'jvmOption.%s.quoted=%s\n' "$index" "$(windows_java_tool_option "${jvm_options[$index]}")"
+    dry_option="${jvm_options[$index]}"
+    dry_win_home="$(z_path "$home_dir")"
+    dry_win_fixture="$(z_path "$fixture_path")"
+    dry_option="${dry_option//\{TASK_ID\}/$task_id}"
+    dry_option="${dry_option//\{HOME\}/$dry_win_home}"
+    dry_option="${dry_option//\{FIXTURE\}/$dry_win_fixture}"
+    dry_option="${dry_option//\{FIXTURE_NAME\}/$fixture_name}"
+    printf 'jvmOption.%s=%s\n' "$index" "$dry_option"
+    printf 'jvmOption.%s.quoted=%s\n' "$index" "$(windows_java_tool_option "$dry_option")"
   done
   exit 0
 fi
 
 [ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
 
-if [ "${TURBOISM_HOST_VALIDATION_LOCK_FILE+x}" = x ]; then
-  [ -n "$TURBOISM_HOST_VALIDATION_LOCK_FILE" ] \
-    || fail "TURBOISM_HOST_VALIDATION_LOCK_FILE must not be empty"
-  lock_file="$TURBOISM_HOST_VALIDATION_LOCK_FILE"
-else
-  lock_file="${TMPDIR:-/tmp}/turboism-cubism-host-validation.lock"
-fi
-if ! exec {lock_fd}>>"$lock_file"; then
-  fail "cannot open host validation lock file: $lock_file"
-fi
-if ! flock -n "$lock_fd"; then
-  fail "host validation lock is busy: $lock_file"
-fi
 ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
 scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
 local_tmp="$(mktemp -d)"
@@ -868,6 +897,7 @@ all_jvm_options=(
   "-Dturboism.home=$win_home"
   "-Dturboism.validation.runId=$task_id"
   "-Dturboism.validation.hostVersion=$version"
+  "-Dturboism.validation.fixtureName=$fixture_name"
 )
 all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout;hostClass=$agent_host_class")
 for spec in "${resolved_aux_agents[@]}"; do
@@ -879,6 +909,7 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{TASK_ID\}/$task_id}"
   option="${option//\{HOME\}/$win_home}"
   option="${option//\{FIXTURE\}/$win_fixture}"
+  option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
 java_tool_options=''

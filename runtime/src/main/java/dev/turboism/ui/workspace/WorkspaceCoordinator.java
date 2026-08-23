@@ -10,6 +10,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Serializes all workspace reads and mutations against a single connected
+ * {@link WorkspaceHostProvider}, running every host touch on the AWT event
+ * dispatch thread.
+ *
+ * <p>The coordinator fails closed rather than propagating host trouble: a
+ * missing provider, a closed coordinator, a provider replaced reentrantly
+ * during an operation, or a {@link RuntimeException} out of the host all
+ * produce an unavailable or failed result with a stable reason code
+ * instead of an exception. State read from a provider that was swapped out
+ * mid-operation is never returned.</p>
+ */
 public final class WorkspaceCoordinator implements AutoCloseable {
     private static final WorkspaceStatus UNAVAILABLE = new WorkspaceStatus(
         WorkspaceStatus.Availability.UNAVAILABLE,
@@ -22,6 +34,14 @@ public final class WorkspaceCoordinator implements AutoCloseable {
     private WorkspaceHostProvider provider;
     private boolean closed;
 
+    /**
+     * Installs the provider all later operations run against, replacing any
+     * previously connected one.
+     *
+     * @param value provider to connect
+     * @throws IllegalStateException if the coordinator is already closed
+     * @throws NullPointerException if {@code value} is {@code null}
+     */
     public void connect(final WorkspaceHostProvider value) {
         synchronized (monitor) {
             requireOpen();
@@ -29,6 +49,12 @@ public final class WorkspaceCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes the given provider if it is still the connected one; a stale
+     * provider is ignored, so a late disconnect cannot detach a newer one.
+     *
+     * @param value provider to detach
+     */
     public void disconnect(final WorkspaceHostProvider value) {
         synchronized (monitor) {
             if (provider == value) provider = null;
@@ -59,15 +85,38 @@ public final class WorkspaceCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Asks the host to activate a workspace.
+     *
+     * @param workspaceId workspace to switch to
+     * @return the outcome together with the workspace status observed
+     *     afterwards; {@code UNAVAILABLE} when no provider is connected, and
+     *     {@code FAILED} when the host operation threw or the provider was
+     *     replaced mid-operation
+     * @throws NullPointerException if {@code workspaceId} is {@code null}
+     */
     public WorkspaceOperationResult switchTo(final WorkspaceId workspaceId) {
         Objects.requireNonNull(workspaceId, "workspaceId");
         return mutate(provider -> provider.switchTo(workspaceId));
     }
 
+    /**
+     * Asks the host to overwrite the default workspace layout with the current
+     * one.
+     *
+     * @return the outcome and the status observed afterwards, failing closed
+     *     the same way as {@link #switchTo}
+     */
     public WorkspaceOperationResult updateDefault() {
         return mutate(WorkspaceHostProvider::updateDefault);
     }
 
+    /**
+     * Asks the host to discard the current layout and restore the default.
+     *
+     * @return the outcome and the status observed afterwards, failing closed
+     *     the same way as {@link #switchTo}
+     */
     public WorkspaceOperationResult resetToDefault() {
         return mutate(WorkspaceHostProvider::resetToDefault);
     }

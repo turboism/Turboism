@@ -20,10 +20,13 @@ public final class TextureAtlasPackingException extends IllegalArgumentException
         this.reason = Objects.requireNonNull(reason, "reason");
     }
 
+    /** @return the ID of the texture whose placement was rejected. */
     public String textureId() {
         return textureId;
     }
 
+    /** @return why placement was rejected: page budget exhausted, item too large for one page, or
+     *     a reserved size that overflows the supported integer geometry. */
     public Reason reason() {
         return reason;
     }

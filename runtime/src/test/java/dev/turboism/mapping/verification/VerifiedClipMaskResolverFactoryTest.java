@@ -4,14 +4,35 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+/**
+ * The clip-mask resolver must fail closed before any unreviewed material is trusted.
+ *
+ * <p>There are two distinct fail-closed paths and both are exercised: a missing artifact is
+ * rejected before anything is read, and an existing but unreviewed artifact is rejected by the
+ * pinned manifest before the record's selectors are used. Each record case therefore pairs an
+ * unreviewed-but-real artifact with the record under test, mirroring
+ * {@code StatusBarVerificationManifestTest}.</p>
+ */
 class VerifiedClipMaskResolverFactoryTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
     private final VerifiedClipMaskResolverFactory factory = new VerifiedClipMaskResolverFactory();
+
+    @Test
+    void rejectsMissingArtifactBeforeReadingAnything() {
+        Path reviewed = repositoryPath("cubism-ref/verification/cubism-5.3.02-clipmask.json");
+
+        assertThrows(NoSuchFileException.class, () -> factory.create(
+            reviewed,
+            Path.of("missing-host-artifact.jar"),
+            getClass().getClassLoader()
+        ));
+    }
 
     @Test
     void rejectsSelfIssuedRecordBeforeUsingItsSelectors() throws Exception {
@@ -23,20 +44,20 @@ class VerifiedClipMaskResolverFactoryTest {
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(
             selfIssued,
-            Path.of("missing-host-artifact.jar"),
+            unreviewedArtifact(),
             getClass().getClassLoader()
         ));
     }
 
     @Test
-    void rejectsReviewedRecordFromAnotherAdapterSlice() {
+    void rejectsReviewedRecordFromAnotherAdapterSlice() throws Exception {
         Path projectRecord = repositoryPath(
             "cubism-ref/verification/cubism-5.3.02-project-workspace.json"
         );
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(
             projectRecord,
-            Path.of("missing-host-artifact.jar"),
+            unreviewedArtifact(),
             getClass().getClassLoader()
         ));
     }
@@ -48,9 +69,15 @@ class VerifiedClipMaskResolverFactoryTest {
 
         assertThrows(IllegalArgumentException.class, () -> factory.create(
             invalid,
-            Path.of("missing-host-artifact.jar"),
+            unreviewedArtifact(),
             getClass().getClassLoader()
         ));
+    }
+
+    private static Path unreviewedArtifact() throws java.io.IOException {
+        Path artifact = Files.createTempFile("clipmask-foreign", ".jar");
+        Files.writeString(artifact, "not-the-reviewed-cubism-jar");
+        return artifact;
     }
 
     private static Path repositoryPath(final String relative) {

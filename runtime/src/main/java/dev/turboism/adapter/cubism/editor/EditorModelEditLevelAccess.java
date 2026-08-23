@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorModelEditLevelReadSelectorContract;
-import dev.turboism.mapping.verification.EditorModelEditLevelWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.ModelEditLevel;
 

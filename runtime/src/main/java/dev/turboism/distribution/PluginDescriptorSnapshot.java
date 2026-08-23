@@ -60,33 +60,88 @@ public final class PluginDescriptorSnapshot {
         tags = List.copyOf(source.tags());
     }
 
+    /** @return the plugin's declared identity */
     public String id() { return id; }
+
+    /** @return the display name */
     public String name() { return name; }
+
+    /** @return the declared plugin version */
     public String version() { return version; }
+
+    /** @return the human-readable description */
     public String description() { return description; }
+
+    /** @return entrypoint class names in manifest declaration order */
     public List<String> entrypoints() { return entrypoints; }
+
+    /** @return the SDK version range this plugin declares compatibility with */
     public String turboismApi() { return turboismApi; }
+
+    /** @return the declared authors */
     public List<Author> authors() { return authors; }
+
+    /** @return the declared license */
     public String license() { return license; }
+
+    /** @return the project website, when declared */
     public Optional<String> website() { return website; }
+
+    /** @return declared bundled resource paths */
     public List<String> resources() { return resources; }
+
+    /** @return the localization bundle declaration */
     public I18n i18n() { return i18n; }
+
+    /** @return declared plugin dependencies */
     public List<Dependency> dependencies() { return dependencies; }
+
+    /** @return declared permissions with the reason each was requested */
     public List<Permission> permissions() { return permissions; }
+
+    /** @return declared capability identities */
     public List<String> capabilities() { return capabilities; }
+
+    /** @return declared runtime environment requirements */
     public Environment environment() { return environment; }
+
+    /** @return the directory category, when declared */
     public Optional<String> category() { return category; }
+
+    /** @return declared directory tags */
     public List<String> tags() { return tags; }
 
+    /**
+     * One declared plugin author.
+     *
+     * @param name the author's name
+     * @param email contact address, when declared
+     */
     public record Author(String name, Optional<String> email) {
     }
 
+    /**
+     * The plugin's localization bundle declaration.
+     *
+     * @param baseName resource-bundle base name
+     * @param locales locales the plugin ships, copied defensively
+     */
     public record I18n(String baseName, List<String> locales) {
+        /** Copies the locale list so the snapshot stays deeply immutable. */
         public I18n {
             locales = List.copyOf(locales);
         }
     }
 
+    /**
+     * One declared dependency on another plugin.
+     *
+     * @param id the dependency's plugin id
+     * @param type whether the dependency is required or optional
+     * @param version the accepted version range
+     * @param ordering load-order constraint relative to the dependency
+     * @param reason why the dependency is needed, when declared
+     */
     public record Dependency(
         String id,
         String type,
@@ -96,9 +151,22 @@ public final class PluginDescriptorSnapshot {
     ) {
     }
 
+    /**
+     * One declared permission request.
+     *
+     * @param id the permission identity
+     * @param scope the scope the permission is requested at
+     * @param reason why the plugin needs it, when declared
+     */
     public record Permission(String id, String scope, Optional<String> reason) {
     }
 
+    /**
+     * Declared runtime environment requirements.
+     *
+     * @param requiresCubism whether the plugin needs an admitted Cubism host
+     * @param ui the UI mode the plugin declares
+     */
     public record Environment(boolean requiresCubism, String ui) {
     }
 }

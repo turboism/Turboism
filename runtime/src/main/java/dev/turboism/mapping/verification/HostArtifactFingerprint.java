@@ -20,11 +20,28 @@ public record HostArtifactFingerprint(
         sha256 = requireSha256(sha256);
     }
 
+    /**
+     * Measures a file and pairs the measurement with a caller-asserted version.
+     * The version is not derived from the file and is not validated against it.
+     *
+     * @param cubismVersion version the caller attributes to this artifact
+     * @param artifact file to digest
+     * @return a fingerprint combining that version with the measured size and
+     *     hash
+     * @throws IOException if the file cannot be read
+     */
     public static HostArtifactFingerprint from(final String cubismVersion, final Path artifact) throws IOException {
         final HostArtifactDigest digest = HostArtifactDigest.from(artifact);
         return new HostArtifactFingerprint(cubismVersion, digest.size(), digest.sha256());
     }
 
+    /**
+     * @param expected fingerprint to compare against
+     * @return whether version, size, and hash all agree; all three must match,
+     *     so a same-bytes artifact claimed under a different version does not
+     *     count as a match
+     * @throws NullPointerException if {@code expected} is {@code null}
+     */
     public boolean matches(final HostArtifactFingerprint expected) {
         Objects.requireNonNull(expected, "expected");
         return cubismVersion.equals(expected.cubismVersion)

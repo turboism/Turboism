@@ -61,7 +61,8 @@ final class OneShotTaskHandle extends AbstractRuntimeTaskHandle {
             cancelFromAction();
         } catch (Throwable throwable) {
             synchronized (lock) {
-                if (!isTerminal()) {
+                if (!isTerminal()
+                    && !(throwable instanceof InterruptedException && token.isCancellationRequested())) {
                     final var failure = Optional.of(failure(
                         "TASK_FAILED",
                         "Plugin task action failed safely."

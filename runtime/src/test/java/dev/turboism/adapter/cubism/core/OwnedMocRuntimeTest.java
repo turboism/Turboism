@@ -59,7 +59,7 @@ class OwnedMocRuntimeTest {
 
     @Test
     void routesVersionByBytesOnThe52Profile() {
-        final MocLoader loader = loader("5.2");
+        final MocLoader loader = loader("5.2.03");
         TestCoreApiFixture.Moc.prepare(modelWithCanvas(), 7L);
 
         final OwnedMoc moc = loader.load(MocData.copyOf(new byte[]{5, 0}));
@@ -124,7 +124,7 @@ class OwnedMocRuntimeTest {
 
     @Test
     void fiveTwoDerivesBlendModesFromConstantFlags() {
-        final MocLoader loader = loader("5.2");
+        final MocLoader loader = loader("5.2.03");
         final TestCoreApiFixture.Model model = model(
             new TestCoreApiFixture.Drawables(
                 new String[]{"A", "B", "C"},
@@ -164,7 +164,7 @@ class OwnedMocRuntimeTest {
 
     @Test
     void contradictoryFiveTwoBlendFlagsFailClosed() {
-        final MocLoader loader = loader("5.2");
+        final MocLoader loader = loader("5.2.03");
         final TestCoreApiFixture.Model model = model(
             new TestCoreApiFixture.Drawables(
                 new String[]{"A"},

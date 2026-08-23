@@ -12,6 +12,21 @@ public final class PreviewReportValidationCli {
     private PreviewReportValidationCli() {
     }
 
+    /**
+     * Validates a complete preview report set and prints a one-line PASS summary naming the
+     * runtime id and the number of reports checked.
+     *
+     * <p>Fails loudly rather than exiting with a status code: every problem — wrong argument
+     * count, a missing report file, an unreadable file, or a contract violation — is thrown. All
+     * four reports must exist as regular files before any validation runs, so a partially written
+     * state directory is rejected as a set rather than half-accepted.
+     *
+     * @param arguments exactly one element: the preview state directory, resolved to an absolute
+     *     normalized path
+     * @throws IllegalArgumentException if the argument count is not exactly one
+     * @throws IllegalStateException if a report is missing or cannot be read
+     * @throws PreviewReportValidationException if a report violates the report contract
+     */
     public static void main(final String[] arguments) {
         if (arguments.length != 1) {
             throw new IllegalArgumentException(

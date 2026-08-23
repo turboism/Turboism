@@ -29,6 +29,10 @@ public record EditorUiHostSnapshot(
         }
     }
 
+    /**
+     * @return the snapshot used when no Editor UI host is present: state {@code ABSENT},
+     *     generation 0, no ready families, and a {@code HOST_UNAVAILABLE} failure
+     */
     public static EditorUiHostSnapshot safeMode() {
         return new EditorUiHostSnapshot(
             State.ABSENT,
@@ -41,6 +45,12 @@ public record EditorUiHostSnapshot(
         );
     }
 
+    /**
+     * @param family UI family to test
+     * @return true when this snapshot lists the family as ready; always false in states that are
+     *     forbidden from exposing ready families ({@code ABSENT}, {@code CONNECTING}, {@code CLOSED})
+     * @throws NullPointerException if {@code family} is null
+     */
     public boolean isReady(final EditorUiFamily family) {
         return readyFamilies.contains(Objects.requireNonNull(family, "family"));
     }

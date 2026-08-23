@@ -23,7 +23,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
     void projectsCurrentAtlasAndAppliesACompletePlanThroughNativeAtlasTransaction() {
         final Fixture fixture = new Fixture();
         final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
-            resolver("5.2.0", true), "session-a", fixture
+            resolver("5.2.03", true), "session-a", fixture
         );
 
         final TextureAtlasAuthoringState current = provider.current().orElseThrow();
@@ -59,7 +59,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
     void rejectsStalePlanningStateAndUnsupportedIdentityBeforeMutation() {
         final Fixture fixture = new Fixture();
         final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
-            resolver("5.2.0", true), "session-a", fixture
+            resolver("5.2.03", true), "session-a", fixture
         );
         final TextureAtlasAuthoringState stale = provider.current().orElseThrow();
         fixture.replaceAtlasWithSameId();
@@ -71,9 +71,9 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         assertEquals(0, fixture.data.applyCount);
         assertFalse(provider(resolver("5.3.02", true), "session-a", fixture).current().isPresent());
         assertFalse(new VerifiedCubism5302TextureAtlasLayoutProvider(
-            resolver("5.2.0", true), "session-a", captured(fixture)
+            resolver("5.2.03", true), "session-a", captured(fixture)
         ).current().isPresent());
-        assertFalse(provider(resolver("5.2.0", false), "session-a", fixture).current().isPresent());
+        assertFalse(provider(resolver("5.2.03", false), "session-a", fixture).current().isPresent());
     }
 
     @Test
@@ -81,7 +81,7 @@ class VerifiedCubism520TextureAtlasLayoutProviderTest {
         final Fixture fixture = new Fixture();
         fixture.data.failAtlasName = "Turboism Atlas 2";
         final VerifiedCubism520TextureAtlasLayoutProvider provider = provider(
-            resolver("5.2.0", true), "session-a", fixture
+            resolver("5.2.03", true), "session-a", fixture
         );
         final TextureAtlasAuthoringState current = provider.current().orElseThrow();
         final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 2, List.of(

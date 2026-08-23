@@ -10,11 +10,37 @@ import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Serializes a probe capture to a pretty-printed JSON report on disk.
+ *
+ * <p>The report identifies the exact bytes it describes - host artifact, agent, and
+ * fixture digests - so a measurement can never be silently attributed to a different
+ * build. Output is capped at 256 KiB and published by writing a sibling {@code .tmp}
+ * file and moving it into place, atomically where the filesystem allows.</p>
+ */
 public final class PerformanceProbeReportWriter {
 
     private static final int MAX_BYTES = 256 * 1024;
     private final ObjectMapper mapper = new ObjectMapper();
 
+    /**
+     * Writes one capture as a {@code turboism.cubism.performance-probe} schema-version-1
+     * JSON document, creating parent directories and replacing any existing file.
+     *
+     * <p>The {@code cubismVersion} field is fixed at {@code 5.3.02}: this writer describes
+     * the full-metric 5.3.02 probe slice.</p>
+     *
+     * @param output             destination path; resolved to an absolute normalized path
+     * @param artifactSha256     digest of the instrumented Cubism artifact
+     * @param agentSha256        digest of the probe agent that did the instrumenting
+     * @param fixtureSha256      digest of the model fixture the scenario ran against
+     * @param scenario           name of the measured scenario
+     * @param startedEpochMillis when the capture window opened
+     * @param endedEpochMillis   when the capture window closed
+     * @param snapshot           the counters to report
+     * @throws IOException when the encoded report exceeds 256 KiB, or the file cannot be
+     *     created, written, or moved into place
+     */
     public void write(
         final Path output,
         final String artifactSha256,

@@ -1,8 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorAnimationReadSelectorContract;
-import dev.turboism.mapping.verification.EditorAutoYureReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPhysicsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -31,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorDocumentReadAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsPhysicsSettingsDocumentProjection(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -53,7 +54,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAutoYureEvaluationsPerWarpDeformerAndParameter(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -75,7 +76,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAnimationFileContentDocuments(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -91,7 +92,7 @@ class EditorDocumentReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void documentReadsFailClosedWithoutExactCapabilityEvidence(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -118,7 +119,7 @@ class EditorDocumentReadAccessTest {
             capabilities.add(EditorAutoYureReadSelectorContract.CAPABILITY_ID);
             capabilities.add(EditorAnimationReadSelectorContract.CAPABILITY_ID);
         } else {
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract.CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,
@@ -141,7 +142,6 @@ class EditorDocumentReadAccessTest {
         values.add(method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", "()L" + internal(Id.class) + ";"));
         values.add(method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", "()L" + internal(Model.class) + ";"));
         values.add(method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"));
-        values.add(method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"));
         values.add(method("cubism.editor-model.model-source.physics-settings-source-set", ModelSource.class, "physicsSettingsSourceSet", "()L" + internal(PhysicsSettingsSourceSet.class) + ";"));
         values.add(StaticSelector.classSelector("cubism.editor-model.model.class", internal(Model.class)));
         values.add(method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", "()L" + internal(ParameterSet.class) + ";"));

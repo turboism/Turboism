@@ -32,6 +32,24 @@ import java.util.Set;
  */
 public final class PsdClipMaskPlanner {
 
+    /**
+     * Builds the previewable plan by pairing every PSD clipping relationship against the model's
+     * drawables, preserving PSD source order.
+     *
+     * <p>Pure and side-effect free: it reads the given snapshots and writes nothing. Relationships
+     * targeting the same art mesh are merged with first-occurrence dedupe; a target whose candidates
+     * span more than one PSD document fails closed as an {@code AMBIGUOUS_DOCUMENT} skip, an empty or
+     * self-only mask set becomes {@code NO_RESOLVED_MASKS}, and a target already in the planned state
+     * becomes {@code ALREADY_MATCHES}. Any other differing current state is reported as an overwrite
+     * conflict for the user to confirm.
+     *
+     * @param psdDocuments the PSD documents to read relationships from
+     * @param drawables the active model's drawables, used to resolve targets and current state
+     * @return the assignments, conflicts and skips making up the plan
+     * @throws NullPointerException if either argument is {@code null}
+     * @throws IllegalArgumentException if two drawables share an id, or two PSD documents share a
+     *     document id — either would let distinct sources be merged into one write
+     */
     public PsdClipMaskPlan plan(
         final List<PsdClipMaskDocumentSnapshot> psdDocuments,
         final List<Drawable> drawables

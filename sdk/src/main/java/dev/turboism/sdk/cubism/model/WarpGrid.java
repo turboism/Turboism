@@ -29,6 +29,17 @@ public record WarpGrid(
         }
     }
 
+    /**
+     * Returns a copy of this grid with one control point moved. Row and column
+     * counts are preserved, so the resulting grid stays well formed.
+     *
+     * @param index position of the control point in row-major order
+     * @param x new horizontal coordinate
+     * @param y new vertical coordinate
+     * @return a new grid; this instance is unchanged
+     * @throws IndexOutOfBoundsException when {@code index} is outside the
+     *     control-point range
+     */
     public WarpGrid withControlPoint(final int index, final float x, final float y) {
         final ArrayList<Point2> changed = new ArrayList<>(controlPoints);
         changed.set(index, new Point2(x, y));

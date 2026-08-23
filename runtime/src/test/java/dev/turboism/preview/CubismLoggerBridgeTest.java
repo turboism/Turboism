@@ -10,15 +10,25 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CubismLoggerBridgeTest {
 
     @Test
-    void invokesTheMatchingCubismLog4jMethodForEveryLevel() {
+    void invokesTheMatchingCubismLog4jMethodWithoutEmbeddingHostOwnedPrefixes() {
         final RecordingLogger logger = new RecordingLogger();
         final CubismLoggerBridge bridge = new CubismLoggerBridge(logger);
 
         for (PreviewLog.Level level : PreviewLog.Level.values()) {
-            bridge.write(level, level.name().toLowerCase(), null);
+            bridge.write(level, "probe", level.name().toLowerCase(), null);
         }
 
-        assertEquals(List.of("trace", "debug", "info", "warn", "error", "fatal"), logger.calls);
+        assertEquals(
+            List.of(
+                "[probe] trace",
+                "[probe] debug",
+                "[probe] info",
+                "[probe] warn",
+                "[probe] error",
+                "[probe] fatal"
+            ),
+            logger.calls
+        );
     }
 
     public static final class RecordingLogger {

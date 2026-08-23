@@ -77,6 +77,12 @@ public record RuntimeHostAdapters(
         );
     }
 
+    /**
+     * The fail-closed bundle used when no host verification evidence is available: every adapter is in
+     * safe mode, so nothing reflects into the Editor and all reads report unavailable.
+     *
+     * @return a bundle in which no adapter is connected to the host
+     */
     public static RuntimeHostAdapters safeMode() {
         return new RuntimeHostAdapters(
             ThemeStatusAdapterImpl.safeMode(),
@@ -128,7 +134,7 @@ public record RuntimeHostAdapters(
      */
     static RuntimeHostAdapters withVerifiedClipMask(final VerifiedMemberResolver resolver) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!resolver.isExactCubismVersion(ClipMaskVerificationManifest.CUBISM_VERSION)
+        if (!ClipMaskVerificationManifest.reviewedCubismVersions().contains(resolver.cubismVersion())
             || !resolver.authorizes(
                 ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
                 ClipMaskVerificationManifest.CAPABILITY_IDS,

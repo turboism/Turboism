@@ -97,6 +97,22 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         }
     }
 
+    /**
+     * Builds an installer with runtime-default collaborators, taking the plugin callback from the
+     * {@link #PLUGIN_CALLBACK_KEY} system property.
+     *
+     * <p>If nothing usable is registered under that key the callback defaults to one that always
+     * declines, so the hook installs but never diverts the host's automatic layout.
+     *
+     * @param instrumentation the JVM instrumentation used to retransform the host class
+     * @param resolver the verified member resolver for the running Cubism version
+     * @param hostClassLoader the loader that owns the host classes to transform
+     * @return a configured, not-yet-installed hook installer
+     * @throws IllegalArgumentException if the host is not Cubism 5.3.02 or 5.2.0, if the
+     *                                  capability is not authorized, or if the verified
+     *                                  automatic-layout selector is not a boolean-returning
+     *                                  instance method
+     */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
         final Instrumentation instrumentation,
         final VerifiedMemberResolver resolver,
@@ -114,6 +130,22 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         );
     }
 
+    /**
+     * Builds an installer from explicit collaborators, resolving the dialog locale from the
+     * Cubism host.
+     *
+     * @param instrumentation the JVM instrumentation used to retransform the host class
+     * @param resolver the verified member resolver for the running Cubism version
+     * @param hostClassLoader the loader that owns the host classes to transform
+     * @param nativeInvocations the coordinator scoping each native packing invocation
+     * @param pluginCallback invoked inside that scope; returning false lets the host's own
+     *                       layout proceed
+     * @param editorUi receives the statistics-view ingress and exposes the editor session
+     * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
+     * @return a configured, not-yet-installed hook installer
+     * @throws IllegalArgumentException if the host version is unsupported, the capability is not
+     *                                  authorized, or the verified selector is invalid
+     */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
         final Instrumentation instrumentation,
         final VerifiedMemberResolver resolver,
@@ -129,6 +161,31 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         );
     }
 
+    /**
+     * Builds an installer from explicit collaborators and an explicit dialog locale.
+     *
+     * <p>This is the verification gate for the whole feature: it admits exactly Cubism 5.3.02 and
+     * 5.2.0, checks the alias set for that version against the authorization contract, and
+     * rejects a selector that is not a boolean-returning instance method. Nothing is instrumented
+     * until {@link #install()} is called. The statistics transformer exists only on 5.3.02; on
+     * 5.2.0 the editor UI ingress is still wired but no statistics class is transformed.
+     *
+     * @param instrumentation the JVM instrumentation used to retransform the host class
+     * @param resolver the verified member resolver for the running Cubism version; must not be null
+     * @param hostClassLoader the loader that owns the host classes to transform
+     * @param nativeInvocations the coordinator scoping each native packing invocation
+     * @param pluginCallback invoked inside that scope; returning false lets the host's own
+     *                       layout proceed
+     * @param editorUi receives the statistics-view ingress and exposes the editor session
+     * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
+     * @param effectiveLocale the locale the injected dialog labels use; must not be null
+     * @return a configured, not-yet-installed hook installer
+     * @throws IllegalArgumentException if the host is neither Cubism 5.3.02 nor 5.2.0, if the
+     *                                  capability is not authorized for that adapter slice, or if
+     *                                  the verified automatic-layout selector is not a
+     *                                  boolean-returning instance method
+     * @throws NullPointerException if {@code resolver} or {@code effectiveLocale} is null
+     */
     public static VerifiedTextureAtlasAutoLayoutHookInstaller fromVerifiedResolver(
         final Instrumentation instrumentation,
         final VerifiedMemberResolver resolver,
@@ -154,7 +211,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES
             );
             adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
-        } else if (verified.isExactCubismVersion("5.2.0")) {
+        } else if (verified.isExactCubismVersion("5.2.03")) {
             aliases = union(
                 union(
                     VerifiedCubism520TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
@@ -188,10 +245,29 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         );
     }
 
+    /**
+     * @return the editor UI this installer wires the native statistics-view ingress into; the
+     *         same instance whether or not {@link #install()} has run
+     */
     public RuntimeTextureAtlasEditorUi editorUi() {
         return editorUi;
     }
 
+    /**
+     * Installs the transformers and retransforms the already-loaded host classes.
+     *
+     * <p>Idempotent: a second call while installed returns without doing anything. The core
+     * automatic-layout retransformation is all-or-nothing - if it fails the installer closes
+     * itself and rethrows. The dialog and statistics contributions are deliberately fail-open:
+     * their retransformation failures are reported to {@code System.err} and swallowed so a
+     * cosmetic augmentation cannot disable the core hook. Ingress callbacks are published as
+     * system properties before transformation, since the injected bytecode reads them from there.
+     *
+     * @throws IllegalStateException if the JVM does not support class retransformation, in which
+     *                               case the installer stays uninstalled
+     * @throws Exception if retransforming the automatic-layout class fails; the installer is
+     *                   closed first
+     */
     public void install() throws Exception {
         if (!installed.compareAndSet(false, true)) return;
         if (!instrumentation.isRetransformClassesSupported()) {

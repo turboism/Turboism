@@ -58,6 +58,16 @@ public final class PanelCollapsibleContentCoordinator {
     private final Map<EmbeddedPanelId, Map<String, OwnerSection>> sections =
         new HashMap<>();
 
+    /**
+     * 在内容表中登记一个注入分区（B 入口）。目标 panel 尚未注册时条目保持 pending，
+     * 待宿主安装后自动落位。
+     *
+     * @param pluginId 贡献者插件 id；注入分区内按钮的 action 按此 id 路由回贡献者 registry
+     * @param contribution 注入贡献，自带目标 panel、sectionId、order 与内容
+     * @return 注销句柄；幂等，且只会移除本次注册自己的条目（同 sectionId 被他人覆盖时不误删）
+     * @throws NullPointerException 任一参数为 {@code null}
+     * @throws IllegalStateException 同一目标 panel 上该 sectionId 已被登记
+     */
     public Registration register(
         final String pluginId,
         final CollapsibleSectionContribution contribution

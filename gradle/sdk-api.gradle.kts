@@ -18,8 +18,11 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
 val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
 val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
-val sdkV4ExactCommit = "fefb81e4ce03d06750daa170a1973760934ba4f5"
-val sdkV4ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v4-exact-reference.jar")
+// Re-issued after exact Cubism Editor availability became public SDK metadata. The reviewed
+// canonical delta includes the @CubismEditor range and exclusion attributes, its structured
+// unavailability exception, and runtime-visible exact-version annotations on the reviewed model
+// declarations. The final artifact binding includes the standard-Javadoc doclint cleanup.
+val sdkV4ExactCommit = "86a85caa544da4d46ac9f9db5683ad4ded2612f6"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
@@ -134,35 +137,17 @@ val checkSdkV3TierCompatibility by tasks.registering(Exec::class) {
     )
 }
 
-val prepareSdkV4ExactReference by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Reconstructs the reviewed v4 SDK Gradle JAR from its pinned Git commit in an isolated archive."
-    workingDir(rootDir)
-    inputs.file(sdkV2ExactReferenceBuilder)
-    inputs.property("historicalCommit", sdkV4ExactCommit)
-    outputs.file(sdkV4ExactReferenceArtifact)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
-        "--root", rootDir.absolutePath,
-        "--commit", sdkV4ExactCommit,
-        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
-        "--output", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reuse-gradle-user-home", gradle.gradleUserHomeDir.absolutePath
-    )
-}
-
 val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the current SDK against the reviewed v4 exact reference; Preview additions are expected to make this explicit audit differ."
-    dependsOn(":sdk:jar", prepareSdkV4ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkJarArtifact, sdkV4ExactReferenceArtifact)
+    group = "verification"
+    description = "Verifies the current SDK JAR exactly matches the reviewed v4 API baseline."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkJarArtifact)
     inputs.property("expectedCommit", sdkV4ExactCommit)
     doFirst {
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
             "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
             "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
             "--expected-commit", sdkV4ExactCommit
@@ -172,18 +157,15 @@ val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
 
 val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the current SDK JAR's reviewed v4 stable/Preview API tiers against the pinned v4 reference."
-    dependsOn(":sdk:jar", prepareSdkV4ExactReference)
-    inputs.files(
-        sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy,
-        sdkV4DirectPreviewLedger, sdkJarArtifact, sdkV4ExactReferenceArtifact
-    )
+    description = "Verifies the current SDK JAR's reviewed v4 API tiers and direct PreviewApi roots."
+    dependsOn(":sdk:jar")
+    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy, sdkV4DirectPreviewLedger, sdkJarArtifact)
     inputs.property("expectedCommit", sdkV4ExactCommit)
     doFirst {
         commandLine(
             "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
             "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkV4ExactReferenceArtifact.get().asFile.absolutePath,
+            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
             "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
             "--expected-commit", sdkV4ExactCommit,

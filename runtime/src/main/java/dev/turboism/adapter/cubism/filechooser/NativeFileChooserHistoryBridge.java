@@ -34,16 +34,45 @@ public final class NativeFileChooserHistoryBridge {
         this.profile = Objects.requireNonNull(profile, "profile");
     }
 
+    /**
+     * Publishes {@code bridge} as the single process-wide target for transformed save-dialog calls.
+     *
+     * <p>At most one bridge may be installed at a time; the swap is atomic, so concurrent installs
+     * cannot both win.
+     *
+     * @param bridge the bridge to install
+     * @throws IllegalStateException if a bridge is already installed
+     * @throws NullPointerException if {@code bridge} is {@code null}
+     */
     public static void install(final NativeFileChooserHistoryBridge bridge) {
         if (!INSTALLED.compareAndSet(null, Objects.requireNonNull(bridge, "bridge"))) {
             throw new IllegalStateException("Native file-chooser history bridge is already installed.");
         }
     }
 
+    /**
+     * Removes {@code bridge} if it is the currently installed one; a no-op otherwise, so an
+     * out-of-order uninstall cannot detach a bridge someone else installed. Transformed bytecode
+     * remains in place and simply becomes inert.
+     *
+     * @param bridge the bridge to remove
+     * @throws NullPointerException if {@code bridge} is {@code null}
+     */
     public static void uninstall(final NativeFileChooserHistoryBridge bridge) {
         INSTALLED.compareAndSet(Objects.requireNonNull(bridge, "bridge"), null);
     }
 
+    /**
+     * Ingress called by transformed host bytecode as a save dialog is being prepared; applies the
+     * remembered directory for the current context (export vs. project, decided by scanning the
+     * calling stack for the profile's export-context classes).
+     *
+     * <p>Runs on the host's dialog thread. Fail-closed and never throws: it returns silently when no
+     * bridge is installed, when export separation is disabled, or when no directory is remembered,
+     * and any failure below it is caught and logged rather than propagated into the save dialog.
+     *
+     * @param chooser the host file-chooser instance being prepared
+     */
     public static void onSaveDialogPreparing(final Object chooser) {
         final NativeFileChooserHistoryBridge bridge = INSTALLED.get();
         if (bridge == null) {
@@ -52,6 +81,17 @@ public final class NativeFileChooserHistoryBridge {
         bridge.prepare(chooser);
     }
 
+    /**
+     * Ingress called by transformed host bytecode once a save dialog has produced its result;
+     * captures the chooser's most recent directory into the export or project slot depending on the
+     * calling context.
+     *
+     * <p>Runs on the host's dialog thread. Fail-closed and never throws: it returns silently when no
+     * bridge is installed, when export separation is disabled, or when the chooser reported no
+     * history, and any failure below it is caught and logged.
+     *
+     * @param chooser the host file-chooser instance that just finished
+     */
     public static void onSaveDialogFinished(final Object chooser) {
         final NativeFileChooserHistoryBridge bridge = INSTALLED.get();
         if (bridge == null) {

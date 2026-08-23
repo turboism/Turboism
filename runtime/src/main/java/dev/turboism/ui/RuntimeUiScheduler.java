@@ -18,6 +18,19 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+/**
+ * Per-plugin {@link UiScheduler} that funnels UI work through the runtime scheduler.
+ *
+ * <p>Work is never run inline on the caller's thread: it is dispatched as a plugin task attributed to
+ * this scheduler's plugin id, so it is subject to the runtime's ordering and accounting. Delays are
+ * timed on a private single-threaded daemon timer, named after the plugin, and a negative delay is
+ * treated as zero.
+ *
+ * <p>Every schedule returns a {@link Registration} that cancels the pending work; cancelling after the
+ * work has started does not interrupt it. {@link #close()} shuts the timer down immediately, so
+ * already-delayed work that has not yet been dispatched never runs — it does not cancel work already
+ * handed to the runtime scheduler.
+ */
 public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
 
     private static final String UI_TASK_TYPE = "ui.schedule";

@@ -1,5 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -286,19 +290,19 @@ class EditorBackedCubismModelAccessTest {
     private static VerifiedMemberResolver resolverWithoutDefaultKeyformLock() {
         return resolver(java.util.Set.of(
             "cubism.editor-model.read",
-            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+            dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
         ));
     }
 
     private static VerifiedMemberResolver resolver() {
         return resolver(java.util.Set.of(
             "cubism.editor-model.read",
-            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorObjectReadSelectorContract.CAPABILITY_ID,
-            dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
+            dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract.CAPABILITY_ID,
+            dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID
         ));
     }
 
@@ -324,14 +328,11 @@ class EditorBackedCubismModelAccessTest {
                 method("cubism.editor-model.app-controller.current-document", Host.class, "currentDocument", desc(Document.class)),
                 StaticSelector.classSelector("cubism.editor-model.modeling-document.class", document),
                 method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)),
-                method("cubism.editor-model.modeling-document.last-active-view", Document.class, "lastActiveView", "()Ljava/lang/Object;"),
                 StaticSelector.classSelector("cubism.editor-model.modeling-view.class", internal(Object.class)),
-                method("cubism.editor-model.modeling-view.model", Object.class, "toString", "()Ljava/lang/String;"),
                 StaticSelector.classSelector("cubism.editor-model.model-source.class", source),
                 method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
                 method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
                 method("cubism.editor-model.model-source.default-keyform-locked", ModelSource.class, "defaultKeyformLocked", "()Z"),
-                method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"),
                 method("cubism.editor-model.model-source.root-parameter-group", ModelSource.class, "rootParameterGroup", desc(ParameterGroup.class)),
                 method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"),
                 method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"),
@@ -401,7 +402,7 @@ class EditorBackedCubismModelAccessTest {
     private static VerifiedMemberResolver resolverWithoutParameterGroups() {
         final VerifiedMemberResolver full = resolver();
         final java.util.Set<String> groupAliases =
-            dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES;
+            dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES;
         final java.util.List<StaticSelector> selectors = new java.util.ArrayList<>();
         for (String alias : java.util.List.of(
             "cubism.editor-model.app-controller.class",
@@ -409,13 +410,10 @@ class EditorBackedCubismModelAccessTest {
             "cubism.editor-model.app-controller.current-document",
             "cubism.editor-model.modeling-document.class",
             "cubism.editor-model.modeling-document.model-source",
-            "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.class",
-            "cubism.editor-model.modeling-view.model",
             "cubism.editor-model.model-source.class",
             "cubism.editor-model.model-source.guid",
             "cubism.editor-model.model-source.current-instance",
-            "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.model.class",
             "cubism.editor-model.model.parameter-set",
             "cubism.editor-model.parameter-set.class",

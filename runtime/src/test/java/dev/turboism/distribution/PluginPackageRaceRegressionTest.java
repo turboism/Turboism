@@ -126,8 +126,7 @@ class PluginPackageRaceRegressionTest {
         ByteArrayOutputStream jarBytes = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(jarBytes)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
-            add(jar, "META-INF/turboism/i18n/messages.properties",
-                "probe=fixture\n".getBytes(StandardCharsets.UTF_8));
+            add(jar, "META-INF/turboism/i18n/messages.properties", new byte[0]);
             add(jar, entrypoint.replace('.', '/') + ".class", marker.getBytes(StandardCharsets.UTF_8));
         }
         byte[] payload = jarBytes.toByteArray();

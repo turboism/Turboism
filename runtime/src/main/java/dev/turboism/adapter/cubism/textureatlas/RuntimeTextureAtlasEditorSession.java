@@ -33,6 +33,13 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
         this.view = Objects.requireNonNull(view, "view");
     }
 
+    /**
+     * Returns a permanently detached session for hosts where the texture-atlas editor could not
+     * be verified. It holds no resolver and no view, so every read reports empty rather than
+     * failing; it never becomes available later.
+     *
+     * @return an unattached session whose reads always yield {@link java.util.Optional#empty()}
+     */
     public static RuntimeTextureAtlasEditorSession unavailable() {
         return new RuntimeTextureAtlasEditorSession(null, () -> null);
     }

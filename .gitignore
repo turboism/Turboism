@@ -47,14 +47,16 @@ specs/
 CONTEXT.md
 FILE_MANIFEST.md
 INITIALIZE.md
-README.md
+/README.md
 
 # 验证 artifact 目录（本机工作流产物，不入库）
 .agent-artifacts/
 
 # Remote-hygiene policy: environment values / local state (never committed)
+# `.env.example` is the documented placeholder-only template and stays tracked.
 .env
 .env.*
+!.env.example
 .envrc
 local.properties
 *.local.*

@@ -16,7 +16,7 @@ public final class ProfileValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
         "profileId", "inherits", "mappingPacks", "hookSelectorRefs", "capabilities", "notes",
-        "product", "versionRange", "fingerprintStrategy", "status", "source", "verifiedBy", "verifiedAt"
+        "product", "cubismVersion", "fingerprintStrategy", "status", "source", "verifiedBy", "verifiedAt"
     );
 
     private static final Set<String> ALLOWED_STATUS = Set.of("DRAFT", "VERIFIED", "DEGRADED", "BROKEN", "RETIRED");
@@ -36,7 +36,7 @@ public final class ProfileValidator extends AbstractJsonValidator {
         requireStringField(node, "profileId", "PROFILE_MISSING", errors, source);
         requireArrayField(node, "mappingPacks", "PROFILE_MISSING", errors, source);
         requireStringField(node, "product", "PROFILE_BAD_PRODUCT", errors, source);
-        requireStringField(node, "versionRange", "PROFILE_BAD_VERSION_RANGE", errors, source);
+        requireStringField(node, "cubismVersion", "PROFILE_BAD_CUBISM_VERSION", errors, source);
         requireStringField(node, "fingerprintStrategy", "PROFILE_BAD_FINGERPRINT_STRATEGY", errors, source);
         requireStringField(node, "status", "PROFILE_BAD_STATUS", errors, source);
         requireStringField(node, "source", "PROFILE_BAD_SOURCE", errors, source);

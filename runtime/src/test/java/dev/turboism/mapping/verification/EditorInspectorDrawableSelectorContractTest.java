@@ -1,5 +1,7 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -14,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Reviewed-record trust-root tests for the Inspector Drawable write contracts. */
 class EditorInspectorDrawableSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
 
     @Test
     void exact5302RecordVerifiesTheCompleteInspectorDrawableWriteContract() throws Exception {
@@ -41,7 +43,7 @@ class EditorInspectorDrawableSelectorContractTest {
     void exact5203RecordVerifiesThe52InspectorDrawableWriteContractWithoutAlpha() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -65,7 +67,7 @@ class EditorInspectorDrawableSelectorContractTest {
         // inspector write family must declare static access as forbidden so the
         // instance-method call site resolves instead of failing closed.
         assertInstanceBindings("Cubism-5.3.02", "cubism-5.3.02-editor-model.json");
-        assertInstanceBindings("Cubism-5.2", "cubism-5.2-editor-model.json");
+        assertInstanceBindings("Cubism-5.2", "cubism-5.2.03-editor-model.json");
     }
 
     private static void assertInstanceBindings(
@@ -97,15 +99,6 @@ class EditorInspectorDrawableSelectorContractTest {
         for (final String alias : staticAliases) {
             assertTrue(resolver.bindStatic(alias) != null, alias + " must bind as a static method");
         }
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !java.nio.file.Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

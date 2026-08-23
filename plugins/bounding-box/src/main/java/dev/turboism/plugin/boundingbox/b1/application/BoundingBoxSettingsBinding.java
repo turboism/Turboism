@@ -14,6 +14,23 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletionStage;
 
+/**
+ * Binds the bounding-box feature settings to the plugin config store, keeping a confirmed
+ * in-memory copy that only ever reflects values the store actually accepted.
+ *
+ * <p>Operations follow the plugin lifecycle: {@link #init} registers the schema once,
+ * {@link #enable} loads the persisted values, {@link #update} writes, {@link #disable} stops
+ * accepting work and {@link #shutdown} releases the registry. Each enable bumps an epoch, and any
+ * asynchronous stage whose epoch has been superseded resolves to
+ * {@link ConfigBindingResult#DISABLED} instead of writing back stale state — so a disable during
+ * an in-flight update cannot resurrect old settings.</p>
+ *
+ * <p>Nothing here throws for a config problem: every path completes with a
+ * {@link ConfigBindingResult}. Writes are optimistic against a revision, and a multi-key write
+ * that fails partway reports {@link ConfigBindingResult#PARTIAL_PERSISTENCE} after re-reading, so
+ * the confirmed settings are never guessed. This class is not thread-safe; drive it from the
+ * plugin's own lifecycle thread.</p>
+ */
 public final class BoundingBoxSettingsBinding {
     public static final String CONFIG_ID = "bounding-box.features";
     public static final String CONFIG_PATH = "bounding-box/features.cfg";
@@ -29,6 +46,17 @@ public final class BoundingBoxSettingsBinding {
     private boolean initialized;
     private boolean enabled;
 
+    /**
+     * Registers the settings schema with the runtime. Must complete successfully before
+     * {@link #enable} does anything; a failed registration leaves the binding uninitialized, and
+     * a registry exception thrown synchronously is captured rather than propagated.
+     *
+     * @param value the plugin's config registry
+     * @return {@link ConfigBindingResult#APPLIED} on success,
+     *     {@link ConfigBindingResult#PERMISSION_DENIED} when registration was refused for lack of
+     *     permission, otherwise {@link ConfigBindingResult#RUNTIME_UNAVAILABLE}
+     * @throws NullPointerException if {@code value} is null
+     */
     public CompletionStage<ConfigBindingResult> init(final PluginConfigRegistry value) {
         registry = Objects.requireNonNull(value, "value");
         try {
@@ -44,12 +72,39 @@ public final class BoundingBoxSettingsBinding {
         }
     }
 
+    /**
+     * Opens a new epoch and loads all three settings from the store into the confirmed settings.
+     *
+     * <p>The three keys are read together and must share one revision; a torn read is retried once
+     * before being reported as a conflict. On any failure the previously confirmed settings are
+     * left untouched.</p>
+     *
+     * @return {@link ConfigBindingResult#APPLIED} when the settings were loaded,
+     *     {@link ConfigBindingResult#RUNTIME_UNAVAILABLE} when {@link #init} has not succeeded, and
+     *     the mapped error otherwise
+     */
     public CompletionStage<ConfigBindingResult> enable() {
         if (!initialized || registry == null) return completed(ConfigBindingResult.RUNTIME_UNAVAILABLE);
         enabled = true;
         return readAll(++epoch, false, true);
     }
 
+    /**
+     * Persists new settings, writing the three keys in sequence against the confirmed revision and
+     * stopping at the first key the store refuses.
+     *
+     * <p>The confirmed settings are advanced only when every key was written. If some keys landed
+     * before the refusal, the store is re-read and the call reports
+     * {@link ConfigBindingResult#PARTIAL_PERSISTENCE}; if none did, the mapped error is reported
+     * and nothing changed.</p>
+     *
+     * @param value the settings to persist
+     * @return {@link ConfigBindingResult#APPLIED} on a complete write,
+     *     {@link ConfigBindingResult#UNCHANGED} when {@code value} already equals the confirmed
+     *     settings, {@link ConfigBindingResult#DISABLED} when the binding is disabled or was
+     *     superseded mid-flight, otherwise the mapped failure
+     * @throws NullPointerException if {@code value} is null
+     */
     public CompletionStage<ConfigBindingResult> update(final BoundingBoxFeatureSettings value) {
         Objects.requireNonNull(value, "value");
         if (!enabled || registry == null) return completed(ConfigBindingResult.DISABLED);
@@ -61,8 +116,25 @@ public final class BoundingBoxSettingsBinding {
             .thenCompose(last -> finish(last, value, active));
     }
 
+    /**
+     * Stops accepting reads and writes and retires the current epoch, so any in-flight stage
+     * resolves to {@link ConfigBindingResult#DISABLED}. The schema registration and the confirmed
+     * settings survive, so a later {@link #enable} can resume without re-registering.
+     */
     public void disable() { enabled = false; epoch++; }
+
+    /**
+     * Disables the binding and additionally drops the registry reference and the initialized flag.
+     * After this the binding is inert until {@link #init} is called again; the confirmed settings
+     * remain readable.
+     */
     public void shutdown() { disable(); initialized = false; registry = null; }
+
+    /**
+     * @return the settings the store is last known to hold — never a value that was merely
+     *     requested. Starts at {@link BoundingBoxFeatureSettings#defaults()} and advances only on
+     *     a successful load or a fully successful write.
+     */
     public BoundingBoxFeatureSettings confirmed() { return confirmed; }
 
     private CompletionStage<ConfigBindingResult> readAll(

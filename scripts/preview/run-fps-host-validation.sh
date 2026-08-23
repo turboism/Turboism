@@ -5,26 +5,17 @@
 # hook and the exerciser records renderSceneCalls evidence.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-fps-host-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
 shift
-case "$version" in
-  5203)
-    fixture_src='/home/local-user/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-    fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
-    ;;
-  5302)
-    fixture_src='/home/local-user/Documents/测试 混合模式.cmo3'
-    fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
-    ;;
-  *)
-    echo "error: version must be 5203 or 5302" >&2
-    exit 2
-    ;;
-esac
+turboism_select_fixture "$version" || exit 2
 run_label="r1"
 if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
@@ -46,18 +37,39 @@ if [ ! -f "$probe_jar" ]; then
   exit 1
 fi
 
-# Bounded host-side resize driver: forces modeling-canvas repaints inside the
-# exerciser sampling window (see fps-resize-driver.sh). Killed when this
-# wrapper (and with it the runner) exits; it never touches other sessions.
+# The runner prefixes this suffix with its generated run ID. The resize driver
+# matches the nonce-bearing tail, which stays unique even if the launch crosses
+# a UTC-second boundary or other validations start at the same time.
+fixture_suffix='fps.cmo3'
+run_nonce="$(printf '%06d' "$$")"
+fixture_selector="-$run_nonce-$fixture_suffix"
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 driver_pid=''
+runner_args=("$@")
+ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
+ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
+for ((index = 0; index < ${#runner_args[@]}; index++)); do
+  case "${runner_args[index]}" in
+    --ssh-host)
+      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-host requires a value' >&2; exit 2; }
+      ssh_host="${runner_args[index + 1]}"
+      index=$((index + 1))
+      ;;
+    --ssh-key)
+      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-key requires a value' >&2; exit 2; }
+      ssh_key="${runner_args[index + 1]}"
+      index=$((index + 1))
+      ;;
+  esac
+done
 if [ -r "$driver" ]; then
-  nohup ssh -i "$HOME/.ssh/id_ed25519_validation" -o IdentitiesOnly=yes \
-    local-user@validation-host.invalid "bash -s" < "$driver" > /tmp/fps-resize-driver.out 2>&1 &
+  nohup ssh -i "$ssh_key" -o IdentitiesOnly=yes \
+    "$ssh_host" "bash -s -- '$fixture_selector'" < "$driver" \
+    > "/tmp/fps-resize-driver-$run_nonce.out" 2>&1 &
   driver_pid=$!
 fi
 trap 'if [ -n "$driver_pid" ]; then kill "$driver_pid" 2>/dev/null || true; fi' EXIT
-bash "$runner" \
+TURBOISM_HOST_VALIDATION_RUN_NONCE="$run_nonce" bash "$runner" \
   --name fps \
   --version "$version" \
   --run-label "$run_label" \
@@ -65,6 +77,7 @@ bash "$runner" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:fps-host-validation-exerciser.jar" \
   --fixture-remote "$fixture_src" \
+  --fixture-name "$fixture_suffix" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
   --ready-marker 'FPS_EXERCISER_READY' \

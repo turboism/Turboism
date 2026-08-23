@@ -45,14 +45,27 @@ public final class LabelStyleApplier {
             color = Objects.requireNonNull(color, "color");
         }
 
+        /**
+         * @return the choice meaning "no override"; applying it closes any active
+         *     registration for the property rather than setting a color
+         */
         public static ColorChoice none() {
             return new ColorChoice(LabelStylePresets.NONE_KEY, Optional.empty());
         }
 
+        /**
+         * @param key preset identifier from {@link LabelStylePresets}
+         * @return a choice carrying the preset's color, or no color when the key is
+         *     unknown, which applies as a clear
+         */
         public static ColorChoice preset(final String key) {
             return new ColorChoice(key, LabelStylePresets.colorFor(key));
         }
 
+        /**
+         * @param color color the user picked directly
+         * @return a choice keyed as custom, carrying that exact color
+         */
         public static ColorChoice custom(final UiColor color) {
             return new ColorChoice(LabelStylePresets.CUSTOM_KEY, Optional.of(color));
         }

@@ -20,9 +20,27 @@ import java.util.Set;
  */
 public final class DependencyResolver {
 
+    /**
+     * A plugin that resolved successfully, paired with its parsed version.
+     *
+     * @param id plugin ID
+     * @param version version parsed from the descriptor; a descriptor whose version cannot be
+     *     parsed is disabled instead of resolved, so this is always a valid version
+     * @param descriptor the descriptor the plugin was resolved from
+     */
     public record ResolvedPlugin(String id, PluginVersion version, PluginDescriptor descriptor) {
     }
 
+    /**
+     * Outcome of one resolution pass over a set of descriptors.
+     *
+     * @param loadOrder plugins that resolved, in an order where every required dependency precedes
+     *     its dependant
+     * @param disabledIds IDs excluded from the load order, each because a required dependency was
+     *     missing or version-incompatible, because it took part in a cycle, or because its own
+     *     version string could not be parsed
+     * @param cycles human-readable descriptions of the dependency cycles that were broken
+     */
     public record ResolutionResult(
         List<ResolvedPlugin> loadOrder,
         List<String> disabledIds,
@@ -36,6 +54,17 @@ public final class DependencyResolver {
         DISABLED
     }
 
+    /**
+     * Resolves the given descriptors into a load order, disabling rather than failing on any
+     * problem: a missing or version-incompatible required dependency, an unparsable version, or a
+     * cycle disables the affected plugins and propagates to everything that requires them.
+     *
+     * <p>Only dependencies of type {@code required} participate; optional ones never disable a
+     * plugin. Duplicate IDs collapse to the last descriptor seen.</p>
+     *
+     * @param descriptors plugin descriptors to resolve; iteration order seeds the traversal order
+     * @return the load order plus the disabled IDs and the cycles that were detected
+     */
     public ResolutionResult resolve(Collection<PluginDescriptor> descriptors) {
         Map<String, PluginDescriptor> byId = new LinkedHashMap<>();
         for (PluginDescriptor descriptor : descriptors) {

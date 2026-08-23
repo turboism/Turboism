@@ -9,7 +9,7 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
     File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
-    File "/oname=mesh.jar" "${STAGING_DIR}/plugins/mesh.jar"
+    File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
     File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
     File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
     File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
@@ -34,7 +34,7 @@ SectionEnd
 Section "Turboism MCP Server 0.1.0" SEC_dev_turboism_plugin_mcp
 SectionEnd
 
-Section "Mesh Inspector and Mirror-Axis Tools 0.1.0" SEC_dev_turboism_plugin_mesh
+Section "Mesh Edit Mirror Axis Enhance 0.1.0" SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance
 SectionEnd
 
 Section "Palette Label Style Plugin 0.1.0" SEC_dev_turboism_plugin_palette_label_style
@@ -70,7 +70,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "Loopback Model Context Protocol server exposing typed Turboism model-object operations."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh} "Inspects mesh/deformer state and contributes the bounded mirror-axis rotation control for verified Cubism hosts."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "Enhances Cubism mesh editing with mirror-axis rotation and exact-host mirror-tool parity."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "Batch-transfer parameter bindings of one ArtMesh or Deformer to other parameters, with optional inversion, through a modal dialog."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window."
@@ -108,12 +108,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_mcp} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_mesh} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_mesh} $1
+  SectionSetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -208,13 +208,13 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mcp"
     ${EndIf}
   ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_mesh} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
     ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mesh"
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
     ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mesh"
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_palette_label_style} $1
@@ -320,7 +320,7 @@ Function RemoveBundledFromExistingDisabled
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.mesh"
+  StrCpy $1 "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"

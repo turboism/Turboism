@@ -75,6 +75,11 @@ public final class LabelStylePersistence {
         }
     }
 
+    /**
+     * @param property candidate property segment of a stored entry key
+     * @return whether it is one of the two styled properties, text or
+     *     background; any other value marks the stored line as malformed
+     */
     public static boolean isProperty(final String property) {
         return PROPERTY_TEXT.equals(property) || PROPERTY_BACKGROUND.equals(property);
     }

@@ -102,7 +102,10 @@ final class LocalPluginRuntimeLoadScenario {
 
     private static void assertRuntimeLog(final Path home) throws IOException {
         final String runtimeLog = Files.readString(home.resolve("logs/turboism.log"));
-        assertTrue(runtimeLog.contains("Loaded plugin Project Inspector"));
+        assertTrue(runtimeLog.contains(
+            "[dev.turboism.plugin.project-inspector] "
+                + "Plugin lifecycle: load succeeded name=Project Inspector"
+        ));
         assertTrue(runtimeLog.contains("Localization active locale="));
     }
 

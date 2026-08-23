@@ -65,6 +65,15 @@ public final class ParameterRowMethodTransformer implements ClassFileTransformer
         return changed[0] ? writer.toByteArray() : null;
     }
 
+    /**
+     * One exact host method to instrument, identified by name and JVM descriptor together so an
+     * overload is never hooked by accident.
+     *
+     * @param name the method's name; must not be {@code null} or blank
+     * @param descriptor the method's JVM descriptor; must not be {@code null} or blank
+     * @throws IllegalArgumentException if either component is blank
+     * @throws NullPointerException if either component is {@code null}
+     */
     public record MethodSelector(String name, String descriptor) {
         public MethodSelector {
             requireText(name, "name");

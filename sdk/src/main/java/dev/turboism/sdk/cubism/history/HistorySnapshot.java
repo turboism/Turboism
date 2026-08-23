@@ -35,6 +35,13 @@ public record HistorySnapshot(
         }
     }
 
+    /**
+     * The fail-closed snapshot used when the host's Undo history cannot be read — no active document,
+     * or an unverified host. Generation, revision, and position are zero, there are no entries, and
+     * neither undo nor redo is offered.
+     *
+     * @return the canonical unavailable snapshot
+     */
     public static HistorySnapshot unavailable() {
         return new HistorySnapshot(Availability.UNAVAILABLE, 0, 0, 0, List.of(), false, false);
     }

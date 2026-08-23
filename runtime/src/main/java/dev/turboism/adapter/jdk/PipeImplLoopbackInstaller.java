@@ -19,6 +19,23 @@ public final class PipeImplLoopbackInstaller {
     private PipeImplLoopbackInstaller() {
     }
 
+    /**
+     * Installs the loopback shim transformer, unconditionally, for a JVM that is still starting.
+     *
+     * <p>Declines rather than fails when {@code sun.nio.ch.PipeImpl} has already been loaded -
+     * transformation would come too late - and treats an error while enumerating loaded classes
+     * as "already loaded" so the shim is never installed on uncertain ground. The transformer
+     * removes itself once the target class has been seen. Every outcome is reported to the
+     * diagnostic sink as a stable code; a diagnostic sink that throws is ignored so it cannot
+     * block agent startup.
+     *
+     * @param instrumentation the premain instrumentation to register the transformer on; must not
+     *                        be null
+     * @param diagnostic receives one stable outcome code; must not be null, may throw harmlessly
+     * @return the installation handle, whose {@link Installation#status()} distinguishes
+     *         installed from declined and failed; closing it is a no-op unless it installed
+     * @throws NullPointerException if either argument is null
+     */
     public static Installation install(
         final Instrumentation instrumentation,
         final Consumer<String> diagnostic
@@ -109,10 +126,21 @@ public final class PipeImplLoopbackInstaller {
             return new Installation(Status.INSTALLED, instrumentation, transformer);
         }
 
+        /**
+         * @return whether the shim was installed, declined because the target class was already
+         *         loaded, or failed while registering the transformer
+         */
         public Status status() {
             return status;
         }
 
+        /**
+         * Reports what the transformer actually did to the target class, for diagnostics after the
+         * fact.
+         *
+         * @return the transformer's outcome name, or {@code "NOT_INSTALLED"} when no transformer was
+         *         ever registered
+         */
         public String transformOutcome() {
             return transformer == null ? "NOT_INSTALLED" : transformer.outcome().name();
         }

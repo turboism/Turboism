@@ -21,7 +21,7 @@ from cubism_core_policy import (  # noqa: E402
     validate_policy,
 )
 
-API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.json"
+API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
 API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
 POLICY = ROOT / "cubism-ref/core-api/policy/cubism-core-member-policy.json"
 
@@ -73,7 +73,7 @@ def main() -> int:
     require(len(classified) == 240, "unique classified member count drifted")
     require(
         validated["summary"]["classifiedRosterSha256"]
-        == "74c87aa70690d33a1179877e9342005d0256196b88d4967c1b591a9891d835e2",
+        == "622ecdbf2d2776beb1130c02d0d3394385394928cfa3fd3d5a33c03e74a91a1c",
         "classified roster digest drifted",
     )
     require(
