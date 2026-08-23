@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
@@ -28,6 +30,7 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
     private final LifecycleCallbackExecutor callbacks;
     private final Object registrationLock = new Object();
+    private volatile RuntimeEventBroker eventBroker;
     private final ThreadLocal<Boolean> lifecycleActive = ThreadLocal.withInitial(() -> false);
 
     public DeformerLifecycleCoordinator() {
@@ -36,6 +39,19 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
 
     public DeformerLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Deformer", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Deformer lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -124,6 +140,29 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                     } catch (Throwable failure) { logHookFailure(plugin, "beforeSetDeformerOpacity", failure); }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(
+                    deformer, deformer.getOpacity()
+                );
+                effective = broker.publishRuntimeTransform(
+                    DeformerOpacityEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DeformerOpacityEvent.Before.Callback callback =
+                            DeformerOpacityEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DeformerOpacityEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DeformerOpacityEvent.Before) event).opacity()
+                );
+            }
             if (!Float.isFinite(effective)) throw new IllegalArgumentException("Deformer opacity must be finite.");
             final float oldValue = deformer.getOpacity();
             nativeOperation.accept(effective);
@@ -132,6 +171,15 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
                 if (Float.compare(oldValue, newValue) != 0) hook.onDeformerOpacityChanged(deformer, oldValue, newValue);
                 hook.afterSetDeformerOpacity(deformer, newValue);
             });
+            if (broker != null) {
+                final Deformer detached = DetachedDeformer.capture(deformer, newValue);
+                if (Float.compare(oldValue, newValue) != 0) {
+                    broker.publishRuntime(new DeformerOpacityEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DeformerOpacityEvent.After(detached, newValue));
+            }
         });
     }
 
