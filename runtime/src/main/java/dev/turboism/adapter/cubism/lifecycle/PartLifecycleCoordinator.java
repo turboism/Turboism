@@ -1,6 +1,9 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.PartNameEvent;
+import dev.turboism.sdk.event.cubism.PartOpacityEvent;
 import dev.turboism.sdk.cubism.hook.PartHooks;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -21,6 +24,7 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
     private final LifecycleCallbackExecutor callbacks;
     private final Object registrationLock = new Object();
+    private volatile RuntimeEventBroker eventBroker;
     private final ThreadLocal<Boolean> partWriteActive = ThreadLocal.withInitial(() -> false);
     private final ThreadLocal<Boolean> partNameWriteActive = ThreadLocal.withInitial(() -> false);
 
@@ -30,6 +34,19 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
 
     public PartLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Part", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Part lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -177,6 +194,29 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                 }
             }
         }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            final Part detached = DetachedPart.capture(part, part.name(), part.getOpacity());
+            effectiveOpacity = broker.publishRuntimeTransform(
+                PartOpacityEvent.Before.class,
+                effectiveOpacity,
+                candidate -> {
+                    final PartOpacityEvent.Before.Callback callback =
+                        PartOpacityEvent.Before.openCallback(
+                            detached,
+                            requestedOpacity,
+                            candidate
+                        );
+                    return new RuntimeEventBroker.TransformCallback() {
+                        @Override public PartOpacityEvent.Before event() {
+                            return callback.event();
+                        }
+                        @Override public void close() { callback.close(); }
+                    };
+                },
+                event -> ((PartOpacityEvent.Before) event).opacity()
+            );
+        }
 
         if (!Float.isFinite(effectiveOpacity)) {
             throw new IllegalArgumentException("Part opacity must be finite.");
@@ -203,6 +243,30 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                     logHookFailure(plugin, "beforeSetPartName", failure);
                 }
             }
+        }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            final Part detached = DetachedPart.capture(part, part.name(), part.getOpacity());
+            effectiveName = broker.publishRuntimeTransform(
+                PartNameEvent.Before.class,
+                effectiveName,
+                candidate -> {
+                    final PartNameEvent.Before.Callback callback =
+                        PartNameEvent.Before.openCallback(
+                            detached,
+                            requestedName,
+                            candidate
+                        );
+                    return new RuntimeEventBroker.TransformCallback() {
+                        @Override public PartNameEvent.Before event() {
+                            return callback.event();
+                        }
+                        @Override public void close() { callback.close(); }
+                    };
+                },
+                event -> ((PartNameEvent.Before) event).name(),
+                value -> value != null && !value.isBlank()
+            );
         }
         final String oldName = part.name();
         nativeOperation.accept(effectiveName);
@@ -237,6 +301,16 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                 }
             });
         }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            final Part detached = DetachedPart.capture(part, part.name(), finalOpacity);
+            if (changed) {
+                broker.publishRuntime(new PartOpacityEvent.On(
+                    detached, oldOpacity, finalOpacity
+                ));
+            }
+            broker.publishRuntime(new PartOpacityEvent.After(detached, finalOpacity));
+        }
     }
 
     private void publishNameCompletion(
@@ -265,6 +339,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
                     }
                 }
             });
+        }
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker != null) {
+            final Part detached = DetachedPart.capture(part, finalName, part.getOpacity());
+            if (changed) {
+                broker.publishRuntime(new PartNameEvent.On(detached, oldName, finalName));
+            }
+            broker.publishRuntime(new PartNameEvent.After(detached, finalName));
         }
     }
 

@@ -47,17 +47,21 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
             final MutableParameter parameter = new MutableParameter();
 
             lifecycle.setValue(parameter, 2.0F, value -> parameter.value = value);
-            lifecycle.awaitIdle();
+            final long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(1);
+            while (PreviewParameterHookPluginJarFixture.events().size() < 2
+                && System.nanoTime() < deadline) {
+                Thread.onSpinWait();
+            }
             assertEquals(2.0F, parameter.value);
             assertEquals(
-                List.of("on", "after"),
+                List.of("on", "annotated-after"),
                 PreviewParameterHookPluginJarFixture.events()
             );
 
             runtime.close();
             System.clearProperty(PreviewParameterHookPluginJarFixture.EVENT_PROPERTY);
             lifecycle.setValue(parameter, 3.0F, value -> parameter.value = value);
-            lifecycle.awaitIdle();
+            Thread.sleep(100L);
             assertEquals(List.of(), PreviewParameterHookPluginJarFixture.events());
         } finally {
             lifecycle.close();
@@ -111,6 +115,10 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
                     @Override public void afterSetParameterValue(
                         Parameter parameter, float value
                     ) { record("after"); }
+                    @dev.turboism.sdk.event.SubscribeEvent
+                    public void annotatedAfter(
+                        dev.turboism.sdk.event.cubism.ParameterValueEvent.After event
+                    ) { record("annotated-after"); }
                 }
                 """.formatted(EVENT_PROPERTY, EVENT_PROPERTY), StandardCharsets.UTF_8);
             final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
@@ -157,6 +165,7 @@ class LocalPluginRuntimeParameterHookIntegrationTest {
                 "i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]},
                 "dependencies":[],"permissions":[
                   {"id":"turboism.cubism.model.observe","scope":"application","reason":"test"}
+                  ,{"id":"turboism.event.subscribe","scope":"application","reason":"test"}
                 ],"capabilities":[],
                 "environment":{"requiresCubism":false,"ui":"none"}}
                 """;

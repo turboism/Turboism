@@ -74,8 +74,10 @@ record PreviewPluginRuntimeResources(
         final RuntimeHostAdapterAccess runtimeHostAccess = Objects.requireNonNull(hostAccess, "hostAccess");
         final PreviewLog runtimeLog = Objects.requireNonNull(log, "log");
         final RuntimeFailureCollector collector = Objects.requireNonNull(failureCollector, "failureCollector");
+        final ParameterLifecycleCoordinator runtimeParameterLifecycle =
+            Objects.requireNonNull(parameterLifecycle, "parameterLifecycle");
         final ParameterHookRegistry parameterHookRegistry = new ParameterHookRegistry(
-            Objects.requireNonNull(parameterLifecycle, "parameterLifecycle")
+            runtimeParameterLifecycle
         );
         final PartHookRegistry partHookRegistry = new PartHookRegistry(
             Objects.requireNonNull(partLifecycle, "partLifecycle")
@@ -139,7 +141,7 @@ record PreviewPluginRuntimeResources(
             );
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory,
-            effectiveLocale
+            parameterHookRegistry.coordinator(), partHookRegistry.coordinator(), effectiveLocale
         );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(

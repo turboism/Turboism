@@ -2,6 +2,8 @@ package dev.turboism.preview;
 
 import java.net.URLClassLoader;
 import dev.turboism.core.descriptor.PluginDescriptorParser;
+import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.plugin.core.CorePluginServices;
@@ -13,6 +15,7 @@ import dev.turboism.sdk.plugin.TurboismPlugin;
 import java.io.InputStream;
 import java.net.URL;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 /** Runtime-owned built-in core admission; external discovery cannot construct this path. */
@@ -28,43 +31,186 @@ final class BuiltinCorePlugin {
     ) throws Exception {
         final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
         final URLClassLoader resources = resourceLoader(loader);
-        final PluginDescriptor descriptor;
-        try (InputStream input = descriptorStream(loader)) {
-            if (input == null) throw new IllegalStateException("built-in core descriptor is missing");
-            descriptor = new PluginDescriptorParser().parse(input);
+        DisposableScope scope = null;
+        PluginContextBundle context = null;
+        TurboismPlugin plugin = null;
+        boolean enabled = false;
+        try {
+            final PluginDescriptor descriptor;
+            try (InputStream input = descriptorStream(loader)) {
+                if (input == null) throw new IllegalStateException("built-in core descriptor is missing");
+                descriptor = new PluginDescriptorParser().parse(input);
+            }
+            if (!dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
+                throw new IllegalStateException("built-in core descriptor identity mismatch");
+            }
+            log.info(
+                descriptor.id(),
+                "Plugin lifecycle: built-in load started version=" + descriptor.version()
+            );
+            final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
+            runtime.transitionTo(PluginLifecycleState.RESOLVED);
+            runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
+            scope = new DisposableScope();
+            context = contexts.create(descriptor, resources, scope);
+            plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
+            runtime.setEntrypoints(List.of(plugin));
+            final var eventSubscribers = new EntrypointSubscriberCatalog().inspect(List.of(plugin));
+            if (!eventSubscribers.isEmpty()) {
+                requireEventSubscribePermission(descriptor);
+                EventSubscriptionPermissionCatalog.requireDeclared(
+                    descriptor,
+                    eventSubscribers
+                );
+            }
+            context.eventOwner().registerAnnotated(eventSubscribers);
+            runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
+            context.eventOwner().beginInitializing();
+            plugin.init(context.context());
+            runtime.transitionTo(PluginLifecycleState.LOADED);
+            log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=1");
+            context.eventOwner().beginEnabling();
+            log.info(descriptor.id(), "Plugin lifecycle: enable started");
+            plugin.enable();
+            enabled = true;
+            runtime.transitionTo(PluginLifecycleState.ENABLED);
+            context.eventOwner().activate();
+            log.info(descriptor.id(), "Plugin lifecycle: enable succeeded entrypoints=1");
+            final URL source = coreSource(loader);
+            final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
+            log.info(
+                descriptor.id(),
+                "Plugin lifecycle: built-in load succeeded version=" + descriptor.version()
+            );
+            return new LocalPluginRuntime.LoadedPlugin(
+                artifact, runtime, List.of(plugin), scope, resources,
+                context.localization(), context.cleanupEvidence(), context.eventOwner()
+            );
+        } catch (Throwable failure) {
+            final boolean eventQuiesced = closeEventOwner(context, log);
+            cleanupPlugin(plugin, enabled, log);
+            final boolean scopeClosed = closeScope(scope, log);
+            if (eventQuiesced && scopeClosed) {
+                closeResources(resources, log);
+            } else {
+                log.error(
+                    dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                    "Built-in core classloader retained because cleanup did not quiesce",
+                    new IllegalStateException("Built-in core cleanup is incomplete")
+                );
+            }
+            if (failure instanceof Exception exception) {
+                throw exception;
+            }
+            if (failure instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException("Built-in core load failed", failure);
         }
-        if (!dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
-            throw new IllegalStateException("built-in core descriptor identity mismatch");
+    }
+
+    private static void requireEventSubscribePermission(final PluginDescriptor descriptor) {
+        final boolean allowed = descriptor.permissions().stream().anyMatch(permission ->
+            dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
+                permission.id()
+            )
+        );
+        if (!allowed) {
+            throw new IllegalArgumentException(
+                "@SubscribeEvent requires "
+                    + dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE
+                    + ": " + descriptor.id()
+            );
         }
-        log.info(
-            descriptor.id(),
-            "Plugin lifecycle: built-in load started version=" + descriptor.version()
-        );
-        final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
-        runtime.transitionTo(PluginLifecycleState.RESOLVED);
-        runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
-        final DisposableScope scope = new DisposableScope();
-        final PluginContextBundle context = contexts.create(descriptor, resources, scope);
-        final TurboismPlugin plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
-        runtime.setEntrypoints(List.of(plugin));
-        runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
-        plugin.init(context.context());
-        runtime.transitionTo(PluginLifecycleState.LOADED);
-        log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=1");
-        log.info(descriptor.id(), "Plugin lifecycle: enable started");
-        plugin.enable();
-        runtime.transitionTo(PluginLifecycleState.ENABLED);
-        log.info(descriptor.id(), "Plugin lifecycle: enable succeeded entrypoints=1");
-        final URL source = coreSource(loader);
-        final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
-        log.info(
-            descriptor.id(),
-            "Plugin lifecycle: built-in load succeeded version=" + descriptor.version()
-        );
-        return new LocalPluginRuntime.LoadedPlugin(
-            artifact, runtime, List.of(plugin), scope, resources,
-            context.localization(), context.cleanupEvidence()
-        );
+    }
+
+    private static boolean closeEventOwner(
+        final PluginContextBundle context,
+        final PreviewLog log
+    ) {
+        if (context == null) {
+            return true;
+        }
+        try {
+            context.eventOwner().beginClosing();
+            if (!context.eventOwner().awaitQuiescence(Duration.ofSeconds(5))) {
+                return false;
+            }
+            context.eventOwner().close();
+            return true;
+        } catch (Throwable failure) {
+            log.error(
+                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                "Built-in core event cleanup failed safely",
+                failure
+            );
+            return false;
+        }
+    }
+
+    private static void cleanupPlugin(
+        final TurboismPlugin plugin,
+        final boolean enabled,
+        final PreviewLog log
+    ) {
+        if (plugin == null) {
+            return;
+        }
+        if (enabled) {
+            try {
+                plugin.disable();
+            } catch (Throwable failure) {
+                log.error(
+                    dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                    "Built-in core enable rollback failed safely",
+                    failure
+                );
+            }
+        }
+        try {
+            plugin.shutdown();
+        } catch (Throwable failure) {
+            log.error(
+                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                "Built-in core shutdown rollback failed safely",
+                failure
+            );
+        }
+    }
+
+    private static boolean closeScope(
+        final DisposableScope scope,
+        final PreviewLog log
+    ) {
+        if (scope == null) {
+            return true;
+        }
+        try {
+            scope.close();
+            return true;
+        } catch (Throwable failure) {
+            log.error(
+                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                "Built-in core scope cleanup failed safely",
+                failure
+            );
+            return false;
+        }
+    }
+
+    private static void closeResources(
+        final URLClassLoader resources,
+        final PreviewLog log
+    ) {
+        try {
+            resources.close();
+        } catch (Throwable failure) {
+            log.error(
+                dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID,
+                "Built-in core classloader cleanup failed safely",
+                failure
+            );
+        }
     }
 
     static URLClassLoader resourceLoader(final ClassLoader loader) {

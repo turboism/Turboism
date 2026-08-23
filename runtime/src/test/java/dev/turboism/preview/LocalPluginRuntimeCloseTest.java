@@ -522,7 +522,8 @@ class LocalPluginRuntimeCloseTest {
             DisposableScope.class,
             URLClassLoader.class,
             RuntimePluginLocalization.class,
-            CleanupEvidenceCollector.class
+            CleanupEvidenceCollector.class,
+            dev.turboism.core.event.RuntimeEventBroker.Owner.class
         );
         constructor.setAccessible(true);
         final Object value = constructor.newInstance(
@@ -532,11 +533,31 @@ class LocalPluginRuntimeCloseTest {
             fixture.scope(),
             fixture.loader(),
             fixture.localization(),
-            cleanupEvidence
+            cleanupEvidence,
+            activeEventOwner(runtime, fixture.runtime().id())
         );
         final Field field = LocalPluginRuntime.class.getDeclaredField("loaded");
         field.setAccessible(true);
         ((List<Object>) field.get(runtime)).add(value);
+    }
+
+    private static dev.turboism.core.event.RuntimeEventBroker.Owner activeEventOwner(
+        final LocalPluginRuntime runtime,
+        final String pluginId
+    ) throws Exception {
+        final Field contextFactoryField = LocalPluginRuntime.class.getDeclaredField("contextFactory");
+        contextFactoryField.setAccessible(true);
+        final Object contextFactory = contextFactoryField.get(runtime);
+        final Field servicesFactoryField = PreviewPluginContextFactory.class.getDeclaredField(
+            "servicesFactory"
+        );
+        servicesFactoryField.setAccessible(true);
+        final PreviewPluginServicesFactory servicesFactory =
+            (PreviewPluginServicesFactory) servicesFactoryField.get(contextFactory);
+        final dev.turboism.core.event.RuntimeEventBroker.Owner owner =
+            servicesFactory.admitEventOwner(pluginId);
+        owner.activate();
+        return owner;
     }
 
     private static SharedAsyncHostReadLane hostReadLane(
