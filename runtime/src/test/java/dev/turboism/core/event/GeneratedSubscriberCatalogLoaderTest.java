@@ -18,6 +18,15 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class GeneratedSubscriberCatalogLoaderTest {
     @Test
+    void bootstrapLoadedEntrypointFallsBackToReflection() {
+        final List<EventSubscriberDescriptor> descriptors =
+            new GeneratedSubscriberCatalogLoader().inspect(List.of(new Subscriber()), null);
+
+        assertEquals(1, descriptors.size());
+        assertEquals("on", descriptors.get(0).method().getName());
+    }
+
+    @Test
     void fallsBackToReflectionWhenPluginHasNoGeneratedCatalog() throws Exception {
         try (URLClassLoader loader = new URLClassLoader(new URL[0], getClass().getClassLoader())) {
             final Subscriber subscriber = new Subscriber();
