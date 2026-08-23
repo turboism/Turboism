@@ -59,7 +59,10 @@ class ModuleBoundaryIntegrationTest {
             .toList();
 
         // Then
-        assertEquals(List.of("compileOnly(project(\":sdk\"))"), dependencyLines);
+        assertEquals(List.of(
+            "compileOnly(project(\":sdk\"))",
+            "testImplementation(project(\":sdk\"))"
+        ), dependencyLines);
     }
 
     private static Path projectRoot() {

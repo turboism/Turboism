@@ -15,10 +15,22 @@ public record EditorUiHostFailure(
         family = Objects.requireNonNull(family, "family");
     }
 
+    /**
+     * @param code why the host left its healthy path
+     * @param message runtime-authored explanation; must not be blank
+     * @return a failure attributed to the host as a whole rather than to one UI family
+     */
     public static EditorUiHostFailure host(final Code code, final String message) {
         return new EditorUiHostFailure(code, message, Optional.empty());
     }
 
+    /**
+     * @param code why the family left its healthy path
+     * @param message runtime-authored explanation; must not be blank
+     * @param family the single UI family affected; the rest of the host is unaffected
+     * @return a failure scoped to one UI family
+     * @throws NullPointerException if {@code family} is null
+     */
     public static EditorUiHostFailure family(
         final Code code,
         final String message,

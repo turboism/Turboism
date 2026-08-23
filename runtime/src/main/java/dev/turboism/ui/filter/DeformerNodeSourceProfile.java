@@ -15,7 +15,7 @@ import java.util.Optional;
  * {@code cubism.ui-control-appearance.part.node-source}:</p>
  *
  * <ul>
- *   <li>Cubism 5.2.03 → {@code h()} — {@code cubism-ref/verification/cubism-5.2-ui-control-appearance.json},
+ *   <li>Cubism 5.2.03 → {@code h()} — {@code cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_2.ui_control_appearance.method.node_source};</li>
  *   <li>Cubism 5.3.02 → {@code i()} — {@code cubism-ref/verification/cubism-5.3.02-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_3_02.ui_control_appearance.method.node_source}.</li>
@@ -23,7 +23,7 @@ import java.util.Optional;
  *
  * <p>The version is taken from the bound {@link VerifiedMemberResolver#cubismVersion()}.
  * The production Editor-model resolver reports {@code 5.2.0} for the exact 5.2.03 patch
- * artifact ({@code EditorModelVerificationManifest52.CUBISM_VERSION}) and {@code 5.3.02} for
+ * artifact ({@code EditorModelVerificationManifest.CUBISM_VERSION_5_2_03}) and {@code 5.3.02} for
  * the 5.3.02 artifact; the 5.2 control-appearance record spells the same artifact
  * {@code 5.2.03}. Both spellings route to accessor {@code h}; every other version fails
  * closed (no profile, deformer filtering disabled).</p>
@@ -51,7 +51,7 @@ record DeformerNodeSourceProfile(String cubismVersion, String accessorName) {
 
     /** Exact-version routing; unknown versions yield no profile (fail closed). */
     static Optional<DeformerNodeSourceProfile> forVersion(final String cubismVersion) {
-        if ("5.2.0".equals(cubismVersion) || "5.2.03".equals(cubismVersion)) {
+        if ("5.2.03".equals(cubismVersion) || "5.2.03".equals(cubismVersion)) {
             return Optional.of(new DeformerNodeSourceProfile(cubismVersion, ACCESSOR_52));
         }
         if ("5.3.02".equals(cubismVersion)) {

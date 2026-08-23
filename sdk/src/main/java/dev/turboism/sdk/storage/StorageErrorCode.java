@@ -1,5 +1,12 @@
 package dev.turboism.sdk.storage;
 
+/**
+ * Classification of a {@link StorageError}. The set is closed so callers
+ * can switch exhaustively; it covers path and policy rejection
+ * ({@code INVALID_PATH}, {@code PERMISSION_DENIED}, {@code LINK_ESCAPE}),
+ * limits ({@code SIZE_LIMIT_EXCEEDED}, {@code QUOTA_EXCEEDED}), atomicity
+ * gaps, partial completion, and plain I/O failure.
+ */
 public enum StorageErrorCode {
     INVALID_PATH,
     PERMISSION_DENIED,

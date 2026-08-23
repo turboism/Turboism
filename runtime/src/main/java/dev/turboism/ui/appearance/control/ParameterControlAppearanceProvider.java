@@ -27,6 +27,21 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         this.changeSubscription = coordinator.onChange(this::reapply);
     }
 
+    /**
+     * Registers one parameter or folder row label for styling and applies its palette entry
+     * immediately.
+     *
+     * <p>Bindings are long-lived but hold the component only weakly, so a row the host discards is
+     * dropped at the next reapply rather than leaked. Re-binding the same component replaces its
+     * previous binding. Must be called on the Swing event dispatch thread; off the EDT the call is a
+     * silent no-op and nothing is bound.
+     *
+     * @param kind whether the row is a single parameter or a parameter folder, selecting the PARAMETER
+     *     or PARAMETER_GROUP palette; must not be {@code null}
+     * @param id the parameter or group id used as the palette lookup key; must not be {@code null}
+     * @param component the label component to style; must not be {@code null}
+     * @throws NullPointerException if any argument is {@code null}
+     */
     public void bind(final Kind kind, final String id, final Component component) {
         Objects.requireNonNull(kind, "kind");
         Objects.requireNonNull(id, "id");
@@ -38,6 +53,14 @@ public final class ParameterControlAppearanceProvider implements AutoCloseable {
         apply(kind, id, component);
     }
 
+    /**
+     * Restores every tracked component to its original styling and re-applies the current palette to
+     * all live bindings, dropping bindings whose component has been garbage collected.
+     *
+     * <p>Invoked automatically whenever the coordinator reports a palette change. Safe to call from
+     * any thread: off the event dispatch thread the work is posted with {@code invokeLater} rather
+     * than run inline, so it may not have taken effect when this returns.
+     */
     public void reapply() {
         final Runnable action = () -> {
             styles.restoreAll();

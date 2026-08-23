@@ -25,6 +25,7 @@ public record EditorFileCommandRequest(
         }
     }
 
+    /** @return the host command identifier of the requested file command, for logging and dispatch */
     public String commandId() {
         return command.id();
     }

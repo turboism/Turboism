@@ -55,7 +55,7 @@ public final class RecentPreviewVerificationManifest {
         final String projectVersion = projectResolver.cubismVersion();
         final String panelVersion = panelResolver.cubismVersion();
         final boolean reviewed = "5.3.02".equals(projectVersion) && "5.3.02".equals(panelVersion)
-            || "5.2.0".equals(projectVersion) && "5.2.03".equals(panelVersion);
+            || "5.2.03".equals(projectVersion) && "5.2.03".equals(panelVersion);
         if (!reviewed) {
             return false;
         }

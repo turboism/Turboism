@@ -89,6 +89,20 @@ public record ContextMenuContributionDescriptor(
         );
     }
 
+    /**
+     * Normalizes a generic editor-UI contribution into a context-menu descriptor.
+     *
+     * <p>Accepts only contributions whose identity is in the {@code CONTEXT_MENU} family and
+     * whose payload is a {@code ContextMenuContribution}; anything else is a programming error
+     * on the caller's side rather than a recoverable condition. The plugin id is taken from the
+     * contribution's identity, not from the payload.
+     *
+     * @param contribution the registered editor-UI contribution to convert; must not be null
+     * @return the normalized descriptor
+     * @throws IllegalArgumentException if the contribution is not in the {@code CONTEXT_MENU}
+     *                                  family, or its descriptor is not a context-menu contribution
+     * @throws NullPointerException if {@code contribution} is null
+     */
     public static ContextMenuContributionDescriptor from(
         final EditorUiContribution<?> contribution
     ) {

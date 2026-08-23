@@ -27,7 +27,24 @@ public class TransactionException extends Exception {
         this.severity = severity;
     }
 
+    /**
+     * Returns the failed transaction's identity.
+     *
+     * @return the transaction id
+     */
     public String transactionId() { return transactionId; }
+
+    /**
+     * Returns the diagnostic error code.
+     *
+     * @return the error code
+     */
     public int errorCode() { return errorCode; }
+
+    /**
+     * Returns the failure severity.
+     *
+     * @return the severity label
+     */
     public String severity() { return severity; }
 }

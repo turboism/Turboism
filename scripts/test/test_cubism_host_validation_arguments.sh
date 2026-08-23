@@ -31,10 +31,14 @@ printf 'fixture\n' > "$tmp/fixture.cmo3"
 printf 'home-file\n' > "$tmp/home-file.txt"
 mkdir -p "$tmp/home-dir"
 printf 'home-dir\n' > "$tmp/home-dir/value.txt"
+printf 'key\n' > "$tmp/key"
+host_args=(--ssh-host test@example.invalid --ssh-key "$tmp/key"
+  --golden-prefix /tmp/turboism-golden --remote-root /tmp/turboism-validation
+  --proton-runner /tmp/proton)
 
 base=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
-  --result-file state/result.txt --dry-run)
+  --result-file state/result.txt "${host_args[@]}" --dry-run)
 
 cubism_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
 "${base[@]}" --home-file "$tmp/home-file.txt:scripts/input.txt" --home-dir "$tmp/home-dir:scripts" \
@@ -71,11 +75,10 @@ touch "$SSH_MARKER"
 exit 99
 SH
 chmod +x "$bin/ssh"
-printf 'key\n' > "$tmp/key"
 expect_rejected before-ssh 'trigger path must contain only ASCII' env PATH="$bin:$PATH" SSH_MARKER="$tmp/ssh-used" \
   bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle" --agent "$bundle/agent.jar" \
   --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3" --result-file state/result.txt \
-  --trigger 'state/trigger;touch-pwned' --ssh-key "$tmp/key"
+  --trigger 'state/trigger;touch-pwned' "${host_args[@]}"
 [ ! -e "$tmp/ssh-used" ] || fail 'rejected path reached SSH transport'
 
 echo 'PASS: Cubism host-validation argument hardening'

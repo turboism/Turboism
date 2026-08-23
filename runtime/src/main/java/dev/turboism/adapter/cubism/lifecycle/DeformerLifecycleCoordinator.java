@@ -38,6 +38,13 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Deformer", executors);
     }
 
+    /**
+     * Registers a plugin's Deformer hooks, replacing any registration previously made under the same
+     * plugin id and shutting down that plugin's pending callback queue before the new one is installed.
+     *
+     * @param plugin descriptor, entrypoints and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
@@ -57,6 +64,14 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue, so no
+     * further observer callbacks are delivered for it. Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     * @throws IllegalArgumentException when {@code pluginId} is blank
+     */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -81,6 +96,21 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Runs the opacity write pipeline: intercept-capable hooks may rewrite the requested value in
+     * registration order, the surviving value is handed to {@code nativeOperation}, and the actual
+     * before/after values read back from the Deformer are published to observers asynchronously.
+     *
+     * <p>Non-finite values returned by an interceptor are ignored (and logged) rather than applied;
+     * hook failures are logged and never propagate to the caller. Runs on the calling host thread and
+     * refuses re-entry.
+     *
+     * @param deformer the Deformer being written
+     * @param requested opacity requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalArgumentException when the effective opacity is not finite
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void setOpacity(final Deformer deformer, final float requested, final Consumer<Float> nativeOperation) {
         runGuarded(OPACITY_OPERATION_ID, () -> {
             float effective = requested;
@@ -105,6 +135,16 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the visibility write pipeline: interceptors may rewrite the requested flag, the effective
+     * value is applied through {@code nativeOperation}, and the observed before/after state is
+     * published to observers asynchronously. Hook failures are logged, not propagated.
+     *
+     * @param deformer the Deformer being written
+     * @param requested visibility requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void setVisible(final Deformer deformer, final boolean requested, final Consumer<Boolean> nativeOperation) {
         runGuarded(VISIBILITY_OPERATION_ID, () -> {
             boolean effective = requested;
@@ -125,6 +165,16 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the lock-flag write pipeline: interceptors may rewrite the requested flag, the effective
+     * value is applied through {@code nativeOperation}, and the observed before/after state is
+     * published to observers asynchronously. Hook failures are logged, not propagated.
+     *
+     * @param deformer the Deformer being written
+     * @param requested lock state requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void setLocked(final Deformer deformer, final boolean requested, final Consumer<Boolean> nativeOperation) {
         runGuarded(LOCK_OPERATION_ID, () -> {
             boolean effective = requested;
@@ -145,6 +195,17 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the Warp Deformer grid replacement pipeline. Interceptors may substitute the grid but must
+     * not return null; a null result aborts that hook (logged) and leaves the previous effective grid
+     * in place. Observers see the grid actually read back from the Deformer after the write.
+     *
+     * @param deformer the Warp Deformer being written
+     * @param requested grid requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective grid
+     * @throws NullPointerException when {@code requested} is null
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void replaceGrid(
         final WarpDeformer deformer, final WarpGrid requested, final Consumer<WarpGrid> nativeOperation
     ) {
@@ -171,6 +232,16 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the Rotation Deformer base-angle write pipeline. Non-finite interceptor results are ignored
+     * and logged; the effective angle must still be finite when the native write is reached.
+     *
+     * @param deformer the Rotation Deformer being written
+     * @param requested base angle requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective angle
+     * @throws IllegalArgumentException when the effective base angle is not finite
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void setBaseAngle(
         final RotationDeformer deformer, final float requested, final Consumer<Float> nativeOperation
     ) {
@@ -197,6 +268,17 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the Rotation Deformer form replacement pipeline. Interceptors may substitute the form but
+     * must not return null; a null result aborts that hook (logged) and keeps the previous effective
+     * form. Observers see the form actually read back from the Deformer after the write.
+     *
+     * @param deformer the Rotation Deformer being written
+     * @param requested form requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective form
+     * @throws NullPointerException when {@code requested} is null
+     * @throws IllegalStateException when invoked from within another Deformer lifecycle operation
+     */
     public void replaceForm(
         final RotationDeformer deformer,
         final RotationDeformerForm requested,
@@ -248,6 +330,10 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Blocks until every observer callback queued so far has finished. Intended for tests and for
+     * shutdown sequencing; it makes no guarantee about callbacks submitted after the call begins.
+     */
     public void awaitIdle() {
         callbacks.awaitIdle();
     }
@@ -292,6 +378,15 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
 
     private record Registration(Object token, PluginHooks plugin) { }
 
+    /**
+     * One plugin's participation in the Deformer lifecycle.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param entrypoints the plugin's Deformer hook implementations, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param interceptAllowed whether this plugin's {@code before*} hooks may rewrite requested values
+     * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends DeformerHooks> entrypoints,
@@ -299,6 +394,13 @@ public final class DeformerLifecycleCoordinator implements AutoCloseable {
         boolean interceptAllowed,
         boolean observeAllowed
     ) {
+        /**
+         * Registers a plugin with both interception and observation permitted.
+         *
+         * @param descriptor identity of the owning plugin
+         * @param entrypoints the plugin's Deformer hook implementations
+         * @param logger sink for hook failures raised by this plugin
+         */
         public PluginHooks(
             final PluginDescriptor descriptor,
             final List<? extends DeformerHooks> entrypoints,

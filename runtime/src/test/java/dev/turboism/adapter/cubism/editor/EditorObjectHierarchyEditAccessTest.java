@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorObjectHierarchyEditSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorPartTreeSelectorContract;
-import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -41,7 +41,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorObjectHierarchyEditAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsPartWithParentIndexUndoAndRefreshCounts(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -71,7 +71,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsWarpWithGridAndRotationDeformerUnderPart(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -100,7 +100,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void createsArtMeshWithExplicitGeometryAndUndo(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -136,7 +136,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void deletesPartDeformerDrawableThroughNativeSelectionAndDeleteCommand(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -170,7 +170,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void renamesDeformerAndDrawableThroughSharedLocalNameSelector(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -204,7 +204,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsPartToPartThroughNativeAddChildDetach(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -228,7 +228,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsDeformerToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -258,7 +258,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void reparentsDrawableToPartAndToDeformer(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -281,7 +281,7 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void rejectsCyclesBeforeNativeInvocation(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -354,7 +354,7 @@ class EditorObjectHierarchyEditAccessTest {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorPartNameSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
-        capabilities.add(dev.turboism.mapping.verification.EditorPartTreeSelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
@@ -457,7 +457,6 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.part-source.local-name", ObjectSource.class, "localName", "()Ljava/lang/String;"));
         selectors.add(method("cubism.editor-model.part-source.parent", ObjectSource.class, "parent", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.part-source.add-child", PartSource.class, "addChild", "(" + type(ObjectSource.class) + "I)V"));
-        selectors.add(method("cubism.editor-model.part-source.remove-child", PartSource.class, "removeChild", "(" + type(ObjectSource.class) + ")V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.part.class", internal(HostPart.class)));
         selectors.add(method("cubism.editor-model.part.source", HostPart.class, "source", desc(PartSource.class)));
         selectors.add(method("cubism.editor-model.model.parts", Model.class, "allParts", "()Ljava/util/List;"));
@@ -527,7 +526,6 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable-source.set-local-name", ObjectSource.class, "setLocalName", "(Ljava/lang/String;)V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.handler", ObjectSource.class, "handler", desc(ACParameterControllableHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-controllable-source.internal-set-parent", ObjectSource.class, "internalSetParent", "(" + type(PartSource.class) + ")V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-guid", ObjectSource.class, "targetDeformerGuid", desc(Guid.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.set-target-deformer-guid", ObjectSource.class, "setTargetDeformerGuid", "(" + type(Guid.class) + ")V"));
         selectors.add(method("cubism.editor-model.parameter-controllable-source.all-parent-deformers", ObjectSource.class, "allParentDeformers", "()Ljava/lang/Iterable;"));

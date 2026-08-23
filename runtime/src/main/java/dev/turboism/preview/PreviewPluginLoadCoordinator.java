@@ -60,7 +60,11 @@ final class PreviewPluginLoadCoordinator {
             ));
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
         }
-        configuredDisabled.forEach(candidates::remove);
+        for (String disabledId : configuredDisabled) {
+            if (candidates.remove(disabledId) != null) {
+                log.info(disabledId, "Plugin lifecycle: load skipped because plugin is configured disabled");
+            }
+        }
         if (candidates.isEmpty()) {
             log.warn("plugin-loader", "No valid plugin JARs found in " + pluginDirectory);
             return new LocalPluginRuntime.LoadReport(List.of(), List.copyOf(failures), List.of());
@@ -83,6 +87,18 @@ final class PreviewPluginLoadCoordinator {
             loadResolvedPlugin(resolved, candidates, disabled, runtimeFailed, failures, summaries);
         }
         log.info("plugin-loader", "Plugin load complete: loaded=" + summaries.size() + ", failed=" + failures.size());
+        // A bare count is not diagnosable. An exact-host run reported failed=1 with nothing
+        // naming the plugin or the reason, which cost several host sessions to narrow down by
+        // hand; every failure now says which plugin, which code, and why.
+        for (LocalPluginRuntime.PluginFailure failure : failures) {
+            log.warn(
+                "plugin-loader",
+                "Plugin failed: id=" + failure.pluginId()
+                    + " code=" + failure.code()
+                    + " jar=" + failure.jar()
+                    + " reason=" + failure.message()
+            );
+        }
         return new LocalPluginRuntime.LoadReport(
             List.copyOf(summaries), List.copyOf(failures), List.copyOf(resolution.cycles())
         );
@@ -99,6 +115,11 @@ final class PreviewPluginLoadCoordinator {
                 disabledId, candidate == null ? pluginDirectory : candidate.jar(),
                 "DEPENDENCY_FAILED", "Required plugin dependency is missing, incompatible, or cyclic."
             ));
+            log.warn(
+                disabledId,
+                "Plugin lifecycle: load skipped because a required dependency "
+                    + "is missing, incompatible, or cyclic"
+            );
         }
     }
 
@@ -121,6 +142,11 @@ final class PreviewPluginLoadCoordinator {
                 resolved.id(), candidate.jar(), "DEPENDENCY_LOAD_FAILED",
                 "Required dependency failed to load: " + String.join(", ", failedDependencies)
             ));
+            log.warn(
+                resolved.id(),
+                "Plugin lifecycle: load skipped because required dependencies failed: "
+                    + String.join(", ", failedDependencies)
+            );
             return;
         }
         final LocalPluginRuntime.LoadedPluginSummary summary = loader.load(candidate, failures);

@@ -19,6 +19,17 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * The runtime implementation of {@link PaletteToolbarRegistry} handed to one plugin.
+ *
+ * <p>Scoped to a single plugin id: every contribution it accepts is attributed to that plugin,
+ * checked against {@link PermissionIds} through the {@link PermissionChecker}, and applied to the
+ * host through the {@link RuntimeScheduler} rather than on the caller's thread.
+ *
+ * <p>Localization ownership is one-shot: the first of {@code bindLocalization} or
+ * {@code lockWithoutLocalization} wins and any later disagreeing call is refused, so label keys
+ * cannot be resolved against a swapped-in bundle.
+ */
 public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegistry {
 
     private static final String UI_TASK_TYPE = "ui.schedule";
@@ -81,6 +92,19 @@ public final class RuntimePaletteToolbarRegistry implements PaletteToolbarRegist
         );
     }
 
+    /**
+     * Rebinds the authority this registry routes contributions through, typically when a new
+     * Editor UI host generation is installed.
+     *
+     * <p>Only safe while nothing is contributed: with contributions already registered, switching
+     * to a different authority would strand them, so it is refused. Rebinding the same authority
+     * is always allowed.
+     *
+     * @param authority the authority to route through
+     * @throws NullPointerException if {@code authority} is {@code null}
+     * @throws IllegalStateException if contributions exist and {@code authority} differs from the
+     *     current one
+     */
     public synchronized void bindContributionAuthority(
         final EditorUiContributionAuthority authority
     ) {

@@ -51,6 +51,11 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         service = new RuntimeSceneTableService(this);
     }
 
+    /**
+     * @return the SDK-facing Scene table service backed by these host operations; created once in
+     *     the constructor and stable for the lifetime of this object, whether or not a native
+     *     palette is currently attached
+     */
     public RuntimeSceneTableService service() {
         return service;
     }
@@ -147,6 +152,15 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         return haystack.contains(keyword);
     }
 
+    /**
+     * Detaches from the native Scene palette and undoes every listener and overlay this class
+     * installed.
+     *
+     * <p>Invalidates the connection token first, so any pending reconnect retry aborts instead of
+     * re-attaching. The teardown itself is posted to the Swing event dispatch thread and therefore
+     * may not have completed when this method returns. Safe to call when nothing is attached, and
+     * safe to call more than once.
+     */
     public void disconnect() {
         connectionToken++;
         onEdt(() -> {
@@ -166,6 +180,15 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         });
     }
 
+    /**
+     * Attaches to an already-resolved native Scene palette instead of searching the window tree.
+     *
+     * <p>The work is posted to the Swing event dispatch thread; a {@code null} palette is ignored.
+     * Attachment can still fail there — if the palette does not yield the expected table and rows,
+     * nothing is attached and no error is reported to the caller.
+     *
+     * @param nativePalette the host's Scene palette object, or {@code null} to do nothing
+     */
     public void attach(final Object nativePalette) {
         if (nativePalette != null) onEdt(() -> attachNow(nativePalette));
     }

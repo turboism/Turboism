@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.ui.appearance.model.PartAppearance;
@@ -9,6 +10,7 @@ import java.util.Optional;
 
 /** One Cubism Part. */
 @PreviewApi
+@CubismEditor({"5.2.03", "5.3.02"})
 public interface Part {
 
     PartId id();
@@ -61,6 +63,7 @@ public interface Part {
      * Returns the ArtMesh IDs this Part clips (Inspector {@code clippingMaskId}
      * entry), in stable host order.
      */
+    @CubismEditor("5.3.02")
     default List<ArtMeshId> maskIds() { throw unavailable("Part clipping masks"); }
 
     /**
@@ -69,6 +72,7 @@ public interface Part {
      *
      * @throws IllegalArgumentException when a referenced ArtMesh is absent from the model
      */
+    @CubismEditor("5.3.02")
     default void setMaskIds(final List<ArtMeshId> ids) {
         throw unavailable("Part clipping-mask editing");
     }
@@ -108,12 +112,14 @@ public interface Part {
      * Returns this Part's alpha-composition mode (Inspector {@code alphaComposition}
      * entry), or {@link AlphaComposition#UNKNOWN} when the backend does not expose it.
      */
+    @CubismEditor("5.3.02")
     default AlphaComposition alphaComposition() { return AlphaComposition.UNKNOWN; }
 
     /**
      * Writes this Part's alpha-composition mode (Inspector {@code alphaComposition}
-     * entry) inside the native Undo envelope. Cubism 5.2 hosts fail closed.
+     * entry) inside the native Undo envelope.
      */
+    @CubismEditor("5.3.02")
     default void setAlphaComposition(final AlphaComposition composition) {
         throw unavailable("Part alpha-composition editing");
     }
@@ -126,6 +132,7 @@ public interface Part {
 
     int parentIndex();
 
+    @CubismEditor("5.3.02")
     void setOpacity(float opacity);
 
     private static UnsupportedOperationException unavailable(final String feature) {

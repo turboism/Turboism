@@ -12,6 +12,20 @@ public final class NativeDeformerControlRowAppearanceBridge {
 
     private NativeDeformerControlRowAppearanceBridge() { }
 
+    /**
+     * Entry point the instrumented host deformer control-row renderer calls after producing a row
+     * component.
+     *
+     * <p>Fail-closed and never disruptive: it returns {@code component} unchanged when no bridge is
+     * installed or when called off the Swing event dispatch thread, and any {@code Throwable} raised
+     * while resolving the row's deformer is swallowed after restoring the original styling. A row
+     * whose deformer id cannot be determined triggers a restore rather than a guess.
+     *
+     * @param component the component the host renderer produced; {@code null} is returned as-is
+     * @param renderer the host renderer instance the selectors read the row source from
+     * @param row the row index being rendered
+     * @return {@code component}, styled where possible and otherwise untouched
+     */
     public static Component afterRender(final Component component, final Object renderer, final int row) {
         if (component == null) return null;
         final Installed installed = INSTALLED.get();
@@ -26,6 +40,21 @@ public final class NativeDeformerControlRowAppearanceBridge {
         return component;
     }
 
+    /**
+     * Installs the single process-wide bridge, wiring the host renderer hook to a provider.
+     *
+     * <p>Exactly one installation may be live at a time; this is the guard against two runtimes or a
+     * stale uninstall silently sharing the host hook.
+     *
+     * @param generation the host generation this installation is bound to; must be positive
+     * @param selectors reflective coordinates of the host renderer's row and deformer accessors; must
+     *     not be {@code null}
+     * @param provider the provider that applies and restores styling, closed on uninstall; must not be
+     *     {@code null}
+     * @throws IllegalArgumentException if {@code generation} is not positive
+     * @throws IllegalStateException if a bridge is already installed
+     * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
+     */
     public static void install(
         final long generation,
         final Selectors selectors,
@@ -38,6 +67,12 @@ public final class NativeDeformerControlRowAppearanceBridge {
         }
     }
 
+    /**
+     * Removes the installed bridge and closes its provider, which restores every component the
+     * provider had styled.
+     *
+     * <p>Idempotent — uninstalling when nothing is installed does nothing.
+     */
     public static void uninstall() {
         final Installed installed = INSTALLED.getAndSet(null);
         if (installed != null) installed.provider().close();
@@ -47,6 +82,30 @@ public final class NativeDeformerControlRowAppearanceBridge {
 
     private record Installed(long generation, Selectors selectors, DeformerControlRowAppearanceProvider provider) { }
 
+    /**
+     * Reflective coordinates of the host's deformer control-row internals: how to get from the
+     * renderer to the row, from the row to its deformer, and from the deformer to its id string.
+     * *
+     * <p>All owner and member names are internal/binary names of host classes, and are validated only
+     * for being non-blank — a name that does not match the running Editor build simply makes lookup
+     * fail, which the bridge treats as "no id" rather than an error.
+     *
+     * @param rendererOwner internal name of the host renderer class the hook fires on
+     * @param outerField field on the renderer holding its enclosing panel
+     * @param outerOwner internal name of that enclosing panel's class
+     * @param treeAccessorMethod method on the enclosing panel returning the tree widget
+     * @param treeOwner internal name of the tree widget's class
+     * @param pathForRowMethod method on the tree widget mapping a row index to its path
+     * @param rowOwner internal name of the row/path class that method returns
+     * @param rowSourceMethod method on the row returning the model object it displays
+     * @param deformerSourceOwner internal name of the host deformer class expected as that source
+     * @param deformerIdMethod method on the deformer returning its id object
+     * @param idStringMethod method on the id object returning the id as a string
+     * @param hostClassLoader the loader host classes must come from, so foreign look-alike classes are
+     *     ignored; must not be {@code null}
+     * @throws IllegalArgumentException if any name is blank
+     * @throws NullPointerException if any component is {@code null}
+     */
     public record Selectors(
         String rendererOwner,
         String outerField,

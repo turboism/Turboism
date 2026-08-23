@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorParameterStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -313,7 +314,6 @@ class EditorParameterStructureAccessTest {
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-id.create", internal(Id.class), "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(StaticSelector.constructor("cubism.editor-model.parameter-group-guid.create", internal(CParameterGroupGuid.class), "()V", StaticSelector.ACCESS_PUBLIC));
         selectors.add(method("cubism.editor-model.parameter-group.handler", ParameterGroup.class, "handler", desc(ParameterGroupHandler.class)));
-        selectors.add(method("cubism.editor-model.parameter-group.guid", ParameterGroup.class, "guid", desc(Id.class)));
         selectors.add(method("cubism.editor-model.parameter-group.set-name", ParameterGroup.class, "setName", "(Ljava/lang/String;)V"));
         selectors.add(method("cubism.editor-model.parameter-group.set-folder-opened", ParameterGroup.class, "setFolderOpened", "(Z)V"));
         selectors.add(method("cubism.editor-model.parameter-group.children", ParameterGroup.class, "children", "()Ljava/util/List;"));
@@ -339,7 +339,7 @@ class EditorParameterStructureAccessTest {
             "5.3.02", "adapter.editor-model.readwrite",
             includeCapability
                 ? java.util.Set.of("cubism.editor-model.read", EditorParameterStructureSelectorContract.CAPABILITY_ID,
-                    dev.turboism.mapping.verification.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID)
+                    dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract.CAPABILITY_ID)
                 : java.util.Set.of("cubism.editor-model.read"),
             selectors, Host.class.getClassLoader());
     }

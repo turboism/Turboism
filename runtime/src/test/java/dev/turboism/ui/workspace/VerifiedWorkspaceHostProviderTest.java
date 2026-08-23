@@ -47,8 +47,8 @@ class VerifiedWorkspaceHostProviderTest {
     @Test
     void exactProvidersRejectWrongVersionAndFailedPostState() {
         VerifiedMemberResolver resolver52 = resolver("5.2.03");
-        assertTrue(WorkspaceVerificationManifest52.authorizes(resolver52));
-        assertFalse(WorkspaceVerificationManifest53.authorizes(resolver52));
+        assertTrue(WorkspaceControlAdmission.authorizes5203(resolver52));
+        assertFalse(WorkspaceControlAdmission.authorizes5302(resolver52));
 
         SyntheticDock dock = new SyntheticDock(
             workspace("modeling", "Modeling"),
@@ -201,8 +201,8 @@ class VerifiedWorkspaceHostProviderTest {
         );
         return TestVerifiedResolvers.create(
             version,
-            version.equals("5.2.03") ? WorkspaceVerificationManifest52.ADAPTER_SLICE_ID : WorkspaceVerificationManifest53.ADAPTER_SLICE_ID,
-            Set.of(WorkspaceVerificationManifest52.CAPABILITY_ID),
+            version.equals("5.2.03") ? WorkspaceControlAdmission.ADAPTER_SLICE_ID_5_2_03 : WorkspaceControlAdmission.ADAPTER_SLICE_ID_5_3_02,
+            Set.of(WorkspaceControlAdmission.CAPABILITY_ID),
             selectors,
             SyntheticApp.class.getClassLoader()
         );

@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 
@@ -18,7 +19,7 @@ class EditorTextureSelectorContractTest {
 
     @ParameterizedTest
     @CsvSource({
-        "Cubism-5.2, cubism-5.2-editor-model.json",
+        "Cubism-5.2, cubism-5.2.03-editor-model.json",
         "Cubism-5.3.02, cubism-5.3.02-editor-model.json"
     })
     void exactRecordVerifiesTheTextureReadContract(

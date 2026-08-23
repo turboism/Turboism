@@ -46,6 +46,12 @@ public record RuntimeStartupConfig(
         );
     }
 
+    /**
+     * @param hookId identifier of the startup hook to test
+     * @return true when the hook may run: safe mode is off and the ID is not in the operator's
+     *     disable list. Safe mode disables every hook regardless of the list.
+     * @throws NullPointerException if {@code hookId} is null
+     */
     public boolean hookEnabled(final String hookId) {
         return !safeMode && !disabledHookIds.contains(Objects.requireNonNull(hookId, "hookId"));
     }
@@ -55,10 +61,33 @@ public record RuntimeStartupConfig(
         new RuntimeStartupConfig(false, false, false, false);
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;
 
+    /**
+     * Loads the startup subset, discarding diagnostics.
+     *
+     * @param turboismHome Turboism home directory containing {@code config.json}
+     * @return the parsed configuration, or the all-disabled configuration on any problem
+     * @throws NullPointerException if {@code turboismHome} is null
+     */
     public static RuntimeStartupConfig load(final Path turboismHome) {
         return load(turboismHome, ignored -> { });
     }
 
+    /**
+     * Loads the startup subset of {@code config.json} during premain, before the runtime proper
+     * exists.
+     *
+     * <p>This never throws on a bad configuration: every rejection path returns the all-disabled
+     * configuration and reports a code, because failing to read config must not stop the official
+     * host from starting. Rejections are a path escaping the home directory, a non-regular file, a
+     * file over 64 KiB, a schema-invalid document, and any read or parse error. An absent file is
+     * normal and reports nothing.</p>
+     *
+     * @param turboismHome Turboism home directory containing {@code config.json}
+     * @param diagnostic receives a {@code RUNTIME_STARTUP_CONFIG_*} code per rejection; exceptions
+     *     it throws are swallowed so a broken diagnostic sink cannot block startup
+     * @return the parsed configuration, or the all-disabled configuration when anything was wrong
+     * @throws NullPointerException if either argument is null
+     */
     public static RuntimeStartupConfig load(
         final Path turboismHome,
         final Consumer<String> diagnostic

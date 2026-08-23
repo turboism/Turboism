@@ -98,7 +98,7 @@ class EditorLifecycleCoordinatorTest {
     void pluginRegisteredAfterStartupReceivesCurrentStartupSnapshot() {
         final List<String> events = new CopyOnWriteArrayList<>();
         final EditorLifecycleCoordinator coordinator = new EditorLifecycleCoordinator();
-        coordinator.publishStartup("5.2.0");
+        coordinator.publishStartup("5.2.03");
         coordinator.register(plugin(new EditorLifecycleHooks() {
             @Override public void beforeEditorStartup(final EditorLifecycleSnapshot editor) {
                 events.add("before:" + editor.hostVersion());
@@ -112,7 +112,7 @@ class EditorLifecycleCoordinatorTest {
         }));
         coordinator.awaitIdle();
 
-        assertEquals(List.of("before:5.2.0", "on", "after"), events);
+        assertEquals(List.of("before:5.2.03", "on", "after"), events);
         coordinator.close();
     }
 

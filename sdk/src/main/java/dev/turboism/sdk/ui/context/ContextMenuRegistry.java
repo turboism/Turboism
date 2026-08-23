@@ -10,12 +10,30 @@ import java.util.Set;
 import java.util.List;
 import java.util.function.Predicate;
 
+/**
+ * Registry for plugin-contributed Cubism context-menu entries.
+ *
+ * <p>Contributions are declarative: a plugin describes where an entry belongs and which action it
+ * invokes, and the runtime owns attachment, ordering, reconciliation and removal. Plugins never
+ * touch host menu widgets.</p>
+ *
+ * <p>A contribution is validated when it is constructed, not when the menu opens, so an entry that
+ * is impossible for its location fails at registration rather than silently never appearing.</p>
+ */
 @PreviewApi
 @RequiresPermission("turboism.ui.context-menu.contribute")
 public interface ContextMenuRegistry {
 
+    /**
+     * Contributes one context-menu entry.
+     *
+     * @param contribution the entry to attach
+     * @return a registration whose closure removes the entry; closing it is the only supported
+     *     way to withdraw a contribution, and plugin disable closes it automatically
+     */
     Registration contribute(ContextMenuContribution contribution);
 
+    /** Host menu a contribution attaches to, and the object kinds that menu can carry. */
     enum Location {
         DEFORMER_TAB(EnumSet.of(ObjectKind.WARP_DEFORMER, ObjectKind.ROTATION_DEFORMER, ObjectKind.ART_MESH)),
         PARAMETER_TAB(EnumSet.of(ObjectKind.PARAMETER, ObjectKind.PARAMETER_FOLDER)),
@@ -35,6 +53,11 @@ public interface ContextMenuRegistry {
             this.supportedKinds = Set.copyOf(supportedKinds);
         }
 
+        /**
+         * Returns the object kinds this location's menu can select.
+         *
+         * @return an immutable set; a selection contribution naming any other kind is rejected
+         */
         public Set<ObjectKind> supportedKinds() {
             return supportedKinds;
         }
@@ -70,20 +93,41 @@ public interface ContextMenuRegistry {
         PARAMETER_FOLDER
     }
 
+    /** Kind of a single menu entry. */
     enum EntryKind {
+        /** A clickable entry bound to an action. */
         ITEM,
+        /** A visual divider carrying no label or action. */
         SEPARATOR,
+        /** A nested menu carrying children and no action of its own. */
         SUBMENU
     }
 
+    /** How an entry is positioned relative to the host menu's existing entries. */
     enum PlacementKind {
+        /** Before every existing entry. */
         FIRST,
+        /** After every existing entry. */
         LAST,
+        /** Immediately before the anchor entry. */
         BEFORE,
+        /** Immediately after the anchor entry. */
         AFTER
     }
 
+    /**
+     * Where an entry sits in its host menu.
+     *
+     * @param kind absolute or anchor-relative placement
+     * @param anchorId the entry to anchor against, empty for absolute placement
+     */
     record Placement(PlacementKind kind, String anchorId) {
+        /**
+         * Validates that the anchor matches the placement kind.
+         *
+         * @throws IllegalArgumentException when a relative placement has no anchor, or an
+         *     absolute placement supplies one
+         */
         public Placement {
             kind = Objects.requireNonNull(kind, "kind");
             anchorId = anchorId == null ? "" : anchorId.trim();
@@ -95,12 +139,47 @@ public interface ContextMenuRegistry {
             }
         }
 
+        /**
+         * Places the entry before every existing entry.
+         *
+         * @return an absolute first placement
+         */
         public static Placement first() { return new Placement(PlacementKind.FIRST, ""); }
+
+        /**
+         * Places the entry after every existing entry.
+         *
+         * @return an absolute last placement
+         */
         public static Placement last() { return new Placement(PlacementKind.LAST, ""); }
+
+        /**
+         * Places the entry immediately before an anchor.
+         *
+         * @param anchorId the entry to anchor against
+         * @return a relative placement
+         */
         public static Placement before(final String anchorId) { return new Placement(PlacementKind.BEFORE, anchorId); }
+
+        /**
+         * Places the entry immediately after an anchor.
+         *
+         * @param anchorId the entry to anchor against
+         * @return a relative placement
+         */
         public static Placement after(final String anchorId) { return new Placement(PlacementKind.AFTER, anchorId); }
     }
 
+    /**
+     * One entry in a contributed context menu.
+     *
+     * @param kind item, separator or submenu
+     * @param id plugin-scoped entry identity
+     * @param label display text, empty for separators
+     * @param actionId action invoked on click, empty for separators and submenus
+     * @param children nested entries, non-empty only for submenus
+     * @param placement position within the host menu
+     */
     record ContextMenuEntry(
         EntryKind kind,
         String id,
@@ -135,30 +214,77 @@ public interface ContextMenuRegistry {
             }
         }
 
+        /**
+         * Creates a clickable entry placed last.
+         *
+         * @param id plugin-scoped entry identity
+         * @param label display text
+         * @param actionId action invoked on click
+         * @return the entry
+         */
         public static ContextMenuEntry item(final String id, final String label, final String actionId) {
             return item(id, label, actionId, Placement.last());
         }
 
+        /**
+         * Creates a clickable entry at an explicit position.
+         *
+         * @param id plugin-scoped entry identity
+         * @param label display text
+         * @param actionId action invoked on click
+         * @param placement position within the host menu
+         * @return the entry
+         */
         public static ContextMenuEntry item(
             final String id, final String label, final String actionId, final Placement placement
         ) {
             return new ContextMenuEntry(EntryKind.ITEM, id, label, actionId, List.of(), placement);
         }
 
+        /**
+         * Creates a divider placed last.
+         *
+         * @param id plugin-scoped entry identity
+         * @return the separator
+         */
         public static ContextMenuEntry separator(final String id) {
             return separator(id, Placement.last());
         }
 
+        /**
+         * Creates a divider at an explicit position.
+         *
+         * @param id plugin-scoped entry identity
+         * @param placement position within the host menu
+         * @return the separator
+         */
         public static ContextMenuEntry separator(final String id, final Placement placement) {
             return new ContextMenuEntry(EntryKind.SEPARATOR, id, "", "", List.of(), placement);
         }
 
+        /**
+         * Creates a nested menu placed last.
+         *
+         * @param id plugin-scoped entry identity
+         * @param label display text
+         * @param children nested entries, must not be empty
+         * @return the submenu
+         */
         public static ContextMenuEntry submenu(
             final String id, final String label, final List<ContextMenuEntry> children
         ) {
             return submenu(id, label, children, Placement.last());
         }
 
+        /**
+         * Creates a nested menu at an explicit position.
+         *
+         * @param id plugin-scoped entry identity
+         * @param label display text
+         * @param children nested entries, must not be empty
+         * @param placement position within the host menu
+         * @return the submenu
+         */
         public static ContextMenuEntry submenu(
             final String id,
             final String label,

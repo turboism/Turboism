@@ -1,5 +1,12 @@
 package dev.turboism.sdk.permission;
 
+/**
+ * The canonical string identifiers for every permission the runtime recognises.
+ *
+ * <p>Plugins declare these ids in their manifests and the runtime matches grants against
+ * them by exact string equality, so referencing these constants rather than literals keeps
+ * declaration and enforcement in step. Not instantiable.
+ */
 public final class PermissionIds {
 
     public static final String TURBOISM_ACTION_REGISTER = "turboism.action.register";

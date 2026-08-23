@@ -169,6 +169,27 @@ public final class PreviewReportSnapshotFactory {
     private PreviewReportSnapshotFactory() {
     }
 
+    /**
+     * Builds the four report documents with no runtime failures recorded, treating {@code stopped}
+     * as also meaning shutdown was attempted.
+     *
+     * <p>Convenience overload of
+     * {@link #create(String, Instant, Path, HostSession.State, Path, Path,
+     * LocalPluginRuntime.LoadReport, List, RuntimeFailureSnapshot, boolean, boolean)}; see that
+     * method for the full contract.
+     *
+     * @param runtimeId identifier of the runtime session, stamped into every envelope
+     * @param createdAt the envelope timestamp
+     * @param home root the artifact paths are relativized against, so no absolute path is reported
+     * @param hostState the observed host session state
+     * @param hostArtifact the host artifact that was inspected, reported relative to {@code home}
+     * @param verificationRecord the mapping verification record, reported relative to {@code home}
+     * @param loadReport the plugin load outcome; must not be {@code null}
+     * @param summaries the loaded plugins; copied defensively
+     * @param stopped whether the runtime had been stopped when the snapshot was taken
+     * @return an unmodifiable map holding one document per report type
+     * @throws NullPointerException if {@code loadReport} or {@code summaries} is {@code null}
+     */
     public static Map<PreviewReportType, ObjectNode> create(
         final String runtimeId,
         final Instant createdAt,
@@ -194,6 +215,29 @@ public final class PreviewReportSnapshotFactory {
         );
     }
 
+    /**
+     * Builds the four report documents from an explicit failure snapshot, treating {@code stopped}
+     * as also meaning shutdown was attempted.
+     *
+     * <p>Convenience overload of
+     * {@link #create(String, Instant, Path, HostSession.State, Path, Path,
+     * LocalPluginRuntime.LoadReport, List, RuntimeFailureSnapshot, boolean, boolean)}; see that
+     * method for the full contract.
+     *
+     * @param runtimeId identifier of the runtime session, stamped into every envelope
+     * @param createdAt the envelope timestamp
+     * @param home root the artifact paths are relativized against
+     * @param hostState the observed host session state
+     * @param hostArtifact the host artifact that was inspected, reported relative to {@code home}
+     * @param verificationRecord the mapping verification record, reported relative to {@code home}
+     * @param loadReport the plugin load outcome; must not be {@code null}
+     * @param summaries the loaded plugins; copied defensively
+     * @param failureSnapshot task, storage, and config failures observed during the run
+     * @param stopped whether the runtime had been stopped when the snapshot was taken
+     * @return an unmodifiable map holding one document per report type
+     * @throws NullPointerException if {@code loadReport}, {@code summaries}, or
+     *     {@code failureSnapshot} is {@code null}
+     */
     public static Map<PreviewReportType, ObjectNode> create(
         final String runtimeId,
         final Instant createdAt,
@@ -221,6 +265,31 @@ public final class PreviewReportSnapshotFactory {
         );
     }
 
+    /**
+     * Builds all four preview report documents from neutral runtime evidence.
+     *
+     * <p>This is the full form the other overloads delegate to. The summaries list is copied
+     * defensively, and every filesystem path that reaches a document is first made relative to
+     * {@code home} — reports never carry an absolute path. The documents are returned in memory
+     * only; nothing is written, sanitized, or validated here.
+     *
+     * @param runtimeId identifier of the runtime session, stamped into every envelope
+     * @param createdAt the envelope timestamp
+     * @param home root the artifact paths are relativized against
+     * @param hostState the observed host session state
+     * @param hostArtifact the host artifact that was inspected, reported relative to {@code home}
+     * @param verificationRecord the mapping verification record, reported relative to {@code home}
+     * @param loadReport the plugin load outcome; must not be {@code null}
+     * @param summaries the loaded plugins; must not be {@code null}, copied defensively
+     * @param failureSnapshot task, storage, and config failures observed during the run; must not
+     *     be {@code null}
+     * @param stopped whether the runtime had been stopped when the snapshot was taken
+     * @param shutdownAttempted whether plugin shutdown was actually attempted, which the caller
+     *     may distinguish from {@code stopped}
+     * @return an unmodifiable map holding one document per report type
+     * @throws NullPointerException if {@code loadReport}, {@code summaries}, or
+     *     {@code failureSnapshot} is {@code null}
+     */
     public static Map<PreviewReportType, ObjectNode> create(
         final String runtimeId,
         final Instant createdAt,
@@ -788,9 +857,9 @@ public final class PreviewReportSnapshotFactory {
         } catch (RuntimeException | IOException failure) {
             return "UNKNOWN";
         }
-        // The 5.2 project/workspace manifest identifies the host as "5.2.0";
+        // The 5.2 project/workspace manifest identifies the host as "5.2.03";
         // normalize it to the product version "5.2.03" used by reviewed evidence.
-        if (value.equals("5.2.0")) {
+        if (value.equals("5.2.03")) {
             return "5.2.03";
         }
         if (!value.equals("5.3.02") && !value.equals("5.2.03")) {

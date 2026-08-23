@@ -2,6 +2,10 @@
 # PSD clip-mask import adapter for the generic exact-host runner.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-psd-clip-mask-host-validation.sh <5203|5302> [mode] [run-label] [runner-options...]" >&2
   exit 2
@@ -29,17 +33,19 @@ esac
 
 case "$version" in
   5302)
-    fixture_src="${PSD_FIXTURE_REMOTE:-<local-home>/Downloads/clipmask.psd}"
-    fixture_sha256="${PSD_FIXTURE_SHA256:-27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
-    fixture_name="${PSD_FIXTURE_NAME:-clipmask.psd}"
+    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PSD "PSD fixture path" || exit 2
+    fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD"
+    fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256"
+    fixture_name="${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:-clipmask.psd}"
     ;;
   5203)
     # Both exact hosts validate against the same small real PSD fixture
     # (clipmask.psd, 169008 bytes, independently confirmed host identity);
-    # overrides still win via PSD_FIXTURE_REMOTE/PSD_FIXTURE_SHA256/PSD_FIXTURE_NAME.
-    fixture_src="${PSD_FIXTURE_REMOTE:-<local-home>/Downloads/clipmask.psd}"
-    fixture_sha256="${PSD_FIXTURE_SHA256:-27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
-    fixture_name="${PSD_FIXTURE_NAME:-clipmask.psd}"
+    # Local overrides come from the documented TURBOISM_HOST_VALIDATION_FIXTURE_PSD variables.
+    turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_PSD "PSD fixture path" || exit 2
+    fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD"
+    fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256"
+    fixture_name="${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_NAME:-clipmask.psd}"
     ;;
   *)
     echo "error: version must be 5203 or 5302" >&2

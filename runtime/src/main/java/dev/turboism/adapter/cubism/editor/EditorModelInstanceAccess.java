@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorModelInstanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.InstanceRenderType;
 import dev.turboism.sdk.cubism.model.ModelInstance;

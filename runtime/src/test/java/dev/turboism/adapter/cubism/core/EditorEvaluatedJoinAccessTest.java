@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.core;
 
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccess;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -332,18 +333,18 @@ class EditorEvaluatedJoinAccessTest {
     private static CoreParts coreParts(final String artifactProfile) {
         final java.util.List<StaticSelector> mocSelectors = new ArrayList<>();
         mocSelectors.add(StaticSelector.method(
-            dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MODEL_GET_MOC,
+            dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MODEL_GET_MOC,
             internalName(TestCoreApiFixture.Model.class),
             "getMoc",
             "()L" + internalName(TestCoreApiFixture.Moc.class) + ";",
             StaticSelector.ACCESS_PUBLIC
         ));
         mocSelectors.add(StaticSelector.classSelector(
-            dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_CLASS,
+            dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_CLASS,
             internalName(TestCoreApiFixture.Moc.class)
         ));
         mocSelectors.add(StaticSelector.method(
-            dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+            dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
             internalName(TestCoreApiFixture.Moc.class),
             "getMocVersion",
             "()I",
@@ -352,7 +353,7 @@ class EditorEvaluatedJoinAccessTest {
         final VerifiedMemberResolver resolver = TestCoreApiFixture.resolverWithExtras(
             artifactProfile,
             mocSelectors,
-            java.util.Set.of(dev.turboism.mapping.verification.CoreMocInfoSelectorContract.CAPABILITY_ID)
+            java.util.Set.of(dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.CAPABILITY_ID)
         );
         final CorePublicApiProvider provider = CorePublicApiProviderFactory.admitForTesting(
             resolver,

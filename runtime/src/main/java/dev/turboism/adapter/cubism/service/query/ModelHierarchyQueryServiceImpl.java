@@ -21,6 +21,20 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Runtime implementation of the model-tree query service, building a navigable hierarchy from the
+ * flat Cubism runtime snapshot.
+ *
+ * <p>Every entry point is gated on the model-read permission before any snapshot is touched, so an
+ * unauthorized plugin learns nothing about the tree. The built hierarchy is cached against the
+ * snapshot version and rebuilt only when the host's snapshot moves on; the cache field is
+ * {@code volatile}, so a concurrent rebuild is wasteful but not incorrect.
+ *
+ * <p>Art meshes are included in the tree only when the caller also holds the mesh-read permission
+ * — a caller without it sees the same tree with the mesh leaves absent rather than an error. A
+ * snapshot the runtime cannot make sense of surfaces as a {@code CubismServiceException} with
+ * {@code INVALID_SNAPSHOT} rather than an unchecked failure escaping to the plugin.
+ */
 public final class ModelHierarchyQueryServiceImpl implements ModelHierarchyQueryService {
 
     public static final String MODEL_TREE_READ_CAPABILITY = "cubism.model-tree.read";

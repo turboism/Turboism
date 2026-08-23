@@ -64,6 +64,14 @@ public final class RuntimeFailureCollector implements RuntimeFailureSink {
         }
     }
 
+    /**
+     * Takes a consistent, detached view of everything collected so far. Held under the collector's
+     * lock, so no domain can be observed mid-update, and the collector remains usable afterwards —
+     * this reads rather than drains.
+     *
+     * @return the accumulated failures per domain, each list sorted by the stable aggregation key
+     *     and carrying its folded occurrence count
+     */
     public RuntimeFailureSnapshot snapshot() {
         synchronized (lock) {
             return new RuntimeFailureSnapshot(

@@ -14,6 +14,16 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
+/**
+ * The runtime's per-plugin {@link EventBus}: permission-gated subscription and publication, with
+ * delivery hopped onto the scheduler rather than run on the publisher's thread.
+ *
+ * <p>Both directions are checked against the plugin's permissions before anything happens, so an
+ * unpermitted subscribe or publish fails rather than silently doing nothing. Listener lists are
+ * copy-on-write, so a listener may unsubscribe during its own dispatch without disturbing the
+ * publication in flight. Subscribers are keyed by the event's exact runtime class: publishing a
+ * subtype does not reach listeners registered for its supertype.
+ */
 public final class RuntimeEventBus implements EventBus {
 
     private static final String EVENT_TASK_TYPE = "event.subscribe";

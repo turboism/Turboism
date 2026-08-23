@@ -354,12 +354,20 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the session's current lifecycle state, read under the lifecycle monitor so it is
+     *     never observed mid-transition
+     */
     public State state() {
         synchronized (lifecycleMonitor) {
             return state;
         }
     }
 
+    /**
+     * @return the failure that pushed this session into safe mode, failed it, or was recorded
+     *     during cleanup; empty when no failure has been recorded yet
+     */
     public Optional<HostSessionFailure> lastFailure() {
         synchronized (lifecycleMonitor) {
             return lastFailure;
@@ -372,6 +380,13 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     }
 
     @Override
+    public java.util.Optional<String> cubismEditorVersion() {
+        return optionalEditorModelResolver().map(
+            dev.turboism.mapping.verification.VerifiedMemberResolver::cubismVersion
+        );
+    }
+
+    @Override
     public dev.turboism.sdk.cubism.model.CubismModelAccess modelAccess() {
         return dynamicModelAccess;
     }
@@ -381,6 +396,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return history;
     }
 
+    /**
+     * @return the narrow snapshot source used only by model-appearance projections; it is created
+     *     once with the session and stays valid across host connect and disconnect
+     */
     public HostSnapshotSource modelAppearanceSource() {
         return modelAppearanceSource;
     }
@@ -476,6 +495,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return objectContextMenuHandler;
     }
 
+    /**
+     * @return the handler installed for the native parameter-point context menu by the currently
+     *     connected Editor UI, or null while no connection has supplied one (it is cleared again
+     *     when the connection is torn down)
+     */
     public dev.turboism.ui.context.NativeParameterPointContextMenuBridge.Handler parameterPointMenuHandler() {
         return parameterPointMenuHandler;
     }
@@ -520,10 +544,18 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator workspaceLayoutCoordinator() {
         return workspaceLayoutCoordinator;
     }
+    /**
+     * @return the registry of texture-atlas layout algorithms owned by this session; it exists
+     *     independently of any host connection, so plugin-contributed algorithms survive safe mode
+     */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
         return textureAtlasAlgorithms;
     }
 
+    /**
+     * @return the texture-atlas editor UI for this session, created lazily on first call under the
+     *     lifecycle monitor and reused afterwards
+     */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
         synchronized (lifecycleMonitor) {
             dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi ui = textureAtlasEditorUi;
@@ -535,6 +567,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the texture-atlas editor session, created lazily under the lifecycle monitor over the
+     *     currently verified resolver and this session's editor UI view
+     */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
         synchronized (lifecycleMonitor) {
             dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession session = textureAtlasEditorSession;
@@ -557,6 +593,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the verified member resolver for the Editor model of the active connection
+     * @throws IllegalStateException if no host connection is active, so no verified resolver exists
+     */
     public dev.turboism.mapping.verification.VerifiedMemberResolver editorModelResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) {
@@ -591,6 +631,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * @return the verified member resolver backing bounding-box overlays, or empty when no
+     *     connection is active or the active connection cannot supply one; unlike
+     *     {@link #editorModelResolver()} this never throws
+     */
     public java.util.Optional<dev.turboism.mapping.verification.VerifiedMemberResolver> boundingBoxOverlayResolver() {
         synchronized (lifecycleMonitor) {
             if (activeConnection == null) return java.util.Optional.empty();
@@ -606,6 +651,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     public RuntimeHostAdapterAccess adapterAccess() {
         return new SessionRuntimeHostAdapterAccess(
             dynamic.view(),
+            this::cubismEditorVersion,
             dynamicModelAccess,
             history,
             modelAppearanceSource,

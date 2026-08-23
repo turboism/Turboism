@@ -1,5 +1,8 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
@@ -13,8 +16,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorPartNameSelectorContractTest {
 
-    private static final Path PROJECT_ROOT = locateProjectRoot();
-    private static final Path LEGACY_EVIDENCE = PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref");
+    private static final Path PROJECT_ROOT = EditorSelectorContractTestPaths.projectRoot();
+    private static final Path LEGACY_EVIDENCE = EditorSelectorContractTestPaths.legacyEvidence();
 
     @Test
     void exact5302RecordVerifiesTheCompletePartNameContract() throws Exception {
@@ -56,7 +59,7 @@ class EditorPartNameSelectorContractTest {
     void exact5203RecordAdvertisesPartNameReadAndWrite() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -86,15 +89,6 @@ class EditorPartNameSelectorContractTest {
             EditorPartTreeSelectorContract.CAPABILITY_ID,
             EditorPartTreeSelectorContract.REQUIRED_ALIASES
         ));
-    }
-
-    private static Path locateProjectRoot() {
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
-            current = current.getParent();
-        }
-        if (current == null) throw new IllegalStateException("project root is unavailable");
-        return current;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

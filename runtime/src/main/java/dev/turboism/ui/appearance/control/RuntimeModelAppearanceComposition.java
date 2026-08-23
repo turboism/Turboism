@@ -50,6 +50,12 @@ public final class RuntimeModelAppearanceComposition {
         this.available = available;
     }
 
+    /**
+     * @return a fully inert composition — a private coordinator nothing else shares, every generation
+     *     reporting {@code 0} (a value no override can match), unavailable native colour authoring,
+     *     and {@link #available()} {@code false}. Used where appearance support is absent, so callers
+     *     get a working object rather than {@code null}.
+     */
     public static RuntimeModelAppearanceComposition unavailable() {
         return new RuntimeModelAppearanceComposition(
             new PaletteAppearanceCoordinator(),
@@ -61,26 +67,50 @@ public final class RuntimeModelAppearanceComposition {
         );
     }
 
+    /**
+     * @return the coordinator that owns the transient palette overrides; on an unavailable
+     *     composition this is a private instance no host UI is wired to
+     */
     public PaletteAppearanceCoordinator coordinator() {
         return coordinator;
     }
 
+    /**
+     * @return the model's current incarnation counter, read live from the host on every call;
+     *     {@code 0} on an unavailable composition
+     */
     public long modelGeneration() {
         return modelGeneration.getAsLong();
     }
 
+    /**
+     * @return the host UI's current incarnation counter, read live on every call; {@code 0} on an
+     *     unavailable composition
+     */
     public long hostGeneration() {
         return hostGeneration.getAsLong();
     }
 
+    /**
+     * @return the appearance provider's current incarnation counter, read live on every call;
+     *     {@code 0} on an unavailable composition
+     */
     public long providerGeneration() {
         return providerGeneration.getAsLong();
     }
 
+    /**
+     * @return the seam for writing label colours into the native host UI; on an unavailable
+     *     composition this is the no-op authoring that accepts calls and changes nothing
+     */
     public NativeLabelColorAuthoring nativeLabelColorAuthoring() {
         return nativeLabelColorAuthoring;
     }
 
+    /**
+     * @return whether this composition is wired to a real host UI; {@code false} for the inert
+     *     composition from {@link #unavailable()}, whose accessors all return safe placeholders
+     */
     public boolean available() {
         return available;
     }

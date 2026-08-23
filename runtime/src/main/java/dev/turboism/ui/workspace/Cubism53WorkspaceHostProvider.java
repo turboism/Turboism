@@ -9,7 +9,7 @@ final class Cubism53WorkspaceHostProvider implements WorkspaceHostProvider {
     private final WorkspaceReflectionEngine engine;
 
     Cubism53WorkspaceHostProvider(final VerifiedMemberResolver resolver) {
-        if (!WorkspaceVerificationManifest53.authorizes(resolver)) {
+        if (!WorkspaceControlAdmission.authorizes5302(resolver)) {
             throw new IllegalArgumentException("resolver is not admitted for exact Cubism 5.3 workspace control");
         }
         engine = new WorkspaceReflectionEngine(resolver);

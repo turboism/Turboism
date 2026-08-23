@@ -33,6 +33,13 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Drawable", executors);
     }
 
+    /**
+     * Registers a plugin's ArtMesh hooks, replacing any earlier registration made under the same plugin
+     * id and shutting down that plugin's pending callback queue before the new one is installed.
+     *
+     * @param plugin descriptor, entrypoints and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
@@ -52,6 +59,14 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue, so no
+     * further observer callbacks are delivered for it. Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     * @throws IllegalArgumentException when {@code pluginId} is blank
+     */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -76,6 +91,20 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Runs the ArtMesh opacity write pipeline: intercept-capable hooks may rewrite the requested value
+     * in registration order, the surviving value is passed to {@code nativeOperation}, and the
+     * before/after values read back from the Drawable are published to observers asynchronously.
+     *
+     * <p>Non-finite interceptor results are ignored and logged; hook failures are logged and never
+     * propagate to the caller. Runs on the calling host thread and refuses re-entry.
+     *
+     * @param drawable the ArtMesh being written
+     * @param requested opacity requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalArgumentException when the effective opacity is not finite
+     * @throws IllegalStateException when invoked from within another Drawable lifecycle operation
+     */
     public void setOpacity(final Drawable drawable, final float requested, final Consumer<Float> nativeOperation) {
         runGuarded(OPACITY_OPERATION_ID, () -> {
             float effective = requested;
@@ -102,6 +131,16 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the ArtMesh visibility write pipeline: interceptors may rewrite the requested flag, the
+     * effective value is applied through {@code nativeOperation}, and the observed before/after state
+     * is published to observers asynchronously. Hook failures are logged, not propagated.
+     *
+     * @param drawable the ArtMesh being written
+     * @param requested visibility requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalStateException when invoked from within another Drawable lifecycle operation
+     */
     public void setVisible(final Drawable drawable, final boolean requested, final Consumer<Boolean> nativeOperation) {
         runGuarded(VISIBILITY_OPERATION_ID, () -> {
             boolean effective = requested;
@@ -124,6 +163,16 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the ArtMesh lock-flag write pipeline: interceptors may rewrite the requested flag, the
+     * effective value is applied through {@code nativeOperation}, and the observed before/after state
+     * is published to observers asynchronously. Hook failures are logged, not propagated.
+     *
+     * @param drawable the ArtMesh being written
+     * @param requested lock state requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective value
+     * @throws IllegalStateException when invoked from within another Drawable lifecycle operation
+     */
     public void setLocked(final Drawable drawable, final boolean requested, final Consumer<Boolean> nativeOperation) {
         runGuarded(LOCK_OPERATION_ID, () -> {
             boolean effective = requested;
@@ -146,6 +195,17 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         });
     }
 
+    /**
+     * Runs the ArtMesh geometry replacement pipeline. Interceptors may substitute the geometry but must
+     * not return null; a null result aborts that hook (logged) and keeps the previous effective
+     * geometry. Observers see the geometry actually read back from the Drawable after the write.
+     *
+     * @param drawable the ArtMesh being written
+     * @param requested geometry requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective geometry
+     * @throws NullPointerException when {@code requested} is null
+     * @throws IllegalStateException when invoked from within another Drawable lifecycle operation
+     */
     public void replaceGeometry(
         final Drawable drawable,
         final ArtMeshGeometry requested,
@@ -200,6 +260,10 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Blocks until every observer callback queued so far has finished. Intended for tests and shutdown
+     * sequencing; it makes no guarantee about callbacks submitted after the call begins.
+     */
     public void awaitIdle() {
         callbacks.awaitIdle();
     }
@@ -247,6 +311,15 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
 
     private record Registration(Object token, PluginHooks plugin) { }
 
+    /**
+     * One plugin's participation in the ArtMesh lifecycle.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param entrypoints the plugin's ArtMesh hook implementations, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param interceptAllowed whether this plugin's {@code before*} hooks may rewrite requested values
+     * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends DrawableHooks> entrypoints,
@@ -254,6 +327,13 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
         boolean interceptAllowed,
         boolean observeAllowed
     ) {
+        /**
+         * Registers a plugin with both interception and observation permitted.
+         *
+         * @param descriptor identity of the owning plugin
+         * @param entrypoints the plugin's ArtMesh hook implementations
+         * @param logger sink for hook failures raised by this plugin
+         */
         public PluginHooks(
             final PluginDescriptor descriptor,
             final List<? extends DrawableHooks> entrypoints,

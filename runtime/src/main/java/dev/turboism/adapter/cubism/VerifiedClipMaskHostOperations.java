@@ -90,7 +90,7 @@ public final class VerifiedClipMaskHostOperations implements ClipMaskReadAdapter
 
     @Override
     public boolean supportsClipMaskRead() {
-        return ClipMaskVerificationManifest.CUBISM_VERSION.equals(hostVersion);
+        return ClipMaskVerificationManifest.reviewedCubismVersions().contains(hostVersion);
     }
 
     @Override
