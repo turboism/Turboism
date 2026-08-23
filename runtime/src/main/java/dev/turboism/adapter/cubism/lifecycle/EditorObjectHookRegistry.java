@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.lifecycle;
 import dev.turboism.core.event.PluginEventOwnerKey;
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
+import dev.turboism.sdk.event.cubism.CubismOperationLifecycleEvent;
 import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
@@ -68,7 +69,7 @@ public final class EditorObjectHookRegistry {
                 throw new IllegalStateException("Editor-object hooks already registered for " + descriptor.id());
             }
             unregisterHooks(descriptor.id());
-            registerHooks(token, descriptor, entrypoints, logger, true, true);
+            registerHooks(token, descriptor, entrypoints, logger, true, true, true);
         }
     }
 
@@ -99,7 +100,7 @@ public final class EditorObjectHookRegistry {
             }
             try {
                 pluginScope.register(ownership::close);
-                registerHooks(ownership.token, plugin, entrypoints, logger, true, true);
+                registerHooks(ownership.token, plugin, entrypoints, logger, true, true, true);
                 ownership.installed = true;
             } catch (RuntimeException | Error failure) {
                 ownerships.remove(plugin.id(), ownership);
@@ -136,7 +137,7 @@ public final class EditorObjectHookRegistry {
             try {
                 pluginScope.register(ownership::close);
                 registerHooks(
-                    ownership.token, plugin, instances, sink, false, false
+                    ownership.token, plugin, instances, sink, false, false, false
                 );
                 ownership.installed = true;
             } catch (RuntimeException | Error failure) {
@@ -239,6 +240,30 @@ public final class EditorObjectHookRegistry {
                         event -> hooks.afterReplaceDrawableGeometry(
                             event.drawable(), event.finalGeometry()
                         ), sink, adapters
+                    );
+                }
+            }
+            if (entrypoint instanceof SemanticOperationHooks hooks) {
+                if (hasPermission(plugin, INTERCEPT_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 30, entrypoint,
+                        "beforeCubismOperation", CubismOperationLifecycleEvent.Before.class,
+                        event -> hooks.beforeCubismOperation(event.operation()),
+                        sink, adapters
+                    );
+                }
+                if (hasPermission(plugin, OBSERVE_PERMISSION)) {
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 31, entrypoint,
+                        "onCubismOperationConfirmed", CubismOperationLifecycleEvent.On.class,
+                        event -> hooks.onCubismOperationConfirmed(event.operation()),
+                        sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 32, entrypoint,
+                        "afterCubismOperation", CubismOperationLifecycleEvent.After.class,
+                        event -> hooks.afterCubismOperation(event.operation()),
+                        sink, adapters
                     );
                 }
             }
@@ -400,7 +425,8 @@ public final class EditorObjectHookRegistry {
         final List<? extends TurboismPlugin> entrypoints,
         final PluginLogger logger,
         final boolean includeDrawable,
-        final boolean includeDeformer
+        final boolean includeDeformer,
+        final boolean includeSemantic
     ) {
         final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
         final List<? extends TurboismPlugin> ordered = Objects.requireNonNull(entrypoints, "entrypoints");
@@ -425,7 +451,7 @@ public final class EditorObjectHookRegistry {
                 plugin, deformerHooks, pluginLogger, intercept, observe
             ));
         }
-        if (!semanticHooks.isEmpty()) {
+        if (includeSemantic && !semanticHooks.isEmpty()) {
             coordinator.semantic().register(token, new SemanticOperationLifecycleCoordinator.PluginHooks(
                 plugin, semanticHooks, pluginLogger, intercept, observe
             ));
@@ -598,6 +624,9 @@ public final class EditorObjectHookRegistry {
                         dev.turboism.sdk.cubism.model.RotationDeformerForm.class,
                         dev.turboism.sdk.cubism.model.RotationDeformerForm.class
                     };
+                case "beforeCubismOperation", "onCubismOperationConfirmed",
+                     "afterCubismOperation" ->
+                    new Class<?>[]{dev.turboism.sdk.cubism.event.CubismOperationEvent.class};
                 default -> throw new IllegalArgumentException(
                     "Unknown editor-object hook method: " + methodName
                 );
@@ -606,6 +635,7 @@ public final class EditorObjectHookRegistry {
                 .getMethod(methodName, parameterTypes);
             return method.getDeclaringClass() != DrawableHooks.class
                 && method.getDeclaringClass() != DeformerHooks.class
+                && method.getDeclaringClass() != SemanticOperationHooks.class
                 && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
         } catch (NoSuchMethodException failure) {
             throw new IllegalStateException(
