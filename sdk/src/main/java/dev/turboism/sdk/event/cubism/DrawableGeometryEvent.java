@@ -46,6 +46,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted geometry edit. */
         public static Callback openCallback(
             final Drawable drawable,
             final ArtMeshGeometry requestedGeometry,
@@ -56,8 +57,10 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
 
         @Override public Drawable drawable() { return drawable; }
         public ArtMeshGeometry requestedGeometry() { return requestedGeometry; }
+        /** Returns the candidate geometry value that will be applied. */
         public ArtMeshGeometry geometry() { return geometry; }
 
+        /** Replaces the candidate geometry value for the current callback. */
         public void setGeometry(final ArtMeshGeometry geometry) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.geometry = Objects.requireNonNull(geometry, "geometry");
@@ -75,6 +78,7 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
                 event = new Before(drawable, requestedGeometry, geometry, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

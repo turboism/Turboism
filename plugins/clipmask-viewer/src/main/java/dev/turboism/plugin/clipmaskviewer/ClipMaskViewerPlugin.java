@@ -88,6 +88,7 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         );
     }
 
+    /** Applies the latest detached Cubism selection to the open viewer window. */
     @SubscribeEvent
     public void onSelectionChanged(final SelectionChangedEvent event) {
         final WindowView current = window.get();

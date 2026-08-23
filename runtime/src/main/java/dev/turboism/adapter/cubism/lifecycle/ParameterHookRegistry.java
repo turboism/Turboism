@@ -29,6 +29,7 @@ public final class ParameterHookRegistry {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
     }
 
+    /** Returns the shared coordinator that owns parameter lifecycle delivery. */
     public ParameterLifecycleCoordinator coordinator() {
         return coordinator;
     }
@@ -211,6 +212,7 @@ public final class ParameterHookRegistry {
         }
     }
 
+    /** Removes legacy parameter hooks registered for the plugin identifier. */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (lifecycleLock) {
@@ -225,6 +227,7 @@ public final class ParameterHookRegistry {
         }
     }
 
+    /** Removes parameter event adapters owned by the exact plugin generation. */
     public void unregister(final PluginEventOwnerKey owner) {
         final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");
         synchronized (lifecycleLock) {

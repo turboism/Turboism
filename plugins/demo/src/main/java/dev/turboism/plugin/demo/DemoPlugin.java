@@ -119,6 +119,7 @@ public class DemoPlugin implements TurboismPlugin {
         logger.info("DemoPlugin enabled: 6 registrations enrolled in disposable scope");
     }
 
+    /** Logs a public demo event delivered through the plugin event bus. */
     @SubscribeEvent
     public void onDemoEvent(final DemoEvent event) {
         logger.info("DemoPlugin received event: " + event.message());

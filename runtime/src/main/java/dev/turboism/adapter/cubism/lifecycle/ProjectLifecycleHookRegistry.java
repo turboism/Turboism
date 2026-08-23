@@ -39,10 +39,12 @@ public final class ProjectLifecycleHookRegistry {
         this.editor = Objects.requireNonNull(editor, "editor");
     }
 
+    /** Returns the coordinator for project-file lifecycle callbacks. */
     public ProjectFileLifecycleCoordinator projectFiles() {
         return projectFiles;
     }
 
+    /** Returns the coordinator for Editor lifecycle callbacks. */
     public EditorLifecycleCoordinator editor() {
         return editor;
     }
@@ -581,6 +583,7 @@ public final class ProjectLifecycleHookRegistry {
         }
     }
 
+    /** Removes project lifecycle event adapters owned by the plugin generation. */
     public void unregister(final PluginEventOwnerKey owner) {
         synchronized (lifecycleLock) {
             final PluginEventOwnerKey key = Objects.requireNonNull(owner, "owner");

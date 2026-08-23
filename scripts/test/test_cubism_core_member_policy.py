@@ -79,7 +79,7 @@ def main() -> int:
     require(
         validated["summary"]["versions"]
         == {
-            "5.2": {
+            "5.2.03": {
                 "classCount": 22,
                 "publicCallableCount": 158,
                 "publicFieldCount": 19,

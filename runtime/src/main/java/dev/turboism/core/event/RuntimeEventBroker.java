@@ -142,6 +142,7 @@ public final class RuntimeEventBroker {
         }
     }
 
+    /** Returns the active generation-zero owner used by compatibility integrations. */
     public PluginEventOwnerKey legacyOwner(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         final PluginEventOwnerKey key = new PluginEventOwnerKey(id, 0L);
@@ -149,6 +150,7 @@ public final class RuntimeEventBroker {
         return key;
     }
 
+    /** Registers a compatibility subscription under the plugin generation-zero owner. */
     public <T extends EventBus.TurboismEvent> Registration subscribe(
         final String pluginId,
         final Class<T> type,
@@ -157,6 +159,7 @@ public final class RuntimeEventBroker {
         return subscribe(legacyOwner(pluginId), type, listener);
     }
 
+    /** Registers a typed subscription owned by an exact active plugin generation. */
     public <T extends EventBus.TurboismEvent> Registration subscribe(
         final PluginEventOwnerKey owner,
         final Class<T> type,
@@ -166,6 +169,7 @@ public final class RuntimeEventBroker {
         return subscribe(owner, type, EventPriority.NORMAL, 0, 0, true, listener);
     }
 
+    /** Registers a deterministically ordered adapter subscription for a legacy hook. */
     public <T extends EventBus.TurboismEvent> Registration subscribeAdapter(
         final PluginEventOwnerKey owner,
         final Class<T> type,
@@ -221,6 +225,7 @@ public final class RuntimeEventBroker {
         return () -> remove(type, subscription);
     }
 
+    /** Registers annotated subscribers under the plugin generation-zero owner. */
     public List<Registration> registerAnnotated(
         final String pluginId,
         final List<EventSubscriberDescriptor> descriptors
@@ -228,6 +233,7 @@ public final class RuntimeEventBroker {
         return registerAnnotated(legacyOwner(pluginId), descriptors, List.of());
     }
 
+    /** Registers validated annotated subscribers for an exact plugin generation. */
     public List<Registration> registerAnnotated(
         final PluginEventOwnerKey owner,
         final List<EventSubscriberDescriptor> descriptors
@@ -235,6 +241,7 @@ public final class RuntimeEventBroker {
         return registerAnnotated(owner, descriptors, List.of());
     }
 
+    /** Registers subscribers and their entrypoint failure advice for one plugin generation. */
     public List<Registration> registerAnnotated(
         final PluginEventOwnerKey owner,
         final List<EventSubscriberDescriptor> descriptors,
@@ -462,6 +469,7 @@ public final class RuntimeEventBroker {
         }
     }
 
+    /** Publishes a plugin-owned event from the compatibility generation-zero owner. */
     public <T extends EventBus.TurboismEvent> void publish(
         final String publisherPluginId,
         final T event
@@ -474,6 +482,7 @@ public final class RuntimeEventBroker {
         publishExact(value);
     }
 
+    /** Publishes a plugin-owned event after exact-owner and contract validation. */
     public <T extends EventBus.TurboismEvent> void publish(
         final PluginEventOwnerKey publisher,
         final T event
@@ -910,16 +919,19 @@ public final class RuntimeEventBroker {
             this.key = key;
         }
 
+        /** Returns the exact plugin identifier and generation owned by this handle. */
         public PluginEventOwnerKey key() {
             return key;
         }
 
+        /** Registers validated annotated subscribers owned by this generation. */
         public List<Registration> registerAnnotated(
             final List<EventSubscriberDescriptor> descriptors
         ) {
             return broker.registerAnnotated(key, descriptors);
         }
 
+        /** Registers subscribers and entrypoint failure advice owned by this generation. */
         public List<Registration> registerAnnotated(
             final List<EventSubscriberDescriptor> descriptors,
             final List<?> entrypoints
@@ -927,34 +939,42 @@ public final class RuntimeEventBroker {
             return broker.registerAnnotated(key, descriptors, entrypoints);
         }
 
+        /** Advances this owner into plugin initialization. */
         public void beginInitializing() {
             broker.beginInitializing(key);
         }
 
+        /** Advances this owner into plugin enabling. */
         public void beginEnabling() {
             broker.beginEnabling(key);
         }
 
+        /** Activates staged subscriptions for event delivery. */
         public void activate() {
             broker.activate(key);
         }
 
+        /** Stops new owner work and begins delivery shutdown. */
         public void beginClosing() {
             broker.beginClosing(key);
         }
 
+        /** Waits up to the timeout for this owner mailbox to become quiescent. */
         public boolean awaitQuiescence(final Duration timeout) {
             return broker.awaitQuiescence(key, timeout);
         }
 
+        /** Releases this generation and all of its subscriptions and retained references. */
         public void close() {
             broker.close(key);
         }
 
+        /** Returns the current lifecycle state of this owner generation. */
         public OwnerLifecycle lifecycle() {
             return broker.lifecycle(key);
         }
 
+        /** Returns the number of deliveries dropped by this owner mailbox. */
         public long droppedDeliveries() {
             return broker.droppedDeliveries(key);
         }
@@ -970,6 +990,7 @@ public final class RuntimeEventBroker {
         CLOSED
     }
 
+    /** Structured, contained failure raised while delivering one event subscriber. */
     public record SubscriberFailure(
         PluginEventOwnerKey owner,
         String operationId,
@@ -977,6 +998,7 @@ public final class RuntimeEventBroker {
         String exceptionType,
         boolean advised
     ) {
+        /** Validates and normalizes one contained subscriber failure record. */
         public SubscriberFailure {
             owner = Objects.requireNonNull(owner, "owner");
             operationId = requireText(operationId, "operationId");
@@ -985,11 +1007,13 @@ public final class RuntimeEventBroker {
         }
     }
 
+    /** Structured diagnostic emitted when an event delivery cannot be admitted or completed. */
     public record DeliveryDiagnostic(
         PluginEventOwnerKey owner,
         String eventType,
         Code code
     ) {
+        /** Validates and normalizes one structured event delivery diagnostic. */
         public DeliveryDiagnostic {
             owner = Objects.requireNonNull(owner, "owner");
             eventType = Objects.requireNonNull(eventType, "eventType");
