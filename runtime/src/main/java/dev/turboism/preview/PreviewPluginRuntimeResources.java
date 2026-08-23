@@ -151,6 +151,9 @@ record PreviewPluginRuntimeResources(
         projectLifecycleHookRegistry.projectFiles().attachEventBroker(
             contextFactory.eventBroker()
         );
+        projectLifecycleHookRegistry.editor().attachEventBroker(
+            contextFactory.eventBroker()
+        );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(
                 home,
