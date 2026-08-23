@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * A mesh edge as seen by a plugin, identified by its two endpoint ids.
@@ -8,7 +7,6 @@ import dev.turboism.sdk.PreviewApi;
  * <p>Endpoints are stored in ascending id order so that two references to the same edge
  * compare equal regardless of the direction they were discovered in.</p>
  */
-@PreviewApi
 public record MeshEdgeRef(int startPointId, int endPointId, MeshEdgeKind kind) {
 
     public MeshEdgeRef {

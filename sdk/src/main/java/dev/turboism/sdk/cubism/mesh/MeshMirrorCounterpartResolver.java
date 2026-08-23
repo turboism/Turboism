@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Optional;
 
@@ -13,7 +12,6 @@ import java.util.Optional;
  * {@link MeshMirrorCounterparts#mirrorOf} does none of that. Prefer the default unless the rule
  * genuinely has to differ.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface MeshMirrorCounterpartResolver {
 

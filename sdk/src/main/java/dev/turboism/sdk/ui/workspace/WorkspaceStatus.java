@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,7 +18,6 @@ import java.util.Optional;
  * @param available      every workspace the host offers, immutable and possibly empty
  * @param diagnosticCode stable machine-readable reason code, empty when there is nothing to report
  */
-@PreviewApi
 public record WorkspaceStatus(
     Availability availability,
     Optional<WorkspaceInfo> current,
@@ -46,7 +44,6 @@ public record WorkspaceStatus(
     /**
      * Whether the host answered the workspace query.
      */
-    @PreviewApi
     public enum Availability {
         AVAILABLE,
         UNAVAILABLE

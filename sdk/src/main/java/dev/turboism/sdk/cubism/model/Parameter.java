@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.model.ParameterAppearance;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.Objects;
@@ -8,7 +7,6 @@ import java.util.Optional;
 import java.util.List;
 
 /** One Cubism parameter. */
-@PreviewApi
 public interface Parameter {
 
     ParameterId id();

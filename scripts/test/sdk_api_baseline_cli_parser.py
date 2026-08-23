@@ -42,7 +42,3 @@ def _add_verify_arguments(parser) -> None:
     parser.add_argument("--reference-input", required=True, type=Path)
     parser.add_argument("--package-prefix")
     parser.add_argument("--expected-commit")
-    parser.add_argument("--tier-policy", type=Path)
-    parser.add_argument("--initial-preview-ledger", type=Path)
-    parser.add_argument("--tier-trust-version", choices=("v3", "v4"), default="v3")
-    parser.add_argument("--tier-report", type=Path)

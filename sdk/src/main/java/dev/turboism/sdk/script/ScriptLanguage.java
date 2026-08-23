@@ -1,9 +1,7 @@
 package dev.turboism.sdk.script;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Script languages currently supported by Turboism. */
-@PreviewApi
 public enum ScriptLanguage {
     JAVASCRIPT("js");
 
@@ -13,10 +11,18 @@ public enum ScriptLanguage {
         this.id = id;
     }
 
+    /** @return the stable wire identifier for this language */
     public String id() {
         return id;
     }
 
+    /**
+     * Resolves a language from its case-insensitive wire identifier.
+     *
+     * @param id wire identifier
+     * @return the matching language
+     * @throws IllegalArgumentException when the identifier is unsupported
+     */
     public static ScriptLanguage fromId(final String id) {
         for (ScriptLanguage language : values()) {
             if (language.id.equalsIgnoreCase(id)) {

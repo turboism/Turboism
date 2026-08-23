@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -13,7 +12,6 @@ import java.util.Objects;
  * @param id          the host key of the workspace, non-null
  * @param displayName the label shown to the user, non-null and non-blank
  */
-@PreviewApi
 public record WorkspaceInfo(WorkspaceId id, String displayName) {
     public WorkspaceInfo {
         id = Objects.requireNonNull(id, "id");

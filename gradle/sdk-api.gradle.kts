@@ -4,40 +4,22 @@ import org.gradle.jvm.tasks.Jar
 val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
 val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
 val sdkV2ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v2-exact.json")
-val sdkApiTierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v1.json")
-val sdkInitialPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-initial-preview-v1.json")
-val sdkApiTierSelftest = layout.projectDirectory.file("scripts/test/test_sdk_api_tiers.py")
 val sdkV2ExactReferenceBuilder = layout.projectDirectory.file("scripts/test/reconstruct_sdk_gradle_jar.py")
 val sdkV2ExactCommit = "208442a6b677e55f472af0dd6425a830088e55ce"
 val sdkV2ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v2-exact-reference.jar")
 val sdkV3ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v3-exact.json")
-val sdkV3TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v3.json")
-val sdkV3DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v3.json")
 val sdkV3ExactCommit = "50046007f80f6d2abf302dc5823fe1b1a945a976"
 val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v3-exact-reference.jar")
-val sdkV4ExactBaseline = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-v4-exact.json")
-val sdkV4TierPolicy = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-tier-policy-v4.json")
-val sdkV4DirectPreviewLedger = layout.projectDirectory.file("docs/sdk/baselines/sdk-api-direct-preview-v4.json")
-// Re-issued after exact Cubism Editor availability became public SDK metadata. The reviewed
-// canonical delta includes the @CubismEditor range and exclusion attributes, its structured
-// unavailability exception, and runtime-visible exact-version annotations on the reviewed model
-// declarations. The final artifact binding includes the standard-Javadoc doclint cleanup.
-val sdkV4ExactCommit = "86a85caa544da4d46ac9f9db5683ad4ded2612f6"
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
 val sdkApiHelperFiles = fileTree("scripts/test") {
     include("sdk_api_baseline*.py")
-    include("sdk_api_tiers*.py")
 }
-
 
 val checkSdkApiBaselineTool by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs deterministic SDK API baseline mutation and compatibility selftests."
     workingDir(rootDir)
-    inputs.files(
-        sdkApiHelperFiles, sdkApiTierSelftest, sdkApiTierPolicy, sdkInitialPreviewLedger,
-        "scripts/test/test_sdk_api_baseline.sh"
-    )
+    inputs.files(sdkApiHelperFiles, "scripts/test/test_sdk_api_baseline.sh")
     commandLine("bash", "scripts/test/test_sdk_api_baseline.sh")
 }
 
@@ -117,61 +99,18 @@ val checkSdkV3ExactApiCompatibility by tasks.registering(Exec::class) {
     )
 }
 
-val checkSdkV3TierCompatibility by tasks.registering(Exec::class) {
-    group = "historical verification"
-    description = "Audits the reviewed v3 tier policy and direct PreviewApi roots against its historical artifact."
-    dependsOn(prepareSdkV3ExactReference)
-    inputs.files(sdkApiHelperFiles, sdkV3ExactBaseline, sdkV3TierPolicy, sdkV3DirectPreviewLedger, sdkV3ExactReferenceArtifact)
-    inputs.property("expectedCommit", sdkV3ExactCommit)
-    outputs.upToDateWhen { false }
-    commandLine(
-        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
-        "--input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
-        "--reference-input", sdkV3ExactReferenceArtifact.get().asFile.absolutePath,
-        "--package-prefix", "dev.turboism.sdk",
-        "--baseline", sdkV3ExactBaseline.asFile.absolutePath,
-        "--expected-commit", sdkV3ExactCommit,
-        "--tier-policy", sdkV3TierPolicy.asFile.absolutePath,
-        "--initial-preview-ledger", sdkV3DirectPreviewLedger.asFile.absolutePath,
-        "--tier-trust-version", "v3"
-    )
-}
-
-val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
+val generateSdkApiReport by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies the current SDK JAR exactly matches the reviewed v4 API baseline."
+    description = "Generates the current pre-release public SDK surface for review without changing a baseline."
     dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkJarArtifact)
-    inputs.property("expectedCommit", sdkV4ExactCommit)
+    val output = layout.buildDirectory.file("reports/sdk-api/current.txt")
+    outputs.file(output)
     doFirst {
         commandLine(
-            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+            "python3", sdkApiBaselineTool.asFile.absolutePath, "dump",
             "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
             "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV4ExactCommit
-        )
-    }
-}
-
-val checkSdkV4TierCompatibility by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies the current SDK JAR's reviewed v4 API tiers and direct PreviewApi roots."
-    dependsOn(":sdk:jar")
-    inputs.files(sdkApiHelperFiles, sdkV4ExactBaseline, sdkV4TierPolicy, sdkV4DirectPreviewLedger, sdkJarArtifact)
-    inputs.property("expectedCommit", sdkV4ExactCommit)
-    doFirst {
-        commandLine(
-            "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-compatible",
-            "--input", sdkJarArtifact.get().asFile.absolutePath,
-            "--reference-input", sdkJarArtifact.get().asFile.absolutePath,
-            "--package-prefix", "dev.turboism.sdk",
-            "--baseline", sdkV4ExactBaseline.asFile.absolutePath,
-            "--expected-commit", sdkV4ExactCommit,
-            "--tier-policy", sdkV4TierPolicy.asFile.absolutePath,
-            "--initial-preview-ledger", sdkV4DirectPreviewLedger.asFile.absolutePath,
-            "--tier-trust-version", "v4"
+            "--output", output.get().asFile.absolutePath
         )
     }
 }

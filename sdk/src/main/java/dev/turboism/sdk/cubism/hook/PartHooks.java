@@ -1,10 +1,8 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Part;
 
 /** Override-based lifecycle hooks for Cubism parts. */
-@PreviewApi
 public interface PartHooks {
 
     default String beforeSetPartName(final Part part, final String name) {

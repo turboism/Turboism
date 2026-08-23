@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Receives the result of a non-blocking color picker.
@@ -9,7 +8,6 @@ import dev.turboism.sdk.PreviewApi;
  * {@code colorHex} is then a canonical {@code #RRGGBB} value. On cancel
  * {@code accepted} is {@code false} and {@code colorHex} is {@code null}.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface ColorPickerResultListener {
 

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -13,7 +12,6 @@ import java.util.Objects;
  * argument; keeping it out of this shared event avoids copying geometry for participants that
  * never request override resolution.</p>
  */
-@PreviewApi
 public record MeshDeletion(
     List<MeshPointRef> points,
     List<MeshEdgeRef> edges,

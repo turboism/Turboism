@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -13,7 +12,6 @@ import java.util.Optional;
  * @param origin best-known source, or {@link CubismOperationOrigin#UNKNOWN}
  * @param subjectId optional Turboism-owned project, document, model, object, or command identity
  */
-@PreviewApi
 public record CubismOperationEvent(
     long sequence,
     CubismOperation operation,

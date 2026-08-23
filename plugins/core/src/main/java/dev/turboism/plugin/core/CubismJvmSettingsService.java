@@ -49,10 +49,18 @@ public interface CubismJvmSettingsService {
             this.configValue = configValue;
         }
 
+        /** @return the normalized persisted configuration value */
         public String configValue() {
             return configValue;
         }
 
+        /**
+         * Resolves a Cubism JVM mode from persisted configuration.
+         *
+         * @param value persisted value
+         * @return the matching JVM mode
+         * @throws IllegalArgumentException when the value is unsupported
+         */
         public static CubismJvm fromConfig(final String value) {
             final String normalized = value == null
                 ? ""

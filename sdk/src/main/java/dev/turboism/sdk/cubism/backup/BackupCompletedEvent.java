@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
 import java.io.File;
@@ -15,7 +14,6 @@ import java.util.Objects;
  * is the per-document snapshot taken at completion. The event is immutable and
  * safe to share across plugin boundaries.</p>
  */
-@PreviewApi
 public record BackupCompletedEvent(
     long completedAtMillis,
     List<File> newBackupFiles,

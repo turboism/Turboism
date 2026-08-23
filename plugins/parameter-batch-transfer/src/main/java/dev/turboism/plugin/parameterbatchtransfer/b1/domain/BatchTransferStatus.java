@@ -1,9 +1,7 @@
 package dev.turboism.plugin.parameterbatchtransfer.b1.domain;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** User-facing outcome of one batch-transfer apply pass. */
-@PreviewApi
 public enum BatchTransferStatus {
     /** Every non-trivial row transferred. */
     APPLIED,
