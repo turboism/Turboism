@@ -476,6 +476,28 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
+    void retainedRuntimeEventReplaysOnceAfterStagedSubscriberActivates() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        broker.publishRuntimeRetained(new TestEvent("latest"));
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.replay");
+        final java.util.concurrent.atomic.AtomicInteger deliveries =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final CountDownLatch delivered = new CountDownLatch(1);
+        broker.subscribe(subscriber.key(), TestEvent.class, ignored -> {
+            deliveries.incrementAndGet();
+            delivered.countDown();
+        });
+
+        subscriber.activate();
+
+        assertTrue(delivered.await(1, TimeUnit.SECONDS));
+        Thread.sleep(50L);
+        assertEquals(1, deliveries.get());
+        scheduler.shutdown();
+    }
+
+    @Test
     void dispatchPlanInvalidatesWhenFamilySubscriberIsAdded() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
