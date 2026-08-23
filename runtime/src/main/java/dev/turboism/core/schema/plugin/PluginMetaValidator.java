@@ -28,11 +28,16 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "permissions", "capabilities", "environment"
     );
     private static final Set<String> V3_ALLOWED_FIELDS;
+    private static final Set<String> V4_ALLOWED_FIELDS;
     static {
         final Set<String> v3 = new java.util.HashSet<>(V2_ALLOWED_FIELDS);
         v3.add("category");
         v3.add("tags");
         V3_ALLOWED_FIELDS = Set.copyOf(v3);
+        final Set<String> v4 = new java.util.HashSet<>(V3_ALLOWED_FIELDS);
+        v4.add("eventExports");
+        v4.add("eventImports");
+        V4_ALLOWED_FIELDS = Set.copyOf(v4);
     }
     private static final int MAX_TAGS = 12;
     private static final int MIN_TOKEN_LENGTH = 2;
@@ -46,6 +51,16 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "id", "version", "type", "ordering", "reason"
     );
     private static final Set<String> ALLOWED_PERMISSION_FIELDS = Set.of("id", "scope", "reason");
+    private static final Set<String> ALLOWED_EVENT_EXPORT_FIELDS = Set.of(
+        "id", "contractVersion", "eventType", "abiSha256"
+    );
+    private static final Set<String> ALLOWED_EVENT_IMPORT_FIELDS = Set.of(
+        "provider", "eventId", "contractVersion", "eventType", "abiSha256", "required"
+    );
+    private static final java.util.regex.Pattern EVENT_ID =
+        java.util.regex.Pattern.compile("^[a-z][a-z0-9]*(?:[.-][a-z][a-z0-9-]*)*$");
+    private static final java.util.regex.Pattern SHA256 =
+        java.util.regex.Pattern.compile("^[0-9a-f]{64}$");
     private static final Set<String> ALLOWED_DEPENDENCY_TYPES = Set.of("required", "optional");
     private static final Set<String> ALLOWED_DEPENDENCY_ORDERINGS = Set.of("none", "before", "after");
     private static final Set<String> ALLOWED_ENV_UI = Set.of("none", "swing", "embedded");
@@ -79,17 +94,31 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         return new PluginMetaValidator(3);
     }
 
-    /** Validator for the declared schema version; versions other than 2 and 3 fail closed. */
+    /** Schema v4 contract: v3 classification plus public event exports and imports. */
+    public static PluginMetaValidator v4() {
+        return new PluginMetaValidator(4);
+    }
+
+    /** Validator for the declared schema version; versions other than 2-4 fail closed. */
     public static PluginMetaValidator forSchemaVersion(final int schemaVersion) {
-        if (schemaVersion == 3) {
-            return v3();
-        }
-        return new PluginMetaValidator();
+        return switch (schemaVersion) {
+            case 3 -> v3();
+            case 4 -> v4();
+            default -> new PluginMetaValidator();
+        };
     }
 
     private PluginMetaValidator(final int schemaVersion) {
-        super("turboism.plugin.meta", "PLUGIN_META", schemaVersion,
-            schemaVersion == 3 ? V3_ALLOWED_FIELDS : V2_ALLOWED_FIELDS);
+        super(
+            "turboism.plugin.meta",
+            "PLUGIN_META",
+            schemaVersion,
+            switch (schemaVersion) {
+                case 4 -> V4_ALLOWED_FIELDS;
+                case 3 -> V3_ALLOWED_FIELDS;
+                default -> V2_ALLOWED_FIELDS;
+            }
+        );
     }
 
     @Override
@@ -126,8 +155,11 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         validateDependencies(node, errors, source);
         validatePermissions(node, errors, source);
         validateStringArray(node, "capabilities", "PLUGIN_META_BAD_CAPABILITIES", errors, source, false);
-        if (expectedSchemaVersion == 3) {
+        if (expectedSchemaVersion >= 3) {
             validateClassification(node, errors, source);
+        }
+        if (expectedSchemaVersion == 4) {
+            validateEventContracts(node, errors, source);
         }
         return errors;
     }
@@ -183,6 +215,278 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
             } else if (!seen.add(value.asText())) {
                 errors.add(error("PLUGIN_META_BAD_TAGS", "Tags must be unique", path, source));
             }
+        }
+    }
+
+    private void validateEventContracts(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        validateEventExports(node, errors, source);
+        validateEventImports(node, errors, source);
+    }
+
+    private void validateEventExports(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has("eventExports")) {
+            return;
+        }
+        final JsonNode exports = node.get("eventExports");
+        if (!exports.isArray()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_EXPORTS",
+                "eventExports must be an array",
+                "eventExports",
+                source
+            ));
+            return;
+        }
+        final Set<String> ids = new HashSet<>();
+        final Set<String> types = new HashSet<>();
+        for (int index = 0; index < exports.size(); index++) {
+            final JsonNode export = exports.get(index);
+            final String base = "eventExports[" + index + "]";
+            if (!export.isObject()) {
+                errors.add(error(
+                    "PLUGIN_META_BAD_EVENT_EXPORT",
+                    "Event export must be an object",
+                    base,
+                    source
+                ));
+                continue;
+            }
+            rejectUnknownFields(
+                export,
+                ALLOWED_EVENT_EXPORT_FIELDS,
+                "PLUGIN_META_UNKNOWN_EVENT_EXPORT_FIELD",
+                base,
+                errors,
+                source
+            );
+            final String id = requiredEventId(export, "id", base, errors, source);
+            requiredVersion(export, "contractVersion", base, errors, source);
+            final String type = requiredJavaType(export, "eventType", base, errors, source);
+            requiredSha256(export, "abiSha256", base, errors, source);
+            if (id != null && !ids.add(id)) {
+                errors.add(error(
+                    "PLUGIN_META_DUPLICATE_EVENT_EXPORT",
+                    "Event export ids must be unique",
+                    base + ".id",
+                    source
+                ));
+            }
+            if (type != null && !types.add(type)) {
+                errors.add(error(
+                    "PLUGIN_META_DUPLICATE_EVENT_TYPE",
+                    "Event export types must be unique",
+                    base + ".eventType",
+                    source
+                ));
+            }
+        }
+    }
+
+    private void validateEventImports(
+        final JsonNode node,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has("eventImports")) {
+            return;
+        }
+        final JsonNode imports = node.get("eventImports");
+        if (!imports.isArray()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_IMPORTS",
+                "eventImports must be an array",
+                "eventImports",
+                source
+            ));
+            return;
+        }
+        final Set<String> routes = new HashSet<>();
+        for (int index = 0; index < imports.size(); index++) {
+            final JsonNode imported = imports.get(index);
+            final String base = "eventImports[" + index + "]";
+            if (!imported.isObject()) {
+                errors.add(error(
+                    "PLUGIN_META_BAD_EVENT_IMPORT",
+                    "Event import must be an object",
+                    base,
+                    source
+                ));
+                continue;
+            }
+            rejectUnknownFields(
+                imported,
+                ALLOWED_EVENT_IMPORT_FIELDS,
+                "PLUGIN_META_UNKNOWN_EVENT_IMPORT_FIELD",
+                base,
+                errors,
+                source
+            );
+            final String provider = requiredPluginId(
+                imported,
+                "provider",
+                base,
+                errors,
+                source
+            );
+            final String eventId = requiredEventId(
+                imported,
+                "eventId",
+                base,
+                errors,
+                source
+            );
+            requiredVersionRange(imported, "contractVersion", base, errors, source);
+            requiredJavaType(imported, "eventType", base, errors, source);
+            requiredSha256(imported, "abiSha256", base, errors, source);
+            if (imported.has("required") && !imported.get("required").isBoolean()) {
+                errors.add(error(
+                    "PLUGIN_META_BAD_EVENT_IMPORT",
+                    "required must be boolean",
+                    base + ".required",
+                    source
+                ));
+            }
+            if (provider != null && eventId != null
+                && !routes.add(provider + " " + eventId)) {
+                errors.add(error(
+                    "PLUGIN_META_DUPLICATE_EVENT_IMPORT",
+                    "Event import routes must be unique",
+                    base,
+                    source
+                ));
+            }
+        }
+    }
+
+    private String requiredPluginId(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !isValidPluginId(node.get(field).asText())) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_PROVIDER",
+                field + " must be a reverse-domain plugin id",
+                base + "." + field,
+                source
+            ));
+            return null;
+        }
+        return node.get(field).asText();
+    }
+
+    private String requiredEventId(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !EVENT_ID.matcher(node.get(field).asText()).matches()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_ID",
+                field + " must be a stable lowercase event id",
+                base + "." + field,
+                source
+            ));
+            return null;
+        }
+        return node.get(field).asText();
+    }
+
+    private String requiredJavaType(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !isJavaBinaryName(node.get(field).asText())) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_TYPE",
+                field + " must be a Java binary name",
+                base + "." + field,
+                source
+            ));
+            return null;
+        }
+        return node.get(field).asText();
+    }
+
+    private void requiredVersion(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !isValidVersion(node.get(field).asText())) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_CONTRACT_VERSION",
+                field + " must be MAJOR.MINOR.PATCH",
+                base + "." + field,
+                source
+            ));
+        }
+    }
+
+    private void requiredVersionRange(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_CONTRACT_VERSION",
+                field + " must be a version range",
+                base + "." + field,
+                source
+            ));
+            return;
+        }
+        try {
+            VersionRange.parse(node.get(field).asText());
+        } catch (IllegalArgumentException failure) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_CONTRACT_VERSION",
+                failure.getMessage(),
+                base + "." + field,
+                source
+            ));
+        }
+    }
+
+    private void requiredSha256(
+        final JsonNode node,
+        final String field,
+        final String base,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!node.has(field) || !node.get(field).isTextual()
+            || !SHA256.matcher(node.get(field).asText()).matches()) {
+            errors.add(error(
+                "PLUGIN_META_BAD_EVENT_ABI",
+                field + " must be a lowercase SHA-256 digest",
+                base + "." + field,
+                source
+            ));
         }
     }
 

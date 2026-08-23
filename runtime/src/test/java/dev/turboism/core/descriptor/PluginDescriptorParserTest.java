@@ -234,6 +234,85 @@ class PluginDescriptorParserTest {
     }
 
     @Test
+    void parsesV4PublicEventContracts() throws DescriptorParseException {
+        final String digest = "a".repeat(64);
+        final PluginDescriptor descriptor = parser.parse(toStream(v4Descriptor(
+            """
+              "eventExports": [{
+                "id": "demo.started",
+                "contractVersion": "1.0.0",
+                "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
+                "abiSha256": "%s"
+              }],
+              "eventImports": [{
+                "provider": "dev.turboism.plugin.provider",
+                "eventId": "provider.ready",
+                "contractVersion": "[1.0.0,2.0.0)",
+                "eventType": "dev.turboism.sdk.event.provider.ProviderReadyEvent",
+                "abiSha256": "%s",
+                "required": false
+              }],
+            """.formatted(digest, digest)
+        )));
+
+        assertEquals(1, descriptor.eventExports().size());
+        assertEquals("demo.started", descriptor.eventExports().get(0).id());
+        assertEquals("1.0.0", descriptor.eventExports().get(0).contractVersion());
+        assertEquals(1, descriptor.eventImports().size());
+        assertEquals(
+            "dev.turboism.plugin.provider",
+            descriptor.eventImports().get(0).providerId()
+        );
+        assertEquals("[1.0.0,2.0.0)", descriptor.eventImports().get(0).contractVersion());
+        assertEquals(false, descriptor.eventImports().get(0).required());
+    }
+
+    @Test
+    void rejectsV4DuplicateEventExportIds() {
+        final String digest = "a".repeat(64);
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v4Descriptor(
+                """
+                  "eventExports": [
+                    {
+                      "id": "demo.started",
+                      "contractVersion": "1.0.0",
+                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
+                      "abiSha256": "%s"
+                    },
+                    {
+                      "id": "demo.started",
+                      "contractVersion": "1.1.0",
+                      "eventType": "dev.turboism.sdk.event.demo.DemoStartedAgainEvent",
+                      "abiSha256": "%s"
+                    }
+                  ],
+                """.formatted(digest, digest)
+            )))
+        );
+        assertEquals("PLUGIN_META_DUPLICATE_EVENT_EXPORT", failure.code());
+    }
+
+    @Test
+    void rejectsV4MalformedEventAbi() {
+        final DescriptorParseException failure = assertThrows(
+            DescriptorParseException.class,
+            () -> parser.parse(toStream(v4Descriptor(
+                """
+                  "eventExports": [{
+                    "id": "demo.started",
+                    "contractVersion": "1.0.0",
+                    "eventType": "dev.turboism.sdk.event.demo.DemoStartedEvent",
+                    "abiSha256": "not-a-digest"
+                  }],
+                """
+            )))
+        );
+        assertEquals("PLUGIN_META_BAD_EVENT_ABI", failure.code());
+    }
+
+    @Test
     void legacyDescriptorImplementationInheritsEmptyClassification() {
         // A descriptor implementation compiled against the old method set must
         // remain loadable: the default methods supply empty classification.
@@ -267,6 +346,33 @@ class PluginDescriptorParserTest {
 
         assertEquals(Optional.empty(), legacy.category());
         assertEquals(List.of(), legacy.tags());
+        assertEquals(List.of(), legacy.eventExports());
+        assertEquals(List.of(), legacy.eventImports());
+    }
+
+    private static String v4Descriptor(final String eventFields) {
+        return """
+            {
+              "format": "turboism.plugin.meta",
+              "schemaVersion": 4,
+              "id": "dev.turboism.plugin.demo",
+              "name": "Demo Plugin",
+              "version": "0.1.0",
+              "entrypoints": ["dev.turboism.plugin.demo.DemoPlugin"],
+              "turboismApi": "[0.1.0,0.2.0)",
+              "authors": [{ "name": "Turboism Contributors" }],
+              "website": "https://turboism.dev",
+              "resources": [],
+              "i18n": {
+                "baseName": "META-INF/turboism/i18n/messages",
+                "locales": []
+              },
+              "category": "modeling",
+              "tags": [],
+              %s
+              "description": ""
+            }
+            """.formatted(eventFields);
     }
 
     private static String v3Descriptor(final String classificationFields) {

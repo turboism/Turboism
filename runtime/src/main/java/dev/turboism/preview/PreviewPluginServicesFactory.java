@@ -116,6 +116,14 @@ final class PreviewPluginServicesFactory {
         this.effectiveLocale = Objects.requireNonNull(effectiveLocale, "effectiveLocale");
     }
 
+    RuntimeEventBroker.Owner admitEventOwner(final PluginDescriptor descriptor) {
+        return eventBroker.admit(descriptor);
+    }
+
+    void preflightEventContracts(final PluginDescriptor descriptor) {
+        eventBroker.preflight(descriptor);
+    }
+
     RuntimeEventBroker.Owner admitEventOwner(final String pluginId) {
         return eventBroker.admit(pluginId);
     }
