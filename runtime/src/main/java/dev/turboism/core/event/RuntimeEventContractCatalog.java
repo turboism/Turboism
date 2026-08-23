@@ -19,6 +19,7 @@ import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
@@ -61,7 +62,8 @@ final class RuntimeEventContractCatalog {
             SceneTableSnapshotEvent.class,
             SceneTableItemOrderEvent.class,
             CubismLogBatchEvent.class,
-            PerformanceSampleEvent.class
+            PerformanceSampleEvent.class,
+            ActionInvocationEvent.class
         );
 
     void requirePluginPublicationAllowed(
