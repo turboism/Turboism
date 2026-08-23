@@ -1,118 +1,54 @@
 package dev.turboism.core.event;
 
-import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
-import dev.turboism.sdk.permission.PermissionIds;
-import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 /**
- * The runtime's per-plugin {@link EventBus}: permission-gated subscription and publication, with
- * delivery hopped onto the scheduler rather than run on the publisher's thread.
+ * Compatibility facade for the legacy manual {@link EventBus} API.
  *
- * <p>Both directions are checked against the plugin's permissions before anything happens, so an
- * unpermitted subscribe or publish fails rather than silently doing nothing. Listener lists are
- * copy-on-write, so a listener may unsubscribe during its own dispatch without disturbing the
- * publication in flight. Subscribers are keyed by the event's exact runtime class: publishing a
- * subtype does not reach listeners registered for its supertype.
+ * <p>New runtime composition shares one {@link RuntimeEventBroker} among plugin
+ * facades. This constructor retains isolated behavior for focused legacy tests
+ * and internal compatibility callers.</p>
  */
 public final class RuntimeEventBus implements EventBus {
 
-    private static final String EVENT_TASK_TYPE = "event.subscribe";
-    private static final String DEFAULT_CAPABILITY = "none";
+    private final PluginEventBus delegate;
 
-    private final RuntimeScheduler scheduler;
-    private final String pluginId;
-    private final PermissionChecker permissionChecker;
-    private final ConcurrentMap<Class<? extends TurboismEvent>, CopyOnWriteArrayList<Subscription<? extends TurboismEvent>>> subscribers =
-        new ConcurrentHashMap<>();
-
-    public RuntimeEventBus(RuntimeScheduler scheduler, String pluginId, PermissionChecker permissionChecker) {
-        this.scheduler = Objects.requireNonNull(scheduler, "scheduler");
-        this.pluginId = requireText(pluginId, "pluginId");
-        this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
-    }
-
-    @Override
-    public <T extends TurboismEvent> Registration subscribe(Class<T> type, Consumer<T> listener) {
-        Objects.requireNonNull(type, "type");
-        Objects.requireNonNull(listener, "listener");
-        permissionChecker.check(PermissionIds.TURBOISM_EVENT_SUBSCRIBE, "event.subscribe");
-        Subscription<T> subscription = new Subscription<>(type, listener);
-        subscribers.computeIfAbsent(type, ignored -> new CopyOnWriteArrayList<>()).add(subscription);
-        return () -> remove(type, subscription);
-    }
-
-    @Override
-    public <T extends TurboismEvent> void publish(T event) {
-        Objects.requireNonNull(event, "event");
-        permissionChecker.check(PermissionIds.TURBOISM_EVENT_PUBLISH, "event.publish");
-        CopyOnWriteArrayList<Subscription<? extends TurboismEvent>> eventSubscribers = subscribers.get(event.getClass());
-        if (eventSubscribers == null) {
-            return;
-        }
-
-        for (Subscription<? extends TurboismEvent> subscription : eventSubscribers) {
-            dispatch(event, subscription);
-        }
-    }
-
-    private <T extends TurboismEvent> void remove(Class<T> type, Subscription<T> subscription) {
-        CopyOnWriteArrayList<Subscription<? extends TurboismEvent>> eventSubscribers = subscribers.get(type);
-        if (eventSubscribers == null) {
-            return;
-        }
-        eventSubscribers.remove(subscription);
-        if (eventSubscribers.isEmpty()) {
-            subscribers.remove(type, eventSubscribers);
-        }
-    }
-
-    private <T extends TurboismEvent> void dispatch(T event, Subscription<? extends TurboismEvent> subscription) {
-        if (!subscription.type().isInstance(event)) {
-            return;
-        }
-        scheduler.dispatch(task(event), () -> deliver(event, subscription));
-    }
-
-    private PluginTask task(TurboismEvent event) {
-        return new PluginTask(
-            EVENT_TASK_TYPE,
+    public RuntimeEventBus(
+        final RuntimeScheduler scheduler,
+        final String pluginId,
+        final PermissionChecker permissionChecker
+    ) {
+        this(
+            new RuntimeEventBroker(Objects.requireNonNull(scheduler, "scheduler")),
             pluginId,
-            event.getClass().getName(),
-            DEFAULT_CAPABILITY
+            permissionChecker
         );
     }
 
-    private static <T extends TurboismEvent> void deliver(
-        T event,
-        Subscription<? extends TurboismEvent> subscription
+    public RuntimeEventBus(
+        final RuntimeEventBroker broker,
+        final String pluginId,
+        final PermissionChecker permissionChecker
     ) {
-        subscription.deliver(event);
+        this.delegate = new PluginEventBus(broker, pluginId, permissionChecker);
     }
 
-    private static String requireText(String value, String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
+    @Override
+    public <T extends TurboismEvent> Registration subscribe(
+        final Class<T> type,
+        final Consumer<T> listener
+    ) {
+        return delegate.subscribe(type, listener);
     }
 
-    private record Subscription<T extends TurboismEvent>(Class<T> type, Consumer<T> listener) {
-
-        private void deliver(TurboismEvent event) {
-            if (type.isInstance(event)) {
-                listener.accept(type.cast(event));
-            }
-        }
+    @Override
+    public <T extends TurboismEvent> void publish(final T event) {
+        delegate.publish(event);
     }
 }

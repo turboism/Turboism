@@ -1,0 +1,80 @@
+package dev.turboism.core.event;
+
+import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
+import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.cubism.ParameterValueEvent;
+import dev.turboism.sdk.event.cubism.PartNameEvent;
+import dev.turboism.sdk.event.cubism.PartOpacityEvent;
+import dev.turboism.sdk.plugin.PluginDescriptor;
+
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
+/** Domain permissions required by event subscription types. */
+public final class EventSubscriptionPermissionCatalog {
+
+    private EventSubscriptionPermissionCatalog() { }
+
+    public static void check(
+        final Class<? extends EventBus.TurboismEvent> subscriptionType,
+        final PermissionChecker permissionChecker
+    ) {
+        final Class<? extends EventBus.TurboismEvent> type = Objects.requireNonNull(
+            subscriptionType,
+            "subscriptionType"
+        );
+        final PermissionChecker checker = Objects.requireNonNull(
+            permissionChecker,
+            "permissionChecker"
+        );
+        for (String permission : requiredPermissions(type)) {
+            checker.check(permission, "event.subscribe." + type.getName());
+        }
+    }
+
+    public static void requireDeclared(
+        final PluginDescriptor descriptor,
+        final List<EventSubscriberDescriptor> subscribers
+    ) {
+        final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
+        final Set<String> declared = plugin.permissions().stream()
+            .map(PluginDescriptor.PermissionRef::id)
+            .collect(java.util.stream.Collectors.toUnmodifiableSet());
+        for (EventSubscriberDescriptor subscriber : Objects.requireNonNull(
+            subscribers,
+            "subscribers"
+        )) {
+            for (String permission : requiredPermissions(subscriber.eventType())) {
+                if (!declared.contains(permission)) {
+                    throw new IllegalArgumentException(
+                        "@SubscribeEvent for " + subscriber.eventType().getName()
+                            + " requires " + permission + ": " + plugin.id()
+                    );
+                }
+            }
+        }
+    }
+
+    static Set<String> requiredPermissions(
+        final Class<? extends EventBus.TurboismEvent> subscriptionType
+    ) {
+        final Set<String> permissions = new LinkedHashSet<>();
+        if (subscriptionType.isAssignableFrom(ParameterValueEvent.Before.class)
+            || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
+            || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)) {
+            permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
+        }
+        if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
+            || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
+            || subscriptionType.isAssignableFrom(PartOpacityEvent.On.class)
+            || subscriptionType.isAssignableFrom(PartOpacityEvent.After.class)
+            || subscriptionType.isAssignableFrom(PartNameEvent.On.class)
+            || subscriptionType.isAssignableFrom(PartNameEvent.After.class)) {
+            permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
+        }
+        return Set.copyOf(permissions);
+    }
+}
