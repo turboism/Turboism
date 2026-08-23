@@ -117,6 +117,37 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
+    void manualSubscriberRunsWithPluginContextClassLoader() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner publisher = broker.admit("dev.example.publisher");
+        final RuntimeEventBroker.Owner subscriber = broker.admit("dev.example.subscriber");
+        final ClassLoader pluginClassLoader = new ClassLoader(
+            RuntimeEventBrokerTest.class.getClassLoader()
+        ) { };
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            subscriber.key(),
+            PermissionChecker.allowAll(),
+            pluginClassLoader
+        );
+        final CountDownLatch delivered = new CountDownLatch(1);
+        final AtomicReference<ClassLoader> observed = new AtomicReference<>();
+        eventBus.subscribe(TestEvent.class, ignored -> {
+            observed.set(Thread.currentThread().getContextClassLoader());
+            delivered.countDown();
+        });
+        publisher.activate();
+        subscriber.activate();
+
+        broker.publish(publisher.key(), new TestEvent("tccl"));
+
+        assertTrue(delivered.await(1, TimeUnit.SECONDS));
+        assertSame(pluginClassLoader, observed.get());
+        scheduler.shutdown();
+    }
+
+    @Test
     void admittedOwnerStagesSubscriptionsUntilActivation() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
