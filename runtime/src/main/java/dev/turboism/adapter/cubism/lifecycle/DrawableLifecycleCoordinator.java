@@ -2,7 +2,10 @@ package dev.turboism.adapter.cubism.lifecycle;
 
 import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
+import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -201,6 +204,28 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                     }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                effective = broker.publishRuntimeTransform(
+                    DrawableVisibilityEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DrawableVisibilityEvent.Before.Callback callback =
+                            DrawableVisibilityEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DrawableVisibilityEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DrawableVisibilityEvent.Before) event).visible(),
+                    ignored -> true
+                );
+            }
             final boolean oldValue = drawable.visible();
             nativeOperation.accept(effective);
             final boolean newValue = drawable.visible();
@@ -208,6 +233,15 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (oldValue != newValue) hook.onDrawableVisibilityChanged(drawable, oldValue, newValue);
                 hook.afterSetDrawableVisible(drawable, newValue);
             });
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                if (oldValue != newValue) {
+                    broker.publishRuntime(new DrawableVisibilityEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DrawableVisibilityEvent.After(detached, newValue));
+            }
         });
     }
 
@@ -233,6 +267,26 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                     }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                effective = broker.publishRuntimeTransform(
+                    DrawableLockEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DrawableLockEvent.Before.Callback callback =
+                            DrawableLockEvent.Before.openCallback(detached, requested, candidate);
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DrawableLockEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DrawableLockEvent.Before) event).locked(),
+                    ignored -> true
+                );
+            }
             final boolean oldValue = drawable.locked();
             nativeOperation.accept(effective);
             final boolean newValue = drawable.locked();
@@ -240,6 +294,15 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (oldValue != newValue) hook.onDrawableLockChanged(drawable, oldValue, newValue);
                 hook.afterSetDrawableLocked(drawable, newValue);
             });
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                if (oldValue != newValue) {
+                    broker.publishRuntime(new DrawableLockEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DrawableLockEvent.After(detached, newValue));
+            }
         });
     }
 
@@ -274,6 +337,28 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                     }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                effective = broker.publishRuntimeTransform(
+                    DrawableGeometryEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DrawableGeometryEvent.Before.Callback callback =
+                            DrawableGeometryEvent.Before.openCallback(
+                                detached, requested, candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DrawableGeometryEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DrawableGeometryEvent.Before) event).geometry(),
+                    Objects::nonNull
+                );
+            }
             final ArtMeshGeometry oldValue = drawable.geometry();
             nativeOperation.accept(effective);
             final ArtMeshGeometry newValue = drawable.geometry();
@@ -281,6 +366,15 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (!oldValue.equals(newValue)) hook.onDrawableGeometryChanged(drawable, oldValue, newValue);
                 hook.afterReplaceDrawableGeometry(drawable, newValue);
             });
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                if (!oldValue.equals(newValue)) {
+                    broker.publishRuntime(new DrawableGeometryEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DrawableGeometryEvent.After(detached, newValue));
+            }
         });
     }
 
