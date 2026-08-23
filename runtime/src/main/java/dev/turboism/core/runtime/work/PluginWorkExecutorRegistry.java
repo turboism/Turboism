@@ -8,6 +8,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 
+/**
+ * Owns one {@link PluginWorkExecutor} per plugin id, created on first use from a single shared
+ * budget configuration.
+ *
+ * <p>Isolation is per plugin: one plugin exhausting its queue or tripping its breaker cannot affect
+ * another's executor. Backed by a concurrent map, so lookup and creation are safe from any thread.
+ */
 public final class PluginWorkExecutorRegistry {
 
     private final PluginWorkExecutorConfiguration configuration;
@@ -41,11 +48,26 @@ public final class PluginWorkExecutorRegistry {
         this.clock = Objects.requireNonNull(clock, "clock");
     }
 
+    /**
+     * @param pluginId the owning plugin, must not be blank
+     * @return this plugin's executor, created on first request and reused afterwards
+     * @throws NullPointerException if {@code pluginId} is {@code null}
+     * @throws IllegalArgumentException if {@code pluginId} is blank
+     */
     public PluginWorkExecutor get(String pluginId) {
         String id = requireText(pluginId, "pluginId");
         return executors.computeIfAbsent(id, this::createExecutor);
     }
 
+    /**
+     * Convenience for {@link PluginWorkExecutor#submitCompletion} that creates the plugin's executor if
+     * it does not exist yet.
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run
+     * @return the admission decision plus a stage completing with the work's terminal result
+     */
     public PluginWorkSubmission submitCompletion(
         String pluginId,
         PluginTask task,
@@ -54,6 +76,14 @@ public final class PluginWorkExecutorRegistry {
         return get(pluginId).submitCompletion(task, work);
     }
 
+    /**
+     * Removes this plugin's executor and shuts it down; a later {@link #get} creates a fresh one.
+     *
+     * <p>A no-op when the plugin has no executor.
+     *
+     * @param pluginId the owning plugin, must not be blank
+     * @throws IllegalArgumentException if {@code pluginId} is blank
+     */
     public void shutdown(String pluginId) {
         String id = requireText(pluginId, "pluginId");
         PluginWorkExecutor executor = executors.remove(id);
@@ -62,6 +92,12 @@ public final class PluginWorkExecutorRegistry {
         }
     }
 
+    /**
+     * Removes and shuts down every registered executor.
+     *
+     * <p>Each entry is removed with a compare-and-remove, so an executor replaced concurrently is left
+     * to its new owner rather than shut down from under it.
+     */
     public void shutdownAll() {
         executors.forEach((pluginId, executor) -> {
             if (executors.remove(pluginId, executor)) {

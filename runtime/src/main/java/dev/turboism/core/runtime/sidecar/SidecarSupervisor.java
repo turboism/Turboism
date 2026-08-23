@@ -10,6 +10,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+/**
+ * Wraps a {@link SidecarDispatcher} with crash counting, bounded retry, and a
+ * circuit breaker.
+ *
+ * <p>Any error or timeout result — and any exceptional completion — counts as a
+ * crash. While the cumulative crash count stays within {@code maxRestartCount} the
+ * task is retried; the crash count is cumulative over the supervisor’s life and is
+ * never reset by a successful run, so the breaker eventually opens. Once it opens,
+ * health becomes {@link SidecarHealth#UNAVAILABLE} permanently and every later
+ * dispatch fails immediately with a {@link SidecarDispatchException}.</p>
+ *
+ * <p>Each crash, retry, and breaker trip is reported to the diagnostic sink as a
+ * {@link PluginWorkBudgetEvent}. Health and crash count are held in atomics, so
+ * the supervisor is safe to share across threads.</p>
+ */
 public final class SidecarSupervisor implements SidecarDispatcher {
 
     private static final String UNAVAILABLE_CODE = "SIDECAR_UNAVAILABLE";
@@ -48,10 +63,18 @@ public final class SidecarSupervisor implements SidecarDispatcher {
         return dispatchAttempt(task, callback);
     }
 
+    /**
+     * @return the current health verdict; {@link SidecarHealth#UNAVAILABLE} is
+     *     terminal and means all further dispatches are refused
+     */
     public SidecarHealth health() {
         return health.get();
     }
 
+    /**
+     * @return how many crashes this supervisor has observed since construction;
+     *     cumulative and never reset by a successful run
+     */
     public int crashCount() {
         return crashCount.get();
     }

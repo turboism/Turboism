@@ -1,9 +1,10 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
-import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -316,7 +317,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final boolean historyAuthorized = resolver.authorizesFeature(
             "adapter.editor-model.readwrite",
             "cubism.editor-history.read",
-            dev.turboism.mapping.verification.EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+            dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract.REQUIRED_ALIASES
         );
         final Object historyManager = historyAuthorized
             ? resolver.invoke("cubism.editor-history.document.undo-manager", document)

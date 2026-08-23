@@ -1,22 +1,22 @@
 package dev.turboism.tests.mapping;
 
+import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.adapter.cubism.VerifiedClipMaskHostOperations;
 import dev.turboism.adapter.cubism.VerifiedProjectWorkspaceHostOperations;
 import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.ControlAppearanceVerificationManifest;
 import dev.turboism.mapping.verification.CorePublicApiTrustRoots;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorClipMaskReadSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
-import dev.turboism.mapping.verification.EditorPsdSnapshotSelectorContract;
-import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
-import dev.turboism.mapping.verification.EditorPartOpacitySelectorContract;
-import dev.turboism.mapping.verification.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
@@ -25,6 +25,7 @@ import dev.turboism.mapping.verification.TopMenuVerificationManifest;
 import dev.turboism.mapping.verification.WorkspaceControlVerificationManifest;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.StaticVerificationRecordValidator;
 import org.junit.jupiter.api.Test;
@@ -49,18 +50,18 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("cubism-ref/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
-        "cubism-ref/verification/cubism-5.2-project-workspace.json",
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+        "cubism-ref/verification/cubism-5.2.03-project-workspace.json",
         new SliceExpectation(
-            "m15.cubism-5.2.project-workspace.static",
+            "m15.cubism-5.2.03.project-workspace.static",
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
+            "5.2.03",
+            "cubism-5.2.03",
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "661be268ad68726eecfdad7ca385f0c52c0105f1180c72813547504b23f81003",
+            ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+            "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
             23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
@@ -69,23 +70,23 @@ class StaticVerificationRecordRepositoryTest {
                 VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
                 VerifiedProjectWorkspaceHostOperations.methodAliasesUsed()
             ),
-            "cubism-5.2-project-workspace",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-project-workspace.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            "cubism-5.2.03-project-workspace",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-project-workspace.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.PROJECT_WORKSPACE
         ),
         "cubism-ref/verification/cubism-5.3.02-project-workspace.json",
         new SliceExpectation(
-            ProjectWorkspaceVerificationManifest.VERIFICATION_ID,
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.verificationId(),
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
-            ProjectWorkspaceVerificationManifest.CUBISM_VERSION,
-            ProjectWorkspaceVerificationManifest.PROFILE_ID,
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.cubismVersion(),
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.profileId(),
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            ProjectWorkspaceVerificationManifest.ARTIFACT_SIZE,
-            ProjectWorkspaceVerificationManifest.ARTIFACT_SHA256,
-            ProjectWorkspaceVerificationManifest.RECORD_SHA256,
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.artifact().size(),
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+            ProjectWorkspaceVerificationManifest.RECORD_5_3_02.recordSha256(),
             23,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES,
             VerifiedProjectWorkspaceHostOperations.REQUIRED_ALIASES,
@@ -97,25 +98,25 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-m14-project-workspace",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.PROJECT_WORKSPACE
         ),
-        "cubism-ref/verification/cubism-5.2-core-model-read.json",
-        coreExpectation("5.2", "5.2.0", 36_237L,
+        "cubism-ref/verification/cubism-5.2.03-core-model-read.json",
+        coreExpectation("5.2.03", "5.2.03", 36_237L,
             "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
-            "067b6dc666ba8419d973ae88b7f3a5829083b54644f2a28abff4ac258521815d",
-            72, "[5.2.0,5.3.0)"),
+            "7e5dd498d46b654671f80639bcc74c01ed5d7ab10a1d4b36914956b1567ffceb",
+            72, "5.2.03"),
         "cubism-ref/verification/cubism-5.3.02-clipmask.json",
         new SliceExpectation(
-            ClipMaskVerificationManifest.VERIFICATION_ID,
+            ClipMaskVerificationManifest.RECORD_5_3_02.verificationId(),
             ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
-            ClipMaskVerificationManifest.CUBISM_VERSION,
-            ClipMaskVerificationManifest.PROFILE_ID,
+            ClipMaskVerificationManifest.RECORD_5_3_02.cubismVersion(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.profileId(),
             ClipMaskVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            ClipMaskVerificationManifest.ARTIFACT_SIZE,
-            ClipMaskVerificationManifest.ARTIFACT_SHA256,
-            ClipMaskVerificationManifest.RECORD_SHA256,
+            ClipMaskVerificationManifest.RECORD_5_3_02.artifact().size(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+            ClipMaskVerificationManifest.RECORD_5_3_02.recordSha256(),
             16,
             ClipMaskVerificationManifest.REQUIRED_ALIASES,
             VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
@@ -124,42 +125,42 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-m15-clipmask",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.CLIP_MASK
         ),
-        "cubism-ref/verification/cubism-5.2-ui-main-toolbar.json",
+        "cubism-ref/verification/cubism-5.2.03-ui-main-toolbar.json",
         new SliceExpectation(
-            "cubism-5.2.ui-main-toolbar.static",
+            MainToolbarVerificationManifest.RECORD_5_2_03.verificationId(),
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
+            MainToolbarVerificationManifest.RECORD_5_2_03.cubismVersion(),
+            MainToolbarVerificationManifest.RECORD_5_2_03.profileId(),
             MainToolbarVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "2c6b0989633c8cd2f41eb742f29ce5bcfa74b62ed48647900cb46e4fca607bb8",
-            25,
+            ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+            MainToolbarVerificationManifest.RECORD_5_2_03.recordSha256(),
+            28,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             mainToolbarMethodAliases(),
             difference(MainToolbarVerificationManifest.REQUIRED_ALIASES, mainToolbarMethodAliases()),
-            "cubism-5.2-ui-main-toolbar",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-main-toolbar.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            "cubism-5.2.03-ui-main-toolbar",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-main-toolbar.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.EDITOR_UI
         ),
         "cubism-ref/verification/cubism-5.3.02-ui-main-toolbar.json",
         new SliceExpectation(
-            MainToolbarVerificationManifest.VERIFICATION_ID,
+            MainToolbarVerificationManifest.RECORD_5_3_02.verificationId(),
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
-            MainToolbarVerificationManifest.CUBISM_VERSION,
-            MainToolbarVerificationManifest.PROFILE_ID,
+            MainToolbarVerificationManifest.RECORD_5_3_02.cubismVersion(),
+            MainToolbarVerificationManifest.RECORD_5_3_02.profileId(),
             MainToolbarVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            MainToolbarVerificationManifest.ARTIFACT_SIZE,
-            MainToolbarVerificationManifest.ARTIFACT_SHA256,
-            MainToolbarVerificationManifest.RECORD_SHA256,
+            MainToolbarVerificationManifest.RECORD_5_3_02.artifact().size(),
+            MainToolbarVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+            MainToolbarVerificationManifest.RECORD_5_3_02.recordSha256(),
             28,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
             MainToolbarVerificationManifest.REQUIRED_ALIASES,
@@ -168,92 +169,92 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-5.3.02-ui-main-toolbar",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-main-toolbar.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.EDITOR_UI
         ),
-        "cubism-ref/verification/cubism-5.2-ui-control-appearance.json",
+        "cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json",
         controlAppearanceExpectation(
             "5.2.03",
-            "cubism-5.2",
-            40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "bc272ba4263012d2776c40871f6ff5260fc8f92f02d76b764925439b13c7d57a",
-            "cubism-5.2-ui-control-appearance",
-            "[5.2.0,5.3.0)"
+            "cubism-5.2.03",
+            ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+            "429a9bc1f4ae9fe6d38cbdfd5d418d14a236860a0a9db0771a443b4cdb28ae5c",
+            "cubism-5.2.03-ui-control-appearance",
+            "5.2.03"
         ),
-        "cubism-ref/verification/cubism-5.2-editor-model.json",
+        "cubism-ref/verification/cubism-5.2.03-editor-model.json",
         new SliceExpectation(
-            "cubism-5.2.editor-model.static",
+            "cubism-5.2.03.editor-model.static",
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-            "5.2.0",
-            "cubism-5.2",
-            editorModel52Capabilities(),
+            "5.2.03",
+            "cubism-5.2.03",
+            EditorModelVerificationManifest.cubism52Capabilities(),
             "Live2D_Cubism.jar",
-            40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "d3b55e0ea62a1dbdcbd09c6a985c8503e07a6e345958cf9702fe52ae58e28ac8",
-            589,
-            editorModel52Aliases(),
-            editorModel52Aliases(),
-            editorModel52MethodAliases(),
-            difference(editorModel52Aliases(), editorModel52MethodAliases()),
-            "cubism-5.2-editor-model-read",
-            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-editor-model-read.json"),
-            Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-            "[5.2.0,5.3.0)",
+            ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+            "76b55c9d04a2e834a652a7d96d3b79a840d354bc532dd95bf72278f6f4524e24",
+            579,
+            EditorModelVerificationManifest.cubism52Aliases(),
+            EditorModelVerificationManifest.cubism52Aliases(),
+            recordMethodAliases("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
+            recordClassAliases("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
+            "cubism-5.2.03-editor-model-read",
+            Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-editor-model-read.json"),
+            Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+            "5.2.03",
             SliceKind.EDITOR_MODEL
         ),
         "cubism-ref/verification/cubism-5.3.02-editor-model.json",
         new SliceExpectation(
-            EditorModelVerificationManifest.VERIFICATION_ID,
+            EditorModelVerificationManifest.RECORD_5_3_02.verificationId(),
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-            EditorModelVerificationManifest.CUBISM_VERSION,
-            EditorModelVerificationManifest.PROFILE_ID,
+            EditorModelVerificationManifest.RECORD_5_3_02.cubismVersion(),
+            EditorModelVerificationManifest.RECORD_5_3_02.profileId(),
             EditorModelVerificationManifest.CAPABILITY_IDS,
             "Live2D_Cubism.jar",
-            EditorModelVerificationManifest.ARTIFACT_SIZE,
-            EditorModelVerificationManifest.ARTIFACT_SHA256,
-            EditorModelVerificationManifest.RECORD_SHA256,
-            611,
+            EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
+            EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+            EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
+            600,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
             EditorModelVerificationManifest.REQUIRED_ALIASES,
-            editorModelMethodAliases(),
-            difference(EditorModelVerificationManifest.REQUIRED_ALIASES, editorModelMethodAliases()),
+            recordMethodAliases("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            recordClassAliases("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
             "cubism-5.3.02-editor-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-editor-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-            "[5.3.02,5.3.03)",
+            "5.3.02",
             SliceKind.EDITOR_MODEL
         ),
         "cubism-ref/verification/cubism-5.3.02-core-model-read.json",
-        coreExpectation("5.3.02", "5.3.2", 42_471L,
+        coreExpectation("5.3.02", "5.3.02", 42_471L,
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
-            "b68770af94b43bafa92bbe06a3cb2017f89ed5d561c3bb08447d3eeca89d06d0",
-            74, "[5.3.02,5.3.03)")
-    ))))))));
+            "96ad896a86ed2fd1543c8ac6099adcf8cd7750483000b0ca4b13014ffe04a86d",
+            74, "5.3.02")
+    ))))))))));
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-workspace-control.json",
+            "cubism-ref/verification/cubism-5.2.03-workspace-control.json",
             workspaceControlExpectation(
-                "5.2", "5.2.03", 40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36",
+                "5.2.03", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed",
                 "m.workspace-5.2.03.control.static", "adapter.workspace.control.v5_2",
-                "[5.2.0,5.3.0)"
+                "5.2.03"
             )
         );
         expectations.put(
             "cubism-ref/verification/cubism-5.3.02-workspace-control.json",
             workspaceControlExpectation(
-                "5.3.02", "5.3.02", 41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                "5.3.02", "5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
                 "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16",
                 "m.workspace-5.3.02.control.static", "adapter.workspace.control.v5_3",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -281,41 +282,41 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-embedded-panel.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-embedded-panel.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-embedded-panel.static",
                 EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "cd3238ac79ece01dbac0ca9b83c428d49c05f11d48ba1b213253362d37807ec4",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "5ec9331ab80b79f6eff6777f282738bfbe26400620b2e27e23715963a23b7d89",
                 78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 embeddedPanelMethodAliases(),
                 difference(EmbeddedPanelVerificationManifest.REQUIRED_ALIASES, embeddedPanelMethodAliases()),
-                "cubism-5.2-ui-embedded-panel",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-embedded-panel.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-embedded-panel",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-embedded-panel.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
         expectations.put(
             "cubism-ref/verification/cubism-5.3.02-ui-embedded-panel.json",
             new SliceExpectation(
-                EmbeddedPanelVerificationManifest.VERIFICATION_ID,
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.verificationId(),
                 EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
-                EmbeddedPanelVerificationManifest.CUBISM_VERSION,
-                EmbeddedPanelVerificationManifest.PROFILE_ID,
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.cubismVersion(),
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.profileId(),
                 EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                EmbeddedPanelVerificationManifest.ARTIFACT_SIZE,
-                EmbeddedPanelVerificationManifest.ARTIFACT_SHA256,
-                EmbeddedPanelVerificationManifest.RECORD_SHA256,
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.artifact().size(),
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+                EmbeddedPanelVerificationManifest.RECORD_5_3_02.recordSha256(),
                 78,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
                 EmbeddedPanelVerificationManifest.REQUIRED_ALIASES,
@@ -324,8 +325,153 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-embedded-panel",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-embedded-panel.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    /**
+     * Method-kind aliases declared by a reviewed record.
+     *
+     * <p>Editor-model has no {@code Verified*HostOperations.methodAliasesUsed()} to compare
+     * against: its aliases are inline literals across 23 access classes. Whether the
+     * implementation actually invokes them is checked by
+     * {@code scripts/test/check_editor_model_aliases.py}, which derives the implementation side
+     * by scanning. This expectation therefore only restates the record's own method/class split,
+     * which is what the surrounding pack-binding assertions need.</p>
+     */
+    private static Set<String> recordMethodAliases(final String recordPath) {
+        return recordAliasesOfKind(recordPath, false);
+    }
+
+    /** Class-kind aliases declared by a reviewed record; see {@link #recordMethodAliases}. */
+    private static Set<String> recordClassAliases(final String recordPath) {
+        return recordAliasesOfKind(recordPath, true);
+    }
+
+    private static Set<String> recordAliasesOfKind(final String recordPath, final boolean classes) {
+        try {
+            final JsonNode root = new ObjectMapper().readTree(
+                PROJECT_ROOT.resolve(recordPath).toFile()
+            );
+            final Set<String> aliases = new HashSet<>();
+            for (JsonNode selector : root.get("selectors")) {
+                final boolean isClass = "class".equals(selector.get("kind").asText());
+                if (isClass == classes) {
+                    aliases.add(selector.get("alias").asText());
+                }
+            }
+            return Set.copyOf(aliases);
+        } catch (Exception failure) {
+            throw new IllegalStateException("cannot read reviewed record " + recordPath, failure);
+        }
+    }
+
+    private static Map<String, SliceExpectation> withPerformance(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2.03-performance-render-scene.json",
+            performanceExpectation(
+                "cubism-5.2.03.performance.render-scene.static",
+                "5.2.03",
+                "cubism-5.2.03",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "7eb2ec2755b20f1dccbe97057b448d438655dc29ad4d4a1aaadb661c3bdef6c7",
+                Set.of("cubism.performance.render-scene"),
+                "cubism-5.2.03-performance-render-scene",
+                "5.2.03"
+            )
+        );
+        expectations.put(
+            "cubism-ref/verification/cubism-5.3.02-performance-render-scene.json",
+            performanceExpectation(
+                "cubism-5.3.02.performance.render-scene.static",
+                "5.3.02",
+                "cubism-5.3.02",
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
+                "d1f858150f5ec2cf2be012a40d8f60dfc8639be7cfd87acd036d9ed735f86107",
+                Set.of(
+                    "cubism.performance.render-scene",
+                    "cubism.performance.modeling-pre-render-update",
+                    "cubism.performance.render-system",
+                    "cubism.performance.scene-traversal",
+                    "cubism.performance.renderer-dispatch",
+                    "cubism.performance.update-model-instances",
+                    "cubism.performance.reinit-model-instance"
+                ),
+                "cubism-5.3.02-performance-render-scene",
+                "5.3.02"
+            )
+        );
+        return Map.copyOf(expectations);
+    }
+
+    private static SliceExpectation performanceExpectation(
+        final String verificationId,
+        final String cubismVersion,
+        final String profileId,
+        final long artifactSize,
+        final String artifactSha256,
+        final String recordSha256,
+        final Set<String> aliases,
+        final String packId,
+        final String expectedCubismVersion
+    ) {
+        return new SliceExpectation(
+            verificationId,
+            "adapter.cubism.performance.fps-hook",
+            cubismVersion,
+            profileId,
+            Set.of("turboism.performance.stats.read"),
+            "Live2D_Cubism.jar",
+            artifactSize,
+            artifactSha256,
+            recordSha256,
+            aliases.size(),
+            aliases,
+            aliases,
+            aliases,
+            Set.of(),
+            packId,
+            Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
+            Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
+            expectedCubismVersion,
+            SliceKind.PERFORMANCE
+        );
+    }
+
+    private static Map<String, SliceExpectation> withClipMask52(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "cubism-ref/verification/cubism-5.2.03-clipmask.json",
+            new SliceExpectation(
+                ClipMaskVerificationManifest.RECORD_5_2_03.verificationId(),
+                ClipMaskVerificationManifest.ADAPTER_SLICE_ID,
+                ClipMaskVerificationManifest.RECORD_5_2_03.cubismVersion(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.profileId(),
+                ClipMaskVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                ClipMaskVerificationManifest.RECORD_5_2_03.artifact().size(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.artifact().sha256(),
+                ClipMaskVerificationManifest.RECORD_5_2_03.recordSha256(),
+                16,
+                ClipMaskVerificationManifest.REQUIRED_ALIASES,
+                VerifiedClipMaskHostOperations.REQUIRED_ALIASES,
+                VerifiedClipMaskHostOperations.methodAliasesUsed(),
+                VerifiedClipMaskHostOperations.classAliasesUsed(),
+                "cubism-5.2.03-clipmask",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-clipmask.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
+                SliceKind.CLIP_MASK
             )
         );
         return Map.copyOf(expectations);
@@ -346,7 +492,7 @@ class StaticVerificationRecordRepositoryTest {
                 AutoBackupVerificationManifest.RECORD_SHA256_53,
                 "cubism-5.3.02-autobackup",
                 "cubism-ref/profiles/draft/cubism-5.3.02.json",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         expectations.put(
@@ -359,8 +505,8 @@ class StaticVerificationRecordRepositoryTest {
                 AutoBackupVerificationManifest.ARTIFACT_SHA256_52,
                 AutoBackupVerificationManifest.RECORD_SHA256_52,
                 "cubism-5.2.03-autobackup",
-                "cubism-ref/profiles/draft/cubism-5.2.json",
-                "[5.2.0,5.3.0)"
+                "cubism-ref/profiles/draft/cubism-5.2.03.json",
+                "5.2.03"
             )
         );
         return Map.copyOf(expectations);
@@ -375,7 +521,7 @@ class StaticVerificationRecordRepositoryTest {
         final String recordSha256,
         final String packId,
         final String profilePath,
-        final String expectedVersionRange
+        final String expectedCubismVersion
     ) {
         final Set<String> aliases = AutoBackupVerificationManifest.REQUIRED_ALIASES;
         return new SliceExpectation(
@@ -400,7 +546,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of(profilePath),
-            expectedVersionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -410,41 +556,41 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-status-bar.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-status-bar.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-status-bar.static",
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 StatusBarVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "94ef52c898cffe9b5837dd3e34e53ba150fc2d616f1269362e5151ec602fe4c0",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "45e529ae8771adfd00500100214afa9fa14fa463e967a227806e4e3a9f3e66a5",
                 21,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
                 difference(StatusBarVerificationManifest.REQUIRED_ALIASES, statusBarMethodAliases()),
-                "cubism-5.2-ui-status-bar",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-status-bar.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-status-bar",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
         expectations.put(
             "cubism-ref/verification/cubism-5.3.02-ui-status-bar.json",
             new SliceExpectation(
-                StatusBarVerificationManifest.VERIFICATION_ID,
+                StatusBarVerificationManifest.RECORD_5_3_02.verificationId(),
                 StatusBarVerificationManifest.ADAPTER_SLICE_ID,
-                StatusBarVerificationManifest.CUBISM_VERSION,
-                StatusBarVerificationManifest.PROFILE_ID,
+                StatusBarVerificationManifest.RECORD_5_3_02.cubismVersion(),
+                StatusBarVerificationManifest.RECORD_5_3_02.profileId(),
                 StatusBarVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                StatusBarVerificationManifest.ARTIFACT_SIZE,
-                StatusBarVerificationManifest.ARTIFACT_SHA256,
-                StatusBarVerificationManifest.RECORD_SHA256,
+                StatusBarVerificationManifest.RECORD_5_3_02.artifact().size(),
+                StatusBarVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+                StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(),
                 21,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
@@ -453,7 +599,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-status-bar",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-status-bar.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
             )
         );
@@ -484,41 +630,41 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-top-menu.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-top-menu.json",
             new SliceExpectation(
                 "cubism-5.2.03.ui-top-menu.static",
                 TopMenuVerificationManifest.ADAPTER_SLICE_ID,
                 "5.2.03",
-                "cubism-5.2",
+                "cubism-5.2.03",
                 TopMenuVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "11ab76e5924faf92bf45b1922945a47b910886a66f364b1f85e3e49f5de3d382",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "a704c04bad828734044d5167cde0dabc3e1f91314dd46e74c1fc008278f2c12e",
                 82,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 topMenuMethodAliases(),
                 difference(TopMenuVerificationManifest.REQUIRED_ALIASES, topMenuMethodAliases()),
-                "cubism-5.2-ui-top-menu",
-                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2-ui-top-menu.json"),
-                Path.of("cubism-ref/profiles/draft/cubism-5.2.json"),
-                "[5.2.0,5.3.0)",
+                "cubism-5.2.03-ui-top-menu",
+                Path.of("cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-top-menu.json"),
+                Path.of("cubism-ref/profiles/draft/cubism-5.2.03.json"),
+                "5.2.03",
                 SliceKind.EDITOR_UI
             )
         );
         expectations.put(
             "cubism-ref/verification/cubism-5.3.02-ui-top-menu.json",
             new SliceExpectation(
-                TopMenuVerificationManifest.VERIFICATION_ID,
+                TopMenuVerificationManifest.RECORD_5_3_02.verificationId(),
                 TopMenuVerificationManifest.ADAPTER_SLICE_ID,
-                TopMenuVerificationManifest.CUBISM_VERSION,
-                TopMenuVerificationManifest.PROFILE_ID,
+                TopMenuVerificationManifest.RECORD_5_3_02.cubismVersion(),
+                TopMenuVerificationManifest.RECORD_5_3_02.profileId(),
                 TopMenuVerificationManifest.CAPABILITY_IDS,
                 "Live2D_Cubism.jar",
-                TopMenuVerificationManifest.ARTIFACT_SIZE,
-                TopMenuVerificationManifest.ARTIFACT_SHA256,
-                TopMenuVerificationManifest.RECORD_SHA256,
+                TopMenuVerificationManifest.RECORD_5_3_02.artifact().size(),
+                TopMenuVerificationManifest.RECORD_5_3_02.artifact().sha256(),
+                TopMenuVerificationManifest.RECORD_5_3_02.recordSha256(),
                 82,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
                 TopMenuVerificationManifest.REQUIRED_ALIASES,
@@ -527,7 +673,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02-ui-top-menu",
                 Path.of("cubism-ref/mapping-packs/draft/cubism-5.3.02-ui-top-menu.json"),
                 Path.of("cubism-ref/profiles/draft/cubism-5.3.02.json"),
-                "[5.3.02,5.3.03)",
+                "5.3.02",
                 SliceKind.EDITOR_UI
             )
         );
@@ -543,11 +689,11 @@ class StaticVerificationRecordRepositoryTest {
             controlAppearanceExpectation(
                 "5.3.02",
                 "cubism-5.3.02",
-                41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
-                "cfba3d12584eb9ca7d601a95ca9e5a227112573b8abe7043b5961b2a0c87c82f",
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
+                "44c3e370bd4488fa86f231b37235547969f67b3eb35a41e3c4306d18e2879927",
                 "cubism-5.3.02-ui-control-appearance",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -560,9 +706,13 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final String packId,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
+        // Every alias the reviewed record declares with kind=class, listed rather than derived
+        // so the expectation can disagree with the record.  was missing
+        // while the record has always carried it.
         final Set<String> classAliases = Set.of(
+            "cubism.ui-control-appearance.art-mesh.source-class",
             "cubism.ui-control-appearance.deformer-source.class",
             "cubism.ui-control-appearance.deformer-control.outer-class",
             "cubism.ui-control-appearance.deformer-control.tree-class",
@@ -585,7 +735,7 @@ class StaticVerificationRecordRepositoryTest {
             artifactSize,
             artifactSha256,
             recordSha256,
-            38,
+            40,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES,
             difference(ControlAppearanceVerificationManifest.REQUIRED_ALIASES, classAliases),
@@ -593,7 +743,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of("cubism-ref/profiles/draft/" + profile + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -603,16 +753,16 @@ class StaticVerificationRecordRepositoryTest {
     ) {
         final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
         expectations.put(
-            "cubism-ref/verification/cubism-5.2-ui-bounding-box-overlay.json",
+            "cubism-ref/verification/cubism-5.2.03-ui-bounding-box-overlay.json",
             boundingBoxOverlayExpectation(
-                "cubism-5.2.ui-bounding-box-overlay.static",
-                "5.2.0",
-                "cubism-5.2",
-                40_805_584L,
-                "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-                "4eb89fba8a44cf15e4f0be6818a57ba2c0a7847cc73a7c97855d595c913aa81f",
-                "cubism-5.2-ui-bounding-box-overlay",
-                "[5.2.0,5.3.0)"
+                "cubism-5.2.03.ui-bounding-box-overlay.static",
+                "5.2.03",
+                "cubism-5.2.03",
+                ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+                "f2e39e94f199f54833413965a7d510b7b34b20b7c3cd20adde53b44353d7c291",
+                "cubism-5.2.03-ui-bounding-box-overlay",
+                "5.2.03"
             )
         );
         expectations.put(
@@ -621,11 +771,11 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02.ui-bounding-box-overlay.static",
                 "5.3.02",
                 "cubism-5.3.02",
-                41_922_739L,
-                "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+                ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
                 "606a1837c03b00c62c8711dcb5eb53fe04eb7025f78736281a2e2afacd21ce54",
                 "cubism-5.3.02-ui-bounding-box-overlay",
-                "[5.3.02,5.3.03)"
+                "5.3.02"
             )
         );
         return Map.copyOf(expectations);
@@ -639,7 +789,7 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final String packId,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         return new SliceExpectation(
             verificationId,
@@ -659,7 +809,7 @@ class StaticVerificationRecordRepositoryTest {
             packId,
             Path.of("cubism-ref/mapping-packs/draft/" + packId + ".json"),
             Path.of("cubism-ref/profiles/draft/" + profileId + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.EDITOR_UI
         );
     }
@@ -847,359 +997,8 @@ class StaticVerificationRecordRepositoryTest {
         );
     }
 
-    private static Set<String> editorModelMethodAliases() {
-        return Set.of(
-            "cubism.texture-atlas.data-model.document",
-            "cubism.texture-atlas.data-model.model-source",
-            "cubism.texture-atlas.model-image-list.init",
-            "cubism.texture-atlas.model-image-list.data-model",
-            "cubism.texture-atlas.auto-layout.invoke",
-            "cubism.texture-atlas.model-source.texture-manager",
-            "cubism.texture-atlas.texture-manager.images",
-            "cubism.texture-atlas.texture-manager.atlases",
-            "cubism.texture-atlas.atlas.width",
-            "cubism.texture-atlas.atlas.height",
-            "cubism.texture-atlas.atlas.entries",
-            "cubism.texture-atlas.entry.transform",
-            "cubism.texture-atlas.atlas.create",
-            "cubism.texture-atlas.affine.create",
-            "cubism.texture-atlas.affine.translate",
-            "cubism.texture-atlas.entry.create",
-            "cubism.texture-atlas.undo.create",
-            "cubism.texture-atlas.undo.force-redo",
-            "cubism.texture-atlas.group-undo.add",
-            "cubism.texture-atlas.atlas.name",
-            "cubism.texture-atlas.entry.image",
-            "cubism.texture-atlas.image.guid",
-            "cubism.texture-atlas.image.width",
-            "cubism.texture-atlas.image.height",
-            "cubism.texture-atlas.native.receiver.settings",
-            "cubism.texture-atlas.native.receiver.data",
-            "cubism.texture-atlas.native.receiver.overflow",
-            "cubism.texture-atlas.native.settings.margin",
-            "cubism.texture-atlas.native.settings.rotate",
-            "cubism.texture-atlas.native.settings.model-image",
-            "cubism.texture-atlas.native.settings.scale",
-            "cubism.texture-atlas.native.data.items",
-            "cubism.texture-atlas.native.data.width",
-            "cubism.texture-atlas.native.data.height",
-            "cubism.texture-atlas.native.data.scale",
-            "cubism.texture-atlas.native.data.current-scale",
-            "cubism.texture-atlas.native.data.impl",
-            "cubism.texture-atlas.native.impl.container",
-            "cubism.texture-atlas.native.container.children",
-            "cubism.texture-atlas.native.item.rect",
-            "cubism.texture-atlas.native.item.model-rect",
-            "cubism.texture-atlas.native.item.width",
-            "cubism.texture-atlas.native.item.height",
-            "cubism.texture-atlas.native.item.transform",
-            "cubism.texture-atlas.native.item.edit-layer",
-            "cubism.texture-atlas.native.item.current-transform",
-            "cubism.texture-atlas.native.rect.x",
-            "cubism.texture-atlas.native.rect.y",
-            "cubism.texture-atlas.native.rect.width",
-            "cubism.texture-atlas.native.rect.height",
-            "cubism.texture-atlas.native.affine.create",
-            "cubism.texture-atlas.native.layer-ref.layer",
-            "cubism.texture-atlas.native.layer-ref.transform",
-            "cubism.texture-atlas.native.layer-ref.set-transform",
-            "cubism.texture-atlas.native.editor-affine.create",
-            "cubism.texture-atlas.dialog.init",
-            "cubism.texture-atlas.statistics.view-init",
-            "cubism.texture-atlas.statistics.view-data-model",
-            "cubism.texture-atlas.statistics.data-model.current-page",
-            "cubism.texture-atlas.statistics.page-state.atlas",
-            
 
-            "cubism.editor-model.app-controller.instance",
-            "cubism.editor-model.app-controller.current-document",
-            "cubism.editor-model.app-controller.complete-pack",
-            "cubism.editor-model.app-controller.main-frame",
-            "cubism.editor-model.app-controller.edit-level",
-            "cubism.editor-model.app-controller.set-edit-level",
-            "cubism.editor-model.modeling-document.model-source",
-            "cubism.editor-model.modeling-document.last-active-view",
-            "cubism.editor-model.modeling-view.model",
-            "cubism.editor-model.model-source.guid",
-            "cubism.editor-model.model-source.name",
-            "cubism.editor-model.model-source.current-instance",
-            "cubism.editor-model.model-source.default-keyform-locked",
-            "cubism.editor-model.model-source.set-default-keyform-locked",
-            "cubism.editor-model.model-source.all-parameters",
-            "cubism.editor-model.model-source.root-parameter-group",
-            "cubism.editor-model.model.parameter-set",
-            "cubism.editor-model.parameter-set.parameters",
-            "cubism.editor-model.parameter.id",
-            "cubism.editor-model.parameter.value",
-            "cubism.editor-model.parameter.source",
-            "cubism.editor-model.parameter-source.minimum",
-            "cubism.editor-model.parameter-source.maximum",
-            "cubism.editor-model.parameter-source.default",
-            "cubism.editor-model.parameter-source.name",
-            "cubism.editor-model.parameter-source.repeat",
-            "cubism.editor-model.parameter-source.morph-target",
-            "cubism.editor-model.parameter-source.combined",
-            "cubism.editor-model.parameter-source.id",
-            "cubism.editor-model.id.value",
-            "cubism.editor-model.guid.value",
-            "cubism.editor-model.main-frame.parameter-palette",
-            "cubism.editor-model.parameter-palette.view",
-            "cubism.editor-model.parameter-palette-view.operation",
-            "cubism.editor-model.parameter-operation.set-value",
-            "cubism.editor-model.complete-pack.update-parameter",
-            "cubism.editor-model.complete-pack.repaint-canvas",
-            "cubism.editor-model.modeling-document.edit-mode",
-            "cubism.editor-model.modeling-document.mark-dirty",
-            "cubism.editor-model.edit-mode.begin",
-            "cubism.editor-model.edit-mode.end",
-            "cubism.editor-model.undo.add",
-            "cubism.editor-model.simple-undo.create",
-            "cubism.editor-model.parameter-operation.property-editor",
-            "cubism.editor-model.parameter-operation.validator",
-            "cubism.editor-model.parameter-operation.rows",
-            "cubism.editor-model.parameter-operation.refresh",
-            "cubism.editor-model.parameter-property-editor.update-definition",
-            "cubism.editor-model.parameter-property-editor.rebuild-keep-value",
-            "cubism.editor-model.parameter-validator.valid-id",
-            "cubism.editor-model.parameter-validator.supports-type",
-            "cubism.editor-model.parameter-validator.reject-type-change",
-            "cubism.editor-model.parameter-validator.allow-repeat",
-            "cubism.editor-model.parameter-validator.keys-outside-range",
-            "cubism.editor-model.parameter-validator.default-change-affects-morph-target",
-            "cubism.editor-model.parameter-helper.instance",
-            "cubism.editor-model.parameter-helper.morph-target-eligible",
-            "cubism.editor-model.parameter-source.model-source",
-            "cubism.editor-model.model-source.all-objects",
-            "cubism.editor-model.parameter-controllable.keyform-grid",
-            "cubism.editor-model.keyform-grid.contains-parameter",
-            "cubism.editor-model.parameter-controllable.morph-target-set",
-            "cubism.editor-model.morph-target-set.contains-parameter",
-            "cubism.editor-model.parameter-source.guid",
-            "cubism.editor-model.parameter-refresh-callback.create",
-            "cubism.editor-model.parameter-source.set-combined",
-            "cubism.editor-model.parameter-source.parent-group",
-            "cubism.editor-model.parameter-group.id",
-            "cubism.editor-model.parameter-group.name",
-            "cubism.editor-model.parameter-group.parent",
-            "cubism.editor-model.parameter-group.label-color",
-            "cubism.editor-model.parameter-controllable-source.label-color",
-            "cubism.editor-model.label-color.label-type",
-            "cubism.editor-model.label-color.customized-color",
-            "cubism.editor-model.label-color.color",
-            "cubism.editor-model.label-color.set-color",
-            "cubism.editor-model.label-color.set-label-type",
-            "cubism.editor-model.label-color-type.custom",
-            "cubism.editor-model.label-color-type.undefined",
-            "cubism.editor-model.label-color-type.red",
-            "cubism.editor-model.label-color-type.orange",
-            "cubism.editor-model.label-color-type.yellow",
-            "cubism.editor-model.label-color-type.green",
-            "cubism.editor-model.label-color-type.blue",
-            "cubism.editor-model.label-color-type.purple",
-            "cubism.editor-model.label-color-type.gray",
-            "cubism.editor-model.color.create",
-            "cubism.editor-model.color.red",
-            "cubism.editor-model.color.green",
-            "cubism.editor-model.color.blue",
-            "cubism.editor-model.color.alpha",
-            "cubism.editor-model.parameter-group.children",
-            "cubism.editor-model.parameter-group.remove",
-            "cubism.editor-model.parameter-group.add",
-            "cubism.editor-model.undo.add-listener",
-            "cubism.editor-model.model-source.parts",
-            "cubism.editor-model.model-source.update-instances",
-            "cubism.editor-model.model-source.update-visible-lock-hierarchy",
-            "cubism.editor-model.model.parts",
-            "cubism.editor-model.part.source",
-            "cubism.editor-model.part.id",
-            "cubism.editor-model.part.current-keyform",
-            "cubism.editor-model.part-form.opacity",
-            "cubism.editor-model.part-form.set-opacity",
-            "cubism.editor-model.part-source.parent",
-            "cubism.editor-model.part-source.id",
-            "cubism.editor-model.part-source.use-offscreen",
-            "cubism.editor-model.part-source.local-name",
-            "cubism.editor-model.part-source.set-local-name",
-            "cubism.editor-model.part-source.default-order",
-            "cubism.editor-model.part-source.set-default-order",
-            "cubism.editor-model.part-source.sketch",
-            "cubism.editor-model.part-source.set-sketch",
-            "cubism.editor-model.part-source.edit-color",
-            "cubism.editor-model.part-source.set-edit-color",
-            "cubism.editor-model.part-source.create-undo-for-basic-settings",
-            "cubism.editor-model.part-source.handler",
-            "cubism.editor-model.part-handler.create-undo-for-all-edit",
-            "cubism.editor-model.part-id.value",
-            "cubism.editor-model.complete-pack.update-part-palette",
-            "cubism.editor-model.model-source.all-art-meshes",
-            "cubism.editor-model.model.all-art-meshes",
-            "cubism.editor-model.parameter-controllable-source.id",
-            "cubism.editor-model.parameter-controllable-source.local-name",
-            "cubism.editor-model.parameter-controllable-source.visible",
-            "cubism.editor-model.parameter-controllable-source.locked",
-            "cubism.editor-model.parameter-controllable-source.visible-in-hierarchy",
-            "cubism.editor-model.parameter-controllable-source.locked-in-hierarchy",
-            "cubism.editor-model.parameter-controllable-source.target-deformer-source",
-            "cubism.editor-model.art-mesh.source",
-            "cubism.editor-model.art-mesh.current-keyform",
-            "cubism.editor-model.drawable-form.opacity",
-            "cubism.editor-model.drawable-form.draw-order",
-            "cubism.editor-model.art-mesh-form.positions",
-            "cubism.editor-model.art-mesh-source.positions",
-            "cubism.editor-model.art-mesh-source.uvs",
-            "cubism.editor-model.art-mesh-source.indices",
-            "cubism.editor-model.art-mesh-source.culling",
-            "cubism.editor-model.art-mesh-source.user-data",
-            "cubism.editor-model.art-mesh-source.inverted-mask",
-            "cubism.editor-model.art-mesh-source.guid",
-            "cubism.editor-model.art-mesh-source.clip-guid-list",
-            "cubism.editor-model.art-mesh-source.texture",
-            "cubism.editor-model.texture.guid",
-            "cubism.editor-model.model-source.all-glues",
-            "cubism.editor-model.glue-source.target-art-mesh-a",
-            "cubism.editor-model.glue-source.target-art-mesh-b",
-            "cubism.editor-model.model-source.all-deformers",
-            "cubism.editor-model.model.all-deformers",
-            "cubism.editor-model.deformer.source",
-            "cubism.editor-model.deformer.current-keyform",
-            "cubism.editor-model.deformer-form.opacity",
-            "cubism.editor-model.warp-source.row",
-            "cubism.editor-model.warp-source.col",
-            "cubism.editor-model.warp-source.quad-transform",
-            "cubism.editor-model.warp-form.positions",
-            "cubism.editor-model.rotation-source.base-angle",
-            "cubism.editor-model.rotation-form.angle",
-            "cubism.editor-model.rotation-form.origin-x",
-            "cubism.editor-model.rotation-form.origin-y",
-            "cubism.editor-model.rotation-form.scale",
-            "cubism.editor-model.rotation-form.reflect-x",
-            "cubism.editor-model.rotation-form.reflect-y",
-            "cubism.editor-model.parameter-controllable-source.handler",
-            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-            "cubism.editor-model.parameter-controllable-source.set-visible",
-            "cubism.editor-model.parameter-controllable-source.set-locked",
-            "cubism.editor-model.drawable-form.set-opacity",
-            "cubism.editor-model.art-mesh-form.set-positions",
-            "cubism.editor-model.art-mesh-source.set-positions",
-            "cubism.editor-model.art-mesh-source.set-uvs",
-            "cubism.editor-model.art-mesh-source.set-indices",
-            "cubism.editor-model.deformer-form.set-opacity",
-            "cubism.editor-model.warp-source.set-row",
-            "cubism.editor-model.warp-source.set-col",
-            "cubism.editor-model.warp-source.set-quad-transform",
-            "cubism.editor-model.warp-form.set-positions",
-            "cubism.editor-model.rotation-source.set-base-angle",
-            "cubism.editor-model.rotation-form.set-angle",
-            "cubism.editor-model.rotation-form.set-origin-x",
-            "cubism.editor-model.rotation-form.set-origin-y",
-            "cubism.editor-model.rotation-form.set-scale",
-            "cubism.editor-model.rotation-form.set-reflect-x",
-            "cubism.editor-model.rotation-form.set-reflect-y",
-            "cubism.editor-model.complete-pack.update-deformer-palette",
-            "cubism.editor-history.document.undo-manager",
-            "cubism.editor-history.manager.entries",
-            "cubism.editor-history.manager.position",
-            "cubism.editor-history.manager.can-undo",
-            "cubism.editor-history.manager.can-redo",
-            "cubism.editor-history.entry.presentation-name",
-            "cubism.editor-history.entry.significant",
-            "cubism.editor-history.manager.move-to",
-            "object-context-menu.parameter.group-row.source",
-            "object-context-menu.parameter.row-parameters",
-            "object-context-menu.workspace.selector",
-            "object-context-menu.workspace.selected",
-            "object-context-menu.workspace.selection-source",
-            "object-context-menu.object-id",
-            "object-context-menu.parameter-id",
-            "object-context-menu.parameter-group-id",
-            "object-context-menu.id-value",
-            "object-context-menu.menu-item.create",
-            "object-context-menu.menu.append",
-            "object-context-menu.submenu.append",
-            "object-context-menu.menu.items",
-            "object-context-menu.menu-separator.create",
-            "object-context-menu.submenu.create",
-            "object-context-menu.menu-item.label",
-            "object-context-menu.parameter-point.guid-value",
-            "object-context-menu.menu.component",
-            "cubism.editor-model.keyform-grid.bindings",
-            "cubism.editor-model.keyform-binding.parameter-id",
-            "cubism.editor-model.keyform-binding.parameter-guid",
-            "cubism.editor-model.keyform-binding.keys",
-            "cubism.editor-model.keyform-grid.find-binding",
-            "cubism.editor-model.keyform-grid.reverse-parameter",
-            "cubism.editor-model.keyform-grid.change-parameter",
-            "cubism.editor-model.keyform-grid.add-key",
-            "cubism.editor-model.keyform-grid.remove-key",
-            "cubism.editor-model.keyform-grid.remove-all-key",
-            "cubism.editor-model.keyform-grid.rearrange-keys",
-            "cubism.editor-model.model-source.texture-manager",
-            "cubism.editor-model.texture-manager.raw-images",
-            "cubism.editor-model.layered-image-wrapper.image",
-            "cubism.editor-model.layered-image.guid",
-            "cubism.editor-model.layered-image.psd-file",
-            "cubism.editor-model.layered-image.children",
-            "cubism.editor-model.layer-entry.guid",
-            "cubism.editor-model.layer-entry.name",
-            "cubism.editor-model.layer-entry.visible",
-            "cubism.editor-model.layer-entry.clipping",
-            "cubism.editor-model.layer-group.children",
-            "cubism.editor-model.art-mesh-source.texture-input-extension",
-            "cubism.editor-model.texture-input-extension.model-image-input",
-            "cubism.editor-model.texture-input-model-image.model-image",
-            "cubism.editor-model.model-image.current-layer-input-data",
-            "cubism.editor-model.layer-input-data.layer",
-            "cubism.editor-model.art-mesh-source.set-clip-guid-list",
-            "cubism.editor-model.art-mesh-source.set-inverted-mask",
-            "cubism.editor-model.c-array-list.create"
-        );
-    }
 
-    private static Set<String> editorModel52Capabilities() {
-        final java.util.HashSet<String> capabilities = new java.util.HashSet<>(
-            EditorModelVerificationManifest.CAPABILITY_IDS
-        );
-        capabilities.remove(EditorPartOpacitySelectorContract.CAPABILITY_ID);
-        capabilities.add(EditorPartOpacity52SelectorContract.CAPABILITY_ID);
-        return Set.copyOf(capabilities);
-    }
-
-    private static Set<String> editorModel52Aliases() {
-        final java.util.HashSet<String> aliases = new java.util.HashSet<>(
-            EditorModelVerificationManifest.REQUIRED_ALIASES
-        );
-        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
-        aliases.removeAll(EditorPartOpacitySelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartOpacity52SelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartNameSelectorContract.REQUIRED_ALIASES);
-        aliases.addAll(EditorPartNameSelectorContract.WRITE_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectReadSelectorContract.REQUIRED_ALIASES);
-        aliases.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES);
-        aliases.addAll(EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES);
-        aliases.addAll(Set.of(
-            "cubism.editor-model.part-source.handler",
-            "cubism.editor-model.part-handler.class",
-            "cubism.editor-model.part-handler.create-undo-for-all-edit"
-        ));
-        return Set.copyOf(aliases);
-    }
-
-    private static Set<String> editorModel52MethodAliases() {
-        final java.util.HashSet<String> aliases = new java.util.HashSet<>(editorModelMethodAliases());
-        aliases.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
-        aliases.removeAll(Set.of(
-            "cubism.editor-model.part.id",
-            "cubism.editor-model.part.current-keyform",
-            "cubism.editor-model.part-form.opacity",
-            "cubism.editor-model.part-form.set-opacity",
-            "cubism.editor-model.part-source.use-offscreen"
-        ));
-        aliases.add("cubism.editor-model.part.parts-opacity");
-        aliases.add("cubism.texture-atlas.dialog.init");
-        return Set.copyOf(aliases);
-    }
 
     private static SliceExpectation coreExpectation(
         final String profile,
@@ -1208,7 +1007,7 @@ class StaticVerificationRecordRepositoryTest {
         final String artifactSha256,
         final String recordSha256,
         final int selectorCount,
-        final String versionRange
+        final String expectedCubismVersion
     ) {
         final Set<String> aliases = CorePublicApiSelectorContract
             .requiredAliasesFor(profile)
@@ -1239,7 +1038,7 @@ class StaticVerificationRecordRepositoryTest {
             "cubism-" + profile + "-core-model-read",
             Path.of("cubism-ref/mapping-packs/draft/cubism-" + profile + "-core-model-read.json"),
             Path.of("cubism-ref/profiles/draft/cubism-" + profile + ".json"),
-            versionRange,
+            expectedCubismVersion,
             SliceKind.CORE
         );
     }
@@ -1421,7 +1220,7 @@ class StaticVerificationRecordRepositoryTest {
         assertEquals(expectation.profileId(), profile.get("profileId").asText());
         assertTrue(asStringSet(profile.get("mappingPacks")).contains(expectation.packId()),
             "profile must reference " + expectation.packId());
-        assertEquals(expectation.expectedVersionRange(), profile.get("versionRange").asText(),
+        assertEquals(expectation.expectedCubismVersion(), profile.get("cubismVersion").asText(),
             "profile version range drifted");
         if (expectation.kind() == SliceKind.CLIP_MASK) {
             assertFalse(asStringSet(profile.get("mappingPacks"))
@@ -1471,7 +1270,8 @@ class StaticVerificationRecordRepositoryTest {
         CLIP_MASK,
         CORE,
         EDITOR_MODEL,
-        EDITOR_UI
+        EDITOR_UI,
+        PERFORMANCE
     }
 
     private record SliceExpectation(
@@ -1492,7 +1292,7 @@ class StaticVerificationRecordRepositoryTest {
         String packId,
         Path packPath,
         Path profilePath,
-        String expectedVersionRange,
+        String expectedCubismVersion,
         SliceKind kind
     ) {
     }

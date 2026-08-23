@@ -53,7 +53,7 @@ class VerifiedRecentFileListHostOperationsTest {
             projectResolver("5.3.01", loader), panelResolver("5.3.02", loader)
         ));
         assertThrows(IllegalArgumentException.class, () -> new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", new ClassLoader() { }), panelResolver("5.2.03", new ClassLoader() { })
+            projectResolver("5.2.03", new ClassLoader() { }), panelResolver("5.2.03", new ClassLoader() { })
         ));
         assertThrows(IllegalArgumentException.class, () -> new VerifiedRecentFileListHostOperations(
             projectResolver("5.3.02", loader), panelResolver("5.2.03", loader)
@@ -67,7 +67,7 @@ class VerifiedRecentFileListHostOperationsTest {
         final Path alsoCurrent = Files.createTempFile("recent-preview-both", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", loader), panelResolver("5.2.03", loader)
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
         );
 
         ProjectHost.setRoot(projectChain(current));
@@ -94,7 +94,7 @@ class VerifiedRecentFileListHostOperationsTest {
         final Path recentOnly = Files.createTempFile("recent-preview-recent", ".cmo3");
         final ClassLoader loader = getClass().getClassLoader();
         final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", loader), panelResolver("5.2.03", loader)
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
         );
 
         ProjectHost.setRoot(projectChain(current));
@@ -122,7 +122,7 @@ class VerifiedRecentFileListHostOperationsTest {
     void currentUsesTheCurrentDocumentFile() throws Exception {
         final Path current = Files.createTempFile("recent-preview-current", ".cmo3");
         final VerifiedRecentFileListHostOperations operations = new VerifiedRecentFileListHostOperations(
-            projectResolver("5.2.0", getClass().getClassLoader()),
+            projectResolver("5.2.03", getClass().getClassLoader()),
             panelResolver("5.2.03", getClass().getClassLoader())
         );
         ProjectHost.setRoot(projectChain(current));

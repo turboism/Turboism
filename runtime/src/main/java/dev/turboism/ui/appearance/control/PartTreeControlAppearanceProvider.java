@@ -14,6 +14,23 @@ public final class PartTreeControlAppearanceProvider implements AutoCloseable {
         this.changeSubscription = coordinator.onChange(this::restore);
     }
 
+    /**
+     * Applies the currently resolved palette entry to one native Part-tree label, remembering its
+     * original styling so it can be restored later.
+     *
+     * <p>The palette is chosen from {@code kind}: a part row resolves against PART, while deformer and
+     * art-mesh rows share DEFORMER_PART. Must be called on the Swing event dispatch thread; off the
+     * EDT the component is returned untouched.
+     *
+     * @param hostGeneration the host generation the caller is rendering for; an entry resolved under a
+     *     different generation is not applied
+     * @param partId the row's object id, used as the palette lookup key; must not be {@code null}
+     * @param folder whether the row is a folder, accepted to match the host renderer hook's shape
+     * @param kind which host object backs the row, selecting the palette
+     * @param component the label component to style; must not be {@code null}
+     * @return {@code component}, styled if a palette entry applied and unchanged otherwise
+     * @throws NullPointerException if {@code partId} or {@code component} is {@code null}
+     */
     public Component apply(
         final long hostGeneration,
         final String partId,

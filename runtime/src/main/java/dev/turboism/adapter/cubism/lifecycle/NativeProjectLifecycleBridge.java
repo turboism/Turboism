@@ -40,16 +40,40 @@ public final class NativeProjectLifecycleBridge {
         this.hostVersion = requireText(hostVersion, "hostVersion");
     }
 
+    /**
+     * Publishes the bridge instance the transformed host bytecode calls into. Exactly one bridge may be
+     * installed at a time; the previous one must be uninstalled first.
+     *
+     * @param bridge the bridge to make current
+     * @throws NullPointerException when {@code bridge} is null
+     * @throws IllegalStateException when a bridge is already installed
+     */
     public static void install(final NativeProjectLifecycleBridge bridge) {
         if (!INSTALLED.compareAndSet(null, Objects.requireNonNull(bridge, "bridge"))) {
             throw new IllegalStateException("Native project lifecycle bridge is already installed.");
         }
     }
 
+    /**
+     * Clears the installed bridge only if {@code bridge} is still the current one, so a stale uninstall
+     * cannot detach a newer bridge. Instrumented call sites then become no-ops.
+     *
+     * @param bridge the bridge expected to be current
+     * @throws NullPointerException when {@code bridge} is null
+     */
     public static void uninstall(final NativeProjectLifecycleBridge bridge) {
         INSTALLED.compareAndSet(Objects.requireNonNull(bridge, "bridge"), null);
     }
 
+    /**
+     * Ingress for the host's model open call, injected at method entry. Opens a project-file lifecycle
+     * invocation of kind {@code MODEL} typed {@code OPEN}, or {@code CREATE} when no file is supplied.
+     * Called on the host thread performing the open; no-op when no bridge is installed, and any failure
+     * inside the bridge is swallowed so the host open always proceeds.
+     *
+     * @param displayName host-supplied document name; blank or null falls back to the file name
+     * @param file the file being opened, or null for a newly created document
+     */
     public static void beginModelOpen(final String displayName, final File file) {
         System.out.println("LIFECYCLE-BRIDGE:method=beginModelOpen kind=MODEL op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -57,6 +81,14 @@ public final class NativeProjectLifecycleBridge {
         bridge.safeBeginOpen(ProjectContentKind.MODEL, displayName, file, null);
     }
 
+    /**
+     * Ingress for the host's animation open call, injected at method entry. Opens a project-file
+     * lifecycle invocation of kind {@code ANIMATION}, naming it from the animation object when it
+     * exposes a name and otherwise from the file. Fails open exactly like the model variant.
+     *
+     * @param animation the host animation object being opened, inspected reflectively for its name
+     * @param file the file being opened, or null for a newly created animation
+     */
     public static void beginAnimationOpen(final Object animation, final File file) {
         System.out.println("LIFECYCLE-BRIDGE:method=beginAnimationOpen kind=ANIMATION op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -69,6 +101,17 @@ public final class NativeProjectLifecycleBridge {
         );
     }
 
+    /**
+     * Ingress for save and close calls on already-open content, injected at method entry. Captures a
+     * before snapshot of the content and opens a lifecycle invocation for it. Ordinals are passed
+     * rather than enum references so the injected bytecode carries no SDK constant-pool dependency; an
+     * out-of-range ordinal is treated as a bridge failure and the invocation is skipped rather than
+     * disturbing the host call.
+     *
+     * @param content the open host content object
+     * @param kindOrdinal ordinal into {@code ProjectContentKind}
+     * @param operationOrdinal ordinal into {@code ProjectFileOperationType}
+     */
     public static void beginContent(
         final Object content,
         final int kindOrdinal,
@@ -86,6 +129,13 @@ public final class NativeProjectLifecycleBridge {
         );
     }
 
+    /**
+     * Normal-return completion for host methods that return the content object. The operation counts as
+     * successful when the returned reference is non-null, and the returned object is preferred over the
+     * entry-time subject when taking the after snapshot.
+     *
+     * @param content the value the instrumented host method is returning, possibly null
+     */
     public static void completeObject(final Object content) {
         System.out.println("LIFECYCLE-BRIDGE:method=completeObject kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -93,6 +143,12 @@ public final class NativeProjectLifecycleBridge {
         bridge.safeCompleteFile(content, content != null, null);
     }
 
+    /**
+     * Normal-return completion for host methods that report success as a boolean, such as save and
+     * close. The after snapshot is taken from the content captured at entry.
+     *
+     * @param succeeded the boolean the instrumented host method is returning
+     */
     public static void completeBoolean(final boolean succeeded) {
         System.out.println("LIFECYCLE-BRIDGE:method=completeBoolean kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -100,6 +156,13 @@ public final class NativeProjectLifecycleBridge {
         bridge.safeCompleteFile(null, succeeded, null);
     }
 
+    /**
+     * Exceptional-return completion for an open project-file invocation: publishes the operation as
+     * failed together with the throwable the host is propagating. Does not suppress that throwable.
+     *
+     * @param failure the exception leaving the instrumented host method
+     * @throws NullPointerException when {@code failure} is null and a bridge is installed
+     */
     public static void failedFile(final Throwable failure) {
         System.out.println("LIFECYCLE-BRIDGE:method=failedFile kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -107,6 +170,12 @@ public final class NativeProjectLifecycleBridge {
         bridge.safeCompleteFile(null, false, Objects.requireNonNull(failure, "failure"));
     }
 
+    /**
+     * Ingress for the host's exit command, injected at method entry. Runs the synchronous
+     * {@code beforeEditorExit} phase and pushes the resulting invocation onto this thread's exit stack.
+     * A failure to begin leaves an empty frame, so the matching completion becomes a no-op and the host
+     * exit is never blocked by plugin state.
+     */
     public static void beforeEditorExit() {
         System.out.println("LIFECYCLE-BRIDGE:method=beforeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -120,6 +189,13 @@ public final class NativeProjectLifecycleBridge {
         bridge.exits.get().push(new ExitFrame(invocation));
     }
 
+    /**
+     * Normal-return completion for the host's exit command. Publishes the exiting and after-exit
+     * callbacks synchronously, because the process may terminate as soon as the host method returns.
+     *
+     * @param accepted whether the host actually accepted the exit; a cancelled exit publishes only the
+     *     after phase
+     */
     public static void completeEditorExit(final boolean accepted) {
         System.out.println("LIFECYCLE-BRIDGE:method=completeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
@@ -127,6 +203,13 @@ public final class NativeProjectLifecycleBridge {
         bridge.safeCompleteExit(accepted, null);
     }
 
+    /**
+     * Exceptional-return completion for the host's exit command: publishes a rejected exit carrying the
+     * failure's class name. Does not suppress the throwable.
+     *
+     * @param failure the exception leaving the host exit command
+     * @throws NullPointerException when {@code failure} is null and a bridge is installed
+     */
     public static void failedEditorExit(final Throwable failure) {
         System.out.println("LIFECYCLE-BRIDGE:method=failedEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();

@@ -33,6 +33,10 @@ public record PaletteEntryState(
         return value;
     }
 
+    /**
+     * @return a state that asserts nothing: every property is absent, so
+     *     applying it leaves the palette entry as the Editor styled it
+     */
     public static PaletteEntryState empty() {
         return new PaletteEntryState(
             Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()

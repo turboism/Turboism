@@ -40,6 +40,14 @@ public record ProjectSnapshot(
         this(projectId, name, projectDirectory, documents, List.of());
     }
 
+    /**
+     * Looks up a project content entry by identifier.
+     *
+     * @param contentId identifier to match exactly against {@link ProjectContentSnapshot#contentId()}
+     * @return the first matching entry, empty when this snapshot captured no such content — which
+     *     includes snapshots built through the legacy constructor, whose content list is always empty
+     * @throws NullPointerException if {@code contentId} is null
+     */
     public Optional<ProjectContentSnapshot> content(final String contentId) {
         Objects.requireNonNull(contentId, "contentId");
         return contents.stream().filter(content -> content.contentId().equals(contentId)).findFirst();

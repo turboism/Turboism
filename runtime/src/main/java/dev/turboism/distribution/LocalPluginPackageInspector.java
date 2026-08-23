@@ -14,6 +14,16 @@ import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Filesystem-backed {@link PluginPackageInspector} for plugin packages held on local disk.
+ *
+ * <p>Every operation copies the package into a private temporary snapshot (owner-only permissions
+ * where the platform supports them) and validates only that copy, so a source file mutated
+ * concurrently cannot change what was inspected. The source's attributes - size, last-modified time,
+ * and file key - are re-checked after hashing and again after inspection; any drift rejects the
+ * package. Archive expansion is bounded by {@code PluginArchiveLimits}. Snapshots are always
+ * deleted, including on failure.
+ */
 public final class LocalPluginPackageInspector implements PluginPackageInspector {
     private static final StrictZipArchive.Limits LIMITS = new StrictZipArchive.Limits(
         PluginArchiveLimits.RAW_MAX, PluginArchiveLimits.ENTRY_MAX, PluginArchiveLimits.TOTAL_MAX,
@@ -53,6 +63,23 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         }
     }
 
+    /**
+     * Inspects a package and, if it is valid, extracts its plugin JAR into a staging directory.
+     *
+     * <p>Performs the same validation as {@link #inspect(Path)}, then writes the planned
+     * {@code PLUGIN_JAR} entry to a confined file inside {@code stagingDirectory} named
+     * {@code <pluginId>-<rawArchiveSha256>.jar}, verifying the extracted size and digest against the
+     * plan before publishing it. A staged file that fails either check is cleaned up and never
+     * published.
+     *
+     * <p>Never throws: failures surface as {@link PreparationRejected}, carrying the validation code
+     * when one is available and {@code PLUGIN_STAGE_FAILED} otherwise.
+     *
+     * @param packagePath the package archive to inspect; must not be {@code null}
+     * @param stagingDirectory directory the JAR is staged into; must not be {@code null}
+     * @return {@link Prepared} with the plan and the staged JAR path, or {@link PreparationRejected}
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public Preparation prepare(final Path packagePath, final Path stagingDirectory) {
         Objects.requireNonNull(packagePath, "packagePath");
         Objects.requireNonNull(stagingDirectory, "stagingDirectory");
@@ -178,8 +205,22 @@ public final class LocalPluginPackageInspector implements PluginPackageInspector
         }
     }
 
+    /** Outcome of {@link #prepare(Path, Path)}: either a staged package or a rejection code. */
     public sealed interface Preparation permits Prepared, PreparationRejected { }
+
+    /**
+     * A package that passed inspection and whose plugin JAR is staged on disk.
+     *
+     * @param value the validated plan paired with the path of the published staged JAR
+     */
     public record Prepared(PreparedPluginPackage value) implements Preparation { }
+
+    /**
+     * A package that could not be prepared; nothing was staged.
+     *
+     * @param code the validation code that caused the rejection, or {@code PLUGIN_STAGE_FAILED} for
+     *             an unexpected failure
+     */
     public record PreparationRejected(String code) implements Preparation { }
 
     private static final class DigestingOutputStream extends OutputStream {

@@ -95,6 +95,15 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         return java.util.Set.copyOf(aliases);
     }
 
+    /**
+     * The method selector aliases this slice invokes on the host.
+     *
+     * <p>Used by mapping verification to prove that every host member this class reaches for is
+     * covered by reviewed evidence. Class-level aliases are not included; {@code REQUIRED_ALIASES} is
+     * the union of both.
+     *
+     * @return the immutable alias set; never null and never modified at runtime
+     */
     public static java.util.Set<String> methodAliasesUsed() {
         return METHOD_ALIASES_USED;
     }
@@ -143,7 +152,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
 
     @Override
     public boolean supportsProjectWorkspaceRead() {
-        return "5.2.0".equals(hostVersion) || "5.3.02".equals(hostVersion);
+        return "5.2.03".equals(hostVersion) || "5.3.02".equals(hostVersion);
     }
 
     @Override

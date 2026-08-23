@@ -83,6 +83,13 @@ public final class RuntimeMeshMirrorAxisService implements MeshMirrorAxisService
         return generation;
     }
 
+    /**
+     * Returns the mirror axis to its neutral state: zero angle and no observed axis or pivot.
+     *
+     * <p>Bumps the generation counter, so any cached line is recomputed rather than reused. With a
+     * zero angle the hook path falls back to the host's own unrotated behaviour until an angle is set
+     * again. Called when the host swaps mesh-edit sessions.
+     */
     public synchronized void resetSession() {
         angleDegrees = 0.0f;
         axisState = null;

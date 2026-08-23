@@ -166,6 +166,12 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Evidence carrying only the mandatory project/workspace slice.
+     *
+     * @param projectWorkspace the verified project/workspace slice
+     * @return evidence with every optional slice absent
+     */
     public static HostVerificationEvidence projectOnly(final Slice projectWorkspace) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -182,6 +188,13 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Evidence carrying the project/workspace and clip-mask slices.
+     *
+     * @param projectWorkspace the verified project/workspace slice
+     * @param clipMask the verified clip-mask slice
+     * @return evidence with those two slices present
+     */
     public static HostVerificationEvidence withClipMask(
         final Slice projectWorkspace,
         final Slice clipMask
@@ -189,6 +202,13 @@ public record HostVerificationEvidence(
         return projectOnly(projectWorkspace).addingClipMask(clipMask);
     }
 
+    /**
+     * Evidence carrying the project/workspace and Editor-model slices.
+     *
+     * @param projectWorkspace the verified project/workspace slice
+     * @param editorModel the verified Editor-model slice
+     * @return evidence with those two slices present
+     */
     public static HostVerificationEvidence withEditorModel(
         final Slice projectWorkspace,
         final Slice editorModel
@@ -196,6 +216,16 @@ public record HostVerificationEvidence(
         return projectOnly(projectWorkspace).addingEditorModel(editorModel);
     }
 
+    /**
+     * Returns a copy that also carries the verified clip-mask slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified clip-mask slice
+     * @return a copy with the clip-mask slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingClipMask(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -212,6 +242,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified Editor-model slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified Editor-model slice
+     * @return a copy with the Editor-model slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingEditorModel(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -228,6 +268,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified Cubism Core runtime slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified Cubism Core runtime slice
+     * @return a copy with the Cubism Core runtime slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingCoreRuntime(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -244,6 +294,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified native main-toolbar slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified native main-toolbar slice
+     * @return a copy with the native main-toolbar slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingMainToolbar(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -260,6 +320,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified embedded-panel slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified embedded-panel slice
+     * @return a copy with the embedded-panel slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingEmbeddedPanel(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -276,6 +346,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified top-menu slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified top-menu slice
+     * @return a copy with the top-menu slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingTopMenu(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -292,6 +372,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified bounding-box overlay button slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified bounding-box overlay button slice
+     * @return a copy with the bounding-box overlay button slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingBoundingBoxOverlayButton(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -308,6 +398,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified workspace-control slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified workspace-control slice
+     * @return a copy with the workspace-control slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingWorkspaceControl(final Slice slice) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -324,6 +424,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified native status-bar slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified native status-bar slice
+     * @return a copy with the native status-bar slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingStatusBar(final Slice statusBar) {
         return new HostVerificationEvidence(
             projectWorkspace,
@@ -340,6 +450,16 @@ public record HostVerificationEvidence(
         );
     }
 
+    /**
+     * Returns a copy that also carries the verified auto-backup slice.
+     *
+     * <p>Evidence is immutable, so adding a slice produces new connection material and
+     * makes the host session replace the whole adapter connection.</p>
+     *
+     * @param slice the verified auto-backup slice
+     * @return a copy with the auto-backup slice present
+     * @throws NullPointerException when {@code slice} is null
+     */
     public HostVerificationEvidence addingAutoBackup(final Slice autoBackupSlice) {
         return new HostVerificationEvidence(
             projectWorkspace,

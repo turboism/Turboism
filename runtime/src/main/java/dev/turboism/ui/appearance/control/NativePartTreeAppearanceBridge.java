@@ -17,6 +17,17 @@ public final class NativePartTreeAppearanceBridge {
 
     private NativePartTreeAppearanceBridge() { }
 
+    /**
+     * Entry point the instrumented host Part-tree renderer calls after producing a row component.
+     *
+     * <p>Fail-closed and never disruptive: returns {@code component} unchanged when no bridge is
+     * installed or when called off the Swing event dispatch thread, and swallows any {@code Throwable}
+     * the callback raises. Only a {@code JLabel}, or a container whose first child is one, is styled.
+     *
+     * @param component the component the host renderer produced; {@code null} is returned as-is
+     * @param value the host tree node the selectors resolve a part, deformer or art mesh from
+     * @return {@code component}, styled where possible and otherwise untouched
+     */
     public static Component afterRender(final Component component, final Object value) {
         if (component == null) return null;
         final Callback callback = CALLBACK.get();
@@ -25,6 +36,20 @@ public final class NativePartTreeAppearanceBridge {
         catch (Throwable ignored) { return component; }
     }
 
+    /**
+     * Installs the single process-wide bridge, wiring the host renderer hook to a provider.
+     *
+     * <p>Exactly one installation may be live at a time. A node whose backing object cannot be
+     * classified restores the provider's styling rather than leaving a stale colour behind.
+     *
+     * @param hostGeneration the host generation styling is applied under
+     * @param selectors reflective coordinates of the host node and source accessors; must not be
+     *     {@code null}
+     * @param provider the provider that applies and restores styling, closed on uninstall; must not be
+     *     {@code null}
+     * @throws IllegalStateException if a bridge is already installed
+     * @throws NullPointerException if {@code selectors} or {@code provider} is {@code null}
+     */
     public static void install(
         final long hostGeneration,
         final Selectors selectors,
@@ -53,6 +78,12 @@ public final class NativePartTreeAppearanceBridge {
         }
     }
 
+    /**
+     * Detaches the host hook and closes the installed provider, restoring every component it had
+     * styled.
+     *
+     * <p>Idempotent — uninstalling when nothing is installed does nothing.
+     */
     public static void uninstall() {
         CALLBACK.set(null);
         final PartTreeControlAppearanceProvider provider = PROVIDER.getAndSet(null);
@@ -71,6 +102,29 @@ public final class NativePartTreeAppearanceBridge {
     @FunctionalInterface
     interface Callback { Component apply(Component component, Object value); }
 
+    /**
+     * Reflective coordinates of the host's Part-tree internals: how to get from a tree node to the
+     * part, deformer or art mesh it displays, and from that to its id string.
+     *
+     * <p>Node and source classes are matched by type or supertype and must come from
+     * {@code hostClassLoader}, so a look-alike class from another loader is ignored. *
+     * <p>All owner and member names are internal/binary names of host classes, and are validated only
+     * for being non-blank — a name that does not match the running Editor build simply makes lookup
+     * fail, which the bridge treats as "no id" rather than an error.
+     *
+     * @param nodeOwner internal name of the host tree-node class the hook receives
+     * @param nodeSourceMethod method on a node returning the model object it displays
+     * @param partSourceOwner internal name of the host part class, resolving to the PART palette
+     * @param deformerSourceOwner internal name of the host deformer class, resolving to DEFORMER_PART
+     * @param artMeshSourceOwner internal name of the host art-mesh class, also resolving to
+     *     DEFORMER_PART
+     * @param partIdMethod method on a source returning its id object
+     * @param idStringMethod method on an id object returning the id as a string
+     * @param childrenMethod method on a source returning its children, used to decide folder-ness
+     * @param hostClassLoader the loader host classes must come from; must not be {@code null}
+     * @throws IllegalArgumentException if any name is blank
+     * @throws NullPointerException if any component is {@code null}
+     */
     public record Selectors(
         String nodeOwner,
         String nodeSourceMethod,

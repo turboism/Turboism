@@ -18,6 +18,10 @@ public record ResolvedEditorFileCommand(
         overwritePolicy = Objects.requireNonNull(overwritePolicy, "overwritePolicy");
     }
 
+    /**
+     * @return the id of the underlying SDK command, so a result can be correlated back to the
+     *     plugin request that produced it
+     */
     public String commandId() {
         return command.id();
     }

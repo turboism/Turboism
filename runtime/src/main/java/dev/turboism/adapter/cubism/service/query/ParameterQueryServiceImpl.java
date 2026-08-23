@@ -17,6 +17,20 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+/**
+ * Runtime implementation of the parameter query service, indexing the parameters of the current
+ * Cubism runtime snapshot by id.
+ *
+ * <p>Every entry point requires the parameter-read permission before the snapshot is consulted.
+ * The index is cached against the snapshot version and rebuilt when the host's snapshot advances;
+ * the cache field is {@code volatile}, so a concurrent rebuild duplicates work but yields the same
+ * result.
+ *
+ * <p>Index construction validates what it reads: a duplicate parameter id, bounds with the minimum
+ * above the maximum, or a default outside its own bounds all raise a
+ * {@code CubismServiceException} with {@code INVALID_SNAPSHOT} rather than producing a summary the
+ * caller cannot trust.
+ */
 public final class ParameterQueryServiceImpl implements ParameterQueryService {
 
     public static final String PARAMETER_READ_PERMISSION = "turboism.cubism.parameter.read";

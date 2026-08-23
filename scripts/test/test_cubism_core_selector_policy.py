@@ -58,7 +58,7 @@ def main() -> int:
     require(len(roster) == 75, "selector count drifted")
     require(
         validated["summary"]["selectorRosterSha256"]
-        == "a0f14a73201282f50e6970181d2277ad2ce8fa9c121e7b45fc525bcaa474e699",
+        == "7aacb00831078e4b56567841ad43c406f1ee0f243c003a4204b8ef8a7a9db1c2",
         "selector roster digest drifted",
     )
     require(

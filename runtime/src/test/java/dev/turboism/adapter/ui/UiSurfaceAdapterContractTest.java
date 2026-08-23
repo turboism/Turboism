@@ -84,7 +84,7 @@ class UiSurfaceAdapterContractTest {
         private final List<DialogRequest> dialogs = new ArrayList<>();
 
         private RecordingHost() {
-            this("5.3.2");
+            this("5.3.02");
         }
 
         private RecordingHost(final String version) {

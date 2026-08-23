@@ -40,6 +40,21 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         this.lifecycleRegistration = hostLifecycle.subscribe(this::onHostChanged);
     }
 
+    /**
+     * Registers a plugin-owned contribution and reconciles its family against the host.
+     *
+     * <p>A contribution with an identity that is already present replaces the previous one, which
+     * the provider's incremental reconcile path applies in place — the host palette and any
+     * floating window are not rebuilt. If reconciliation fails, the contribution is rolled back out
+     * of the authority before the failure propagates, so a rejected contribution leaves no state
+     * behind.
+     *
+     * @param contribution the logical contribution; never a native Editor object
+     * @return a registration whose {@code close()} removes the contribution and reconciles again;
+     *     closing twice is a no-op
+     * @throws NullPointerException if {@code contribution} is {@code null}
+     * @throws IllegalStateException if the authority is closed
+     */
     public Registration contribute(final EditorUiContribution<?> contribution) {
         final EditorUiContribution<?> requested = Objects.requireNonNull(contribution, "contribution");
         final StoredContribution stored = new StoredContribution(requested);
@@ -62,6 +77,21 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         return new ContributionRegistration(requested.identity(), stored);
     }
 
+    /**
+     * Installs the single provider responsible for realizing one UI family natively, then
+     * reconciles that family.
+     *
+     * <p>At most one provider may be installed per family; re-installing the identical instance is
+     * accepted, a different one is rejected. The provider's self-reported availability must be
+     * derived from its admission, and the admission's family must match the provider's — the
+     * authority refuses to trust a provider that disagrees with its own admission.
+     *
+     * @param provider the family's provider
+     * @throws NullPointerException if {@code provider} or its admission is {@code null}
+     * @throws IllegalArgumentException if the admission family or availability is inconsistent
+     * @throws IllegalStateException if the authority is closed, or a different provider is already
+     *     installed for that family
+     */
     public void installProvider(final EditorUiContributionProvider provider) {
         final EditorUiContributionProvider requested = Objects.requireNonNull(provider, "provider");
         final EditorUiProviderAdmission admission = Objects.requireNonNull(
@@ -91,6 +121,17 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         reconcile(requested.family());
     }
 
+    /**
+     * Uninstalls a provider, tears down its native registration, and records the family as
+     * unavailable.
+     *
+     * <p>Removal is identity-based: passing a provider that is not the installed one for its family
+     * does nothing. Logical contributions are kept — they simply stop being realized until a
+     * provider is installed again.
+     *
+     * @param provider the provider to remove
+     * @throws NullPointerException if {@code provider} is {@code null}
+     */
     public void removeProvider(final EditorUiContributionProvider provider) {
         final EditorUiContributionProvider requested = Objects.requireNonNull(provider, "provider");
         final boolean removed;
@@ -107,6 +148,13 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         }
     }
 
+    /**
+     * @param family the UI family to list
+     * @return an immutable snapshot of that family's contributions in reconcile order — ascending
+     *     {@code order()}, ties broken by identity — taken under the authority's lock, so it does
+     *     not track later changes
+     * @throws NullPointerException if {@code family} is {@code null}
+     */
     public List<EditorUiContribution<?>> contributions(final EditorUiFamily family) {
         Objects.requireNonNull(family, "family");
         synchronized (monitor) {
@@ -118,6 +166,13 @@ public final class EditorUiContributionAuthority implements AutoCloseable {
         }
     }
 
+    /**
+     * @param family the UI family to inspect
+     * @return the most recent reconciliation failure for that family, or empty when the last
+     *     reconcile succeeded — a successful reconcile clears the record, and closing the authority
+     *     discards all of them
+     * @throws NullPointerException if {@code family} is {@code null}
+     */
     public Optional<EditorUiContributionFailure> lastFailure(final EditorUiFamily family) {
         synchronized (monitor) {
             return Optional.ofNullable(failures.get(Objects.requireNonNull(family, "family")));

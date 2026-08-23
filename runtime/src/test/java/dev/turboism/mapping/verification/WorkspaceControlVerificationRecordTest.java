@@ -16,13 +16,13 @@ class WorkspaceControlVerificationRecordTest {
 
     @Test
     void exactRecordsMatchPinnedWorkspaceControlManifests() throws Exception {
-        verify("cubism-5.2-workspace-control.json", "m.workspace-5.2.03.control.static",
-            "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2", 40_805_584L,
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
-            "8b001802fa672ce2f053ab516af9c38b2a2a08296fc663e9adf352e88c7dbf36");
+        verify("cubism-5.2.03-workspace-control.json", "m.workspace-5.2.03.control.static",
+            "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
+            "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed");
         verify("cubism-5.3.02-workspace-control.json", "m.workspace-5.3.02.control.static",
-            "adapter.workspace.control.v5_3", "5.3.02", "cubism-5.3.02", 41_922_739L,
-            "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+            "adapter.workspace.control.v5_3", "5.3.02", "cubism-5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+            ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
             "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16");
     }
 

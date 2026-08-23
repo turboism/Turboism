@@ -26,6 +26,22 @@ public record MainToolbarContributionDescriptor(
         placement = Objects.requireNonNull(placement, "placement");
     }
 
+    /**
+     * Normalizes either main-toolbar contribution shape into one descriptor.
+     *
+     * <p>A preferred {@code MainToolbarButtonContribution} maps across directly. A compatible
+     * {@code MainToolbarContribution} is upgraded: its label key doubles as the tooltip key, its
+     * single icon path becomes the normal icon variant, and its textual anchor is translated to a
+     * {@link MainToolbarRegistry.Placement} — only {@code start}/{@code first}, {@code end}/
+     * {@code last}, and {@code before:}/{@code after:host-home-entry} are understood.
+     *
+     * @param contribution the contribution to normalize
+     * @return the normalized descriptor, carrying the contribution's declared order
+     * @throws NullPointerException if {@code contribution} is {@code null}
+     * @throws IllegalArgumentException if the descriptor is neither supported shape, if a
+     *     compatible contribution names an anchor outside the list above, or if any required
+     *     text field is blank
+     */
     public static MainToolbarContributionDescriptor from(
         final EditorUiContribution<?> contribution
     ) {

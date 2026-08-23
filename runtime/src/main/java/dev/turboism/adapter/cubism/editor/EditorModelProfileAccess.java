@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorModelProfileSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelProfileSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.ModelProfile;

@@ -1,5 +1,6 @@
 package dev.turboism.mapping.verification;
 
+import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -22,14 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class EditorModelTextureAuthorizationGuardTest {
 
-    private static final HostArtifactDigest REVIEWED_5302 = new HostArtifactDigest(
-        41_922_739L,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
-    );
-    private static final HostArtifactDigest REVIEWED_52 = new HostArtifactDigest(
-        40_805_584L,
-        "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
-    );
+    private static final HostArtifactDigest REVIEWED_5302 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest REVIEWED_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
 
     @Test
     void cubism5302ManifestPinsBothTextureCapabilitiesAndAllRequiredAliases() {
@@ -66,7 +61,7 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void cubism52RecordContainsEveryTextureContractAlias() throws Exception {
         assertRecordCoversContract(
-            projectRoot().resolve("cubism-ref/verification/cubism-5.2-editor-model.json"),
+            projectRoot().resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
             EditorTextureSelectorContract.READ_REQUIRED_ALIASES,
             EditorTextureSelectorContract.WRITE_REQUIRED_ALIASES
         );
@@ -114,17 +109,17 @@ class EditorModelTextureAuthorizationGuardTest {
     @Test
     void pinnedRecordSha256sMatchTheReviewedRecordFiles() throws Exception {
         final Path record52 = projectRoot().resolve(
-            "cubism-ref/verification/cubism-5.2-editor-model.json"
+            "cubism-ref/verification/cubism-5.2.03-editor-model.json"
         );
         final Path record5302 = projectRoot().resolve(
             "cubism-ref/verification/cubism-5.3.02-editor-model.json"
         );
         org.junit.jupiter.api.Assertions.assertEquals(
-            EditorModelVerificationManifest52.RECORD_SHA256,
+            EditorModelVerificationManifest.RECORD_5_2_03.recordSha256(),
             sha256(record52)
         );
         org.junit.jupiter.api.Assertions.assertEquals(
-            EditorModelVerificationManifest.RECORD_SHA256,
+            EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
             sha256(record5302)
         );
     }

@@ -21,26 +21,38 @@ public final class SchemaValidationError {
         this.source = source != null ? source : "";
     }
 
+    /** @return the stable machine-readable error code validators and tests match on. */
     public String code() {
         return code;
     }
 
+    /** @return how serious this finding is; only ERROR blocks the validated artifact. */
     public Severity severity() {
         return severity;
     }
 
+    /** @return the human-readable explanation of what the validator rejected. */
     public String message() {
         return message;
     }
 
+    /**
+     * @return the location inside the validated document, empty when the finding is not tied to a
+     *     particular node (a null path is normalized to the empty string at construction)
+     */
     public String path() {
         return path;
     }
 
+    /**
+     * @return the artifact the finding came from, empty when the validator did not attribute one
+     *     (a null source is normalized to the empty string at construction)
+     */
     public String source() {
         return source;
     }
 
+    /** @return true when the severity is ERROR; WARNING and INFO findings are advisory. */
     public boolean isError() {
         return severity == Severity.ERROR;
     }
