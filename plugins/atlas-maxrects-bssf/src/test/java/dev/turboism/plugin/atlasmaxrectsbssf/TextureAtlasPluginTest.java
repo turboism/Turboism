@@ -235,8 +235,11 @@ class TextureAtlasPluginTest {
         private final java.util.Map<String, dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
             algorithms = new java.util.LinkedHashMap<>();
 
-        @Override public void register(dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm) {
+        @Override public dev.turboism.sdk.plugin.Registration register(
+            dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm
+        ) {
             algorithms.put(algorithm.id(), algorithm);
+            return () -> algorithms.remove(algorithm.id(), algorithm);
         }
 
         @Override public java.util.Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm>
