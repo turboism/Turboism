@@ -67,6 +67,7 @@ final class PreviewPluginShutdown {
             summaries.add(closeLoadedPlugin(loadedPlugin));
         } catch (Throwable failure) {
             summaries.add(fallbackSummary(loadedPlugin));
+            finalizeEventOwnerAfterFailure(loadedPlugin);
             tryLogStableFailure(safePluginId(loadedPlugin), "PLUGIN_CLOSE_STAGE_FAILED");
         }
     }
@@ -136,6 +137,25 @@ final class PreviewPluginShutdown {
 
     int retainedGenerationCount() {
         return retainedGenerations.size();
+    }
+
+    private void finalizeEventOwnerAfterFailure(
+        final LocalPluginRuntime.LoadedPlugin loadedPlugin
+    ) {
+        try {
+            loadedPlugin.eventOwner().beginClosing();
+            if (loadedPlugin.eventOwner().awaitQuiescence(Duration.ZERO)) {
+                loadedPlugin.eventOwner().close();
+                return;
+            }
+            if (retainedGenerations.add(loadedPlugin)) {
+                scheduleRetainedCleanup(loadedPlugin);
+            }
+        } catch (Throwable failure) {
+            if (retainedGenerations.add(loadedPlugin)) {
+                scheduleRetainedCleanup(loadedPlugin);
+            }
+        }
     }
 
     private LocalPluginRuntime.LoadedPluginSummary fallbackSummary(
