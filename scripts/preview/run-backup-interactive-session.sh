@@ -13,6 +13,10 @@
 # SSH host/key/remote root unless --ssh-host/--ssh-key/--remote-root are given.
 set -euo pipefail
 
+# Machine-specific fixture paths come from the ignored repository `.env`.
+# shellcheck source=host-validation-env.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+
 if [ "$#" -lt 1 ]; then
   echo "usage: run-backup-interactive-session.sh <5302|5203> [run-label] [runner-options...] [--webdav-config <file>]" >&2
   exit 2
@@ -25,20 +29,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 
-case "$version" in
-  5302)
-    fixture_src='<local-home>/Documents/测试 混合模式.cmo3'
-    fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
-    ;;
-  5203)
-    fixture_src='<local-home>/TurboismPartValidation/part52-official/part-opacity-fixture-52-final.cmo3'
-    fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
-    ;;
-  *)
-    echo "error: version must be 5302 or 5203" >&2
-    exit 2
-    ;;
-esac
+turboism_select_fixture "$version" || exit 2
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
@@ -58,9 +49,9 @@ fi
 # Wrapper-local options: --webdav-config plus the ssh placement knobs that
 # decide where the task dir lands (all other options pass through to the runner).
 webdav_config=''
-ssh_host='<validation-user>@<validation-host>'
-ssh_key="$HOME/.ssh/<validation-ssh-key>"
-remote_root='<local-home>/TurboismValidation'
+ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
+ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
+remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
 runner_args=()
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -92,7 +83,9 @@ if [ -n "$webdav_config" ]; then
   echo "webdav-config: staging $webdav_config into the task turboism-home config dir."
 fi
 
+run_nonce="${TURBOISM_HOST_VALIDATION_RUN_NONCE:-$(printf '%06d' "$$")}"
 runner_cmd=(
+  env "TURBOISM_HOST_VALIDATION_RUN_NONCE=$run_nonce"
   bash "$runner"  --name backup-interactive
   --version "$version"
   --run-label "$run_label"
@@ -129,20 +122,12 @@ if [ -n "$webdav_config" ]; then
   ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
   scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
   task_base="$remote_root/backup-interactive/$version-$run_label"
-  # Snapshot dirs from previous sessions so we only stage into the NEW task dir.
-  pre_existing="$("${ssh_cmd[@]}" "$ssh_host" "ls -td '$task_base'/backup-interactive-* 2>/dev/null" || true)"
+  # Match only this invocation's nonce-bearing task ID. Multiple interactive or
+  # automated sessions may create sibling task directories concurrently.
   for _ in $(seq 1 120); do
     kill -0 "$runner_pid" 2>/dev/null || break
-    listed="$("${ssh_cmd[@]}" "$ssh_host" "ls -td '$task_base'/backup-interactive-* 2>/dev/null" || true)"
-    candidate=''
-    while IFS= read -r dir; do
-      [ -n "$dir" ] || continue
-      in_old=0
-      while IFS= read -r old; do
-        [ -n "$old" ] && [ "$old" = "$dir" ] && { in_old=1; break; }
-      done <<< "$pre_existing"
-      [ "$in_old" = 0 ] && { candidate="$dir"; break; }
-    done <<< "$listed"
+    candidate="$("${ssh_cmd[@]}" "$ssh_host" \
+      "find '$task_base' -mindepth 1 -maxdepth 1 -type d -name 'backup-interactive-*-$run_nonce' -print -quit 2>/dev/null" || true)"
     if [ -n "$candidate" ]; then
       remote_home="$candidate/turboism-home"
       if "${ssh_cmd[@]}" "$ssh_host" "[ -d '$remote_home' ]"; then

@@ -11,6 +11,22 @@ import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
 import java.util.Objects;
 
+/**
+ * The runtime's transaction over one document: commands are staged
+ * locally, then applied to the host in one batch at commit.
+ *
+ * <p>Every mutating step re-checks write permission, that the transaction
+ * is still open, that it still owns its registry slot, and that the host
+ * version has not moved. Commit and rollback are dispatched onto the
+ * runtime scheduler and awaited, so host mutation happens on the host
+ * thread even though callers may be elsewhere. A commit that fails is
+ * rolled back to the captured snapshot before the failure is rethrown; if
+ * that rollback also fails the transaction ends in
+ * {@link TransactionStatus#FAILED} and the host is left as-is.</p>
+ *
+ * <p>Instances are created by {@link RuntimeTransactionManager}, never
+ * directly.</p>
+ */
 public final class RuntimeModelTransaction implements ModelTransaction {
 
     private final String transactionId;
@@ -124,10 +140,18 @@ public final class RuntimeModelTransaction implements ModelTransaction {
         return transactionId;
     }
 
+    /**
+     * @return the id of the plugin that opened this transaction; only this
+     *     plugin may stage, commit, or roll it back
+     */
     public String pluginId() {
         return pluginId;
     }
 
+    /**
+     * @return the document this transaction is scoped to; writes to any other
+     *     document are rejected as a document mismatch
+     */
     public DocumentId documentId() {
         return documentId;
     }

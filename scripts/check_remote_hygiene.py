@@ -15,6 +15,7 @@ Allowed:
 
 Modes (exactly one):
   --staged             check the index (files staged for commit)
+  --worktree           check every currently tracked index blob; used by devCheck
   --outgoing FROM..TO  check every commit in the pushed range, including an
                        add-then-delete intermediate commit and merge results
                        against every parent
@@ -55,6 +56,7 @@ FORBIDDEN_BASENAMES = frozenset({
     "agents.md", "claude.md", "gemini.md", "copilot.md",
     ".agents.md.swp", ".env", ".envrc", "local.properties",
 })
+ALLOWED_ENV_TEMPLATES = frozenset({".env.example"})
 
 SWAP_SUFFIXES = (".swp", ".swo", ".swn", ".swx")
 PROMPT_SUFFIX = ".prompt.md"
@@ -141,7 +143,9 @@ def classify_path(path):
         return "basename:" + low
     if low == "copilot-instructions.md":
         return "basename:copilot-instructions.md"
-    if low.startswith(".env."):
+    if low.startswith(".env.") and not (
+        len(parts) == 1 and low in ALLOWED_ENV_TEMPLATES
+    ):
         return "basename:.env.*"
     if re.search(r"\.local\.", low):
         return "basename:*.local.*"
@@ -164,6 +168,62 @@ def scan_content(data):
         return []
     text = data.decode("utf-8", errors="replace")
     return [name for rx, name in SECRET_RULES if rx.search(text)]
+
+
+def scan_repository_content(path, data):
+    """Repository-only local-machine identifiers beyond general secret shapes.
+
+    Generic synthetic paths remain useful in tests and historical documentation.
+    This rule targets executable/configuration files so former real validation-
+    machine values cannot silently return after moving them into local `.env`.
+    """
+    rules = scan_content(data)
+    if b"\x00" in data[:8192] or path.startswith(("docs/", "validation-artifact/")):
+        return rules
+    text = data.decode("utf-8", errors="replace")
+    personal_user = "r" + "ain"
+    if "/home/" + personal_user in text:
+        rules.append("local-machine-home")
+    if personal_user + "@172.17.0.1" in text:
+        rules.append("local-machine-ssh-host")
+    if "id_ed25519_" + "turboism_arch_rebuild" in text:
+        rules.append("local-machine-ssh-key-name")
+    return rules
+
+
+def tracked_paths(repo):
+    """Return tracked index paths without enumerating ignored local files."""
+    return [
+        path.decode("utf-8", errors="replace")
+        for path in _git_bytes(repo, ["ls-files", "-z"]).split(b"\x00")
+        if path
+    ]
+
+
+def worktree_blob(repo, path):
+    """Read one tracked working-tree file without following tracked symlinks."""
+    absolute = os.path.join(repo, *PurePosixPath(path).parts)
+    if not os.path.lexists(absolute):
+        return None  # tracked deletion: there is no current content to scan
+    if os.path.islink(absolute):
+        return os.readlink(absolute).encode("utf-8", errors="replace")
+    with open(absolute, "rb") as handle:
+        return handle.read()
+
+
+def scan_worktree(repo):
+    """Scan current tracked files used by devCheck; never opens ignored `.env`."""
+    violations = []
+    for path in tracked_paths(repo):
+        rule = classify_path(path)
+        if rule:
+            violations.append((path, rule))
+        data = worktree_blob(repo, path)
+        if data is None:
+            continue
+        for content_rule in scan_repository_content(path, data):
+            violations.append((path, "value-signature=" + content_rule))
+    return violations
 
 
 # --------------------------------------------------------------------------
@@ -211,9 +271,9 @@ def changed_blobs(repo, sha, read_blob):
         new_sha = fields[3].decode("ascii")
         if new_sha == ZERO_SHA or not path:
             continue
+        decoded_path = path.decode("utf-8", errors="replace")
         for rule in scan_content(read_blob(new_sha)):
-            results.append((path.decode("utf-8", errors="replace"),
-                            "value-signature=" + rule))
+            results.append((decoded_path, "value-signature=" + rule))
     return results
 
 
@@ -271,9 +331,9 @@ def scan_staged(repo):
                 continue
             new_sha = fields[3].decode("ascii")
             if new_sha != ZERO_SHA:
+                decoded_path = path.decode("utf-8", errors="replace")
                 for rule in scan_content(reader.read(new_sha)):
-                    violations.append((path.decode("utf-8", errors="replace"),
-                                       "value-signature=" + rule))
+                    violations.append((decoded_path, "value-signature=" + rule))
     finally:
         reader.close()
     for p in paths:
@@ -443,6 +503,8 @@ def run(argv, repo=None):
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--staged", action="store_true",
                        help="check staged (index) changes")
+    modes.add_argument("--worktree", action="store_true",
+                       help="check every currently tracked index blob")
     modes.add_argument("--outgoing", metavar="FROM..TO", action="append", default=[],
                        help="check every commit in the pushed range")
     modes.add_argument("--outgoing-stdin", action="store_true",
@@ -461,6 +523,8 @@ def run(argv, repo=None):
 
         if args.staged:
             violations = scan_staged(args.repo)
+        elif args.worktree:
+            violations = scan_worktree(args.repo)
         elif args.outgoing:
             violations = scan_commits(args.repo, commit_list(args.repo, args.outgoing))
         elif args.outgoing_stdin:

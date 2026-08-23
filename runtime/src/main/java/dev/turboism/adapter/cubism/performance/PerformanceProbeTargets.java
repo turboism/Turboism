@@ -2,6 +2,14 @@ package dev.turboism.adapter.cubism.performance;
 
 import java.util.List;
 
+/**
+ * The verified instrumentation targets for each admitted Cubism build.
+ *
+ * <p>Cubism ships obfuscated, so every owner, name, and descriptor here was read off
+ * the exact reviewed JAR and is valid only for that version - this project admits
+ * 5.2.03 and 5.3.02 and nothing else. 5.2.03 carries only the renderScene target used
+ * for the FPS counter; 5.3.02 carries the full metric set. Not instantiable.</p>
+ */
 public final class PerformanceProbeTargets {
 
     private PerformanceProbeTargets() { }
@@ -24,6 +32,12 @@ public final class PerformanceProbeTargets {
         );
     }
 
+    /**
+     * @return the full 5.3.02 target set - render scene, modeling pre-render update,
+     *     render system, scene traversal, renderer dispatch, model-instance update, and
+     *     model-instance reinit. Valid only against the reviewed 5.3.02 artifact; on any
+     *     other build the obfuscated names will simply not match and nothing is instrumented.
+     */
     public static List<PerformanceProbeMethodTransformer.Target> cubism5302() {
         return List.of(
             target(

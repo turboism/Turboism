@@ -1,7 +1,11 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorObjectReadSelectorContract;
-import dev.turboism.mapping.verification.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
@@ -28,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorObjectReadAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsArtMeshWarpAndRotationAuthoringState(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -95,7 +99,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void replacesClipMasksAfterCompletePreflightInOneTransaction(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -144,7 +148,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskExpectedMismatchDoesNotOpenAnEdit(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -165,7 +169,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskSetterFailureRestoresTheWholeBatch(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -197,7 +201,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void clipMaskRejectedUndoAdmissionAbortsBeforeMutation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -247,7 +251,7 @@ class EditorObjectReadAccessTest {
 
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsOrderedKeyformBindingsForArtMeshWarpAndRotation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -263,7 +267,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void mergesMorphTargetBindingsAfterKeyformForDrawableAndDeformer(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -303,7 +307,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void deduplicatesKeyformAndMorphBindingsByParameterPreferringMorph(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -360,7 +364,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void morphMergeFailsSoftWhenTheMorphCapabilityIsAbsent(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -380,7 +384,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void parameterSideReverseScanIncludesMorphBindings(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -411,7 +415,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void combinedParameterBindingsDeriveFromTheParameterCombinedFlag(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -451,7 +455,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void editsParameterBindingsWithStrictConflictsAndExplicitUnbind(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -554,7 +558,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void sameIdSourceReplacementMakesReferencesStale(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -573,7 +577,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void staleParameterBindingBatchOperationsFailBeforeOpeningAnEdit(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -590,7 +594,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writesScalarAuthoringStateWithOneUndoDirtyAndRefresh(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -619,7 +623,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writeCapabilityIsIndependentFromReadAndNoChangeSkipsMutation(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -635,7 +639,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void replacesCompleteAuthoringSnapshotsAtomically(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -675,7 +679,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void rollsBackCompleteSnapshotsWhenALaterHostSetterFails(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -720,7 +724,7 @@ class EditorObjectReadAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void pointInfoVertexMoveProjectsOntoGeometryReplacement(final String version) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -785,20 +789,20 @@ class EditorObjectReadAccessTest {
     ) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
-        capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
         if (includeWrite) {
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
-            capabilities.add(dev.turboism.mapping.verification.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID);
             capabilities.add(EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID);
         }
         if (includeMorph) {
-            capabilities.add(dev.turboism.mapping.verification.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
+            capabilities.add(dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract.READ_CAPABILITY_ID);
         }
         return TestVerifiedResolvers.create(
             version,

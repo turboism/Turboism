@@ -6,11 +6,35 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 
+/**
+ * One-shot relocation of a pre-layout {@code <home>/plugin-data} tree into the current
+ * {@link TurboismHomeLayout} directories.
+ *
+ * <p>Migration is conservative: a file already present at the destination is left alone and the
+ * legacy copy is kept, so re-running can never overwrite live data. Only empty directories are
+ * deleted afterwards, so anything not understood survives in place.
+ */
 public final class LegacyHomeMigration {
 
     private LegacyHomeMigration() {
     }
 
+    /**
+     * Moves each legacy per-plugin directory into the plugin's config, data, cache, state and
+     * logs directories under the current layout.
+     *
+     * <p>A no-op when no {@code plugin-data} directory exists. A legacy directory whose name is
+     * not a valid plugin id is skipped rather than migrated, so a crafted directory name cannot
+     * write outside the layout. Legacy {@code data/typed-config} is routed to the config
+     * directory and the rest of {@code data} to the data directory. Files are moved with an
+     * atomic move, one at a time; there is no transaction across files, so a failure part-way
+     * leaves the remaining files in the legacy tree for the next run.
+     *
+     * @param home the Turboism home root to migrate in place
+     * @throws IOException if walking, creating or moving fails, including
+     *     {@link java.nio.file.AtomicMoveNotSupportedException} when source and destination are
+     *     on different file stores
+     */
     public static void migrate(final Path home) throws IOException {
         final TurboismHomeLayout layout = TurboismHomeLayout.create(home);
         final Path legacyRoot = layout.home().resolve("plugin-data");

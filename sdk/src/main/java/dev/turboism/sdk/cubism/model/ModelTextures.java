@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelImageId;
 import dev.turboism.sdk.cubism.id.RawImageId;
@@ -16,6 +17,7 @@ import java.util.List;
  * undoable through the Editor's Undo history.</p>
  */
 @PreviewApi
+@CubismEditor({"5.2.03", "5.3.02"})
 public interface ModelTextures {
 
     /** Raw layered images registered on the model. */
@@ -44,11 +46,7 @@ public interface ModelTextures {
     /** Removes one texture atlas by id. */
     void removeTextureAtlas(TextureAtlasId id);
 
-    /**
-     * Removes one raw layered image and its layer inputs by id.
-     *
-     * <p>Cubism 5.2.03 only exposes a confirmation-dialog path for raw image
-     * removal, so this operation fails closed on that version.</p>
-     */
+    /** Removes one raw layered image and its layer inputs by id. */
+    @CubismEditor("5.3.02")
     void removeRawImage(RawImageId id);
 }

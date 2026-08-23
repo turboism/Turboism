@@ -3,6 +3,7 @@ package dev.turboism.tests.mapping;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.mapping.schema.MappingPackValidator;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
@@ -225,14 +226,14 @@ class MappingPackDraftImportTest {
     @Test
     void editorModel52PackUsesExactEditorProvenance() throws Exception {
         JsonNode metadata = mapper.readTree(
-            DRAFT_DIR.resolve("cubism-5.2-editor-model-read.json").toFile()
+            DRAFT_DIR.resolve("cubism-5.2.03-editor-model-read.json").toFile()
         ).path("metadata");
         assertEquals(
-            "cubism-ref/verification/cubism-5.2-editor-model.json",
+            "cubism-ref/verification/cubism-5.2.03-editor-model.json",
             metadata.path("inventoryRef").asText()
         );
         assertEquals(
-            "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
+            ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
             metadata.path("artifactSha256").asText()
         );
     }

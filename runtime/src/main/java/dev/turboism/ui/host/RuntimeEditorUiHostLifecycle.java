@@ -39,6 +39,11 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         return () -> removeListener(id);
     }
 
+    /**
+     * Opens a new host generation with no families ready yet.
+     *
+     * @return the published {@code CONNECTING} snapshot, carrying a freshly incremented generation
+     */
     public EditorUiHostSnapshot connecting() {
         return transition(
             EditorUiHostSnapshot.State.CONNECTING,
@@ -48,6 +53,13 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Records that the host attached but has not yet published any ready family.
+     *
+     * @param generation generation the caller is reporting for; supplied rather than incremented,
+     *     so a stale connect cannot overwrite a newer generation
+     * @return the published {@code CONNECTED_NOT_READY} snapshot
+     */
     public EditorUiHostSnapshot connected(final long generation) {
         return transition(
             EditorUiHostSnapshot.State.CONNECTED_NOT_READY,
@@ -57,6 +69,16 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Publishes the set of UI families that are ready for a generation. The families are copied
+     * defensively, so later mutation of the caller's set does not affect the snapshot.
+     *
+     * @param generation generation the readiness belongs to
+     * @param readyFamilies families now usable; an empty set yields {@code CONNECTED_NOT_READY}
+     *     rather than {@code READY}
+     * @return the published snapshot
+     * @throws NullPointerException if {@code readyFamilies} is null
+     */
     public EditorUiHostSnapshot ready(
         final long generation,
         final Set<EditorUiFamily> readyFamilies
@@ -74,6 +96,12 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Marks the host as being swapped out: all families stop being ready, but the generation is
+     * deliberately kept so the replacement can report against the same one.
+     *
+     * @return the published {@code REPLACING} snapshot
+     */
     public EditorUiHostSnapshot replacing() {
         final EditorUiHostSnapshot current = snapshot();
         return transition(
@@ -84,6 +112,12 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Retires the current generation because no host is present, clearing every ready family and
+     * recording a {@code HOST_UNAVAILABLE} failure.
+     *
+     * @return the published {@code ABSENT} snapshot with a freshly incremented generation
+     */
     public EditorUiHostSnapshot absent() {
         return transition(
             EditorUiHostSnapshot.State.ABSENT,
@@ -96,6 +130,13 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Retires the current generation with a recorded failure, clearing every ready family.
+     *
+     * @param failure sanitized reason the host failed
+     * @return the published {@code FAILED} snapshot with a freshly incremented generation
+     * @throws NullPointerException if {@code failure} is null
+     */
     public EditorUiHostSnapshot failed(final EditorUiHostFailure failure) {
         return transition(
             EditorUiHostSnapshot.State.FAILED,
@@ -105,6 +146,16 @@ public final class RuntimeEditorUiHostLifecycle implements EditorUiHostLifecycle
         );
     }
 
+    /**
+     * Drops one UI family from the ready set without disturbing the others or the generation. The
+     * host falls back to {@code CONNECTED_NOT_READY} only when this was the last ready family.
+     *
+     * @param family family that can no longer be used
+     * @param message runtime-authored explanation recorded as a {@code FAMILY_UNAVAILABLE} failure;
+     *     must not be blank
+     * @return the published snapshot
+     * @throws NullPointerException if {@code family} is null
+     */
     public EditorUiHostSnapshot markFamilyUnavailable(
         final EditorUiFamily family,
         final String message

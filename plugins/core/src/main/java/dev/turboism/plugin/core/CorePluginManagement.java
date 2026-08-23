@@ -42,14 +42,30 @@ public interface CorePluginManagement extends AutoCloseable {
             if (message == null || message.isBlank()) throw new IllegalArgumentException("message must not be blank");
         }
 
+        /**
+         * @param code stable machine-readable outcome code; must not be blank
+         * @param message human-readable detail; must not be blank
+         * @return an accepted result — the runtime has taken the request on, which is not itself a
+         *     promise that the operation has already finished
+         */
         public static OperationResult accepted(String code, String message) {
             return new OperationResult(true, code, message);
         }
 
+        /**
+         * @param code stable machine-readable rejection code; must not be blank
+         * @param message human-readable reason; must not be blank
+         * @return a rejected result — nothing was done
+         */
         public static OperationResult rejected(String code, String message) {
             return new OperationResult(false, code, message);
         }
 
+        /**
+         * @param message human-readable reason; must not be blank
+         * @return a rejected result under the generic {@code PLUGIN_OPERATION_REJECTED} code, for
+         *     refusals that need no more specific classification
+         */
         public static OperationResult rejected(String message) {
             return rejected("PLUGIN_OPERATION_REJECTED", message);
         }

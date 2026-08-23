@@ -66,9 +66,9 @@ private fun configureScenePaletteEnhancerJar(task: Sync) {
 }
 
 private fun configurePreviewMeshJar(task: Sync) {
-    task.from(project(":plugins:mesh").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
+    task.from(project(":plugins:mesh-edit-mirror-axis-enhance").tasks.named<Jar>("jar").flatMap { it.archiveFile }) {
         into("plugins")
-        rename { "mesh.jar" }
+        rename { "mesh-edit-mirror-axis-enhance.jar" }
     }
 }
 
@@ -107,7 +107,7 @@ val previewBundle by tasks.registering(Sync::class) {
         ":plugins:perf-stats:jar",
         ":plugins:ui-theme:jar",
         ":plugins:scene-palette-enhancer:jar",
-        ":plugins:mesh:jar",
+        ":plugins:mesh-edit-mirror-axis-enhance:jar",
         ":graal-host:windowsPreviewDist"
     )
     configurePreviewSource(this, previewBundleDir)
@@ -161,8 +161,8 @@ private fun verifyPreviewBundle(root: File) {
     val required = listOf(
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
         "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
-        "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar", "plugins/mesh.jar",
-        "graal/lib/polyglot-25.2.4.jar"
+        "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar",
+        "plugins/mesh-edit-mirror-axis-enhance.jar", "graal/lib/polyglot-25.2.4.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
     if (missing.isNotEmpty()) throw GradleException("Preview bundle is missing: $missing")

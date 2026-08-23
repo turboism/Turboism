@@ -1,9 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceReadSelectorContract;
-import dev.turboism.mapping.verification.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;

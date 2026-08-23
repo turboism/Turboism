@@ -83,11 +83,11 @@ class RuntimeCoreModelBackendTest {
     @Test
     void admitsReviewedRecordVersionsThroughCanonicalStructuralProfiles() {
         final RuntimeCoreModelBackend backend52 = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.2.0", "5.2"),
+            TestCoreApiFixture.resolverForReviewedVersion("5.2.03", "5.2.03"),
             CoreVersionExpectation.exact(11, 12, 13)
         ).value().orElseThrow();
         final RuntimeCoreModelBackend backend53 = RuntimeCoreModelBackend.admit(
-            TestCoreApiFixture.resolverForReviewedVersion("5.3.2", "5.3.02"),
+            TestCoreApiFixture.resolverForReviewedVersion("5.3.02", "5.3.02"),
             CoreVersionExpectation.exact(11, 12, 13)
         ).value().orElseThrow();
 
@@ -123,7 +123,7 @@ class RuntimeCoreModelBackendTest {
             RuntimeCoreModelBackend.admit(
                 TestCoreApiFixture.resolver(
                     "5.3.02",
-                    dev.turboism.mapping.verification.CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
+                    dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract.PARAMETERS_GET_REPEATS
                 ),
                 CoreVersionExpectation.exact(11, 12, 13)
             );

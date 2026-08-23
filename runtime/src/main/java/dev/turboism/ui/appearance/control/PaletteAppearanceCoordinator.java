@@ -34,6 +34,23 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         BACKGROUND_COLOR
     }
 
+    /**
+     * The full generation-bound identity an override is registered against: which content, which
+     * model, and which host and provider incarnations were live at the time.
+     *
+     * <p>Every generation is compared exactly, so an override never survives into a later incarnation
+     * of the host, model, provider or content — that is what makes the overrides transient by
+     * construction rather than by cleanup.
+     *
+     * @param contentId the content object owning the registration; must not be {@code null} or blank
+     * @param contentGeneration that content's incarnation counter; must be positive
+     * @param modelId the model the override applies to; must not be {@code null} or blank
+     * @param modelGeneration that model's incarnation counter; must be positive
+     * @param hostGeneration the host UI incarnation counter; must be positive
+     * @param providerGeneration the appearance provider incarnation counter; must be positive
+     * @throws IllegalArgumentException if a string is blank or a generation is not positive
+     * @throws NullPointerException if a string component is {@code null}
+     */
     public record Scope(
         String contentId,
         long contentGeneration,
@@ -88,6 +105,18 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         return () -> listeners.remove(value);
     }
 
+    /**
+     * Adopts a new host UI generation, discarding the parameter-control bindings that belonged to the
+     * previous one.
+     *
+     * <p>Stored overrides are not cleared — they simply stop resolving, because resolution compares
+     * the host generation exactly. Listeners are notified only when the generation actually changes,
+     * and notification happens outside the lock.
+     *
+     * @param generation the new host generation; must be positive
+     * @throws IllegalArgumentException if {@code generation} is not positive
+     * @throws IllegalStateException if this coordinator has been closed
+     */
     public void replaceHostGeneration(final long generation) {
         requireGeneration(generation, "generation");
         boolean changed;
@@ -100,6 +129,10 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         if (changed) notifyChange();
     }
 
+    /**
+     * @return the host UI generation overrides currently resolve against; {@code 0} before any
+     *     generation was adopted and after {@link #invalidate()}, a value no override can match
+     */
     public long hostGeneration() {
         synchronized (monitor) {
             return hostGeneration;
@@ -148,6 +181,14 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Drops everything transient — the host generation, every stored override, every parameter-control
+     * binding, and the active scope — and notifies listeners so styled components are restored.
+     *
+     * <p>Used when the host UI can no longer be trusted to correspond to what was registered. Unlike
+     * {@code close()}, the coordinator stays usable afterwards. Silently does nothing once closed, and
+     * notifies only if something was actually discarded.
+     */
     public void invalidate() {
         boolean changed;
         synchronized (monitor) {
@@ -433,6 +474,18 @@ public final class PaletteAppearanceCoordinator implements AutoCloseable {
 
     private record Stored(Object token, Object value, long sequence) { }
 
+    /**
+     * One live pairing of a host parameter or folder id with the Swing label currently displaying it.
+     *
+     * <p>Handed out as a strong reference by {@code parameterControlBindings()}, which only reports
+     * bindings whose label is still reachable — internally the coordinator holds labels weakly, so a
+     * binding never keeps a discarded host widget alive.
+     *
+     * @param folder {@code true} when the id names a parameter folder rather than a single parameter
+     * @param id the host parameter or folder id; must not be {@code null}
+     * @param label the live Swing label rendering that id; must not be {@code null}
+     * @throws NullPointerException if {@code id} or {@code label} is {@code null}
+     */
     public record ParameterControlBinding(boolean folder, String id, Component label) {
         public ParameterControlBinding {
             id = Objects.requireNonNull(id, "id");

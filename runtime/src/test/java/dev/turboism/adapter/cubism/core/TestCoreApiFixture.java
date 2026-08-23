@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -311,7 +312,7 @@ public final class TestCoreApiFixture {
         final java.util.List<StaticSelector> extraSelectors,
         final java.util.Set<String> extraCapabilities
     ) {
-        final String reviewedVersion = "5.2".equals(artifactProfile) ? "5.2.0" : "5.3.2";
+        final String reviewedVersion = "5.2.03".equals(artifactProfile) ? "5.2.03" : "5.3.02";
         return resolver(
             reviewedVersion,
             artifactProfile,
@@ -330,53 +331,53 @@ public final class TestCoreApiFixture {
     public static List<StaticSelector> ownedMocSelectors() {
         return List.of(
             StaticSelector.classSelector(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLASS,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLASS,
                 internalName(Moc.class)
             ),
             StaticSelector.staticMethod(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE,
                 internalName(Moc.class),
                 "instantiate",
                 "([B)L" + internalName(Moc.class) + ";",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_INSTANTIATE_MODEL,
                 internalName(Moc.class),
                 "instantiateModel",
                 "()L" + internalName(Model.class) + ";",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_GET_NATIVE_HANDLE,
                 internalName(Moc.class),
                 "getNativeHandle",
                 "()J",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MOC_CLOSE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MOC_CLOSE,
                 internalName(Moc.class),
                 "close",
                 "()V",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_GET_NATIVE_HANDLE,
                 internalName(Model.class),
                 "getNativeHandle",
                 "()J",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_UPDATE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_UPDATE,
                 internalName(Model.class),
                 "update",
                 "()V",
                 StaticSelector.ACCESS_PUBLIC
             ),
             StaticSelector.method(
-                dev.turboism.mapping.verification.OwnedMocSelectorContract.MODEL_CLOSE,
+                dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.MODEL_CLOSE,
                 internalName(Model.class),
                 "close",
                 "()V",
@@ -388,7 +389,7 @@ public final class TestCoreApiFixture {
     /** Owned-Moc capability id for fixture resolvers. */
     public static java.util.Set<String> ownedMocCapability() {
         return java.util.Set.of(
-            dev.turboism.mapping.verification.OwnedMocSelectorContract.CAPABILITY_ID
+            dev.turboism.mapping.verification.selector.OwnedMocSelectorContract.CAPABILITY_ID
         );
     }
 
@@ -436,7 +437,7 @@ public final class TestCoreApiFixture {
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETER_COUNTS, "getParameterCounts", "()[I"},
             {CorePublicApiSelectorContract.DRAWABLES_PARAMETERS, "getParameters", "()[[I"}
         });
-        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2.equals(profile)) {
+        if (CorePublicApiSelectorContract.ARTIFACT_PROFILE_5_2_03.equals(profile)) {
             selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_RENDER_ORDERS, Drawables.class, "getRenderOrders", "()[I"));
         } else {
             selectors.add(instanceMethod(CorePublicApiSelectorContract.DRAWABLES_BLEND_MODES, Drawables.class, "getBlendModes", "()[I"));

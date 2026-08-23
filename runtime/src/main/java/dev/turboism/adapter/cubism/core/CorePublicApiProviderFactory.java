@@ -1,7 +1,8 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.CorePublicApiSelectorContract;
-import dev.turboism.mapping.verification.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.CorePublicApiSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
@@ -19,6 +20,19 @@ public final class CorePublicApiProviderFactory {
     private CorePublicApiProviderFactory() {
     }
 
+    /**
+     * Admits a Core provider only when the resolver already carries verified evidence for the whole
+     * Core selector contract and the runtime version matches the reviewed expectation exactly.
+     *
+     * <p>No evidence is created here: an unsupported artifact profile, a resolver that does not
+     * authorize the full slice, or a version probe that disagrees with {@code expectation} all yield
+     * a failed result rather than an exception.</p>
+     *
+     * @param resolver verified member resolver for the running Editor/Core artifact
+     * @param expectation exact Core runtime tuple pinned by reviewed profile evidence
+     * @return the admitted provider, or a failure carrying the reason admission was refused
+     * @throws NullPointerException if either argument is null
+     */
     public static CoreProviderResult<CorePublicApiProvider> admit(
         final VerifiedMemberResolver resolver,
         final CoreVersionExpectation expectation
@@ -88,10 +102,20 @@ public final class CorePublicApiProviderFactory {
     }
 
 
+    /**
+     * Returns the mapping-profile label for a reviewed Cubism version.
+     *
+     * <p>Profile ids and reviewed versions are now the same exact string, so this is an identity
+     * for every admitted version. It is kept as the single place that would carry a divergence if
+     * one were ever reintroduced, rather than scattering the assumption across call sites.</p>
+     *
+     * @param reviewedVersion the exact reviewed Cubism version
+     * @return the profile label for that version
+     */
     static String artifactProfile(final String reviewedVersion) {
         return switch (reviewedVersion) {
-            case "5.2.0" -> "5.2";
-            case "5.3.2" -> "5.3.02";
+            case "5.2.03" -> "5.2.03";
+            case "5.3.02" -> "5.3.02";
             default -> reviewedVersion;
         };
     }
@@ -254,9 +278,9 @@ public final class CorePublicApiProviderFactory {
         public CoreProviderResult<Integer> mocVersionOfModel(final Object model) {
             Objects.requireNonNull(model, "model");
             if (!resolver.authorizesFeature(
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.CAPABILITY_ID,
-                dev.turboism.mapping.verification.CoreMocInfoSelectorContract.REQUIRED_ALIASES
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.CAPABILITY_ID,
+                dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.REQUIRED_ALIASES
             )) {
                 return failed(
                     CoreProviderFailure.Code.ADAPTER_UNAVAILABLE,
@@ -265,11 +289,11 @@ public final class CorePublicApiProviderFactory {
             }
             try {
                 final Object moc = resolver.invoke(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MODEL_GET_MOC,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MODEL_GET_MOC,
                     model
                 );
                 if (!resolver.isInstance(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_CLASS,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_CLASS,
                     moc
                 )) {
                     return failed(
@@ -278,7 +302,7 @@ public final class CorePublicApiProviderFactory {
                     );
                 }
                 final Object version = resolver.invoke(
-                    dev.turboism.mapping.verification.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
+                    dev.turboism.mapping.verification.selector.CoreMocInfoSelectorContract.MOC_GET_MOC_VERSION,
                     moc
                 );
                 if (!(version instanceof Integer value)) {

@@ -32,6 +32,13 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         this.callbacks = new LifecycleCallbackExecutor("Part", executors);
     }
 
+    /**
+     * Registers a plugin's Part hooks, replacing any earlier registration under the same plugin id and
+     * shutting down that plugin's pending callback queue first.
+     *
+     * @param plugin descriptor, entrypoints and logger for the registering plugin
+     * @throws NullPointerException when {@code plugin} is null
+     */
     public void register(final PluginHooks plugin) {
         final PluginHooks value = Objects.requireNonNull(plugin, "plugin");
         final Object token = new Object();
@@ -51,6 +58,14 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Removes every registration owned by the given plugin id and shuts down its callback queue.
+     * Unknown ids are ignored.
+     *
+     * @param pluginId id of the plugin to detach
+     * @throws NullPointerException when {@code pluginId} is null
+     * @throws IllegalArgumentException when {@code pluginId} is blank
+     */
     public void unregister(final String pluginId) {
         final String id = requireText(pluginId, "pluginId");
         synchronized (registrationLock) {
@@ -75,6 +90,21 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Runs the Part opacity write pipeline: interceptors may rewrite the requested value in
+     * registration order, the surviving value is passed to {@code nativeOperation}, and the
+     * before/after opacity read back from the Part is published to observers asynchronously.
+     * Non-finite interceptor results are ignored and logged; hook failures never propagate.
+     *
+     * <p>Runs on the calling host thread and refuses re-entry from within another Part opacity write.
+     *
+     * @param part the Part being written
+     * @param requestedOpacity opacity requested by the caller, before interception
+     * @param nativeOperation performs the actual Editor-side write with the effective opacity
+     * @throws NullPointerException when {@code part} or {@code nativeOperation} is null
+     * @throws IllegalArgumentException when the effective opacity is not finite
+     * @throws IllegalStateException when invoked from within another Part opacity write on this thread
+     */
     public void setOpacity(
         final Part part,
         final float requestedOpacity,
@@ -93,6 +123,21 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         }
     }
 
+    /**
+     * Runs the Part rename pipeline: interceptors may substitute the name, and a null or blank result
+     * aborts that hook (logged) leaving the previous effective name in place. The name read back from
+     * the Part after the write is published to observers asynchronously.
+     *
+     * <p>Runs on the calling host thread and refuses re-entry from within another Part rename.
+     *
+     * @param part the Part being renamed
+     * @param requestedName name requested by the caller, before interception; must not be blank
+     * @param nativeOperation performs the actual Editor-side write with the effective name
+     * @throws NullPointerException when {@code part}, {@code requestedName} or {@code nativeOperation}
+     *     is null
+     * @throws IllegalArgumentException when {@code requestedName} is blank
+     * @throws IllegalStateException when invoked from within another Part rename on this thread
+     */
     public void setName(
         final Part part,
         final String requestedName,
@@ -283,6 +328,15 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         return name;
     }
 
+    /**
+     * One plugin's participation in the Part lifecycle.
+     *
+     * @param descriptor identity of the owning plugin, used as the registration key
+     * @param entrypoints the plugin's Part hooks, defensively copied and immutable
+     * @param logger sink for hook failures raised by this plugin
+     * @param interceptAllowed whether this plugin's {@code before*} hooks may rewrite requested values
+     * @param observeAllowed whether this plugin receives asynchronous {@code after*}/{@code on*} callbacks
+     */
     public record PluginHooks(
         PluginDescriptor descriptor,
         List<? extends PartHooks> entrypoints,
@@ -290,6 +344,13 @@ public final class PartLifecycleCoordinator implements AutoCloseable {
         boolean interceptAllowed,
         boolean observeAllowed
     ) {
+        /**
+         * Registers a plugin with both interception and observation permitted.
+         *
+         * @param descriptor identity of the owning plugin
+         * @param entrypoints the plugin's Part hooks
+         * @param logger sink for hook failures raised by this plugin
+         */
         public PluginHooks(
             final PluginDescriptor descriptor,
             final List<? extends PartHooks> entrypoints,

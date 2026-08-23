@@ -1,7 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorPartBasicSettingsSelectorContract;
-import dev.turboism.mapping.verification.EditorPartNameSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class EditorPartNameAccessTest {
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsLocalNameAndFallsBackToIdText(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -35,7 +35,7 @@ class EditorPartNameAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void writesAuthoringNameWithUndoDirtyRefreshAndNoChangeElision(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -56,7 +56,7 @@ class EditorPartNameAccessTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"5.2.0", "5.3.02"})
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
     void readsAndWritesBasicSettingsAndModelMetadata(final String cubismVersion) {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;

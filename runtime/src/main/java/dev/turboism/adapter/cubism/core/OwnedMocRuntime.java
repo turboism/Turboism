@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.core;
 
-import dev.turboism.mapping.verification.OwnedMocSelectorContract;
+import dev.turboism.mapping.verification.selector.OwnedMocSelectorContract;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.core.MocConsistency;

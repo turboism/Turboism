@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.performance;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -23,7 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PerformanceProbeRollbackTest {
 
-    private static final String ARTIFACT_SHA = "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21";
+    private static final String ARTIFACT_SHA = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
     private static final String AGENT_SHA = "a".repeat(64);
     private static final String FIXTURE_SHA = "b".repeat(64);
     private static final ObjectMapper JSON = new ObjectMapper();

@@ -21,6 +21,18 @@ public final class PartBucketTextureAtlasPlanner {
 
     private final MaxRectsBssfTextureAtlasPlanner planner = new MaxRectsBssfTextureAtlasPlanner();
 
+    /**
+     * Plans a layout under the legacy Part-size policy: items are split into large, medium, and
+     * small buckets by their edge and area ratio against the page, and each bucket is packed by the
+     * shared deterministic MaxRects planner.
+     *
+     * @param items textures to place; the list is copied, so the caller's list is not mutated
+     * @param constraints page size, page budget, and item padding to respect
+     * @return the resulting plan, deterministic for a given input
+     * @throws TextureAtlasPackingException propagated from the underlying MaxRects planner when a
+     *     texture cannot be placed within the issued page budget
+     * @throws NullPointerException if either argument is null, or if any item is null
+     */
     public TextureAtlasLayoutPlan plan(
         final List<TextureAtlasLayoutItem> items,
         final TextureAtlasLayoutConstraints constraints

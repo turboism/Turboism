@@ -5,6 +5,17 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.function.Consumer;
 
+/**
+ * Decides the one locale the runtime and every plugin UI is built with, from the operator's
+ * property, the persisted configuration, the Cubism host, and the JVM.
+ *
+ * <p>A static utility with no instances and no state: it reads the {@code turboism.locale} system
+ * property and the locales it is handed, and reports every rejection through the supplied
+ * diagnostics consumer rather than throwing. Explicit operator or configuration choices are
+ * restricted to {@code en}, {@code ja}, {@code ko}, {@code zh-Hans} and {@code zh-Hant}, plus the
+ * {@code system} sentinel meaning "defer to the next source"; any other tag, well-formed or not,
+ * is refused and the resolution falls through.
+ */
 public final class PluginLocaleResolver {
 
     /** The only explicit operator/config locale choices (plus the {@code system} sentinel). */

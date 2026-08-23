@@ -24,6 +24,20 @@ public final class StrictJson {
 
     private StrictJson() { }
 
+    /**
+     * Parses untrusted JSON under the pipeline's strict rules.
+     *
+     * <p>Rejects empty input, a UTF-8 byte-order mark, byte sequences that do not round-trip as
+     * UTF-8, duplicate object keys, and any trailing token after the top-level value. Nothing is
+     * repaired or coerced — every violation raises.
+     *
+     * @param bytes the raw document
+     * @param code the failure code to attach to every rejection, so the caller can attribute the
+     *     failure to the specific input it was reading
+     * @return the parsed tree
+     * @throws DraftMappingException carrying {@code code} for any violation, including a malformed
+     *     document (with the parse error as cause)
+     */
     public static JsonNode read(final byte[] bytes, final String code) {
         if (bytes.length == 0) {
             throw new DraftMappingException(code, "JSON input is empty");

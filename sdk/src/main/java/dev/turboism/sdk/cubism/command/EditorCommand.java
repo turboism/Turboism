@@ -211,14 +211,29 @@ public enum EditorCommand {
         this.supportedVersions = Set.copyOf(supportedVersions);
     }
 
+    /**
+     * @return the host command identifier: the constant name lowercased and dot-separated
+     *     (for example {@code UNDO} becomes {@code undo}), computed with {@code Locale.ROOT} so it
+     *     is stable under a Turkish or other locale-sensitive default
+     */
     public String id() {
         return name().toLowerCase(java.util.Locale.ROOT).replace('_', '.');
     }
 
+    /**
+     * @return the Cubism Editor versions this command was observed on, as an unmodifiable copy
+     *     taken at construction; only {@code "5.2.03"} and {@code "5.3.02"} are admitted anywhere
+     *     in this enum
+     */
     public Set<String> supportedVersions() {
         return supportedVersions;
     }
 
+    /**
+     * @param cubismVersion an exact Editor version string such as {@code "5.3.02"}; not parsed or
+     *     range-matched, only compared for equality
+     * @return whether this command is admitted on that version
+     */
     public boolean supports(final String cubismVersion) {
         return supportedVersions.contains(cubismVersion);
     }

@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorPartStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.PartId;
 

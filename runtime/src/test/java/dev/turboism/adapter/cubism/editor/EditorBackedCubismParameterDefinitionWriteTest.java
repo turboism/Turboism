@@ -1,6 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
-import dev.turboism.mapping.verification.EditorParameterDefinitionWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -371,13 +371,10 @@ class EditorBackedCubismParameterDefinitionWriteTest {
                 method("cubism.editor-model.app-controller.main-frame", Host.class, "mainFrame", desc(MainFrame.class)),
                 StaticSelector.classSelector("cubism.editor-model.modeling-document.class", document),
                 method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)),
-                method("cubism.editor-model.modeling-document.last-active-view", Document.class, "lastActiveView", "()Ljava/lang/Object;"),
                 StaticSelector.classSelector("cubism.editor-model.modeling-view.class", internal(Object.class)),
-                method("cubism.editor-model.modeling-view.model", Object.class, "toString", "()Ljava/lang/String;"),
                 StaticSelector.classSelector("cubism.editor-model.model-source.class", modelSource),
                 method("cubism.editor-model.model-source.guid", ModelSource.class, "guid", desc(Id.class)),
                 method("cubism.editor-model.model-source.current-instance", ModelSource.class, "currentInstance", desc(Model.class)),
-                method("cubism.editor-model.model-source.all-parameters", ModelSource.class, "allParameters", "()Ljava/util/List;"),
                 StaticSelector.classSelector("cubism.editor-model.model.class", model),
                 method("cubism.editor-model.model.parameter-set", Model.class, "parameterSet", desc(ParameterSet.class)),
                 StaticSelector.classSelector("cubism.editor-model.parameter-set.class", parameterSet),

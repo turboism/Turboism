@@ -43,6 +43,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     };
 
     private final RuntimeHostAdapters hostAdapters;
+    private final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion;
     private final CubismModelAccess modelAccess;
     private final HostSnapshotSource appearanceSource;
     private final CoreRuntimeInfo coreRuntimeInfo;
@@ -69,6 +70,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     DefaultCubismServicesFactory(final RuntimeHostAdapters hostAdapters) {
         this(
             hostAdapters,
+            java.util.Optional::empty,
             UNAVAILABLE_MODEL_ACCESS,
             UNAVAILABLE_CORE_RUNTIME,
             new ParameterLifecycleCoordinator(),
@@ -91,6 +93,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
 
     DefaultCubismServicesFactory(
         final RuntimeHostAdapters hostAdapters,
+        final java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion,
         final CubismModelAccess modelAccess,
         final CoreRuntimeInfo coreRuntimeInfo,
         final ParameterLifecycleCoordinator parameterLifecycle,
@@ -110,6 +113,9 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final CubismHistory history
     ) {
         this.hostAdapters = java.util.Objects.requireNonNull(hostAdapters, "hostAdapters");
+        this.cubismEditorVersion = java.util.Objects.requireNonNull(
+            cubismEditorVersion, "cubismEditorVersion"
+        );
         this.modelAccess = java.util.Objects.requireNonNull(modelAccess, "modelAccess");
         this.appearanceSource = java.util.Objects.requireNonNull(appearanceSource, "appearanceSource");
         this.coreRuntimeInfo = java.util.Objects.requireNonNull(coreRuntimeInfo, "coreRuntimeInfo");
@@ -159,6 +165,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
     ) {
         this(
             hostAdapters,
+            java.util.Optional::empty,
             modelAccess,
             UNAVAILABLE_CORE_RUNTIME,
             parameterLifecycle,
@@ -235,7 +242,7 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             reason -> dependencies.logger().warn("auto-backup " + reason)
         );
         dependencies.disposableScope().register(backupCoordinator::close);
-        return new CubismContextServices(
+        final CubismContextServices services = new CubismContextServices(
             facade,
             new ParameterQueryServiceImpl(facade, permissionGate),
             new SelectionQueryServiceImpl(facade, permissionGate, dependencies.runtimeScheduler()),
@@ -255,5 +262,6 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             ),
             backupCoordinator
         );
+        return new CubismEditorApiAvailabilityInterceptor(cubismEditorVersion).intercept(services);
     }
 }

@@ -20,6 +20,15 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import java.util.Locale;
 import java.util.function.Consumer;
 
+/**
+ * Plugin entrypoint for UI theming: contributes the theme-package status check, the theme manager,
+ * and the built-in theme apply action, and wires the services behind them.
+ *
+ * <p>All collaborators are constructed in {@code init} from the supplied {@link PluginContext} and
+ * reach the host only through SDK surfaces — appearance, storage, user files, localization and the
+ * UI host — so the plugin holds no direct Cubism reference of its own. Registrations made here are
+ * released through the returned {@link Registration} handles when the plugin is disabled.</p>
+ */
 public final class UiThemePlugin implements TurboismPlugin {
 
     private static final String STATUS_ACTION_ID = "ui-theme.package.status.check";

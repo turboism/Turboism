@@ -21,6 +21,25 @@ public final class StaticSelectorVerifier {
 
     private static final int CLASS_MAGIC = 0xCAFEBABE;
 
+    /**
+     * Checks each selector against the class metadata in the jar, parsing class
+     * files directly rather than loading any host class, so verification runs
+     * without executing host code.
+     *
+     * <p>If the artifact's size and hash do not match the expected fingerprint,
+     * no selector is examined at all: every result comes back
+     * {@code ARTIFACT_MISMATCH}. Otherwise each selector is resolved by owner,
+     * name, descriptor, and access flags, with per-selector failures reported
+     * as statuses rather than thrown. Aliases requested more than once are all
+     * reported {@code DUPLICATE_ALIAS} instead of being checked.</p>
+     *
+     * @param artifact host jar to verify
+     * @param expectedFingerprint fingerprint the artifact must match
+     * @param selectors selectors to check; must not be empty
+     * @return a report carrying both fingerprints and one result per selector
+     * @throws IOException if the artifact cannot be read or opened as a jar
+     * @throws IllegalArgumentException if {@code selectors} is empty
+     */
     public StaticVerificationReport verify(
         final Path artifact,
         final HostArtifactFingerprint expectedFingerprint,

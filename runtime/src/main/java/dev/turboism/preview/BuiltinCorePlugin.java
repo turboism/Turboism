@@ -36,6 +36,10 @@ final class BuiltinCorePlugin {
         if (!dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(descriptor.id())) {
             throw new IllegalStateException("built-in core descriptor identity mismatch");
         }
+        log.info(
+            descriptor.id(),
+            "Plugin lifecycle: built-in load started version=" + descriptor.version()
+        );
         final PluginRuntime runtime = new PluginRuntime(descriptor.id(), descriptor);
         runtime.transitionTo(PluginLifecycleState.RESOLVED);
         runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
@@ -46,11 +50,17 @@ final class BuiltinCorePlugin {
         runtime.transitionTo(PluginLifecycleState.CONSTRUCTED);
         plugin.init(context.context());
         runtime.transitionTo(PluginLifecycleState.LOADED);
+        log.info(descriptor.id(), "Plugin lifecycle: initialized entrypoints=1");
+        log.info(descriptor.id(), "Plugin lifecycle: enable started");
         plugin.enable();
         runtime.transitionTo(PluginLifecycleState.ENABLED);
+        log.info(descriptor.id(), "Plugin lifecycle: enable succeeded entrypoints=1");
         final URL source = coreSource(loader);
         final Path artifact = Path.of(source.toURI()).toAbsolutePath().normalize();
-        log.info(descriptor.id(), "Loaded Runtime-owned built-in core " + descriptor.version());
+        log.info(
+            descriptor.id(),
+            "Plugin lifecycle: built-in load succeeded version=" + descriptor.version()
+        );
         return new LocalPluginRuntime.LoadedPlugin(
             artifact, runtime, List.of(plugin), scope, resources,
             context.localization(), context.cleanupEvidence()

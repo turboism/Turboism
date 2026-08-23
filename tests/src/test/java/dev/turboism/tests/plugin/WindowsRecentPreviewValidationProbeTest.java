@@ -53,9 +53,9 @@ class WindowsRecentPreviewValidationProbeTest {
 
     @Test
     void absolutePathRecognitionCoversWindowsAndUnixForms() {
-        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("C:\\Users\\rain\\file.cmo3"));
-        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("Z:<local-home>/file.cmo3"));
-        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("<local-home>/file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("C:\\Users\\developer\\file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("Z:/home/developer/file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("/home/developer/file.cmo3"));
         assertTrue(WindowsRecentPreviewValidationProbe.isAbsolutePath("\\\\server\\share\\file.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.isAbsolutePath("relative/file.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.isAbsolutePath(""));
@@ -65,13 +65,13 @@ class WindowsRecentPreviewValidationProbeTest {
     @Test
     void fixturePathSuffixMatchingAcceptsBothSeparators() {
         assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "C:\\home\\rain\\fixture.cmo3", "fixture.cmo3"));
+            "C:\\home\\developer\\fixture.cmo3", "fixture.cmo3"));
         assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "Z:<local-home>/fixture.cmo3", "fixture.cmo3"));
+            "Z:/home/developer/fixture.cmo3", "fixture.cmo3"));
         assertTrue(WindowsRecentPreviewValidationProbe.endsWithSeparator(
             "fixture.cmo3", "fixture.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.endsWithSeparator(
-            "C:\\home\\rain\\other.cmo3", "fixture.cmo3"));
+            "C:\\home\\developer\\other.cmo3", "fixture.cmo3"));
         assertFalse(WindowsRecentPreviewValidationProbe.endsWithSeparator(null, "fixture.cmo3"));
     }
 
@@ -203,9 +203,9 @@ class WindowsRecentPreviewValidationProbeTest {
         final String index = "v2\n" + fields.get("directPngSha256") + "\nfixture.cmo3\n150\n150\n";
         assertFalse(WindowsRecentPreviewValidationProbe.containsAbsolutePath(index));
 
-        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("C:\\Users\\rain\\file.cmo3"));
-        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("Z:<local-home>/file.cmo3"));
-        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("<local-home>/file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("C:\\Users\\developer\\file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("Z:/home/developer/file.cmo3"));
+        assertTrue(WindowsRecentPreviewValidationProbe.containsAbsolutePath("/home/developer/file.cmo3"));
     }
 
     @Test

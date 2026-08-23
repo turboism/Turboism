@@ -78,6 +78,19 @@ public final class PendingPluginOperations {
 
     synchronized List<Operation> operations() { return List.copyOf(readOperations()); }
 
+    /**
+     * Applies the journalled install and uninstall operations at startup, before plugins are loaded.
+     * The current plugin directory is backed up first and restored wholesale if any single operation
+     * fails, so the directory is never left half-updated. Symlinks anywhere on the touched paths are
+     * rejected rather than followed. The journal is deleted only after every operation succeeded;
+     * staged JARs for applied installs are then cleaned up.
+     *
+     * <p>An empty or absent journal is a success. Failures are reported as a status, never thrown.
+     *
+     * @return {@code APPLIED} when the journal was applied and cleared, {@code ROLLED_BACK} when the
+     *     previous directory was restored intact, or {@code RECOVERY_REQUIRED} when the journal could
+     *     not be read or the rollback itself failed and manual repair is needed
+     */
     public synchronized ApplyResult apply() {
         final List<Operation> operations;
         try {
@@ -266,6 +279,12 @@ public final class PendingPluginOperations {
 
     record StagedInstall(boolean accepted, String code, PluginInstallPlan plan) { }
     public enum Status { APPLIED, ROLLED_BACK, RECOVERY_REQUIRED }
+    /**
+     * Outcome of applying the pending-operations journal.
+     *
+     * @param status what happened to the plugin directory
+     * @param code stable diagnostic code identifying the specific outcome, for logs and tests
+     */
     public record ApplyResult(Status status, String code) { public boolean applied() { return status == Status.APPLIED; } }
 
     record Operation(String type, String pluginId, String stagedJar, String version,

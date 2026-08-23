@@ -52,6 +52,19 @@ public record ArtMeshGeometry(
         return new ArtMeshGeometry(changed, uvs, triangleIndices);
     }
 
+    /**
+     * Returns a copy of this geometry with the texture coordinate of vertex
+     * {@code index} set to {@code (u, v)}, leaving positions and triangles
+     * untouched. Like {@link #withVertexPosition}, this is the per-vertex
+     * primitive: chain calls and commit the final geometry once.
+     *
+     * @param index vertex whose UV changes
+     * @param u horizontal texture coordinate
+     * @param v vertical texture coordinate
+     * @return a new geometry; this instance is unchanged
+     * @throws IndexOutOfBoundsException when {@code index} is outside the
+     *     vertex range
+     */
     public ArtMeshGeometry withVertexUv(final int index, final float u, final float v) {
         final ArrayList<Point2> changed = new ArrayList<>(uvs);
         changed.set(index, new Point2(u, v));

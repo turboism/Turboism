@@ -21,6 +21,20 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
+/**
+ * The runtime's single dispatch point for plugin work and delayed callbacks.
+ *
+ * <p>Every submission is first classified by the {@link WorkBudgetPolicy}: lightweight work goes
+ * to the plugin's own executor, heavy or sidecar work is handed to the {@link SidecarDispatcher},
+ * and rejected work is dropped after a diagnostic event. Rejection is reported as a return value,
+ * never as an exception, so one misbehaving plugin cannot abort the caller.
+ *
+ * <p>Delayed callbacks share a single daemon timer thread and a global budget of 1024 concurrent
+ * timers; a request beyond that budget is refused rather than queued.
+ *
+ * <p>Safe for concurrent use. Shutdown is guarded by outstanding plugin task scheduler leases: a
+ * scheduler with live leases refuses to close.
+ */
 public final class RuntimeScheduler {
 
     private static final String SIDECAR_COMPLETION_TASK_TYPE = "sidecar.complete";
@@ -55,6 +69,17 @@ public final class RuntimeScheduler {
         this.timer.setRemoveOnCancelPolicy(true);
     }
 
+    /**
+     * Classifies and dispatches a task, running {@code callback} on whichever lane the budget
+     * policy selects, with a fresh cancellation token bound for its duration.
+     *
+     * @param task the work to classify and run
+     * @param callback the body to execute once a lane accepts it
+     * @return {@code true} if some lane accepted the work; {@code false} when the scheduler is
+     *     closed, the policy rejected the task, no sidecar is available, or the sidecar dispatch
+     *     threw — a diagnostic event is emitted in each of those cases
+     * @throws NullPointerException if either argument is {@code null}
+     */
     public boolean dispatch(PluginTask task, Runnable callback) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
@@ -76,6 +101,22 @@ public final class RuntimeScheduler {
         };
     }
 
+    /**
+     * Submits work that the caller already believes is lightweight, under a cancellation token
+     * the caller owns and can trip later.
+     *
+     * <p>Unlike {@link #dispatch}, this does not fall back to the sidecar: a task the policy does
+     * not classify as {@link WorkBudget#LIGHTWEIGHT} is refused outright.
+     *
+     * @param task the work to run
+     * @param token cancellation token bound to the executing thread for the duration of the
+     *     callback
+     * @param callback the body to execute
+     * @return the executor's submission; a rejected submission carrying
+     *     {@code RUNTIME_UNAVAILABLE} when the scheduler is closed, or {@code POLICY_REJECTED}
+     *     when the policy did not classify the task as lightweight
+     * @throws NullPointerException if any argument is {@code null}
+     */
     public PluginWorkSubmission submitLightweight(
         PluginTask task,
         RuntimeCancellationToken token,
@@ -97,6 +138,20 @@ public final class RuntimeScheduler {
         );
     }
 
+    /**
+     * Queues a settlement callback on a plugin's completion lane, kept separate from ordinary
+     * work so a saturated plugin can still finish work already in flight.
+     *
+     * <p>The task is synthesised internally with task type {@code sidecar.complete} and no
+     * declared capability.
+     *
+     * @param pluginId plugin whose completion lane should run the callback; non-blank
+     * @param callback the settlement body
+     * @return the executor's submission, or a rejected submission carrying
+     *     {@code RUNTIME_UNAVAILABLE} when the scheduler is closed
+     * @throws NullPointerException if either argument is {@code null}
+     * @throws IllegalArgumentException if {@code pluginId} is blank
+     */
     public PluginWorkSubmission submitCompletion(
         String pluginId,
         Runnable callback
@@ -119,6 +174,19 @@ public final class RuntimeScheduler {
         );
     }
 
+    /**
+     * Schedules a callback to run once after {@code delay} on the shared timer thread.
+     *
+     * <p>The callback runs off the Cubism host thread and outside any cancellation context. Its
+     * timer permit is released once it has run, been cancelled, or failed to bind.
+     *
+     * @param delay how long to wait; zero is allowed, negative is not
+     * @param callback the body to run
+     * @return an accepted submission with a live handle, or a rejected submission with an inert
+     *     handle when the scheduler is closed or the global 1024-timer budget is exhausted
+     * @throws NullPointerException if either argument is {@code null}
+     * @throws IllegalArgumentException if {@code delay} is negative
+     */
     public RuntimeTimerSubmission schedule(Duration delay, Runnable callback) {
         Objects.requireNonNull(delay, "delay");
         Objects.requireNonNull(callback, "callback");
@@ -155,6 +223,16 @@ public final class RuntimeScheduler {
         }
     }
 
+    /**
+     * Registers a plugin task scheduler as depending on this runtime scheduler.
+     *
+     * <p>While any lease is outstanding {@link #shutdown()} refuses to run, so a plugin scheduler
+     * cannot be left holding a closed runtime. The caller must release the returned lease exactly
+     * once; releasing more often than acquired is an error.
+     *
+     * @return the lease to release when the dependent scheduler is done
+     * @throws IllegalStateException if this scheduler is already closed
+     */
     public RuntimeSchedulerLease acquirePluginTaskSchedulerLease() {
         synchronized (lifecycleLock) {
             if (closed.get()) {
@@ -165,6 +243,10 @@ public final class RuntimeScheduler {
         }
     }
 
+    /**
+     * @return {@code true} once {@link #shutdown()} has completed its state transition, after
+     *     which every submission is refused
+     */
     public boolean isClosed() {
         return closed.get();
     }
@@ -177,6 +259,16 @@ public final class RuntimeScheduler {
         return timerPermits.availablePermits();
     }
 
+    /**
+     * Closes the scheduler: refuses further submissions, cancels every pending timer, stops the
+     * timer thread and shuts down all plugin executors.
+     *
+     * <p>Idempotent — a second call returns without effect. Does not wait for work already
+     * running to finish.
+     *
+     * @throws IllegalStateException if any plugin task scheduler lease is still outstanding; the
+     *     scheduler is left open in that case
+     */
     public void shutdown() {
         final RuntimeTimerToken[] timersToCancel;
         synchronized (lifecycleLock) {

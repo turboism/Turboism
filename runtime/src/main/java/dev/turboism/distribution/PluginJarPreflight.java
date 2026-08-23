@@ -11,6 +11,25 @@ import java.util.HexFormat;
 public final class PluginJarPreflight {
     private PluginJarPreflight() { }
 
+    /**
+     * Re-reads a staged JAR from disk and checks it still matches what inspection recorded.
+     *
+     * <p>Verifies, in order: the path is a regular file and not a symbolic link (resolved with
+     * {@link java.nio.file.LinkOption#NOFOLLOW_LINKS}), its length and SHA-256 equal the expected
+     * values, and re-inspecting it yields the same descriptor hash, plugin id, and version. This
+     * closes the window between inspection and publication in which the staged file could have been
+     * swapped.
+     *
+     * <p>Never throws: any I/O or inspection failure is treated as a mismatch.
+     *
+     * @param jar path to the staged JAR to revalidate
+     * @param pluginId plugin id the descriptor must declare
+     * @param version plugin version the descriptor must declare
+     * @param descriptorSha256 expected SHA-256 of the descriptor bytes inside the JAR
+     * @param jarSha256 expected SHA-256 of the whole JAR file
+     * @param jarSize expected byte length of the JAR file
+     * @return {@code true} only if every check passes; {@code false} on any mismatch or failure
+     */
     public static boolean matches(
         final Path jar,
         final String pluginId,

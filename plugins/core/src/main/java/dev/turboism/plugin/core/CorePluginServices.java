@@ -53,6 +53,24 @@ public record CorePluginServices(
     }
 
 
+    /**
+     * Runs a constructor with the runtime's service handoff visible to it, then withdraws the
+     * handoff.
+     *
+     * <p>The services are parked in a thread-local for exactly the duration of the supplier call,
+     * which is how the built-in core instance receives them without a public constructor parameter.
+     * The handoff is cleared on every path, including when the constructor throws, so a failed
+     * construction cannot leave services dangling for the next one. Nesting is refused: only one
+     * handoff may be active on a thread at a time.
+     *
+     * @param <T> the constructed type
+     * @param services the runtime-owned services to expose; must not be {@code null}
+     * @param constructor the construction to run; must not be {@code null} and must not return
+     *     {@code null}
+     * @return whatever the constructor produced
+     * @throws IllegalStateException if a handoff is already active on this thread
+     * @throws NullPointerException if either argument, or the constructor's result, is {@code null}
+     */
     public static <T> T instantiate(
         final CorePluginServices services,
         final Supplier<T> constructor

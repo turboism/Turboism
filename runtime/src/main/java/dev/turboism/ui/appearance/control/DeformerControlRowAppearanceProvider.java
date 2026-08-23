@@ -14,6 +14,20 @@ public final class DeformerControlRowAppearanceProvider implements AutoCloseable
         this.changeSubscription = coordinator.onChange(this::restore);
     }
 
+    /**
+     * Applies the currently resolved DEFORMER palette entry to one native deformer control-row
+     * component, remembering its original styling so it can be restored later.
+     *
+     * <p>Must be called on the Swing event dispatch thread; off the EDT the component is returned
+     * untouched rather than styled, so a stray host callback cannot corrupt Swing state.
+     *
+     * @param hostGeneration the host generation the caller is rendering for; an entry resolved under a
+     *     different generation is not applied
+     * @param id the deformer id whose palette entry is looked up; must not be {@code null}
+     * @param component the row component to style; must not be {@code null}
+     * @return {@code component}, styled if a palette entry applied and unchanged otherwise
+     * @throws NullPointerException if {@code id} or {@code component} is {@code null}
+     */
     public Component apply(final long hostGeneration, final String id, final Component component) {
         Objects.requireNonNull(id, "id");
         final Component target = Objects.requireNonNull(component, "component");

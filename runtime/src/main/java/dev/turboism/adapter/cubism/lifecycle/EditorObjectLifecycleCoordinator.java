@@ -33,8 +33,11 @@ public final class EditorObjectLifecycleCoordinator implements AutoCloseable {
         this.semantic = Objects.requireNonNull(semantic, "semantic");
     }
 
+    /** @return the ArtMesh write coordinator owned by this session. */
     public DrawableLifecycleCoordinator drawable() { return drawable; }
+    /** @return the Warp and Rotation Deformer write coordinator owned by this session. */
     public DeformerLifecycleCoordinator deformer() { return deformer; }
+    /** @return the coordinator for semantic operations shared across editor object kinds. */
     public SemanticOperationLifecycleCoordinator semantic() { return semantic; }
 
     @Override public void close() {

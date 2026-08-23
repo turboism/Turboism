@@ -4,6 +4,19 @@ import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
+/**
+ * A plugin's request to install its own appearance over the Editor's.
+ *
+ * <p>Validated on construction: {@code appearanceId} must be 1-128 non-blank characters,
+ * {@code base} and {@code palette} are mandatory, and {@code expectedRevision} must not be
+ * negative. Violations throw {@link IllegalArgumentException} or {@link NullPointerException}.
+ *
+ * @param appearanceId the plugin-chosen identity of this appearance, 1-128 characters
+ * @param base the light/dark foundation to build on
+ * @param palette the colours to apply
+ * @param expectedRevision the {@link AppearanceStatus#revision()} the caller last observed; the
+ *     apply is rejected if the current revision has moved on, giving optimistic concurrency
+ */
 @PreviewApi
 public record AppearanceRequest(
     String appearanceId,
