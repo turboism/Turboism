@@ -21,6 +21,7 @@ import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerBaseAngleEvent;
 import dev.turboism.sdk.event.cubism.RotationDeformerFormEvent;
 import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
+import dev.turboism.sdk.action.ActionInvocationEvent;
 import dev.turboism.sdk.appearance.AppearanceChangedEvent;
 import dev.turboism.sdk.cubism.backup.BackupCompletedEvent;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
@@ -122,6 +123,9 @@ public final class EventSubscriptionPermissionCatalog {
         }
         if (subscriptionType.isAssignableFrom(PerformanceSampleEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_PERFORMANCE_SAMPLE_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(ActionInvocationEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_ACTION_INVOCATION_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)
