@@ -146,6 +146,39 @@ class ProjectFileLifecycleCoordinatorTest {
     }
 
     @Test
+    void failureOverridesContradictorySuccessFlag() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final ProjectFileLifecycleCoordinator coordinator = new ProjectFileLifecycleCoordinator();
+        coordinator.register(plugin(List.of(new ModelFileHooks() {
+            @Override public void onModelSaved(final ProjectContentSnapshot model) {
+                events.add("on");
+            }
+            @Override public void afterSaveModel(final ProjectFileOperationResult result) {
+                events.add("after:" + result.succeeded() + ":" + result.failureType().orElse("none"));
+            }
+        }), List.of()));
+        final ProjectContentSnapshot model = content(ProjectContentKind.MODEL, "Model A");
+        final var invocation = coordinator.begin(operation(
+            ProjectContentKind.MODEL,
+            ProjectFileOperationType.SAVE,
+            model.name()
+        ));
+
+        coordinator.complete(
+            invocation,
+            model,
+            true,
+            new IllegalStateException("native")
+        );
+        coordinator.awaitIdle();
+
+        assertEquals(List.of(
+            "after:false:java.lang.IllegalStateException"
+        ), events);
+        coordinator.close();
+    }
+
+    @Test
     void animationHooksAreDistinctAndPluginFailuresStayIsolated() {
         final List<String> events = new CopyOnWriteArrayList<>();
         final List<String> failures = new CopyOnWriteArrayList<>();
