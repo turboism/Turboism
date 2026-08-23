@@ -247,34 +247,38 @@ public final class RuntimeEventBroker {
         float current = initialValue;
         for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(eventType)) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !subscription.accepts(owner.lifecycleSnapshot())) {
+            if (owner == null || !owner.beginSynchronousDelivery(subscription)) {
                 continue;
             }
-            try (TransformCallback callback = Objects.requireNonNull(
-                eventFactory.apply(current),
-                "eventFactory result"
-            )) {
-                final EventBus.TurboismEvent event = Objects.requireNonNull(
-                    callback.event(),
-                    "transform event"
-                );
-                if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
-                    throw new IllegalArgumentException(
-                        "Runtime transform factory produced an incompatible event: "
-                            + event.getClass().getName()
+            try {
+                try (TransformCallback callback = Objects.requireNonNull(
+                    eventFactory.apply(current),
+                    "eventFactory result"
+                )) {
+                    final EventBus.TurboismEvent event = Objects.requireNonNull(
+                        callback.event(),
+                        "transform event"
                     );
-                }
-                try {
-                    subscription.deliverDispatched(event);
-                    final Float transformed = candidate.apply(event);
-                    if (transformed != null && Float.isFinite(transformed)) {
-                        current = transformed;
+                    if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
+                        throw new IllegalArgumentException(
+                            "Runtime transform factory produced an incompatible event: "
+                                + event.getClass().getName()
+                        );
                     }
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable ignored) {
-                    // The checkpoint in current remains authoritative for later subscribers.
+                    try {
+                        subscription.deliverDispatched(event);
+                        final Float transformed = candidate.apply(event);
+                        if (transformed != null && Float.isFinite(transformed)) {
+                            current = transformed;
+                        }
+                    } catch (ThreadDeath | VirtualMachineError fatal) {
+                        throw fatal;
+                    } catch (Throwable ignored) {
+                        // The checkpoint in current remains authoritative for later subscribers.
+                    }
                 }
+            } finally {
+                owner.deliveryFinished();
             }
         }
         return current;
@@ -299,34 +303,38 @@ public final class RuntimeEventBroker {
         T current = initialValue;
         for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(eventType)) {
             final OwnerState owner = owners.get(subscription.owner());
-            if (owner == null || !subscription.accepts(owner.lifecycleSnapshot())) {
+            if (owner == null || !owner.beginSynchronousDelivery(subscription)) {
                 continue;
             }
-            try (TransformCallback callback = Objects.requireNonNull(
-                eventFactory.apply(current),
-                "eventFactory result"
-            )) {
-                final EventBus.TurboismEvent event = Objects.requireNonNull(
-                    callback.event(),
-                    "transform event"
-                );
-                if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
-                    throw new IllegalArgumentException(
-                        "Runtime transform factory produced an incompatible event: "
-                            + event.getClass().getName()
+            try {
+                try (TransformCallback callback = Objects.requireNonNull(
+                    eventFactory.apply(current),
+                    "eventFactory result"
+                )) {
+                    final EventBus.TurboismEvent event = Objects.requireNonNull(
+                        callback.event(),
+                        "transform event"
                     );
-                }
-                try {
-                    subscription.deliverDispatched(event);
-                    final T transformed = candidate.apply(event);
-                    if (transformed != null && validator.test(transformed)) {
-                        current = transformed;
+                    if (!eventType.isInstance(event) || !subscription.type().isInstance(event)) {
+                        throw new IllegalArgumentException(
+                            "Runtime transform factory produced an incompatible event: "
+                                + event.getClass().getName()
+                        );
                     }
-                } catch (ThreadDeath | VirtualMachineError fatal) {
-                    throw fatal;
-                } catch (Throwable ignored) {
-                    // The checkpoint in current remains authoritative for later subscribers.
+                    try {
+                        subscription.deliverDispatched(event);
+                        final T transformed = candidate.apply(event);
+                        if (transformed != null && validator.test(transformed)) {
+                            current = transformed;
+                        }
+                    } catch (ThreadDeath | VirtualMachineError fatal) {
+                        throw fatal;
+                    } catch (Throwable ignored) {
+                        // The checkpoint in current remains authoritative for later subscribers.
+                    }
                 }
+            } finally {
+                owner.deliveryFinished();
             }
         }
         return current;
@@ -511,7 +519,7 @@ public final class RuntimeEventBroker {
         if (result == EnqueueResult.SCHEDULE) {
             scheduleDrain(owner);
         } else if (result == EnqueueResult.SATURATED) {
-            diagnosticSink.accept(new DeliveryDiagnostic(
+            diagnose(new DeliveryDiagnostic(
                 owner.key(),
                 event.getClass().getName(),
                 DeliveryDiagnostic.Code.MAILBOX_SATURATED
@@ -533,7 +541,7 @@ public final class RuntimeEventBroker {
         );
         if (!submission.accepted()) {
             owner.rejectDrain();
-            diagnosticSink.accept(new DeliveryDiagnostic(
+            diagnose(new DeliveryDiagnostic(
                 owner.key(),
                 "",
                 DeliveryDiagnostic.Code.SCHEDULER_REJECTED
@@ -542,7 +550,6 @@ public final class RuntimeEventBroker {
     }
 
     private void drain(final OwnerState owner) {
-        Throwable firstFailure = null;
         try {
             while (true) {
                 final Delivery delivery = owner.nextDelivery();
@@ -554,11 +561,11 @@ public final class RuntimeEventBroker {
                 } catch (ThreadDeath | VirtualMachineError fatal) {
                     throw fatal;
                 } catch (Throwable failure) {
-                    if (firstFailure == null) {
-                        firstFailure = failure;
-                    } else if (firstFailure != failure) {
-                        firstFailure.addSuppressed(failure);
-                    }
+                    diagnose(new DeliveryDiagnostic(
+                        owner.key(),
+                        delivery.event().getClass().getName(),
+                        DeliveryDiagnostic.Code.SUBSCRIBER_FAILED
+                    ));
                 } finally {
                     owner.deliveryFinished();
                 }
@@ -569,18 +576,15 @@ public final class RuntimeEventBroker {
                 scheduleDrain(owner);
             }
         }
-        rethrow(firstFailure);
     }
 
-    private static void rethrow(final Throwable failure) {
-        if (failure instanceof RuntimeException runtimeFailure) {
-            throw runtimeFailure;
-        }
-        if (failure instanceof Error error) {
-            throw error;
-        }
-        if (failure != null) {
-            throw new IllegalStateException("Event subscriber failed", failure);
+    private void diagnose(final DeliveryDiagnostic diagnostic) {
+        try {
+            diagnosticSink.accept(diagnostic);
+        } catch (ThreadDeath | VirtualMachineError fatal) {
+            throw fatal;
+        } catch (Throwable ignored) {
+            // Diagnostics must never alter publication or host-operation behavior.
         }
     }
 
@@ -873,7 +877,8 @@ public final class RuntimeEventBroker {
 
         public enum Code {
             MAILBOX_SATURATED,
-            SCHEDULER_REJECTED
+            SCHEDULER_REJECTED,
+            SUBSCRIBER_FAILED
         }
     }
 
@@ -956,6 +961,18 @@ public final class RuntimeEventBroker {
                 drainScheduled = true;
                 drainToken = new RuntimeCancellationToken();
                 return EnqueueResult.SCHEDULE;
+            }
+        }
+
+        private boolean beginSynchronousDelivery(
+            final Subscription<? extends EventBus.TurboismEvent> subscription
+        ) {
+            synchronized (monitor) {
+                if (!subscription.active() || !subscription.accepts(lifecycle)) {
+                    return false;
+                }
+                runningDeliveries++;
+                return true;
             }
         }
 
