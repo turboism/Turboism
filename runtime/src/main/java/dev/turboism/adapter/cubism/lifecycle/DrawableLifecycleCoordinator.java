@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -23,6 +25,7 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
     private final CopyOnWriteArrayList<Registration> plugins = new CopyOnWriteArrayList<>();
     private final LifecycleCallbackExecutor callbacks;
     private final Object registrationLock = new Object();
+    private volatile RuntimeEventBroker eventBroker;
     private final ThreadLocal<Boolean> lifecycleActive = ThreadLocal.withInitial(() -> false);
 
     public DrawableLifecycleCoordinator() {
@@ -31,6 +34,19 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
 
     public DrawableLifecycleCoordinator(final PluginWorkExecutorRegistry executors) {
         this.callbacks = new LifecycleCallbackExecutor("Drawable", executors);
+    }
+
+    /** Attaches the session event broker used by the preview plugin runtime. */
+    public void attachEventBroker(final RuntimeEventBroker broker) {
+        final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
+        synchronized (registrationLock) {
+            if (eventBroker != null && eventBroker != value) {
+                throw new IllegalStateException(
+                    "Drawable lifecycle already belongs to another Runtime event broker."
+                );
+            }
+            eventBroker = value;
+        }
     }
 
     /**
@@ -120,6 +136,29 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                     }
                 }
             }
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, drawable.getOpacity());
+                effective = broker.publishRuntimeTransform(
+                    DrawableOpacityEvent.Before.class,
+                    effective,
+                    candidate -> {
+                        final DrawableOpacityEvent.Before.Callback callback =
+                            DrawableOpacityEvent.Before.openCallback(
+                                detached,
+                                requested,
+                                candidate
+                            );
+                        return new RuntimeEventBroker.TransformCallback() {
+                            @Override public DrawableOpacityEvent.Before event() {
+                                return callback.event();
+                            }
+                            @Override public void close() { callback.close(); }
+                        };
+                    },
+                    event -> ((DrawableOpacityEvent.Before) event).opacity()
+                );
+            }
             if (!Float.isFinite(effective)) throw new IllegalArgumentException("Drawable opacity must be finite.");
             final float oldValue = drawable.getOpacity();
             nativeOperation.accept(effective);
@@ -128,6 +167,15 @@ public final class DrawableLifecycleCoordinator implements AutoCloseable {
                 if (Float.compare(oldValue, newValue) != 0) hook.onDrawableOpacityChanged(drawable, oldValue, newValue);
                 hook.afterSetDrawableOpacity(drawable, newValue);
             });
+            if (broker != null) {
+                final Drawable detached = DetachedDrawable.capture(drawable, newValue);
+                if (Float.compare(oldValue, newValue) != 0) {
+                    broker.publishRuntime(new DrawableOpacityEvent.On(
+                        detached, oldValue, newValue
+                    ));
+                }
+                broker.publishRuntime(new DrawableOpacityEvent.After(detached, newValue));
+            }
         });
     }
 

@@ -1,6 +1,7 @@
 package dev.turboism.core.event;
 
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -15,6 +16,7 @@ final class RuntimeEventContractCatalog {
         List.of(
             ParameterValueEvent.class,
             PartOpacityEvent.class,
+            DrawableOpacityEvent.class,
             PartNameEvent.class
         );
 

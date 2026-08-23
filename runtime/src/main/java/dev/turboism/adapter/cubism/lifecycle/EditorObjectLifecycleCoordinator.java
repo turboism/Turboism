@@ -40,6 +40,11 @@ public final class EditorObjectLifecycleCoordinator implements AutoCloseable {
     /** @return the coordinator for semantic operations shared across editor object kinds. */
     public SemanticOperationLifecycleCoordinator semantic() { return semantic; }
 
+    /** Attaches the session event broker to every migrated editor-object family. */
+    public void attachEventBroker(final dev.turboism.core.event.RuntimeEventBroker broker) {
+        drawable.attachEventBroker(Objects.requireNonNull(broker, "broker"));
+    }
+
     @Override public void close() {
         semantic.close();
         deformer.close();

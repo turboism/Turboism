@@ -1,6 +1,10 @@
 package dev.turboism.adapter.cubism.lifecycle;
 
+import dev.turboism.core.event.PluginEventOwnerKey;
+import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.sdk.cubism.hook.DeformerHooks;
+import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -21,10 +25,16 @@ public final class EditorObjectHookRegistry {
 
     private final EditorObjectLifecycleCoordinator coordinator;
     private final ConcurrentHashMap<String, HookOwnership> ownerships = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, List<Registration>> eventAdapters =
+        new ConcurrentHashMap<>();
     private final Object lifecycleLock = new Object();
 
     public EditorObjectHookRegistry(final EditorObjectLifecycleCoordinator coordinator) {
         this.coordinator = Objects.requireNonNull(coordinator, "coordinator");
+    }
+
+    public EditorObjectLifecycleCoordinator coordinator() {
+        return coordinator;
     }
 
     /**
@@ -90,6 +100,71 @@ public final class EditorObjectHookRegistry {
         }
     }
 
+    /** Registers migrated editor-object overrides as exact-generation broker adapters. */
+    public void register(
+        final PluginDescriptor descriptor,
+        final List<? extends TurboismPlugin> entrypoints,
+        final PluginLogger logger,
+        final DisposableScope scope,
+        final RuntimeEventBroker broker,
+        final PluginEventOwnerKey owner
+    ) {
+        register(descriptor, entrypoints, logger, scope);
+        final PluginDescriptor plugin = Objects.requireNonNull(descriptor, "descriptor");
+        if (!hasPermission(plugin, INTERCEPT_PERMISSION)
+            && !hasPermission(plugin, OBSERVE_PERMISSION)) {
+            return;
+        }
+        final List<Registration> adapters = new java.util.ArrayList<>();
+        int entrypointOrdinal = 0;
+        for (TurboismPlugin entrypoint : Objects.requireNonNull(entrypoints, "entrypoints")) {
+            if (entrypoint instanceof DrawableHooks hooks) {
+                if (hasPermission(plugin, INTERCEPT_PERMISSION)
+                    && overrides(entrypoint, "beforeSetDrawableOpacity")
+                    && !subscribes(entrypoint, DrawableOpacityEvent.Before.class)) {
+                    adapters.add(broker.subscribeAdapter(
+                        owner, DrawableOpacityEvent.Before.class, entrypointOrdinal, 0,
+                        event -> event.setOpacity(hooks.beforeSetDrawableOpacity(
+                            event.drawable(), event.opacity()
+                        ))
+                    ));
+                }
+                if (hasPermission(plugin, OBSERVE_PERMISSION)
+                    && overrides(entrypoint, "onDrawableOpacityChanged")
+                    && !subscribes(entrypoint, DrawableOpacityEvent.On.class)) {
+                    adapters.add(broker.subscribeAdapter(
+                        owner, DrawableOpacityEvent.On.class, entrypointOrdinal, 1,
+                        event -> hooks.onDrawableOpacityChanged(
+                            event.drawable(), event.oldOpacity(), event.newOpacity()
+                        )
+                    ));
+                }
+                if (hasPermission(plugin, OBSERVE_PERMISSION)
+                    && overrides(entrypoint, "afterSetDrawableOpacity")
+                    && !subscribes(entrypoint, DrawableOpacityEvent.After.class)) {
+                    adapters.add(broker.subscribeAdapter(
+                        owner, DrawableOpacityEvent.After.class, entrypointOrdinal, 2,
+                        event -> hooks.afterSetDrawableOpacity(
+                            event.drawable(), event.finalOpacity()
+                        )
+                    ));
+                }
+            }
+            entrypointOrdinal++;
+        }
+        if (adapters.isEmpty()) {
+            return;
+        }
+        eventAdapters.put(plugin.id(), List.copyOf(adapters));
+        try {
+            scope.register(() -> closeEventAdapters(plugin.id()));
+        } catch (RuntimeException | Error failure) {
+            closeEventAdapters(plugin.id());
+            unregister(plugin.id());
+            throw failure;
+        }
+    }
+
     private void registerHooks(
         final Object token,
         final PluginDescriptor descriptor,
@@ -136,6 +211,7 @@ public final class EditorObjectHookRegistry {
      */
     public void unregister(final String pluginId) {
         final String id = Objects.requireNonNull(pluginId, "pluginId");
+        closeEventAdapters(id);
         final HookOwnership ownership = ownerships.get(id);
         if (ownership != null) {
             ownership.close();
@@ -156,6 +232,57 @@ public final class EditorObjectHookRegistry {
         coordinator.drawable().unregister(pluginId, token);
         coordinator.deformer().unregister(pluginId, token);
         coordinator.semantic().unregister(pluginId, token);
+    }
+
+    private void closeEventAdapters(final String pluginId) {
+        final List<Registration> adapters = eventAdapters.remove(pluginId);
+        if (adapters == null) {
+            return;
+        }
+        for (int index = adapters.size() - 1; index >= 0; index--) {
+            adapters.get(index).close();
+        }
+    }
+
+    private static boolean overrides(final Object entrypoint, final String methodName) {
+        try {
+            final Class<?>[] parameterTypes = switch (methodName) {
+                case "beforeSetDrawableOpacity", "afterSetDrawableOpacity" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        float.class
+                    };
+                case "onDrawableOpacityChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.Drawable.class,
+                        float.class,
+                        float.class
+                    };
+                default -> throw new IllegalArgumentException(
+                    "Unknown editor-object hook method: " + methodName
+                );
+            };
+            final java.lang.reflect.Method method = entrypoint.getClass()
+                .getMethod(methodName, parameterTypes);
+            return method.getDeclaringClass() != DrawableHooks.class
+                && method.getDeclaringClass() != dev.turboism.sdk.cubism.CubismPlugin.class;
+        } catch (NoSuchMethodException failure) {
+            throw new IllegalStateException(
+                "Editor-object hook contract is unavailable: " + methodName,
+                failure
+            );
+        }
+    }
+
+    private static boolean subscribes(
+        final Object entrypoint,
+        final Class<? extends dev.turboism.sdk.event.EventBus.TurboismEvent> eventType
+    ) {
+        return java.util.Arrays.stream(entrypoint.getClass().getMethods()).anyMatch(method ->
+            method.isAnnotationPresent(dev.turboism.sdk.event.SubscribeEvent.class)
+                && method.getParameterCount() == 1
+                && method.getParameterTypes()[0].isAssignableFrom(eventType)
+        );
     }
 
     private static boolean hasPermission(final PluginDescriptor descriptor, final String permissionId) {
