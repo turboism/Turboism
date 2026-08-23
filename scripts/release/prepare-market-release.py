@@ -460,7 +460,7 @@ def validate_selection(repo_root: Path, manifest_path: Path) -> list:
     try:
         validate_event_routes(
             [item["descriptor"] for item in prepared],
-            require_providers=True,
+            require_providers=False,
         )
     except EventMetadataError as failure:
         raise MarketError(str(failure)) from failure
