@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.hook;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 
 /** Override-based lifecycle hooks for ArtMesh authoring writes. */
-@PreviewApi
 public interface DrawableHooks {
     default float beforeSetDrawableOpacity(final Drawable drawable, final float opacity) { return opacity; }
     default void onDrawableOpacityChanged(final Drawable drawable, final float oldOpacity, final float newOpacity) { }

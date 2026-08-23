@@ -104,6 +104,8 @@ class PathRuleTest(unittest.TestCase):
             "backup~": "basename:editor-backup",
             ".aider.tags.cache.v3": "basename:.aider*",
             "specs/plan.prompt.md": "suffix:*.prompt.md",
+            "runtime/logs/dialog-transform.log": "path:runtime/logs",
+            "RUNTIME/LOGS/host-trace.txt": "path:runtime/logs",
             ".github/copilot-instructions.md": "basename:copilot-instructions.md",
             ".GITHUB/COPILOT-INSTRUCTIONS.MD": "basename:copilot-instructions.md",
         }
@@ -114,8 +116,20 @@ class PathRuleTest(unittest.TestCase):
         for p in [".ENV", "nested/AGENTS.MD", "GEMINI.MD", "Prompts/x.md",
                   "docs/migration/PROMPTS/x.md", ".Agent-Artifacts/x.md",
                   ".CLAUDE/set.json", ".PI/session.jsonl", "App.LOCAL.yaml",
-                  "nested/COPILOT.MD"]:
+                  "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:
             self.assertIsNotNone(crh.classify_path(p), p)
+
+    def test_runtime_log_is_rejected_in_staged_mode(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-runtime-log-"))
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        commit_all(repo, "base")
+        path = Path(repo) / "runtime" / "logs" / "dialog-transform.log"
+        path.parent.mkdir(parents=True)
+        path.write_text("generated\n")
+        run_git(repo, "add", "-f", "runtime/logs/dialog-transform.log")
+        out = run_checker(repo, "--staged")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("path:runtime/logs", out.stdout)
 
 
 class ContentRuleTest(unittest.TestCase):
@@ -185,6 +199,18 @@ class ContentRuleTest(unittest.TestCase):
 
 
 class ModeTest(unittest.TestCase):
+    def test_outgoing_deletion_of_legacy_forbidden_path_passes(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-out-delete-"))
+        runtime_logs = Path(repo) / "runtime" / "logs"
+        runtime_logs.mkdir(parents=True)
+        tracked_log = runtime_logs / "dialog-transform.log"
+        tracked_log.write_text("legacy generated output\n")
+        base = commit_all(repo, "legacy tracked log")
+        tracked_log.unlink()
+        head = commit_all(repo, "delete legacy log")
+        out = run_checker(repo, "--outgoing", f"{base}..{head}")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
+
     def test_add_then_delete_outgoing_invariant(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-atd-"))
         (Path(repo) / "ok.txt").write_text("fine\n")
@@ -272,6 +298,18 @@ class ModeTest(unittest.TestCase):
         self.assertEqual(out.returncode, 1)
         self.assertIn(".env", out.stdout)
         self.assertNotIn("KEY=value", out.stdout)
+
+    def test_staged_deletion_of_forbidden_path_passes(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-staged-delete-"))
+        runtime_logs = Path(repo) / "runtime" / "logs"
+        runtime_logs.mkdir(parents=True)
+        tracked_log = runtime_logs / "dialog-transform.log"
+        tracked_log.write_text("legacy generated output\n")
+        commit_all(repo, "legacy tracked log")
+        tracked_log.unlink()
+        run_git(repo, "add", "-u")
+        out = run_checker(repo, "--staged")
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
     def test_all_history_mode(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-all-"))
@@ -454,6 +492,22 @@ class HookTest(unittest.TestCase):
                           % (main_tip, side))
         self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
         self.assertIn(".agent-artifacts/early.md", out.stdout)
+
+    def test_fast_forward_forbidden_deletion_passes(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-ff-delete-"))
+        runtime_logs = Path(repo) / "runtime" / "logs"
+        runtime_logs.mkdir(parents=True)
+        tracked_log = runtime_logs / "dialog-transform.log"
+        tracked_log.write_text("legacy generated output\n")
+        base = commit_all(repo, "remote legacy log")
+        tracked_log.unlink()
+        tip = commit_all(repo, "delete legacy log")
+        out = run_checker(
+            repo,
+            "--outgoing-stdin",
+            stdin_text="refs/heads/main %s refs/heads/main %s\n" % (tip, base),
+        )
+        self.assertEqual(out.returncode, 0, out.stdout + out.stderr)
 
     def test_fast_forward_scans_only_outgoing_range(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-ff-"))

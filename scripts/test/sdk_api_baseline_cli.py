@@ -3,20 +3,11 @@
 from __future__ import annotations
 
 import argparse
-import json
-import re
-from pathlib import Path
-from typing import Any
 
-from sdk_api_baseline import BaselineError, GENERATOR_VERSION, HEADER, SCHEMA_VERSION, canonical_dump, canonical_identity, canonical_records_for_tiers, sha256_bytes
+from sdk_api_baseline import BaselineError, canonical_dump
 from sdk_api_baseline_cli_commands import capture, verify
-from sdk_api_baseline_cli_io import COMMIT_RE, FORMAT, SHA_RE, die, load_baseline, write_output, write_tier_report as _write_tier_report
+from sdk_api_baseline_cli_io import die, write_output
 from sdk_api_baseline_cli_parser import build_parser
-from sdk_api_tiers import canonical_json, verify_tier_compatible
-
-
-def tier_report(path: Path, records: list[str], tiers: dict[str, str]) -> None:
-    _write_tier_report(path, records, tiers)
 
 
 def main() -> None:

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.clipmask;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 
 import java.util.HashSet;
@@ -8,7 +7,6 @@ import java.util.List;
 import java.util.Objects;
 
 /** One conditional ArtMesh clip-mask replacement in an all-or-nothing batch. */
-@PreviewApi
 public record ClipMaskReplacement(
     ArtMeshId targetArtMeshId,
     List<ArtMeshId> expectedMaskArtMeshIds,

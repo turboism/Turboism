@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.event;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import java.util.Objects;
 
 /** Selection transition observed by the Cubism query interface. */
-@PreviewApi
 public record SelectionChangedEvent(
     SelectionSummary previousSelection,
     SelectionSummary currentSelection
