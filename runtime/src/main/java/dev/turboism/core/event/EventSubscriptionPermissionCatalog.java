@@ -7,7 +7,9 @@ import dev.turboism.sdk.event.cubism.DrawableGeometryEvent;
 import dev.turboism.sdk.event.cubism.DrawableLockEvent;
 import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
+import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
+import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -74,7 +76,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DrawableVisibilityEvent.Before.class)
             || subscriptionType.isAssignableFrom(DrawableLockEvent.Before.class)
             || subscriptionType.isAssignableFrom(DrawableGeometryEvent.Before.class)
-            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DeformerLockEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -92,7 +96,11 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(DrawableGeometryEvent.On.class)
             || subscriptionType.isAssignableFrom(DrawableGeometryEvent.After.class)
             || subscriptionType.isAssignableFrom(DeformerOpacityEvent.On.class)
-            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(DeformerOpacityEvent.After.class)
+            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.On.class)
+            || subscriptionType.isAssignableFrom(DeformerVisibilityEvent.After.class)
+            || subscriptionType.isAssignableFrom(DeformerLockEvent.On.class)
+            || subscriptionType.isAssignableFrom(DeformerLockEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
