@@ -2,6 +2,8 @@ package dev.turboism.plugin.clipmaskviewer;
 
 import dev.turboism.plugin.clipmaskviewer.ui.ClipMaskViewerWindow;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
+import dev.turboism.sdk.event.SubscribeEvent;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -84,6 +86,14 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         logger.info(
             "ClipMaskViewerPlugin enabled: open-viewer action, Turboism tab section and menu enrolled in disposable scope"
         );
+    }
+
+    @SubscribeEvent
+    public void onSelectionChanged(final SelectionChangedEvent event) {
+        final WindowView current = window.get();
+        if (current != null) {
+            current.applySelection(event.currentSelection());
+        }
     }
 
     @Override
@@ -238,6 +248,8 @@ public final class ClipMaskViewerPlugin implements TurboismPlugin {
         void showAndFront();
 
         void refresh();
+
+        void applySelection(dev.turboism.sdk.cubism.service.query.SelectionSummary summary);
 
         void dispose();
     }

@@ -45,6 +45,16 @@
       "id": "turboism.ui.status.notify",
       "scope": "application",
       "reason": "Notify GUID copy results."
+    },
+    {
+      "id": "turboism.event.subscribe",
+      "scope": "application",
+      "reason": "Registers the generated selection observation subscriber."
+    },
+    {
+      "id": "turboism.cubism.selection.observe",
+      "scope": "application",
+      "reason": "Keeps an open viewer synchronized with pull-detected editor selection changes."
     }
   ],
   "capabilities": [

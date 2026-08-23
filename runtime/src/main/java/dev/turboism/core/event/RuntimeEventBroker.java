@@ -18,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 /** Session-scoped registry and dispatcher shared by plugin event-bus facades. */
@@ -49,6 +50,10 @@ public final class RuntimeEventBroker {
     private final ConcurrentMap<Class<?>, List<Subscription<? extends EventBus.TurboismEvent>>> dispatchPlans =
         new ConcurrentHashMap<>();
     private final Consumer<DeliveryDiagnostic> diagnosticSink;
+    private final ConcurrentMap<Class<?>, AtomicReference<?>> runtimeObservationBaselines =
+        new ConcurrentHashMap<>();
+    private final ConcurrentMap<Class<?>, EventBus.TurboismEvent> retainedRuntimeEvents =
+        new ConcurrentHashMap<>();
 
     public RuntimeEventBroker(final RuntimeScheduler scheduler) {
         this(scheduler, DEFAULT_MAILBOX_CAPACITY, ignored -> { });
@@ -74,6 +79,19 @@ public final class RuntimeEventBroker {
     /** Validates shared public event payload classes before plugin code is initialized. */
     public void preflight(final PluginDescriptor descriptor) {
         publicRoutes.preflight(descriptor);
+    }
+
+    /**
+     * Returns session-scoped mutable observation state owned by Runtime rather than any plugin
+     * generation. The key type identifies one observation family and must be shared-parent code.
+     */
+    @SuppressWarnings("unchecked")
+    public <T> AtomicReference<T> observationBaseline(final Class<T> keyType) {
+        Objects.requireNonNull(keyType, "keyType");
+        return (AtomicReference<T>) runtimeObservationBaselines.computeIfAbsent(
+            keyType,
+            ignored -> new AtomicReference<>()
+        );
     }
 
     /** Admits one inactive plugin generation whose subscriptions can be staged before activation. */
@@ -178,6 +196,7 @@ public final class RuntimeEventBroker {
             route.sort(SUBSCRIPTION_ORDER);
             dispatchPlans.clear();
         }
+        replayRetained(subscription);
         return () -> remove(type, subscription);
     }
 
@@ -376,7 +395,7 @@ public final class RuntimeEventBroker {
         final T value = Objects.requireNonNull(event, "event");
         contractCatalog.requirePluginPublicationAllowed(publisher, value);
         publicRoutes.requirePublication(publisher, value);
-        publishRuntime(value);
+        publishExact(value);
     }
 
     <T extends EventBus.TurboismEvent> void publishExact(
@@ -405,7 +424,22 @@ public final class RuntimeEventBroker {
 
     /** Publishes a Runtime-owned event from a reviewed Runtime integration point. */
     public <T extends EventBus.TurboismEvent> void publishRuntime(final T event) {
+        publishRuntime(event, false);
+    }
+
+    /** Publishes and retains the latest Runtime-owned observation for late subscriber replay. */
+    public <T extends EventBus.TurboismEvent> void publishRuntimeRetained(final T event) {
+        publishRuntime(event, true);
+    }
+
+    private <T extends EventBus.TurboismEvent> void publishRuntime(
+        final T event,
+        final boolean retain
+    ) {
         final T value = Objects.requireNonNull(event, "event");
+        if (retain) {
+            retainedRuntimeEvents.put(value.getClass(), value);
+        }
         for (Subscription<? extends EventBus.TurboismEvent> subscription : dispatchPlan(
             value.getClass()
         )) {
@@ -425,6 +459,24 @@ public final class RuntimeEventBroker {
                 .sorted(SUBSCRIPTION_ORDER)
                 .toList()
         );
+    }
+
+    private void replayRetained(
+        final Subscription<? extends EventBus.TurboismEvent> subscription
+    ) {
+        retainedRuntimeEvents.forEach((concreteType, event) -> {
+            if (subscription.type().isAssignableFrom(concreteType)
+                && publicRoutes.mayReceive(subscription.owner(), concreteType)) {
+                enqueue(event, subscription);
+            }
+        });
+    }
+
+    private void replayRetained(final PluginEventOwnerKey owner) {
+        subscribers.values().stream()
+            .flatMap(List::stream)
+            .filter(subscription -> subscription.owner().equals(owner))
+            .forEach(this::replayRetained);
     }
 
     private <T extends EventBus.TurboismEvent> void remove(
@@ -613,6 +665,7 @@ public final class RuntimeEventBroker {
             }
             state.lifecycle(OwnerLifecycle.ACTIVE);
         }
+        replayRetained(owner);
     }
 
     private void beginClosing(final PluginEventOwnerKey owner) {

@@ -2,9 +2,11 @@ package dev.turboism.adapter.cubism.service.query;
 
 import dev.turboism.adapter.cubism.CubismFacadeImpl;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
+import dev.turboism.core.event.PluginEventOwnerKey;
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
-import dev.turboism.sdk.plugin.WorkBudget;
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismServiceException;
@@ -15,7 +17,6 @@ import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.event.SelectionChangedEvent;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
-import dev.turboism.sdk.plugin.Registration;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -25,6 +26,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -51,23 +54,33 @@ class SelectionQueryServiceImplTest {
     }
 
     @Test
-    void onSelectionChangedEmitsOnlyWhenSelectionDiffersAndStopsAfterClose() throws CubismServiceException {
+    void publishesSelectionTransitionThroughRuntimeBroker() throws Exception {
         final MutableSelectionSource source = MutableSelectionSource.withSelection(List.of("param-angle-x"));
-        final SelectionQueryServiceImpl service = serviceWith(source, new ArrayList<>(), List.of(
-            permission(CubismFacadeImpl.MODEL_READ_PERMISSION)
-        ));
+        final RuntimeScheduler scheduler = directScheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner observerOwner = broker.admit("plugin.observer");
+        final PluginEventOwnerKey observer = observerOwner.key();
         final List<SelectionChangedEvent> events = new ArrayList<>();
+        final CountDownLatch delivered = new CountDownLatch(1);
+        broker.subscribe(observer, SelectionChangedEvent.class, event -> {
+            events.add(event);
+            delivered.countDown();
+        });
+        observerOwner.activate();
+        final SelectionQueryServiceImpl service = serviceWith(
+            source,
+            new ArrayList<>(),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+            broker
+        );
 
-        final Registration registration = service.onSelectionChanged(events::add);
         service.currentSelection();
         source.replaceSelection(List.of("mesh-face"));
         service.currentSelection();
         source.replaceSelection(List.of("mesh-face"));
         service.currentSelection();
-        registration.close();
-        source.replaceSelection(List.of("deformer-root"));
-        service.currentSelection();
 
+        assertTrue(delivered.await(1, TimeUnit.SECONDS));
         assertEquals(1, events.size());
         assertEquals(List.of(new ModelObjectId("param-angle-x")), events.get(0).previousSelection().selectedModelObjectIds());
         assertEquals(List.of(new ModelObjectId("mesh-face")), events.get(0).currentSelection().selectedModelObjectIds());
@@ -87,11 +100,6 @@ class SelectionQueryServiceImplTest {
             () -> service.selectedIds(HierarchyNode.Kind.ART_MESH),
             auditEvents,
             SelectionQueryServiceImpl.SELECTED_IDS_OPERATION
-        );
-        assertDenied(
-            () -> service.onSelectionChanged(event -> { }),
-            auditEvents,
-            SelectionQueryServiceImpl.SELECTION_CHANGED_OPERATION
         );
     }
 
@@ -121,18 +129,32 @@ class SelectionQueryServiceImplTest {
         final List<CubismFacadeAuditEvent> auditEvents,
         final List<PluginPermission> permissions
     ) {
+        return serviceWith(source, auditEvents, permissions, new RuntimeEventBroker(directScheduler()));
+    }
+
+    private static SelectionQueryServiceImpl serviceWith(
+        final HostSnapshotSource source,
+        final List<CubismFacadeAuditEvent> auditEvents,
+        final List<PluginPermission> permissions,
+        final RuntimeEventBroker broker
+    ) {
         final CubismPermissionGate permissionGate = new CubismPermissionGate(
             "plugin.demo",
             permissions,
             auditEvents::add,
             FIXED_CLOCK
         );
-        return new SelectionQueryServiceImpl(new CubismFacadeImpl(source, permissionGate), permissionGate, directScheduler());
+        return new SelectionQueryServiceImpl(
+            new CubismFacadeImpl(source, permissionGate),
+            permissionGate,
+            broker,
+            broker.observationBaseline(SelectionSummary.class)
+        );
     }
 
     private static RuntimeScheduler directScheduler() {
         return new RuntimeScheduler(
-            task -> WorkBudget.SIDECAR,
+            new DefaultWorkBudgetPolicy(),
             new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
             (task, callback) -> {
                 callback.run();

@@ -61,7 +61,7 @@ class ServiceInterfaceShapeTest {
         assertTrue(queryServiceSource("ParameterQueryService").contains("boolean exists(ParameterId id)"));
         assertTrue(queryServiceSource("SelectionQueryService").contains("SelectionSummary currentSelection()"));
         assertTrue(queryServiceSource("SelectionQueryService").contains("List<ModelObjectId> selectedIds(HierarchyNode.Kind kind)"));
-        assertTrue(queryServiceSource("SelectionQueryService").contains("Registration onSelectionChanged(SelectionChangedListener listener)"));
+        assertTrue(!queryServiceSource("SelectionQueryService").contains("Registration onSelectionChanged"));
         assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("Optional<ModelHierarchy> currentHierarchy()"));
         assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("List<HierarchyNode> childrenOf(ModelObjectId id)"));
         assertTrue(queryServiceSource("ModelHierarchyQueryService").contains("Optional<HierarchyNode> findNode(ModelObjectId id)"));
@@ -81,10 +81,12 @@ class ServiceInterfaceShapeTest {
     }
 
     @Test
-    void selectionChangedListenerUsesSdkEventOnly_whenInspectingSourceContract() throws IOException {
+    void selectionObservationsUseTheSharedPluginEventBus_whenInspectingSourceContract() throws IOException {
         String source = queryServiceSource("SelectionQueryService");
 
-        assertTrue(source.contains("void selectionChanged(SelectionChangedEvent event)"));
+        assertTrue(source.contains("SelectionChangedEvent"));
+        assertTrue(source.contains("plugin event bus"));
+        assertTrue(!source.contains("SelectionChangedListener"));
     }
 
     private static String queryServiceSource(String sourceName) throws IOException {
