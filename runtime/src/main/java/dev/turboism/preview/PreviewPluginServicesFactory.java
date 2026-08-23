@@ -19,6 +19,7 @@ import dev.turboism.home.TurboismHomeLayout;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.storage.StorageRoot;
+import dev.turboism.runtime.log.CubismLogServiceHost;
 import dev.turboism.storage.RuntimePluginStorage;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.RuntimeUiScheduler;
@@ -113,6 +114,9 @@ final class PreviewPluginServicesFactory {
             .attachEventBroker(eventBroker);
         if (hostAccess.sceneTable() instanceof dev.turboism.ui.table.RuntimeSceneTableService sceneTable) {
             sceneTable.attachEventBroker(eventBroker);
+        }
+        if (hostAccess.cubismLog() instanceof CubismLogServiceHost cubismLog) {
+            cubismLog.attachEventBroker(eventBroker, scheduler);
         }
         this.hostAccess = hostAccess;
         this.hostReadLane = hostReadLane;
