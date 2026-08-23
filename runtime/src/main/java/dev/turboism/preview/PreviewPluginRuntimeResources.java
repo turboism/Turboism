@@ -141,7 +141,8 @@ record PreviewPluginRuntimeResources(
             );
         final PreviewPluginContextFactory contextFactory = new PreviewPluginContextFactory(
             home, scheduler, hostAccess, lane, log, failureCollector, fileChooserHistory,
-            parameterHookRegistry.coordinator(), partHookRegistry.coordinator(), effectiveLocale
+            parameterHookRegistry.coordinator(), partHookRegistry.coordinator(),
+            editorObjectHookRegistry.coordinator(), effectiveLocale
         );
         final dev.turboism.config.RuntimeSettingsFileService runtimeSettings =
             new dev.turboism.config.RuntimeSettingsFileService(
