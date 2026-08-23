@@ -159,6 +159,7 @@ class RuntimeFailureCollectorTest {
             case TASK -> snapshot.taskFailures();
             case STORAGE -> snapshot.storageFailures();
             case CONFIG -> snapshot.configFailures();
+            case EVENT -> snapshot.eventFailures();
         };
     }
 

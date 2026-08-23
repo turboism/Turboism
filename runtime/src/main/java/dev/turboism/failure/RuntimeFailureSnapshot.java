@@ -7,9 +7,11 @@ import java.util.Objects;
 public record RuntimeFailureSnapshot(
     List<RuntimeFailure> taskFailures,
     List<RuntimeFailure> storageFailures,
-    List<RuntimeFailure> configFailures
+    List<RuntimeFailure> configFailures,
+    List<RuntimeFailure> eventFailures
 ) {
     private static final RuntimeFailureSnapshot EMPTY = new RuntimeFailureSnapshot(
+        List.of(),
         List.of(),
         List.of(),
         List.of()
@@ -19,6 +21,7 @@ public record RuntimeFailureSnapshot(
         taskFailures = List.copyOf(Objects.requireNonNull(taskFailures, "taskFailures"));
         storageFailures = List.copyOf(Objects.requireNonNull(storageFailures, "storageFailures"));
         configFailures = List.copyOf(Objects.requireNonNull(configFailures, "configFailures"));
+        eventFailures = List.copyOf(Objects.requireNonNull(eventFailures, "eventFailures"));
     }
 
     /**

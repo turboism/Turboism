@@ -133,7 +133,8 @@ final class PreviewPluginLoader {
             );
         }
         resources.eventRegistrations = contextBundle.eventOwner().registerAnnotated(
-            resources.eventSubscribers
+            resources.eventSubscribers,
+            resources.entrypoints
         );
         runtime.setContext(contextBundle.context());
         logLocalization(candidate.descriptor(), contextBundle);
