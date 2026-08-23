@@ -358,7 +358,7 @@ public final class RuntimeEventBroker {
             descriptor.priority(),
             descriptor.entrypointOrdinal(),
             descriptor.methodOrdinal(),
-            false,
+            true,
             event -> invokeSafely(invoker, descriptor, (EventBus.TurboismEvent) event)
         );
         return registration;
