@@ -28,6 +28,8 @@ import dev.turboism.sdk.ui.table.SceneTableHeaderClickEvent;
 import dev.turboism.sdk.ui.table.SceneTableItemOrderEvent;
 import dev.turboism.sdk.ui.table.SceneTableSnapshotEvent;
 import dev.turboism.sdk.permission.PermissionIds;
+import dev.turboism.sdk.runtime.CubismLogBatchEvent;
+import dev.turboism.sdk.performance.PerformanceSampleEvent;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 
 import java.util.LinkedHashSet;
@@ -114,6 +116,12 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(SceneTableSnapshotEvent.class)
             || subscriptionType.isAssignableFrom(SceneTableItemOrderEvent.class)) {
             permissions.add(PermissionIds.TURBOISM_UI_SCENE_TABLE_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(CubismLogBatchEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_CUBISM_LOG_OBSERVE);
+        }
+        if (subscriptionType.isAssignableFrom(PerformanceSampleEvent.class)) {
+            permissions.add(PermissionIds.TURBOISM_PERFORMANCE_SAMPLE_OBSERVE);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
             || subscriptionType.isAssignableFrom(ParameterValueEvent.After.class)

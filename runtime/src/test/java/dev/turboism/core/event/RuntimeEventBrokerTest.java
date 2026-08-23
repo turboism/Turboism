@@ -526,6 +526,64 @@ class RuntimeEventBrokerTest {
     }
 
     @Test
+    void genericObservationSubscriptionsRequireDomainPermissions() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.subscriber",
+            (permissionId, operation) -> {
+                if (dev.turboism.sdk.permission.PermissionIds.TURBOISM_EVENT_SUBSCRIBE.equals(
+                    permissionId
+                )) {
+                    return;
+                }
+                throw new CubismPermissionException("missing " + permissionId);
+            }
+        );
+
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(
+                dev.turboism.sdk.runtime.CubismLogBatchEvent.class,
+                ignored -> { }
+            )
+        );
+        assertThrows(
+            CubismPermissionException.class,
+            () -> eventBus.subscribe(
+                dev.turboism.sdk.performance.PerformanceSampleEvent.class,
+                ignored -> { }
+            )
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void pluginsCannotForgeGenericRuntimeObservations() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final PluginEventBus eventBus = new PluginEventBus(
+            broker,
+            "dev.example.publisher",
+            PermissionChecker.allowAll()
+        );
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> eventBus.publish(new dev.turboism.sdk.runtime.CubismLogBatchEvent(
+                List.of(new dev.turboism.sdk.runtime.CubismLogBatchEvent.Entry(
+                    dev.turboism.sdk.runtime.CubismLogService.LogLevel.INFO,
+                    "forged",
+                    1L
+                )),
+                0L
+            ))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
     void reviewedFamilySubscriptionReceivesConcreteParameterState() throws Exception {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
