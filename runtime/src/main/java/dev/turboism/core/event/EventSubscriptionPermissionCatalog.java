@@ -3,6 +3,7 @@ package dev.turboism.core.event;
 import dev.turboism.adapter.cubism.lifecycle.ParameterHookRegistry;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.event.EventBus;
+import dev.turboism.sdk.event.cubism.DrawableOpacityEvent;
 import dev.turboism.sdk.event.cubism.ParameterValueEvent;
 import dev.turboism.sdk.event.cubism.PartNameEvent;
 import dev.turboism.sdk.event.cubism.PartOpacityEvent;
@@ -64,7 +65,8 @@ public final class EventSubscriptionPermissionCatalog {
         final Set<String> permissions = new LinkedHashSet<>();
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.Before.class)
             || subscriptionType.isAssignableFrom(PartOpacityEvent.Before.class)
-            || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)) {
+            || subscriptionType.isAssignableFrom(PartNameEvent.Before.class)
+            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.Before.class)) {
             permissions.add(ParameterHookRegistry.INTERCEPT_PERMISSION);
         }
         if (subscriptionType.isAssignableFrom(ParameterValueEvent.On.class)
@@ -72,7 +74,9 @@ public final class EventSubscriptionPermissionCatalog {
             || subscriptionType.isAssignableFrom(PartOpacityEvent.On.class)
             || subscriptionType.isAssignableFrom(PartOpacityEvent.After.class)
             || subscriptionType.isAssignableFrom(PartNameEvent.On.class)
-            || subscriptionType.isAssignableFrom(PartNameEvent.After.class)) {
+            || subscriptionType.isAssignableFrom(PartNameEvent.After.class)
+            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.On.class)
+            || subscriptionType.isAssignableFrom(DrawableOpacityEvent.After.class)) {
             permissions.add(ParameterHookRegistry.OBSERVE_PERMISSION);
         }
         return Set.copyOf(permissions);
