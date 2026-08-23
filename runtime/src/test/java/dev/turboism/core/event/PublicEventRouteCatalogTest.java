@@ -254,6 +254,53 @@ class PublicEventRouteCatalogTest {
     }
 
     @Test
+    void olderGenerationCannotReactivateAfterNewerProvider() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner first = broker.admit(providerDescriptor());
+        final RuntimeEventBroker.Owner second = broker.admit(providerDescriptor());
+        second.activate();
+
+        assertThrows(IllegalStateException.class, first::activate);
+        assertDoesNotThrow(
+            () -> broker.publish(second.key(), new PublicFixtureEvent("still-newest"))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
+    void requiredConsumerCannotActivateBeforeProvider() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        broker.admit(providerDescriptor());
+        final RuntimeEventBroker.Owner consumer = broker.admit(consumerDescriptor(
+            "[1.0.0,2.0.0)",
+            ABI,
+            true
+        ));
+
+        assertThrows(IllegalArgumentException.class, consumer::activate);
+        scheduler.shutdown();
+    }
+
+    @Test
+    void closedProviderDoesNotSatisfyNewRequiredConsumer() {
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+        final RuntimeEventBroker.Owner provider = broker.admit(providerDescriptor());
+        provider.activate();
+        provider.beginClosing();
+        assertTrue(provider.awaitQuiescence(Duration.ZERO));
+        provider.close();
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> broker.admit(consumerDescriptor("[1.0.0,2.0.0)", ABI, true))
+        );
+        scheduler.shutdown();
+    }
+
+    @Test
     void pendingReplacementDoesNotChangeProviderContractUsedForNewConsumers() {
         final RuntimeScheduler scheduler = scheduler();
         final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
