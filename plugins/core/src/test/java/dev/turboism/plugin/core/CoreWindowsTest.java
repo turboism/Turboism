@@ -9,6 +9,8 @@ import java.util.Locale;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
+
 class CoreWindowsTest {
 
     private static final PluginLocalization I18N = new PluginLocalization() {
@@ -24,6 +26,54 @@ class CoreWindowsTest {
         }
         @Override public boolean contains(final String key) { return true; }
     };
+
+    @Test
+    void cubismJvmContributionTargetsPerformanceAndKeepsGraalVmFirst() {
+        final var contribution = CubismJvmSettingsContribution.create(
+            I18N,
+            cubismJvm(CubismJvm.GRAALVM, true)
+        );
+        final var choice = (dev.turboism.sdk.ui.settings.SettingsControl.Choice) contribution.control();
+
+        assertEquals("performance", contribution.tab().id());
+        assertEquals("graalvm", choice.options().get(0).value());
+        assertEquals("graalvm", choice.binding().read());
+    }
+
+    @Test
+    void unavailableGraalVmInitialValueFallsBackToBundled() {
+        assertEquals(
+            CubismJvm.BUNDLED,
+            CubismJvmSettingsContribution.acceptedInitial(
+                cubismJvm(CubismJvm.GRAALVM, false)
+            )
+        );
+        assertEquals(
+            CubismJvm.GRAALVM,
+            CubismJvmSettingsContribution.acceptedInitial(
+                cubismJvm(CubismJvm.GRAALVM, true)
+            )
+        );
+    }
+
+    private static CubismJvmSettingsService cubismJvm(
+        final CubismJvm value,
+        final boolean available
+    ) {
+        return new CubismJvmSettingsService() {
+            @Override public CubismJvm read() { return value; }
+            @Override public CubismJvm save(final CubismJvm next) { return next; }
+            @Override public boolean graalVmAvailable() { return available; }
+        };
+    }
+
+    @Test
+    void graalVmDownloadUriUsesTheOfficialDownloadPage() {
+        assertEquals(
+            "https://www.graalvm.org/downloads/",
+            CubismJvmSettingsService.GRAALVM_DOWNLOAD_URI.toString()
+        );
+    }
 
     @Test
     void aboutHtml_containsVersionTaglineThanksAndLogoImage() {

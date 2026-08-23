@@ -1,12 +1,16 @@
 package dev.turboism.ui;
 
+import dev.turboism.core.runtime.CancellationContext;
 import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeCancellationToken;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 
+import javax.swing.SwingUtilities;
 import java.time.Duration;
 import java.util.Objects;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -33,11 +37,13 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     public Registration runOnUiThread(Runnable work) {
         Objects.requireNonNull(work, "work");
         AtomicBoolean cancelled = new AtomicBoolean();
-        scheduler.dispatch(task("immediate UI work"), () -> {
-            if (!cancelled.get()) {
-                work.run();
-            }
-        });
+        final boolean accepted = scheduler.dispatch(
+            task("immediate UI work"),
+            () -> dispatchOnEdt(work, cancelled)
+        );
+        if (!accepted) {
+            throw new IllegalStateException("UI_SCHEDULER_REJECTED");
+        }
         return () -> cancelled.set(true);
     }
 
@@ -47,11 +53,10 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
         Objects.requireNonNull(delay, "delay");
         AtomicBoolean cancelled = new AtomicBoolean();
         ScheduledFuture<?> scheduled = timer.schedule(
-            () -> scheduler.dispatch(task("delayed UI work"), () -> {
-                if (!cancelled.get()) {
-                    work.run();
-                }
-            }),
+            () -> scheduler.dispatch(
+                task("delayed UI work"),
+                () -> dispatchOnEdt(work, cancelled)
+            ),
             Math.max(0L, delay.toMillis()),
             TimeUnit.MILLISECONDS
         );
@@ -64,6 +69,104 @@ public final class RuntimeUiScheduler implements UiScheduler, AutoCloseable {
     @Override
     public void close() {
         timer.shutdownNow();
+    }
+
+    /**
+     * Enqueues work on the EDT and waits for that work to settle from the runtime
+     * worker. This makes the runtime work budget cover the callback itself rather
+     * than merely the enqueue operation.
+     *
+     * <p>A timeout is cooperative: the queued callback is cancelled before it
+     * starts, but a callback already running on the EDT is never interrupted or
+     * otherwise preempted.
+     */
+    private static void dispatchOnEdt(
+        final Runnable work,
+        final AtomicBoolean cancelled
+    ) {
+        if (SwingUtilities.isEventDispatchThread()) {
+            runGuarded(work, cancelled, CancellationContext.get());
+            return;
+        }
+
+        RuntimeCancellationToken token = CancellationContext.get();
+        EdtCallback callback = new EdtCallback(work, cancelled, token);
+        SwingUtilities.invokeLater(callback);
+        try {
+            callback.awaitCompletion();
+        } catch (InterruptedException exception) {
+            cancelled.set(true);
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("UI callback was interrupted while awaiting the EDT", exception);
+        }
+    }
+
+    private static void runGuarded(
+        final Runnable work,
+        final AtomicBoolean cancelled,
+        final RuntimeCancellationToken token
+    ) {
+        if (cancelled.get()) {
+            return;
+        }
+        if (token != null) {
+            CancellationContext.set(token);
+        }
+        try {
+            if (!cancelled.get()) {
+                work.run();
+            }
+        } finally {
+            if (token != null) {
+                CancellationContext.clear();
+            }
+        }
+    }
+
+    private static final class EdtCallback implements Runnable {
+
+        private final Runnable work;
+        private final AtomicBoolean cancelled;
+        private final RuntimeCancellationToken token;
+        private final CountDownLatch settled = new CountDownLatch(1);
+        private volatile Throwable failure;
+
+        private EdtCallback(
+            final Runnable work,
+            final AtomicBoolean cancelled,
+            final RuntimeCancellationToken token
+        ) {
+            this.work = work;
+            this.cancelled = cancelled;
+            this.token = token;
+        }
+
+        @Override
+        public void run() {
+            try {
+                runGuarded(work, cancelled, token);
+            } catch (Throwable exception) {
+                failure = exception;
+            } finally {
+                settled.countDown();
+            }
+        }
+
+        private void awaitCompletion() throws InterruptedException {
+            settled.await();
+            if (failure != null) {
+                throwUnchecked(failure);
+            }
+        }
+
+        private static void throwUnchecked(final Throwable failure) {
+            EdtCallback.<RuntimeException>throwAny(failure);
+        }
+
+        @SuppressWarnings("unchecked")
+        private static <T extends Throwable> void throwAny(final Throwable failure) throws T {
+            throw (T) failure;
+        }
     }
 
     private PluginTask task(String payloadDescription) {

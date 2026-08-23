@@ -4,6 +4,10 @@ import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.runtime.RuntimeLogReader;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
+import dev.turboism.sdk.ui.settings.SettingsContributionSource;
+import dev.turboism.sdk.ui.settings.SettingsSnapshot;
+import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.sdk.ui.settings.SettingsChangeDecision;
 
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
@@ -35,17 +39,22 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LinearGradientPaint;
 import java.awt.RenderingHints;
+import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 /** Runtime-owned core windows; plugins never receive Swing objects. */
 final class CoreWindows implements AutoCloseable {
     private final PluginLocalization i18n;
     private final RuntimeSettingsService settings;
+    private final SettingsContributionSource settingsContributions;
     private final CorePluginManagement plugins;
     private final CoreLogWindow logWindow;
     private JDialog settingsDialog;
@@ -62,18 +71,24 @@ final class CoreWindows implements AutoCloseable {
     CoreWindows(
         final PluginLocalization i18n,
         final RuntimeSettingsService settings,
+        final SettingsContributionSource settingsContributions,
         final CorePluginManagement plugins,
         final RuntimeLogReader logs
     ) {
         this.i18n = Objects.requireNonNull(i18n, "i18n");
         this.settings = Objects.requireNonNull(settings, "settings");
+        this.settingsContributions = Objects.requireNonNull(
+            settingsContributions,
+            "settingsContributions"
+        );
         this.plugins = Objects.requireNonNull(plugins, "plugins");
         this.logWindow = new CoreLogWindow(i18n, logs);
     }
 
     void showSettings() {
         CoreDialogs.onEdt(() -> {
-            if (settingsDialog == null) settingsDialog = createSettingsDialog();
+            if (settingsDialog != null) settingsDialog.dispose();
+            settingsDialog = createSettingsDialog();
             CoreDialogs.show(settingsDialog);
         });
     }
@@ -141,20 +156,25 @@ final class CoreWindows implements AutoCloseable {
         final JCheckBox separateExportSaveDirectory =
             new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
 
-        final JTabbedPane tabs = new JTabbedPane();
+        final Map<String, BuiltinTab> builtins = new LinkedHashMap<>();
         final JPanel runtime = form();
         add(runtime, 0, new JLabel(text("settings.log-level")), logLevel);
         add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
         add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
         add(runtime, 3, safeMode, new JLabel());
-        tabs.addTab(text("settings.tab.runtime"), runtime);
+        builtins.put("runtime", new BuiltinTab(text("settings.tab.runtime"), 100, runtime));
+
+        builtins.put(
+            "performance",
+            new BuiltinTab(text("settings.tab.performance"), 200, form())
+        );
 
         final JPanel startup = form();
         add(startup, 0, skipUpdate, new JLabel());
         add(startup, 1, skipSplash, new JLabel());
         add(startup, 2, skipInformation, new JLabel());
         add(startup, 3, separateExportSaveDirectory, new JLabel());
-        tabs.addTab(text("settings.tab.startup"), startup);
+        builtins.put("startup", new BuiltinTab(text("settings.tab.startup"), 300, startup));
 
         final JPanel maintenance = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 12));
         final JButton clean = new JButton(text("settings.clean-empty-docks"));
@@ -162,7 +182,13 @@ final class CoreWindows implements AutoCloseable {
             dialog, text("common.turboism"), settings.cleanEmptyDocks().message()
         ));
         maintenance.add(clean);
-        tabs.addTab(text("settings.tab.maintenance"), maintenance);
+        builtins.put(
+            "maintenance",
+            new BuiltinTab(text("settings.tab.maintenance"), 400, maintenance)
+        );
+
+        final RenderedSettings rendered = renderSettings(dialog, builtins);
+        final JTabbedPane tabs = rendered.tabs();
 
         final JButton ok = new JButton(text("common.ok"));
         final JButton cancel = new JButton(text("common.cancel"));
@@ -174,6 +200,7 @@ final class CoreWindows implements AutoCloseable {
                 skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
                 separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
             ));
+            rendered.save().run();
             CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
         };
         ok.addActionListener(ignored -> { save.run(); dialog.setVisible(false); });
@@ -186,6 +213,197 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    private RenderedSettings renderSettings(
+        final JDialog owner,
+        final Map<String, BuiltinTab> builtins
+    ) {
+        final List<RenderedTab> renderedTabs = new ArrayList<>();
+        for (Map.Entry<String, BuiltinTab> entry : builtins.entrySet()) {
+            renderedTabs.add(new RenderedTab(
+                entry.getKey(), entry.getValue().title(), entry.getValue().index(), entry.getValue().panel()
+            ));
+        }
+        final List<Runnable> saves = new ArrayList<>();
+        for (SettingsSnapshot.Tab tab : settingsContributions.snapshot()) {
+            RenderedTab rendered = renderedTabs.stream()
+                .filter(candidate -> candidate.id().equals(tab.id()))
+                .findFirst()
+                .orElseGet(() -> {
+                    final RenderedTab created = new RenderedTab(
+                        tab.id(), tab.title(), tab.index().orElse(Integer.MAX_VALUE), form()
+                    );
+                    renderedTabs.add(created);
+                    return created;
+                });
+            int row = rendered.panel().getComponentCount() / 2;
+            for (SettingsSnapshot.Entry entry : tab.contributions()) {
+                saves.add(renderControl(owner, rendered.panel(), row++, entry.contribution().control()));
+            }
+        }
+        renderedTabs.sort(java.util.Comparator
+            .comparingInt(RenderedTab::index)
+            .thenComparing(RenderedTab::id));
+        final JTabbedPane tabs = new JTabbedPane();
+        for (RenderedTab tab : renderedTabs) tabs.addTab(tab.title(), tab.panel());
+        return new RenderedSettings(tabs, () -> saves.forEach(Runnable::run));
+    }
+
+    private Runnable renderControl(
+        final JDialog owner,
+        final JPanel panel,
+        final int row,
+        final SettingsControl control
+    ) {
+        if (control instanceof SettingsControl.Choice choice) {
+            final JComboBox<SettingsControl.Option> combo = new JComboBox<>(
+                choice.options().toArray(SettingsControl.Option[]::new)
+            );
+            final String initial = requireChoiceValue(choice, choice.binding().read());
+            select(combo, initial);
+            final String[] accepted = {initial};
+            final boolean[] changing = {false};
+            combo.addActionListener(ignored -> {
+                if (changing[0]) return;
+                final SettingsControl.Option selected =
+                    (SettingsControl.Option) combo.getSelectedItem();
+                if (selected == null) return;
+                final SettingsChangeDecision decision = choice.validator().validate(
+                    accepted[0], selected.value()
+                );
+                if (decision.accepted()) {
+                    accepted[0] = selected.value();
+                    return;
+                }
+                changing[0] = true;
+                try {
+                    select(combo, accepted[0]);
+                } finally {
+                    changing[0] = false;
+                }
+                showRejectedChange(owner, decision);
+            });
+            add(panel, row, new JLabel(choice.label()), combo);
+            return () -> choice.binding().write(accepted[0]);
+        }
+        if (control instanceof SettingsControl.Toggle toggle) {
+            final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
+            final JCheckBox checkbox = new JCheckBox(toggle.label(), initial);
+            final boolean[] accepted = {initial};
+            final boolean[] changing = {false};
+            checkbox.addActionListener(ignored -> {
+                if (changing[0]) return;
+                final boolean proposed = checkbox.isSelected();
+                final SettingsChangeDecision decision = toggle.validator().validate(
+                    accepted[0], proposed
+                );
+                if (decision.accepted()) {
+                    accepted[0] = proposed;
+                    return;
+                }
+                changing[0] = true;
+                try {
+                    checkbox.setSelected(accepted[0]);
+                } finally {
+                    changing[0] = false;
+                }
+                showRejectedChange(owner, decision);
+            });
+            add(panel, row, checkbox, new JLabel());
+            return () -> toggle.binding().write(accepted[0]);
+        }
+        if (control instanceof SettingsControl.Text text) {
+            final String initial = Objects.toString(text.binding().read(), "");
+            final JTextField field = new JTextField(initial, text.columns());
+            add(panel, row, new JLabel(text.label()), field);
+            return () -> {
+                final String proposed = field.getText();
+                final SettingsChangeDecision decision = text.validator().validate(initial, proposed);
+                if (!decision.accepted()) {
+                    field.setText(initial);
+                    showRejectedChange(owner, decision);
+                    return;
+                }
+                text.binding().write(proposed);
+            };
+        }
+        throw new IllegalArgumentException("unsupported settings control: " + control.getClass().getName());
+    }
+
+    private static String requireChoiceValue(
+        final SettingsControl.Choice choice,
+        final String value
+    ) {
+        final boolean present = choice.options().stream().anyMatch(option -> option.value().equals(value));
+        if (!present) {
+            throw new IllegalStateException(
+                "settings binding returned an unknown choice for " + choice.id()
+            );
+        }
+        return value;
+    }
+
+    private static void select(
+        final JComboBox<SettingsControl.Option> combo,
+        final String value
+    ) {
+        for (int index = 0; index < combo.getItemCount(); index++) {
+            if (combo.getItemAt(index).value().equals(value)) {
+                combo.setSelectedIndex(index);
+                return;
+            }
+        }
+        throw new IllegalArgumentException("unknown settings choice: " + value);
+    }
+
+    private void showRejectedChange(
+        final JDialog owner,
+        final SettingsChangeDecision decision
+    ) {
+        if (decision.link().isEmpty()) {
+            javax.swing.JOptionPane.showMessageDialog(
+                owner,
+                decision.message(),
+                decision.title(),
+                javax.swing.JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+        final var link = decision.link().orElseThrow();
+        final Object[] options = {link.label(), text("common.cancel")};
+        final int choice = javax.swing.JOptionPane.showOptionDialog(
+            owner,
+            decision.message(),
+            decision.title(),
+            javax.swing.JOptionPane.DEFAULT_OPTION,
+            javax.swing.JOptionPane.WARNING_MESSAGE,
+            null,
+            options,
+            options[0]
+        );
+        if (choice == 0) openSettingsLink(link);
+    }
+
+    private void openSettingsLink(final dev.turboism.sdk.ui.settings.SettingsLink link) {
+        try {
+            if (!Desktop.isDesktopSupported()
+                || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                throw new IOException("desktop browsing is unavailable");
+            }
+            Desktop.getDesktop().browse(link.uri());
+        } catch (IOException | RuntimeException failure) {
+            CoreDialogs.message(settingsDialog, text("common.turboism"), link.openFailureMessage());
+        }
+    }
+
+    record BuiltinTab(String title, int index, JPanel panel) {
+    }
+
+    private record RenderedTab(String id, String title, int index, JPanel panel) {
+    }
+
+    record RenderedSettings(JTabbedPane tabs, Runnable save) {
     }
 
     private JDialog createPluginsDialog() {

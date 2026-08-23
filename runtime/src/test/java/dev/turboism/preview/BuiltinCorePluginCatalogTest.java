@@ -27,8 +27,14 @@ class BuiltinCorePluginCatalogTest {
                 diagnostic -> { throw new AssertionError(diagnostic.code() + ": " + diagnostic.message()); }
             );
 
-            assertEquals(descriptor.i18n().locales(), localization.reportSnapshot().catalogs().stream()
-                .map(RuntimePluginLocalization.CatalogSnapshot::locale).toList());
+            assertEquals(
+                java.util.stream.Stream.concat(
+                    descriptor.i18n().locales().stream(),
+                    java.util.stream.Stream.of("base")
+                ).distinct().toList(),
+                localization.reportSnapshot().catalogs().stream()
+                    .map(RuntimePluginLocalization.CatalogSnapshot::locale).toList()
+            );
             assertTrue(localization.reportSnapshot().catalogs().stream()
                 .allMatch(catalog -> catalog.state().equals("AVAILABLE")));
             assertEquals("Plugin Management", localization.text("main-toolbar.plugins-menu.label"));
