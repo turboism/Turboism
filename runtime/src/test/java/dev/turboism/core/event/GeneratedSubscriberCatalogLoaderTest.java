@@ -41,6 +41,32 @@ class GeneratedSubscriberCatalogLoaderTest {
     }
 
     @Test
+    void ignoresGeneratedCatalogProvidersInheritedFromParentClasspath() throws Exception {
+        final Path root = Files.createTempDirectory("parent-generated-subscriber-loader");
+        final Path serviceFile = root.resolve("META-INF/services").resolve(
+            GeneratedSubscriberCatalog.class.getName()
+        );
+        Files.createDirectories(serviceFile.getParent());
+        Files.writeString(
+            serviceFile,
+            FixtureCatalog.class.getName() + System.lineSeparator()
+        );
+        try (URLClassLoader loader = new URLClassLoader(
+            new URL[]{root.toUri().toURL()},
+            getClass().getClassLoader()
+        )) {
+            final List<EventSubscriberDescriptor> descriptors =
+                new GeneratedSubscriberCatalogLoader().inspect(
+                    List.of(new Subscriber()),
+                    loader
+                );
+
+            assertEquals(1, descriptors.size());
+            assertEquals("on", descriptors.get(0).method().getName());
+        }
+    }
+
+    @Test
     void loadsExactGeneratedCatalogWithoutReflectiveMethod() throws Exception {
         final Path root = Files.createTempDirectory("generated-subscriber-loader");
         final String service = GeneratedSubscriberCatalog.class.getName();

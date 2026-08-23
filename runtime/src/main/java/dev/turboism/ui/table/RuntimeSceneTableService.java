@@ -20,6 +20,7 @@ public final class RuntimeSceneTableService implements SceneTableService {
         this.host = Objects.requireNonNull(host, "host");
     }
 
+    /** Attaches the session event broker used to publish scene-table observations. */
     public void attachEventBroker(final RuntimeEventBroker broker) {
         final RuntimeEventBroker value = Objects.requireNonNull(broker, "broker");
         synchronized (this) {
@@ -34,6 +35,7 @@ public final class RuntimeSceneTableService implements SceneTableService {
         }
     }
 
+    /** Returns the latest detached scene-table snapshot, when one has been observed. */
     public java.util.Optional<TableSnapshot> latestSnapshot() {
         return java.util.Optional.ofNullable(latestSnapshot);
     }

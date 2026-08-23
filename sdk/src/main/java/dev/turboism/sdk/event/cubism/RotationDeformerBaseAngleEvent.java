@@ -42,6 +42,7 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted base-angle edit. */
         public static Callback openCallback(
             final RotationDeformer deformer,
             final float requestedAngle,
@@ -52,8 +53,10 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
 
         @Override public RotationDeformer deformer() { return deformer; }
         public float requestedAngle() { return requestedAngle; }
+        /** Returns the candidate base-angle value that will be applied. */
         public float angle() { return angle; }
 
+        /** Replaces the candidate base-angle value for the current callback. */
         public void setAngle(final float angle) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.angle = angle;
@@ -71,6 +74,7 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
                 event = new Before(deformer, requestedAngle, angle, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

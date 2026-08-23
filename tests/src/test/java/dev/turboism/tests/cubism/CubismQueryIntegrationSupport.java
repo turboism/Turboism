@@ -124,7 +124,9 @@ final class CubismQueryIntegrationSupport {
 
     static RuntimeScheduler directRuntimeScheduler() {
         return new RuntimeScheduler(
-            task -> WorkBudget.SIDECAR,
+            task -> "event.subscribe".equals(task.taskType())
+                ? WorkBudget.LIGHTWEIGHT
+                : WorkBudget.SIDECAR,
             new PluginWorkExecutorRegistry(1, 2, event -> { }, FIXED_CLOCK),
             (task, callback) -> {
                 callback.run();

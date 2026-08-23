@@ -43,6 +43,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted form edit. */
         public static Callback openCallback(
             final RotationDeformer deformer,
             final RotationDeformerForm requestedForm,
@@ -53,8 +54,10 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
 
         @Override public RotationDeformer deformer() { return deformer; }
         public RotationDeformerForm requestedForm() { return requestedForm; }
+        /** Returns the candidate form value that will be applied. */
         public RotationDeformerForm form() { return form; }
 
+        /** Replaces the candidate form value for the current callback. */
         public void setForm(final RotationDeformerForm form) {
             if (callbackScope != null) callbackScope.requireOpen();
             this.form = Objects.requireNonNull(form, "form");
@@ -72,6 +75,7 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
                 event = new Before(deformer, requestedForm, form, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

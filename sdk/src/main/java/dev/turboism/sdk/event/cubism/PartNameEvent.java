@@ -37,6 +37,7 @@ public sealed interface PartNameEvent extends TurboismEvent
             this.callbackScope = callbackScope;
         }
 
+        /** Opens a callback-scoped mutable candidate for the intercepted name edit. */
         public static Callback openCallback(
             final Part part,
             final String requestedName,
@@ -47,8 +48,10 @@ public sealed interface PartNameEvent extends TurboismEvent
 
         @Override public Part part() { return part; }
         public String requestedName() { return requestedName; }
+        /** Returns the candidate name value that will be applied. */
         public String name() { return name; }
 
+        /** Replaces the candidate name value for the current callback. */
         public void setName(final String name) {
             if (callbackScope != null) {
                 callbackScope.requireOpen();
@@ -69,6 +72,7 @@ public sealed interface PartNameEvent extends TurboismEvent
                 event = new Before(part, requestedName, name, scope);
             }
 
+            /** Returns the mutable event while this callback scope remains open. */
             public Before event() {
                 scope.requireOpen();
                 return event;

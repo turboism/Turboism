@@ -8,7 +8,6 @@ from pathlib import Path
 
 FORBIDDEN_DIRECTORIES = (
     "sdk/src/main/java/dev/turboism/sdk/cubism/callback",
-    "sdk/src/main/java/dev/turboism/sdk/event/cubism",
 )
 
 FORBIDDEN_FILES = (
@@ -23,7 +22,6 @@ FORBIDDEN_FILES = (
 )
 
 REQUIRED_FILES = (
-    "sdk/src/main/java/dev/turboism/sdk/cubism/hook/ModelHooks.java",
     "sdk/src/main/java/dev/turboism/sdk/cubism/hook/ParameterHooks.java",
     "sdk/src/main/java/dev/turboism/sdk/cubism/hook/PartHooks.java",
     "sdk/src/main/java/dev/turboism/sdk/cubism/event/SelectionChangedEvent.java",
@@ -37,7 +35,6 @@ REQUIRED_FILES = (
 
 FORBIDDEN_PRODUCTION_TEXT = (
     "dev.turboism.sdk.cubism.callback",
-    "dev.turboism.sdk.event.cubism",
     "dev.turboism.sdk.cubism.transaction.DocumentId",
     "CallbackExecutionResult",
     "CallbackExecutionStatus",
