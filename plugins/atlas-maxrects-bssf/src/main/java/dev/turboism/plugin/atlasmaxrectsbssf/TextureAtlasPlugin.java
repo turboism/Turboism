@@ -58,18 +58,22 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
                 context.cubism().textureAtlasAlgorithms();
             final boolean parallel = settings.confirmed().parallel();
-            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-                ALGORITHM_MAXRECTS,
-                context.localization().text("texture-atlas.algorithm.maxrects"),
-                true,
-                (items, constraints) ->
-                    new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
+            context.disposableScope().register(registry.register(
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                    ALGORITHM_MAXRECTS,
+                    context.localization().text("texture-atlas.algorithm.maxrects"),
+                    true,
+                    (items, constraints) ->
+                        new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
+                )
             ));
-            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-                ALGORITHM_NATIVE,
-                context.localization().text("texture-atlas.algorithm.native"),
-                false,
-                null
+            context.disposableScope().register(registry.register(
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+                    ALGORITHM_NATIVE,
+                    context.localization().text("texture-atlas.algorithm.native"),
+                    false,
+                    null
+                )
             ));
         } catch (Throwable failure) {
             context.logger().warn("Texture Atlas algorithm registration failed safely: " + failure);
