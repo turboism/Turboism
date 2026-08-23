@@ -1,15 +1,24 @@
 package dev.turboism.runtime.log;
 
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.RuntimeTimerHandle;
+import dev.turboism.core.runtime.RuntimeTimerSubmission;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.runtime.CubismLogBatchEvent;
 import dev.turboism.sdk.runtime.CubismLogService;
 
 import java.lang.reflect.Proxy;
+import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 
 /**
  * Host adapter exposing Cubism's own log stream to plugins.
@@ -22,12 +31,99 @@ import java.util.function.Consumer;
  */
 public final class CubismLogServiceHost implements CubismLogService, AutoCloseable {
 
+    static final int DEFAULT_EVENT_QUEUE_CAPACITY = 256;
+    static final int DEFAULT_EVENT_BATCH_SIZE = 32;
+    static final int MAX_EVENT_MESSAGE_LENGTH = 1024;
+    static final Duration DEFAULT_EVENT_FLUSH_DELAY = Duration.ofMillis(100);
+
+    private static final String REDACTED_PATH = "<redacted-path>";
+    private static final String REDACTED_URI = "<redacted-uri>";
+    private static final String REDACTED_SECRET = "<redacted-secret>";
+    private static final Pattern URI = Pattern.compile(
+        "(?i)\\b(?:https?|file)://[^\\s\\\"']+"
+    );
+    private static final Pattern UNC_PATH = Pattern.compile(
+        "\\\\\\\\[^\\s\\\"'<>]+(?:\\\\[^\\s\\\"'<>]+)+"
+    );
+    private static final Pattern WINDOWS_PATH = Pattern.compile(
+        "(?i)(?<![A-Za-z0-9])(?:[A-Z]:[\\\\/])[^\\s\\\"'<>]+"
+    );
+    private static final Pattern HOME_PATH = Pattern.compile(
+        "(?<![A-Za-z0-9_])~(?:[/\\\\])[^\\s\\\"'<>]+"
+    );
+    private static final Pattern UNIX_PATH = Pattern.compile(
+        "(?<![A-Za-z0-9._~:/-])/(?:[^/\\s\\\"'<>]+/)*[^\\s\\\"'<>]+"
+    );
+    private static final Pattern AUTHORIZATION = Pattern.compile(
+        "(?i)\\b(?:authorization\\s*[:=]\\s*|bearer\\s+)"
+            + "[A-Za-z0-9._~+/=-]+"
+    );
+    private static final Pattern SECRET_ASSIGNMENT = Pattern.compile(
+        "(?i)\\b(?:token|secret|password)\\s*[:=]\\s*[A-Za-z0-9._~+/=-]+"
+    );
+
     private final List<Consumer<LogEntry>> listeners = new CopyOnWriteArrayList<>();
     private final AtomicReference<LogFilter> filter = new AtomicReference<>(LogFilter.all());
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final Object eventLock = new Object();
+    private final ArrayDeque<CubismLogBatchEvent.Entry> eventQueue = new ArrayDeque<>();
+    private final int eventQueueCapacity;
+    private final int eventBatchSize;
+    private final Duration eventFlushDelay;
+    private RuntimeEventBroker eventBroker;
+    private RuntimeScheduler eventScheduler;
+    private RuntimeTimerHandle eventFlushTimer;
+    private long droppedEventEntries;
     private volatile Object wrappedAppender;
     private volatile Object originalAppender;
     private volatile ClassLoader hostClassLoader;
+
+    public CubismLogServiceHost() {
+        this(
+            DEFAULT_EVENT_QUEUE_CAPACITY,
+            DEFAULT_EVENT_BATCH_SIZE,
+            DEFAULT_EVENT_FLUSH_DELAY
+        );
+    }
+
+    CubismLogServiceHost(
+        final int eventQueueCapacity,
+        final int eventBatchSize,
+        final Duration eventFlushDelay
+    ) {
+        if (eventQueueCapacity < 1) {
+            throw new IllegalArgumentException("eventQueueCapacity must be positive");
+        }
+        if (eventBatchSize < 1 || eventBatchSize > eventQueueCapacity) {
+            throw new IllegalArgumentException(
+                "eventBatchSize must be positive and no greater than eventQueueCapacity"
+            );
+        }
+        this.eventQueueCapacity = eventQueueCapacity;
+        this.eventBatchSize = eventBatchSize;
+        this.eventFlushDelay = Objects.requireNonNull(eventFlushDelay, "eventFlushDelay");
+        if (eventFlushDelay.isNegative() || eventFlushDelay.isZero()) {
+            throw new IllegalArgumentException("eventFlushDelay must be positive");
+        }
+    }
+
+    /**
+     * Attaches the session event broker used for privacy-safe batched observations.
+     * Reattachment discards queued entries owned by the previous composition.
+     */
+    public void attachEventBroker(
+        final RuntimeEventBroker broker,
+        final RuntimeScheduler scheduler
+    ) {
+        synchronized (eventLock) {
+            requireOpen();
+            cancelEventFlushLocked();
+            eventQueue.clear();
+            droppedEventEntries = 0L;
+            eventBroker = Objects.requireNonNull(broker, "broker");
+            eventScheduler = Objects.requireNonNull(scheduler, "scheduler");
+        }
+    }
 
     /** Connects to Cubism's Log4j2 context. Logs the appender topology for diagnosis. */
     public synchronized void connect(final ClassLoader hostClassLoader) {
@@ -200,6 +296,121 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
                 // A misbehaving subscriber must not break the log stream.
             }
         }
+        enqueueEventObservation(entry);
+    }
+
+    private void enqueueEventObservation(final LogEntry entry) {
+        synchronized (eventLock) {
+            if (closed.get() || eventBroker == null || eventScheduler == null) {
+                return;
+            }
+            if (eventQueue.size() >= eventQueueCapacity) {
+                droppedEventEntries++;
+                scheduleEventFlushLocked();
+                return;
+            }
+            eventQueue.addLast(new CubismLogBatchEvent.Entry(
+                entry.level(),
+                redactAndBound(entry.message()),
+                Math.max(0L, entry.timestampNanos())
+            ));
+            scheduleEventFlushLocked();
+        }
+    }
+
+    private void scheduleEventFlushLocked() {
+        if (eventFlushTimer != null || eventScheduler == null) {
+            return;
+        }
+        final RuntimeTimerSubmission submission = eventScheduler.schedule(
+            eventFlushDelay,
+            this::flushEventBatch
+        );
+        if (submission.accepted()) {
+            eventFlushTimer = submission.handle();
+        } else {
+            droppedEventEntries += eventQueue.size();
+            eventQueue.clear();
+        }
+    }
+
+    private void flushEventBatch() {
+        final CubismLogBatchEvent batch;
+        synchronized (eventLock) {
+            eventFlushTimer = null;
+            if (closed.get() || eventBroker == null) {
+                eventQueue.clear();
+                droppedEventEntries = 0L;
+                return;
+            }
+            batch = drainEventBatchLocked();
+            if (!eventQueue.isEmpty() || droppedEventEntries > 0L) {
+                scheduleEventFlushLocked();
+            }
+        }
+        publishEventBatch(batch);
+    }
+
+    private CubismLogBatchEvent drainEventBatchLocked() {
+        if (eventQueue.isEmpty() && droppedEventEntries == 0L) {
+            return null;
+        }
+        final int count = Math.min(eventBatchSize, eventQueue.size());
+        final List<CubismLogBatchEvent.Entry> entries = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            entries.add(eventQueue.removeFirst());
+        }
+        final long dropped = droppedEventEntries;
+        droppedEventEntries = 0L;
+        cancelEventFlushLocked();
+        return new CubismLogBatchEvent(entries, dropped);
+    }
+
+    private void publishEventBatch(final CubismLogBatchEvent batch) {
+        if (batch == null || closed.get()) {
+            return;
+        }
+        final RuntimeEventBroker broker;
+        synchronized (eventLock) {
+            broker = eventBroker;
+        }
+        if (broker != null) {
+            try {
+                broker.publishRuntime(batch);
+            } catch (ThreadDeath | VirtualMachineError fatal) {
+                throw fatal;
+            } catch (Throwable ignored) {
+                // Observation delivery cannot break Cubism's host log stream.
+            }
+        }
+    }
+
+    private void cancelEventFlushLocked() {
+        final RuntimeTimerHandle timer = eventFlushTimer;
+        eventFlushTimer = null;
+        if (timer != null) {
+            timer.cancel();
+        }
+    }
+
+    private static String redactAndBound(final String message) {
+        String sanitized = Objects.requireNonNull(message, "message");
+        sanitized = URI.matcher(sanitized).replaceAll(REDACTED_URI);
+        sanitized = UNC_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        sanitized = WINDOWS_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        sanitized = HOME_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        sanitized = UNIX_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        sanitized = AUTHORIZATION.matcher(sanitized).replaceAll(REDACTED_SECRET);
+        sanitized = SECRET_ASSIGNMENT.matcher(sanitized).replaceAll(REDACTED_SECRET);
+        return sanitized.length() <= MAX_EVENT_MESSAGE_LENGTH
+            ? sanitized
+            : sanitized.substring(0, MAX_EVENT_MESSAGE_LENGTH);
+    }
+
+    private void requireOpen() {
+        if (closed.get()) {
+            throw new IllegalStateException("Cubism log service is closed");
+        }
     }
 
     @Override
@@ -208,6 +419,13 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
             return;
         }
         listeners.clear();
+        synchronized (eventLock) {
+            cancelEventFlushLocked();
+            eventQueue.clear();
+            droppedEventEntries = 0L;
+            eventBroker = null;
+            eventScheduler = null;
+        }
         if (wrappedAppender != null && originalAppender != null && hostClassLoader != null) {
             try {
                 final Class<?> logManager = Class.forName(
