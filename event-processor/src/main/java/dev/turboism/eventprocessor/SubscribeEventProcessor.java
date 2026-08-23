@@ -16,6 +16,7 @@ import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.PackageElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
@@ -56,13 +57,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         final RoundEnvironment round
     ) {
         final Map<TypeElement, List<ExecutableElement>> subscribers = new LinkedHashMap<>();
+        final List<TypeElement> candidates = new ArrayList<>();
         for (Element root : round.getRootElements()) {
-            if (!(root instanceof TypeElement owner)
-                || owner.getKind() != ElementKind.CLASS
-                || !owner.getModifiers().contains(Modifier.PUBLIC)
-                || owner.getModifiers().contains(Modifier.ABSTRACT)) {
-                continue;
-            }
+            collectCandidates(root, candidates);
+        }
+        for (TypeElement owner : candidates) {
             final List<ExecutableElement> methods = processingEnv.getElementUtils()
                 .getAllMembers(owner).stream()
                 .filter(element -> element.getKind() == ElementKind.METHOD)
@@ -74,12 +73,33 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
                 subscribers.put(owner, methods);
             }
         }
-        subscribers.forEach(this::generate);
+        subscribers.entrySet().stream()
+            .sorted(Map.Entry.comparingByKey(Comparator.comparing(
+                owner -> owner.getQualifiedName().toString()
+            )))
+            .forEach(entry -> generate(entry.getKey(), entry.getValue()));
         if (round.processingOver() && !serviceWritten) {
             writeServiceFile();
             serviceWritten = true;
         }
         return false;
+    }
+
+    private static void collectCandidates(
+        final Element element,
+        final List<TypeElement> candidates
+    ) {
+        if (element instanceof TypeElement owner
+            && owner.getKind() == ElementKind.CLASS
+            && owner.getModifiers().contains(Modifier.PUBLIC)
+            && !owner.getModifiers().contains(Modifier.ABSTRACT)) {
+            candidates.add(owner);
+        }
+        for (Element enclosed : element.getEnclosedElements()) {
+            if (enclosed instanceof TypeElement) {
+                collectCandidates(enclosed, candidates);
+            }
+        }
     }
 
     private boolean validate(final ExecutableElement method, final TypeElement owner) {
@@ -109,6 +129,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
             error(method, "subscriber parameter must implement TurboismEvent");
             valid = false;
         }
+        if (!(parameter instanceof DeclaredType declared)
+            || !declared.getTypeArguments().isEmpty()) {
+            error(method, "subscriber parameter must be a concrete reifiable event type");
+            valid = false;
+        }
         return valid;
     }
 
@@ -122,9 +147,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
         final PackageElement ownerPackage = processingEnv.getElementUtils().getPackageOf(owner);
         final String packageName = ownerPackage.getQualifiedName().toString();
         final String ownerName = owner.getQualifiedName().toString();
-        final String simpleOwner = ownerName.substring(packageName.isEmpty() ? 0 : packageName.length() + 1)
-            .replace('.', '_');
-        final String simpleCatalog = simpleOwner + "__TurboismSubscriberCatalog";
+        final String relativeOwner = ownerName.substring(
+            packageName.isEmpty() ? 0 : packageName.length() + 1
+        );
+        final String simpleCatalog = relativeOwner.replace("_", "__")
+            .replace(".", "_N_") + "__TurboismSubscriberCatalog";
         final String catalogName = packageName.isEmpty()
             ? simpleCatalog
             : packageName + "." + simpleCatalog;
