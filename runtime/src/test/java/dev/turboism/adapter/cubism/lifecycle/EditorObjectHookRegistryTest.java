@@ -6,6 +6,16 @@ import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
+import dev.turboism.core.event.EntrypointSubscriberCatalog;
+import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
+import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
+import dev.turboism.core.runtime.sidecar.SidecarResult;
+import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
+import dev.turboism.sdk.event.SubscribeEvent;
+import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
@@ -21,6 +31,11 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.time.Clock;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -236,6 +251,108 @@ class EditorObjectHookRegistryTest {
         }
     }
 
+    @Test
+    void previewAdaptersReplaceLegacyDrawableDeliveryAndDeduplicateAnnotatedStates()
+        throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final EditorObjectLifecycleCoordinator lifecycle =
+                new EditorObjectLifecycleCoordinator();
+            final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+            lifecycle.attachEventBroker(broker);
+            final EditorObjectHookRegistry registry = new EditorObjectHookRegistry(lifecycle);
+            final RuntimeEventBroker.Owner owner = broker.admit("drawable-adapter");
+            final DisposableScope scope = new DisposableScope();
+            final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+            final CountDownLatch completion = new CountDownLatch(2);
+            final MixedDrawablePlugin entrypoint = new MixedDrawablePlugin(events, completion);
+            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(entrypoint)));
+            registry.register(
+                descriptor("drawable-adapter", List.of(
+                    EditorObjectHookRegistry.INTERCEPT_PERMISSION,
+                    EditorObjectHookRegistry.OBSERVE_PERMISSION
+                )),
+                List.of(entrypoint),
+                logger(), scope, broker, owner.key()
+            );
+            owner.activate();
+            final StatefulDrawable drawable = new StatefulDrawable();
+
+            lifecycle.drawable().setVisible(drawable, true, drawable::writeVisible);
+
+            org.junit.jupiter.api.Assertions.assertTrue(
+                completion.await(1, TimeUnit.SECONDS)
+            );
+            assertEquals(false, drawable.visible());
+            assertEquals(List.of("annotated-before", "legacy-after:false"), events);
+            scope.close();
+        } finally {
+            scheduler.shutdown();
+        }
+    }
+
+    public static final class MixedDrawablePlugin
+        implements TurboismPlugin, DrawableHooks {
+        private final List<String> events;
+        private final CountDownLatch completion;
+
+        private MixedDrawablePlugin(
+            final List<String> events,
+            final CountDownLatch completion
+        ) {
+            this.events = events;
+            this.completion = completion;
+        }
+
+        @Override public boolean beforeSetDrawableVisible(
+            final Drawable drawable,
+            final boolean visible
+        ) {
+            events.add("legacy-before");
+            return visible;
+        }
+
+        @SubscribeEvent
+        public void beforeVisible(final DrawableVisibilityEvent.Before event) {
+            events.add("annotated-before");
+            event.setVisible(false);
+            completion.countDown();
+        }
+
+        @Override public void afterSetDrawableVisible(
+            final Drawable drawable,
+            final boolean visible
+        ) {
+            events.add("legacy-after:" + visible);
+            completion.countDown();
+        }
+    }
+
+    private static RuntimeScheduler scheduler() {
+        return new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(1, 8, ignored -> { }, Clock.systemUTC()),
+            new NoOpSidecarDispatcher(),
+            ignored -> { }
+        );
+    }
+
+    private static final class NoOpSidecarDispatcher implements SidecarDispatcher {
+        @Override
+        public CompletionStage<SidecarResult> dispatch(
+            final PluginTask task,
+            final Runnable callback
+        ) {
+            return CompletableFuture.completedFuture(SidecarResult.success(""));
+        }
+    }
+
+    private static final class StatefulDrawable extends MutableDrawable {
+        private boolean visible;
+        private void writeVisible(final boolean value) { visible = value; }
+        @Override public boolean visible() { return visible; }
+    }
+
     private static final class OrderedPlugin implements TurboismPlugin, DrawableHooks, DeformerHooks, SemanticOperationHooks {
         private final String name;
         private final List<String> events;
@@ -296,7 +413,7 @@ class EditorObjectHookRegistryTest {
         };
     }
 
-    private static final class MutableDrawable implements Drawable {
+    private static class MutableDrawable implements Drawable {
         private float opacity = 1.0F;
         private void write(float value) { opacity = value; }
         @Override public ArtMeshId id() { return new ArtMeshId("ArtMeshA"); }
