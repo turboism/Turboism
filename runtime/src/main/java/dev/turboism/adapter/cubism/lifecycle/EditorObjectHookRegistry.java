@@ -10,6 +10,7 @@ import dev.turboism.sdk.event.cubism.DrawableVisibilityEvent;
 import dev.turboism.sdk.event.cubism.DeformerLockEvent;
 import dev.turboism.sdk.event.cubism.DeformerOpacityEvent;
 import dev.turboism.sdk.event.cubism.DeformerVisibilityEvent;
+import dev.turboism.sdk.event.cubism.WarpDeformerGridEvent;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.cubism.hook.DrawableHooks;
 import dev.turboism.sdk.cubism.hook.SemanticOperationHooks;
@@ -262,6 +263,13 @@ public final class EditorObjectHookRegistry {
                             event.deformer(), event.locked()
                         )), sink, adapters
                     );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 21, entrypoint,
+                        "beforeReplaceWarpDeformerGrid", WarpDeformerGridEvent.Before.class,
+                        event -> event.setGrid(hooks.beforeReplaceWarpDeformerGrid(
+                            event.deformer(), event.grid()
+                        )), sink, adapters
+                    );
                 }
                 if (hasPermission(plugin, OBSERVE_PERMISSION)) {
                     adapt(
@@ -304,6 +312,20 @@ public final class EditorObjectHookRegistry {
                         "afterSetDeformerLocked", DeformerLockEvent.After.class,
                         event -> hooks.afterSetDeformerLocked(
                             event.deformer(), event.finalLocked()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 22, entrypoint,
+                        "onWarpDeformerGridChanged", WarpDeformerGridEvent.On.class,
+                        event -> hooks.onWarpDeformerGridChanged(
+                            event.deformer(), event.oldGrid(), event.newGrid()
+                        ), sink, adapters
+                    );
+                    adapt(
+                        runtimeBroker, eventOwner, entrypointOrdinal, 23, entrypoint,
+                        "afterReplaceWarpDeformerGrid", WarpDeformerGridEvent.After.class,
+                        event -> hooks.afterReplaceWarpDeformerGrid(
+                            event.deformer(), event.finalGrid()
                         ), sink, adapters
                     );
                 }
@@ -491,6 +513,17 @@ public final class EditorObjectHookRegistry {
                         dev.turboism.sdk.cubism.model.Deformer.class,
                         boolean.class,
                         boolean.class
+                    };
+                case "beforeReplaceWarpDeformerGrid", "afterReplaceWarpDeformerGrid" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.WarpDeformer.class,
+                        dev.turboism.sdk.cubism.model.WarpGrid.class
+                    };
+                case "onWarpDeformerGridChanged" ->
+                    new Class<?>[]{
+                        dev.turboism.sdk.cubism.model.WarpDeformer.class,
+                        dev.turboism.sdk.cubism.model.WarpGrid.class,
+                        dev.turboism.sdk.cubism.model.WarpGrid.class
                     };
                 default -> throw new IllegalArgumentException(
                     "Unknown editor-object hook method: " + methodName
