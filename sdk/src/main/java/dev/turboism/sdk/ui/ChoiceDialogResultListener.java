@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Receives the result of a non-blocking choice dialog.
@@ -10,7 +9,6 @@ import dev.turboism.sdk.PreviewApi;
  * {@code actionId} is the secondary action id, or {@code null} when the user
  * pressed the primary accept button or cancelled.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface ChoiceDialogResultListener {
 

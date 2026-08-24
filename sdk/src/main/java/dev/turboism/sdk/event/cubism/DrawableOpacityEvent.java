@@ -1,19 +1,16 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic ArtMesh opacity write event family. */
-@PreviewApi
 public sealed interface DrawableOpacityEvent extends TurboismEvent
     permits DrawableOpacityEvent.Before, DrawableOpacityEvent.On, DrawableOpacityEvent.After {
 
     Drawable drawable();
 
-    @PreviewApi
     final class Before implements DrawableOpacityEvent {
         private final Drawable drawable;
         private final float requestedOpacity;
@@ -102,13 +99,11 @@ public sealed interface DrawableOpacityEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Drawable drawable, float oldOpacity, float newOpacity)
         implements DrawableOpacityEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
-    @PreviewApi
     record After(Drawable drawable, float finalOpacity) implements DrawableOpacityEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }

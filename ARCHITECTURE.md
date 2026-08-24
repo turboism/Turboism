@@ -82,11 +82,11 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - runtime implementation types;
 - mutable arrays whose ownership belongs to Cubism.
 
-New SDK APIs are Preview by default. Stable compatibility is reserved for reviewed public contracts, security boundaries, metadata formats, and APIs with real external consumers.
+Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs.
 
-Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` (Preview) constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract and is admitted via the reviewed v4 baseline re-issue (window-icon-baseline-v5-1786689632, Oracle review APPROVED). No other package may expose JDK UI types.
+Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 
-Ordinary Preview additions do not require a new capability row, permission, schema, ADR, or migration report.
+Ordinary additive SDK APIs do not require a dedicated capability row, permission, schema, ADR, migration report, promotion step, or pre-release baseline re-issue. Those mechanisms remain required only when the underlying security, persistence, compatibility, or migration boundary actually changes.
 
 ## 4. Unified Cubism object API
 
@@ -255,22 +255,26 @@ A write permission grants access to the write boundary; it does not bypass opera
 Verification is layered by cost and risk:
 
 ```text
-devCheck
-  Production compilation, module boundaries, plugin metadata, and package layout.
-  This is the daily default.
-
 focused verification
-  The smallest test selection named by the current SDD acceptance conditions.
+  The smallest affected compile or test selection during implementation.
+
+devCheck
+  Production compilation plus inexpensive permanent structural boundaries after
+  a meaningful implementation slice.
 
 checkIntegration
-  Runtime/plugin integration, preview agent, bundle, and cross-module behavior.
+  Packaged runtime, plugin, bundle, and affected cross-module behavior.
+
+checkCompletedCommit
+  The full automated repository gate after a coherent change is ready: ordinary
+  tests, integration, Javadoc/metadata, API-tool and boundary selftests, and hygiene.
 
 checkRelease
-  Integration plus supply-chain, packaging, and release checks. Promotion of an
-  API to Stable separately establishes a compatibility baseline from that release.
+  Completed-commit verification plus supply-chain, historical, Java-installer, and
+  other release-artifact checks; requires an explicit installer version.
 
 host validation
-  Exact-version Cubism execution using an isolated fixture and test-only SDK plugin.
+  Explicit exact-version Cubism execution for the affected feature; never a default gate.
 ```
 
 A bare multi-project `check` is not the daily workflow because Gradle expands every subproject's same-named task. Broad suites are run only when their affected surface justifies them.
@@ -284,8 +288,8 @@ Fake providers, static selector records, classfile inspection, and document cons
 Turboism uses short-form SDD rather than mandatory project-wide TDD. Before implementation, freeze the goal, non-goals, affected boundary, risk lane, observable acceptance conditions, forbidden shortcuts, and final verification batch.
 
 - Lane A covers plugin-private or internal pure logic using existing boundaries: short spec, focused verification, diff review.
-- Lane B covers additive shared Preview SDK/runtime seams without host-sensitive behavior: one design checkpoint, focused plus affected integration verification, final review.
-- Lane C covers host mappings/reflection, Editor writes and Undo, hooks, host UI attachment, security/supply-chain boundaries, Stable contracts, and real-host readiness claims: exact identity, isolation, fail-closed behavior, and automated real-host evidence remain required.
+- Lane B covers additive shared SDK/runtime seams without host-sensitive behavior: one design checkpoint, focused plus affected integration verification, final review.
+- Lane C covers host mappings/reflection, Editor writes and Undo, hooks, host UI attachment, security/supply-chain boundaries, released compatibility contracts, and real-host readiness claims: exact identity, isolation, fail-closed behavior, and automated real-host evidence remain required.
 
 TDD may be used locally for pure algorithms, parsers, and reproducible bug fixes. It is not a requirement to produce one test or contract per method, and broad suites are not rerun after every edit.
 

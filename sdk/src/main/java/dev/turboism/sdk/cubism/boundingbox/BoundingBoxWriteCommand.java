@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.boundingbox;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
-@PreviewApi
 /**
  * Validated intent to perform a bounding-box write on one model object. Like every
  * {@link CubismWriteCommand} it is a DTO: it names its target by id and exposes no host object,

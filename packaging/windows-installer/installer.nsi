@@ -154,6 +154,9 @@ LangString StartMenuLaunchName ${LANG_JAPANESE} "Cubism を起動"
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
+LangString PluginRetireError ${LANG_ENGLISH} "Cannot retire an obsolete Turboism plugin JAR. Close Cubism and retry the upgrade."
+LangString PluginRetireError ${LANG_SIMPCHINESE} "无法移除旧版 Turboism 插件 JAR。请关闭 Cubism 后重试升级。"
+LangString PluginRetireError ${LANG_JAPANESE} "旧版 Turboism プラグイン JAR を削除できません。Cubism を終了してアップグレードを再試行してください。"
 LangString ShortcutCleanupFailure ${LANG_ENGLISH} "Turboism shortcut restoration/cleanup failed. Nothing else was removed; retry uninstall after resolving the conflict."
 LangString ShortcutCleanupFailure ${LANG_SIMPCHINESE} "Turboism 快捷方式恢复/清理失败。未删除其他内容；解决冲突后请重试卸载。"
 LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカットの復元/クリーンアップに失敗しました。他の項目は削除していません。競合を解決してからアンインストールを再試行してください。"
@@ -254,7 +257,23 @@ FunctionEnd
 Section "-核心文件" SecCore
   SetOutPath "$INSTDIR"
   SetOverwrite on
+  ; Managed-upgrade retirement: run the CURRENT staged helper from NSIS's
+  ; temporary directory, never an older installed configurator that may not
+  ; support -RetirePlugins. The helper deletes only regular JARs whose embedded
+  ; plugin.json id is retired; filename alone never authorizes deletion.
+  SetOutPath "$PLUGINSDIR\Turboism-retire"
+  File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
+  File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-retire\configure_turboism.ps1" -Home "$INSTDIR" -RetirePlugins' $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PluginRetireError)"
+    Abort
+  ${EndIf}
+  SetOutPath "$INSTDIR"
   File "${STAGING_DIR}/turboism-agent.jar"
+  SetOutPath "$INSTDIR\graal\lib"
+  File "${STAGING_DIR}/graal/lib/*.jar"
+  SetOutPath "$INSTDIR"
   File "${STAGING_DIR}/launch-cubism-turboism.bat"
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
   File "${STAGING_DIR}/configure_turboism.ps1"
@@ -434,6 +453,24 @@ FunctionEnd
 ; 当前捆绑 id（通用 RemoveItemFromList 辅助，无长度受限的合并 id 字符串），
 ; 再合并本次未勾选插件。
 Function MergeAndWriteConfig
+  ; Retire four historical official ids before applying current selection.
+  ; Unknown ids remain untouched.
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.logfilter"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.clipmask"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.perfopt"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.renderopt"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
   Call RemoveBundledFromExistingDisabled
   StrCpy $disabledFinal "$uncheckedPluginIds"
   ${If} $existingDisabled != ""
@@ -507,7 +544,7 @@ Function MergeAndWriteConfig
   ${Loop}
   StrCpy $disabledFinal "$sorted"
   ; 组 JSON（模板 + 可选 disabledPlugins；空列表不写出该字段）
-  StrCpy $json '{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"]'
+  StrCpy $json '{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"],"launcher":{"cubismJvm":"graalvm"}'
   ${If} $disabledFinal != ""
     StrCpy $json '$json,"disabledPlugins":['
     StrCpy $head ""
@@ -597,6 +634,7 @@ Section "Uninstall"
   Delete "$INSTDIR\uninstall.exe"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"
+  RMDir /r "$INSTDIR\graal"
   RMDir /r "$INSTDIR\logs"
   RMDir /r "$INSTDIR\state"
   RMDir /r "$INSTDIR\cache"

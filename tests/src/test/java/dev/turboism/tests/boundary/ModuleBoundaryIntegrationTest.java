@@ -61,6 +61,7 @@ class ModuleBoundaryIntegrationTest {
         // Then
         assertEquals(List.of(
             "compileOnly(project(\":sdk\"))",
+            "annotationProcessor(project(\":event-processor\"))",
             "testImplementation(project(\":sdk\"))"
         ), dependencyLines);
     }

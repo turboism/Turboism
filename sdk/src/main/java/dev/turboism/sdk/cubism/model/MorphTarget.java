@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.Objects;
@@ -13,7 +12,6 @@ import java.util.Optional;
  * binding is the authoring data that makes the object morph when the parameter
  * reaches the key value.</p>
  */
-@PreviewApi
 public interface MorphTarget {
 
     /** Returns the parameter that drives this Morph Target. */

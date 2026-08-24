@@ -1,9 +1,7 @@
 package dev.turboism.sdk.event;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Runtime-owned registration sink used by generated subscriber catalogs. */
-@PreviewApi
 public interface EventSubscriberRegistrar {
 
     /**

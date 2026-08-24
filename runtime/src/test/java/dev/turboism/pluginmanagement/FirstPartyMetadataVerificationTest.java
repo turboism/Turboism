@@ -59,7 +59,7 @@ class FirstPartyMetadataVerificationTest {
             FirstPartyMetadataVerificationCli.FirstPartyRejection.class,
             () -> FirstPartyMetadataVerificationCli.verify(descriptor, jar)
         );
-        assertEquals("FIRST_PARTY_TRACKED_DESCRIPTOR_INVALID", failure.code());
+        assertEquals("FIRST_PARTY_SCHEMA_NOT_V3", failure.code());
     }
 
     @Test

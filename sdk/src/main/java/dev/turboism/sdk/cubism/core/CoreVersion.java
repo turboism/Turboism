@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Normalized semantic Cubism Core version. */
-@PreviewApi
 public record CoreVersion(int major, int minor, int patch) {
 
     public CoreVersion {

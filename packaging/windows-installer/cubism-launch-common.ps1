@@ -1054,6 +1054,22 @@ function Restore-CubismTakeoverRecords {
     return @($Records)
 }
 
+function Remove-CubismEmptyBackupDirectories {
+    param([string]$TurboismHome)
+    # Remove only the fixed, empty backup directory chain. Unknown files keep
+    # either directory non-empty and are preserved; links/non-directories fail
+    # the normal-directory check and are never removed.
+    $installer = Join-Path $TurboismHome "installer"
+    $backups = Join-Path $installer "shortcut-backups"
+    foreach ($directory in @($backups, $installer)) {
+        if (-not (Test-CubismNormalDirectory $directory)) { continue }
+        $entries = @(Get-ChildItem -LiteralPath $directory -Force -ErrorAction Stop)
+        if ($entries.Count -eq 0) {
+            Remove-Item -LiteralPath $directory -Force -ErrorAction Stop
+        }
+    }
+}
+
 function Remove-CubismTakeoverBackups {
     param([string]$TurboismHome, [object[]]$Records = @())
     foreach ($record in @($Records)) {
@@ -1064,6 +1080,7 @@ function Remove-CubismTakeoverBackups {
             Remove-Item -LiteralPath $backup -Force -ErrorAction Stop
         }
     }
+    Remove-CubismEmptyBackupDirectories -TurboismHome $TurboismHome
 }
 
 function Invoke-CubismLaunchConfiguration {
@@ -1200,6 +1217,68 @@ function Invoke-CubismManagedCleanup {
 }
 
 
+function Read-TurboismRetiredPluginId {
+    param([string]$JarPath)
+    if (-not (Test-CubismNormalFile $JarPath)) { return $null }
+    $zip = $null
+    $entryStream = $null
+    $memory = $null
+    try {
+        Add-Type -AssemblyName System.IO.Compression -ErrorAction Stop
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction Stop
+        $zip = [System.IO.Compression.ZipFile]::OpenRead($JarPath)
+        $entry = $zip.GetEntry("META-INF/turboism/plugin.json")
+        if ($null -eq $entry -or $entry.Length -lt 0 -or $entry.Length -gt 65536) { return $null }
+        $entryStream = $entry.Open()
+        $memory = New-Object System.IO.MemoryStream
+        $buffer = New-Object byte[] 4096
+        $total = 0
+        while (($read = $entryStream.Read($buffer, 0, $buffer.Length)) -gt 0) {
+            $total += $read
+            if ($total -gt 65536) { return $null }
+            $memory.Write($buffer, 0, $read)
+        }
+        $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+        $document = $utf8.GetString($memory.ToArray()) | ConvertFrom-Json -ErrorAction Stop
+        if ($null -eq $document -or $document.id -isnot [string] -or
+            [string]::IsNullOrWhiteSpace([string]$document.id)) { return $null }
+        return [string]$document.id
+    }
+    catch { return $null }
+    finally {
+        if ($null -ne $memory) { $memory.Dispose() }
+        if ($null -ne $entryStream) { $entryStream.Dispose() }
+        if ($null -ne $zip) { $zip.Dispose() }
+    }
+}
+
+function Remove-TurboismRetiredPlugins {
+    param([string]$TurboismHome)
+    $plugins = Join-Path $TurboismHome "plugins"
+    if (-not (Test-Path -LiteralPath $plugins)) { return }
+    if (-not (Test-CubismNormalDirectory $plugins)) {
+        Write-Host "Turboism: preserved plugin directory $plugins (not a normal directory)"
+        return
+    }
+    $entries = @(Get-ChildItem -LiteralPath $plugins -File -Force -ErrorAction Stop)
+    if ($entries.Count -gt 4096) { throw "plugin directory entry cap exceeded" }
+    $retired = @(
+        "dev.turboism.plugin.logfilter",
+        "dev.turboism.plugin.clipmask",
+        "dev.turboism.plugin.perfopt",
+        "dev.turboism.plugin.renderopt"
+    )
+    foreach ($entry in $entries) {
+        if ($entry.Extension -ine ".jar") { continue }
+        $id = Read-TurboismRetiredPluginId -JarPath $entry.FullName
+        if ($null -eq $id -or @($retired | Where-Object { $_ -ceq $id }).Count -eq 0) {
+            continue
+        }
+        Remove-Item -LiteralPath $entry.FullName -Force -ErrorAction Stop
+        Write-Host "Turboism: removed retired plugin $($entry.FullName) (id=$id)"
+    }
+}
+
 function Get-JdkOptionTokens {
     param([string]$Text)
     if ([string]::IsNullOrWhiteSpace($Text)) { return @() }
@@ -1239,6 +1318,7 @@ function Remove-TurboismJdkOptions {
         if ($value.StartsWith('"') -and $value.EndsWith('"') -and $value.Length -ge 2) { $value = $value.Substring(1, $value.Length - 2) }
         $probe = $value.Replace('"', '')
         if ($probe -match '(?i)^-Dturboism\.home=' -or
+            $probe -match '(?i)^-Dturboism\.graal\.(?:enabled|java|classpath|mainClass|startupTimeoutMillis)=' -or
             $probe -match '(?i)^-javaagent:.*turboism-agent\.jar(?:[=].*)?$' -or
             $probe -match '(?i)^--add-exports=java\.base[./]jdk\.internal\.org\.objectweb\.asm(?:[.]commons)?=ALL-UNNAMED$') { continue }
         [void]$kept.Add($token)
@@ -1262,12 +1342,199 @@ function ConvertTo-JdkOptionToken {
     return $Option
 }
 
+function Read-CubismJvmPreference {
+    param([string]$TurboismHome)
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return "graalvm" }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    if ($null -eq $document.launcher -or $null -eq $document.launcher.cubismJvm) { return "graalvm" }
+    if ($document.launcher.cubismJvm -isnot [string] -or
+        @("graalvm", "bundled") -notcontains [string]$document.launcher.cubismJvm) {
+        throw "Turboism Cubism JVM setting is invalid"
+    }
+    return [string]$document.launcher.cubismJvm
+}
+
+function Test-CubismCompatibleGraalJava {
+    param([string]$JavaPath)
+    if (-not (Test-CubismNormalFile $JavaPath)) { return $false }
+    try {
+        $bin = Split-Path -Parent ([System.IO.Path]::GetFullPath($JavaPath))
+        $home = Split-Path -Parent $bin
+        $release = Join-Path $home "release"
+        if (-not (Test-CubismNormalFile $release)) { return $false }
+        $item = Get-Item -LiteralPath $release -Force -ErrorAction Stop
+        if ($item.Length -gt 65536) { return $false }
+        $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop
+        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM[^"]*"\s*$' -and
+            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.[^"]*"\s*$'
+    }
+    catch { return $false }
+}
+
+function Find-CubismGraalJava {
+    param([string]$TurboismHome, [string]$ExplicitJava = "")
+    if (-not [string]::IsNullOrWhiteSpace($ExplicitJava)) {
+        $explicit = $ExplicitJava
+        if (Test-Path -LiteralPath $explicit -PathType Container) {
+            $explicit = Join-Path $explicit "bin\java.exe"
+        }
+        if (-not (Test-CubismNormalFile $explicit)) { return "" }
+        return [System.IO.Path]::GetFullPath($explicit)
+    }
+    $candidates = @()
+    if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_CUBISM_JAVA)) { $candidates += $env:TURBOISM_CUBISM_JAVA }
+    $candidates += (Join-Path $TurboismHome "graalvm\bin\java.exe")
+    $candidates += (Join-Path $TurboismHome "graal\runtime\bin\java.exe")
+    if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_GRAALVM_HOME)) {
+        $candidates += (Join-Path $env:TURBOISM_GRAALVM_HOME "bin\java.exe")
+    }
+    if (-not [string]::IsNullOrWhiteSpace($env:GRAALVM_HOME)) {
+        $candidates += (Join-Path $env:GRAALVM_HOME "bin\java.exe")
+    }
+    foreach ($candidate in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
+        $path = $candidate
+        if (Test-Path -LiteralPath $path -PathType Container) { $path = Join-Path $path "bin\java.exe" }
+        if (-not (Test-CubismCompatibleGraalJava $path)) { continue }
+        return [System.IO.Path]::GetFullPath($path)
+    }
+    return ""
+}
+
+function Resolve-CubismGraalJava {
+    param([string]$TurboismHome, [string]$ExplicitJava = "")
+    $resolved = Find-CubismGraalJava -TurboismHome $TurboismHome -ExplicitJava $ExplicitJava
+    if ([string]::IsNullOrWhiteSpace($resolved)) {
+        throw "GraalVM is selected for Cubism, but no GraalVM java.exe is available"
+    }
+    return $resolved
+}
+
+function Resolve-TurboismGraalHost {
+    param([string]$TurboismHome, [string]$PreferredJava = "")
+    $java = $PreferredJava
+    if (-not [string]::IsNullOrWhiteSpace($java)) {
+        try { $java = [System.IO.Path]::GetFullPath($java) }
+        catch { throw "Graal child-host Java path is invalid" }
+        if (-not (Test-CubismNormalFile $java)) {
+            throw "Graal child-host Java executable is unavailable: $java"
+        }
+    }
+    else {
+        try { $java = Resolve-CubismGraalJava -TurboismHome $TurboismHome }
+        catch { return $null }
+    }
+    $libraryRoot = Join-Path $TurboismHome "graal\lib"
+    if (-not (Test-CubismNormalDirectory $libraryRoot)) { return $null }
+    $libraries = @(
+        Get-ChildItem -LiteralPath $libraryRoot -File -Force -ErrorAction SilentlyContinue |
+            Where-Object {
+                ($_.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -eq 0 -and
+                $_.Name -match '(?i)\.jar$'
+            }
+    )
+    if ($libraries.Count -eq 0) { return $null }
+    $requiredPatterns = @(
+        "graal-host-*.jar",
+        "jackson-annotations-*.jar",
+        "jackson-core-*.jar",
+        "jackson-databind-*.jar",
+        "collections-*.jar",
+        "jniutils-*.jar",
+        "js-isolate-windows-amd64-community-*.jar",
+        "nativebridge-*.jar",
+        "nativeimage-*.jar",
+        "polyglot-*.jar",
+        "truffle-api-*.jar",
+        "word-*.jar"
+    )
+    $missing = @()
+    foreach ($pattern in $requiredPatterns) {
+        if (@($libraries | Where-Object { $_.Name -like $pattern }).Count -eq 0) {
+            $missing += $pattern
+        }
+    }
+    if ($missing.Count -gt 0) {
+        throw "Turboism Graal host library closure is incomplete: $($missing -join ', ')"
+    }
+    return [pscustomobject]@{
+        Java = [System.IO.Path]::GetFullPath($java)
+        ClassPath = (Join-Path $libraryRoot "*")
+    }
+}
+
+function Get-CubismLaunchStageDirectory {
+    param([string]$TurboismHome)
+    if (-not (Test-CubismNormalDirectory $TurboismHome)) { throw "Turboism home is not a normal directory" }
+    $state = Join-Path $TurboismHome "state"
+    $directory = Join-Path $state "managed-launch"
+    foreach ($path in @($state, $directory)) {
+        if (Test-Path -LiteralPath $path) {
+            if (-not (Test-CubismNormalDirectory $path)) { throw "managed launch staging directory is not a normal directory" }
+        }
+        else { New-Item -ItemType Directory -Path $path -Force | Out-Null }
+    }
+    return $directory
+}
+
+function New-CubismJavaOverrideBat {
+    param(
+        [string]$OfficialBat,
+        [string]$CubismRoot,
+        [string]$TurboismHome,
+        [string]$JavaExecutable
+    )
+    $root = ConvertTo-CubismCanonicalRoot $CubismRoot
+    $official = [System.IO.Path]::GetFullPath($OfficialBat)
+    $java = [System.IO.Path]::GetFullPath($JavaExecutable)
+    if ($null -eq $root -or -not (Test-CubismNormalFile $official) -or -not (Test-CubismNormalFile $java)) {
+        throw "Cubism JVM override input is invalid"
+    }
+    $rootPrefix = $root.TrimEnd('\', '/') + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $official.StartsWith($rootPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "official Cubism BAT is outside the selected root"
+    }
+    if ($root -match '[\r\n&|<>^%!`"]' -or $java -match '[\r\n&|<>^%!`"]') {
+        throw "Cubism JVM override path contains an unsupported command character"
+    }
+    $directory = Get-CubismLaunchStageDirectory -TurboismHome $TurboismHome
+    $name = ".turboism-java-$PID-$([guid]::NewGuid().ToString('N')).bat"
+    $temporary = Join-Path $directory $name
+    $encoding = [System.Text.Encoding]::Default
+    $text = [System.IO.File]::ReadAllText($official, $encoding)
+    $rootPattern = '(?im)^cd\s+/d\s+"%~dp0"\s*(?:\r?\n)'
+    $rootMatches = [regex]::Matches($text, $rootPattern)
+    if ($rootMatches.Count -ne 1) { throw "official Cubism BAT must contain exactly one root-relative working-directory assignment" }
+    $javaPattern = '(?im)^set(?: ")?JAVA_EXE=.*(?:\r?\n)'
+    $javaMatches = [regex]::Matches($text, $javaPattern)
+    if ($javaMatches.Count -ne 1) { throw "official Cubism BAT must contain exactly one JAVA_EXE assignment" }
+    $workingDirectory = 'cd /d "' + $root + '"' + "`r`n"
+    $replacement = 'set "JAVA_EXE=' + $java + '"' + "`r`n"
+    $staged = [regex]::Replace($text, $rootPattern, { param($match) $workingDirectory }, 1)
+    $staged = [regex]::Replace($staged, $javaPattern, { param($match) $replacement }, 1)
+    try {
+        [System.IO.File]::WriteAllText($temporary, $staged, $encoding)
+        if (-not (Test-CubismNormalFile $temporary)) { throw "Cubism JVM override BAT was not created" }
+        return $temporary
+    }
+    catch {
+        if (Test-Path -LiteralPath $temporary -PathType Leaf) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
 function Invoke-CubismOfficialBat {
     param(
         [string]$OfficialBat,
         [string]$CubismRoot,
         [string]$TurboismHome,
         [string]$Agent,
+        [object]$GraalHost = $null,
         [string[]]$Arguments = @()
     )
     if ([string]::IsNullOrWhiteSpace($TurboismHome) -or [string]::IsNullOrWhiteSpace($Agent) -or
@@ -1275,20 +1542,53 @@ function Invoke-CubismOfficialBat {
     if (@($Arguments).Count -gt $script:CubismMaxLaunchArguments -or @($Arguments | Where-Object { $_.Length -gt $script:CubismMaxStateFieldLength }).Count -gt 0) { throw "launch arguments exceed bound" }
     $root = ConvertTo-CubismCanonicalRoot $CubismRoot
     $official = $null
+    $home = ConvertTo-CubismCanonicalRoot $TurboismHome
+    if ($null -eq $home -or -not (Test-CubismNormalDirectory $home) -or -not (Test-CubismNormalFile $Agent)) {
+        throw "Turboism launch home or agent is invalid"
+    }
     try { $official = [System.IO.Path]::GetFullPath($OfficialBat) } catch { }
-    if ($null -eq $root -or $null -eq $official -or
-        [System.IO.Path]::GetDirectoryName($official).TrimEnd('\', '/') -ine $root.TrimEnd('\', '/') -or
-        [System.IO.Path]::GetFileName($official) -notmatch '(?i)^CubismEditor5(?:_D3D)?\.bat$' -or
-        -not (Test-Path -LiteralPath $official -PathType Leaf)) { throw "official Cubism BAT is not the selected root entry" }
+    if ($null -ne $GraalHost) {
+        $graalJava = if ($null -eq $GraalHost.Java) { "" } else { [string]$GraalHost.Java }
+        $graalClassPath = if ($null -eq $GraalHost.ClassPath) { "" } else { [string]$GraalHost.ClassPath }
+        $expectedClassPath = Join-Path (Join-Path $home "graal") "lib\*"
+        $graalJavaLength = if ($null -eq $graalJava) { 0 } else { $graalJava.Length }
+        $graalClassPathLength = if ($null -eq $graalClassPath) { 0 } else { $graalClassPath.Length }
+        if ($graalJavaLength -gt $script:CubismMaxStateFieldLength -or
+            $graalClassPathLength -gt $script:CubismMaxStateFieldLength -or
+            -not (Test-CubismNormalFile $graalJava) -or
+            $graalClassPath -ine $expectedClassPath) {
+            throw "Graal child-host configuration is invalid"
+        }
+    }
+    $officialDirectory = if ($null -eq $official) { "" } else { [System.IO.Path]::GetDirectoryName($official).TrimEnd('\', '/') }
+    $officialName = if ($null -eq $official) { "" } else { [System.IO.Path]::GetFileName($official) }
+    $rootEntry = $officialDirectory -ieq $root -and $officialName -match '(?i)^CubismEditor5(?:[-_]?D3D)?\.bat$'
+    $stagedEntry = $false
+    if ($null -ne $home -and $officialName -match '(?i)^\.turboism-java-[0-9]+-[0-9a-f]{32}\.bat$') {
+        $stage = Join-Path (Join-Path $home "state") "managed-launch"
+        $stagedEntry = $officialDirectory -ieq $stage.TrimEnd('\', '/')
+    }
+    if ($null -eq $root -or $null -eq $official -or (-not $rootEntry -and -not $stagedEntry) -or
+        -not (Test-CubismNormalFile $official)) { throw "Cubism BAT is not an admitted managed launch entry" }
 
     $oldJdk = $env:JDK_JAVA_OPTIONS
     $oldTool = $env:JAVA_TOOL_OPTIONS
     $exitCode = 1
     try {
-        $managed = @(
+        $managedOptions = @(
             "-Dturboism.home=$TurboismHome",
             "-javaagent:$Agent=home=$TurboismHome;timeoutSeconds=120"
-        ) + @(Get-CubismManagedJdkExportTokens) | ForEach-Object { ConvertTo-JdkOptionToken $_ }
+        )
+        if ($null -ne $GraalHost) {
+            $managedOptions += @(
+                "-Dturboism.graal.enabled=true",
+                "-Dturboism.graal.java=$($GraalHost.Java)",
+                "-Dturboism.graal.classpath=$($GraalHost.ClassPath)"
+            )
+        }
+        else { $managedOptions += "-Dturboism.graal.enabled=false" }
+        $managed = @($managedOptions + @(Get-CubismManagedJdkExportTokens)) |
+            ForEach-Object { ConvertTo-JdkOptionToken $_ }
         $unrelatedJdk = Remove-TurboismJdkOptions $oldJdk
         $env:JDK_JAVA_OPTIONS = ((@($unrelatedJdk) + $managed) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
         if ($null -ne $oldTool) { $env:JAVA_TOOL_OPTIONS = Remove-TurboismJdkOptions $oldTool }

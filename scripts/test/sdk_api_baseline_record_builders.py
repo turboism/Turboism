@@ -10,14 +10,14 @@ def package_record(name: str, annotations: str) -> str:
     return "package" f"\tname={name}" f"\tannotations={annotations}"
 
 
-def class_record(parsed_class: ParsedClass, *, exclude_preview_marker: bool) -> str:
+def class_record(parsed_class: ParsedClass) -> str:
     item = parsed_class.info
     return (
         "class" f"\tname={item.name}" f"\tflags={class_flags(item)}"
         f"\tsuper={item.super_name or '-'}" f"\tinterfaces={encode_list(item.interfaces)}"
         f"\tsignature={_signature(item.attributes.signature)}"
         f"\tpermitted={encode_list(sorted(item.attributes.permitted_subclasses))}"
-        f"\tannotations={annotations_value(item.attributes, exclude_preview_marker=exclude_preview_marker)}"
+        f"\tannotations={annotations_value(item.attributes)}"
     )
 
 
@@ -71,25 +71,24 @@ def _component_record(owner: str, component) -> str:
     )
 
 
-def method_records(parsed_class: ParsedClass, *, exclude_preview_markers: bool) -> list[str]:
+def method_records(parsed_class: ParsedClass) -> list[str]:
     item = parsed_class.info
     owner_interface = bool(item.access & ACC_INTERFACE)
     return [
-        _method_record(item.name, owner_interface, method, exclude_preview_markers)
+        _method_record(item.name, owner_interface, method)
         for method in item.methods
         if method.access & API_VISIBILITY
     ]
 
 
-def _method_record(owner: str, owner_interface: bool, method, exclude_preview_markers: bool) -> str:
-    exclude_marker = exclude_preview_markers and method.name not in ("<init>", "<clinit>")
+def _method_record(owner: str, owner_interface: bool, method) -> str:
     return (
         "method" f"\towner={owner}" f"\tname={method.name}" f"\tdescriptor={method.descriptor}"
         f"\tflags={method_flags(method.access, owner_interface)}"
         f"\tsignature={_signature(method.attributes.signature)}"
         f"\tthrows={encode_list(method.attributes.exceptions)}"
         f"\tparameters={_method_parameters(method.attributes.method_parameters)}"
-        f"\tannotations={annotations_value(method.attributes, exclude_preview_marker=exclude_marker)}"
+        f"\tannotations={annotations_value(method.attributes)}"
         f"\tparameter-annotations={parameter_annotations_value(method.attributes)}"
         f"\t{_annotation_default(method.attributes.annotation_default)}"
     )

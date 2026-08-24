@@ -1,13 +1,11 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
 /** Bounded single-choice dialog descriptor without host widget exposure. */
-@PreviewApi
 public record ChoiceDialogRequest(
     String id,
     String title,

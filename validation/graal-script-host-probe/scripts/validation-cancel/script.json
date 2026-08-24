@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.cancel",
+  "name": "Validation Cancellation",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [],
+  "sourceSha256": "42f1ee7d3dd7c4aedc4020e40bfc1690bf8646fd93d1bc277f6dec0f6065259e"
+}

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Called synchronously while the host is deleting mesh geometry, before anything is removed.
@@ -11,7 +10,6 @@ import dev.turboism.sdk.PreviewApi;
  * diagnoses elapsed-time budget violations, but cannot safely preempt arbitrary in-process Java 17
  * code while the callback has synchronous access to an edit backed by live host geometry.</p>
  */
-@PreviewApi
 @FunctionalInterface
 public interface MeshEditParticipant {
 

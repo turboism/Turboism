@@ -1,13 +1,11 @@
 package dev.turboism.sdk.action;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Runtime-owned observation that an action was accepted for asynchronous execution. */
-@PreviewApi
 public record ActionInvocationEvent(
     String pluginId,
     String actionId,

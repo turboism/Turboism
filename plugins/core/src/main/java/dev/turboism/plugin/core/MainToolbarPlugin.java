@@ -40,7 +40,13 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
             runtimeSettings, plugins
         );
-        this.windows = new CoreWindows(localization(context), runtimeSettings, plugins, services.logs());
+        this.windows = new CoreWindows(
+            localization(context),
+            runtimeSettings,
+            services.settingsContributions(),
+            plugins,
+            services.logs()
+        );
         logger.info("Turboism core initialized");
     }
 
@@ -57,6 +63,9 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerAction(MainToolbarHomeEntryService.ABOUT_ACTION_ID,
             localization(context).text("main-toolbar.about-menu.label"), ignored -> windows.showAbout());
         registerSettingsActions();
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
+        ));
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);

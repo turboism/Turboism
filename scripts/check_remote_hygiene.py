@@ -52,6 +52,10 @@ FORBIDDEN_SEGMENTS = frozenset({
     ".claude", ".cursor", ".pi", ".windsurf", "prompts",
 })
 
+FORBIDDEN_PATHS = frozenset({
+    "runtime/logs",
+})
+
 FORBIDDEN_BASENAMES = frozenset({
     "agents.md", "claude.md", "gemini.md", "copilot.md",
     ".agents.md.swp", ".env", ".envrc", "local.properties",
@@ -134,6 +138,10 @@ def classify_path(path):
     """Return a lowercase canonical rule name if the path is forbidden, else None."""
     parts = list(PurePosixPath(path).parts)
     lows = [p.lower() for p in parts]
+    normalized = "/".join(lows)
+    for forbidden in FORBIDDEN_PATHS:
+        if normalized == forbidden or normalized.startswith(forbidden + "/"):
+            return "path:" + forbidden
     for low in lows:
         if low in FORBIDDEN_SEGMENTS:
             return "segment:" + low
@@ -241,14 +249,27 @@ def commit_list(repo, revs):
     return [s.decode("ascii") for s in out]
 
 
-def paths_of_commit(repo, sha):
-    """Every path the commit touches: every parent for merges, root tree for
-    the root commit, no rename detection so adds/deletes are always explicit."""
-    return [l.decode("utf-8")
-            for l in _git_bytes(repo, ["diff-tree", "-m", "--no-commit-id",
-                                       "--root", "--no-renames", "--name-only",
-                                       "-r", "-z", sha]).split(b"\x00")
-            if l]
+def changed_paths(repo, sha):
+    """Added/modified paths in a commit, against every parent for merges.
+
+    Pure deletions are cleanup and carry no new remote path or blob to reject.
+    Rename detection stays disabled so a rename is represented as deletion plus
+    addition and the new destination is checked normally.
+    """
+    raw = _git_bytes(repo, ["diff-tree", "-m", "--no-commit-id", "--root",
+                            "--no-renames", "--raw", "-r", "-z", sha])
+    toks = [t for t in raw.split(b"\x00") if t]
+    results = []
+    i = 0
+    while i + 1 < len(toks):
+        meta, path = toks[i], _unquote(toks[i + 1])
+        i += 2
+        if not meta.startswith(b":") or meta.startswith(b"::"):
+            continue
+        fields = meta.split()
+        if len(fields) >= 5 and fields[4] in (b"A", b"M") and path:
+            results.append(path.decode("utf-8", errors="replace"))
+    return results
 
 
 def changed_blobs(repo, sha, read_blob):
@@ -312,9 +333,6 @@ class BlobReader:
 
 def scan_staged(repo):
     violations = []
-    paths = [p for p in _git_bytes(repo, ["diff", "--cached", "--no-renames",
-                                          "--name-only", "-z"]).split(b"\x00")
-             if p]
     reader = BlobReader(repo)
     try:
         raw = _git_bytes(repo, ["diff", "--cached", "--no-renames",
@@ -327,19 +345,20 @@ def scan_staged(repo):
             if not meta.startswith(b":") or meta.startswith(b"::"):
                 continue
             fields = meta.split()
-            if len(fields) < 5 or fields[4] not in (b"A", b"M"):
+            if len(fields) < 5:
                 continue
-            new_sha = fields[3].decode("ascii")
-            if new_sha != ZERO_SHA:
-                decoded_path = path.decode("utf-8", errors="replace")
-                for rule in scan_content(reader.read(new_sha)):
-                    violations.append((decoded_path, "value-signature=" + rule))
+            status = fields[4]
+            decoded_path = path.decode("utf-8", errors="replace")
+            if status in (b"A", b"M"):
+                rule = classify_path(decoded_path)
+                if rule:
+                    violations.append((decoded_path, rule))
+                new_sha = fields[3].decode("ascii")
+                if new_sha != ZERO_SHA:
+                    for rule in scan_content(reader.read(new_sha)):
+                        violations.append((decoded_path, "value-signature=" + rule))
     finally:
         reader.close()
-    for p in paths:
-        rule = classify_path(p.decode("utf-8", errors="replace"))
-        if rule:
-            violations.append((p.decode("utf-8", errors="replace"), rule))
     return violations
 
 
@@ -348,7 +367,7 @@ def scan_commits(repo, shas):
     reader = BlobReader(repo)
     try:
         for sha in shas:
-            for p in paths_of_commit(repo, sha):
+            for p in changed_paths(repo, sha):
                 rule = classify_path(p)
                 if rule:
                     violations.append((p, rule))

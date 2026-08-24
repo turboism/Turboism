@@ -81,8 +81,27 @@ public final class RuntimeScheduler {
      * @throws NullPointerException if either argument is {@code null}
      */
     public boolean dispatch(PluginTask task, Runnable callback) {
+        return dispatch(task, callback, () -> { });
+    }
+
+    /**
+     * Classifies and dispatches a task with an action invoked when lightweight work times out.
+     * The timeout action runs before the worker is interrupted, allowing queued downstream work
+     * to be cancelled before it becomes runnable.
+     *
+     * @param task the work to classify and run
+     * @param callback the body to execute once a lane accepts it
+     * @param timeoutAction idempotent action that cancels work queued beyond the runtime worker
+     * @return {@code true} if some lane accepted the work; {@code false} otherwise
+     */
+    public boolean dispatch(
+        PluginTask task,
+        Runnable callback,
+        Runnable timeoutAction
+    ) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(callback, "callback");
+        Objects.requireNonNull(timeoutAction, "timeoutAction");
         if (closed.get()) {
             emitRejected(task);
             return false;
@@ -91,7 +110,8 @@ public final class RuntimeScheduler {
         return switch (budget) {
             case LIGHTWEIGHT -> executorRegistry.get(task.pluginId()).submit(
                 task,
-                bindCancellation(callback)
+                bindCancellation(callback),
+                timeoutAction
             ).accepted();
             case HEAVY, SIDECAR -> dispatchSidecar(task, callback);
             case REJECTED -> {

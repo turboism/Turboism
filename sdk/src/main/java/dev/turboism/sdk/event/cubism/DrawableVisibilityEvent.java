@@ -1,13 +1,11 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic ArtMesh visibility write event family. */
-@PreviewApi
 public sealed interface DrawableVisibilityEvent extends TurboismEvent
     permits DrawableVisibilityEvent.Before,
             DrawableVisibilityEvent.On,
@@ -15,7 +13,6 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
 
     Drawable drawable();
 
-    @PreviewApi
     final class Before implements DrawableVisibilityEvent {
         private final Drawable drawable;
         private final boolean requestedVisible;
@@ -104,13 +101,11 @@ public sealed interface DrawableVisibilityEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Drawable drawable, boolean oldVisible, boolean newVisible)
         implements DrawableVisibilityEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
-    @PreviewApi
     record After(Drawable drawable, boolean finalVisible)
         implements DrawableVisibilityEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }

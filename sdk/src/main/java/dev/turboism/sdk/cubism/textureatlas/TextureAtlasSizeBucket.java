@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** One size bucket in a texture-atlas image size distribution. */
-@PreviewApi
 public record TextureAtlasSizeBucket(
     int width,
     int height,

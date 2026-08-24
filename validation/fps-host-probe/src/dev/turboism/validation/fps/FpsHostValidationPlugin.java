@@ -7,10 +7,15 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
-import java.io.IOException;
+import java.lang.management.ClassLoadingMXBean;
+import java.lang.management.GarbageCollectorMXBean;
+import java.lang.management.ManagementFactory;
+import java.lang.management.MemoryUsage;
+import java.lang.management.ThreadMXBean;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -72,7 +77,9 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             logger.warn("FPS_EXERCISER_READY_TIMEOUT"
                 + " reason=active-model-not-present"
                 + " timeoutMillis=" + HOST_READY_TIMEOUT_MILLIS);
-            finish(false, "model readiness timeout", "missing", "missing", 0L, 0.0, 0, "none");
+            final JvmSnapshot jvm = jvmSnapshot();
+            finish(false, "model readiness timeout", "missing", "missing", 0L, 0.0, 0, "none",
+                jvm, jvm);
             return;
         }
         // Host identity is pinned by the runner (--version plus the exact JAR
@@ -139,6 +146,7 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         final AtomicLong maxRenderedFrames = new AtomicLong();
         final AtomicLong maxFpsMillis = new AtomicLong();
         final AtomicReference<String> failure = new AtomicReference<>();
+        final JvmSnapshot jvmBefore = jvmSnapshot();
         try {
             final PerformanceProbeService stats = context.performanceStats();
             final Registration sampling = stats.sample(SAMPLE_INTERVAL, snapshot -> {
@@ -167,7 +175,8 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                     + " renderSceneCalls=" + renderSceneCalls
                     + " fpsMax=" + fpsMax);
                 finish(true, "renderSceneCalls>0", hostVersion, modelId,
-                    renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get());
+                    renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get(),
+                    jvmBefore, jvmSnapshot());
             } else {
                 failure.compareAndSet(null, "no renderScene calls within sampling window");
                 logger.warn("FPS_RESULT status=FAIL"
@@ -176,7 +185,8 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                     + " renderSceneCalls=0"
                     + " reason=" + failure.get());
                 finish(false, failure.get(), hostVersion, modelId,
-                    renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get());
+                    renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get(),
+                    jvmBefore, jvmSnapshot());
             }
         } catch (Throwable failure1) {
             failure.compareAndSet(null, failure1.getClass().getName());
@@ -186,8 +196,28 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                 + " reason=" + failure.get());
             finish(false, failure.get(), hostVersion, modelId,
                 maxRenderedFrames.get(), maxFpsMillis.get() / 1000.0,
-                SAMPLING_WINDOW_SECONDS, failure.get());
+                SAMPLING_WINDOW_SECONDS, failure.get(), jvmBefore, jvmSnapshot());
         }
+    }
+
+    private static JvmSnapshot jvmSnapshot() {
+        final MemoryUsage heap = ManagementFactory.getMemoryMXBean().getHeapMemoryUsage();
+        final MemoryUsage nonHeap = ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage();
+        final ThreadMXBean threads = ManagementFactory.getThreadMXBean();
+        final ClassLoadingMXBean classes = ManagementFactory.getClassLoadingMXBean();
+        final List<GarbageCollectorMXBean> collectors = ManagementFactory.getGarbageCollectorMXBeans();
+        return new JvmSnapshot(
+            System.getProperty("java.version", "missing"),
+            System.getProperty("java.vm.vendor", "missing"),
+            heap.getUsed(),
+            heap.getCommitted(),
+            nonHeap.getUsed(),
+            threads.getThreadCount(),
+            threads.getPeakThreadCount(),
+            classes.getLoadedClassCount(),
+            collectors.stream().mapToLong(value -> Math.max(0L, value.getCollectionCount())).sum(),
+            collectors.stream().mapToLong(value -> Math.max(0L, value.getCollectionTime())).sum()
+        );
     }
 
     private void finish(
@@ -198,7 +228,9 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         final long renderSceneCalls,
         final double fpsMax,
         final int samplingSeconds,
-        final String failure
+        final String failure,
+        final JvmSnapshot jvmBefore,
+        final JvmSnapshot jvmAfter
     ) {
         final StringBuilder result = new StringBuilder()
             .append("status=").append(pass ? "PASS" : "FAIL").append('\n')
@@ -208,6 +240,19 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             .append("renderSceneCalls=").append(renderSceneCalls).append('\n')
             .append("fpsMax=").append(fpsMax).append('\n')
             .append("samplingSeconds=").append(samplingSeconds).append('\n')
+            .append("jvm.javaVersion=").append(jvmAfter.javaVersion()).append('\n')
+            .append("jvm.vmVendor=").append(jvmAfter.vmVendor()).append('\n')
+            .append("jvm.heapUsedBytes.before=").append(jvmBefore.heapUsedBytes()).append('\n')
+            .append("jvm.heapUsedBytes.after=").append(jvmAfter.heapUsedBytes()).append('\n')
+            .append("jvm.heapCommittedBytes.after=").append(jvmAfter.heapCommittedBytes()).append('\n')
+            .append("jvm.nonHeapUsedBytes.after=").append(jvmAfter.nonHeapUsedBytes()).append('\n')
+            .append("jvm.threadCount.after=").append(jvmAfter.threadCount()).append('\n')
+            .append("jvm.peakThreadCount.after=").append(jvmAfter.peakThreadCount()).append('\n')
+            .append("jvm.loadedClassCount.after=").append(jvmAfter.loadedClassCount()).append('\n')
+            .append("jvm.gcCollectionCount.delta=")
+            .append(Math.max(0L, jvmAfter.gcCollectionCount() - jvmBefore.gcCollectionCount())).append('\n')
+            .append("jvm.gcCollectionTimeMillis.delta=")
+            .append(Math.max(0L, jvmAfter.gcCollectionTimeMillis() - jvmBefore.gcCollectionTimeMillis())).append('\n')
             .append("failure=").append(failure == null ? "none" : failure).append('\n');
         try {
             Files.writeString(stateDir.resolve(RESULT), result);
@@ -226,4 +271,17 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         }
         Runtime.getRuntime().exit(pass ? 0 : 2);
     }
+
+    private record JvmSnapshot(
+        String javaVersion,
+        String vmVendor,
+        long heapUsedBytes,
+        long heapCommittedBytes,
+        long nonHeapUsedBytes,
+        int threadCount,
+        int peakThreadCount,
+        int loadedClassCount,
+        long gcCollectionCount,
+        long gcCollectionTimeMillis
+    ) { }
 }
