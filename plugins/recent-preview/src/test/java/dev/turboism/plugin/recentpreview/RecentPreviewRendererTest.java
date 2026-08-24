@@ -79,7 +79,7 @@ final class RecentPreviewRendererTest {
     }
 
     @Test
-    void missingCacheRequestsCaptureAndReturnsEmpty() {
+    void missingCacheReturnsLoadingContentAndRequestsCaptureOnce() {
         final RecentFileSummary summary = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
         final AtomicInteger requests = new AtomicInteger();
         final RecentPreviewController controller = new RecentPreviewController(
@@ -87,11 +87,34 @@ final class RecentPreviewRendererTest {
         );
         controller.enable();
         final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
-            controller, id -> requests.incrementAndGet(), new NoopLogger()
+            controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…"
         );
 
-        assertFalse(renderer.render(summary).isPresent());
+        final RecentPreviewContent first = renderer.render(summary).orElseThrow();
+        final RecentPreviewContent second = renderer.render(summary).orElseThrow();
+
         assertEquals(1, requests.get());
+        assertEquals(List.of("model.cmo3", "", "Loading preview…"), textValues(first.view()));
+        assertEquals(textValues(first.view()), textValues(second.view()));
+    }
+
+    @Test
+    void failedLoadingAttemptHidesOnceThenAllowsRetry() {
+        final RecentFileSummary summary = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final AtomicInteger requests = new AtomicInteger();
+        final RecentPreviewController controller = new RecentPreviewController(
+            List::of, new NoopCapture(), new NoopCache()
+        );
+        controller.enable();
+        final RecentPreviewRendererImpl renderer = new RecentPreviewRendererImpl(
+            controller, id -> requests.incrementAndGet(), new NoopLogger(), "Loading preview…"
+        );
+
+        assertTrue(renderer.render(summary).isPresent());
+        renderer.captureFailed(summary.id());
+        assertTrue(renderer.render(summary).isEmpty(), "the completion refresh must clear the loading popup once");
+        assertTrue(renderer.render(summary).isPresent(), "a later user hover may retry");
+        assertEquals(2, requests.get());
     }
 
     @Test

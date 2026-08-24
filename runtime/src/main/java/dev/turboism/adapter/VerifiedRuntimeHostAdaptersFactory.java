@@ -12,6 +12,7 @@ import dev.turboism.mapping.verification.VerifiedAutoBackupResolverFactory;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Production composition helper for pinned, reviewed host-adapter verification evidence.
@@ -26,23 +27,34 @@ public final class VerifiedRuntimeHostAdaptersFactory {
     private final VerifiedClipMaskResolverFactory clipMaskResolverFactory;
     private final VerifiedStatusBarResolverFactory statusBarResolverFactory;
     private final java.util.Locale locale;
+    private final Consumer<String> diagnostics;
 
     public VerifiedRuntimeHostAdaptersFactory() {
         this(
             new VerifiedProjectWorkspaceResolverFactory(),
             new VerifiedClipMaskResolverFactory(),
             new VerifiedStatusBarResolverFactory(),
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY)
+            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+            ignored -> { }
         );
     }
 
     /** Production factory: receives the one startup-resolved effective locale. */
     public VerifiedRuntimeHostAdaptersFactory(final java.util.Locale effectiveLocale) {
+        this(effectiveLocale, ignored -> { });
+    }
+
+    /** Production factory with a sanitized recent-preview diagnostics sink. */
+    public VerifiedRuntimeHostAdaptersFactory(
+        final java.util.Locale effectiveLocale,
+        final Consumer<String> diagnostics
+    ) {
         this(
             new VerifiedProjectWorkspaceResolverFactory(),
             new VerifiedClipMaskResolverFactory(),
             new VerifiedStatusBarResolverFactory(),
-            effectiveLocale
+            effectiveLocale,
+            diagnostics
         );
     }
 
@@ -54,7 +66,8 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             projectResolverFactory,
             clipMaskResolverFactory,
             new VerifiedStatusBarResolverFactory(),
-            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY)
+            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+            ignored -> { }
         );
     }
 
@@ -77,10 +90,21 @@ public final class VerifiedRuntimeHostAdaptersFactory {
         final VerifiedStatusBarResolverFactory statusBarResolverFactory,
         final java.util.Locale locale
     ) {
+        this(projectResolverFactory, clipMaskResolverFactory, statusBarResolverFactory, locale, ignored -> { });
+    }
+
+    VerifiedRuntimeHostAdaptersFactory(
+        final VerifiedProjectWorkspaceResolverFactory projectResolverFactory,
+        final VerifiedClipMaskResolverFactory clipMaskResolverFactory,
+        final VerifiedStatusBarResolverFactory statusBarResolverFactory,
+        final java.util.Locale locale,
+        final Consumer<String> diagnostics
+    ) {
         this.projectResolverFactory = Objects.requireNonNull(projectResolverFactory, "projectResolverFactory");
         this.clipMaskResolverFactory = Objects.requireNonNull(clipMaskResolverFactory, "clipMaskResolverFactory");
         this.statusBarResolverFactory = Objects.requireNonNull(statusBarResolverFactory, "statusBarResolverFactory");
         this.locale = Objects.requireNonNull(locale, "locale");
+        this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
     }
 
     /**
@@ -156,12 +180,24 @@ public final class VerifiedRuntimeHostAdaptersFactory {
             );
             if (RecentPreviewVerificationManifest.authorizes(projectResolver, panelResolver)) {
                 composed = RuntimeHostAdapters.withVerifiedRecentPreview(
-                    composed, projectResolver, panelResolver, locale
+                    composed, projectResolver, panelResolver, locale, diagnostics
                 );
+            } else {
+                diagnose("adapter-diag:resolver-pair-unauthorized");
             }
             // unauthorized recent-preview slices fail closed: the base bundle is kept.
+        } else {
+            diagnose("adapter-diag:embedded-panel-evidence-missing");
         }
         return composed;
+    }
+
+    private void diagnose(final String message) {
+        try {
+            diagnostics.accept(message);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not change verified host admission behavior.
+        }
     }
 
     /**

@@ -12,16 +12,11 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
-/**
- * Popup content renderer for one recent file: cached thumbnail image plus the
- * legacy {@code buildRecentPreviewInfoHtml} equivalent rows — file name and
- * last edit time. The absolute path is intentionally not rendered (popup width).
- * When the thumbnail is not cached yet, an asynchronous capture is requested
- * and the popup refresh is left to the request completion (the runtime
- * re-renders the active popup via {@code refresh()}).
- */
+/** Popup renderer for cached thumbnails and the first-capture loading state. */
 public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
 
     static final DateTimeFormatter LAST_MODIFIED_FORMAT =
@@ -30,32 +25,75 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
     private final RecentPreviewController controller;
     private final Consumer<RecentFileId> captureRequester;
     private final PluginLogger logger;
+    private final String loadingText;
+    private final Set<RecentFileId> loading = ConcurrentHashMap.newKeySet();
+    private final Set<RecentFileId> hideOnce = ConcurrentHashMap.newKeySet();
 
     public RecentPreviewRendererImpl(
         final RecentPreviewController controller,
         final Consumer<RecentFileId> captureRequester,
         final PluginLogger logger
     ) {
+        this(controller, captureRequester, logger, "Loading preview…");
+    }
+
+    public RecentPreviewRendererImpl(
+        final RecentPreviewController controller,
+        final Consumer<RecentFileId> captureRequester,
+        final PluginLogger logger,
+        final String loadingText
+    ) {
         this.controller = Objects.requireNonNull(controller, "controller");
         this.captureRequester = Objects.requireNonNull(captureRequester, "captureRequester");
         this.logger = Objects.requireNonNull(logger, "logger");
+        this.loadingText = requireText(loadingText, "loadingText");
     }
 
     @Override
     public Optional<RecentPreviewContent> render(final RecentFileSummary summary) {
-        final Optional<byte[]> cached = controller.image(summary.id());
+        Objects.requireNonNull(summary, "summary");
+        final RecentFileId id = summary.id();
+        final Optional<byte[]> cached = controller.image(id);
         if (cached.isPresent()) {
-            return Optional.of(new RecentPreviewContent(summary.id(), contentFor(summary, cached.get())));
+            loading.remove(id);
+            hideOnce.remove(id);
+            return Optional.of(new RecentPreviewContent(id, contentFor(summary, cached.orElseThrow())));
         }
-        try {
-            captureRequester.accept(summary.id());
-        } catch (RuntimeException failure) {
-            logger.warn("Recent preview capture request failed: " + failure.getClass().getSimpleName());
+        if (hideOnce.remove(id)) {
+            loading.remove(id);
+            return Optional.empty();
         }
-        return Optional.empty();
+        if (loading.add(id)) {
+            try {
+                captureRequester.accept(id);
+            } catch (RuntimeException failure) {
+                loading.remove(id);
+                logger.warn("Recent preview capture request failed: " + failure.getClass().getSimpleName());
+                return Optional.empty();
+            }
+        }
+        return Optional.of(new RecentPreviewContent(id, loadingContentFor(summary, loadingText)));
     }
 
-    /** Builds the popup {@link PanelView}: thumbnail image plus the two info rows. */
+    /** Capture succeeded; a refresh will resolve the image from the controller cache. */
+    void captureStored(final RecentFileId id) {
+        loading.remove(Objects.requireNonNull(id, "id"));
+        hideOnce.remove(id);
+    }
+
+    /** Capture failed; the completion refresh hides loading once, then a later hover may retry. */
+    void captureFailed(final RecentFileId id) {
+        final RecentFileId target = Objects.requireNonNull(id, "id");
+        loading.remove(target);
+        hideOnce.add(target);
+    }
+
+    void clearTransientState() {
+        loading.clear();
+        hideOnce.clear();
+    }
+
+    /** Builds the thumbnail plus the two legacy information rows. */
     static PanelView contentFor(final RecentFileSummary summary, final byte[] png) {
         return PanelView.column(
             PanelView.image(png, summary.displayName()),
@@ -64,10 +102,22 @@ public final class RecentPreviewRendererImpl implements RecentPreviewRenderer {
         );
     }
 
+    static PanelView loadingContentFor(final RecentFileSummary summary, final String loadingText) {
+        return PanelView.column(
+            PanelView.text(summary.displayName()),
+            PanelView.text(formatLastModified(summary.lastModified())),
+            PanelView.text(requireText(loadingText, "loadingText"))
+        );
+    }
+
     /** Formats the last edit time as local {@code yyyy-MM-dd HH:mm:ss}; empty when unknown. */
     static String formatLastModified(final Optional<Instant> lastModified) {
-        return lastModified
-            .map(value -> LAST_MODIFIED_FORMAT.format(value))
-            .orElse("");
+        return lastModified.map(LAST_MODIFIED_FORMAT::format).orElse("");
+    }
+
+    private static String requireText(final String value, final String name) {
+        final String text = Objects.requireNonNull(value, name).trim();
+        if (text.isEmpty()) throw new IllegalArgumentException(name + " must not be blank");
+        return text;
     }
 }

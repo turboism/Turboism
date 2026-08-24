@@ -8,7 +8,7 @@ cd "$repo_root"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-recent-preview-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
-plugin_jar="$repo_root/build/worktree/$worktree_id/recent-preview/libs/recent-preview-0.1.0-SNAPSHOT-$worktree_id.jar"
+plugin_jar_dir="$repo_root/build/worktree/$worktree_id/recent-preview/libs"
 test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-recent-preview-validation-plugin.json"
@@ -17,7 +17,17 @@ printf '[package] building fresh worktree artifacts (bootstrap, recent-preview p
 ./gradlew :bootstrap:jar :plugins:recent-preview:jar :tests:testClasses previewBundle --console=plain
 
 [ -f "$agent_jar" ] || { printf 'error: preview agent not found: %s\n' "$agent_jar" >&2; exit 1; }
-[ -f "$plugin_jar" ] || { printf 'error: recent-preview plugin jar not found: %s\n' "$plugin_jar" >&2; exit 1; }
+mapfile -t plugin_jars < <(
+  find "$plugin_jar_dir" -maxdepth 1 -type f -name "recent-preview-*-$worktree_id.jar" \
+    -printf '%p\n' | LC_ALL=C sort
+)
+[ "${#plugin_jars[@]}" -eq 1 ] || {
+  printf 'error: expected exactly one recent-preview plugin jar under %s, found %d\n' \
+    "$plugin_jar_dir" "${#plugin_jars[@]}" >&2
+  printf '  %s\n' "${plugin_jars[@]:-<none>}" >&2
+  exit 1
+}
+plugin_jar="${plugin_jars[0]}"
 [ -f "$test_classes/$probe_class_dir_rel/WindowsRecentPreviewValidationProbe.class" ] \
   || { printf 'error: validation probe class not found under %s\n' "$test_classes" >&2; exit 1; }
 [ -f "$probe_descriptor" ] || { printf 'error: validation descriptor not found: %s\n' "$probe_descriptor" >&2; exit 1; }
