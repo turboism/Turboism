@@ -35,11 +35,13 @@ final class PreviewCacheIndexTest {
         final PreviewCacheWriteResult result = store(index);
 
         assertEquals(PreviewCacheWriteResult.STORED, result);
-        assertEquals(2, storage.operations.size());
-        assertTrue(storage.operations.get(0).startsWith("bytes:recent-preview/images/"));
+        assertEquals(4, storage.operations.size());
+        assertTrue(storage.operations.get(0).startsWith("bytes:recent-preview/staging/"));
         assertTrue(storage.operations.get(0).endsWith(".png"));
-        assertTrue(storage.operations.get(1).startsWith("text:recent-preview/index/"));
+        assertTrue(storage.operations.get(1).startsWith("text:recent-preview/staging/"));
         assertTrue(storage.operations.get(1).endsWith(".entry"));
+        assertTrue(storage.operations.get(2).contains("->recent-preview/images/"));
+        assertTrue(storage.operations.get(3).contains("->recent-preview/index/"));
     }
 
     @Test
@@ -57,8 +59,29 @@ final class PreviewCacheIndexTest {
         storage.failIndexWrite = true;
 
         assertEquals(PreviewCacheWriteResult.INDEX_WRITE_FAILED, store(new PreviewCacheIndex(storage)));
-        assertEquals(3, storage.operations.size());
-        assertTrue(storage.operations.get(2).startsWith("delete:recent-preview/images/"));
+        assertEquals(4, storage.operations.size());
+        assertTrue(storage.operations.get(2).startsWith("delete:recent-preview/staging/"));
+        assertTrue(storage.operations.get(3).startsWith("delete:recent-preview/staging/"));
+    }
+
+    @Test
+    void generationInvalidationDeletesStagedFilesWithoutPublishing() {
+        final RecordingStorage storage = new RecordingStorage();
+        final java.util.concurrent.atomic.AtomicBoolean allowed = new java.util.concurrent.atomic.AtomicBoolean(true);
+        storage.afterImageWrite = () -> allowed.set(false);
+        final PreviewCacheIndex index = new PreviewCacheIndex(storage);
+
+        final PreviewCacheWriteResult result = index.store(
+            new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3"),
+            new ScreenshotImage(1, 1, png()),
+            allowed::get
+        ).toCompletableFuture().join();
+
+        assertEquals(PreviewCacheWriteResult.DISABLED, result);
+        assertTrue(storage.operations.stream().noneMatch(operation -> operation.startsWith("move:")));
+        assertEquals(2, storage.operations.stream()
+            .filter(operation -> operation.startsWith("delete:recent-preview/staging/"))
+            .count());
     }
 
     @Test
@@ -135,11 +158,14 @@ final class PreviewCacheIndexTest {
         private byte[] readBytes;
         private int lastMaxBytes;
         private String lastIndexEntry;
+        private Runnable afterImageWrite = () -> { };
 
         @Override
         public CompletionStage<StorageWriteResult> writeBytesAtomic(StoragePath path, byte[] content) {
             operations.add("bytes:" + path.relativePath());
-            return CompletableFuture.completedStage(failImageWrite ? failedWrite(path) : successfulWrite());
+            final StorageWriteResult result = failImageWrite ? failedWrite(path) : successfulWrite();
+            afterImageWrite.run();
+            return CompletableFuture.completedStage(result);
         }
 
         @Override
@@ -179,7 +205,8 @@ final class PreviewCacheIndexTest {
         public CompletionStage<StorageMutationResult> moveAtomic(
             StoragePath source, StoragePath target, boolean replaceExisting
         ) {
-            throw new UnsupportedOperationException();
+            operations.add("move:" + source.relativePath() + "->" + target.relativePath());
+            return CompletableFuture.completedStage(new StorageMutationResult(true, Optional.empty()));
         }
 
         @Override

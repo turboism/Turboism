@@ -128,7 +128,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         this.source = Objects.requireNonNull(source, "source");
         this.connector = new VerifiedHostAdapterConnector(
             new dev.turboism.adapter.VerifiedRuntimeHostAdaptersFactory(
-                Objects.requireNonNull(effectiveLocale, "effectiveLocale")
+                Objects.requireNonNull(effectiveLocale, "effectiveLocale"),
+                dev.turboism.preview.RecentPreviewDiagnostics::emit
             )::create,
             slice -> new dev.turboism.mapping.verification.VerifiedEditorModelResolverFactory().create(
                 slice.reviewedRecord(), slice.verifiedArtifact(), slice.hostClassLoader()

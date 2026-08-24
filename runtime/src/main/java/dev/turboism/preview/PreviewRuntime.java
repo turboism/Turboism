@@ -301,6 +301,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 message -> log.info("appearance", message)
             ).start();
             scheduler = createScheduler(log);
+            RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
             ingress = new HostRuntimeIngress(effectiveLocale);
 
             final Path normalizedVerificationRecord = Objects.requireNonNull(
@@ -454,6 +455,7 @@ public final class PreviewRuntime implements AutoCloseable {
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
+            RecentPreviewDiagnostics.uninstall();
             throw failure;
         }
     }
@@ -767,6 +769,7 @@ public final class PreviewRuntime implements AutoCloseable {
         failures.addAll(runShutdownStages(List.of(
             new ShutdownStage("LOG_CLOSE_FAILED", "log", shutdownLifecycle::closeLog)
         )));
+        RecentPreviewDiagnostics.uninstall();
         shutdownFailures = List.copyOf(failures);
         if (failures.stream().anyMatch(failure -> failure.code().equals("LOG_CLOSE_FAILED"))) {
             System.err.println("Turboism preview log close failed safely: LOG_CLOSE_FAILED");
