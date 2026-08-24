@@ -1,2 +1,3 @@
 plugin.description
 plugin.name
+preview.loading

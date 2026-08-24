@@ -155,6 +155,31 @@ class ScreenshotCaptureHostOperationsTest {
     }
 
     @Test
+    void throwingDiagnosticSinkCannotPreventFailureCompletion() throws Exception {
+        final Path current = Files.createTempFile("recent-preview-capture", ".cmo3");
+        final ClassLoader loader = getClass().getClassLoader();
+        final VerifiedRecentFileListHostOperations files = new VerifiedRecentFileListHostOperations(
+            projectResolver("5.2.03", loader), panelResolver("5.2.03", loader)
+        );
+        ProjectHost.setRoot(projectChain(current));
+        PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
+        files.list();
+
+        final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
+            panelResolver("5.2.03", loader), files, noopSuppression(),
+            ignored -> { throw new IllegalStateException("diagnostic unavailable"); }
+        );
+        final RecentFileId other = new RecentFileId("0".repeat(64));
+        final var future = capture.capture(
+            new ScreenshotCaptureRequest(other, 150, 150)
+        ).toCompletableFuture();
+
+        assertThrows(java.util.concurrent.ExecutionException.class,
+            () -> future.get(5, TimeUnit.SECONDS));
+        assertTrue(future.isCompletedExceptionally());
+    }
+
+    @Test
     void capturesCurrentProjectWithDebounceAndPopupSuppression() throws Exception {
         Assumptions.assumeFalse(GraphicsEnvironment.isHeadless(),
             "direct capture requires a visible AWT window; covered by the real-host rerun");
