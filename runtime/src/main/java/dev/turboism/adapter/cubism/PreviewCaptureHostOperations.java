@@ -128,7 +128,11 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
     }
 
     private static void diagnose(final String reason) {
-        diagnostics.accept("capture-diag:" + reason);
+        try {
+            diagnostics.accept("capture-diag:" + reason);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not prevent capture futures from settling.
+        }
     }
 
     private static String className(final Object value) {

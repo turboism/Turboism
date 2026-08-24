@@ -26,6 +26,9 @@ final class DynamicRuntimeHostAdapters {
     private final Object callGate = new Object();
     private final ThreadLocal<Integer> adapterCallDepth = ThreadLocal.withInitial(() -> 0);
     private final Set<TrackedRegistration> registrations = ConcurrentHashMap.newKeySet();
+    private final Set<RecentPreviewRegistration> recentPreviewRegistrations =
+        ConcurrentHashMap.newKeySet();
+    private final Set<String> emittedRecentPreviewDiagnostics = ConcurrentHashMap.newKeySet();
     private final RuntimeHostAdapters safeMode = RuntimeHostAdapters.safeMode();
     private final RuntimeHostAdapters view = createView();
 
@@ -45,8 +48,20 @@ final class DynamicRuntimeHostAdapters {
     }
 
     void connect(final RuntimeHostAdapters adapters) {
+        final RuntimeHostAdapters connected = Objects.requireNonNull(adapters, "adapters");
+        for (RecentPreviewRegistration registration : Set.copyOf(recentPreviewRegistrations)) {
+            try {
+                registration.connect(connected);
+            } catch (RuntimeException failure) {
+                final String diagnostic =
+                    "adapter-diag:preview-rebind:" + failure.getClass().getSimpleName();
+                if (emittedRecentPreviewDiagnostics.add(diagnostic)) {
+                    dev.turboism.preview.RecentPreviewDiagnostics.emit(diagnostic);
+                }
+            }
+        }
         synchronized (callGate) {
-            current = Objects.requireNonNull(adapters, "adapters");
+            current = connected;
             acceptingCalls = true;
         }
     }
@@ -58,6 +73,7 @@ final class DynamicRuntimeHostAdapters {
      */
     void deactivate() throws Exception {
         final Set<TrackedRegistration> detached;
+        final Set<RecentPreviewRegistration> previewDetached;
         boolean interrupted = false;
         synchronized (callGate) {
             current = safeMode;
@@ -70,6 +86,7 @@ final class DynamicRuntimeHostAdapters {
                 }
             }
             detached = Set.copyOf(registrations);
+            previewDetached = Set.copyOf(recentPreviewRegistrations);
         }
         if (interrupted) {
             Thread.currentThread().interrupt();
@@ -80,11 +97,14 @@ final class DynamicRuntimeHostAdapters {
             try {
                 registration.closeFromSession();
             } catch (Throwable throwable) {
-                if (first == null) {
-                    first = throwable;
-                } else {
-                    first.addSuppressed(throwable);
-                }
+                first = accumulate(first, throwable);
+            }
+        }
+        for (RecentPreviewRegistration registration : previewDetached) {
+            try {
+                registration.deactivate();
+            } catch (Throwable throwable) {
+                first = accumulate(first, throwable);
             }
         }
         rethrow(first);
@@ -167,7 +187,7 @@ final class DynamicRuntimeHostAdapters {
                     public dev.turboism.sdk.plugin.Registration contribute(
                         final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer
                     ) {
-                        return call(adapters -> track(adapters.recentPreviews().contribute(renderer)));
+                        return call(adapters -> trackRecentPreview(renderer, adapters));
                     }
 
                     @Override
@@ -372,8 +392,75 @@ final class DynamicRuntimeHostAdapters {
         return tracked;
     }
 
+    private Registration trackRecentPreview(
+        final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer,
+        final RuntimeHostAdapters adapters
+    ) {
+        final RecentPreviewRegistration tracked = new RecentPreviewRegistration(
+            Objects.requireNonNull(renderer, "renderer")
+        );
+        recentPreviewRegistrations.add(tracked);
+        try {
+            tracked.connect(adapters);
+            return tracked;
+        } catch (Throwable throwable) {
+            recentPreviewRegistrations.remove(tracked);
+            rethrowUnchecked(throwable);
+            throw new AssertionError("unreachable");
+        }
+    }
+
     int trackedRegistrationCountForTest() {
         return registrations.size();
+    }
+
+    int trackedRecentPreviewRegistrationCountForTest() {
+        return recentPreviewRegistrations.size();
+    }
+
+    private final class RecentPreviewRegistration implements Registration {
+        private final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer;
+        private Registration delegate;
+        private boolean closed;
+
+        private RecentPreviewRegistration(
+            final dev.turboism.sdk.cubism.recentpreview.RecentPreviewRenderer renderer
+        ) {
+            this.renderer = renderer;
+        }
+
+        private synchronized void connect(final RuntimeHostAdapters adapters) {
+            if (closed || delegate != null) {
+                return;
+            }
+            delegate = Objects.requireNonNull(
+                adapters.recentPreviews().contribute(renderer),
+                "recent preview registration"
+            );
+        }
+
+        private synchronized void deactivate() {
+            closeDelegate();
+        }
+
+        @Override
+        public synchronized void close() {
+            if (closed) {
+                return;
+            }
+            closeDelegate();
+            closed = true;
+            recentPreviewRegistrations.remove(this);
+        }
+
+        private void closeDelegate() {
+            final Registration active = delegate;
+            if (active == null) {
+                return;
+            }
+            active.close();
+            delegate = null;
+        }
     }
 
     private final class TrackedRegistration implements Registration {
@@ -459,6 +546,16 @@ final class DynamicRuntimeHostAdapters {
             }
         }
 
+    private static Throwable accumulate(final Throwable first, final Throwable next) {
+        if (first == null) {
+            return next;
+        }
+        if (first != next) {
+            first.addSuppressed(next);
+        }
+        return first;
+    }
+
     private static void rethrow(final Throwable throwable) throws Exception {
         if (throwable == null) {
             return;
@@ -476,6 +573,9 @@ final class DynamicRuntimeHostAdapters {
     }
 
     private static void rethrowUnchecked(final Throwable throwable) {
+        if (throwable == null) {
+            return;
+        }
         if (throwable instanceof Error error) {
             throw error;
         }

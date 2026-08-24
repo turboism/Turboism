@@ -118,6 +118,62 @@ final class RecentPreviewControllerTest {
     }
 
     @Test
+    void staleCaptureCompletionAfterReenableCannotPublishAnOldThumbnail() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final CompletableFuture<ScreenshotCaptureResult> oldPending = new CompletableFuture<>();
+        final RecordingCapture captures = new RecordingCapture();
+        captures.pending = oldPending;
+        final RecordingCache cache = new RecordingCache();
+        final RecentPreviewController controller = new RecentPreviewController(
+            () -> List.of(file), captures, cache
+        );
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        final CompletionStage<PreviewCacheWriteResult> stale = controller.capture(file.id());
+        controller.disable();
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        oldPending.complete(new ScreenshotCaptureResult(file.id(), new ScreenshotImage(1, 1, png())));
+
+        assertEquals(PreviewCacheWriteResult.DISABLED, stale.toCompletableFuture().join());
+        assertEquals(null, cache.file, "the old generation must not write the persistent cache");
+        assertTrue(controller.image(file.id()).isEmpty());
+    }
+
+    @Test
+    void staleCompletionCannotClearANewGenerationCaptureForTheSameId() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final CompletableFuture<ScreenshotCaptureResult> oldPending = new CompletableFuture<>();
+        final CompletableFuture<ScreenshotCaptureResult> newPending = new CompletableFuture<>();
+        final RecordingCapture captures = new RecordingCapture();
+        captures.pendingResults.add(oldPending);
+        captures.pendingResults.add(newPending);
+        final RecentPreviewController controller = new RecentPreviewController(
+            () -> List.of(file), captures, new RecordingCache()
+        );
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        final CompletionStage<PreviewCacheWriteResult> stale = controller.capture(file.id());
+        controller.disable();
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+        final CompletionStage<PreviewCacheWriteResult> current = controller.capture(file.id());
+
+        oldPending.complete(new ScreenshotCaptureResult(file.id(), new ScreenshotImage(1, 1, png())));
+        assertEquals(PreviewCacheWriteResult.DISABLED, stale.toCompletableFuture().join());
+        assertEquals(PreviewCacheWriteResult.DISABLED,
+            controller.capture(file.id()).toCompletableFuture().join(),
+            "the current generation must remain in flight after the stale completion");
+
+        newPending.complete(new ScreenshotCaptureResult(file.id(), new ScreenshotImage(1, 1, png())));
+        assertEquals(PreviewCacheWriteResult.STORED, current.toCompletableFuture().join());
+        assertEquals(2, captures.calls);
+    }
+
+    @Test
     void resolvesIdByFileNameHintThenByModelNameStem() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
         final RecentPreviewController controller = new RecentPreviewController(
@@ -151,6 +207,27 @@ final class RecentPreviewControllerTest {
 
         controller.disable();
         assertFalse(controller.image(file.id()).isPresent());
+    }
+
+    @Test
+    void stalePreloadCompletionAfterReenableCannotPublishOldCacheData() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final CompletableFuture<java.util.Map<RecentFileId, byte[]>> oldPending = new CompletableFuture<>();
+        final RecordingCache cache = new RecordingCache();
+        cache.pendingLoad = oldPending;
+        final RecentPreviewController controller = new RecentPreviewController(
+            () -> List.of(file), new RecordingCapture(), cache
+        );
+
+        controller.enable();
+        final CompletionStage<Void> stale = controller.preload();
+        controller.disable();
+        controller.enable();
+
+        oldPending.complete(java.util.Map.of(file.id(), png()));
+
+        stale.toCompletableFuture().join();
+        assertTrue(controller.image(file.id()).isEmpty());
     }
 
     @Test
@@ -223,6 +300,8 @@ final class RecentPreviewControllerTest {
         private ScreenshotCaptureRequest request;
         private RecentFileId resultId;
         private CompletableFuture<ScreenshotCaptureResult> pending;
+        private final java.util.ArrayDeque<CompletableFuture<ScreenshotCaptureResult>> pendingResults =
+            new java.util.ArrayDeque<>();
         private int calls;
 
         @Override
@@ -230,6 +309,9 @@ final class RecentPreviewControllerTest {
             calls++;
             requests.add(value);
             request = value;
+            if (!pendingResults.isEmpty()) {
+                return pendingResults.removeFirst();
+            }
             if (pending != null) {
                 return pending;
             }
@@ -242,6 +324,7 @@ final class RecentPreviewControllerTest {
     private static final class RecordingCache implements PreviewCache {
         private RecentFileSummary file;
         private byte[] png;
+        private CompletableFuture<java.util.Map<RecentFileId, byte[]>> pendingLoad;
 
         @Override
         public CompletionStage<PreviewCacheWriteResult> store(
@@ -256,6 +339,9 @@ final class RecentPreviewControllerTest {
         public CompletionStage<java.util.Map<RecentFileId, byte[]>> loadPng(
             final List<RecentFileSummary> files
         ) {
+            if (pendingLoad != null) {
+                return pendingLoad;
+            }
             final java.util.Map<RecentFileId, byte[]> loaded = new java.util.HashMap<>();
             if (png != null) {
                 for (RecentFileSummary candidate : files) {

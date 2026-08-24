@@ -32,6 +32,14 @@ class VerifiedRecentFileListHostOperationsTest {
             ));
         assertEquals(project.toAbsolutePath().normalize(),
             RecentMenuChain.firstExistingPath("Demo | " + project));
+        assertEquals(project.toAbsolutePath().normalize(),
+            RecentMenuChain.firstExistingPath("Demo [" + project + "]"));
+        assertEquals(project.toAbsolutePath().normalize(),
+            RecentMenuChain.firstExistingPath("Demo\t\"" + project + "\""));
+        assertEquals(project.toAbsolutePath().normalize(),
+            RecentMenuChain.firstExistingPath("Demo\n'" + project + "'"));
+        final Path unrelated = Files.createTempFile("recent-preview", ".txt");
+        org.junit.jupiter.api.Assertions.assertNull(RecentMenuChain.firstExistingPath(unrelated.toString()));
         org.junit.jupiter.api.Assertions.assertNull(
             RecentMenuChain.firstExistingPath("missing.cmo3"));
         assertEquals(

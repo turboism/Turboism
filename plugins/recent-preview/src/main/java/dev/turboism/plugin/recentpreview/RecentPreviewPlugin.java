@@ -29,7 +29,7 @@ import java.util.List;
 /**
  * Recent-file preview thumbnail plugin: captures a bounded preview when a model is
  * opened or saved, keeps PNGs plus a no-path index in plugin-confined cache storage,
- * and contributes popup content (thumbnail + file name / path / last edit time) to
+ * and contributes popup content (thumbnail + file name / last edit time) to
  * the host Recent Files hover bridge. All host services are optional: an unavailable
  * service logs a warning and the plugin degrades to no capture/no popup.
  */
@@ -46,6 +46,8 @@ public final class RecentPreviewPlugin implements CubismPlugin {
     private static final Duration POLL_INTERVAL = Duration.ofSeconds(3);
 
     private static final String POLL_TASK_ID = "recent-preview-poll";
+    private static final String LOADING_TEXT_KEY = "preview.loading";
+    private static final String DEFAULT_LOADING_TEXT = "Loading preview…";
 
     private RecentPreviewPoller poller;
 
@@ -62,7 +64,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             context.screenshots(),
             cacheIndex
         );
-        renderer = new RecentPreviewRendererImpl(controller, this::requestCapture, context.logger());
+        renderer = new RecentPreviewRendererImpl(
+            controller, this::requestCapture, context.logger(), loadingText(context)
+        );
         context.disposableScope().register(() -> closeContribution());
         context.logger().info("Recent Preview plugin initialized");
     }
@@ -86,8 +90,10 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             return;
         }
         enabled = false;
+        stopPoller();
         closeContribution();
         if (controller != null) controller.disable();
+        if (renderer != null) renderer.clearTransientState();
         fileNameHint = Optional.empty();
     }
 
@@ -235,12 +241,20 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         }
         final Optional<RecentFileId> target = poller.sample(files);
         if (target.isEmpty()) return;
-        controller.pollCapture(target.get()).whenComplete((result, failure) -> {
+        final RecentFileId id = target.orElseThrow();
+        controller.pollCapture(id).whenComplete((result, failure) -> {
             if (!enabled) return;
             if (failure != null) {
+                renderer.captureFailed(id);
                 context.logger().warn("Recent preview poll capture failed: "
                     + failure.getClass().getSimpleName());
+                refreshPopup();
             } else if (result == PreviewCacheWriteResult.STORED) {
+                renderer.captureStored(id);
+                refreshPopup();
+            } else if (result != PreviewCacheWriteResult.DISABLED) {
+                renderer.captureFailed(id);
+                context.logger().warn("Recent preview poll capture not stored: " + result);
                 refreshPopup();
             }
         });
@@ -251,13 +265,29 @@ public final class RecentPreviewPlugin implements CubismPlugin {
         controller.capture(id).whenComplete((result, failure) -> {
             if (!enabled) return;
             if (failure != null) {
+                renderer.captureFailed(id);
                 context.logger().warn("Recent preview capture failed: " + failure.getClass().getSimpleName());
-            } else if (result != PreviewCacheWriteResult.STORED
-                && result != PreviewCacheWriteResult.DISABLED) {
-                context.logger().warn("Recent preview capture not stored: " + result);
+                refreshPopup();
+                return;
             }
-            refreshPopup();
+            if (result == PreviewCacheWriteResult.STORED) {
+                renderer.captureStored(id);
+                refreshPopup();
+            } else if (result != PreviewCacheWriteResult.DISABLED) {
+                renderer.captureFailed(id);
+                context.logger().warn("Recent preview capture not stored: " + result);
+                refreshPopup();
+            }
         });
+    }
+
+    private static String loadingText(final PluginContext context) {
+        try {
+            final String localized = context.localization().text(LOADING_TEXT_KEY);
+            return localized == null || localized.isBlank() ? DEFAULT_LOADING_TEXT : localized;
+        } catch (RuntimeException unavailable) {
+            return DEFAULT_LOADING_TEXT;
+        }
     }
 
     private void refreshPopup() {
