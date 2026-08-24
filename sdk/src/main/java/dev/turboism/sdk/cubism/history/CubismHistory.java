@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.history;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Optional;
 
 /** Active-document access to Cubism's native Undo history. */
-@PreviewApi
 public interface CubismHistory {
 
     HistorySnapshot snapshot();

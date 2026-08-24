@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Checked exception for transaction lifecycle errors.
  * Carries SDK-safe diagnostic information.
  */
-@PreviewApi
 public class TransactionException extends Exception {
 
     private final String transactionId;

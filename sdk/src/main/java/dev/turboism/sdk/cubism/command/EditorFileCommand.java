@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.UserFileMode;
 
 import java.util.Set;
 
 /** Typed Editor operations whose source or destination is an opaque user-file grant. */
-@PreviewApi
 public enum EditorFileCommand {
     OPEN(UserFileMode.READ, Set.of("5.2.03", "5.3.02")),
     SAVE_AS(UserFileMode.WRITE, Set.of("5.2.03", "5.3.02")),

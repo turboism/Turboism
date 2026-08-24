@@ -1,6 +1,5 @@
 package dev.turboism.sdk.runtime;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
 import java.util.List;
@@ -15,7 +14,6 @@ import java.util.Objects;
  * {@link CubismLogService} stream remains the command-side source for host log
  * filtering and exact in-process inspection.</p>
  */
-@PreviewApi
 public record CubismLogBatchEvent(
     List<Entry> entries,
     long droppedEntries

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -12,7 +11,6 @@ import java.util.Objects;
  *
  * @param value the host's workspace key, non-null and non-blank
  */
-@PreviewApi
 public record WorkspaceId(String value) {
     public WorkspaceId {
         Objects.requireNonNull(value, "value");

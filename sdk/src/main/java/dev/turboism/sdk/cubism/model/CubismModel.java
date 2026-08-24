@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Optional;
 
 /** One Cubism model exposed as natural objects and methods. */
-@PreviewApi
 public interface CubismModel {
 
     ModelId id();

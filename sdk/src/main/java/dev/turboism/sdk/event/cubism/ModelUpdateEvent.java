@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationEvent;
 import dev.turboism.sdk.event.TurboismEvent;
@@ -14,23 +13,19 @@ import java.util.Objects;
  * {@code CubismModel} is deliberately not exposed because observation delivery may occur after the
  * host callback returns.</p>
  */
-@PreviewApi
 public sealed interface ModelUpdateEvent extends TurboismEvent
     permits ModelUpdateEvent.Before, ModelUpdateEvent.On, ModelUpdateEvent.After {
 
     CubismOperationEvent operation();
 
-    @PreviewApi
     record Before(CubismOperationEvent operation) implements ModelUpdateEvent {
         public Before { operation = requireUpdate(operation); }
     }
 
-    @PreviewApi
     record On(CubismOperationEvent operation) implements ModelUpdateEvent {
         public On { operation = requireUpdate(operation); }
     }
 
-    @PreviewApi
     record After(CubismOperationEvent operation) implements ModelUpdateEvent {
         public After { operation = requireUpdate(operation); }
     }

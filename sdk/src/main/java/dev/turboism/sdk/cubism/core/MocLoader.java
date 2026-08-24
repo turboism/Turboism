@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Permission-checked loader for plugin-owned Cubism Core models built from MOC bytes.
@@ -13,7 +12,6 @@ import dev.turboism.sdk.PreviewApi;
  * <p>Fail-closed: without an admitted host Core runtime the loader is unavailable and
  * {@link #load} throws {@link UnsupportedOperationException}.</p>
  */
-@PreviewApi
 public interface MocLoader {
 
     /**

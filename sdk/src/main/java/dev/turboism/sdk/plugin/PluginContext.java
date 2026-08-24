@@ -1,6 +1,5 @@
 package dev.turboism.sdk.plugin;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.performance.PerformanceProbeService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
@@ -32,6 +31,7 @@ import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
+import dev.turboism.sdk.script.ScriptService;
 import dev.turboism.sdk.task.PluginTaskScheduler;
 import dev.turboism.sdk.runtime.CubismLogService;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -88,6 +88,10 @@ public interface PluginContext {
         throw new UnsupportedOperationException("storage service is not available");
     }
 
+    default ScriptService scripts() {
+        return ScriptService.unavailable();
+    }
+
     default UserFileAccessService userFiles() {
         throw new UnsupportedOperationException("user file access service is not available");
     }
@@ -110,27 +114,22 @@ public interface PluginContext {
         throw new UnsupportedOperationException("cubismRead service is not available");
     }
 
-    @PreviewApi
     default ModelObjectService modelObjects() {
         return ModelObjectService.unavailable();
     }
 
-    @PreviewApi
     default CubismClipMaskService cubismClipMasks() {
         throw new UnsupportedOperationException("clipMask service is not available");
     }
 
-    @PreviewApi
     default RecentFileService recentFiles() {
         return RecentFileService.unavailable();
     }
 
-    @PreviewApi
     default ScreenshotCaptureService screenshots() {
         return ScreenshotCaptureService.unavailable();
     }
 
-    @PreviewApi
     default RecentPreviewContributionService recentPreviews() {
         return RecentPreviewContributionService.unavailable();
     }
@@ -139,52 +138,42 @@ public interface PluginContext {
         return PhysicsEditorService.unavailable();
     }
 
-    @PreviewApi
     default FileChooserHistoryService fileChooserHistory() {
         return FileChooserHistoryService.unavailable();
     }
 
-    @PreviewApi
     default MeshMirrorAxisService meshMirrorAxis() {
         throw new UnsupportedOperationException("meshMirrorAxis service is not available");
     }
 
-    @PreviewApi
     default MeshEditService meshEdit() {
         throw new UnsupportedOperationException("meshEdit service is not available");
     }
 
-    @PreviewApi
     default MeshEditParticipation meshEditParticipation() {
         throw new UnsupportedOperationException("meshEditParticipation service is not available");
     }
 
-    @PreviewApi
     default MeshMirrorCounterparts meshMirrorCounterparts() {
         throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
     }
 
-    @PreviewApi
     default MeshMirrorToolEligibility meshMirrorToolEligibility() {
         throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
     }
 
-    @PreviewApi
     default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
         throw new UnsupportedOperationException("meshMirrorMoveParticipation service is not available");
     }
 
-    @PreviewApi
     default MeshEditUiService meshEditUi() {
         throw new UnsupportedOperationException("meshEditUi service is not available");
     }
 
-    @PreviewApi
     default EditorCommandService editorCommands() {
         return EditorCommandService.unavailable();
     }
 
-    @PreviewApi
     default EditorAutoBackupService backup() {
         return EditorAutoBackupService.unavailable();
     }
@@ -217,23 +206,19 @@ public interface PluginContext {
         throw new UnsupportedOperationException("uiHost service is not available");
     }
 
-    @PreviewApi
     default HostDialogAutomationService hostDialogs() {
         throw new UnsupportedOperationException("host dialog automation service is not available");
     }
 
-    @PreviewApi
     default AppearanceService appearance() {
         return AppearanceService.unavailable();
     }
 
 
-    @PreviewApi
     default WorkspaceService workspace() {
         return WorkspaceService.unavailable();
     }
 
-    @PreviewApi
     default WorkspaceLayoutService workspaceLayout() {
         return WorkspaceLayoutService.unavailable();
     }

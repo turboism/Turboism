@@ -28,7 +28,8 @@ record PreviewPluginRuntimeResources(
     PreviewPluginShutdown shutdown,
     dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement,
     PreviewPluginContextFactory contextFactory,
-    dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings
+    dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+    dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings
 ) {
     static PreviewPluginRuntimeResources create(
         final Path home,
@@ -165,6 +166,8 @@ record PreviewPluginRuntimeResources(
         final dev.turboism.sdk.runtime.RuntimeSettings settings = runtimeSettings.read();
         log.setMinimumLevel(settings.logLevel());
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
+        final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
+            new dev.turboism.config.CubismJvmSettingsFileService(home);
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
             new PreviewPluginLoadCoordinator(
@@ -180,7 +183,8 @@ record PreviewPluginRuntimeResources(
             ),
             pluginManagement,
             contextFactory,
-            runtimeSettings
+            runtimeSettings,
+            cubismJvmSettings
         );
     }
 

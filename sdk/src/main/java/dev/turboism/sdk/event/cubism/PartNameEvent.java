@@ -1,20 +1,17 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic Part rename event family. */
-@PreviewApi
 public sealed interface PartNameEvent extends TurboismEvent
     permits PartNameEvent.Before, PartNameEvent.On, PartNameEvent.After {
 
     Part part();
 
     /** Synchronous state published before the host rename. */
-    @PreviewApi
     final class Before implements PartNameEvent {
         private final Part part;
         private final String requestedName;
@@ -105,7 +102,6 @@ public sealed interface PartNameEvent extends TurboismEvent
     }
 
     /** State published after a successful rename that changed the name. */
-    @PreviewApi
     record On(Part part, String oldName, String newName) implements PartNameEvent {
         public On {
             part = Objects.requireNonNull(part, "part");
@@ -115,7 +111,6 @@ public sealed interface PartNameEvent extends TurboismEvent
     }
 
     /** State published after every successful rename. */
-    @PreviewApi
     record After(Part part, String finalName) implements PartNameEvent {
         public After {
             part = Objects.requireNonNull(part, "part");

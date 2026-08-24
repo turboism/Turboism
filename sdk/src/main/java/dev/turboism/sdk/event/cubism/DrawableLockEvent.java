@@ -1,19 +1,16 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic ArtMesh lock write event family. */
-@PreviewApi
 public sealed interface DrawableLockEvent extends TurboismEvent
     permits DrawableLockEvent.Before, DrawableLockEvent.On, DrawableLockEvent.After {
 
     Drawable drawable();
 
-    @PreviewApi
     final class Before implements DrawableLockEvent {
         private final Drawable drawable;
         private final boolean requestedLocked;
@@ -102,13 +99,11 @@ public sealed interface DrawableLockEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Drawable drawable, boolean oldLocked, boolean newLocked)
         implements DrawableLockEvent {
         public On { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }
 
-    @PreviewApi
     record After(Drawable drawable, boolean finalLocked) implements DrawableLockEvent {
         public After { drawable = Objects.requireNonNull(drawable, "drawable"); }
     }

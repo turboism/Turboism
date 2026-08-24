@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.event.TurboismEvent;
@@ -8,7 +7,6 @@ import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the semantic Warp Deformer grid replacement event family. */
-@PreviewApi
 public sealed interface WarpDeformerGridEvent extends TurboismEvent
     permits WarpDeformerGridEvent.Before,
             WarpDeformerGridEvent.On,
@@ -16,7 +14,6 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
 
     WarpDeformer deformer();
 
-    @PreviewApi
     final class Before implements WarpDeformerGridEvent {
         private final WarpDeformer deformer;
         private final WarpGrid requestedGrid;
@@ -105,7 +102,6 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(WarpDeformer deformer, WarpGrid oldGrid, WarpGrid newGrid)
         implements WarpDeformerGridEvent {
         public On {
@@ -115,7 +111,6 @@ public sealed interface WarpDeformerGridEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record After(WarpDeformer deformer, WarpGrid finalGrid)
         implements WarpDeformerGridEvent {
         public After {

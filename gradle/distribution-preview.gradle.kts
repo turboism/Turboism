@@ -26,6 +26,7 @@ private fun configurePreviewSource(task: Sync, previewDirectory: Provider<org.gr
     configurePreviewThemeJar(task)
     configureScenePaletteEnhancerJar(task)
     configurePreviewMeshJar(task)
+    configureGraalHost(task)
     task.from("scripts/preview/launch-cubism-turboism.bat")
     task.from("scripts/preview/launch-cubism-turboism.ps1")
     task.from("scripts/preview/run-preview.bat")
@@ -71,6 +72,16 @@ private fun configurePreviewMeshJar(task: Sync) {
     }
 }
 
+private fun configureGraalHost(task: Sync) {
+    // The preview runs inside Windows Cubism (also under Proton on Linux), so
+    // its Graal closure must remain windows-amd64 even when installDist follows
+    // the developer host target.
+    task.from(project(":graal-host").tasks.named("windowsPreviewDist")) {
+        include("lib/**")
+        into("graal")
+    }
+}
+
 tasks.register<Exec>("checkDistributionProtocolContract") {
     group = "verification"
     description = "Verifies protocol fixtures, package privacy, source boundaries, and compiled module boundaries."
@@ -96,7 +107,8 @@ val previewBundle by tasks.registering(Sync::class) {
         ":plugins:perf-stats:jar",
         ":plugins:ui-theme:jar",
         ":plugins:scene-palette-enhancer:jar",
-        ":plugins:mesh-edit-mirror-axis-enhance:jar"
+        ":plugins:mesh-edit-mirror-axis-enhance:jar",
+        ":graal-host:windowsPreviewDist"
     )
     configurePreviewSource(this, previewBundleDir)
     doLast {
@@ -150,10 +162,24 @@ private fun verifyPreviewBundle(root: File) {
         "turboism-agent.jar", "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
         "run-preview.bat", "README.md", "plugins/project-inspector.jar", "plugins/perf-stats.jar",
         "plugins/ui-theme.jar", "plugins/scene-palette-enhancer.jar",
-        "plugins/mesh-edit-mirror-axis-enhance.jar"
+        "plugins/mesh-edit-mirror-axis-enhance.jar", "graal/lib/polyglot-25.2.4.jar"
     )
     val missing = required.filterNot { root.resolve(it).isFile }
     if (missing.isNotEmpty()) throw GradleException("Preview bundle is missing: $missing")
+    val graalLibraries = root.resolve("graal/lib").listFiles()?.map { it.name }.orEmpty()
+    if (graalLibraries.none { it.startsWith("sdk-") && it.endsWith(".jar") }) {
+        throw GradleException("Windows preview bundle is missing the Turboism SDK dependency")
+    }
+    val windowsIsolate = "js-isolate-windows-amd64-community-25.2.4.jar"
+    if (windowsIsolate !in graalLibraries) {
+        throw GradleException("Windows preview bundle is missing $windowsIsolate")
+    }
+    val wrongPlatformIsolates = graalLibraries.filter {
+        it.startsWith("js-isolate-") && it.endsWith("-community-25.2.4.jar") && it != windowsIsolate
+    }
+    if (wrongPlatformIsolates.isNotEmpty()) {
+        throw GradleException("Windows preview bundle contains wrong-platform GraalJS isolates: $wrongPlatformIsolates")
+    }
     verifyPreviewLaunchers(root)
     verifyPreviewAgentJar(root.resolve("turboism-agent.jar"))
 }
@@ -162,6 +188,21 @@ private fun verifyPreviewLaunchers(root: File) {
     val launcher = root.resolve("launch-cubism-turboism.ps1").readText()
     if (launcher.contains("cubism-hook-agent", true) || launcher.contains("JAVA_TOOL_OPTIONS", true)) {
         throw GradleException("Preview launcher must not reuse the legacy agent or JAVA_TOOL_OPTIONS")
+    }
+    val requiredGraalLauncherTokens = listOf(
+        "[string]${'$'}CubismJava",
+        "[string]${'$'}GraalJava",
+        "TURBOISM_GRAAL_JAVA",
+        "TURBOISM_GRAALVM_HOME",
+        "GRAALVM_HOME",
+        "graalvm\\bin\\java.exe",
+        "-Dturboism.graal.java=${'$'}graalHostJava",
+        "-Dturboism.graal.classpath=${'$'}graalClassPath",
+        "-Dturboism.graal.enabled=false"
+    )
+    val missingGraalTokens = requiredGraalLauncherTokens.filterNot(launcher::contains)
+    if (missingGraalTokens.isNotEmpty()) {
+        throw GradleException("Preview launcher is missing dual-JVM Graal configuration: ${'$'}missingGraalTokens")
     }
     if (!root.resolve("run-preview.bat").readText().contains("call \"%~dp0launch-cubism-turboism.bat\"")) {
         throw GradleException("run-preview.bat must preserve the quoted preview path")

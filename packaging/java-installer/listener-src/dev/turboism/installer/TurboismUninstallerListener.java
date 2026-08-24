@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.TimeUnit;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
 import java.util.zip.ZipEntry;
@@ -64,16 +65,24 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
             // layout: no custom deletion of config, runtime dirs or home.
             return;
         }
-        if (isWindows() && !cleanupManagedState(home, currentUserShortcutDirectory())) {
-            // A takeover conflict or malformed state is a hard stop: keep the
-            // state/backups and leave the home for a later retry.
-            return;
+        if (isWindows()) {
+            Path shortcutDirectory = currentUserShortcutDirectory();
+            if (shortcutDirectory == null
+                    || !cleanupManagedState(home, shortcutDirectory)) {
+                // A takeover conflict, malformed state, or unavailable Windows
+                // known-folder identity is a hard stop: keep recovery evidence
+                // and leave the home for a later retry.
+                return;
+            }
         }
         if (deleteConfig) {
             deleteQuietly(home.resolve(ConfigMerge.CONFIG_FILE));
         }
         for (String name : RUNTIME_DIRS) {
             deleteRecursivelyQuietly(home.resolve(name));
+        }
+        if (isWindows()) {
+            deleteRecursivelyQuietly(home.resolve("graal"));
         }
         removeIfEmpty(home.resolve(ConfigMerge.PLUGIN_DIR));
         removeIfEmpty(home);
@@ -207,16 +216,71 @@ public final class TurboismUninstallerListener extends AbstractUninstallerListen
         return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
     }
 
+    /**
+     * Resolves the same current-user Programs known folder that the production
+     * PowerShell configurator uses. Reconstructing it from APPDATA is incorrect
+     * when Windows Folder Redirection or another known-folder policy applies.
+     * No fallback path is trusted: inability to query the known folder makes
+     * managed cleanup fail closed and preserves its recovery state.
+     */
     private static Path currentUserShortcutDirectory() {
-        String appData = System.getenv("APPDATA");
-        if (appData == null || appData.isBlank()) {
-            String userHome = System.getProperty("user.home", "");
-            if (userHome.isBlank()) {
+        Process process = null;
+        try {
+            String systemRoot = System.getenv("SystemRoot");
+            if (systemRoot == null || systemRoot.isBlank()) {
                 return null;
             }
-            appData = Paths.get(userHome, "AppData", "Roaming").toString();
+            Path powershell = Paths.get(systemRoot, "System32", "WindowsPowerShell",
+                    "v1.0", "powershell.exe").toAbsolutePath().normalize();
+            if (Files.isSymbolicLink(powershell)
+                    || !Files.isRegularFile(powershell, LinkOption.NOFOLLOW_LINKS)) {
+                return null;
+            }
+            ProcessBuilder builder = new ProcessBuilder(
+                    powershell.toString(), "-NoProfile", "-NonInteractive", "-Command",
+                    "[Console]::OutputEncoding = New-Object System.Text.UTF8Encoding($false); "
+                            + "[Environment]::GetFolderPath('Programs')");
+            builder.redirectErrorStream(true);
+            process = builder.start();
+            if (!process.waitFor(15, TimeUnit.SECONDS)) {
+                process.destroyForcibly();
+                return null;
+            }
+            byte[] output;
+            try (java.io.InputStream input = process.getInputStream()) {
+                output = readProcessOutput(input, 32 * 1024);
+            }
+            if (process.exitValue() != 0) {
+                return null;
+            }
+            return WindowsProgramsPath.parse(
+                    new String(output, StandardCharsets.UTF_8));
+        } catch (IOException | InterruptedException | RuntimeException failure) {
+            if (failure instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            if (process != null && process.isAlive()) {
+                process.destroyForcibly();
+            }
+            return null;
         }
-        return Paths.get(appData, "Microsoft", "Windows", "Start Menu", "Programs", "Turboism");
+    }
+
+    private static byte[] readProcessOutput(java.io.InputStream input, int maxBytes)
+            throws IOException {
+        java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        byte[] buffer = new byte[1024];
+        int read;
+        while ((read = input.read(buffer)) >= 0) {
+            if (read == 0) {
+                continue;
+            }
+            if (output.size() + read > maxBytes) {
+                throw new IOException("known-folder output exceeds bound");
+            }
+            output.write(buffer, 0, read);
+        }
+        return output.toByteArray();
     }
 
     /**

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.HashSet;
 import java.util.List;
@@ -8,7 +7,6 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Complete, immutable host-independent atlas layout plan. */
-@PreviewApi
 public record TextureAtlasLayoutPlan(
     int pageWidth,
     int pageHeight,

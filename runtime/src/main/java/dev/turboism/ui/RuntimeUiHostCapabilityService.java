@@ -56,6 +56,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public static final String UI_VIEWPORT_READ = PermissionIds.TURBOISM_UI_VIEWPORT_READ;
     public static final String UI_DIALOG_CONTRIBUTE = PermissionIds.TURBOISM_UI_DIALOG_CONTRIBUTE;
     public static final String UI_PANEL_CONTRIBUTE = PermissionIds.TURBOISM_UI_PANEL_CONTRIBUTE;
+    public static final String UI_SETTINGS_CONTRIBUTE = PermissionIds.TURBOISM_UI_SETTINGS_CONTRIBUTE;
     public static final String UI_FILE_CHOOSER_REQUEST = PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST;
     public static final String UI_STATUS_NOTIFY = PermissionIds.TURBOISM_UI_STATUS_NOTIFY;
     public static final String UI_CONTEXT_MENU_CONTRIBUTE = PermissionIds.TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE;
@@ -74,6 +75,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final EditorUiContributionAuthority contributionAuthority;
     private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
     private final CallbackDispatcher callbackDispatcher;
+    private final dev.turboism.ui.settings.RuntimeSettingsRegistry settingsRegistry;
     private final CopyOnWriteArrayList<OverlayContribution> overlays = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<DialogRequest> dialogs = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<EmbeddedPanelContribution> panels = new CopyOnWriteArrayList<>();
@@ -174,6 +176,29 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             statusToolbarAdapter,
             uiSurfaceAdapter,
             localization,
+            new dev.turboism.ui.settings.SettingsContributionStore()
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            settingsContributions,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
         );
     }
@@ -196,6 +221,31 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             statusToolbarAdapter,
             uiSurfaceAdapter,
             localization,
+            new dev.turboism.ui.settings.SettingsContributionStore(),
+            contributionAuthority
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+        final EditorUiContributionAuthority contributionAuthority
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            settingsContributions,
             contributionAuthority,
             new RuntimeEmbeddedPanelActivationCoordinator()
         );
@@ -220,6 +270,33 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             statusToolbarAdapter,
             uiSurfaceAdapter,
             localization,
+            new dev.turboism.ui.settings.SettingsContributionStore(),
+            contributionAuthority,
+            panelActivationCoordinator
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            settingsContributions,
             contributionAuthority,
             panelActivationCoordinator,
             CallbackDispatcher.direct()
@@ -238,6 +315,34 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
         final CallbackDispatcher callbackDispatcher
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            new dev.turboism.ui.settings.SettingsContributionStore(),
+            contributionAuthority,
+            panelActivationCoordinator,
+            callbackDispatcher
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+        final CallbackDispatcher callbackDispatcher
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -245,6 +350,12 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
+        this.settingsRegistry = new dev.turboism.ui.settings.RuntimeSettingsRegistry(
+            Objects.requireNonNull(settingsContributions, "settingsContributions"),
+            this.pluginId,
+            this.permissionChecker,
+            this.disposableScope
+        );
         this.contributionAuthority = Objects.requireNonNull(
             contributionAuthority,
             "contributionAuthority"
@@ -398,6 +509,13 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         Objects.requireNonNull(directory, "directory");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
         stateSource.openDirectory(directory);
+    }
+
+    @Override
+    public Registration contributeSettings(
+        final dev.turboism.sdk.ui.settings.SettingsContribution contribution
+    ) {
+        return settingsRegistry.contribute(contribution);
     }
 
     @Override
