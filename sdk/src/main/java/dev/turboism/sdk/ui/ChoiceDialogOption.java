@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** One bounded SDK-owned option rendered by a runtime-owned choice dialog. */
-@PreviewApi
 public record ChoiceDialogOption(
     String id,
     String label,

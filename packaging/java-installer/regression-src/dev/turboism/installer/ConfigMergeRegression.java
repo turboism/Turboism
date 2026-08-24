@@ -46,6 +46,7 @@ public final class ConfigMergeRegression {
         atomicReplacement();
         managedStateCleanup();
         managedStateBackupConfinement();
+        windowsProgramsKnownFolder();
         bomHandling();
         retiredPluginCleanup();
         System.out.println("ConfigMergeRegression: all checks passed");
@@ -386,6 +387,7 @@ public final class ConfigMergeRegression {
             check("valid managed state removed", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
             check("cleanup never writes Cubism root", Files.readString(cubismRoot.resolve("sentinel.txt")).equals("unchanged"));
 
+            Files.createDirectories(backup.getParent());
             Files.write(takeover, originalBytes);
             Files.write(backup, originalBytes);
             Files.write(takeover, managedBytes);
@@ -398,8 +400,11 @@ public final class ConfigMergeRegression {
             check("takeover cleanup restores exact original bytes", ConfigMerge.cleanupManagedState(home, shortcutDir));
             check("takeover restored bytes match", java.util.Arrays.equals(Files.readAllBytes(takeover), originalBytes));
             check("takeover backup removed after restore", !Files.exists(backup));
+            check("takeover backup directory removed when empty", !Files.exists(backup.getParent()));
+            check("takeover installer directory removed when empty", !Files.exists(backup.getParent().getParent()));
             check("takeover state removed after restore", !Files.exists(home.resolve(ConfigMerge.INSTALLATION_STATE_FILE)));
 
+            Files.createDirectories(backup.getParent());
             Files.write(takeover, originalBytes);
             Files.write(backup, originalBytes);
             Files.write(takeover, "user-edited".getBytes(StandardCharsets.UTF_8));
@@ -479,6 +484,26 @@ public final class ConfigMergeRegression {
             deleteTree(dir);
         }
     }
+
+    /** Windows cleanup must consume the queried Programs known-folder value. */
+    private static void windowsProgramsKnownFolder() throws Exception {
+        Path dir = Files.createTempDirectory("known-programs-");
+        try {
+            Path redirected = dir.resolve("redirected Start Menu/Programs").toAbsolutePath().normalize();
+            Path shortcut = WindowsProgramsPath.parse(
+                    "  " + redirected + System.lineSeparator());
+            check("redirected Programs known folder resolves exact Turboism directory",
+                    shortcut != null && shortcut.equals(redirected.resolve("Turboism")));
+            check("relative Programs path fails closed",
+                    WindowsProgramsPath.parse("relative/Programs") == null);
+            check("multi-line Programs output fails closed",
+                    WindowsProgramsPath.parse(
+                            redirected + System.lineSeparator() + "foreign") == null);
+        } finally {
+            deleteTree(dir);
+        }
+    }
+
     private static String sha256(Path path) throws Exception {
         return sha256Bytes(Files.readAllBytes(path));
     }

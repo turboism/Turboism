@@ -128,7 +128,24 @@ public final class PluginWorkExecutor {
      * @throws NullPointerException if either argument is {@code null}
      */
     public PluginWorkSubmission submit(PluginTask task, Runnable work) {
-        return submitDecorated(task, work, true);
+        return submit(task, work, () -> { });
+    }
+
+    /**
+     * Submits work and runs the supplied timeout action before interrupting an over-budget worker.
+     * The action must be idempotent because timeout settlement may race with worker completion.
+     *
+     * @param task the task being run, used to attribute diagnostics
+     * @param work the body to run on a bulkhead thread
+     * @param timeoutAction idempotent cancellation for downstream work queued by the worker
+     * @return the admission decision plus a stage completing with the work's terminal result
+     */
+    public PluginWorkSubmission submit(
+        PluginTask task,
+        Runnable work,
+        Runnable timeoutAction
+    ) {
+        return submitDecorated(task, work, timeoutAction, true);
     }
 
     /**
@@ -144,20 +161,22 @@ public final class PluginWorkExecutor {
      * @throws NullPointerException if either argument is {@code null}
      */
     public PluginWorkSubmission submitCompletion(PluginTask task, Runnable work) {
-        return submitDecorated(task, work, false);
+        return submitDecorated(task, work, () -> { }, false);
     }
 
     private PluginWorkSubmission submitDecorated(
         PluginTask task,
         Runnable work,
+        Runnable timeoutAction,
         boolean circuitProtected
     ) {
         Objects.requireNonNull(task, "task");
         Objects.requireNonNull(work, "work");
+        Objects.requireNonNull(timeoutAction, "timeoutAction");
         if (closed.get()) {
             return rejected(PluginWorkStatus.RUNTIME_UNAVAILABLE, "RUNTIME_UNAVAILABLE");
         }
-        PluginWorkItem workItem = new PluginWorkItem(task, work);
+        PluginWorkItem workItem = new PluginWorkItem(task, work, timeoutAction);
         Supplier<CompletionStage<Void>> decorated = circuitProtected
             ? decorate(workItem)
             : decorateCompletion(workItem);
@@ -273,7 +292,7 @@ public final class PluginWorkExecutor {
         }
         Throwable cause = unwrap(failure);
         if (cause instanceof TimeoutException) {
-            workItem.interruptRunningThread();
+            workItem.timeout();
             emit(workItem.task(), PluginWorkBudgetEvent.Phase.TIMED_OUT, PluginWorkBudgetEvent.Decision.LIGHTWEIGHT, PluginWorkBudgetEvent.Severity.WARNING);
             return new PluginWorkResult(PluginWorkStatus.TIMED_OUT, "PLUGIN_WORK_TIMED_OUT");
         }

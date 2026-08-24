@@ -63,6 +63,7 @@ No capabilities are declared in the plugin manifest.
 | `turboism.action.register` | `application` | Registers the main toolbar home entry action. |
 | `turboism.ui.toolbar.main.contribute` | `application` | Adds the home entry button to the main toolbar. |
 | `turboism.ui.panel.contribute` | `application` | Publishes and activates the Turboism embedded panel. |
+| `turboism.ui.settings.contribute` | `application` | Contributes the Core-owned Cubism JVM selector to the shared Performance settings tab. |
 | `turboism.ui.context-menu.contribute` | `application` | Contributes the built-in panel-tab float and dock menu operations. |
 | `turboism.ui.menu.contribute` | `application` | Adds Settings and Plugin Management entries to the Turboism top-level menu. |
 | `turboism.ui.dialog.contribute` | `application` | Confirms plugin uninstall requests. |

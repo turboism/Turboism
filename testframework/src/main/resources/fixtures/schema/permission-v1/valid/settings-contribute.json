@@ -1,0 +1,7 @@
+{
+  "format": "turboism.permission",
+  "schemaVersion": 1,
+  "id": "turboism.ui.settings.contribute",
+  "scope": "application",
+  "reason": "Adds a declarative control to the shared Turboism settings window."
+}

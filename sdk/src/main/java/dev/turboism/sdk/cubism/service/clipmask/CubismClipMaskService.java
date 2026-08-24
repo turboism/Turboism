@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.service.clipmask;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -12,7 +11,6 @@ import java.util.Objects;
  * mesh snapshots into stable {@link ClipMaskRecord} values. Plugins must not depend on
  * Cubism internal ArtMesh classes or reflection to inspect clip-mask relationships.</p>
  */
-@PreviewApi
 public interface CubismClipMaskService {
 
     /**
@@ -34,7 +32,6 @@ public interface CubismClipMaskService {
      * @param orderedMaskGuids ordered GUID list of ArtMeshes used as this ArtMesh's
      *        clip masks; immutable, elements non-blank
      */
-    @PreviewApi
     record ClipMaskRecord(
         String guid,
         String id,

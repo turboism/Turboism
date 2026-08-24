@@ -197,9 +197,10 @@ PYEOF
 
 # ---------- 4. ZIP + sha256 ----------
 # 使用 python3 zipfile（避免依赖 zip CLI）。
-# zip 内容与历史发布一致：config.json 由共享 payload 的 config.template.json
-# 生成；Java 安装器专属文件（config.template.json、README.java-installer.txt、
-# uninstall.command）不进入 Windows zip。
+# 两种 zip 都携带顶层公共文件和 graal/lib；Lite 仅排除 plugins/，
+# Full 额外携带获批插件 JAR。config.json 由共享 payload 的
+# config.template.json 生成；Java 安装器专属文件（config.template.json、
+# README.java-installer.txt、uninstall.command）不进入 Windows zip。
 zip_dir() {
   local src="$1" out="$2" lite="$3"
   python3 - "$src" "$out" "$lite" <<'PYEOF'
@@ -212,11 +213,19 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(files):
             if f in EXCLUDED:
                 continue
-            if lite and os.path.dirname(os.path.relpath(os.path.join(root, f), src)):
-                continue  # lite：仅顶层文件（不含 plugins/）
             full = os.path.join(root, f)
             arc = os.path.relpath(full, src).replace(os.sep, "/")
+            if lite and arc.startswith("plugins/"):
+                continue  # Lite excludes plugin JARs but keeps common Graal host libraries.
             z.write(full, arc)
+    names = set(z.namelist())
+    graal = [name for name in names if name.startswith("graal/lib/") and name.endswith(".jar")]
+    if not graal:
+        raise SystemExit("error: Windows zip is missing the common Graal host closure")
+    if lite and any(name.startswith("plugins/") for name in names):
+        raise SystemExit("error: Lite zip unexpectedly contains plugin payload")
+    if not lite and not any(name.startswith("plugins/") and name.endswith(".jar") for name in names):
+        raise SystemExit("error: Full zip is missing plugin payload")
     # 历史契约：zip 内含 config.json（模板内容）
     z.writestr("config.json", open(os.path.join(src, "config.template.json"), "rb").read())
 PYEOF

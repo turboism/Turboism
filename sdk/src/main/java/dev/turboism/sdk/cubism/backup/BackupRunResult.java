@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.io.File;
 import java.util.List;
@@ -17,7 +16,6 @@ import java.util.Objects;
  * @param newBackupFiles backup artifacts produced by the command
  * @param statuses per-document host status snapshot captured at completion
  */
-@PreviewApi
 public record BackupRunResult(
     long completedAtMillis,
     List<File> newBackupFiles,

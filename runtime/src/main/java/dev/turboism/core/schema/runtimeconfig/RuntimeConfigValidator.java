@@ -16,7 +16,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale",
-        "safeMode", "diagnostics", "hooks"
+        "safeMode", "diagnostics", "hooks", "launcher"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
@@ -32,6 +32,8 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
+    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm");
+    private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
 
     public RuntimeConfigValidator() {
         super("turboism.runtime.config", "RUNTIME_CONFIG", 1, ALLOWED_FIELDS);
@@ -128,8 +130,43 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
         validateOptionalBoolean(node, "safeMode", errors, source);
         validateHooks(node, errors, source);
+        validateLauncher(node, errors, source);
 
         return errors;
+    }
+
+    private void validateLauncher(
+        final JsonNode root,
+        final List<SchemaValidationError> errors,
+        final String source
+    ) {
+        if (!root.has("launcher")) return;
+        final JsonNode launcher = root.get("launcher");
+        if (launcher == null || !launcher.isObject()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_TYPE", "launcher must be an object", "launcher", source
+            ));
+            return;
+        }
+        launcher.fieldNames().forEachRemaining(field -> {
+            if (!ALLOWED_LAUNCHER_FIELDS.contains(field)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_UNKNOWN_FIELD",
+                    "Unknown launcher field: " + field,
+                    "launcher." + field,
+                    source
+                ));
+            }
+        });
+        if (launcher.has("cubismJvm") && (!launcher.get("cubismJvm").isTextual()
+            || !ALLOWED_CUBISM_JVMS.contains(launcher.get("cubismJvm").asText()))) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_CUBISM_JVM",
+                "launcher.cubismJvm must be one of " + ALLOWED_CUBISM_JVMS,
+                "launcher.cubismJvm",
+                source
+            ));
+        }
     }
 
     private void validateHooks(

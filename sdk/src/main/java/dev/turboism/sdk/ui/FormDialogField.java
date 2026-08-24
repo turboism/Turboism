@@ -1,12 +1,10 @@
 package dev.turboism.sdk.ui;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** One bounded text, select, or color field of a runtime-rendered form dialog. */
-@PreviewApi
 public record FormDialogField(
     String id,
     String label,

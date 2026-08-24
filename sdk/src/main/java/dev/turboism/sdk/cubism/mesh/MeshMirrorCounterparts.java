@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.mesh;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.plugin.Registration;
 
 /**
  * Mirror counterpart resolution, defaulted by the framework and overridable by a plugin.
  */
-@PreviewApi
 public interface MeshMirrorCounterparts {
 
     /**

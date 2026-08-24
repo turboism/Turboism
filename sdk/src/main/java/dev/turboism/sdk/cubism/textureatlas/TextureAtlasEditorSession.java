@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Optional;
 
@@ -11,7 +10,6 @@ import java.util.Optional;
  * (model-image count and size distribution). The host view is attached by the
  * runtime; this read-only session never mutates authoring state.</p>
  */
-@PreviewApi
 public interface TextureAtlasEditorSession {
 
     /** Summary of the whole active texture atlas (all pages). */

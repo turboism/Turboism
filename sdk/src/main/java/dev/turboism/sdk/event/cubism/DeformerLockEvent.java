@@ -1,19 +1,16 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer lock write event family. */
-@PreviewApi
 public sealed interface DeformerLockEvent extends TurboismEvent
     permits DeformerLockEvent.Before, DeformerLockEvent.On, DeformerLockEvent.After {
 
     Deformer deformer();
 
-    @PreviewApi
     final class Before implements DeformerLockEvent {
         private final Deformer deformer;
         private final boolean requestedLocked;
@@ -102,13 +99,11 @@ public sealed interface DeformerLockEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Deformer deformer, boolean oldLocked, boolean newLocked)
         implements DeformerLockEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    @PreviewApi
     record After(Deformer deformer, boolean finalLocked) implements DeformerLockEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }

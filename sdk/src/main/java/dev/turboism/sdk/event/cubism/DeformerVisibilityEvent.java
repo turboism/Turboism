@@ -1,13 +1,11 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer visibility write event family. */
-@PreviewApi
 public sealed interface DeformerVisibilityEvent extends TurboismEvent
     permits DeformerVisibilityEvent.Before,
             DeformerVisibilityEvent.On,
@@ -15,7 +13,6 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
 
     Deformer deformer();
 
-    @PreviewApi
     final class Before implements DeformerVisibilityEvent {
         private final Deformer deformer;
         private final boolean requestedVisible;
@@ -104,13 +101,11 @@ public sealed interface DeformerVisibilityEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Deformer deformer, boolean oldVisible, boolean newVisible)
         implements DeformerVisibilityEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    @PreviewApi
     record After(Deformer deformer, boolean finalVisible)
         implements DeformerVisibilityEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }

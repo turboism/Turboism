@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.sandbox",
+  "name": "Validation Sandbox",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [],
+  "sourceSha256": "d3aead7cb4ea64260c75568c1dbbe8527624c5f85945fe20c74c49838098b3a6"
+}

@@ -49,6 +49,13 @@ plugins.restart-hint
 plugins.uninstall
 plugins.uninstall.confirm
 settings.clean-empty-docks
+settings.cubism-jvm
+settings.cubism-jvm.bundled
+settings.cubism-jvm.graalvm
+settings.cubism-jvm.graalvm-open-download
+settings.cubism-jvm.graalvm-open-failed
+settings.cubism-jvm.graalvm-required
+settings.cubism-jvm.graalvm-required-title
 settings.locale
 settings.locale.auto
 settings.locale.restart-required
@@ -62,6 +69,7 @@ settings.skip-information
 settings.skip-splash
 settings.skip-update
 settings.tab.maintenance
+settings.tab.performance
 settings.tab.runtime
 settings.tab.startup
 window.about.title

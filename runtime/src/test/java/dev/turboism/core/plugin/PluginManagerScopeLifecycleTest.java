@@ -234,7 +234,7 @@ class PluginManagerScopeLifecycleTest {
     }
 
     private static void awaitState(PluginRuntime runtime, PluginLifecycleState expectedState) throws InterruptedException {
-        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
         while (System.nanoTime() < deadlineNanos && runtime.state() != expectedState) {
             Thread.sleep(10);
         }

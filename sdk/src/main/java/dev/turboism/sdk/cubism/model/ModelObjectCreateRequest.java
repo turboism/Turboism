@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Typed creation requests for model objects. */
-@PreviewApi
 public sealed interface ModelObjectCreateRequest permits
     ModelObjectCreateRequest.Part,
     ModelObjectCreateRequest.ArtMesh,
@@ -19,7 +17,6 @@ public sealed interface ModelObjectCreateRequest permits
 
     Optional<ModelObjectReference> parent();
 
-    @PreviewApi
     record Part(String name, Optional<ModelObjectReference> parent)
         implements ModelObjectCreateRequest {
         public Part {
@@ -32,7 +29,6 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
-    @PreviewApi
     record ArtMesh(
         String name,
         Optional<ModelObjectReference> parent,
@@ -49,7 +45,6 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
-    @PreviewApi
     record WarpDeformer(
         String name,
         Optional<ModelObjectReference> parent,
@@ -66,7 +61,6 @@ public sealed interface ModelObjectCreateRequest permits
         }
     }
 
-    @PreviewApi
     record RotationDeformer(
         String name,
         Optional<ModelObjectReference> parent,
