@@ -14,6 +14,8 @@ import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.SwingUtilities;
 
@@ -63,6 +65,139 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         SwingUtilities.invokeAndWait(() -> { });
         assertEquals(1, menu.getMenuListeners().length);
         assertEquals(2, popup.rendererCountForTest());
+    }
+
+    @Test
+    void selectionChangeReconcilesAMenuBuiltAfterContribution() throws Exception {
+        final Path recent = Files.createTempFile("recent-preview-late", ".cmo3");
+        final JMenu menu = recentMenu(recent);
+        final AtomicBoolean rendered = new AtomicBoolean(false);
+        PanelHost.setRoot(null);
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
+        final Registration registration = popup.contribute(summary -> {
+            rendered.set(true);
+            return Optional.of(new RecentPreviewContent(summary.id(), PanelView.text(summary.displayName())));
+        });
+        SwingUtilities.invokeAndWait(() -> { });
+
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().setSelectedPath(new MenuElement[]{
+            menu, menu.getPopupMenu(), item
+        }));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertTrue(rendered.get(), "the selected path must reconcile and render the late-built menu");
+        assertTrue(item.getMouseListeners().length >= 1, "the late-built item must be bound");
+
+        registration.close();
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
+    }
+
+    @Test
+    void selectionChangeRebindsAReplacedRecentMenu() throws Exception {
+        final Path firstPath = Files.createTempFile("recent-preview-first", ".cmo3");
+        final Path replacementPath = Files.createTempFile("recent-preview-replacement", ".cmo3");
+        final JMenu first = recentMenu(firstPath);
+        final JMenu replacement = recentMenu(replacementPath);
+        final AtomicBoolean replacementRendered = new AtomicBoolean(false);
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(first));
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
+        final Registration registration = popup.contribute(summary -> {
+            replacementRendered.set(summary.displayName().equals(replacementPath.getFileName().toString()));
+            return Optional.of(new RecentPreviewContent(summary.id(), PanelView.text(summary.displayName())));
+        });
+        SwingUtilities.invokeAndWait(() -> { });
+        final JMenuItem firstItem = (JMenuItem) first.getMenuComponents()[0];
+        final int firstMouseListeners = firstItem.getMouseListeners().length;
+
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(replacement));
+        final JMenuItem replacementItem = (JMenuItem) replacement.getMenuComponents()[0];
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().setSelectedPath(new MenuElement[]{
+            replacement, replacement.getPopupMenu(), replacementItem
+        }));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertTrue(replacementRendered.get(), "the replacement menu item must render");
+        assertTrue(replacementItem.getMouseListeners().length >= 1, "replacement items must be bound");
+        assertTrue(firstItem.getMouseListeners().length < firstMouseListeners,
+            "listeners owned by the bridge must be removed from replaced items");
+
+        registration.close();
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
+    }
+
+    @Test
+    void closingLastRegistrationUnbindsTheCurrentMenu() throws Exception {
+        final Path recent = Files.createTempFile("recent-preview-close", ".cmo3");
+        final JMenu menu = recentMenu(recent);
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        final int baseMenuListeners = menu.getMenuListeners().length;
+        final int baseMouseListeners = item.getMouseListeners().length;
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
+        final Registration registration = popup.contribute(renderer("popup-renderer", PNG));
+        SwingUtilities.invokeAndWait(() -> { });
+        assertTrue(menu.getMenuListeners().length > baseMenuListeners);
+        assertTrue(item.getMouseListeners().length > baseMouseListeners);
+
+        registration.close();
+        SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
+        assertEquals(baseMouseListeners, item.getMouseListeners().length);
+    }
+
+    @Test
+    void contributionClosedBeforeEdtInstallationDoesNotLeakTracking() throws Exception {
+        final Path recent = Files.createTempFile("recent-preview-race", ".cmo3");
+        final JMenu menu = recentMenu(recent);
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        final int baseMenuListeners = menu.getMenuListeners().length;
+        final int baseMouseListeners = item.getMouseListeners().length;
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
+        final Registration registration = popup.contribute(renderer("popup-renderer", PNG));
+        registration.close();
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertEquals(0, popup.rendererCountForTest());
+        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
+        assertEquals(baseMouseListeners, item.getMouseListeners().length);
+    }
+
+    @Test
+    void rendererReceivesOpaqueIdentityWithoutAbsolutePath() throws Exception {
+        final Path recent = Files.createTempFile("recent-preview-private", ".cmo3");
+        final JMenu menu = recentMenu(recent);
+        final java.util.concurrent.atomic.AtomicReference<dev.turboism.sdk.cubism.recentfile.RecentFileSummary>
+            observed = new java.util.concurrent.atomic.AtomicReference<>();
+        PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
+
+        final VerifiedRecentPreviewPopupHostOperations popup =
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
+        final Registration registration = popup.contribute(summary -> {
+            observed.set(summary);
+            return Optional.of(new RecentPreviewContent(summary.id(), PanelView.text(summary.displayName())));
+        });
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().setSelectedPath(new MenuElement[]{
+            menu, menu.getPopupMenu(), item
+        }));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertNotNull(observed.get());
+        assertTrue(observed.get().path().isEmpty(),
+            "popup contribution permission must not disclose an absolute recent-file path");
+        registration.close();
+        SwingUtilities.invokeAndWait(() -> MenuSelectionManager.defaultManager().clearSelectedPath());
     }
 
     @Test

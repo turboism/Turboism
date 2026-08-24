@@ -104,11 +104,109 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
 
         final Registration registration = dynamic.view().recentPreviews()
             .contribute(summary -> Optional.empty());
-        assertEquals(1, dynamic.trackedRegistrationCountForTest());
+        assertEquals(1, dynamic.trackedRecentPreviewRegistrationCountForTest());
 
         dynamic.deactivate();
         assertTrue(closed[0], "session deactivate must close contribution registrations");
         registration.close();
+    }
+
+    @Test
+    void contributionRebindsAcrossReconnectAndClosesTheCurrentDelegate() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final java.util.concurrent.atomic.AtomicInteger firstContributions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger firstCloses =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger secondContributions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger secondCloses =
+            new java.util.concurrent.atomic.AtomicInteger();
+        dynamic.connect(connectedPreview(firstContributions, firstCloses));
+
+        final Registration registration = dynamic.view().recentPreviews()
+            .contribute(summary -> Optional.empty());
+        assertEquals(1, firstContributions.get());
+
+        dynamic.deactivate();
+        assertEquals(1, firstCloses.get(), "deactivate must detach the old popup bridge");
+
+        dynamic.connect(connectedPreview(secondContributions, secondCloses));
+        assertEquals(1, secondContributions.get(),
+            "the still-open plugin contribution must attach to the replacement host");
+
+        registration.close();
+        assertEquals(1, secondCloses.get(), "plugin close must detach the replacement bridge");
+        assertEquals(0, dynamic.trackedRecentPreviewRegistrationCountForTest());
+        dynamic.deactivate();
+        assertEquals(1, secondCloses.get(), "later deactivate must not close it twice");
+    }
+
+    @Test
+    void reconnectAttemptsEveryOpenContributionWhenOneCannotAttach() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final java.util.concurrent.atomic.AtomicInteger firstContributions =
+            new java.util.concurrent.atomic.AtomicInteger();
+        final java.util.concurrent.atomic.AtomicInteger firstCloses =
+            new java.util.concurrent.atomic.AtomicInteger();
+        dynamic.connect(connectedPreview(firstContributions, firstCloses));
+        final Registration one = dynamic.view().recentPreviews().contribute(summary -> Optional.empty());
+        final Registration two = dynamic.view().recentPreviews().contribute(summary -> Optional.empty());
+        dynamic.deactivate();
+
+        final java.util.concurrent.atomic.AtomicInteger attempts = new java.util.concurrent.atomic.AtomicInteger();
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        final RuntimeHostAdapters replacement = new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
+            safe.statusToolbar(), safe.uiSurface(), safe.recentFiles(), safe.screenshots(),
+            RecentPreviewContributionAdapter.connected(new RecentPreviewContributionAdapter.HostOperations() {
+                @Override
+                public Registration contribute(final RecentPreviewRenderer renderer) {
+                    if (attempts.incrementAndGet() == 1) {
+                        throw new IllegalStateException("first attach failed");
+                    }
+                    return () -> { };
+                }
+
+                @Override
+                public void refresh() {
+                }
+            }),
+            safe.autoBackup()
+        );
+
+        dynamic.connect(replacement);
+        assertEquals(2, attempts.get(), "one failed renderer must not prevent later renderers attaching");
+
+        one.close();
+        two.close();
+        dynamic.deactivate();
+    }
+
+    @Test
+    void failedRebindDoesNotPublishTheReplacementDelegateEarly() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final RecentFileSummary original =
+            new RecentFileSummary(new RecentFileId("original"), "Original.cmo3");
+        final RecentFileSummary replacement =
+            new RecentFileSummary(new RecentFileId("replacement"), "Replacement.cmo3");
+        dynamic.connect(connectedWithPreview(List.of(original), ignored -> () -> { }));
+        final Registration registration = dynamic.view().recentPreviews()
+            .contribute(summary -> Optional.empty());
+        dynamic.deactivate();
+
+        final java.util.concurrent.atomic.AtomicBoolean readReplacementDuringRebind =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        dynamic.connect(connectedWithPreview(List.of(replacement), ignored -> {
+            readReplacementDuringRebind.set(dynamic.view().recentFiles().list().equals(List.of(replacement)));
+            throw new IllegalStateException("attach failed");
+        }));
+
+        assertFalse(readReplacementDuringRebind.get(),
+            "the replacement adapter must not be callable until persistent contributions rebind");
+        assertEquals(List.of(replacement), dynamic.view().recentFiles().list());
+        registration.close();
+        dynamic.deactivate();
     }
 
     @Test
@@ -151,6 +249,45 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
 
     private static final java.util.concurrent.atomic.AtomicInteger triggerCalls =
         new java.util.concurrent.atomic.AtomicInteger();
+
+    private static RuntimeHostAdapters connectedPreview(
+        final java.util.concurrent.atomic.AtomicInteger contributions,
+        final java.util.concurrent.atomic.AtomicInteger closes
+    ) {
+        return connectedWithPreview(List.of(), ignored -> {
+            contributions.incrementAndGet();
+            return closes::incrementAndGet;
+        });
+    }
+
+    private static RuntimeHostAdapters connectedWithPreview(
+        final List<RecentFileSummary> files,
+        final java.util.function.Function<RecentPreviewRenderer, Registration> contribute
+    ) {
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+        return new RuntimeHostAdapters(
+            safe.themeStatus(), safe.renderStatus(), safe.projectWorkspace(), safe.clipMaskRead(),
+            safe.statusToolbar(), safe.uiSurface(),
+            RecentFileAdapter.connected(new RecentFileAdapter.HostOperations() {
+                @Override public List<RecentFileSummary> list() { return files; }
+                @Override public Optional<RecentFileId> current() {
+                    return files.stream().findFirst().map(RecentFileSummary::id);
+                }
+            }),
+            safe.screenshots(),
+            RecentPreviewContributionAdapter.connected(new RecentPreviewContributionAdapter.HostOperations() {
+                @Override
+                public Registration contribute(final RecentPreviewRenderer renderer) {
+                    return contribute.apply(renderer);
+                }
+
+                @Override
+                public void refresh() {
+                }
+            }),
+            safe.autoBackup()
+        );
+    }
 
     private static RuntimeHostAdapters connectedAutoBackup() {
         final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();

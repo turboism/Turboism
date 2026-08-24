@@ -9,6 +9,7 @@ import java.awt.Component;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -56,8 +57,7 @@ final class RecentMenuChain {
     static Object resolveWindow(final VerifiedMemberResolver panelResolver) {
         final Object app = panelResolver.invokeStatic(PANEL_APP_INSTANCE);
         final Object mainFrame = panelResolver.invoke(PANEL_MAIN_FRAME, app);
-        final Object window = panelResolver.invoke(MAIN_FRAME_WINDOW, mainFrame);
-        return window;
+        return panelResolver.invoke(MAIN_FRAME_WINDOW, mainFrame);
     }
 
     /** Current project file path via the verified project chain; null when unsaved/unavailable. */
@@ -69,7 +69,7 @@ final class RecentMenuChain {
         if (content == null) return null;
         final Object raw = projectResolver.invoke(FILE_CONTENT_FILE, content);
         if (!(raw instanceof File file)) return null;
-        return normalizeExisting(file.toPath());
+        return normalizeExistingProject(file.toPath());
     }
 
     /** Paths of the existing files listed in the Recent menu, in menu order. */
@@ -85,7 +85,7 @@ final class RecentMenuChain {
         if (!(rawMenus instanceof Iterable<?> menus)) return null;
         for (Object menu : menus) {
             final Object peer = panelResolver.invoke(MENU_SWING, menu);
-            if (peer instanceof JMenu swing && FILE_LABELS.contains(normalizeLabel(swing.getText()))) {
+            if (peer instanceof JMenu swing && isFileLabel(swing.getText())) {
                 final JMenu recent = findRecentMenu(swing);
                 if (recent != null) return recent;
             }
@@ -112,33 +112,61 @@ final class RecentMenuChain {
         return List.copyOf(unique.values());
     }
 
+    /** Legacy-compatible, fail-closed extraction from action command, tooltip, or label text. */
     static Path firstExistingPath(final String... candidates) {
         for (String candidate : candidates) {
             if (candidate == null || candidate.isBlank()) continue;
-            for (String value : List.of(candidate, suffix(candidate, '|'), suffix(candidate, '\n'))) {
-                final Path path = pathFrom(value);
+            for (String value : pathCandidates(candidate)) {
+                final Path path = existingProjectPath(value);
                 if (path != null) return path;
             }
         }
         return null;
     }
 
-    private static String suffix(final String value, final char separator) {
-        final int index = value.lastIndexOf(separator);
-        return index < 0 ? value : value.substring(index + 1).trim();
+    private static List<String> pathCandidates(final String value) {
+        final ArrayList<String> candidates = new ArrayList<>(5);
+        candidates.add(value);
+        final int close = value.lastIndexOf(']');
+        final int open = close < 0 ? -1 : value.lastIndexOf('[', close);
+        if (open >= 0 && close > open + 1) candidates.add(value.substring(open + 1, close));
+        addSuffix(candidates, value, '\t');
+        addSuffix(candidates, value, '|');
+        addSuffix(candidates, value, '\n');
+        return candidates;
     }
 
-    private static Path pathFrom(final String value) {
+    private static void addSuffix(final List<String> candidates, final String value, final char separator) {
+        final int index = value.lastIndexOf(separator);
+        if (index >= 0 && index + 1 < value.length()) candidates.add(value.substring(index + 1));
+    }
+
+    static Path existingProjectPath(final String value) {
+        final String candidate = sanitizeCandidate(value);
+        if (candidate.isEmpty()) return null;
         try {
-            return normalizeExisting(Path.of(value.trim()));
+            return normalizeExistingProject(Path.of(candidate));
         } catch (RuntimeException ignored) {
             return null;
         }
     }
 
-    private static Path normalizeExisting(final Path path) {
+    private static String sanitizeCandidate(final String value) {
+        String path = Objects.toString(value, "").replace('\u0000', ' ').trim();
+        if (path.isEmpty()) return "";
+        while (path.length() >= 2 && (path.startsWith("\"") && path.endsWith("\"")
+            || path.startsWith("'") && path.endsWith("'"))) {
+            path = path.substring(1, path.length() - 1).trim();
+        }
+        if (path.startsWith("\\\\?\\")) path = path.substring(4);
+        return path;
+    }
+
+    private static Path normalizeExistingProject(final Path path) {
         final Path normalized = path.toAbsolutePath().normalize();
-        return Files.isRegularFile(normalized) ? normalized : null;
+        if (!Files.isRegularFile(normalized)) return null;
+        final String name = Objects.toString(normalized.getFileName(), "").toLowerCase(Locale.ROOT);
+        return name.endsWith(".cmo3") || name.endsWith(".can3") ? normalized : null;
     }
 
     static String pathKey(final Path path) {
@@ -146,7 +174,18 @@ final class RecentMenuChain {
     }
 
     static String normalizeLabel(final String value) {
-        return Objects.toString(value, "").trim().toLowerCase(Locale.ROOT).replace("…", "").replace("...", "");
+        return Objects.toString(value, "")
+            .trim()
+            .toLowerCase(Locale.ROOT)
+            .replace("…", "")
+            .replace("...", "")
+            .replaceAll("\\(&.\\)$", "")
+            .replace("&", "")
+            .trim();
+    }
+
+    private static boolean isFileLabel(final String value) {
+        return FILE_LABELS.contains(normalizeLabel(value));
     }
 
     static boolean isRecentLabel(final String value) {
