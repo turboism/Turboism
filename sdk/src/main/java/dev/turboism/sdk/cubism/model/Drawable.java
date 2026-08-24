@@ -1,7 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.model.DrawableAppearance;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -11,7 +10,6 @@ import java.util.List;
 import java.util.Optional;
 
 /** One evaluated Cubism drawable/ArtMesh. */
-@PreviewApi
 @CubismEditor({"5.2.03", "5.3.02"})
 public interface Drawable {
 

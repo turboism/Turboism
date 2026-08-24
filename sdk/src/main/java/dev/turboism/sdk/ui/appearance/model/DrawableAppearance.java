@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.appearance.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PaletteEntry;
@@ -8,7 +7,6 @@ import dev.turboism.sdk.ui.appearance.PaletteEntry;
 import java.util.Optional;
 
 /** UI projections of one Cubism ArtMesh where a verified renderer seam exists. */
-@PreviewApi
 public interface DrawableAppearance {
 
     Optional<PaletteEntry> partPaletteEntry();

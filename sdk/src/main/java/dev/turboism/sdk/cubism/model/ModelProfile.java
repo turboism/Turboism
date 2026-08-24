@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Immutable Editor model profile metrics for one Cubism model generation. */
-@PreviewApi
 public interface ModelProfile {
 
     /** Returns the Editor pixels-per-unit for the model canvas. */

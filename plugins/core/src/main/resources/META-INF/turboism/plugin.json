@@ -37,6 +37,11 @@
       "reason": "Publishes and activates the Turboism embedded panel."
     },
     {
+      "id": "turboism.ui.settings.contribute",
+      "scope": "application",
+      "reason": "Contributes the Core-owned Cubism JVM selector to the shared Performance settings tab."
+    },
+    {
       "id": "turboism.ui.context-menu.contribute",
       "scope": "application",
       "reason": "Contributes the built-in panel-tab float and dock menu operations."

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.core;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -12,7 +11,6 @@ import java.util.Optional;
  * <p>The numeric Core parameter-type code is preserved verbatim; the adapter does not
  * invent enum names or clamp the current value.</p>
  */
-@PreviewApi
 public record OwnedParameter(
     String id,
     int typeNumber,

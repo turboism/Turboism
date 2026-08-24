@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 
 /** Read-only physics settings document projection of the active model. */
-@PreviewApi
 public interface PhysicsSettings {
 
     float gravityX();

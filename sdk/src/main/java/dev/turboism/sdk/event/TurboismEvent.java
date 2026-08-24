@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Marker for a typed event that may be delivered through Turboism's plugin
@@ -10,6 +9,5 @@ import dev.turboism.sdk.PreviewApi;
  * share a sealed interface or abstract base, but Turboism imposes no global
  * before/on/after phase model.</p>
  */
-@PreviewApi
 public interface TurboismEvent extends EventBus.TurboismEvent {
 }

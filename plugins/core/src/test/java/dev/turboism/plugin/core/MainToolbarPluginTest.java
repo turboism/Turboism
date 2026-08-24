@@ -93,6 +93,10 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
+        assertEquals(1, context.uiHost().settingsContributions().size());
+        final var settingsContribution = context.uiHost().settingsContributions().get(0);
+        assertEquals("performance", settingsContribution.tab().id());
+        assertEquals("cubism-jvm", settingsContribution.id());
         assertEquals(1, context.uiHost().panelContributions().size());
         final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
         assertEquals("turboism.panel.main", panel.id());
@@ -176,6 +180,7 @@ class MainToolbarPluginTest {
         assertTrue(context.actions().actions().isEmpty());
         assertTrue(context.mainToolbar().buttonContributions().isEmpty());
         assertTrue(context.uiHost().panelContributions().isEmpty());
+        assertTrue(context.uiHost().settingsContributions().isEmpty());
         assertTrue(context.menus().contributions().isEmpty());
     }
 
@@ -564,6 +569,8 @@ class MainToolbarPluginTest {
         private final List<EmbeddedPanelContribution> panelContributions = new ArrayList<>();
         private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
+        private final List<dev.turboism.sdk.ui.settings.SettingsContribution> settingsContributions =
+            new ArrayList<>();
 
         void requireMainToolbarPermission() {
         }
@@ -578,6 +585,10 @@ class MainToolbarPluginTest {
 
         List<StatusNotification> notifications() {
             return notifications;
+        }
+
+        List<dev.turboism.sdk.ui.settings.SettingsContribution> settingsContributions() {
+            return settingsContributions;
         }
 
         @Override
@@ -610,6 +621,14 @@ class MainToolbarPluginTest {
         @Override
         public boolean confirmDialog(DialogRequest request) {
             throw new UnsupportedOperationException("dialogs are not used by this plugin test");
+        }
+
+        @Override
+        public Registration contributeSettings(
+            final dev.turboism.sdk.ui.settings.SettingsContribution contribution
+        ) {
+            settingsContributions.add(contribution);
+            return () -> settingsContributions.remove(contribution);
         }
 
         @Override

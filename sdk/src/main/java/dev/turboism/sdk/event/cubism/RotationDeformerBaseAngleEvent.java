@@ -1,13 +1,11 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the Rotation Deformer base-angle write event family. */
-@PreviewApi
 public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
     permits RotationDeformerBaseAngleEvent.Before,
             RotationDeformerBaseAngleEvent.On,
@@ -15,7 +13,6 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
 
     RotationDeformer deformer();
 
-    @PreviewApi
     final class Before implements RotationDeformerBaseAngleEvent {
         private final RotationDeformer deformer;
         private final float requestedAngle;
@@ -104,13 +101,11 @@ public sealed interface RotationDeformerBaseAngleEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(RotationDeformer deformer, float oldAngle, float newAngle)
         implements RotationDeformerBaseAngleEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    @PreviewApi
     record After(RotationDeformer deformer, float finalAngle)
         implements RotationDeformerBaseAngleEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }

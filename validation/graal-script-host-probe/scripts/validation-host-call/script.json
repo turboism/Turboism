@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.host-call",
+  "name": "Validation Host Call",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [
+    "turboism.cubism.model.read"
+  ],
+  "sourceSha256": "cbfc8da0ccad1fa41313f4095dc2fda03dbe250a2b2b7405faad4787b1bd4ae6"
+}

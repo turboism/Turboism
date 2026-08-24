@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-import dev.turboism.sdk.PreviewApi;
 
 import javax.imageio.ImageIO;
 
@@ -9,7 +8,6 @@ import java.io.IOException;
 import java.util.Objects;
 
 /** Decodable PNG preview image with its pixel dimensions. */
-@PreviewApi
 public record ScreenshotImage(int width, int height, byte[] png) {
     private static final int MAX_PNG_BYTES = 1024 * 1024;
     private static final byte[] PNG_SIGNATURE = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};

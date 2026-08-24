@@ -24,6 +24,8 @@ Usage:
     --home-config <local-config.json> \
     --plugin <local.jar[:remote-name.jar]> [--plugin ...] \
     --aux-agent <local.jar[:remote-name.jar]> [--aux-agent ...] \
+    --home-file <local-file:relative-home-path> [--home-file ...] \
+    --home-dir <local-directory:relative-home-path> [--home-dir ...] \
     (--fixture-remote <host-path> | --fixture-local <local-path>) \
     [options]
 
@@ -34,6 +36,8 @@ Result modes (choose one):
       [--result-fail-line <exact line, default status=FAIL>]
 
 Common options:
+  --home-file <local-file:relative-home-path>   repeatable
+  --home-dir <local-directory:relative-home-path> repeatable
   --fixture-sha256 <expected source hash>
   --fixture-name <remote filename suffix>
       The copied project is always prefixed with the generated validation run ID.
@@ -43,6 +47,8 @@ Common options:
   --failure-marker <runtime-log marker>      repeatable
   --trigger <Turboism-home-relative path>
   --jvm-option <JVM option>                  repeatable
+  --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
+  --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
   --run-label <label, default r1>
   --agent-timeout <seconds, default 180>
   --agent-host-class <host class to wait for, default com.live2d.cubism.CEAppCtrl>
@@ -91,16 +97,49 @@ safe_label() {
 require_relative_path() {
   local value="$1" label="$2"
   [ -n "$value" ] || fail "$label must not be empty"
+  # These paths are later used as remote filesystem paths. Keep their grammar
+  # deliberately narrower than POSIX: it makes every relative-path interpolation
+  # inert even if a future remote operation regresses to shell transport.
+  [[ "$value" =~ ^[A-Za-z0-9._-][A-Za-z0-9._/-]*$ ]] \
+    || fail "$label must contain only ASCII letters, digits, dot, underscore, dash, and slash: $value"
+  case "/$value/" in
+    *'//'*) fail "$label must be a normalized relative Unix path: $value" ;;
+  esac
   case "$value" in
-    /*|../*|*/../*|*/..|..|*\\*) fail "$label must be a normalized relative Unix path: $value" ;;
+    .|./*|*/.|*/./*|..|../*|*/..|*/../*) fail "$label must be a normalized relative Unix path: $value" ;;
   esac
 }
 
 require_safe_text() {
   local value="$1" label="$2"
+  [[ ! "$value" =~ [[:cntrl:]] ]] || fail "$label contains an unsupported control character"
   case "$value" in
-    *$'\n'*|*$'\r'*|*'"'*|*"'"*) fail "$label contains an unsupported quote or newline" ;;
+    *'"'*|*"'"*) fail "$label contains an unsupported quote" ;;
   esac
+}
+
+require_safe_remote_value() {
+  local value="$1" label="$2" forbidden
+  require_safe_text "$value" "$label"
+  for forbidden in '\\' ';' '|' '&' '$' '`' '(' ')' '<' '>' '!' '#' '*' '?' '[' ']' '{' '}' '~'; do
+    [[ "$value" != *"$forbidden"* ]] || fail "$label contains an unsupported shell metacharacter"
+  done
+}
+
+# Sends untrusted argument values only as a Base64 payload. Remote shell code
+# receives no interpolated path or marker values; it decodes the payload into
+# positional parameters before using them.
+remote_args_bash() {
+  local encoded
+  encoded="$(printf '%s\n' "$@" | base64 -w 0)"
+  {
+    cat <<'REMOTE_ARGS'
+remote_args() {
+  mapfile -t REMOTE_ARGS < <(printf '%s' "$TURBOISM_ARGS_B64" | base64 -d)
+}
+REMOTE_ARGS
+    cat
+  } | "${ssh_cmd[@]}" "$ssh_host" "TURBOISM_ARGS_B64=$encoded bash -s"
 }
 
 sha256_file() {
@@ -112,6 +151,17 @@ z_path() {
   printf 'Z:%s' "${unix_path//\//\\}"
 }
 
+windows_java_tool_option() {
+  local option="$1"
+  case "$option" in
+    *' '*|*'"'*)
+      option="${option//\"/\\\"}"
+      printf '"%s"' "$option"
+      ;;
+    *) printf '%s' "$option" ;;
+  esac
+}
+
 name=''
 version=''
 bundle_root=''
@@ -119,6 +169,8 @@ agent=''
 home_config=''
 plugins=()
 aux_agents=()
+home_files=()
+home_dirs=()
 fixture_remote=''
 fixture_local=''
 fixture_sha256=''
@@ -132,6 +184,8 @@ result_pass_line='status=PASS'
 result_fail_line='status=FAIL'
 trigger_path=''
 jvm_options=()
+cubism_java=''
+cubism_java_console_marker=''
 run_label='r1'
 agent_timeout=180
 agent_host_class="com.live2d.cubism.CEAppCtrl"
@@ -159,6 +213,8 @@ while [ "$#" -gt 0 ]; do
     --home-config) require_value "$@"; home_config="$2"; shift 2 ;;
     --plugin) require_value "$@"; plugins+=("$2"); shift 2 ;;
     --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
+    --home-file) require_value "$@"; home_files+=("$2"); shift 2 ;;
+    --home-dir) require_value "$@"; home_dirs+=("$2"); shift 2 ;;
     --fixture-remote) require_value "$@"; fixture_remote="$2"; shift 2 ;;
     --fixture-local) require_value "$@"; fixture_local="$2"; shift 2 ;;
     --fixture-sha256) require_value "$@"; fixture_sha256="$2"; shift 2 ;;
@@ -172,6 +228,8 @@ while [ "$#" -gt 0 ]; do
     --result-fail-line) require_value "$@"; result_fail_line="$2"; shift 2 ;;
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
+    --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
+    --cubism-java-console-marker) require_value "$@"; cubism_java_console_marker="$2"; shift 2 ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
     --agent-timeout) require_value "$@"; agent_timeout="$2"; shift 2 ;;
     --agent-host-class) require_value "$@"; agent_host_class="$2"; shift 2 ;;
@@ -258,14 +316,26 @@ fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
 
-for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line"; do
+for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
   [ -z "$marker" ] || require_safe_text "$marker" "marker"
 done
 for option in "${jvm_options[@]}"; do
   require_safe_text "$option" "JVM option"
 done
+if [ -n "$cubism_java" ]; then
+  require_safe_text "$cubism_java" "Cubism Java path"
+  case "$cubism_java" in
+    [A-Za-z]:\\*.exe) ;;
+    *) fail "Cubism Java path must be an absolute Windows .exe path: $cubism_java" ;;
+  esac
+  [[ "$cubism_java" != */* ]] || fail "Cubism Java path must use Windows backslashes: $cubism_java"
+  for forbidden in '%' '!' '^' '&' '|' '<' '>' '`' '$' ';'; do
+    [[ "$cubism_java" != *"$forbidden"* ]] \
+      || fail "Cubism Java path contains an unsupported command character: $forbidden"
+  done
+fi
 for value in "$fixture_remote" "$golden_prefix" "$remote_root" "$display" "$proton_wrapper" "$proton_runner"; do
-  [ -z "$value" ] || require_safe_text "$value" "host path or executable"
+  [ -z "$value" ] || require_safe_remote_value "$value" "host path or executable"
 done
 
 resolved_plugins=()
@@ -288,6 +358,29 @@ for spec in "${plugins[@]}"; do
   done
   remote_plugin_names+=("$remote_name")
   resolved_plugins+=("$local_path:$remote_name")
+done
+
+resolved_home_files=()
+resolved_home_dirs=()
+for spec in "${home_files[@]}"; do
+  [[ "$spec" == *:* ]] || fail "home-file requires local-file:relative-home-path"
+  local_path="${spec%%:*}"
+  relative_path="${spec#*:}"
+  [ -f "$local_path" ] || fail "home-file source does not exist: $local_path"
+  require_safe_text "$local_path" "home-file source"
+  require_relative_path "$relative_path" "home-file destination"
+  local_path="$(cd "$(dirname "$local_path")" && pwd)/$(basename "$local_path")"
+  resolved_home_files+=("$local_path:$relative_path")
+done
+for spec in "${home_dirs[@]}"; do
+  [[ "$spec" == *:* ]] || fail "home-dir requires local-directory:relative-home-path"
+  local_path="${spec%%:*}"
+  relative_path="${spec#*:}"
+  [ -d "$local_path" ] || fail "home-dir source does not exist: $local_path"
+  require_safe_text "$local_path" "home-dir source"
+  require_relative_path "$relative_path" "home-dir destination"
+  local_path="$(cd "$local_path" && pwd)"
+  resolved_home_dirs+=("$local_path:$relative_path")
 done
 
 resolved_aux_agents=()
@@ -376,14 +469,24 @@ if [ "$dry_run" = 1 ]; then
     "auxAgentDir=$task_dir/agents" \
     "ordinaryPluginCount=${#resolved_plugins[@]}" \
     "auxAgentCount=${#resolved_aux_agents[@]}" \
+    "homeFileCount=${#resolved_home_files[@]}" \
+    "homeDirCount=${#resolved_home_dirs[@]}" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
     "resultMarker=$result_marker" \
     "resultFile=$result_file" \
     "trigger=$trigger_path" \
+    "cubismJava=$cubism_java" \
+    "cubismJavaConsoleMarker=$cubism_java_console_marker" \
     "localEvidenceDir=$local_evidence_dir"
   for index in "${!resolved_plugins[@]}"; do
     printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
+  done
+  for index in "${!resolved_home_files[@]}"; do
+    printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"
+  done
+  for index in "${!resolved_home_dirs[@]}"; do
+    printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"
   done
   printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
     "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
@@ -404,6 +507,7 @@ if [ "$dry_run" = 1 ]; then
     dry_option="${dry_option//\{FIXTURE\}/$dry_win_fixture}"
     dry_option="${dry_option//\{FIXTURE_NAME\}/$fixture_name}"
     printf 'jvmOption.%s=%s\n' "$index" "$dry_option"
+    printf 'jvmOption.%s.quoted=%s\n' "$index" "$(windows_java_tool_option "$dry_option")"
   done
   exit 0
 fi
@@ -419,14 +523,22 @@ success=0
 wrapper_cleanup_done=0
 
 remote_process_alive() {
-  "${ssh_cmd[@]}" "$ssh_host" "test ! -s '$evidence_dir/wrapper.exit' && test -s '$evidence_dir/wrapper.pid' && kill -0 \$(cat '$evidence_dir/wrapper.pid') 2>/dev/null"
+  remote_args_bash "$evidence_dir/wrapper.exit" "$evidence_dir/wrapper.pid" <<'REMOTE'
+set -euo pipefail
+remote_args
+exit_file="${REMOTE_ARGS[0]}"; pid_file="${REMOTE_ARGS[1]}"
+test ! -s "$exit_file" && test -s "$pid_file" && kill -0 "$(cat "$pid_file")" 2>/dev/null
+REMOTE
 }
 
 remote_normal_exit_evidence_seen() {
   case "$version" in
     5302)
-      "${ssh_cmd[@]}" "$ssh_host" \
-        "grep -Eq -- '-- successfully exited pid:[0-9]+ --' '$evidence_dir/cubism-console.txt'"
+      remote_args_bash "$evidence_dir/cubism-console.txt" <<'REMOTE'
+set -euo pipefail
+remote_args
+grep -Eq -- '-- successfully exited pid:[0-9]+ --' "${REMOTE_ARGS[0]}"
+REMOTE
       ;;
     5203)
       local log_file
@@ -442,8 +554,11 @@ remote_normal_exit_evidence_seen() {
 }
 
 remote_record_wrapper_cleanup() {
-  "${ssh_cmd[@]}" "$ssh_host" \
-    "printf '%s\\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
+  remote_args_bash "$evidence_dir/wrapper.cleanup" <<'REMOTE'
+set -euo pipefail
+remote_args
+printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > "${REMOTE_ARGS[0]}"
+REMOTE
 }
 
 remote_stop_process_tree() {
@@ -473,22 +588,28 @@ REMOTE
 }
 
 latest_runtime_log() {
-  "${ssh_cmd[@]}" "$ssh_host" "find '$home_dir/logs/runtime' -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-" || true
+  remote_args_bash "$home_dir/logs/runtime" <<'REMOTE' || true
+set -euo pipefail
+remote_args
+find "${REMOTE_ARGS[0]}" -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-
+REMOTE
 }
 
 runtime_log_contains() {
   local log_file="$1" marker="$2"
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$log_file' '$marker'" <<'REMOTE'
+  remote_args_bash "$log_file" "$marker" <<'REMOTE'
 set -euo pipefail
-grep -Fq -- "$2" "$1"
+remote_args
+grep -Fq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
 REMOTE
 }
 
 result_file_contains() {
   local relative="$1" line="$2"
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$home_dir/$relative' '$line'" <<'REMOTE'
+  remote_args_bash "$home_dir/$relative" "$line" <<'REMOTE'
 set -euo pipefail
-[ -f "$1" ] && grep -Fxq -- "$2" "$1"
+remote_args
+[ -f "${REMOTE_ARGS[0]}" ] && grep -Fxq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
 REMOTE
 }
 
@@ -503,6 +624,20 @@ verify_staged_artifacts() {
     expected="$(sha256_file "$local_path")"
     actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/plugins/$remote_name' | cut -d' ' -f1")"
     [ "$actual" = "$expected" ] || fail "staged plugin hash mismatch: $remote_name"
+  done
+  for spec in "${resolved_home_files[@]}"; do
+    local_path="${spec%%:*}"
+    relative_path="${spec#*:}"
+    expected="$(sha256_file "$local_path")"
+    actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/$relative_path' | cut -d' ' -f1")"
+    [ "$actual" = "$expected" ] || fail "staged home-file hash mismatch: $relative_path"
+  done
+  for spec in "${resolved_home_dirs[@]}"; do
+    local_path="${spec%%:*}"
+    relative_path="${spec#*:}"
+    local_hash="$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
+    remote_hash="$("${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1")"
+    [ "$remote_hash" = "$local_hash" ] || fail "staged home-dir hash mismatch: $relative_path"
   done
   if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
     local aux_hash_file
@@ -633,6 +768,18 @@ agent_sha256="$(sha256_file "$agent")"
     printf 'plugin.%s.name=%s\n' "$index" "$remote_name"
     printf 'plugin.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
   done
+  for index in "${!resolved_home_files[@]}"; do
+    local_path="${resolved_home_files[$index]%%:*}"
+    relative_path="${resolved_home_files[$index]#*:}"
+    printf 'homeFile.%s.path=%s\n' "$index" "$relative_path"
+    printf 'homeFile.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
+  done
+  for index in "${!resolved_home_dirs[@]}"; do
+    local_path="${resolved_home_dirs[$index]%%:*}"
+    relative_path="${resolved_home_dirs[$index]#*:}"
+    printf 'homeDir.%s.path=%s\n' "$index" "$relative_path"
+    printf 'homeDir.%s.sha256=%s\n' "$index" "$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
+  done
   if [ -n "$home_config" ]; then
     printf 'homeConfigSha256=%s\n' "$(sha256_file "$home_config")" >> "$identity_before"
   fi
@@ -667,6 +814,18 @@ for spec in "${resolved_plugins[@]}"; do
   remote_name="${spec#*:}"
   "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/plugins/$remote_name"
 done
+for spec in "${resolved_home_files[@]}"; do
+  local_path="${spec%%:*}"
+  relative_path="${spec#*:}"
+  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$relative_path")'"
+  "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/$relative_path"
+done
+for spec in "${resolved_home_dirs[@]}"; do
+  local_path="${spec%%:*}"
+  relative_path="${spec#*:}"
+  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$relative_path'"
+  tar -C "$local_path" -cf - . | "${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' -xf -"
+done
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
@@ -698,6 +857,40 @@ win_console="$(z_path "$evidence_dir/cubism-console.txt")"
 win_launch="$(z_path "$task_dir/launch.bat")"
 cmd_unix="$prefix_dir/pfx/drive_c/windows/system32/cmd.exe"
 
+if [ -n "$cubism_java" ]; then
+  remote_args_bash "$cloned_cubism/CubismEditor5.bat" "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" <<'REMOTE'
+set -euo pipefail
+remote_args
+official="${REMOTE_ARGS[0]}"; override="${REMOTE_ARGS[1]}"; java_exe="${REMOTE_ARGS[2]}"
+python3 - "$official" "$override" "$java_exe" <<'PY'
+from pathlib import Path
+import re
+import sys
+
+official = Path(sys.argv[1])
+override = Path(sys.argv[2])
+java_exe = sys.argv[3]
+data = official.read_bytes()
+pattern = rb'(?m)^set JAVA_EXE=.*(?:\r?\n)'
+replacement = ('set JAVA_EXE=' + java_exe + '\r\n').encode('ascii')
+updated, count = re.subn(pattern, lambda _match: replacement, data, count=1)
+if count != 1:
+    raise SystemExit('official launcher did not contain exactly one JAVA_EXE assignment')
+override.write_bytes(updated)
+PY
+REMOTE
+  remote_args_bash "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" "$evidence_dir/cubism-java.properties" <<'REMOTE'
+set -euo pipefail
+remote_args
+launcher="${REMOTE_ARGS[0]}"; java_exe="${REMOTE_ARGS[1]}"; evidence="${REMOTE_ARGS[2]}"
+grep -Fq -- "set JAVA_EXE=$java_exe" "$launcher"
+{
+  printf 'configuredWindowsPath=%s\n' "$java_exe"
+  printf 'overrideLauncherSha256=%s\n' "$(sha256sum "$launcher" | cut -d' ' -f1)"
+} > "$evidence"
+REMOTE
+fi
+
 all_jvm_options=(
   '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED'
   '--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
@@ -719,14 +912,33 @@ for option in "${jvm_options[@]}"; do
   option="${option//\{FIXTURE_NAME\}/$fixture_name}"
   all_jvm_options+=("$option")
 done
-java_tool_options="${all_jvm_options[*]}"
+java_tool_options=''
+for option in "${all_jvm_options[@]}"; do
+  quoted_option="$(windows_java_tool_option "$option")"
+  java_tool_options+="${java_tool_options:+ }$quoted_option"
+done
 require_safe_text "$java_tool_options" "combined JAVA_TOOL_OPTIONS"
 
 cat > "$local_tmp/launch.bat" <<BAT
 @echo off
 setlocal
 set "JAVA_TOOL_OPTIONS=$java_tool_options"
+BAT
+if [ -n "$cubism_java" ]; then
+  # The official BAT assigns JAVA_EXE unconditionally, so invoke a task-local
+  # text-equivalent copy with only that assignment replaced. The installed and
+  # cloned official launchers stay byte-for-byte unchanged and all other vendor
+  # JVM/classpath/native arguments still come from the exact reviewed BAT.
+  win_task_launcher="$cubism_win\CubismEditor5-java-override.bat"
+  cat >> "$local_tmp/launch.bat" <<BAT
+call "$win_task_launcher" "$win_fixture" > "$win_console" 2>&1
+BAT
+else
+  cat >> "$local_tmp/launch.bat" <<BAT
 call "$cubism_win\\CubismEditor5.bat" "$win_fixture" > "$win_console" 2>&1
+BAT
+fi
+cat >> "$local_tmp/launch.bat" <<'BAT'
 exit /b %ERRORLEVEL%
 BAT
 cat > "$local_tmp/launch.sh" <<SH
@@ -823,6 +1035,14 @@ if [ -n "$wrapper_exit" ]; then
   [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
 elif [ "$wrapper_cleanup_done" = 0 ]; then
   fail "official launcher exited with code missing"
+fi
+if [ -n "$cubism_java_console_marker" ]; then
+  remote_args_bash "$evidence_dir/cubism-console.txt" "$cubism_java_console_marker" <<'REMOTE' \
+    || fail "Cubism Java identity marker was not observed: $cubism_java_console_marker"
+set -euo pipefail
+remote_args
+grep -Fq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
+REMOTE
 fi
 verify_staged_artifacts after
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then

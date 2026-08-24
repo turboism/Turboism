@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.command;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Set;
 
 /** Closed inventory of typed operations awaiting or using command-specific request records. */
-@PreviewApi
 public enum EditorParameterizedCommand {
     ADD_PARAMETER_FOR_ROTATION_DEFORMER(Set.of("5.2.03", "5.3.02")),
     ADD_TIMELINE_MARKER(Set.of("5.2.03", "5.3.02")),
@@ -77,7 +75,6 @@ public enum EditorParameterizedCommand {
 
     private final Set<String> supportedVersions;
 
-    @PreviewApi
     public enum Availability {
         EVIDENCE_REQUIRED,
         TYPED_CONTRACT_VERIFIED

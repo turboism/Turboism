@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 2,
+  "id": "validation.success",
+  "name": "Validation Success",
+  "version": "0.0.0",
+  "language": "js",
+  "entry": "main.js",
+  "permissions": [],
+  "sourceSha256": "ed8324b9aeb1f1626d6fbfc89af02b9b54dfd081dcb346f1ef9fab01d2078869"
+}

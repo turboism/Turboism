@@ -69,7 +69,7 @@ if [ -r "$driver" ]; then
   driver_pid=$!
 fi
 trap 'if [ -n "$driver_pid" ]; then kill "$driver_pid" 2>/dev/null || true; fi' EXIT
-TURBOISM_HOST_VALIDATION_RUN_NONCE="$run_nonce" exec bash "$runner" \
+TURBOISM_HOST_VALIDATION_RUN_NONCE="$run_nonce" bash "$runner" \
   --name fps \
   --version "$version" \
   --run-label "$run_label" \

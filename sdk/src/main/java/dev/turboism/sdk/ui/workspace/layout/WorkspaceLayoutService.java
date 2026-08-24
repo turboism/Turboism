@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace.layout;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
@@ -13,7 +12,6 @@ import java.util.concurrent.CompletionStage;
  * snapshot; the service never throws host exceptions to the plugin. After the owning plugin
  * scope is closed the service returns typed {@code UNAVAILABLE} snapshots.</p>
  */
-@PreviewApi
 public interface WorkspaceLayoutService {
 
     CompletionStage<WorkspaceLayoutSnapshot> current();

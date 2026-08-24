@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.write;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 
 /**
@@ -12,7 +11,6 @@ import dev.turboism.sdk.cubism.id.ModelId;
  * @param width new canvas width in pixels; at least one
  * @param height new canvas height in pixels; at least one
  */
-@PreviewApi
 public record WriteCanvasCommand(String commandId, ModelId modelId, int width, int height) implements CubismWriteCommand {
     /**
      * Validates the record components.

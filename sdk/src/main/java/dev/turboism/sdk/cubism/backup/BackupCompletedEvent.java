@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
 import java.util.List;
@@ -14,7 +13,6 @@ import java.util.Objects;
  * global event bus. Code that initiated the command receives a {@link BackupRunResult}
  * with the exact artifacts it owns.</p>
  */
-@PreviewApi
 public record BackupCompletedEvent(
     long completedAtMillis,
     List<BackupArtifact> artifacts,
