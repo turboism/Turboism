@@ -152,10 +152,48 @@ final class RecentPreviewPluginLifecycleTest {
         action.run(noopToken());
         assertEquals(2, captures[0], "a lastModified change must trigger a poll capture");
 
-        // Disabling stops the poller; further ticks must not capture.
+        // Disabling closes the repeating task and makes an already-retained action harmless.
         plugin.disable();
+        assertEquals(1, tasks.closedHandles.get());
         action.run(noopToken());
         assertEquals(2, captures[0]);
+    }
+
+    @Test
+    void failedPollCaptureClearsHoverLoadingStateAndAllowsRetry() throws Exception {
+        final RecentFileSummary file = new RecentFileSummary(
+            new RecentFileId("one"), "One.cmo3",
+            Optional.of(Instant.parse("2026-08-05T12:00:00Z")), Optional.empty()
+        );
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final AtomicInteger refreshes = new AtomicInteger();
+        final List<String> warnings = new ArrayList<>();
+        final RecordingTaskScheduler tasks = new RecordingTaskScheduler();
+        final CompletableFuture<ScreenshotCaptureResult> pending = new CompletableFuture<>();
+        final AtomicInteger captures = new AtomicInteger();
+        final ScreenshotCaptureService screenshots = request -> {
+            captures.incrementAndGet();
+            return pending;
+        };
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+
+        plugin.init(context(
+            List.of(file), renderers, screenshots, refreshes, warnings, tasks
+        ));
+        plugin.enable();
+        tasks.fixedDelay.get(0).action().run(noopToken());
+        assertEquals(1, captures.get());
+
+        final RecentPreviewRenderer renderer = renderers.get(0);
+        assertTrue(renderer.render(file).isPresent(), "hover must show loading while the poll capture runs");
+        awaitCondition(() -> captures.get() >= 1);
+        pending.completeExceptionally(new IllegalStateException("capture failed"));
+        awaitCondition(() -> refreshes.get() >= 1);
+
+        assertTrue(renderer.render(file).isEmpty(), "the completion refresh hides failed loading once");
+        assertTrue(renderer.render(file).isPresent(), "a later hover may request capture again");
+        awaitCondition(() -> captures.get() >= 2);
+        assertTrue(warnings.stream().anyMatch(value -> value.contains("poll capture failed")));
     }
 
     @Test
@@ -209,11 +247,16 @@ final class RecentPreviewPluginLifecycleTest {
     }
 
     private static void awaitCaptures(final int[] captures, final int expected) {
+        awaitCondition(() -> captures[0] >= expected);
+        assertEquals(expected, captures[0]);
+    }
+
+    private static void awaitCondition(final java.util.function.BooleanSupplier condition) {
         final long deadline = System.nanoTime() + 5_000_000_000L;
-        while (captures[0] < expected && System.nanoTime() < deadline) {
+        while (!condition.getAsBoolean() && System.nanoTime() < deadline) {
             Thread.yield();
         }
-        assertEquals(expected, captures[0]);
+        assertTrue(condition.getAsBoolean());
     }
 
     private static PluginContext context(
@@ -232,6 +275,23 @@ final class RecentPreviewPluginLifecycleTest {
         final List<RecentFileSummary> files,
         final List<RecentPreviewRenderer> renderers,
         final int[] captures,
+        final AtomicInteger refreshes,
+        final List<String> warnings,
+        final RecordingTaskScheduler tasks
+    ) {
+        final ScreenshotCaptureService screenshots = request -> {
+            captures[0]++;
+            return CompletableFuture.completedStage(new ScreenshotCaptureResult(
+                request.id(), new ScreenshotImage(1, 1, png())
+            ));
+        };
+        return context(files, renderers, screenshots, refreshes, warnings, tasks);
+    }
+
+    private static PluginContext context(
+        final List<RecentFileSummary> files,
+        final List<RecentPreviewRenderer> renderers,
+        final ScreenshotCaptureService screenshots,
         final AtomicInteger refreshes,
         final List<String> warnings,
         final RecordingTaskScheduler tasks
@@ -260,7 +320,7 @@ final class RecentPreviewPluginLifecycleTest {
                 if (method.getName().equals("writeUtf8Atomic")) {
                     return CompletableFuture.completedStage(new StorageWriteResult(true, Optional.empty()));
                 }
-                if (method.getName().equals("delete")) {
+                if (method.getName().equals("moveAtomic") || method.getName().equals("delete")) {
                     return CompletableFuture.completedStage(new StorageMutationResult(true, Optional.empty()));
                 }
                 if (method.getName().equals("list")) {
@@ -270,12 +330,6 @@ final class RecentPreviewPluginLifecycleTest {
             }
         );
         final RecentFileService recentFiles = () -> List.copyOf(files);
-        final ScreenshotCaptureService screenshots = request -> {
-            captures[0]++;
-            return CompletableFuture.completedStage(new ScreenshotCaptureResult(
-                request.id(), new ScreenshotImage(1, 1, png())
-            ));
-        };
         final RecentPreviewContributionService popups = new RecentPreviewContributionService() {
             @Override
             public Registration contribute(final RecentPreviewRenderer renderer) {
@@ -305,6 +359,7 @@ final class RecentPreviewPluginLifecycleTest {
 
     private static final class RecordingTaskScheduler implements PluginTaskScheduler {
         private final List<FixedDelayTaskRequest> fixedDelay = new ArrayList<>();
+        private final AtomicInteger closedHandles = new AtomicInteger();
 
         @Override
         public TaskSubmission submit(final PluginTaskRequest request) {
@@ -340,7 +395,10 @@ final class RecentPreviewPluginLifecycleTest {
 
                 @Override
                 public void close() {
-                    closed = true;
+                    if (!closed) {
+                        closed = true;
+                        closedHandles.incrementAndGet();
+                    }
                 }
             }, Optional.empty());
         }

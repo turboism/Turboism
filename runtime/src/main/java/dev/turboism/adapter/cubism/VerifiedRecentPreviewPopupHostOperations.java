@@ -13,6 +13,8 @@ import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
+import javax.swing.MenuElement;
+import javax.swing.MenuSelectionManager;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.Popup;
@@ -20,7 +22,10 @@ import javax.swing.PopupFactory;
 import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 import javax.swing.event.ChangeListener;
+import javax.swing.event.MenuEvent;
 import javax.swing.event.MenuListener;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -28,51 +33,75 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Point;
 import java.awt.event.ActionListener;
+import java.awt.event.ContainerAdapter;
+import java.awt.event.ContainerEvent;
+import java.awt.event.ContainerListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 
 /**
  * Host-owned Recent Files hover popup bridge, ported from the legacy
- * {@code CubismRecentPreviewManager} popup machinery: menu listener install on the
- * Recent menu (refresh on open), per-item mouse/selection/action tracking, themed
- * popup next to the active item, hide on click/leave/switch, and self-suppression
- * during capture. Plugins only provide {@link RecentPreviewRenderer}s; the runtime
- * renders their {@link PanelView} into the popup. Safe mode never touches the host.
+ * {@code CubismRecentPreviewManager} popup machinery. The host rebuilds its Recent menu lazily,
+ * so this bridge reconciles the current verified menu on selection and popup lifecycle events
+ * instead of assuming the menu present at plugin startup remains current.
  */
 public final class VerifiedRecentPreviewPopupHostOperations
     implements RecentPreviewContributionAdapter.HostOperations, PreviewCaptureHostOperations.PopupSuppression {
 
-    private static final String INSTALLED_KEY = "turboism.recentPreviewInstalled";
     private static final String PATH_KEY = "turboism.recentPreviewPath";
     private static final String POPUP_KEY = "turboism.recentPreviewPopup";
     private static final String ACTIVE_ITEM_KEY = "turboism.recentPreviewActiveItem";
     private static final String ACTIVE_PROJECT_KEY = "turboism.recentPreviewActiveProject";
-    private static final String MENU_LISTENER_KEY = "turboism.recentPreviewMenuListener";
 
     private final VerifiedMemberResolver panelResolver;
     private final Locale locale;
+    private final Consumer<String> diagnostics;
+    private final Set<String> emittedDiagnostics = ConcurrentHashMap.newKeySet();
     private final CopyOnWriteArrayList<RecentPreviewRenderer> renderers = new CopyOnWriteArrayList<>();
+
+    /** EDT-owned listener and binding state. */
+    private ChangeListener selectionListener;
+    private MenuBinding menuBinding;
+    private boolean reconcileQueued;
+    private boolean selectionHandlingRequested;
 
     private volatile JPopupMenu activePopupMenu;
     private volatile Popup activePopup;
 
     public VerifiedRecentPreviewPopupHostOperations(final VerifiedMemberResolver panelResolver) {
-        this(panelResolver, dev.turboism.i18n.CubismHostLocale.resolve());
+        this(panelResolver, dev.turboism.i18n.CubismHostLocale.resolve(), ignored -> { });
     }
 
     public VerifiedRecentPreviewPopupHostOperations(
         final VerifiedMemberResolver panelResolver,
         final Locale locale
     ) {
+        this(panelResolver, locale, ignored -> { });
+    }
+
+    public VerifiedRecentPreviewPopupHostOperations(
+        final VerifiedMemberResolver panelResolver,
+        final Locale locale,
+        final Consumer<String> diagnostics
+    ) {
         this.panelResolver = Objects.requireNonNull(panelResolver, "panelResolver");
         this.locale = Objects.requireNonNull(locale, "locale");
+        this.diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
         RecentMenuChain.PANEL_ALIASES.forEach(panelResolver::verifiedSelector);
     }
 
@@ -80,10 +109,15 @@ public final class VerifiedRecentPreviewPopupHostOperations
     public Registration contribute(final RecentPreviewRenderer renderer) {
         Objects.requireNonNull(renderer, "renderer");
         renderers.add(renderer);
-        installOnEventDispatchThread();
+        onEventDispatchThread(this::startTracking);
+        final AtomicBoolean closed = new AtomicBoolean();
         return () -> {
+            if (!closed.compareAndSet(false, true)) return;
             renderers.remove(renderer);
-            hideActivePopup();
+            onEventDispatchThread(() -> {
+                if (renderers.isEmpty()) stopTracking();
+                else hideActivePopupNow();
+            });
         };
     }
 
@@ -94,114 +128,244 @@ public final class VerifiedRecentPreviewPopupHostOperations
 
     @Override
     public void hide() {
-        hideActivePopup();
+        onEventDispatchThread(this::hideActivePopupNow);
     }
 
     @Override
     public void restore() {
-        // The popup stays hidden after a capture until the next hover event.
+        // Capture suppression intentionally waits for selection or an explicit refresh.
     }
 
-    /** Menu chain + listener install; only the first contribution installs. */
-    private void installOnEventDispatchThread() {
-        if (renderers.size() != 1) return;
+    private void startTracking() {
+        if (renderers.isEmpty()) return;
+        if (selectionListener == null) {
+            selectionListener = ignored -> queueReconcile(true);
+            MenuSelectionManager.defaultManager().addChangeListener(selectionListener);
+        }
+        reconcileCurrentRecentMenu(false);
+    }
+
+    private void stopTracking() {
+        hideActivePopupNow();
+        if (selectionListener != null) {
+            MenuSelectionManager.defaultManager().removeChangeListener(selectionListener);
+            selectionListener = null;
+        }
+        unbindCurrentMenu();
+        reconcileQueued = false;
+        selectionHandlingRequested = false;
+    }
+
+    /** Coalesces the burst of Swing selection/model/container events into one fresh host lookup. */
+    private void queueReconcile(final boolean handleSelection) {
         onEventDispatchThread(() -> {
-            try {
-                final Object window = RecentMenuChain.resolveWindow(panelResolver);
-                final JMenu recent = RecentMenuChain.recentMenu(panelResolver, window);
-                if (recent == null) return;
-                installMenuListener(recent);
-                installItemHandlers(recent);
-            } catch (RuntimeException ignored) {
-                // fail closed: no popup without the verified chain
-            }
+            selectionHandlingRequested |= handleSelection;
+            if (reconcileQueued || renderers.isEmpty()) return;
+            reconcileQueued = true;
+            SwingUtilities.invokeLater(() -> {
+                final boolean selected = selectionHandlingRequested;
+                reconcileQueued = false;
+                selectionHandlingRequested = false;
+                if (!renderers.isEmpty()) reconcileCurrentRecentMenu(selected);
+            });
         });
     }
 
-    private void installMenuListener(final JMenu recent) {
-        if (Boolean.TRUE.equals(recent.getClientProperty(MENU_LISTENER_KEY))) return;
-        final MenuListener listener = new MenuListener() {
-            @Override
-            public void menuSelected(javax.swing.event.MenuEvent event) {
-                installItemHandlers(recent);
-            }
+    private void reconcileCurrentRecentMenu(final boolean handleSelection) {
+        requireEventDispatchThread();
+        final JMenu recent;
+        try {
+            final Object window = RecentMenuChain.resolveWindow(panelResolver);
+            recent = RecentMenuChain.recentMenu(panelResolver, window);
+        } catch (RuntimeException failure) {
+            diagnoseOnce("reconcile-verified-chain", failure);
+            if (handleSelection) hideActivePopupNow();
+            return;
+        }
+        if (recent == null) {
+            if (handleSelection) diagnoseOnce("reconcile-menu-not-resolved", null);
+            return;
+        }
 
-            @Override
-            public void menuDeselected(javax.swing.event.MenuEvent event) {
-                hideActivePopup();
-            }
-
-            @Override
-            public void menuCanceled(javax.swing.event.MenuEvent event) {
-                hideActivePopup();
-            }
-        };
-        recent.addMenuListener(listener);
-        recent.putClientProperty(MENU_LISTENER_KEY, Boolean.TRUE);
+        final JPopupMenu popup = recent.getPopupMenu();
+        if (menuBinding == null || menuBinding.menu != recent || menuBinding.popup != popup) {
+            unbindCurrentMenu();
+            menuBinding = bindMenu(recent, popup);
+        } else {
+            reconcileItems(menuBinding);
+        }
+        if (handleSelection) handleSelectedPath(menuBinding);
     }
 
-    /** Installs per-item handlers once per item; rebinds the item→path mapping. */
-    private void installItemHandlers(final JMenu recent) {
-        for (Component component : recent.getMenuComponents()) {
-            if (!(component instanceof JMenuItem item)) continue;
-            if (!Boolean.TRUE.equals(item.getClientProperty(INSTALLED_KEY))) {
-                item.addMouseListener(new MouseAdapter() {
-                    @Override
-                    public void mouseEntered(final MouseEvent event) {
-                        showForItem(item);
-                    }
+    private MenuBinding bindMenu(final JMenu menu, final JPopupMenu popup) {
+        final MenuListener menuListener = new MenuListener() {
+            @Override
+            public void menuSelected(final MenuEvent event) {
+                queueReconcile(true);
+            }
 
-                    @Override
-                    public void mousePressed(final MouseEvent event) {
-                        hideForItem(item);
-                    }
-                });
-                item.addChangeListener(changeListener(item));
-                item.addActionListener(actionListener());
-                item.putClientProperty(INSTALLED_KEY, Boolean.TRUE);
+            @Override
+            public void menuDeselected(final MenuEvent event) {
+                hideActivePopupNow();
+            }
+
+            @Override
+            public void menuCanceled(final MenuEvent event) {
+                hideActivePopupNow();
+            }
+        };
+        final PopupMenuListener popupListener = new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(final PopupMenuEvent event) {
+                queueReconcile(true);
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(final PopupMenuEvent event) {
+                hideActivePopupNow();
+            }
+
+            @Override
+            public void popupMenuCanceled(final PopupMenuEvent event) {
+                hideActivePopupNow();
+            }
+        };
+        final ContainerListener containerListener = new ContainerAdapter() {
+            @Override
+            public void componentAdded(final ContainerEvent event) {
+                queueReconcile(true);
+            }
+
+            @Override
+            public void componentRemoved(final ContainerEvent event) {
+                queueReconcile(true);
+            }
+        };
+        final MenuBinding binding = new MenuBinding(
+            menu, popup, menuListener, popupListener, containerListener
+        );
+        menu.addMenuListener(menuListener);
+        popup.addPopupMenuListener(popupListener);
+        popup.addContainerListener(containerListener);
+        reconcileItems(binding);
+        return binding;
+    }
+
+    private void unbindCurrentMenu() {
+        final MenuBinding binding = menuBinding;
+        menuBinding = null;
+        if (binding == null) return;
+        hideActivePopupNow();
+        binding.menu.removeMenuListener(binding.menuListener);
+        binding.popup.removePopupMenuListener(binding.popupListener);
+        binding.popup.removeContainerListener(binding.containerListener);
+        for (ItemBinding item : new ArrayList<>(binding.items.values())) {
+            unbindItem(item);
+        }
+        binding.items.clear();
+    }
+
+    private void reconcileItems(final MenuBinding binding) {
+        final IdentityHashMap<JMenuItem, Boolean> present = new IdentityHashMap<>();
+        for (Component component : binding.popup.getComponents()) {
+            if (!(component instanceof JMenuItem item)) continue;
+            present.put(item, Boolean.TRUE);
+            if (!binding.items.containsKey(item)) {
+                binding.items.put(item, bindItem(item));
             }
             final Path path = RecentMenuChain.firstExistingPath(
                 item.getActionCommand(), item.getToolTipText(), item.getText()
             );
-            if (path != null) {
-                item.putClientProperty(PATH_KEY, path.toString());
+            item.putClientProperty(PATH_KEY, path == null ? null : path.toString());
+        }
+        for (ItemBinding item : new ArrayList<>(binding.items.values())) {
+            if (!present.containsKey(item.item)) {
+                binding.items.remove(item.item);
+                unbindItem(item);
             }
         }
     }
 
-    private ChangeListener changeListener(final JMenuItem item) {
-        return event -> {
+    private ItemBinding bindItem(final JMenuItem item) {
+        final MouseAdapter mouse = new MouseAdapter() {
+            @Override
+            public void mouseEntered(final MouseEvent event) {
+                if (isCurrentItem(item)) showForItem(item);
+            }
+
+            @Override
+            public void mouseExited(final MouseEvent event) {
+                hideForItemIfActive(item);
+            }
+
+            @Override
+            public void mousePressed(final MouseEvent event) {
+                hideForItemIfActive(item);
+            }
+        };
+        final ChangeListener change = ignored -> {
+            if (!isCurrentItem(item)) return;
             final var model = item.getModel();
             final boolean active = model != null
                 && (model.isArmed() || model.isRollover() || model.isSelected());
-            if (active) {
-                showForItem(item);
-            } else {
-                hideForItem(item);
-            }
+            if (active) showForItem(item);
+            else hideForItemIfActive(item);
         };
+        final ActionListener action = ignored -> hideActivePopupNow();
+        item.addMouseListener(mouse);
+        item.addChangeListener(change);
+        item.addActionListener(action);
+        return new ItemBinding(item, mouse, change, action);
     }
 
-    private ActionListener actionListener() {
-        return event -> hideActivePopup();
+    private void unbindItem(final ItemBinding binding) {
+        binding.item.removeMouseListener(binding.mouse);
+        binding.item.removeChangeListener(binding.change);
+        binding.item.removeActionListener(binding.action);
+        binding.item.putClientProperty(PATH_KEY, null);
+    }
+
+    private void handleSelectedPath(final MenuBinding binding) {
+        final MenuElement[] selected = MenuSelectionManager.defaultManager().getSelectedPath();
+        boolean containsPopup = false;
+        JMenuItem selectedItem = null;
+        for (int index = selected.length - 1; index >= 0; index--) {
+            final MenuElement element = selected[index];
+            if (element == null) continue;
+            if (element.getComponent() == binding.popup) containsPopup = true;
+            if (selectedItem == null && element.getComponent() instanceof JMenuItem item
+                && popupMenuOf(item) == binding.popup) {
+                selectedItem = item;
+            }
+        }
+        if (!containsPopup || selectedItem == null || !binding.items.containsKey(selectedItem)) {
+            hideActivePopupNow();
+            return;
+        }
+        showForItem(selectedItem);
+    }
+
+    private boolean isCurrentItem(final JMenuItem item) {
+        final MenuBinding binding = menuBinding;
+        return binding != null && binding.items.containsKey(item) && popupMenuOf(item) == binding.popup;
     }
 
     private void showForItem(final JMenuItem item) {
         onEventDispatchThread(() -> {
+            if (!isCurrentItem(item)) return;
             try {
                 showPopup(item);
-            } catch (RuntimeException ignored) {
-                // fail closed: a broken popup must never escape the EDT
+            } catch (RuntimeException failure) {
+                diagnoseOnce("popup-show", failure);
+                hideActivePopupNow();
             }
         });
     }
 
-    private void hideForItem(final JMenuItem item) {
+    private void hideForItemIfActive(final JMenuItem item) {
         final JPopupMenu popupMenu = popupMenuOf(item);
-        if (popupMenu != null) {
+        if (popupMenu != null && popupMenu.getClientProperty(ACTIVE_ITEM_KEY) == item) {
             hidePopup(popupMenu);
-        } else {
-            hideActivePopup();
         }
     }
 
@@ -210,22 +374,22 @@ public final class VerifiedRecentPreviewPopupHostOperations
         if (popupMenu == null) return;
         final Path path = pathOf(item);
         if (path == null) {
-            hidePopup(popupMenu);
+            hideForItemIfActive(item);
             return;
         }
         final String pathKey = RecentMenuChain.pathKey(path);
         if (popupMenu.getClientProperty(ACTIVE_ITEM_KEY) == item
             && pathKey.equals(popupMenu.getClientProperty(ACTIVE_PROJECT_KEY))
             && popupMenu.getClientProperty(POPUP_KEY) instanceof Popup) {
-            return; // already showing for this item
+            return;
         }
         final RecentPreviewContent content = renderContent(summaryFor(path));
         if (content == null) {
-            hidePopup(popupMenu);
+            hideForItemIfActive(item);
             return;
         }
         if (activePopupMenu != null && activePopupMenu != popupMenu) {
-            hideActivePopup();
+            hideActivePopupNow();
         }
         hidePopup(popupMenu);
         final JPanel panel = themedPanel(content.view(), locale);
@@ -246,15 +410,17 @@ public final class VerifiedRecentPreviewPopupHostOperations
         final JPopupMenu popupMenu = activePopupMenu;
         if (popupMenu == null) return;
         final Object item = popupMenu.getClientProperty(ACTIVE_ITEM_KEY);
-        if (!(item instanceof JMenuItem menuItem)) return;
-        final Path path = pathOf(menuItem);
-        if (path == null) {
-            hideActivePopup();
+        if (!(item instanceof JMenuItem menuItem) || !isCurrentItem(menuItem)) {
+            hideActivePopupNow();
             return;
         }
-        // Re-render in place: keep the popup position, swap the content panel.
+        final Path path = pathOf(menuItem);
+        if (path == null) {
+            hideActivePopupNow();
+            return;
+        }
         hidePopup(popupMenu);
-        showPopup(menuItem);
+        showForItem(menuItem);
     }
 
     private void hidePopup(final JPopupMenu popupMenu) {
@@ -263,8 +429,8 @@ public final class VerifiedRecentPreviewPopupHostOperations
         if (raw instanceof Popup popup) {
             try {
                 popup.hide();
-            } catch (RuntimeException ignored) {
-                // diagnostics only
+            } catch (RuntimeException failure) {
+                diagnoseOnce("popup-hide", failure);
             }
         }
         popupMenu.putClientProperty(POPUP_KEY, null);
@@ -276,7 +442,7 @@ public final class VerifiedRecentPreviewPopupHostOperations
         }
     }
 
-    private void hideActivePopup() {
+    private void hideActivePopupNow() {
         final JPopupMenu popupMenu = activePopupMenu;
         if (popupMenu != null) {
             hidePopup(popupMenu);
@@ -286,8 +452,8 @@ public final class VerifiedRecentPreviewPopupHostOperations
         if (popup != null) {
             try {
                 popup.hide();
-            } catch (RuntimeException ignored) {
-                // diagnostics only
+            } catch (RuntimeException failure) {
+                diagnoseOnce("popup-hide", failure);
             }
             activePopup = null;
         }
@@ -299,15 +465,23 @@ public final class VerifiedRecentPreviewPopupHostOperations
                 final Optional<RecentPreviewContent> content = renderer.render(summary);
                 if (content.isPresent()) {
                     final RecentPreviewContent value = content.orElseThrow();
-                    if (summary.id().equals(value.id())) {
-                        return value;
-                    }
+                    if (summary.id().equals(value.id())) return value;
                 }
-            } catch (RuntimeException ignored) {
-                // one broken renderer must not break the popup for every plugin
+            } catch (RuntimeException failure) {
+                diagnoseOnce("renderer", failure);
             }
         }
         return null;
+    }
+
+    private void diagnoseOnce(final String stage, final RuntimeException failure) {
+        final String code = failure == null ? stage : stage + ":" + failure.getClass().getSimpleName();
+        if (!emittedDiagnostics.add(code)) return;
+        try {
+            diagnostics.accept("popup-diag:" + code);
+        } catch (RuntimeException ignored) {
+            // Diagnostics must not escape Swing callbacks or alter popup cleanup.
+        }
     }
 
     private static RecentFileSummary summaryFor(final Path path) {
@@ -321,21 +495,19 @@ public final class VerifiedRecentPreviewPopupHostOperations
             VerifiedRecentFileListHostOperations.idFor(path),
             path.getFileName().toString(),
             Optional.ofNullable(lastModified),
-            Optional.of(path.toString())
+            Optional.empty()
         );
     }
 
     private static Path pathOf(final JMenuItem item) {
         final Object raw = item.getClientProperty(PATH_KEY);
         if (raw instanceof String value && !value.isBlank()) {
-            try {
-                final Path path = Path.of(value);
-                return Files.isRegularFile(path) ? path : null;
-            } catch (RuntimeException ignored) {
-                return null;
-            }
+            final Path path = RecentMenuChain.existingProjectPath(value);
+            if (path != null) return path;
         }
-        return RecentMenuChain.firstExistingPath(item.getActionCommand(), item.getToolTipText(), item.getText());
+        return RecentMenuChain.firstExistingPath(
+            item.getActionCommand(), item.getToolTipText(), item.getText()
+        );
     }
 
     private static JPopupMenu popupMenuOf(final JMenuItem item) {
@@ -390,10 +562,13 @@ public final class VerifiedRecentPreviewPopupHostOperations
     }
 
     private void onEventDispatchThread(final Runnable action) {
-        if (SwingUtilities.isEventDispatchThread()) {
-            action.run();
-        } else {
-            SwingUtilities.invokeLater(action);
+        if (SwingUtilities.isEventDispatchThread()) action.run();
+        else SwingUtilities.invokeLater(action);
+    }
+
+    private static void requireEventDispatchThread() {
+        if (!SwingUtilities.isEventDispatchThread()) {
+            throw new IllegalStateException("recent preview menu reconciliation requires the EDT");
         }
     }
 
@@ -410,5 +585,36 @@ public final class VerifiedRecentPreviewPopupHostOperations
     /** Test visibility: the currently active popup menu, or null. */
     JPopupMenu activePopupMenuForTest() {
         return activePopupMenu;
+    }
+
+    private static final class MenuBinding {
+        private final JMenu menu;
+        private final JPopupMenu popup;
+        private final MenuListener menuListener;
+        private final PopupMenuListener popupListener;
+        private final ContainerListener containerListener;
+        private final Map<JMenuItem, ItemBinding> items = new IdentityHashMap<>();
+
+        private MenuBinding(
+            final JMenu menu,
+            final JPopupMenu popup,
+            final MenuListener menuListener,
+            final PopupMenuListener popupListener,
+            final ContainerListener containerListener
+        ) {
+            this.menu = menu;
+            this.popup = popup;
+            this.menuListener = menuListener;
+            this.popupListener = popupListener;
+            this.containerListener = containerListener;
+        }
+    }
+
+    private record ItemBinding(
+        JMenuItem item,
+        MouseAdapter mouse,
+        ChangeListener change,
+        ActionListener action
+    ) {
     }
 }

@@ -31,9 +31,12 @@ public final class RecentPreviewController {
     private final ScreenshotCaptureService screenshots;
     private final PreviewCache cache;
     private volatile boolean enabled;
+    private final java.util.concurrent.atomic.AtomicLong generation =
+        new java.util.concurrent.atomic.AtomicLong();
+    private final Object filesLock = new Object();
     private volatile List<RecentFileSummary> files = List.of();
     private final Map<RecentFileId, byte[]> images = new ConcurrentHashMap<>();
-    private final java.util.Set<RecentFileId> inFlight = ConcurrentHashMap.newKeySet();
+    private final Map<RecentFileId, Long> inFlight = new ConcurrentHashMap<>();
 
     /** Last last-modified value a capture was dispatched for, per id (poll-track dedupe). */
     private final Map<RecentFileId, Long> lastCapturedModified = new ConcurrentHashMap<>();
@@ -52,6 +55,7 @@ public final class RecentPreviewController {
      * list or populate the memory cache; call {@code refresh()} for that.
      */
     public void enable() {
+        generation.incrementAndGet();
         enabled = true;
     }
 
@@ -63,12 +67,13 @@ public final class RecentPreviewController {
      */
     public void disable() {
         enabled = false;
-        images.clear();
-        enabled = false;
+        generation.incrementAndGet();
         images.clear();
         inFlight.clear();
         lastCapturedModified.clear();
-        files = List.of();
+        synchronized (filesLock) {
+            files = List.of();
+        }
     }
 
     /**
@@ -81,19 +86,26 @@ public final class RecentPreviewController {
 
     /** Re-reads the host recent-file projection; empty once disabled. */
     public CompletionStage<List<RecentFileSummary>> refresh() {
-        if (!enabled) {
-            return CompletableFuture.completedStage(List.of());
+        synchronized (filesLock) {
+            if (!enabled) {
+                return CompletableFuture.completedStage(List.of());
+            }
+            final List<RecentFileSummary> refreshed = List.copyOf(recentFiles.list());
+            if (!enabled) {
+                return CompletableFuture.completedStage(List.of());
+            }
+            files = refreshed;
+            return CompletableFuture.completedStage(refreshed);
         }
-        files = List.copyOf(recentFiles.list());
-        return CompletableFuture.completedStage(files);
     }
 
     /** Fills the memory map from the disk cache for the current recent files. */
     public CompletionStage<Void> preload() {
+        final long loadGeneration = generation.get();
         return refresh().thenCompose(current -> {
             if (current.isEmpty()) return CompletableFuture.completedStage(null);
             return cache.loadPng(current).thenAccept(loaded -> {
-                if (!enabled) return;
+                if (!enabled || generation.get() != loadGeneration) return;
                 images.clear();
                 images.putAll(loaded);
             });
@@ -128,7 +140,8 @@ public final class RecentPreviewController {
         if (!enabled) {
             return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
         }
-        if (!inFlight.add(id)) {
+        final long captureGeneration = generation.get();
+        if (inFlight.putIfAbsent(id, captureGeneration) != null) {
             // A capture is already running for this id; the first request refreshes the popup.
             return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
         }
@@ -154,19 +167,26 @@ public final class RecentPreviewController {
         }
         final RecentFileSummary target = file;
         return screenshots.capture(new ScreenshotCaptureRequest(id, THUMBNAIL_SIZE, THUMBNAIL_SIZE))
-            .whenComplete((ignored, failure) -> inFlight.remove(id))
+            .whenComplete((ignored, failure) -> inFlight.remove(id, captureGeneration))
             .thenCompose(result -> {
-                if (!enabled) {
+                if (!enabled || generation.get() != captureGeneration) {
                     return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
                 }
                 if (!id.equals(result.id())) {
                     return CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE);
                 }
-                return cache.store(target, result.image()).thenApply(stored -> {
-                    if (stored == PreviewCacheWriteResult.STORED) {
+                return cache.store(
+                    target,
+                    result.image(),
+                    () -> enabled && generation.get() == captureGeneration
+                ).thenApply(stored -> {
+                    if (stored == PreviewCacheWriteResult.STORED
+                        && enabled && generation.get() == captureGeneration) {
                         images.put(id, result.image().png());
                     }
-                    return stored;
+                    return generation.get() == captureGeneration
+                        ? stored
+                        : PreviewCacheWriteResult.DISABLED;
                 });
             });
     }

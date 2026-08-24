@@ -28,6 +28,7 @@ import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /**
  * Runtime composition-root bundle for behavior-driven host adapters.
@@ -243,13 +244,25 @@ public record RuntimeHostAdapters(
         final VerifiedMemberResolver panelResolver,
         final java.util.Locale locale
     ) {
+        return withVerifiedRecentPreview(base, projectResolver, panelResolver, locale, ignored -> { });
+    }
+
+    /** Connects the recent-preview slice and routes sanitized host diagnostics to the runtime sink. */
+    public static RuntimeHostAdapters withVerifiedRecentPreview(
+        final RuntimeHostAdapters base,
+        final VerifiedMemberResolver projectResolver,
+        final VerifiedMemberResolver panelResolver,
+        final java.util.Locale locale,
+        final Consumer<String> diagnostics
+    ) {
         Objects.requireNonNull(base, "base");
         Objects.requireNonNull(locale, "locale");
+        Objects.requireNonNull(diagnostics, "diagnostics");
         RecentPreviewVerificationManifest.requireAuthorized(projectResolver, panelResolver);
         final VerifiedRecentFileListHostOperations files =
             new VerifiedRecentFileListHostOperations(projectResolver, panelResolver);
         final VerifiedRecentPreviewPopupHostOperations popup =
-            new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale);
+            new VerifiedRecentPreviewPopupHostOperations(panelResolver, locale, diagnostics);
         return new RuntimeHostAdapters(
             base.themeStatus(),
             base.renderStatus(),
@@ -259,9 +272,7 @@ public record RuntimeHostAdapters(
             base.uiSurface(),
             RecentFileAdapter.connected(files),
             ScreenshotCaptureAdapter.connected(new PreviewCaptureHostOperations(
-                panelResolver, files, popup,
-                // temporary diagnostic wiring for host verification; remove after Phase 5
-                System.err::println
+                panelResolver, files, popup, diagnostics
             )),
             RecentPreviewContributionAdapter.connected(popup),
             base.autoBackup()
