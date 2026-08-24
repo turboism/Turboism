@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
@@ -9,7 +8,6 @@ import java.util.Objects;
  * Immutable summary of a texture atlas (or one selected texture within it):
  * the model-image count, the page count, and the model-image size distribution.
  */
-@PreviewApi
 public record TextureAtlasSummary(
     int imageCount,
     int pageCount,

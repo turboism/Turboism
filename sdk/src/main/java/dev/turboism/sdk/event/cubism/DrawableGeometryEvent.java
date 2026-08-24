@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Drawable;
 import dev.turboism.sdk.event.TurboismEvent;
@@ -8,7 +7,6 @@ import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the semantic ArtMesh geometry replacement event family. */
-@PreviewApi
 public sealed interface DrawableGeometryEvent extends TurboismEvent
     permits DrawableGeometryEvent.Before,
             DrawableGeometryEvent.On,
@@ -16,7 +14,6 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
 
     Drawable drawable();
 
-    @PreviewApi
     final class Before implements DrawableGeometryEvent {
         private final Drawable drawable;
         private final ArtMeshGeometry requestedGeometry;
@@ -108,7 +105,6 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(
         Drawable drawable,
         ArtMeshGeometry oldGeometry,
@@ -121,7 +117,6 @@ public sealed interface DrawableGeometryEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record After(Drawable drawable, ArtMeshGeometry finalGeometry)
         implements DrawableGeometryEvent {
         public After {

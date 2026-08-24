@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.screenshot;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 
 import java.util.Objects;
@@ -9,7 +8,6 @@ import java.util.Objects;
  * Bounded preview capture request. Bounds are capped at 150×150 (the preview popup
  * contract); the captured image is scaled to fit both bounds while preserving aspect.
  */
-@PreviewApi
 public record ScreenshotCaptureRequest(RecentFileId id, int maxWidth, int maxHeight) {
     private static final int MAX_DIMENSION = 150;
 

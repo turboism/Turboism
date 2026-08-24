@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import java.util.List;
 import java.util.Locale;
@@ -10,7 +9,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 
 /** Parameters in one Cubism model. */
-@PreviewApi
 public interface Parameters {
 
     /** Returns all parameters in stable model order. */

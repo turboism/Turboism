@@ -308,6 +308,7 @@ final class ConfigMerge {
         Path state = home.resolve(INSTALLATION_STATE_FILE).normalize();
         try {
             if (!Files.exists(state, LinkOption.NOFOLLOW_LINKS)) {
+                removeEmptyBackupDirectories(home);
                 return true;
             }
             if (Files.isSymbolicLink(state) || !Files.isRegularFile(state, LinkOption.NOFOLLOW_LINKS)
@@ -449,6 +450,7 @@ final class ConfigMerge {
                 }
             }
             Files.deleteIfExists(state);
+            removeEmptyBackupDirectories(home);
             return true;
         } catch (IOException | ConfigException | RuntimeException failure) {
             return false;
@@ -755,6 +757,34 @@ final class ConfigMerge {
             }
         }
         return true;
+    }
+
+    /**
+     * Removes only the now-empty, fixed-name backup directory chain. Unknown
+     * installer files make Files.delete fail with DirectoryNotEmptyException and
+     * are preserved; linked/non-directory paths are never touched.
+     */
+    private static void removeEmptyBackupDirectories(Path home) throws IOException {
+        Path normalizedHome = home.toAbsolutePath().normalize();
+        Path installer = normalizedHome.resolve("installer").normalize();
+        Path backups = installer.resolve("shortcut-backups").normalize();
+        removeEmptyNormalDirectory(backups);
+        removeEmptyNormalDirectory(installer);
+    }
+
+    private static void removeEmptyNormalDirectory(Path directory) throws IOException {
+        if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        if (Files.isSymbolicLink(directory)
+                || !Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
+            return;
+        }
+        try {
+            Files.delete(directory);
+        } catch (java.nio.file.DirectoryNotEmptyException occupied) {
+            // Unknown or concurrent files are not installer-authorized deletion.
+        }
     }
 
 

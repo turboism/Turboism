@@ -896,10 +896,6 @@ final class McpHttpServerIntegrationTest {
         @Override public List<ModelObjectId> selectedIds(final HierarchyNode.Kind kind) {
             throw new UnsupportedOperationException("selectedIds is not used by MCP tools");
         }
-
-        @Override public Registration onSelectionChanged(final SelectionChangedListener listener) {
-            return () -> { };
-        }
     }
 
     static final class FakeRead implements CubismReadCapabilityService {

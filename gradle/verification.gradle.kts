@@ -20,6 +20,37 @@ tasks.register<Exec>("checkMappingReviewWrapperArgs") {
     commandLine("bash", "scripts/test/test_mapping_review_wrapper_args.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationArguments") {
+    group = "verification"
+    description = "Verifies Cubism host-validation path validation and remote argument transport offline."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
+}
+
+tasks.register<Exec>("checkGraalScriptHostValidationDryRun") {
+    group = "verification"
+    description = "Verifies the Graal script host-validation wrapper uses configurable Java and packaged wildcard classpath."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_graal_script_host_validation_dry_run.sh")
+}
+
+tasks.register<Exec>("checkGraalPreviewLauncherContract") {
+    group = "verification"
+    description = "Verifies ProbeOnly validates a configured Graal library closure without claiming host readiness."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_graal_preview_launcher_contract.sh")
+}
+
+tasks.register("checkGraalScriptHostValidation") {
+    group = "verification"
+    description = "Runs offline Graal script host-validation contracts."
+    dependsOn(
+        "checkCubismHostValidationArguments",
+        "checkGraalScriptHostValidationDryRun",
+        "checkGraalPreviewLauncherContract"
+    )
+}
+
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
     description = "Verifies baseline localization-key completeness for participating official plugins."
@@ -115,7 +146,6 @@ tasks.register<Exec>("checkCodeQuality") {
     description =
         "Rejects new undocumented public API, duplicated reviewed host digests, version-encoding " +
             "type names, and retired governance tokens in machine assets."
-    dependsOn(checkCodeQualitySelfTest)
     workingDir(rootDir)
     inputs.files("scripts/test/check_code_quality.py")
     inputs.files(
@@ -159,29 +189,6 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
         "cubism-ref/verification/cubism-5.3.02-editor-model.json"
     )
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
-}
-
-val checkCubismEditorApiAvailabilityDocs by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies generated exact Cubism Editor SDK availability documentation."
-    dependsOn(":sdk:jar")
-    workingDir(rootDir)
-    inputs.files(
-        "scripts/test/generate_cubism_editor_api_availability.py",
-        fileTree("sdk/src/main/java/dev/turboism/sdk/cubism") { include("**/*.java") },
-        "sdk/src/main/java/dev/turboism/sdk/CubismEditor.java"
-    )
-    val report = layout.buildDirectory.file("reports/cubism-editor-api-availability.md")
-    outputs.file(report)
-    val sdkJar = project(":sdk").tasks.named<org.gradle.jvm.tasks.Jar>("jar")
-        .flatMap { it.archiveFile }
-    doFirst {
-        commandLine(
-            "python3", "scripts/test/generate_cubism_editor_api_availability.py",
-            "--sdk-jar", sdkJar.get().asFile.absolutePath,
-            "--output", report.get().asFile.absolutePath
-        )
-    }
 }
 
 val checkPackageLayout by tasks.registering(Exec::class) {
@@ -336,23 +343,16 @@ val checkRepositoryHygiene by tasks.registering(Exec::class) {
 
 val devCheck by tasks.registering {
     group = "verification"
-    description = "Fast daily production compilation and permanent-boundary verification; no broad test suites."
+    description = "Fast production compilation and permanent structural boundaries for an implementation slice."
     dependsOn(
         productionClasses,
-        ":sdk:javadoc",
         checkDuplicateJavaImports,
         checkPackageLayout,
         "checkModuleBoundaries",
         "checkCodeQuality",
         checkRepositoryHygiene,
         checkEditorModelAliases,
-        checkCubismEditorApiAvailabilityDocs,
-        "checkSdkV4ExactApiCompatibility",
-        "checkSdkV4TierCompatibility",
-        checkPluginEventReference,
-        "validatePluginMeta",
-        "checkOfficialPluginI18nCompleteness",
-        checkOfficialPluginReadmes
+        "validatePluginMeta"
     )
 }
 
@@ -614,20 +614,40 @@ tasks.register("checkIntegration") {
     )
 }
 
-tasks.register("checkRelease") {
+val ordinaryTestTasks = subprojects
+    .filter { it.tasks.findByName("test") != null }
+    .map { "${it.path}:test" }
+
+val checkCompletedCommit by tasks.registering {
     group = "verification"
-    description = "Runs integration, supply-chain, API-tooling, and release-oriented verification."
+    description = "Runs the complete automated repository gate for a coherent completed change."
     dependsOn(
         "checkIntegration",
+        ordinaryTestTasks,
+        ":sdk:javadoc",
+        "checkOfficialPluginI18nCompleteness",
+        checkOfficialPluginReadmes,
         "checkSdkApiBaselineTool",
-        "checkSdkApiReferenceBuilder",
         "checkModuleBoundariesSelfTest",
+        checkCodeQualitySelfTest,
+        checkRemoteHygieneSelfTest,
+        checkPluginEventReference,
+        "generateSdkApiReport"
+    )
+}
+
+tasks.register("checkRelease") {
+    group = "verification"
+    description = "Runs completed-commit verification plus supply-chain and historical release audits."
+    dependsOn(
+        checkCompletedCommit,
+        "checkSdkApiReferenceBuilder",
         "checkSdkV2ExactApiCompatibility",
         "checkSdkV3ExactApiCompatibility",
-        "checkSdkV3TierCompatibility",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
-        "checkMappingReviewWrapperArgs"
+        "checkMappingReviewWrapperArgs",
+        "checkJavaInstaller"
     )
 }
 

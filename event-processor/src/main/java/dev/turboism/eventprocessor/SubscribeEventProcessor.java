@@ -167,12 +167,11 @@ public final class SubscribeEventProcessor extends AbstractProcessor {
                 writer.write("@" + Generated.class.getName() + "(\""
                     + SubscribeEventProcessor.class.getName() + "\")\n");
                 writer.write("public final class " + simpleCatalog + " implements "
-                    + GeneratedSubscriberCatalog.class.getName() + " {\n");
-                writer.write("    @Override public Class<?> entrypointType() { return "
+                    + GeneratedSubscriberCatalog.class.getName() + "<" + ownerName + "> {\n");
+                writer.write("    @Override public Class<" + ownerName + "> entrypointType() { return "
                     + ownerName + ".class; }\n\n");
-                writer.write("    @Override public void register(Object entrypoint, "
+                writer.write("    @Override public void register(" + ownerName + " target, "
                     + "dev.turboism.sdk.event.EventSubscriberRegistrar registrar) {\n");
-                writer.write("        " + ownerName + " target = (" + ownerName + ") entrypoint;\n");
                 for (int ordinal = 0; ordinal < methods.size(); ordinal++) {
                     final ExecutableElement method = methods.get(ordinal);
                     final String eventType = method.getParameters().get(0).asType().toString();

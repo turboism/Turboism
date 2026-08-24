@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.event.TurboismEvent;
@@ -8,7 +7,6 @@ import dev.turboism.sdk.event.TurboismEvent;
 import java.util.Objects;
 
 /** Typed states of the Rotation Deformer form replacement event family. */
-@PreviewApi
 public sealed interface RotationDeformerFormEvent extends TurboismEvent
     permits RotationDeformerFormEvent.Before,
             RotationDeformerFormEvent.On,
@@ -16,7 +14,6 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
 
     RotationDeformer deformer();
 
-    @PreviewApi
     final class Before implements RotationDeformerFormEvent {
         private final RotationDeformer deformer;
         private final RotationDeformerForm requestedForm;
@@ -105,7 +102,6 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(
         RotationDeformer deformer,
         RotationDeformerForm oldForm,
@@ -118,7 +114,6 @@ public sealed interface RotationDeformerFormEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record After(RotationDeformer deformer, RotationDeformerForm finalForm)
         implements RotationDeformerFormEvent {
         public After {

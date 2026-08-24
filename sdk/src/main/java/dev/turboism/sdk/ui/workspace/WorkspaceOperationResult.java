@@ -1,6 +1,5 @@
 package dev.turboism.sdk.ui.workspace;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -16,7 +15,6 @@ import java.util.Optional;
  * @param status         the workspace status observed after the operation
  * @param diagnosticCode stable machine-readable reason code, empty when there is nothing to report
  */
-@PreviewApi
 public record WorkspaceOperationResult(
     Outcome outcome,
     WorkspaceStatus status,
@@ -37,7 +35,6 @@ public record WorkspaceOperationResult(
     /**
      * What a workspace operation actually achieved.
      */
-    @PreviewApi
     public enum Outcome {
         CHANGED,
         NO_CHANGE,

@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.history;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.List;
 import java.util.Objects;
 
 /** Immutable state of the active document's native Undo history. */
-@PreviewApi
 public record HistorySnapshot(
     Availability availability,
     long generation,

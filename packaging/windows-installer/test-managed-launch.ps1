@@ -81,8 +81,9 @@ function Invoke-CubismJdkParserRegression {
 if ($JdkParserOnly) {
     # Focused cross-platform gate: real JDK 17 parser proof only. No BAT/COM
     # fixtures are constructed or executed; the process exits 0 on success.
-    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Xmx256m -Dcustom=1'
+    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath -Xmx256m -Dcustom=1'
     Assert-ManagedLaunch (([regex]::Matches($cleanupProbe, 'add-exports=')).Count -eq 0) "cleanup removes both valid slash and legacy malformed dot export forms"
+    Assert-ManagedLaunch ($cleanupProbe -notmatch 'turboism\.graal\.') "cleanup removes stale Graal child-host JVM properties"
     Assert-ManagedLaunch ($cleanupProbe -eq '-Xmx256m -Dcustom=1') "cleanup preserves unrelated JVM options"
     $jdk17 = Find-CubismRunnableJdk17
     if ($null -eq $jdk17) { throw "JDK 17 parser regression cannot run: no runnable Java 17 (JAVA_HOME, PATH)" }
@@ -106,6 +107,22 @@ $fixtureManagedShortcutDir = ""
 $fixtureManagedShortcutDirOwned = $false
 New-Item -ItemType Directory -Path $turboismHome, $fixtureBase -Force | Out-Null
 
+function New-TestPluginJar {
+    param([string]$Path, [string]$Id)
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $parent = Split-Path -Parent $Path
+    New-Item -ItemType Directory -Path $parent -Force | Out-Null
+    $zip = [System.IO.Compression.ZipFile]::Open($Path, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        $entry = $zip.CreateEntry("META-INF/turboism/plugin.json")
+        $writer = New-Object System.IO.StreamWriter($entry.Open(), (New-Object System.Text.UTF8Encoding($false)))
+        try { $writer.Write('{"id":"' + $Id + '","name":"fixture"}') }
+        finally { $writer.Dispose() }
+    }
+    finally { $zip.Dispose() }
+}
+
 function New-SyntheticCubism {
     param(
         [string]$Name,
@@ -120,7 +137,12 @@ function New-SyntheticCubism {
     New-Item -ItemType Directory -Path (Join-Path $root "app\jre\bin"), (Join-Path $root "app\lib") -Force | Out-Null
     Set-Content -LiteralPath (Join-Path $root "CubismEditor5.bat") -Encoding ASCII -Value @(
         "@echo off",
+        'cd /d "%~dp0"',
+        'set JAVA_EXE=app\jre\bin\java.exe',
         '>>"%TURBOISM_TEST_OUTPUT%" echo NORMAL=1',
+        '>>"%TURBOISM_TEST_OUTPUT%" echo SCRIPT=%~f0',
+        '>>"%TURBOISM_TEST_OUTPUT%" echo CWD=%CD%',
+        '>>"%TURBOISM_TEST_OUTPUT%" echo JAVA=%JAVA_EXE%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo TOOL=%JAVA_TOOL_OPTIONS%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo ARG1=%~1',
@@ -141,9 +163,24 @@ function New-SyntheticCubism {
 
 try {
     [System.IO.File]::WriteAllBytes((Join-Path $turboismHome "turboism-agent.jar"), [byte[]](9, 8, 7, 6))
+    $defaultConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "graalvm" }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($defaultConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
     $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2"
     $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3" -D3D $true
     $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
+    $hyphenD3DRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.03" -D3D $true
+    Move-Item -LiteralPath (Join-Path $hyphenD3DRoot "CubismEditor5_D3D.bat") `
+        -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")
     $newSupported = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
     $unsupported = New-SyntheticCubism -Name "fixture unsupported" -Version "5.4.00"
 
@@ -179,6 +216,17 @@ try {
     Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "synthetic unsuffixed 5.2 and 5.3 family roots pass file-shape checks"
     Assert-ManagedLaunch ($candidates[0].Version -eq "5.2" -and $candidates[1].Version -eq "5.3") "inventory order is family version then canonical path"
     Assert-ManagedLaunch (($candidates | Where-Object { $_.D3DBat }).Count -eq 1) "D3D BAT is an optional separately named entry"
+    $hyphenD3DCandidate = New-CubismInstallationCandidate -Root $hyphenD3DRoot
+    Assert-ManagedLaunch ($hyphenD3DCandidate.D3DBat -like '*CubismEditor5-D3D.bat') "hyphenated official D3D BAT is discovered"
+    $env:TURBOISM_TEST_OUTPUT = $marker
+    $hyphenD3DExit = Invoke-CubismOfficialBat `
+        -OfficialBat $hyphenD3DCandidate.D3DBat `
+        -CubismRoot $hyphenD3DRoot `
+        -TurboismHome $turboismHome `
+        -Agent (Join-Path $turboismHome "turboism-agent.jar")
+    Assert-ManagedLaunch ($hyphenD3DExit -eq 23) "hyphenated official D3D BAT is admitted for launch"
+    Remove-Item Env:TURBOISM_TEST_OUTPUT -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
 
     $initial = Merge-CubismSelection -Candidates $candidates -SavedInstallations @()
     Assert-ManagedLaunch (@($initial | Where-Object { -not $_.Selected }).Count -eq 0) "initial supported inventory is all-selected"
@@ -224,14 +272,57 @@ try {
         }
     })
     Write-CubismInstallationState -StatePath $statePath -Candidates $oneSelected
-    $oneGenericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $turboismHome
+    $explicitProbeConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "bundled" }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($explicitProbeConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $explicitProbeJava = Join-Path $temp "explicit graalvm\bin\java.exe"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $explicitProbeJava) -Force | Out-Null
+    [System.IO.File]::WriteAllBytes($explicitProbeJava, [byte[]](31, 32, 33, 34))
+    [System.IO.File]::WriteAllText(
+        (Join-Path $temp "explicit graalvm\release"),
+        "IMPLEMENTOR=`"GraalVM Community`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $oneGenericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismJava "{2}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $turboismHome, $explicitProbeJava
     $oneGenericProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $oneGenericArgs -Wait -PassThru -NoNewWindow
-    Assert-ManagedLaunch ($oneGenericProcess.ExitCode -eq 0) "valid one-selected generic probe succeeds"
+    Assert-ManagedLaunch ($oneGenericProcess.ExitCode -eq 0) "explicit compatible GraalVM overrides the persisted bundled recovery choice"
+    $explicitGenericArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismJava "{2}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $turboismHome, (Get-Process -Id $PID).Path
+    $explicitGenericProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $explicitGenericArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($explicitGenericProcess.ExitCode -eq 0) "explicit generic Cubism Java remains an advanced one-launch override"
+    $missingExplicitArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -CubismJava "{2}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $turboismHome, (Join-Path $temp "missing-java.exe")
+    $missingExplicitProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $missingExplicitArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($missingExplicitProcess.ExitCode -ne 0) "explicit missing Cubism Java fails instead of being silently replaced"
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($defaultConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
     $aliasProbeHome = Join-Path $temp "configurator alias probe"
     New-Item -ItemType Directory -Path $aliasProbeHome -Force | Out-Null
     $aliasProbeArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -Cleanup' -f (Join-Path $scriptDir "configure_turboism.ps1"), $aliasProbeHome
     $aliasProbeProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $aliasProbeArgs -Wait -PassThru -NoNewWindow
     Assert-ManagedLaunch ($aliasProbeProcess.ExitCode -eq 0) "configurator public -Home alias binds and cleanup succeeds"
+
+    $retirementHome = Join-Path $temp "retirement helper home"
+    $retirementPlugins = Join-Path $retirementHome "plugins"
+    $retiredJar = Join-Path $retirementPlugins "renamed-retired.jar"
+    $foreignJar = Join-Path $retirementPlugins "log-filter.jar"
+    New-TestPluginJar -Path $retiredJar -Id "dev.turboism.plugin.logfilter"
+    New-TestPluginJar -Path $foreignJar -Id "dev.turboism.plugin.foreign"
+    $retireArgs = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -RetirePlugins' -f (Join-Path $scriptDir "configure_turboism.ps1"), $retirementHome
+    $retireProcess = Start-Process -FilePath $currentPowerShell -ArgumentList $retireArgs -Wait -PassThru -NoNewWindow
+    Assert-ManagedLaunch ($retireProcess.ExitCode -eq 0) "configurator retirement mode succeeds"
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath $retiredJar)) "retirement uses embedded id even when the JAR is renamed"
+    Assert-ManagedLaunch (Test-Path -LiteralPath $foreignJar) "retirement preserves a historical filename carrying a foreign id"
 
     $invalidState = [ordered]@{
         format = "turboism.cubism.installation-state"
@@ -330,13 +421,136 @@ try {
     $beforeAgent = (Get-FileHash -LiteralPath $agent -Algorithm SHA256).Hash
     $applicationJar = Join-Path $root53 "app\lib\Live2D_Cubism.jar"
     $beforeApplicationJar = (Get-FileHash -LiteralPath $applicationJar -Algorithm SHA256).Hash
+    $emptyPreferenceHome = Join-Path $temp "empty preference home"
+    New-Item -ItemType Directory -Path $emptyPreferenceHome -Force | Out-Null
+    Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $emptyPreferenceHome) -eq "graalvm") "missing config defaults Cubism to GraalVM"
+    $oldCubismJavaEnvironment = $env:TURBOISM_CUBISM_JAVA
+    $oldTurboismGraalHome = $env:TURBOISM_GRAALVM_HOME
+    $oldGraalHome = $env:GRAALVM_HOME
+    try {
+        Remove-Item Env:TURBOISM_CUBISM_JAVA -ErrorAction SilentlyContinue
+        Remove-Item Env:TURBOISM_GRAALVM_HOME -ErrorAction SilentlyContinue
+        Remove-Item Env:GRAALVM_HOME -ErrorAction SilentlyContinue
+        $incompatibleHome = Join-Path $temp "incompatible graal home"
+        $incompatibleJava = Join-Path $incompatibleHome "bin\java.exe"
+        New-Item -ItemType Directory -Path (Split-Path -Parent $incompatibleJava) -Force | Out-Null
+        [System.IO.File]::WriteAllBytes($incompatibleJava, [byte[]](41, 42, 43, 44))
+        [System.IO.File]::WriteAllText(
+            (Join-Path $incompatibleHome "release"),
+            "IMPLEMENTOR=`"Other VM`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+        $env:GRAALVM_HOME = $incompatibleHome
+        $fallbackProbeHome = Join-Path $temp "fallback probe home"
+        New-Item -ItemType Directory -Path $fallbackProbeHome -Force | Out-Null
+        [System.IO.File]::Copy((Join-Path $turboismHome "turboism-agent.jar"), (Join-Path $fallbackProbeHome "turboism-agent.jar"))
+        $fallbackConfig = [ordered]@{
+            format = "turboism.runtime.config"; schemaVersion = 1
+            worktreeId = "turboism-runtime"; pluginDirs = @("plugins")
+            launcher = [ordered]@{ cubismJvm = "graalvm" }
+        }
+        [System.IO.File]::WriteAllText(
+            (Join-Path $fallbackProbeHome "config.json"),
+            ($fallbackConfig | ConvertTo-Json -Depth 4 -Compress),
+            (New-Object System.Text.UTF8Encoding($false))
+        )
+        $fallbackStateCandidates = @($initial | ForEach-Object {
+            [pscustomobject]@{
+                CanonicalRoot = $_.CanonicalRoot; Version = $_.Version
+                Selected = $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53)
+            }
+        })
+        Write-CubismInstallationState -StatePath (Join-Path $fallbackProbeHome "cubism-installations.json") -Candidates $fallbackStateCandidates
+        $fallbackArgs = '-NoProfile -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -ProbeOnly' -f (Join-Path $scriptDir "launch-cubism-turboism.ps1"), $fallbackProbeHome
+        $fallbackInfo = New-Object System.Diagnostics.ProcessStartInfo
+        $fallbackInfo.FileName = $currentPowerShell
+        $fallbackInfo.Arguments = $fallbackArgs
+        $fallbackInfo.UseShellExecute = $false
+        $fallbackInfo.RedirectStandardOutput = $true
+        $fallbackInfo.RedirectStandardError = $true
+        $fallbackProcess = New-Object System.Diagnostics.Process
+        $fallbackProcess.StartInfo = $fallbackInfo
+        [void]$fallbackProcess.Start()
+        $fallbackOutput = $fallbackProcess.StandardOutput.ReadToEnd() + $fallbackProcess.StandardError.ReadToEnd()
+        $fallbackProcess.WaitForExit()
+        Assert-ManagedLaunch ($fallbackProcess.ExitCode -eq 0) "missing or incompatible GraalVM falls back to Cubism bundled Java"
+        Assert-ManagedLaunch ($fallbackOutput -match [regex]::Escape((Join-Path $root53 "app\jre\bin\java.exe"))) "fallback reports Cubism bundled Java"
+        Assert-ManagedLaunch ($fallbackOutput -match 'graalvm.org/downloads') "fallback warning includes the official GraalVM download URL"
+    }
+    finally {
+        if ($null -eq $oldCubismJavaEnvironment) { Remove-Item Env:TURBOISM_CUBISM_JAVA -ErrorAction SilentlyContinue } else { $env:TURBOISM_CUBISM_JAVA = $oldCubismJavaEnvironment }
+        if ($null -eq $oldTurboismGraalHome) { Remove-Item Env:TURBOISM_GRAALVM_HOME -ErrorAction SilentlyContinue } else { $env:TURBOISM_GRAALVM_HOME = $oldTurboismGraalHome }
+        if ($null -eq $oldGraalHome) { Remove-Item Env:GRAALVM_HOME -ErrorAction SilentlyContinue } else { $env:GRAALVM_HOME = $oldGraalHome }
+    }
+    $javaOverride = Join-Path $turboismHome "graalvm\bin\java.exe"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $javaOverride) -Force | Out-Null
+    [System.IO.File]::WriteAllBytes($javaOverride, [byte[]](11, 12, 13, 14))
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "graalvm\release"),
+        "IMPLEMENTOR=`"GraalVM Community`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $graalLibraryRoot = Join-Path $turboismHome "graal\lib"
+    New-Item -ItemType Directory -Path $graalLibraryRoot -Force | Out-Null
+    foreach ($library in @(
+        "graal-host-fixture.jar", "jackson-annotations-fixture.jar",
+        "jackson-core-fixture.jar", "jackson-databind-fixture.jar",
+        "collections-fixture.jar", "jniutils-fixture.jar",
+        "js-isolate-windows-amd64-community-fixture.jar",
+        "nativebridge-fixture.jar", "nativeimage-fixture.jar",
+        "polyglot-fixture.jar", "truffle-api-fixture.jar", "word-fixture.jar"
+    )) {
+        [System.IO.File]::WriteAllBytes((Join-Path $graalLibraryRoot $library), [byte[]](21, 22, 23))
+    }
+    Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $turboismHome) -eq "graalvm") "persisted default selects GraalVM for Cubism"
+    $bundledConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "bundled" }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($bundledConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $turboismHome) -eq "bundled") "persisted recovery choice selects Cubism bundled Java"
+    $invalidConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "other" }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($invalidConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $invalidPreferenceThrew = $false
+    try { [void](Read-CubismJvmPreference -TurboismHome $turboismHome) }
+    catch { $invalidPreferenceThrew = $true }
+    Assert-ManagedLaunch $invalidPreferenceThrew "invalid Cubism JVM preference fails closed"
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($defaultConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $graalHostFixture = Resolve-TurboismGraalHost -TurboismHome $turboismHome -PreferredJava $javaOverride
+    Assert-ManagedLaunch ($graalHostFixture.Java -eq [System.IO.Path]::GetFullPath($javaOverride)) "Graal child host uses the selected GraalVM Java"
+    Assert-ManagedLaunch ($graalHostFixture.ClassPath -eq (Join-Path $graalLibraryRoot "*")) "Graal child host uses the packaged isolated classpath"
+    $rootEntriesBeforeOverride = @(
+        Get-ChildItem -LiteralPath $root53 -Force | ForEach-Object { $_.Name } | Sort-Object
+    )
     $env:TURBOISM_TEST_OUTPUT = $marker
     $oldJdk = $env:JDK_JAVA_OPTIONS
     $oldTool = $env:JAVA_TOOL_OPTIONS
     $tokenizerOutput = @(Get-JdkOptionTokens 'alpha beta')
     Assert-ManagedLaunch ($tokenizerOutput.Count -eq 2 -and @($tokenizerOutput | Where-Object { $_ -isnot [string] }).Count -eq 0 -and $tokenizerOutput[0] -eq 'alpha' -and $tokenizerOutput[1] -eq 'beta') "tokenizer emits exactly two string tokens and no non-string pipeline object"
-    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Xmx256m -Dcustom=1'
+    $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath -Xmx256m -Dcustom=1'
     Assert-ManagedLaunch (([regex]::Matches($cleanupProbe, 'add-exports=')).Count -eq 0) "cleanup removes both valid slash and legacy malformed dot export forms"
+    Assert-ManagedLaunch ($cleanupProbe -notmatch 'turboism\.graal\.') "cleanup removes stale Graal child-host JVM properties"
     Assert-ManagedLaunch ($cleanupProbe -eq '-Xmx256m -Dcustom=1') "cleanup preserves unrelated JVM options"
     $jdk17 = Find-CubismRunnableJdk17 -BundledJava (Join-Path $root53 "app\jre\bin\java.exe")
     if ($null -eq $jdk17) {
@@ -351,10 +565,16 @@ try {
         Assert-ManagedLaunch ($regression.ValidExit -eq 0) "real Java 17 parser accepts the corrected slash-form exports (exit $($regression.ValidExit))"
         Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
     }
-    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
-    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     try {
-        $exitCode = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent -Arguments @("fixture argument")
+        $exitCode = Invoke-CubismOfficialBat `
+            -OfficialBat $bat `
+            -CubismRoot $root53 `
+            -TurboismHome $turboismHome `
+            -Agent $agent `
+            -GraalHost $graalHostFixture `
+            -Arguments @("fixture argument")
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'NORMAL=1') "normal launch invokes the official BAT"
         $markerText = Get-Content -LiteralPath $marker -Raw
@@ -365,6 +585,9 @@ try {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm\.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base\.jdk\.internal\.org\.objectweb\.asm')).Count -eq 0) "legacy malformed dot-form exports are never emitted"
         Assert-ManagedLaunch ($markerText -notmatch 'old-home') "stale Turboism home option is removed"
+        Assert-ManagedLaunch ($markerText -notmatch 'old-java|old-classpath') "stale Graal child-host options are removed"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "packaged Graal child host is enabled exactly once"
+        Assert-ManagedLaunch ($markerText -match ('-Dturboism\.graal\.java=' + [regex]::Escape($javaOverride))) "packaged Graal child Java replaces stale inherited values"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match '-Xmx192m') "unrelated pre-existing JVM option is preserved"
         Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8' -and $markerText -notmatch 'TOOL=.*old-turboism-agent') "unrelated tool JVM option is preserved and stale attachment is removed"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
@@ -384,6 +607,49 @@ try {
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $d3dBat -Algorithm SHA256).Hash -eq $beforeD3D) "D3D official BAT is unchanged"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $agent -Algorithm SHA256).Hash -eq $beforeAgent) "Turboism agent is unchanged"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $applicationJar -Algorithm SHA256).Hash -eq $beforeApplicationJar) "synthetic Cubism application JAR is unchanged"
+
+    Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
+    $stagedOverride = New-CubismJavaOverrideBat `
+        -OfficialBat $bat `
+        -CubismRoot $root53 `
+        -TurboismHome $turboismHome `
+        -JavaExecutable $javaOverride
+    try {
+        Assert-ManagedLaunch (-not $stagedOverride.StartsWith(
+            (ConvertTo-CubismCanonicalRoot $root53) + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) "GraalVM override BAT is staged outside the Cubism root"
+        Assert-ManagedLaunch ($stagedOverride.StartsWith(
+            (ConvertTo-CubismCanonicalRoot $turboismHome) + [System.IO.Path]::DirectorySeparatorChar,
+            [System.StringComparison]::OrdinalIgnoreCase
+        )) "GraalVM override BAT is confined below Turboism home"
+        $overrideExit = Invoke-CubismOfficialBat `
+            -OfficialBat $stagedOverride `
+            -CubismRoot $root53 `
+            -TurboismHome $turboismHome `
+            -Agent $agent `
+            -GraalHost $graalHostFixture
+        Assert-ManagedLaunch ($overrideExit -eq 23) "staged GraalVM override propagates the official BAT exit code"
+        $overrideMarker = Get-Content -LiteralPath $marker -Raw
+        Assert-ManagedLaunch ($overrideMarker -match 'NORMAL=1') "staged GraalVM override preserves official BAT behavior"
+        Assert-ManagedLaunch ($overrideMarker -match ('JAVA=' + [regex]::Escape($javaOverride))) "staged GraalVM override replaces only the Cubism Java executable"
+        Assert-ManagedLaunch ($overrideMarker -match ('CWD=' + [regex]::Escape((ConvertTo-CubismCanonicalRoot $root53)))) "staged GraalVM override preserves the Cubism working directory"
+        Assert-ManagedLaunch ($overrideMarker -match ('SCRIPT=' + [regex]::Escape($stagedOverride))) "staged GraalVM override executes the Turboism-owned BAT"
+        Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "Graal child host is enabled exactly once"
+        Assert-ManagedLaunch ($overrideMarker -match ('-Dturboism\.graal\.java=' + [regex]::Escape($javaOverride))) "Graal child host Java is passed process-locally"
+        Assert-ManagedLaunch ($overrideMarker -match ('-Dturboism\.graal\.classpath=' + [regex]::Escape((Join-Path $graalLibraryRoot "*")))) "isolated Graal child classpath is passed without changing Cubism classpath"
+    }
+    finally {
+        if (Test-Path -LiteralPath $stagedOverride -PathType Leaf) {
+            Remove-Item -LiteralPath $stagedOverride -Force
+        }
+    }
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath $stagedOverride)) "staged GraalVM override is removable after launch"
+    $rootEntriesAfterOverride = @(
+        Get-ChildItem -LiteralPath $root53 -Force | ForEach-Object { $_.Name } | Sort-Object
+    )
+    Assert-ManagedLaunch ((Compare-Object $rootEntriesBeforeOverride $rootEntriesAfterOverride).Count -eq 0) "GraalVM override creates no Cubism-root entries"
+    Assert-ManagedLaunch ((Get-FileHash -LiteralPath $bat -Algorithm SHA256).Hash -eq $beforeBat) "GraalVM override leaves the official BAT byte-identical"
 
     $ps = $currentPowerShell
     Remove-Item -LiteralPath $statePath -Force -ErrorAction SilentlyContinue
@@ -573,6 +839,8 @@ try {
         Assert-ManagedLaunch (@($independentState.ShortcutTakeovers).Count -eq 0) "switching to independent mode restores all takeovers"
         Assert-ManagedLaunch ((Get-FileHash -LiteralPath $normalShortcut -Algorithm SHA256).Hash -eq $beforeNormal) "mode switch restores exact normal bytes"
         Assert-ManagedLaunch (-not (Test-Path -LiteralPath $d3dShortcut)) "mode switch does not recreate unmatched D3D original"
+        Assert-ManagedLaunch (-not (Test-Path -LiteralPath (Join-Path $turboismHome "installer\shortcut-backups"))) "mode switch removes the empty takeover backup directory"
+        Assert-ManagedLaunch (-not (Test-Path -LiteralPath (Join-Path $turboismHome "installer"))) "mode switch removes the empty installer directory"
 
         $conflictResult = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $takeoverCandidates -LaunchMode "takeover" -ExistingState $independentState -ShortcutDirectory $fixtureManagedShortcutDir
         $conflictState = Read-CubismInstallationState -StatePath $statePath

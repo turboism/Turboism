@@ -1,6 +1,5 @@
 package dev.turboism.sdk.appearance;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.event.EventBus;
 
 import java.util.Objects;
@@ -15,7 +14,6 @@ import java.util.Objects;
  * @param current the appearance status in force after the change
  * @param originPluginId the plugin whose request caused the change, never blank
  */
-@PreviewApi
 public record AppearanceChangedEvent(
     AppearanceStatus previous,
     AppearanceStatus current,

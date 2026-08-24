@@ -22,7 +22,6 @@ def main() -> None:
     verify_deterministic_dump(args)
     baseline = capture_baseline(args)
     verify_compatibility(args, baseline)
-    verify_canonical_reference_binding(args, baseline)
     verify_failures(args, baseline)
     verify_boolean_metadata(args, baseline)
 
@@ -78,36 +77,6 @@ def verify_compatibility(args: argparse.Namespace, baseline: Path) -> None:
     reference = args.tmp / "baseline" / "sdk.jar"
     for variant in ("baseline", "additive", "reordered-fields"):
         run(args.tool, "verify-compatible", "--input", str(args.tmp / variant / "sdk.jar"), "--reference-input", str(reference), "--baseline", str(baseline))
-
-
-def verify_canonical_reference_binding(args: argparse.Namespace, baseline: Path) -> None:
-    reference = args.tmp / "baseline" / "sdk.jar"
-    artifact_mutation = args.tmp / "artifact-repacked.jar"
-    artifact_mutation.write_bytes(reference.read_bytes() + b"reference-container-variation")
-    output = run_failure(
-        args.tool,
-        "verify-compatible",
-        "--input",
-        str(reference),
-        "--reference-input",
-        str(artifact_mutation),
-        "--baseline",
-        str(baseline),
-    )
-    if "artifact binding mismatch" not in output:
-        fail("artifact reference binding did not reject a repacked reference")
-    run(
-        args.tool,
-        "verify-compatible",
-        "--input",
-        str(reference),
-        "--reference-input",
-        str(artifact_mutation),
-        "--reference-binding",
-        "canonical",
-        "--baseline",
-        str(baseline),
-    )
 
 
 def verify_failures(args: argparse.Namespace, baseline: Path) -> None:

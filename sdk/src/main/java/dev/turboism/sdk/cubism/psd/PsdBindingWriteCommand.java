@@ -1,11 +1,9 @@
 package dev.turboism.sdk.cubism.psd;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.write.CubismWriteCommand;
 
-@PreviewApi
 /**
  * Preview-API write command binding one PSD layer to one Cubism model object.
  *

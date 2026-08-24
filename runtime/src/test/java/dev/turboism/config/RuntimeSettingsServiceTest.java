@@ -1,6 +1,7 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -51,6 +52,83 @@ class RuntimeSettingsServiceTest {
         assertTrue(reloaded.separateExportSaveDirectory());
         assertFalse(Files.exists(home.resolve("config/runtime.json")));
         assertFalse(Files.exists(home.resolve("config.json.tmp")));
+    }
+
+    @Test
+    void defaultsCubismJvmToGraalVmAndPersistsBundledSelection() throws Exception {
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(home);
+
+        assertEquals(CubismJvm.GRAALVM, service.read());
+
+        service.save(CubismJvm.BUNDLED);
+
+        assertEquals(CubismJvm.BUNDLED, service.read());
+        assertEquals(
+            "bundled",
+            JSON.readTree(home.resolve("config.json").toFile())
+                .path("launcher").path("cubismJvm").asText()
+        );
+    }
+
+    @Test
+    void detectsGraalVmFromPackagedAndEnvironmentLocations() throws Exception {
+        final Path packaged = home.resolve("graalvm/bin/java.exe");
+        Files.createDirectories(packaged.getParent());
+        Files.write(packaged, new byte[]{1});
+        writeGraalVmRelease(home.resolve("graalvm"));
+        final RuntimeConfigRepository repository = new RuntimeConfigRepository(home, ignored -> { });
+        final CubismJvmSettingsFileService packagedService = new CubismJvmSettingsFileService(
+            repository, home, java.util.Map.of()
+        );
+
+        assertEquals(packaged.toAbsolutePath().normalize(), packagedService.graalVmJava().orElseThrow());
+
+        Files.delete(packaged);
+        final Path environmentJava = home.resolve("external/bin/java.exe");
+        Files.createDirectories(environmentJava.getParent());
+        Files.write(environmentJava, new byte[]{2});
+        writeGraalVmRelease(home.resolve("external"));
+        final CubismJvmSettingsFileService environmentService = new CubismJvmSettingsFileService(
+            repository,
+            home,
+            java.util.Map.of("TURBOISM_CUBISM_JAVA", environmentJava.toString())
+        );
+
+        assertEquals(
+            environmentJava.toAbsolutePath().normalize(),
+            environmentService.graalVmJava().orElseThrow()
+        );
+    }
+
+    @Test
+    void ignoresOrdinaryJavaExecutablesThatAreNotGraalVm252() throws Exception {
+        final Path javaExecutable = home.resolve("graalvm/bin/java.exe");
+        Files.createDirectories(javaExecutable.getParent());
+        Files.write(javaExecutable, new byte[]{1});
+        Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"Other VM\"\nJAVA_VERSION=\"25.0.4\"\n");
+        final CubismJvmSettingsFileService wrongImplementor = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
+        );
+
+        assertFalse(wrongImplementor.graalVmAvailable());
+
+        Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"GraalVM Community\"\nGRAALVM_VERSION=\"26.0.0\"\n");
+        final CubismJvmSettingsFileService wrongVersion = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
+        );
+
+        assertFalse(wrongVersion.graalVmAvailable());
+    }
+
+    @Test
+    void reportsGraalVmUnavailableWithoutAUsableExecutable() {
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }),
+            home,
+            java.util.Map.of("GRAALVM_HOME", home.resolve("missing").toString())
+        );
+
+        assertFalse(service.graalVmAvailable());
     }
 
     @Test
@@ -515,6 +593,14 @@ class RuntimeSettingsServiceTest {
         assertEquals(1, cleanups.get());
     }
 
+
+    private static void writeGraalVmRelease(final Path graalVmHome) throws Exception {
+        Files.writeString(graalVmHome.resolve("release"), """
+            IMPLEMENTOR="GraalVM Community"
+            JAVA_VERSION="25.0.4"
+            GRAALVM_VERSION="25.2.4"
+            """);
+    }
 
     private static dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator() {
         final dev.turboism.ui.panel.RuntimeDockMaintenanceCoordinator coordinator =
