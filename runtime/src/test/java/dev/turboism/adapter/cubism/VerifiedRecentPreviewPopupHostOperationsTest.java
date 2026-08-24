@@ -138,6 +138,8 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         final JMenu menu = recentMenu(recent);
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
         final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        final int baseMenuListeners = menu.getMenuListeners().length;
+        final int baseMouseListeners = item.getMouseListeners().length;
 
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
@@ -146,6 +148,8 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
             popup.ownsBindingForTest(menu, item),
             "the bridge must own the current menu and item binding"
         ));
+        assertTrue(menu.getMenuListeners().length > baseMenuListeners);
+        assertTrue(item.getMouseListeners().length > baseMouseListeners);
 
         registration.close();
         SwingUtilities.invokeAndWait(() -> {
@@ -158,12 +162,17 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
                 "closing the bridge must release all EDT-owned tracking"
             );
         });
+        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
+        assertEquals(baseMouseListeners, item.getMouseListeners().length);
     }
 
     @Test
     void contributionClosedBeforeEdtInstallationDoesNotLeakTracking() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-race", ".cmo3");
         final JMenu menu = recentMenu(recent);
+        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+        final int baseMenuListeners = menu.getMenuListeners().length;
+        final int baseMouseListeners = item.getMouseListeners().length;
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
 
         final VerifiedRecentPreviewPopupHostOperations popup =
@@ -178,6 +187,8 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         });
 
         assertEquals(0, popup.rendererCountForTest());
+        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
+        assertEquals(baseMouseListeners, item.getMouseListeners().length);
     }
 
     @Test
