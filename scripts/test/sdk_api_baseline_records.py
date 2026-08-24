@@ -68,10 +68,10 @@ def _package_records(parsed: list[ParsedClass], exported: list[ParsedClass]) -> 
 
 def _class_records(parsed_class: ParsedClass) -> list[str]:
     return [
-        class_record(parsed_class, exclude_preview_marker=False),
+        class_record(parsed_class),
         *field_records(parsed_class),
         *component_records(parsed_class),
-        *method_records(parsed_class, exclude_preview_markers=False),
+        *method_records(parsed_class),
     ]
 
 

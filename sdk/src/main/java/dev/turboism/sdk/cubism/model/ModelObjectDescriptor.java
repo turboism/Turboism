@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.model;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Immutable public description returned after a model-object operation. */
-@PreviewApi
 public record ModelObjectDescriptor(
     ModelObjectReference reference,
     String name,

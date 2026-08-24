@@ -1,6 +1,5 @@
 package dev.turboism.sdk.event;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.lang.annotation.Documented;
 import java.lang.annotation.ElementType;
@@ -15,7 +14,6 @@ import java.lang.annotation.Target;
  * family. The annotation only declares callback participation; dispatch mode,
  * mutation, cancellation, and failure policy belong to the event contract.</p>
  */
-@PreviewApi
 @Documented
 @Retention(RetentionPolicy.RUNTIME)
 @Target(ElementType.METHOD)

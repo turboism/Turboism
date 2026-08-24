@@ -436,7 +436,8 @@ def assert_lite_install(jar, payload_plugins):
     check("lite canonical fields", config["worktreeId"] == "turboism-runtime"
           and config["pluginDirs"] == ["plugins"]
           and config["format"] == "turboism.runtime.config"
-          and config["schemaVersion"] == 1)
+          and config["schemaVersion"] == 1
+          and config["launcher"] == {"cubismJvm": "graalvm"})
     ucmd = os.path.join(target, "uninstall.command")
     if sys.platform == "darwin":
         check("mac uninstall.command is regular non-symlink",
@@ -839,6 +840,10 @@ def assert_uninstall(jar, payload_plugins, delete_config):
     os.makedirs(os.path.join(target, "logs", "sub"))
     os.makedirs(os.path.join(target, "state"))
     os.makedirs(os.path.join(target, "cache"))
+    if os.name == "nt":
+        # A completed takeover cleanup must not leave the fixed installer backup
+        # directory chain behind and keep an otherwise removable home alive.
+        os.makedirs(os.path.join(target, "installer", "shortcut-backups"))
     uninstaller = os.path.join(target, "Uninstaller", "uninstaller.jar")
     home = run_shipped_uninstaller(uninstaller, delete_config)
     check("uninstall removes agent", not os.path.exists(os.path.join(home, "turboism-agent.jar")))
@@ -847,6 +852,10 @@ def assert_uninstall(jar, payload_plugins, delete_config):
           not os.path.exists(os.path.join(home, "logs"))
           and not os.path.exists(os.path.join(home, "state"))
           and not os.path.exists(os.path.join(home, "cache")))
+    if os.name == "nt":
+        check("uninstall removes empty takeover backup directories",
+              not os.path.exists(os.path.join(home, "installer", "shortcut-backups"))
+              and not os.path.exists(os.path.join(home, "installer")))
     check("uninstall preserves third-party plugin",
           os.path.isfile(os.path.join(home, "plugins", "third-party.jar")))
     config = os.path.join(home, "config.json")
@@ -1045,7 +1054,29 @@ def assert_jar_layout(jar, payload):
         core_pack_name = "resources/packs/pack-Turboism Core"
         check("jar Windows core pack", core_pack_name in names)
         core_pack = z.read(core_pack_name)
-        for helper in ("cubism-launch-common.ps1", "configure_turboism.ps1"):
+        graal_library_root = os.path.join(payload, "graal", "lib")
+        check("staged Windows Graal host library directory exists",
+              os.path.isdir(graal_library_root), graal_library_root)
+        required_graal_prefixes = (
+            "graal-host-", "jackson-annotations-", "jackson-core-",
+            "jackson-databind-", "collections-", "jniutils-",
+            "js-isolate-windows-amd64-community-", "nativebridge-",
+            "nativeimage-", "polyglot-", "truffle-api-", "word-",
+        )
+        graal_libraries = sorted(
+            name for name in os.listdir(graal_library_root)
+            if name.endswith(".jar")
+        )
+        for prefix in required_graal_prefixes:
+            matches = [name for name in graal_libraries
+                       if name.startswith(prefix)]
+            check("staged Windows Graal library %s" % prefix,
+                  bool(matches), "libraries=%s" % graal_libraries)
+            for name in matches:
+                with open(os.path.join(graal_library_root, name), "rb") as f:
+                    check("jar embeds Windows Graal library %s" % name,
+                          f.read() in core_pack)
+        for helper in ("launch-cubism-turboism.ps1", "cubism-launch-common.ps1", "configure_turboism.ps1"):
             staged = os.path.join(payload, helper)
             check("staged Windows helper %s is regular" % helper,
                   os.path.isfile(staged) and not os.path.islink(staged), staged)

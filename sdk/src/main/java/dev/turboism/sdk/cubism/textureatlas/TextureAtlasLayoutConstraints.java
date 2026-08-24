@@ -1,9 +1,7 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
-import dev.turboism.sdk.PreviewApi;
 
 /** Host-independent bounds and policy for producing an atlas layout plan. */
-@PreviewApi
 public record TextureAtlasLayoutConstraints(
     int pageWidth,
     int pageHeight,

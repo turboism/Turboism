@@ -5,6 +5,8 @@ import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.graal.GraalHostConfiguration;
+import dev.turboism.graal.GraalHostManager;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
@@ -23,6 +25,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
     private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
     private final PreviewLog log;
+    private final GraalHostManager graalHost;
     private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
 
     PreviewPluginContextFactory(
@@ -74,6 +77,10 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         this.home = Objects.requireNonNull(home, "home");
         this.log = Objects.requireNonNull(log, "log");
         this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
+        this.graalHost = new GraalHostManager(
+            GraalHostConfiguration.resolve(home),
+            diagnostic -> log.warn("graal", diagnostic)
+        );
         this.servicesFactory = new PreviewPluginServicesFactory(
             home, scheduler, hostAccess, hostReadLane, log, failureCollector,
             Objects.requireNonNull(parameterLifecycle, "parameterLifecycle"),
@@ -91,9 +98,8 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         servicesFactory.preflightEventContracts(descriptor);
     }
 
-    @Override
-    public void close() {
-        servicesFactory.close();
+    Object hostAccessIdentity() {
+        return hostAccess;
     }
 
     PluginContextBundle create(
@@ -113,6 +119,16 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         final dev.turboism.core.event.RuntimeEventBroker.Owner eventOwner =
             servicesFactory.admitEventOwner(requestedDescriptor);
         try {
+            requestedScope.register(() -> {
+                eventOwner.beginClosing();
+                if (!eventOwner.awaitQuiescence(java.time.Duration.ofSeconds(5))) {
+                    throw new IllegalStateException(
+                        "Plugin event owner did not quiesce during scope disposal: "
+                            + eventOwner.key()
+                    );
+                }
+                eventOwner.close();
+            });
             final PreviewPluginServices services = servicesFactory.create(
                 requestedDescriptor,
                 requestedClassLoader,
@@ -125,6 +141,13 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 services.userFiles(), services.hostReads(), null,
                 fileChooserHistory
             );
+            context.installScriptService(new dev.turboism.script.RuntimeScriptService(
+                home,
+                context,
+                requestedScope,
+                graalHost,
+                diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)
+            ));
             return new PluginContextBundle(
                 context, services.localization(), services.cleanupEvidence(), eventOwner
             );
@@ -134,6 +157,15 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 eventOwner.close();
             }
             throw failure;
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            servicesFactory.close();
+        } finally {
+            graalHost.close();
         }
     }
 }

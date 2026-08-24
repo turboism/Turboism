@@ -1,0 +1,35 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.graal-script",
+  "name": "Graal Script Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the isolated dual-JVM Graal script runtime.",
+  "entrypoints": [
+    "dev.turboism.validation.graalscript.GraalScriptHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Validates the permission-checked script host bridge against the active exact Cubism model."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}

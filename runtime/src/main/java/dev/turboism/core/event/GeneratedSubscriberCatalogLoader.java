@@ -25,20 +25,20 @@ public final class GeneratedSubscriberCatalogLoader {
         final ClassLoader pluginClassLoader
     ) {
         final List<?> values = List.copyOf(Objects.requireNonNull(entrypoints, "entrypoints"));
-        final Map<Class<?>, GeneratedSubscriberCatalog> catalogs = pluginClassLoader == null
+        final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = pluginClassLoader == null
             ? Map.of()
             : load(pluginClassLoader);
         final List<EventSubscriberDescriptor> descriptors = new ArrayList<>();
         for (int entrypointOrdinal = 0; entrypointOrdinal < values.size(); entrypointOrdinal++) {
             final Object entrypoint = Objects.requireNonNull(values.get(entrypointOrdinal), "entrypoint");
-            final GeneratedSubscriberCatalog catalog = catalogs.get(entrypoint.getClass());
+            final GeneratedSubscriberCatalog<?> catalog = catalogs.get(entrypoint.getClass());
             if (catalog == null) {
                 descriptors.addAll(fallback.inspectOne(entrypoint, entrypointOrdinal));
                 continue;
             }
             final int ordinal = entrypointOrdinal;
             final List<EventSubscriberDescriptor> generated = new ArrayList<>();
-            catalog.register(entrypoint, new DescriptorRegistrar(entrypoint, ordinal, generated));
+            register(catalog, entrypoint, new DescriptorRegistrar(entrypoint, ordinal, generated));
             generated.sort(java.util.Comparator
                 .comparingInt(EventSubscriberDescriptor::methodOrdinal)
                 .thenComparing(EventSubscriberDescriptor::canonicalSignature));
@@ -70,10 +70,26 @@ public final class GeneratedSubscriberCatalogLoader {
         }
     }
 
-    private static Map<Class<?>, GeneratedSubscriberCatalog> load(final ClassLoader loader) {
-        final Map<Class<?>, GeneratedSubscriberCatalog> catalogs = new IdentityHashMap<>();
+    private static void register(
+        final GeneratedSubscriberCatalog<?> catalog,
+        final Object entrypoint,
+        final EventSubscriberRegistrar registrar
+    ) {
+        registerCaptured(catalog, entrypoint, registrar);
+    }
+
+    private static <T> void registerCaptured(
+        final GeneratedSubscriberCatalog<T> catalog,
+        final Object entrypoint,
+        final EventSubscriberRegistrar registrar
+    ) {
+        catalog.register(catalog.entrypointType().cast(entrypoint), registrar);
+    }
+
+    private static Map<Class<?>, GeneratedSubscriberCatalog<?>> load(final ClassLoader loader) {
+        final Map<Class<?>, GeneratedSubscriberCatalog<?>> catalogs = new IdentityHashMap<>();
         try {
-            for (GeneratedSubscriberCatalog catalog : ServiceLoader.load(
+            for (GeneratedSubscriberCatalog<?> catalog : ServiceLoader.load(
                 GeneratedSubscriberCatalog.class,
                 loader
             )) {

@@ -1,6 +1,5 @@
 package dev.turboism.sdk.cubism.backup;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
@@ -15,7 +14,6 @@ import java.util.Objects;
  * @param sizeBytes observed artifact size in bytes
  * @param temporary whether the runtime created a temporary save-triggered artifact
  */
-@PreviewApi
 public record BackupArtifact(String fileName, long sizeBytes, boolean temporary) {
     public BackupArtifact {
         Objects.requireNonNull(fileName, "fileName");

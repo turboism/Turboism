@@ -1,13 +1,11 @@
 package dev.turboism.sdk.cubism.transaction;
 
-import dev.turboism.sdk.PreviewApi;
 
 /**
  * Signals use of a transaction that has already been committed or rolled back. The closed
  * transaction stays closed; the caller must begin a new one. Carries error code 1101 at
  * {@code ERROR} severity.
  */
-@PreviewApi
 public class TransactionClosedException extends TransactionException {
 
     public TransactionClosedException(String transactionId, String message) {

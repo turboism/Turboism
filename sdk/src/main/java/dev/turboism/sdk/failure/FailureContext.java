@@ -1,11 +1,9 @@
 package dev.turboism.sdk.failure;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 
 /** Privacy-safe scalar context supplied to exception-advice handlers. */
-@PreviewApi
 public record FailureContext(
     String pluginId,
     String operationId,

@@ -5,6 +5,7 @@ include(
     "runtime",
     "sdk",
     "event-processor",
+    "graal-host",
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",

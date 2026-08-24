@@ -1,13 +1,11 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic Deformer opacity write event family. */
-@PreviewApi
 public sealed interface DeformerOpacityEvent extends TurboismEvent
     permits DeformerOpacityEvent.Before,
             DeformerOpacityEvent.On,
@@ -15,7 +13,6 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
 
     Deformer deformer();
 
-    @PreviewApi
     final class Before implements DeformerOpacityEvent {
         private final Deformer deformer;
         private final float requestedOpacity;
@@ -104,13 +101,11 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
         }
     }
 
-    @PreviewApi
     record On(Deformer deformer, float oldOpacity, float newOpacity)
         implements DeformerOpacityEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
-    @PreviewApi
     record After(Deformer deformer, float finalOpacity) implements DeformerOpacityEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }

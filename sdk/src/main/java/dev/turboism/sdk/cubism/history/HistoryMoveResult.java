@@ -1,12 +1,10 @@
 package dev.turboism.sdk.cubism.history;
 
-import dev.turboism.sdk.PreviewApi;
 
 import java.util.Objects;
 import java.util.Optional;
 
 /** Result of attempting to move the active document's native history cursor. */
-@PreviewApi
 public record HistoryMoveResult(
     Outcome outcome,
     HistorySnapshot snapshot,

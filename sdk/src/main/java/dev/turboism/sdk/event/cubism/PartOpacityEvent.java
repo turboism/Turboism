@@ -1,13 +1,11 @@
 package dev.turboism.sdk.event.cubism;
 
-import dev.turboism.sdk.PreviewApi;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.event.TurboismEvent;
 
 import java.util.Objects;
 
 /** Typed states of the semantic Part opacity set-value event family. */
-@PreviewApi
 public sealed interface PartOpacityEvent extends TurboismEvent
     permits PartOpacityEvent.Before, PartOpacityEvent.On, PartOpacityEvent.After {
 
@@ -15,7 +13,6 @@ public sealed interface PartOpacityEvent extends TurboismEvent
     Part part();
 
     /** Synchronous state published before the host opacity write. */
-    @PreviewApi
     final class Before implements PartOpacityEvent {
         private final Part part;
         private final float requestedOpacity;
@@ -110,7 +107,6 @@ public sealed interface PartOpacityEvent extends TurboismEvent
     }
 
     /** State published after a successful opacity write that changed the value. */
-    @PreviewApi
     record On(Part part, float oldOpacity, float newOpacity) implements PartOpacityEvent {
         public On {
             part = Objects.requireNonNull(part, "part");
@@ -118,7 +114,6 @@ public sealed interface PartOpacityEvent extends TurboismEvent
     }
 
     /** State published after every successful opacity write. */
-    @PreviewApi
     record After(Part part, float finalOpacity) implements PartOpacityEvent {
         public After {
             part = Objects.requireNonNull(part, "part");
