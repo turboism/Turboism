@@ -178,6 +178,16 @@ class ContentRuleTest(unittest.TestCase):
         for text, rule in cases.items():
             self.assertIn(rule, crh.scan_repository_content("script.sh", text.encode()))
 
+    def test_all_history_rejects_real_local_workspace(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-local-history-"))
+        (Path(repo) / "note.txt").write_text(
+            "cwd=/workspace/projects/" + "turboism/.worktrees/private\n"
+        )
+        commit_all(repo, "add local workspace")
+        out = run_checker(repo, "--all")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("value-signature=local-machine-workspace", out.stdout)
+
     def test_secret_value_never_printed(self):
         secret = ghp(1)
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-secret-"))
