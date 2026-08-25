@@ -339,12 +339,24 @@ final class McpExpandedProtocolTest {
         final Map<String, Object> listedPrompts = result(protocol.handle(request(
             3, "prompts/list", Map.of()
         )));
-        assertEquals(6, list(listedPrompts.get("prompts")).size());
+        assertEquals(8, list(listedPrompts.get("prompts")).size());
+        final java.util.Set<Object> promptNames = list(listedPrompts.get("prompts")).stream()
+            .map(McpExpandedProtocolTest::object)
+            .map(definition -> definition.get("name"))
+            .collect(java.util.stream.Collectors.toSet());
+        assertTrue(promptNames.contains("diagnose_environment"));
+        assertTrue(promptNames.contains("inspect_model_diagnostics"));
 
         final Map<String, Object> prompt = result(protocol.handle(request(
             4, "prompts/get", Map.of("name", "inspect_active_document")
         )));
         assertEquals(1, list(prompt.get("messages")).size());
+        for (String name : java.util.List.of("diagnose_environment", "inspect_model_diagnostics")) {
+            final Map<String, Object> diagnosticPrompt = result(protocol.handle(request(
+                40 + name.length(), "prompts/get", Map.of("name", name)
+            )));
+            assertEquals(1, list(diagnosticPrompt.get("messages")).size());
+        }
 
         final Map<String, Object> missingEnvelope = object(protocol.handle(request(
             5, "resources/read", Map.of("uri", "turboism://missing")
