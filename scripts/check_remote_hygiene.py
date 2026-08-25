@@ -50,7 +50,7 @@ from pathlib import PurePosixPath
 FORBIDDEN_SEGMENTS = frozenset({
     ".agent-artifacts", ".artifacts", ".research-artifacts", ".pi-subagents",
     ".claude", ".cursor", ".pi", ".specify", ".windsurf", "docs",
-    "docs-internal", "docs_internal", "prompts", "spec", "specs",
+    "docs-internal", "docs_internal", "prompts", "specs",
     "validation-artifact",
 })
 
