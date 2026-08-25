@@ -30,6 +30,7 @@ import javax.swing.table.TableRowSorter;
 import javax.imageio.ImageIO;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Desktop;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.FontMetrics;
@@ -42,6 +43,7 @@ import java.awt.RenderingHints;
 import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -60,9 +62,13 @@ final class CoreWindows implements AutoCloseable {
     private final CoreLogWindow logWindow;
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
+    private JDialog pluginDetailsDialog;
     private JDialog aboutDialog;
-    private volatile boolean closed;
+    private final java.util.concurrent.ExecutorService pluginDetailsExecutor =
+        java.util.concurrent.Executors.newSingleThreadExecutor(new PluginDetailsThreadFactory());
+    private final AtomicBoolean closed = new AtomicBoolean();
     private ActiveSettingsAction activeSettingsAction;
+    private long pluginDetailsRequest;
     static final String ABOUT_LOGO_TEXT = "Turboism";
     private static final Object ABOUT_LOGO_LOCK = new Object();
     private static volatile Path aboutLogoPng;
@@ -117,7 +123,8 @@ final class CoreWindows implements AutoCloseable {
 
     @Override
     public void close() {
-        closed = true;
+        if (!closed.compareAndSet(false, true)) return;
+        pluginDetailsExecutor.shutdownNow();
         CoreDialogs.onEdt(() -> {
             logWindow.close();
             final ActiveSettingsAction active = activeSettingsAction;
@@ -130,9 +137,11 @@ final class CoreWindows implements AutoCloseable {
             }
             if (settingsDialog != null) settingsDialog.dispose();
             if (pluginsDialog != null) pluginsDialog.dispose();
+            if (pluginDetailsDialog != null) pluginDetailsDialog.dispose();
             if (aboutDialog != null) aboutDialog.dispose();
             settingsDialog = null;
             pluginsDialog = null;
+            pluginDetailsDialog = null;
             aboutDialog = null;
         });
         final Path logo = aboutLogoPng;
@@ -417,7 +426,7 @@ final class CoreWindows implements AutoCloseable {
         final dev.turboism.sdk.ui.settings.SettingsDecisionAction action
     ) {
         final ActiveSettingsAction existing = activeSettingsAction;
-        if (closed || existing != null && !existing.finished().get()) return;
+        if (closed.get() || existing != null && !existing.finished().get()) return;
         final dev.turboism.sdk.ui.settings.SettingsActionHandle handle;
         try {
             handle = action.action().start();
@@ -429,7 +438,7 @@ final class CoreWindows implements AutoCloseable {
             );
             return;
         }
-        if (closed) {
+        if (closed.get()) {
             handle.cancel();
             return;
         }
@@ -503,7 +512,7 @@ final class CoreWindows implements AutoCloseable {
             && activeSettingsAction.dialog() == progressDialog) {
             activeSettingsAction = null;
         }
-        if (closed) return;
+        if (closed.get()) return;
         if (failure != null || result == null) {
             CoreDialogs.message(
                 owner,
@@ -557,6 +566,25 @@ final class CoreWindows implements AutoCloseable {
         pluginTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         pluginSorter = new TableRowSorter<>(pluginTableModel);
         pluginTable.setRowSorter(pluginSorter);
+        pluginTable.setToolTipText(text("plugins.details.hint"));
+        pluginTable.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override public void mouseClicked(final java.awt.event.MouseEvent event) {
+                if (event.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                    final int row = pluginTable.rowAtPoint(event.getPoint());
+                    if (row >= 0) {
+                        pluginTable.setRowSelectionInterval(row, row);
+                        showSelectedPluginDetails();
+                    }
+                }
+            }
+        });
+        pluginTable.getInputMap(javax.swing.JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT)
+            .put(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ENTER, 0), "plugin-details");
+        pluginTable.getActionMap().put("plugin-details", new javax.swing.AbstractAction() {
+            @Override public void actionPerformed(final java.awt.event.ActionEvent event) {
+                showSelectedPluginDetails();
+            }
+        });
         pluginStatus = new JLabel(text("plugins.restart-hint"));
 
         final JTextField filter = new JTextField(20);
@@ -581,6 +609,8 @@ final class CoreWindows implements AutoCloseable {
         disable.addActionListener(ignored -> setSelectedEnabled(false));
         final JButton uninstall = new JButton(text("plugins.uninstall"));
         uninstall.addActionListener(ignored -> uninstallSelected());
+        final JButton details = new JButton(text("plugins.details"));
+        details.addActionListener(ignored -> showSelectedPluginDetails());
         final JButton refresh = new JButton(text("common.refresh"));
         refresh.addActionListener(ignored -> refreshPlugins());
         final JButton close = new JButton(text("common.close"));
@@ -596,6 +626,7 @@ final class CoreWindows implements AutoCloseable {
         buttons.add(enable);
         buttons.add(disable);
         buttons.add(uninstall);
+        buttons.add(details);
         buttons.add(refresh);
         buttons.add(close);
         actions.add(buttons, BorderLayout.EAST);
@@ -607,6 +638,181 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(new JScrollPane(pluginTable), BorderLayout.CENTER);
         dialog.add(bottom, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    private void showSelectedPluginDetails() {
+        final CorePluginManagement.PluginInfo plugin = selectedPlugin();
+        if (plugin == null || closed.get()) return;
+        final long request = ++pluginDetailsRequest;
+        pluginStatus.setText(text("plugins.details.loading"));
+        try {
+            pluginDetailsExecutor.execute(() -> {
+                final CorePluginManagement.PluginDetails details;
+                try {
+                    details = plugins.details(plugin.id())
+                        .orElseGet(() -> CorePluginManagement.PluginDetails.summary(plugin));
+                } catch (RuntimeException failure) {
+                    CoreDialogs.onEdt(() -> pluginDetailsFailed(request));
+                    return;
+                }
+                CoreDialogs.onEdt(() -> showPluginDetails(request, details));
+            });
+        } catch (java.util.concurrent.RejectedExecutionException closedExecutor) {
+            pluginDetailsFailed(request);
+        }
+    }
+
+    private void showPluginDetails(
+        final long request,
+        final CorePluginManagement.PluginDetails details
+    ) {
+        if (closed.get() || request != pluginDetailsRequest) return;
+        pluginStatus.setText(text("plugins.restart-hint"));
+        if (pluginDetailsDialog != null) pluginDetailsDialog.dispose();
+        pluginDetailsDialog = createPluginDetailsDialog(details);
+        CoreDialogs.show(pluginDetailsDialog);
+    }
+
+    private void pluginDetailsFailed(final long request) {
+        if (!closed.get() && request == pluginDetailsRequest) {
+            pluginStatus.setText(text("plugins.details.load-failed"));
+        }
+    }
+
+    private JDialog createPluginDetailsDialog(final CorePluginManagement.PluginDetails details) {
+        ensureSwingUis();
+        final CorePluginManagement.PluginInfo plugin = details.plugin();
+        final JDialog dialog = CoreDialogs.create(
+            i18n.format("window.plugin-details.title", plugin.name()), 760, 620
+        );
+        dialog.setLayout(new BorderLayout(8, 8));
+
+        final JPanel metadata = form();
+        int row = 0;
+        row = detail(metadata, row, "plugins.details.name", plugin.name());
+        row = detail(metadata, row, "plugins.details.id", plugin.id());
+        row = detail(metadata, row, "plugins.details.version", plugin.version());
+        row = detail(metadata, row, "plugins.details.description", plugin.description());
+        row = detail(metadata, row, "plugins.details.state", plugin.effectiveState());
+        row = detail(metadata, row, "plugins.details.desired", plugin.desiredState());
+        row = detail(metadata, row, "plugins.details.pending", plugin.pendingOperation().orElse(text("common.none")));
+        row = detail(metadata, row, "plugins.details.category", text("plugin.category." + plugin.category()));
+        row = detail(metadata, row, "plugins.details.tags", valueOrNone(String.join(", ", plugin.tags())));
+        row = detail(metadata, row, "plugins.details.api", valueOrNone(details.turboismApi()));
+        row = detail(metadata, row, "plugins.details.authors", valueOrNone(formatAuthors(details.authors())));
+        row = detail(metadata, row, "plugins.details.license", valueOrNone(details.license()));
+        row = detail(metadata, row, "plugins.details.website", details.website().orElse(text("common.none")));
+        row = detail(metadata, row, "plugins.details.dependencies", valueOrNone(formatDependencies(details.dependencies())));
+        row = detail(metadata, row, "plugins.details.permissions", valueOrNone(formatPermissions(details.permissions())));
+        row = detail(metadata, row, "plugins.details.capabilities", valueOrNone(String.join(", ", details.capabilities())));
+        row = detail(metadata, row, "plugins.details.requires-cubism", details.requiresCubism() ? text("common.yes") : text("common.no"));
+        row = detail(metadata, row, "plugins.details.ui", details.ui());
+        row = detail(metadata, row, "plugins.details.entrypoints", valueOrNone(String.join("\n", details.entrypoints())));
+        row = detail(metadata, row, "plugins.details.resources", valueOrNone(String.join("\n", details.resources())));
+        row = detail(metadata, row, "plugins.details.i18n-base", valueOrNone(details.i18nBaseName()));
+        row = detail(metadata, row, "plugins.details.locales", valueOrNone(String.join(", ", details.locales())));
+        row = detail(metadata, row, "plugins.details.event-exports", valueOrNone(formatEventExports(details.eventExports())));
+        detail(metadata, row, "plugins.details.event-imports", valueOrNone(formatEventImports(details.eventImports())));
+
+        final JEditorPane readme = new JEditorPane(
+            "text/html",
+            details.readme().map(PluginReadmeRenderer::render)
+                .orElseGet(() -> PluginReadmeRenderer.render(text("plugins.details.readme-unavailable")))
+        );
+        readme.setEditable(false);
+        readme.setCaretPosition(0);
+        readme.addHyperlinkListener(event -> {
+            if (event.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED
+                && event.getURL() != null) {
+                openExternal(event.getURL().toString());
+            }
+        });
+
+        final JTabbedPane tabs = new JTabbedPane();
+        tabs.addTab(text("plugins.details.metadata"), new JScrollPane(metadata));
+        tabs.addTab(text("plugins.details.readme"), new JScrollPane(readme));
+
+        final JButton website = new JButton(text("plugins.details.open-website"));
+        website.setEnabled(details.website().isPresent());
+        website.addActionListener(ignored -> details.website().ifPresent(this::openExternal));
+        final JButton close = new JButton(text("common.close"));
+        close.addActionListener(ignored -> dialog.setVisible(false));
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        buttons.add(website);
+        buttons.add(close);
+
+        dialog.add(tabs, BorderLayout.CENTER);
+        dialog.add(buttons, BorderLayout.SOUTH);
+        return dialog;
+    }
+
+    private int detail(final JPanel panel, final int row, final String labelKey, final String value) {
+        final JLabel content = new JLabel("<html>" + escapeHtml(value).replace("\n", "<br>") + "</html>");
+        add(panel, row, new JLabel(text(labelKey)), content);
+        return row + 1;
+    }
+
+    private String valueOrNone(final String value) {
+        return value == null || value.isBlank() ? text("common.none") : value;
+    }
+
+    private static String formatAuthors(final List<CorePluginManagement.Author> authors) {
+        return authors.stream()
+            .map(author -> author.email().map(email -> author.name() + " <" + email + ">").orElse(author.name()))
+            .collect(java.util.stream.Collectors.joining(", "));
+    }
+
+    private static String formatDependencies(final List<CorePluginManagement.Dependency> dependencies) {
+        return dependencies.stream().map(dependency -> {
+            final StringBuilder value = new StringBuilder(dependency.id());
+            if (!dependency.version().isBlank()) value.append(' ').append(dependency.version());
+            if (!dependency.type().isBlank()) value.append(" [").append(dependency.type()).append(']');
+            dependency.reason().filter(reason -> !reason.isBlank()).ifPresent(reason -> value.append(" — ").append(reason));
+            return value.toString();
+        }).collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    private static String formatPermissions(final List<CorePluginManagement.Permission> permissions) {
+        return permissions.stream().map(permission -> {
+            final StringBuilder value = new StringBuilder(permission.id());
+            if (!permission.scope().isBlank()) value.append(" [").append(permission.scope()).append(']');
+            permission.reason().filter(reason -> !reason.isBlank()).ifPresent(reason -> value.append(" — ").append(reason));
+            return value.toString();
+        }).collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    private static String formatEventExports(final List<CorePluginManagement.EventExport> exports) {
+        return exports.stream().map(exported -> exported.id() + " " + exported.contractVersion()
+            + " [" + exported.eventType() + "] — " + exported.abiSha256())
+            .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    private static String formatEventImports(final List<CorePluginManagement.EventImport> imports) {
+        return imports.stream().map(imported -> imported.providerId() + ":" + imported.eventId()
+            + " " + imported.contractVersion() + " [" + imported.eventType() + "]"
+            + (imported.required() ? " required" : " optional") + " — " + imported.abiSha256())
+            .collect(java.util.stream.Collectors.joining("\n"));
+    }
+
+    private static String escapeHtml(final String value) {
+        return (value == null ? "" : value).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    private void openExternal(final String value) {
+        try {
+            final URI uri = URI.create(value);
+            final String scheme = uri.getScheme();
+            if (!("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
+                throw new IOException("unsupported link scheme");
+            }
+            if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                throw new IOException("desktop browsing is unavailable");
+            }
+            Desktop.getDesktop().browse(uri);
+        } catch (Exception failure) {
+            CoreDialogs.message(pluginDetailsDialog, text("common.turboism"), text("plugins.details.open-failed"));
+        }
     }
 
     private JDialog createAboutDialog() {
@@ -641,6 +847,8 @@ final class CoreWindows implements AutoCloseable {
         defaults.putIfAbsent("PanelUI", "javax.swing.plaf.basic.BasicPanelUI");
         defaults.putIfAbsent("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI");
         defaults.putIfAbsent("LabelUI", "javax.swing.plaf.basic.BasicLabelUI");
+        defaults.putIfAbsent("TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI");
+        defaults.putIfAbsent("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI");
     }
 
     /**
@@ -775,6 +983,14 @@ final class CoreWindows implements AutoCloseable {
 
 
     private String text(final String key) { return i18n.text(key); }
+
+    private static final class PluginDetailsThreadFactory implements java.util.concurrent.ThreadFactory {
+        @Override public Thread newThread(final Runnable task) {
+            final Thread thread = new Thread(task, "turboism-plugin-details");
+            thread.setDaemon(true);
+            return thread;
+        }
+    }
 
     static final class PluginTableModel extends AbstractTableModel {
         private final PluginLocalization i18n;

@@ -48,6 +48,36 @@ final class PluginManagementPackageFixture {
         return jar(descriptor(id, version, entrypoint), entrypoint.replace('.', '/') + ".class");
     }
 
+    static byte[] pluginJarBytesWithReadme(
+        final String id,
+        final String version,
+        final String readme
+    ) throws Exception {
+        final String entrypoint = "example.Plugin";
+        return jar(
+            descriptor(id, version, entrypoint), entrypoint.replace('.', '/') + ".class",
+            Map.of("README.md", readme.getBytes(StandardCharsets.UTF_8))
+        );
+    }
+
+    static byte[] detailedPluginJarBytes(final String id, final String version) throws Exception {
+        final String entrypoint = "example.Plugin";
+        final String descriptor = "{\"format\":\"turboism.plugin.meta\",\"schemaVersion\":3,\"id\":\"" + id
+            + "\",\"name\":\"Detailed\",\"version\":\"" + version + "\",\"description\":\"Detail metadata\","
+            + "\"entrypoints\":[\"" + entrypoint + "\"],\"turboismApi\":\"[0.1.0,0.2.0)\","
+            + "\"authors\":[{\"name\":\"Test Author\",\"email\":\"test@example.test\"}],"
+            + "\"license\":\"MIT\",\"website\":\"https://example.test/plugin\",\"resources\":[],"
+            + "\"i18n\":{\"baseName\":\"META-INF/turboism/i18n/messages\",\"locales\":[]},"
+            + "\"dependencies\":[{\"id\":\"required.plugin\",\"type\":\"required\",\"version\":\"[1.0.0,2.0.0)\",\"ordering\":\"before\",\"reason\":\"Required feature\"}],"
+            + "\"permissions\":[{\"id\":\"turboism.action.register\",\"scope\":\"application\",\"reason\":\"Test permission\"}],"
+            + "\"capabilities\":[\"test.capability\"],\"environment\":{\"requiresCubism\":true,\"ui\":\"swing\"},"
+            + "\"category\":\"development\",\"tags\":[\"detail\"]}";
+        return jar(
+            descriptor, entrypoint.replace('.', '/') + ".class",
+            Map.of("README.md", "# Detailed plugin\n\nRendered **README**.".getBytes(StandardCharsets.UTF_8))
+        );
+    }
+
     /** Schema v3 plugin JAR with a declared classification, for installed-row tests. */
     static byte[] pluginJarBytesV3(
         final String id,
@@ -92,6 +122,14 @@ final class PluginManagementPackageFixture {
     }
 
     private static byte[] jar(final String descriptor, final String entrypointPath) throws Exception {
+        return jar(descriptor, entrypointPath, Map.of());
+    }
+
+    private static byte[] jar(
+        final String descriptor,
+        final String entrypointPath,
+        final Map<String, byte[]> extraEntries
+    ) throws Exception {
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
         try (JarOutputStream jar = new JarOutputStream(output)) {
             add(jar, "META-INF/turboism/plugin.json", descriptor.getBytes(StandardCharsets.UTF_8));
@@ -99,6 +137,9 @@ final class PluginManagementPackageFixture {
             add(jar, "META-INF/turboism/i18n/messages.properties",
                 "plugin.name=Example\nplugin.description=Example\n".getBytes(StandardCharsets.UTF_8));
             add(jar, entrypointPath, new byte[]{0});
+            for (Map.Entry<String, byte[]> entry : extraEntries.entrySet()) {
+                add(jar, entry.getKey(), entry.getValue());
+            }
         }
         return output.toByteArray();
     }

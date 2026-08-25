@@ -270,7 +270,7 @@ val checkDuplicateJavaImports by tasks.registering {
 
 val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     group = "verification"
-    description = "Verifies every official release plugin has a store-ready README matching its descriptor."
+    description = "Verifies every first-party plugin has a README matching its descriptor and delivery role."
     workingDir(rootDir)
     inputs.file("packaging/release-plugins.txt")
     inputs.file("scripts/test/check_official_plugin_readmes.py")
@@ -646,6 +646,7 @@ tasks.register("checkIntegration") {
         ":runtime:corePublicApiProviderTest",
         "checkPluginInspectionRuntime",
         "verifyFirstPartyPluginMetadata",
+        "verifyFirstPartyPluginReadmes",
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",

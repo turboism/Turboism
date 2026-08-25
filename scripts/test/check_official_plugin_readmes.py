@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validates store-ready README coverage for every official plugin module."""
+"""Validates README coverage for every first-party plugin module."""
 
 from __future__ import annotations
 
@@ -110,9 +110,16 @@ def validate_module(module: Path) -> list[str]:
     if metadata["delivery"] not in ALLOWED_DELIVERY:
         errors.append(f"unsupported delivery: {metadata['delivery']}")
 
+    release_module_names = {
+        project.removeprefix(":plugins:")
+        for project in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines()
+        if project.strip()
+    }
     expected_role = (
         ("core", "built-in", "bundled") if module.name == "core" else
-        ("feature", "preview", "store-candidate")
+        ("feature", "preview", "store-candidate") if module.name in release_module_names else
+        ("demo", "development", "development-only") if module.name == "demo" else
+        ("feature", "development", "development-only")
     )
     actual_role = (metadata["kind"], metadata["status"], metadata["delivery"])
     if actual_role != expected_role:
@@ -150,7 +157,7 @@ def validate_module(module: Path) -> list[str]:
 
 
 def official_modules() -> list[Path]:
-    modules: list[Path] = []
+    release_modules: list[Path] = []
     for line in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines():
         project = line.strip()
         if not project:
@@ -158,18 +165,23 @@ def official_modules() -> list[Path]:
         prefix = ":plugins:"
         if not project.startswith(prefix):
             raise ValueError(f"invalid release plugin project: {project}")
-        modules.append(PLUGINS / project.removeprefix(prefix))
-    return modules
+        release_modules.append(PLUGINS / project.removeprefix(prefix))
+    all_modules = sorted(
+        descriptor.parent.parent.parent.parent.parent.parent
+        for descriptor in PLUGINS.glob("*/src/main/resources/META-INF/turboism/plugin.json")
+    )
+    release_names = {module.name for module in release_modules}
+    return release_modules + [module for module in all_modules if module.name not in release_names]
 
 
 def main() -> int:
     try:
         modules = official_modules()
     except (OSError, ValueError) as failure:
-        print(f"Official plugin README check failed: {failure}", file=sys.stderr)
+        print(f"First-party plugin README check failed: {failure}", file=sys.stderr)
         return 1
     if not modules:
-        print("Official plugin README check failed: release allowlist is empty.", file=sys.stderr)
+        print("First-party plugin README check failed: release allowlist is empty.", file=sys.stderr)
         return 1
     failures: list[str] = []
     for module in modules:
@@ -179,11 +191,11 @@ def main() -> int:
         for error in validate_module(module):
             failures.append(f"plugins/{module.name}/README.md: {error}")
     if failures:
-        print("Official plugin README check failed:", file=sys.stderr)
+        print("First-party plugin README check failed:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print(f"PASS: {len(modules)} official plugin READMEs match their descriptors")
+    print(f"PASS: {len(modules)} first-party plugin READMEs match their descriptors")
     return 0
 
 
