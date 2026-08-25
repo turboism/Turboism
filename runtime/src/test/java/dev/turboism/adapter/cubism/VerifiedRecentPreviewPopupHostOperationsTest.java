@@ -135,22 +135,38 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     void closingLastRegistrationUnbindsTheCurrentMenu() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-close", ".cmo3");
         final JMenu menu = recentMenu(recent);
+        final java.util.Set<javax.swing.event.MenuListener> baseMenuListeners =
+            java.util.Set.of(menu.getMenuListeners());
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
         final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        final int baseMenuListeners = menu.getMenuListeners().length;
-        final int baseMouseListeners = item.getMouseListeners().length;
+        final java.util.Set<java.awt.event.MouseListener> baseMouseListeners =
+            java.util.Set.of(item.getMouseListeners());
 
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
         final Registration registration = popup.contribute(renderer("popup-renderer", PNG));
         SwingUtilities.invokeAndWait(() -> { });
-        assertTrue(menu.getMenuListeners().length > baseMenuListeners);
-        assertTrue(item.getMouseListeners().length > baseMouseListeners);
+        assertTrue(
+            java.util.Arrays.stream(menu.getMenuListeners())
+                .anyMatch(listener -> !baseMenuListeners.contains(listener)),
+            "the bridge must add its menu listener"
+        );
+        assertTrue(
+            java.util.Arrays.stream(item.getMouseListeners())
+                .anyMatch(listener -> !baseMouseListeners.contains(listener)),
+            "the bridge must add its item listener"
+        );
 
         registration.close();
         SwingUtilities.invokeAndWait(() -> { });
-        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
-        assertEquals(baseMouseListeners, item.getMouseListeners().length);
+        assertTrue(
+            java.util.Arrays.stream(menu.getMenuListeners()).allMatch(baseMenuListeners::contains),
+            "closing the bridge must remove every menu listener it owns"
+        );
+        assertTrue(
+            java.util.Arrays.stream(item.getMouseListeners()).allMatch(baseMouseListeners::contains),
+            "closing the bridge must remove every item listener it owns"
+        );
     }
 
     @Test
