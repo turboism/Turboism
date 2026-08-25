@@ -246,12 +246,11 @@ PYEOF
 
 zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
 zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
-# sidecar 内容为仓库根相对路径：`sha256sum -c build/windows-installer/dist/*.sha256`
-# 需在仓库根目录执行（最终验证批次约定）
+# sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
-  cd "$repo_root"
-  sha256sum "build/windows-installer/dist/turboism-$VER-lite.zip" > "build/windows-installer/dist/turboism-$VER-lite.zip.sha256"
-  sha256sum "build/windows-installer/dist/turboism-$VER-full.zip" > "build/windows-installer/dist/turboism-$VER-full.zip.sha256"
+  cd "$dist"
+  sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
+  sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
 )
 
 # ---------- 5. NSIS 安装器 ----------
@@ -288,8 +287,8 @@ else
   fi
   makensis "${nsis_args[@]}" "$pkg_dir/installer.nsi"
   (
-    cd "$repo_root"
-    sha256sum "build/windows-installer/dist/TurboismInstaller-$VER.exe" > "build/windows-installer/dist/TurboismInstaller-$VER.exe.sha256"
+    cd "$dist"
+    sha256sum "TurboismInstaller-$VER.exe" > "TurboismInstaller-$VER.exe.sha256"
   )
 fi
 

@@ -460,10 +460,10 @@ tasks.named("izPackCreateInstaller") {
                 digest.update(buf, 0, n)
             }
         }
-        // sidecar 使用仓库根相对路径（最终验证批次在仓库根执行 sha256sum -c）
-        val relPath = rootProject.layout.projectDirectory.asFile.toPath()
-            .relativize(jar.toPath()).toString().replace('\\', '/')
-        shaFile.writeText(java.util.HexFormat.of().formatHex(digest.digest()) + "  " + relPath + "\n")
+        // 只记录同目录文件名，使发布附件下载后可直接运行 sha256sum -c。
+        shaFile.writeText(
+            java.util.HexFormat.of().formatHex(digest.digest()) + "  " + jar.name + "\n"
+        )
         logger.lifecycle("Turboism installer: ${jar.absolutePath} (${jar.length()} bytes)")
     }
 }

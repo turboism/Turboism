@@ -46,7 +46,7 @@ def archive(path: Path, version: str, full: bool) -> None:
 
 def sidecar(path: Path) -> None:
     path.with_name(path.name + ".sha256").write_text(
-        f"{release.sha256(path)}  build/windows-installer/dist/{path.name}\n",
+        f"{release.sha256(path)}  {path.name}\n",
         encoding="utf-8",
     )
 
@@ -105,6 +105,16 @@ class ReleaseVerifierTest(unittest.TestCase):
     def test_rejects_extra_artifact(self):
         dist = self.fixture()
         (dist / "unexpected.txt").write_text("x", encoding="utf-8")
+        with self.assertRaises(ValueError):
+            release.verify(dist, "0.42.0")
+
+    def test_rejects_nonportable_sidecar_path(self):
+        dist = self.fixture()
+        artifact = dist / "TurboismInstaller-0.42.0.exe"
+        artifact.with_name(artifact.name + ".sha256").write_text(
+            f"{release.sha256(artifact)}  build/windows-installer/dist/{artifact.name}\n",
+            encoding="utf-8",
+        )
         with self.assertRaises(ValueError):
             release.verify(dist, "0.42.0")
 
