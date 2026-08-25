@@ -173,9 +173,11 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     void contributionClosedBeforeEdtInstallationDoesNotLeakTracking() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-race", ".cmo3");
         final JMenu menu = recentMenu(recent);
+        final java.util.Set<javax.swing.event.MenuListener> baseMenuListeners =
+            java.util.Set.of(menu.getMenuListeners());
         final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        final int baseMenuListeners = menu.getMenuListeners().length;
-        final int baseMouseListeners = item.getMouseListeners().length;
+        final java.util.Set<java.awt.event.MouseListener> baseMouseListeners =
+            java.util.Set.of(item.getMouseListeners());
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
 
         final VerifiedRecentPreviewPopupHostOperations popup =
@@ -185,8 +187,14 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         SwingUtilities.invokeAndWait(() -> { });
 
         assertEquals(0, popup.rendererCountForTest());
-        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
-        assertEquals(baseMouseListeners, item.getMouseListeners().length);
+        assertTrue(
+            java.util.Arrays.stream(menu.getMenuListeners()).allMatch(baseMenuListeners::contains),
+            "closing before installation must leave no bridge menu listener"
+        );
+        assertTrue(
+            java.util.Arrays.stream(item.getMouseListeners()).allMatch(baseMouseListeners::contains),
+            "closing before installation must leave no bridge item listener"
+        );
     }
 
     @Test
