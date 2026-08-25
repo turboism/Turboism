@@ -83,7 +83,19 @@ final class McpPromptCatalog {
             prompt("run_editor_command", "Run editor command",
                 "Discover and execute one available non-file Cubism Editor command.",
                 "Read turboism://host/editor-commands, select only a listed command, provide exactly its "
-                    + "declared parameters, execute it, and report the returned status.")
+                    + "declared parameters, execute it, and report the returned status."),
+            prompt("diagnose_environment", "Diagnose environment",
+                "Inspect Cubism Core, workspace, layout, and sanitized runtime diagnostics without mutation.",
+                "Read turboism://environment/cubism-core, turboism://environment/workspace, "
+                    + "turboism://environment/workspace/layout, and turboism://environment/diagnostics. "
+                    + "Distinguish typed UNAVAILABLE states from permission, unsupported, timeout, and "
+                    + "cancellation errors. Report blockers and do not call mutation tools."),
+            prompt("inspect_model_diagnostics", "Inspect model diagnostics",
+                "Inspect active model scale and texture structure without mutation.",
+                "Read turboism://active/document, turboism://active/model/overview, "
+                    + "turboism://active/model/statistics, and turboism://active/model/textures. Summarize "
+                    + "model scale, texture organization, mask and offscreen risks, and unavailable data. "
+                    + "Do not call mutation tools.")
         ));
     }
 
