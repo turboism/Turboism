@@ -178,6 +178,39 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
         includeTestsMatching(
             "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
         )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
+        )
         isFailOnNoMatchingTests = true
     }
 }
@@ -189,6 +222,39 @@ tasks.named<Test>("test") {
         )
         excludeTestsMatching(
             "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorDocumentReadSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorInspectorDrawableSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorInspectorSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorObjectReadSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorParameterBindingSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorPartNameSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorPartOpacitySelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorStructureSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.EditorTextureSelectorContractTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.VerifiedCorePublicApiResolverFactoryTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.mapping.verification.VerifiedEditorStartupResolverFactoriesTest"
         )
     }
 }
