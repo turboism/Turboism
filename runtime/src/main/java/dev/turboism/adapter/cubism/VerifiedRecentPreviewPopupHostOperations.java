@@ -583,6 +583,14 @@ public final class VerifiedRecentPreviewPopupHostOperations
         return selectionListener != null || menuBinding != null;
     }
 
+    /** Test visibility: whether this bridge owns the current menu and item binding. */
+    boolean ownsBindingForTest(final JMenu menu, final JMenuItem item) {
+        requireEventDispatchThread();
+        return menuBinding != null
+            && menuBinding.menu == menu
+            && menuBinding.items.containsKey(item);
+    }
+
     /** Test visibility: the currently active popup, or null. */
     Popup activePopupForTest() {
         return activePopup;
