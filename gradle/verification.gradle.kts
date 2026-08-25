@@ -483,6 +483,38 @@ fun registerClipMaskViewerHostValidation(name: String, version: String, displayV
 
 registerClipMaskViewerHostValidation("validateClipMaskViewerHost5302", "5302", "5.3.02")
 registerClipMaskViewerHostValidation("validateClipMaskViewerHost5203", "5203", "5.2.03")
+
+val buildMcpHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK MCP host lifecycle probe."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/mcp-host-probe/build.sh")
+}
+
+val packageMcpHostValidation by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Packages the production MCP plugin, lifecycle probe, and redacted validation client."
+    dependsOn("previewBundle", ":plugins:mcp:jar", buildMcpHostProbe)
+    workingDir(rootDir)
+    environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+    commandLine("bash", "scripts/preview/package-windows-mcp-validation.sh")
+}
+
+fun registerMcpHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the automated exact-host Cubism $displayVersion MCP protocol and workflow matrix."
+        dependsOn(packageMcpHostValidation)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-mcp-host-validation.sh", version)
+    }
+}
+
+registerMcpHostValidation("validateMcpHost5302", "5302", "5.3.02")
+registerMcpHostValidation("validateMcpHost5203", "5203", "5.2.03")
+
 fun registerThemeHostValidation(name: String, version: String, displayVersion: String) {
     tasks.register<Exec>(name) {
         group = "host verification"

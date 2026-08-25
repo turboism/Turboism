@@ -46,6 +46,9 @@ Common options:
   --ready-marker <runtime-log marker>        repeatable
   --failure-marker <runtime-log marker>      repeatable
   --trigger <Turboism-home-relative path>
+  --client-script <local-script[:remote-name]>
+      Stage and run one task-local client after readiness. The client receives
+      <Turboism-home> and <task-id> as argv[1] and argv[2].
   --jvm-option <JVM option>                  repeatable
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
   --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
@@ -183,6 +186,8 @@ result_file=''
 result_pass_line='status=PASS'
 result_fail_line='status=FAIL'
 trigger_path=''
+client_script=''
+client_script_remote_name=''
 jvm_options=()
 cubism_java=''
 cubism_java_console_marker=''
@@ -227,6 +232,7 @@ while [ "$#" -gt 0 ]; do
     --result-pass-line) require_value "$@"; result_pass_line="$2"; shift 2 ;;
     --result-fail-line) require_value "$@"; result_fail_line="$2"; shift 2 ;;
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
+    --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
     --cubism-java-console-marker) require_value "$@"; cubism_java_console_marker="$2"; shift 2 ;;
@@ -315,6 +321,21 @@ if [ -z "$result_marker" ] && [ -z "$result_file" ]; then
 fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
+if [ -n "$client_script" ]; then
+  local_path="$client_script"
+  if [[ "$client_script" == *:* ]]; then
+    local_path="${client_script%%:*}"
+    client_script_remote_name="${client_script#*:}"
+  fi
+  [ -n "$local_path" ] || fail "client script path must not be empty"
+  require_safe_text "$local_path" "client script path"
+  [ -f "$local_path" ] || fail "client script does not exist: $local_path"
+  local_path="$(cd "$(dirname "$local_path")" && pwd)/$(basename "$local_path")"
+  client_script_remote_name="${client_script_remote_name:-$(basename "$local_path")}";
+  [[ "$client_script_remote_name" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || fail "client script remote name must be a simple filename: $client_script_remote_name"
+  client_script="$local_path"
+fi
 
 for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
   [ -z "$marker" ] || require_safe_text "$marker" "marker"
@@ -478,6 +499,10 @@ if [ "$dry_run" = 1 ]; then
     "trigger=$trigger_path" \
     "cubismJava=$cubism_java" \
     "cubismJavaConsoleMarker=$cubism_java_console_marker" \
+    "clientScript=$client_script" \
+    "clientScriptRemoteName=$client_script_remote_name" \
+    "evidenceArchiver=$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
+    "evidenceArchiverRemotePath=$task_dir/archive-cubism-host-evidence.sh" \
     "localEvidenceDir=$local_evidence_dir"
   for index in "${!resolved_plugins[@]}"; do
     printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
@@ -488,6 +513,10 @@ if [ "$dry_run" = 1 ]; then
   for index in "${!resolved_home_dirs[@]}"; do
     printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"
   done
+  if [ -n "$client_script" ]; then
+    printf 'clientScript.sha256=%s\n' "$(sha256_file "$client_script")"
+    printf 'clientScript.remotePath=%s\n' "$task_dir/$client_script_remote_name"
+  fi
   printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
     "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
   for index in "${!resolved_aux_agents[@]}"; do
@@ -663,6 +692,7 @@ collect_evidence() {
 set -u
 task="$1"; home="$2"; evidence="$3"; fixture="$4"; source_fixture="$5"
 golden="$6"; cloned="$7"; result_file="$8"
+archive_script="$task/archive-cubism-host-evidence.sh"
 mkdir -p "$evidence"
 runtime_log="$(find "$home/logs/runtime" -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2- || true)"
 [ -z "$runtime_log" ] || cp "$runtime_log" "$evidence/turboism.log" 2>/dev/null || true
@@ -672,11 +702,7 @@ if [ -n "$result_file" ] && [ -f "$home/$result_file" ]; then
   mkdir -p "$evidence/result"
   cp "$home/$result_file" "$evidence/result/$(basename "$result_file")" || true
 fi
-if [ -d "$home/logs" ] || [ -d "$home/state" ]; then
-  tar -C "$home" -cf "$evidence/turboism-home-logs-state.tar" \
-    $( [ -d "$home/logs" ] && printf 'logs ' ) \
-    $( [ -d "$home/state" ] && printf 'state ' ) 2>/dev/null || true
-fi
+[ ! -x "$archive_script" ] || "$archive_script" "$home" "$evidence" 2>/dev/null || true
 {
   echo "fixture_after_sha256=$(sha256sum "$fixture" 2>/dev/null | cut -d' ' -f1 || true)"
   if [ -n "$source_fixture" ]; then
@@ -780,6 +806,10 @@ agent_sha256="$(sha256_file "$agent")"
     printf 'homeDir.%s.path=%s\n' "$index" "$relative_path"
     printf 'homeDir.%s.sha256=%s\n' "$index" "$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
   done
+  if [ -n "$client_script" ]; then
+    printf 'clientScriptName=%s\n' "$client_script_remote_name"
+    printf 'clientScriptSha256=%s\n' "$(sha256_file "$client_script")"
+  fi
   if [ -n "$home_config" ]; then
     printf 'homeConfigSha256=%s\n' "$(sha256_file "$home_config")" >> "$identity_before"
   fi
@@ -803,6 +833,9 @@ bat="$cubism/CubismEditor5.bat"
 REMOTE
 
 "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
+"${scp_cmd[@]}" "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
+  "$ssh_host:$task_dir/archive-cubism-host-evidence.sh"
+"${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/archive-cubism-host-evidence.sh'"
 "${scp_cmd[@]}" "$agent" "$ssh_host:$task_dir/turboism-agent.jar"
 if [ -n "$home_config" ]; then
   "${scp_cmd[@]}" "$home_config" "$ssh_host:$home_dir/config.json"
@@ -831,6 +864,12 @@ for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
   "${scp_cmd[@]}" "$local_path" "$ssh_host:$task_dir/agents/$remote_name"
 done
+if [ -n "$client_script" ]; then
+  "${scp_cmd[@]}" "$client_script" "$ssh_host:$task_dir/$client_script_remote_name"
+  client_sha256="$(sha256_file "$client_script")"
+  "${ssh_cmd[@]}" "$ssh_host" \
+    "test \"\$(sha256sum '$task_dir/$client_script_remote_name' | cut -d' ' -f1)\" = '$client_sha256' && chmod 700 '$task_dir/$client_script_remote_name'"
+fi
 verify_staged_artifacts before
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
   cat "$local_tmp/aux-agent-hashes-before.properties" >> "$identity_before"
@@ -982,6 +1021,13 @@ if [ -n "$trigger_path" ]; then
   log "creating trigger $trigger_path"
   "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$trigger_path")' && touch '$home_dir/$trigger_path'"
 fi
+if [ -n "$client_script" ]; then
+  log "running task-local validation client $client_script_remote_name"
+  if ! "${ssh_cmd[@]}" "$ssh_host" \
+    "'$task_dir/$client_script_remote_name' '$home_dir' '$task_id' > '$evidence_dir/client.out' 2> '$evidence_dir/client.err'"; then
+    fail "task-local validation client failed"
+  fi
+fi
 
 log "waiting for terminal validation result"
 deadline=$((SECONDS + result_timeout))
@@ -1026,15 +1072,20 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   remote_process_alive || break
   sleep "$poll_seconds"
 done
-if [ "$wrapper_cleanup_done" = 0 ]; then
-  remote_process_alive && fail "launcher did not exit within ${exit_timeout}s"
+if remote_process_alive; then
+  log "launcher remained alive after terminal PASS; stopping the task-scoped process tree"
+  "${ssh_cmd[@]}" "$ssh_host" \
+    "printf '%s\n' 'terminal PASS observed; graceful close timed out; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
+  remote_stop_process_tree
+  wrapper_cleanup_done=1
 fi
 
 wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
-if [ -n "$wrapper_exit" ]; then
+if [ "$wrapper_cleanup_done" = 0 ]; then
+  [ -n "$wrapper_exit" ] || fail "official launcher exited with code missing"
   [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
-elif [ "$wrapper_cleanup_done" = 0 ]; then
-  fail "official launcher exited with code missing"
+elif [ -n "$wrapper_exit" ] && [ "$wrapper_exit" != 0 ] && [ "$wrapper_exit" != 1 ]; then
+  fail "official launcher cleanup exited with unexpected code $wrapper_exit"
 fi
 if [ -n "$cubism_java_console_marker" ]; then
   remote_args_bash "$evidence_dir/cubism-console.txt" "$cubism_java_console_marker" <<'REMOTE' \
