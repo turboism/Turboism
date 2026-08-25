@@ -3,7 +3,7 @@ set -euo pipefail
 
 ROOT="$(git rev-parse --show-toplevel)"
 BUILDER="$ROOT/scripts/test/build_sdk_api_reference.py"
-ANCHOR="fa76a90c236af7f1b393c807176c8e38dac6977e"
+ANCHOR="c3f2a8f47465a78c297b7e2e125aa47e7681e82e"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
