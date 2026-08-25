@@ -12,9 +12,12 @@ import dev.turboism.sdk.cubism.service.query.ModelHierarchyQueryService;
 import dev.turboism.sdk.cubism.service.query.ParameterQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.workspace.WorkspaceService;
+import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -104,6 +107,12 @@ final class McpHttpServer implements AutoCloseable {
             final CubismFacade cubism = context.cubism();
             stage.enter("context.cubism().history()");
             final CubismHistory history = cubism.history();
+            stage.enter("context.workspace()");
+            final WorkspaceService workspace = context.workspace();
+            stage.enter("context.workspaceLayout()");
+            final WorkspaceLayoutService workspaceLayout = context.workspaceLayout();
+            stage.enter("context.diagnostics()");
+            final DiagnosticReport diagnostics = context.diagnostics();
             stage.enter("context.editorCommands()");
             final EditorCommandService editorCommands = context.editorCommands();
             stage.enter("context.uiScheduler()");
@@ -128,6 +137,9 @@ final class McpHttpServer implements AutoCloseable {
                 clipMasks,
                 cubism,
                 history,
+                workspace,
+                workspaceLayout,
+                diagnostics,
                 editorCommands,
                 uiScheduler,
                 stateDir,
@@ -194,6 +206,13 @@ final class McpHttpServer implements AutoCloseable {
             final McpHistoryCommandDomain historyCommands = new McpHistoryCommandDomain(
                 checked.history(), checked.editorCommands()
             );
+            final McpDiagnosticsDomain diagnostics = new McpDiagnosticsDomain(
+                checked.cubism(),
+                checked.workspace(),
+                checked.workspaceLayout(),
+                checked.diagnostics(),
+                execution
+            );
             transport = new McpHttpServer(
                 server,
                 executor,
@@ -206,6 +225,7 @@ final class McpHttpServer implements AutoCloseable {
                     ),
                     McpResourceCatalog.combine(
                         production.resourceCatalog(),
+                        diagnostics.resourceCatalog(),
                         parameters.resourceCatalog(),
                         historyCommands.resources()
                     ),
@@ -676,6 +696,9 @@ final class McpHttpServer implements AutoCloseable {
         CubismClipMaskService clipMasks,
         CubismFacade cubism,
         CubismHistory history,
+        WorkspaceService workspace,
+        WorkspaceLayoutService workspaceLayout,
+        DiagnosticReport diagnostics,
         EditorCommandService editorCommands,
         UiScheduler uiScheduler,
         Path stateDir,
@@ -707,6 +730,9 @@ final class McpHttpServer implements AutoCloseable {
                 clipMasks,
                 unavailableCubism(),
                 CubismHistory.unavailable(),
+                WorkspaceService.unavailable(),
+                WorkspaceLayoutService.unavailable(),
+                emptyDiagnostics(),
                 EditorCommandService.unavailable(),
                 uiScheduler,
                 stateDir,
@@ -714,6 +740,13 @@ final class McpHttpServer implements AutoCloseable {
                 token,
                 requestsPerMinute
             );
+        }
+
+        private static DiagnosticReport emptyDiagnostics() {
+            return new DiagnosticReport() {
+                @Override public Instant createdAt() { return Instant.EPOCH; }
+                @Override public java.util.List<Problem> problems() { return java.util.List.of(); }
+            };
         }
 
         private static CubismFacade unavailableCubism() {
@@ -757,6 +790,9 @@ final class McpHttpServer implements AutoCloseable {
             clipMasks = Objects.requireNonNull(clipMasks, "clipMasks");
             cubism = Objects.requireNonNull(cubism, "cubism");
             history = Objects.requireNonNull(history, "history");
+            workspace = Objects.requireNonNull(workspace, "workspace");
+            workspaceLayout = Objects.requireNonNull(workspaceLayout, "workspaceLayout");
+            diagnostics = Objects.requireNonNull(diagnostics, "diagnostics");
             editorCommands = Objects.requireNonNull(editorCommands, "editorCommands");
             uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
             stateDir = Objects.requireNonNull(stateDir, "stateDir").toAbsolutePath().normalize();
