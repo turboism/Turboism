@@ -44,4 +44,4 @@ jobs:
           java-version: "17"
           cache: gradle
       - name: Deterministic non-GUI installer verification
-        run: ./gradlew checkJavaInstaller -PinstallerVersion=0.1.0-test --console=plain
+        run: ./gradlew checkJavaInstaller -PinstallerVersion=0.42.0 -PturboismRelease=true --console=plain

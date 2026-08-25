@@ -114,7 +114,6 @@ class ProjectLifecycleHostProfileTest {
         final List<Path> candidates = new java.util.ArrayList<>();
         if (configured != null && !configured.isBlank()) candidates.add(Path.of(configured));
         candidates.add(PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref").normalize());
-        candidates.add(Path.of("<local-workspace>/turboism-legacy/cubism-ref"));
         return candidates.stream()
             .filter(Files::isDirectory)
             .findFirst()
