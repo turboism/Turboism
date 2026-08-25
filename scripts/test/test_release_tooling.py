@@ -60,6 +60,13 @@ class ReleaseNotesTest(unittest.TestCase):
             notes.extract("# Changelog\n", "0.42.0")
 
 
+class ReleaseWorkflowTest(unittest.TestCase):
+    def test_does_not_claim_unavailable_licensed_evidence(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertNotIn("TURBOISM_LEGACY_EVIDENCE", workflow)
+        self.assertIn("./gradlew --no-daemon checkRelease", workflow)
+
+
 class ReleaseVerifierTest(unittest.TestCase):
     def fixture(self, version="0.42.0") -> Path:
         dist = Path(tempfile.mkdtemp(prefix="release-tooling-"))
