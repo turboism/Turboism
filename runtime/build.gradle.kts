@@ -165,6 +165,34 @@ val corePublicApiProviderTest by tasks.registering(Test::class) {
     }
 }
 
+val legacyCubismEvidenceTest by tasks.registering(Test::class) {
+    group = "host verification"
+    description = "Runs tests that require separately supplied licensed Cubism binary evidence."
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching(
+            "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
+        )
+        includeTestsMatching(
+            "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
+        )
+        isFailOnNoMatchingTests = true
+    }
+}
+
+tasks.named<Test>("test") {
+    filter {
+        excludeTestsMatching(
+            "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
+        )
+        excludeTestsMatching(
+            "dev.turboism.adapter.cubism.lifecycle.ProjectLifecycleHostProfileTest"
+        )
+    }
+}
+
 tasks.named<ProcessResources>("processTestResources") {
     from(project(":testframework").file(
         "src/main/resources/fixtures/schema/preview-report-v1"
