@@ -61,6 +61,8 @@ jobs:
           sudo apt-get install --yes --no-install-recommends nsis
 
       - name: Run release verification
+        env:
+          TURBOISM_LEGACY_EVIDENCE: ${{ github.workspace }}/cubism-ref
         run: |
           ./gradlew --no-daemon checkRelease \
             -PinstallerVersion="${{ steps.version.outputs.version }}" \
