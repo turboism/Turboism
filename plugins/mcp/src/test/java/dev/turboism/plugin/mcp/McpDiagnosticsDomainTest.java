@@ -174,6 +174,22 @@ final class McpDiagnosticsDomainTest {
     }
 
     @Test
+    void missingActiveModelMakesModelDiagnosticResourcesUnavailable() {
+        final McpDiagnosticsDomain domain = domain(facadeWithoutActiveModel());
+
+        for (String uri : List.of(
+            McpDiagnosticsDomain.MODEL_STATISTICS,
+            McpDiagnosticsDomain.MODEL_TEXTURES
+        )) {
+            final McpResourceCatalog.ResourceFailure failure = assertThrows(
+                McpResourceCatalog.ResourceFailure.class,
+                () -> domain.resourceCatalog().read(uri)
+            );
+            assertEquals(McpResourceCatalog.ResourceFailure.Kind.UNAVAILABLE, failure.kind());
+        }
+    }
+
+    @Test
     void modelTexturesProjectTypedIdsAndNestedGroupsWithoutInvokingWrites() {
         final ModelTextures textures = textures();
         final McpDiagnosticsDomain domain = domain(model(
@@ -272,6 +288,23 @@ final class McpDiagnosticsDomainTest {
             diagnostics(),
             new McpExecutionBridge(immediateUi(), Duration.ofSeconds(1))
         );
+    }
+
+    private static CubismFacade facadeWithoutActiveModel() {
+        return new CubismFacade() {
+            @Override public CubismRuntimeSnapshot runtime() { throw unavailable(); }
+            @Override public Optional<ProjectSnapshot> activeProject() { return Optional.empty(); }
+            @Override public Optional<DocumentSnapshot> activeDocument() { return Optional.empty(); }
+            @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
+            @Override public boolean isHostPresent() { return true; }
+            @Override public CoreRuntimeInfo coreRuntime() {
+                return McpDiagnosticsDomainTest.coreRuntime(new boolean[1]);
+            }
+            @Override public CubismModelAccess model() {
+                return () -> { throw new IllegalStateException("No active Cubism model"); };
+            }
+            @Override public TransactionManager transactionManager() { throw unavailable(); }
+        };
     }
 
     private static CubismFacade facadeFailure(final RuntimeException failure) {

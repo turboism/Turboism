@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.core.CoreCapabilities;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.core.CoreVersion;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
+import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelStatistics;
@@ -158,7 +159,7 @@ final class McpDiagnosticsDomain {
 
     private Map<String, Object> modelStatistics() {
         return execution.ui(() -> {
-            final ModelStatistics value = cubism.model().active().statistics();
+            final ModelStatistics value = activeModel().statistics();
             return linked(
                 entry("parameterCount", value.parameterCount()),
                 entry("partCount", value.partCount()),
@@ -178,7 +179,7 @@ final class McpDiagnosticsDomain {
 
     private Map<String, Object> modelTextures() {
         return execution.ui(() -> {
-            final ModelTextures value = cubism.model().active().textures();
+            final ModelTextures value = activeModel().textures();
             return linked(
                 entry("rawImages", value.rawImages().stream()
                     .map(McpDiagnosticsDomain::rawTexture).toList()),
@@ -188,6 +189,14 @@ final class McpDiagnosticsDomain {
                     .map(McpDiagnosticsDomain::atlasTexture).toList())
             );
         });
+    }
+
+    private CubismModel activeModel() {
+        try {
+            return cubism.model().active();
+        } catch (IllegalStateException failure) {
+            throw new UnsupportedOperationException("Active Cubism model is unavailable", failure);
+        }
     }
 
     private static Map<String, Object> rawTexture(final RawTexture value) {
