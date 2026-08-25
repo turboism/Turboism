@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import re
 import tempfile
 import unittest
 import zipfile
@@ -65,6 +66,14 @@ class ReleaseWorkflowTest(unittest.TestCase):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertNotIn("TURBOISM_LEGACY_EVIDENCE", workflow)
         self.assertIn("./gradlew --no-daemon checkRelease", workflow)
+
+    def test_windows_zip_writer_uses_a_fixed_timestamp(self):
+        script = (
+            ROOT / "packaging/windows-installer/assemble-release.sh"
+        ).read_text(encoding="utf-8")
+        self.assertRegex(script, r"TIMESTAMP\s*=\s*\(1980, 1, 1, 0, 0, 0\)")
+        self.assertIn("zipfile.ZipInfo(name, TIMESTAMP)", script)
+        self.assertIsNone(re.search(r"\bz\.write\(", script))
 
 
 class ReleaseVerifierTest(unittest.TestCase):
