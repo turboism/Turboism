@@ -32,6 +32,7 @@ import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectChain;
 import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.projectResolver;
 import static dev.turboism.adapter.cubism.RecentPreviewHostFixture.recentMenu;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -173,28 +174,20 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     void contributionClosedBeforeEdtInstallationDoesNotLeakTracking() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-race", ".cmo3");
         final JMenu menu = recentMenu(recent);
-        final java.util.Set<javax.swing.event.MenuListener> baseMenuListeners =
-            java.util.Set.of(menu.getMenuListeners());
-        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        final java.util.Set<java.awt.event.MouseListener> baseMouseListeners =
-            java.util.Set.of(item.getMouseListeners());
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
 
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
         final Registration registration = popup.contribute(renderer("popup-renderer", PNG));
         registration.close();
-        SwingUtilities.invokeAndWait(() -> { });
+        SwingUtilities.invokeAndWait(() -> {
+            assertFalse(
+                popup.trackingInstalledForTest(),
+                "closing before installation must leave no bridge tracking"
+            );
+        });
 
         assertEquals(0, popup.rendererCountForTest());
-        assertTrue(
-            java.util.Arrays.stream(menu.getMenuListeners()).allMatch(baseMenuListeners::contains),
-            "closing before installation must leave no bridge menu listener"
-        );
-        assertTrue(
-            java.util.Arrays.stream(item.getMouseListeners()).allMatch(baseMouseListeners::contains),
-            "closing before installation must leave no bridge item listener"
-        );
     }
 
     @Test
