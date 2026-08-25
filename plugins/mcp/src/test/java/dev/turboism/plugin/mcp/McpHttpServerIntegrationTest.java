@@ -176,7 +176,7 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 4, "method", "resources/list")
             );
-            assertEquals(7, array(result(resources).get("resources")).size());
+            assertEquals(13, array(result(resources).get("resources")).size());
             final HttpResponse<byte[]> document = request(
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of(
@@ -444,7 +444,38 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 10, "method", "resources/list")
             );
-            assertEquals(7, array(result(listed).get("resources")).size());
+            assertEquals(13, array(result(listed).get("resources")).size());
+
+            final Map<String, Object> workspaceResource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 100, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.WORKSPACE)
+                )
+            ));
+            assertEquals("UNAVAILABLE", workspaceResource.get("availability"));
+            assertEquals("workspace.unavailable", workspaceResource.get("diagnosticCode"));
+
+            final Map<String, Object> layoutResource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 101, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.WORKSPACE_LAYOUT)
+                )
+            ));
+            assertEquals("UNAVAILABLE", layoutResource.get("availability"));
+            assertEquals("workspace.layout.unavailable", layoutResource.get("diagnosticCode"));
+
+            final Map<String, Object> diagnosticsResource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 102, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.DIAGNOSTICS)
+                )
+            ));
+            assertEquals("1970-01-01T00:00:00Z", diagnosticsResource.get("createdAt"));
+            assertEquals(List.of(), diagnosticsResource.get("problems"));
+            assertEquals(Boolean.FALSE, diagnosticsResource.get("truncated"));
 
             final Map<String, Object> documentResource = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,
