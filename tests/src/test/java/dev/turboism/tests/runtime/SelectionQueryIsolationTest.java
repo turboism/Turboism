@@ -97,9 +97,18 @@ class SelectionQueryIsolationTest {
         // Then
         assertTrue(dispatcher.dispatchCount() <= MAX_COALESCED_DISPATCHES);
         dispatcher.drain();
-        waitFor(() -> !events.isEmpty(), Duration.ofSeconds(1));
+        final List<ModelObjectId> latestSelection =
+            List.of(new ModelObjectId("deformer-root"));
+        waitFor(
+            () -> !events.isEmpty()
+                && events.get(events.size() - 1)
+                    .currentSelection()
+                    .selectedModelObjectIds()
+                    .equals(latestSelection),
+            Duration.ofSeconds(1)
+        );
         assertEquals(
-            List.of(new ModelObjectId("deformer-root")),
+            latestSelection,
             events.get(events.size() - 1).currentSelection().selectedModelObjectIds()
         );
     }
