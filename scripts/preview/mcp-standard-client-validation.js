@@ -21,7 +21,13 @@ const EXPECTED_RESOURCES = new Set([
   'turboism://active/model/hierarchy',
   'turboism://active/model/clip-masks',
   'turboism://active/model/parameters',
+  'turboism://active/model/statistics',
+  'turboism://active/model/textures',
   'turboism://active/document/history',
+  'turboism://environment/cubism-core',
+  'turboism://environment/workspace',
+  'turboism://environment/workspace/layout',
+  'turboism://environment/diagnostics',
   'turboism://host/editor-commands',
 ]);
 const EXPECTED_TEMPLATES = new Set([
@@ -35,6 +41,8 @@ const EXPECTED_PROMPTS = new Set([
   'repair_parameter_bindings',
   'recover_document_history',
   'run_editor_command',
+  'diagnose_environment',
+  'inspect_model_diagnostics',
 ]);
 
 function requireCondition(condition, message) {
@@ -128,13 +136,44 @@ async function main() {
       'prompts',
     );
     equalSet(new Set(prompts.map(value => value.name)), EXPECTED_PROMPTS, 'prompts');
-    const prompt = await client.getPrompt({ name: 'inspect_active_document', arguments: {} });
-    requireCondition(prompt.messages.length === 1, 'prompt rendering mismatch');
+    for (const name of [
+      'inspect_active_document',
+      'diagnose_environment',
+      'inspect_model_diagnostics',
+    ]) {
+      const prompt = await client.getPrompt({ name, arguments: {} });
+      requireCondition(prompt.messages.length === 1, `prompt ${name} rendering mismatch`);
+    }
 
     const document = await client.readResource({ uri: 'turboism://active/document' });
     requireCondition(document.contents.length === 1, 'active document content mismatch');
     requireCondition(document.contents[0].mimeType === 'application/json', 'active document MIME mismatch');
     JSON.parse(document.contents[0].text);
+
+    for (const uri of [
+      'turboism://environment/cubism-core',
+      'turboism://environment/workspace',
+      'turboism://environment/workspace/layout',
+      'turboism://environment/diagnostics',
+      'turboism://active/model/statistics',
+      'turboism://active/model/textures',
+    ]) {
+      const resource = await client.readResource({ uri });
+      requireCondition(resource.contents.length === 1, `${uri} content mismatch`);
+      requireCondition(resource.contents[0].mimeType === 'application/json', `${uri} MIME mismatch`);
+      const payload = JSON.parse(resource.contents[0].text);
+      if (uri === 'turboism://environment/diagnostics') {
+        requireCondition(Array.isArray(payload.problems), 'diagnostic problems missing');
+        requireCondition(typeof payload.truncated === 'boolean', 'diagnostic truncated flag missing');
+        for (const problem of payload.problems) {
+          requireCondition(
+            JSON.stringify(Object.keys(problem).sort())
+              === JSON.stringify(['code', 'message', 'severity']),
+            'diagnostic problem exposed unexpected fields',
+          );
+        }
+      }
+    }
 
     const history = await client.readResource({ uri: 'turboism://active/document/history' });
     const snapshot = JSON.parse(history.contents[0].text);

@@ -207,7 +207,7 @@ final class McpDiagnosticsDomainTest {
         final List<DiagnosticReport.Problem> problems = new java.util.ArrayList<>();
         problems.add(problem(
             "MAPPING_FAILED",
-            "Failed at /home/local-user/.proton/drive_c/model.cmo3\nthen C:\\Users\\rain\\secret.txt and file:///tmp/private.json\u0007",
+            "Failed at /opt/private/model.cmo3\nthen C:\\Users\\example\\secret.txt and file:///tmp/private.json\u0007",
             DiagnosticReport.Severity.ERROR
         ));
         for (int index = 0; index < 105; index++) {
@@ -227,7 +227,7 @@ final class McpDiagnosticsDomainTest {
         assertEquals("ERROR", first.get("severity"));
         assertFalse(first.containsKey("path"));
         final String message = (String) first.get("message");
-        assertFalse(message.contains("/home/"));
+        assertFalse(message.contains("/opt/private"));
         assertFalse(message.contains("C:\\Users"));
         assertFalse(message.contains("file:"));
         assertFalse(message.contains("\n"));
