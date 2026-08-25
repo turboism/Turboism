@@ -159,6 +159,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     }
 
     @Override
+    public synchronized Optional<PluginDetails> details(final String pluginId) {
+        if (pluginId == null || pluginId.isBlank()) return Optional.empty();
+        final PluginInfo plugin = plugins().stream()
+            .filter(candidate -> candidate.id().equals(pluginId))
+            .findFirst()
+            .orElse(null);
+        if (plugin == null) return Optional.empty();
+        if (plugin.core()) return Optional.of(coreDetails(plugin));
+        return installedArchive(pluginId)
+            .flatMap(path -> PluginArchiveMetadata.read(path, metadataLocale.get(), metadataDiagnostics))
+            .map(metadata -> details(plugin, metadata))
+            .or(() -> Optional.of(PluginDetails.summary(plugin)));
+    }
+
+    @Override
     public synchronized OperationResult install() {
         return stage(synchronousPackageChooser.get());
     }
@@ -358,6 +373,30 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             "Built-in menu, toolbar, settings, tab, and plugin management.",
             PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty(),
             "system", List.of());
+    }
+
+    private static PluginDetails details(
+        final PluginInfo plugin,
+        final PluginArchiveMetadata metadata
+    ) {
+        return new PluginDetails(
+            plugin, metadata.turboismApi(), metadata.authors(), metadata.license(), metadata.website(),
+            metadata.dependencies(), metadata.permissions(), metadata.capabilities(),
+            metadata.requiresCubism(), metadata.ui(), metadata.entrypoints(), metadata.resources(),
+            metadata.i18nBaseName(), metadata.locales(), metadata.eventExports(), metadata.eventImports(),
+            metadata.readme()
+        );
+    }
+
+    private PluginDetails coreDetails(final PluginInfo plugin) {
+        final Optional<PluginArchiveMetadata> metadata = PluginArchiveMetadata.readCore(
+            RuntimePluginManagementService.class.getClassLoader(), metadataLocale.get(), metadataDiagnostics
+        );
+        return metadata.map(value -> details(plugin, value)).orElseGet(() -> new PluginDetails(
+            plugin, "[0.1.0,0.2.0)", List.of(new Author("Turboism Contributors", Optional.empty())),
+            "Project License", Optional.of("https://turboism.dev"), List.of(), List.of(), List.of(),
+            false, "none", List.of(), List.of(), "", List.of(), List.of(), List.of(), Optional.empty()
+        ));
     }
 
     private static Optional<Path> choosePluginPackage() {

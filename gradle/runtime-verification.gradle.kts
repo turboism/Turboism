@@ -2,6 +2,7 @@ import org.gradle.api.Project
 import org.gradle.api.file.FileCollection
 import org.gradle.api.tasks.JavaExec
 import org.gradle.api.tasks.SourceSetContainer
+import java.util.jar.JarFile
 
 private fun Project.runtimeMainClasspath() = project(":runtime").extensions
     .getByType<SourceSetContainer>().named("main").get().runtimeClasspath
@@ -93,5 +94,49 @@ tasks.register<JavaExec>("verifyFirstPartyPluginMetadata") {
             listOf(descriptor.absolutePath, jar.absolutePath)
         }
         setArgs(pairs)
+    }
+}
+
+val firstPartyReadmeFiles = files(
+    firstPartyPluginProjects.map { it.file("README.md") }
+)
+
+val verifyFirstPartyPluginReadmes by tasks.registering {
+    group = "verification"
+    description = "Verify every first-party plugin README is packaged byte-for-byte in its JAR."
+    dependsOn(firstPartyPluginProjects.map { "${it.path}:jar" })
+    inputs.files(firstPartyReadmeFiles)
+    inputs.files(firstPartyJarFiles)
+    doLast {
+        val readmePath = "META-INF/turboism/readme/README.md"
+        val failures = mutableListOf<String>()
+        firstPartyPluginProjects.sortedBy { it.name }.forEach { plugin ->
+            val source = plugin.file("README.md")
+            if (!source.isFile) {
+                failures += "${plugin.path}: README.md is missing"
+                return@forEach
+            }
+            val jar = plugin.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+            if (!jar.isFile) {
+                failures += "${plugin.path}: built JAR is missing"
+                return@forEach
+            }
+            JarFile(jar).use { archive ->
+                val entries = archive.entries().asSequence()
+                    .filter { it.name == readmePath }
+                    .toList()
+                if (entries.size != 1) {
+                    failures += "${plugin.path}: expected exactly one $readmePath entry; found ${entries.size}"
+                    return@use
+                }
+                val packaged = archive.getInputStream(entries.single()).use { it.readBytes() }
+                if (!packaged.contentEquals(source.readBytes())) {
+                    failures += "${plugin.path}: packaged README differs from README.md"
+                }
+            }
+        }
+        if (failures.isNotEmpty()) {
+            throw GradleException(failures.joinToString("\n", prefix = "First-party plugin README verification failed:\n"))
+        }
     }
 }

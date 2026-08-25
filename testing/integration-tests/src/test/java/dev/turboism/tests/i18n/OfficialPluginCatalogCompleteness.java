@@ -51,6 +51,9 @@ final class OfficialPluginCatalogCompleteness {
     private static final Set<String> REVIEWED_TECHNICAL_EQUAL_KEYS = Set.of(
         "common.turboism",
         "plugins.column.id",
+        "plugins.details.api",
+        "plugins.details.id",
+        "plugins.details.readme",
         "table.id",
         "tooltip.guid",
         "theme.detail.id",
