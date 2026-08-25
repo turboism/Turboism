@@ -4,19 +4,75 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /** Stateless MCP 2025-11-25 JSON-RPC dispatcher. */
 final class McpProtocol {
 
     static final String VERSION = "2025-11-25";
+    static final Set<String> SUPPORTED_VERSIONS = Set.of(
+        VERSION,
+        "2025-06-18",
+        "2025-03-26"
+    );
 
-    private final McpTools tools;
+    private final McpToolCatalog tools;
+    private final McpResourceCatalog resources;
+    private final McpPromptCatalog prompts;
+    private final McpRequestRegistry requests;
 
-    McpProtocol(final McpTools tools) {
+    McpProtocol(final McpTools legacyTools) {
+        this(
+            new McpToolCatalog(legacyTools.definitions(), legacyTools::call),
+            McpResourceCatalog.empty(),
+            McpPromptCatalog.defaults(),
+            new McpRequestRegistry()
+        );
+    }
+
+    McpProtocol(
+        final McpToolCatalog tools,
+        final McpResourceCatalog resources,
+        final McpPromptCatalog prompts
+    ) {
+        this(tools, resources, prompts, new McpRequestRegistry());
+    }
+
+    McpProtocol(
+        final McpToolCatalog tools,
+        final McpResourceCatalog resources,
+        final McpPromptCatalog prompts,
+        final McpRequestRegistry requests
+    ) {
         this.tools = Objects.requireNonNull(tools, "tools");
+        this.resources = Objects.requireNonNull(resources, "resources");
+        this.prompts = Objects.requireNonNull(prompts, "prompts");
+        this.requests = Objects.requireNonNull(requests, "requests");
+    }
+
+    static McpProtocol forCatalogs(
+        final McpToolCatalog tools,
+        final McpResourceCatalog resources,
+        final McpPromptCatalog prompts
+    ) {
+        return new McpProtocol(tools, resources, prompts);
+    }
+
+    static McpProtocol forCatalogs(
+        final McpToolCatalog tools,
+        final McpResourceCatalog resources,
+        final McpPromptCatalog prompts,
+        final McpRequestRegistry requests
+    ) {
+        return new McpProtocol(tools, resources, prompts, requests);
     }
 
     Outcome handle(final Object message) {
+        return handle(message, "local");
+    }
+
+    Outcome handle(final Object message, final String sessionId) {
+        final String cursorScope = Objects.requireNonNull(sessionId, "sessionId");
         if (!(message instanceof Map<?, ?> raw)) {
             return Outcome.response(200, error(null, -32600, "Invalid Request", null));
         }
@@ -40,23 +96,49 @@ final class McpProtocol {
                 : Outcome.response(200, error(id, -32600, "Invalid Request", "method is required"));
         }
         if (notification) {
+            if ("notifications/cancelled".equals(method)) {
+                try {
+                    final Map<String, Object> params = params(request.get("params"));
+                    only(params, "requestId", "reason", "_meta");
+                    final Object requestId = params.get("requestId");
+                    if (requestId == null) {
+                        throw new IllegalArgumentException("requestId is required");
+                    }
+                    requests.cancel(cursorScope, requestId);
+                } catch (IllegalArgumentException ignored) {
+                    // JSON-RPC notifications never receive an error response.
+                }
+            }
             return Outcome.accepted();
         }
 
-        try {
+        try (McpRequestRegistry.Scope ignored = requests.enter(cursorScope, id)) {
             final Map<String, Object> params = params(request.get("params"));
             final Object result = switch (method) {
                 case "initialize" -> initialize(params);
                 case "ping" -> Map.of();
-                case "tools/list" -> listTools(params);
+                case "tools/list" -> listTools(params, cursorScope);
                 case "tools/call" -> callTool(params);
+                case "resources/list" -> listResources(params, cursorScope);
+                case "resources/templates/list" -> listResourceTemplates(params, cursorScope);
+                case "resources/read" -> readResource(params);
+                case "prompts/list" -> listPrompts(params, cursorScope);
+                case "prompts/get" -> getPrompt(params);
                 default -> throw new MethodNotFound(method);
             };
             return Outcome.response(200, success(id, result));
+        } catch (McpResourceCatalog.ResourceNotFound failure) {
+            return Outcome.response(200, error(id, -32002, "Resource not found", failure.getMessage()));
+        } catch (McpResourceCatalog.ResourceFailure failure) {
+            return Outcome.response(200, resourceFailure(id, failure));
         } catch (MethodNotFound failure) {
             return Outcome.response(200, error(id, -32601, "Method not found", failure.getMessage()));
         } catch (IllegalArgumentException failure) {
             return Outcome.response(200, error(id, -32602, "Invalid params", failure.getMessage()));
+        } catch (java.util.concurrent.CancellationException failure) {
+            return "tools/call".equals(method)
+                ? Outcome.response(200, success(id, cancelledToolResult()))
+                : Outcome.response(200, error(id, -32800, "Request cancelled", null));
         } catch (RuntimeException failure) {
             return Outcome.response(200, error(id, -32603, "Internal error", "request failed"));
         }
@@ -64,6 +146,36 @@ final class McpProtocol {
 
     static Map<String, Object> parseError(final String detail) {
         return error(null, -32700, "Parse error", detail);
+    }
+
+    private static Map<String, Object> resourceFailure(
+        final Object id,
+        final McpResourceCatalog.ResourceFailure failure
+    ) {
+        return switch (failure.kind()) {
+            case PERMISSION_DENIED -> error(
+                id,
+                -32001,
+                "Resource permission denied",
+                failure.getMessage()
+            );
+            case UNAVAILABLE -> error(
+                id,
+                -32003,
+                "Resource unavailable",
+                failure.getMessage()
+            );
+            case TIMEOUT -> error(id, -32004, "Resource read timed out", failure.getMessage());
+            case FAILED -> error(id, -32603, "Internal error", "resource read failed");
+        };
+    }
+
+    static java.util.Optional<String> negotiatedVersion(final Outcome outcome) {
+        if (!(outcome.body() instanceof Map<?, ?> envelope)) return java.util.Optional.empty();
+        if (!(envelope.get("result") instanceof Map<?, ?> result)) return java.util.Optional.empty();
+        final Object value = result.get("protocolVersion");
+        return value instanceof String version && SUPPORTED_VERSIONS.contains(version)
+            ? java.util.Optional.of(version) : java.util.Optional.empty();
     }
 
     private Map<String, Object> initialize(final Map<String, Object> params) {
@@ -78,28 +190,31 @@ final class McpProtocol {
         if (params.containsKey("clientInfo") && !(params.get("clientInfo") instanceof Map<?, ?>)) {
             throw new IllegalArgumentException("clientInfo must be an object");
         }
+        final String negotiated = SUPPORTED_VERSIONS.contains(version) ? version : VERSION;
         return linked(
-            entry("protocolVersion", VERSION),
-            entry("capabilities", linked(entry("tools", linked(entry("listChanged", false))))),
+            entry("protocolVersion", negotiated),
+            entry("capabilities", linked(
+                entry("tools", linked(entry("listChanged", false))),
+                entry("resources", linked(entry("listChanged", false))),
+                entry("prompts", linked(entry("listChanged", false)))
+            )),
             entry("serverInfo", linked(
                 entry("name", "turboism-mcp"),
                 entry("title", "Turboism MCP Server"),
-                entry("version", "0.1.0"),
-                entry("description", "Typed access to Turboism Cubism model-object operations.")
+                entry("version", "0.2.0"),
+                entry("description", "Typed Turboism Cubism resources, workflows, and authoring operations.")
             )),
             entry("instructions",
-                "Use stable Cubism IDs returned by turboism_model_objects_list. "
-                    + "Structural operations fail closed when the active host provider is not verified.")
+                "Read turboism:// resources before mutations. Use stable Cubism IDs, respect returned "
+                    + "generation/revision preconditions, and re-read resources after writes.")
         );
     }
 
-    private Map<String, Object> listTools(final Map<String, Object> params) {
-        only(params, "cursor", "_meta");
-        if (params.containsKey("cursor") && params.get("cursor") != null
-            && !(params.get("cursor") instanceof String)) {
-            throw new IllegalArgumentException("cursor must be a string");
-        }
-        return linked(entry("tools", new ArrayList<>(tools.definitions())));
+    private Map<String, Object> listTools(
+        final Map<String, Object> params,
+        final String sessionId
+    ) {
+        return page("tools", tools.definitions(), params, sessionId);
     }
 
     private Map<String, Object> callTool(final Map<String, Object> params) {
@@ -112,6 +227,114 @@ final class McpProtocol {
             ? stringMap(requiredMap(params.get("arguments"), "arguments"), "arguments")
             : Map.of();
         return tools.call(name, arguments);
+    }
+
+    private Map<String, Object> listResources(
+        final Map<String, Object> params,
+        final String sessionId
+    ) {
+        return page("resources", resources.resources(), params, sessionId);
+    }
+
+    private Map<String, Object> listResourceTemplates(
+        final Map<String, Object> params,
+        final String sessionId
+    ) {
+        return page("resourceTemplates", resources.templates(), params, sessionId);
+    }
+
+    private Map<String, Object> readResource(final Map<String, Object> params) {
+        only(params, "uri", "_meta");
+        final String uri = requiredString(params, "uri");
+        return linked(entry("contents", resources.read(uri)));
+    }
+
+    private Map<String, Object> listPrompts(
+        final Map<String, Object> params,
+        final String sessionId
+    ) {
+        return page("prompts", prompts.definitions(), params, sessionId);
+    }
+
+    private Map<String, Object> getPrompt(final Map<String, Object> params) {
+        only(params, "name", "arguments", "_meta");
+        final String name = requiredString(params, "name");
+        final Map<String, Object> arguments = params.containsKey("arguments")
+            ? stringMap(requiredMap(params.get("arguments"), "arguments"), "arguments")
+            : Map.of();
+        return prompts.get(name, arguments);
+    }
+
+    private static Map<String, Object> page(
+        final String key,
+        final java.util.List<Map<String, Object>> values,
+        final Map<String, Object> params,
+        final String sessionId
+    ) {
+        only(params, "cursor", "_meta");
+        final int offset = cursorOffset(params.get("cursor"), key, sessionId, values.size());
+        final int end = Math.min(offset + 50, values.size());
+        final LinkedHashMap<String, Object> result = linked(
+            entry(key, new ArrayList<>(values.subList(offset, end)))
+        );
+        if (end < values.size()) {
+            result.put("nextCursor", encodeCursor(sessionId, key, end));
+        }
+        return result;
+    }
+
+    private static int cursorOffset(
+        final Object value,
+        final String key,
+        final String sessionId,
+        final int size
+    ) {
+        if (value == null) return 0;
+        if (!(value instanceof String cursor) || cursor.isBlank()) {
+            throw new IllegalArgumentException("cursor must be a non-blank string");
+        }
+        final String decoded;
+        try {
+            decoded = new String(
+                java.util.Base64.getUrlDecoder().decode(cursor),
+                java.nio.charset.StandardCharsets.UTF_8
+            );
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("cursor is invalid", failure);
+        }
+        final String[] components = decoded.split("\\n", -1);
+        if (components.length != 3
+            || !sessionId.equals(components[0])
+            || !key.equals(components[1])) {
+            throw new IllegalArgumentException("cursor is not valid for this session and method");
+        }
+        try {
+            final int offset = Integer.parseInt(components[2]);
+            if (offset <= 0 || offset >= size) {
+                throw new IllegalArgumentException("cursor offset is out of range");
+            }
+            return offset;
+        } catch (NumberFormatException failure) {
+            throw new IllegalArgumentException("cursor offset is invalid", failure);
+        }
+    }
+
+    private static String encodeCursor(
+        final String sessionId,
+        final String key,
+        final int offset
+    ) {
+        final byte[] payload = (sessionId + "\n" + key + "\n" + offset)
+            .getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        return java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(payload);
+    }
+
+    private static String requiredString(final Map<String, Object> params, final String key) {
+        final Object value = params.get(key);
+        if (!(value instanceof String text) || text.isBlank()) {
+            throw new IllegalArgumentException(key + " is required");
+        }
+        return text;
     }
 
     private static Map<String, Object> params(final Object value) {
@@ -145,10 +368,24 @@ final class McpProtocol {
     }
 
     private static Map<String, Object> success(final Object id, final Object result) {
+        return linked(entry("jsonrpc", "2.0"), entry("id", id), entry("result", result));
+    }
+
+    private static Map<String, Object> cancelledToolResult() {
+        final Map<String, Object> output = linked(
+            entry("ok", false),
+            entry("error", linked(
+                entry("code", "CANCELLED"),
+                entry("message", "MCP request was cancelled before host submission")
+            ))
+        );
         return linked(
-            entry("jsonrpc", "2.0"),
-            entry("id", id),
-            entry("result", result)
+            entry("content", java.util.List.of(linked(
+                entry("type", "text"),
+                entry("text", Json.stringify(output))
+            ))),
+            entry("structuredContent", output),
+            entry("isError", true)
         );
     }
 
@@ -159,15 +396,10 @@ final class McpProtocol {
         final Object data
     ) {
         final LinkedHashMap<String, Object> failure = linked(
-            entry("code", code),
-            entry("message", message)
+            entry("code", code), entry("message", message)
         );
         if (data != null) failure.put("data", data);
-        return linked(
-            entry("jsonrpc", "2.0"),
-            entry("id", id),
-            entry("error", failure)
-        );
+        return linked(entry("jsonrpc", "2.0"), entry("id", id), entry("error", failure));
     }
 
     @SafeVarargs
@@ -175,9 +407,7 @@ final class McpProtocol {
         final Map.Entry<String, Object>... entries
     ) {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> entry : entries) {
-            result.put(entry.getKey(), entry.getValue());
-        }
+        for (Map.Entry<String, Object> entry : entries) result.put(entry.getKey(), entry.getValue());
         return result;
     }
 
@@ -186,18 +416,13 @@ final class McpProtocol {
     }
 
     record Outcome(int status, Object body) {
-        static Outcome accepted() {
-            return new Outcome(202, null);
-        }
-
+        static Outcome accepted() { return new Outcome(202, null); }
         static Outcome response(final int status, final Object body) {
             return new Outcome(status, Objects.requireNonNull(body, "body"));
         }
     }
 
     private static final class MethodNotFound extends RuntimeException {
-        private MethodNotFound(final String method) {
-            super("Unknown MCP method: " + method);
-        }
+        private MethodNotFound(final String method) { super("Unknown MCP method: " + method); }
     }
 }

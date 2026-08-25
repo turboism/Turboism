@@ -83,6 +83,8 @@ Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubis
 ./gradlew validateParameterHost5203 -PturboismHostValidationMode=binding-matrix
 ./gradlew validateThemeHost5302
 ./gradlew validateThemeHost5203
+./gradlew validateMcpHost5302
+./gradlew validateMcpHost5203
 ```
 
 Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
