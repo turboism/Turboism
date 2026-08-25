@@ -65,6 +65,7 @@
     "mcp.resources",
     "mcp.prompts",
     "cubism.model.objects.read",
+    "cubism.workspace.read",
     "cubism.model.objects.write",
     "cubism.parameters.read",
     "cubism.parameters.write",
