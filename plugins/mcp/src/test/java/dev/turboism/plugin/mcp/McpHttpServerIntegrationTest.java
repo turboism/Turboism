@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -74,6 +75,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class McpHttpServerIntegrationTest {
 
     private static final String TOKEN = "test-token-0123456789-abcdef";
+    private static final Map<URI, String> SESSIONS = new ConcurrentHashMap<>();
 
     @TempDir
     Path temporaryDirectory;
@@ -112,105 +114,89 @@ final class McpHttpServerIntegrationTest {
             assertEquals(McpProtocol.VERSION, initializeResult.get("protocolVersion"));
             final Map<String, Object> serverInfo = object(initializeResult.get("serverInfo"));
             assertEquals("turboism-mcp", serverInfo.get("name"));
+            final String sessionId = initialized.headers().firstValue("MCP-Session-Id").orElseThrow();
+            SESSIONS.put(server.endpoint(), sessionId);
 
-            final HttpResponse<byte[]> tools = request(server.endpoint(), TOKEN, null, true, Map.of(
+            final HttpResponse<byte[]> initializedNotification = request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "method", "notifications/initialized")
+            );
+            assertEquals(202, initializedNotification.statusCode());
+
+            final HttpResponse<byte[]> tools = request(server.endpoint(), TOKEN, null, true, sessionId, Map.of(
                 "jsonrpc", "2.0",
                 "id", 2,
                 "method", "tools/list",
                 "params", Map.of()
             ));
             assertEquals(200, tools.statusCode());
-            assertEquals(10, array(result(tools).get("tools")).size());
+            final List<Object> toolDefinitions = array(result(tools).get("tools"));
+            assertEquals(5, toolDefinitions.size());
+            assertEquals(
+                McpProductionDomainCatalog.APPLY,
+                object(toolDefinitions.get(0)).get("name")
+            );
 
-            final HttpResponse<byte[]> renamed = toolCall(
+            final Map<String, Object> applied = structuredResult(toolCall(
                 server.endpoint(),
                 3,
-                McpTools.RENAME,
-                Map.of("kind", "part", "id", "PartHead", "name", "Head Renamed")
-            );
-            final Map<String, Object> renamedOutput = structuredResult(renamed);
-            assertEquals(Boolean.TRUE, renamedOutput.get("ok"));
-            assertEquals(
-                "Head Renamed",
-                object(renamedOutput.get("object")).get("name")
-            );
+                McpProductionDomainCatalog.APPLY,
+                Map.of("operations", List.of(
+                    Map.of(
+                        "operation", "rename",
+                        "kind", "part",
+                        "id", "PartHead",
+                        "name", "Head Renamed"
+                    ),
+                    Map.of(
+                        "operation", "create",
+                        "kind", "warp_deformer",
+                        "name", "Face Warp",
+                        "parent", Map.of("kind", "part", "id", "PartHead"),
+                        "rows", 3,
+                        "columns", 4,
+                        "originX", -1,
+                        "originY", -2,
+                        "width", 2,
+                        "height", 4
+                    )
+                ))
+            ));
+            assertEquals(Boolean.TRUE, applied.get("ok"));
+            assertEquals(2L, integer(applied.get("succeeded")));
             assertEquals("Head Renamed", objects.find(ModelObjectKind.PART, "PartHead").name());
-
-            final HttpResponse<byte[]> created = toolCall(
-                server.endpoint(),
-                4,
-                McpTools.CREATE,
-                Map.of(
-                    "kind", "warp_deformer",
-                    "name", "Face Warp",
-                    "parent", Map.of("kind", "part", "id", "PartHead"),
-                    "rows", 3,
-                    "columns", 4,
-                    "originX", -1,
-                    "originY", -2,
-                    "width", 2,
-                    "height", 4
-                )
-            );
-            final Map<String, Object> createdOutput = structuredResult(created);
-            assertEquals(Boolean.TRUE, createdOutput.get("ok"));
             assertInstanceOf(ModelObjectCreateRequest.WarpDeformer.class, objects.lastCreate);
             final ModelObjectCreateRequest.WarpDeformer warp =
                 (ModelObjectCreateRequest.WarpDeformer) objects.lastCreate;
             assertEquals(3, warp.grid().rows());
             assertEquals(4, warp.grid().columns());
             assertEquals(20, warp.grid().controlPoints().size());
-            final Map<String, Object> createdObject = object(createdOutput.get("object"));
-            final String createdId = (String) createdObject.get("id");
-            assertNotNull(createdId);
 
-            final HttpResponse<byte[]> reparented = toolCall(
-                server.endpoint(),
-                5,
-                McpTools.REPARENT,
+            final HttpResponse<byte[]> resources = request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 4, "method", "resources/list")
+            );
+            assertEquals(7, array(result(resources).get("resources")).size());
+            final HttpResponse<byte[]> document = request(
+                server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of(
-                    "kind", "warp_deformer",
-                    "id", createdId,
-                    "parent", Map.of("kind", "part", "id", "PartHead"),
-                    "index", 2
+                    "jsonrpc", "2.0",
+                    "id", 5,
+                    "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT)
                 )
             );
-            final Map<String, Object> reparentedOutput = structuredResult(reparented);
-            assertEquals(Boolean.TRUE, reparentedOutput.get("ok"));
             assertEquals(
-                Map.of("kind", "part", "id", "PartHead"),
-                object(object(reparentedOutput.get("object")).get("parent"))
+                McpProductionDomainCatalog.ACTIVE_DOCUMENT,
+                object(array(result(document).get("contents")).get(0)).get("uri")
             );
-            assertEquals(
-                new ModelObjectReference(ModelObjectKind.WARP_DEFORMER, createdId),
-                objects.lastReparentTarget
-            );
-            assertEquals(
-                new ModelObjectReference(ModelObjectKind.PART, "PartHead"),
-                objects.lastReparentParent
-            );
-            assertEquals(2, objects.lastReparentIndex);
-
-            final HttpResponse<byte[]> deleted = toolCall(
-                server.endpoint(),
-                6,
-                McpTools.DELETE,
-                Map.of(
-                    "kind", "warp_deformer",
-                    "id", createdId,
-                    "policy", "cascade"
-                )
-            );
-            final Map<String, Object> deletedOutput = structuredResult(deleted);
-            assertEquals(Boolean.TRUE, deletedOutput.get("deleted"));
-            assertEquals(ModelObjectDeletePolicy.CASCADE, objects.lastDeletePolicy);
-            assertFalse(objects.contains(ModelObjectKind.WARP_DEFORMER, createdId));
 
             final HttpResponse<byte[]> notification = request(
                 server.endpoint(),
                 TOKEN,
                 null,
                 true,
+                sessionId,
                 Map.of("jsonrpc", "2.0", "method", "notifications/initialized")
             );
             assertEquals(202, notification.statusCode());
@@ -221,6 +207,128 @@ final class McpHttpServerIntegrationTest {
         assertFalse(Files.exists(connectionFile));
         assertTrue(logger.info.stream().anyMatch(value -> value.contains("listening")));
         assertTrue(logger.info.stream().anyMatch(value -> value.contains("stopped")));
+    }
+
+    @Test
+    void enforcesStreamableHttpSessionLifecycle() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            final HttpResponse<byte[]> get = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(server.endpoint())
+                    .header("Accept", "text/event-stream")
+                    .header("Authorization", "Bearer " + TOKEN)
+                    .GET()
+                    .build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
+            assertEquals(405, get.statusCode());
+            assertTrue(get.headers().firstValue("Allow").orElse("").contains("POST"));
+
+            final HttpResponse<byte[]> initialize = request(
+                server.endpoint(), TOKEN, null, false, Map.of(
+                    "jsonrpc", "2.0", "id", 1, "method", "initialize",
+                    "params", Map.of(
+                        "protocolVersion", McpProtocol.VERSION,
+                        "capabilities", Map.of(),
+                        "clientInfo", Map.of("name", "session-test", "version", "1")
+                    )
+                )
+            );
+            final String sessionId = initialize.headers().firstValue("MCP-Session-Id").orElseThrow();
+
+            final HttpResponse<byte[]> beforeInitialized = request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 2, "method", "tools/list")
+            );
+            assertEquals(400, beforeInitialized.statusCode());
+
+            assertEquals(202, request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "method", "notifications/initialized")
+            ).statusCode());
+            assertEquals(200, request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 3, "method", "tools/list")
+            ).statusCode());
+
+            final HttpResponse<byte[]> deleted = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(server.endpoint())
+                    .header("Authorization", "Bearer " + TOKEN)
+                    .header("MCP-Session-Id", sessionId)
+                    .DELETE()
+                    .build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
+            assertEquals(200, deleted.statusCode());
+            assertEquals(404, request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 4, "method", "ping")
+            ).statusCode());
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void doesNotCreateSessionForFailedInitialize() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            final HttpResponse<byte[]> initialize = request(
+                server.endpoint(), TOKEN, null, false, Map.of(
+                    "jsonrpc", "2.0", "id", 1, "method", "initialize",
+                    "params", Map.of(
+                        "capabilities", Map.of(),
+                        "clientInfo", Map.of("name", "invalid-test", "version", "1")
+                    )
+                )
+            );
+            assertEquals(200, initialize.statusCode());
+            assertTrue(object(Json.parse(initialize.body())).containsKey("error"));
+            assertTrue(initialize.headers().firstValue("MCP-Session-Id").isEmpty());
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void bindsSessionToNegotiatedProtocolVersion() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            final String olderVersion = "2025-06-18";
+            final HttpResponse<byte[]> initialize = request(
+                server.endpoint(), TOKEN, null, null, null, Map.of(
+                    "jsonrpc", "2.0", "id", 1, "method", "initialize",
+                    "params", Map.of(
+                        "protocolVersion", olderVersion,
+                        "capabilities", Map.of(),
+                        "clientInfo", Map.of("name", "version-test", "version", "1")
+                    )
+                )
+            );
+            assertEquals(olderVersion, result(initialize).get("protocolVersion"));
+            final String sessionId = initialize.headers().firstValue("MCP-Session-Id").orElseThrow();
+
+            assertEquals(202, request(
+                server.endpoint(), TOKEN, null, olderVersion, sessionId,
+                Map.of("jsonrpc", "2.0", "method", "notifications/initialized")
+            ).statusCode());
+            assertEquals(200, request(
+                server.endpoint(), TOKEN, null, olderVersion, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 2, "method", "ping")
+            ).statusCode());
+            assertEquals(400, request(
+                server.endpoint(), TOKEN, null, McpProtocol.VERSION, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 3, "method", "ping")
+            ).statusCode());
+        } finally {
+            server.close();
+        }
     }
 
     @Test
@@ -244,10 +352,13 @@ final class McpHttpServerIntegrationTest {
                 request(server.endpoint(), TOKEN, "https://attacker.example", true, ping)
                     .statusCode()
             );
+            ensureSession(server.endpoint());
             assertEquals(
                 200,
-                request(server.endpoint(), TOKEN, "http://127.0.0.1", true, ping)
-                    .statusCode()
+                request(
+                    server.endpoint(), TOKEN, "http://127.0.0.1", true,
+                    SESSIONS.get(server.endpoint()), ping
+                ).statusCode()
             );
         } finally {
             server.close();
@@ -273,16 +384,21 @@ final class McpHttpServerIntegrationTest {
             final HttpResponse<byte[]> response = toolCall(
                 server.endpoint(),
                 6,
-                McpTools.CREATE,
-                Map.of("kind", "part", "name", "Unavailable Part")
+                McpProductionDomainCatalog.APPLY,
+                Map.of("operations", List.of(Map.of(
+                    "operation", "create",
+                    "kind", "part",
+                    "name", "Unavailable Part"
+                )))
             );
             final Map<String, Object> result = object(result(response));
             assertEquals(Boolean.TRUE, result.get("isError"));
             final Map<String, Object> structured = object(result.get("structuredContent"));
             assertEquals(Boolean.FALSE, structured.get("ok"));
+            final Map<String, Object> operation = object(array(structured.get("results")).get(0));
             assertEquals(
                 "UNAVAILABLE",
-                object(structured.get("error")).get("code")
+                object(object(operation.get("result")).get("error")).get("code")
             );
         } finally {
             server.close();
@@ -290,414 +406,136 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
-    void servesAllFiveReadToolsOverAuthenticatedLoopbackHttp() throws Exception {
+    void servesInspectionResourcesOverAuthenticatedLoopbackHttp() throws Exception {
         final FakeReadServices reads = new FakeReadServices();
-        reads.parameters.put(new ParameterSummary(
-            new ParameterId("ParamAngle"),
-            "Angle",
-            45.0,
-            new ParameterBounds(-180.0, 180.0, 0.0),
-            true,
-            true
-        ));
-        reads.parameters.put(new ParameterSummary(
-            new ParameterId("ParamEyeOpen"),
-            "Eye Open",
-            0.5,
-            new ParameterBounds(0.0, 1.0, 1.0),
-            false,
-            false
-        ));
-        final HierarchyNode modelRoot = new HierarchyNode(
+        final HierarchyNode root = new HierarchyNode(
             new ModelObjectId("ModelRoot"), "Model Root", HierarchyNode.Kind.MODEL,
             Optional.empty(), List.of(new ModelObjectId("PartBody"))
         );
-        final HierarchyNode partBody = new HierarchyNode(
+        final HierarchyNode part = new HierarchyNode(
             new ModelObjectId("PartBody"), "Body", HierarchyNode.Kind.PART,
-            Optional.of(new ModelObjectId("ModelRoot")), List.of(new ModelObjectId("MeshFace"))
+            Optional.of(new ModelObjectId("ModelRoot")), List.of()
         );
-        final HierarchyNode meshFace = new HierarchyNode(
-            new ModelObjectId("MeshFace"), "Face", HierarchyNode.Kind.ART_MESH,
-            Optional.of(new ModelObjectId("PartBody")), List.of()
-        );
-        reads.hierarchy.put(modelRoot);
-        reads.hierarchy.put(partBody);
-        reads.hierarchy.put(meshFace);
-        reads.selection.set(new SelectionSummary(
-            Optional.of(new ProjectId("ProjectA")),
-            Optional.of(new DocumentId("DocA")),
-            Optional.of(new ModelObjectId("ModelA")),
-            List.of(new ParameterId("ParamAngle")),
-            List.of(new ArtMeshId("MeshFace")),
-            List.of(new DeformerId("DeformerWarp")),
-            List.of(new ModelObjectId("PartBody"))
+        reads.hierarchy.put(root);
+        reads.hierarchy.put(part);
+        reads.clipMasks.add(new ClipMaskRecord(
+            "guid-face", "ArtMeshFace", "Face", false, List.of("guid-mask")
         ));
         final ParameterSnapshot parameter = new ParameterSnapshot(
             "ParamAngle", "Angle", 45.0, 0.0, -180.0, 180.0, true, true
         );
-        final ArtMeshSnapshot mesh = new ArtMeshSnapshot(
-            "MeshFace", "Face", Optional.of("TextureA"), true, true
-        );
-        final DeformerSnapshot deformer = new DeformerSnapshot(
-            "DeformerWarp", "Face Warp", DeformerType.WARP,
-            Optional.of("PartBody"), List.of("MeshFace")
-        );
         final ModelSnapshot model = new ModelSnapshot(
-            "ModelA",
-            "Demo Model",
-            List.of(parameter, mesh, deformer),
-            List.of(parameter),
-            List.of(mesh),
-            List.of(deformer)
+            "ModelA", "Demo Model", List.of(parameter), List.of(parameter), List.of(), List.of()
         );
         final DocumentSnapshot document = new DocumentSnapshot(
-            "DocA", "Demo Model", "Models/Demo.model3.json",
-            Optional.empty(), Optional.of(model), DocumentKind.MODEL, Optional.empty(), Optional.empty()
+            "DocA", "Demo Model", "Models/Demo.model3.json", Optional.empty(),
+            Optional.of(model), DocumentKind.MODEL, Optional.empty(), Optional.empty()
         );
-        final ProjectContentSnapshot content = new ProjectContentSnapshot(
-            "ContentA", "Demo Model", ProjectContentKind.MODEL,
-            Optional.empty(), List.of("DocA")
-        );
-        final ProjectSnapshot project = new ProjectSnapshot(
-            "ProjectA", "Demo Project", Optional.empty(),
-            List.of(document), List.of(content)
-        );
-        reads.read.project(project);
         reads.read.document(document);
         reads.read.model(model);
-        reads.read.selection(new SelectionSnapshot(
-            List.of("PartBody"),
-            Optional.of("ParamAngle"),
-            Optional.of("MeshFace"),
-            Optional.of("DeformerWarp")
-        ));
-        reads.read.parameters(List.of(parameter));
-        reads.read.modelObjects(List.of(parameter, mesh, deformer));
-        reads.read.meshes(List.of(mesh));
-        reads.read.deformers(List.of(deformer));
-        reads.read.psdDocuments(List.of(new PsdDocumentSnapshot(
-            "PsdA", "Assets/layers.psd",
-            List.of(new PsdDocumentSnapshot.PsdLayerSnapshot("Layer1", "Base", true))
-        )));
-        reads.read.clipMasks(List.of(new ClipMaskSnapshot("MeshA", List.of("Mask1"), false)));
-        reads.read.textureAtlases(List.of(new TextureAtlasSnapshot("AtlasA", 2048, 2048, List.of("TextureA"))));
-        reads.read.renderStatus(Optional.of(new RenderStatusSnapshot(true, 60.0, "OpenGL")));
-        reads.read.workspace(Optional.of(new WorkspaceSnapshot("ws1", "Default", "Workspaces/Default", List.of("ProjectA"))));
-        reads.read.themeStatus(Optional.of(new ThemeStatusSnapshot("theme-dark", "Dark", true)));
-        reads.clipMasks.add(new ClipMaskRecord(
-            "9f3e2a1b-c4d5-4e6f-8a7b-1c2d3e4f5a6b", "Warp1", "Face", false,
-            List.of("7d1c9b2a-1111-4a5b-8c9d-0e1f2a3b4c5d")
-        ));
-        reads.clipMasks.add(new ClipMaskRecord(
-            "7d1c9b2a-1111-4a5b-8c9d-0e1f2a3b4c5d", "ArtMeshFace", "Hair", true, List.of()
-        ));
 
         final McpHttpServer server = McpHttpServer.start(dependencies(
-            new CapturingLogger(),
-            new MutableObjects(),
-            reads
+            new CapturingLogger(), new MutableObjects(), reads
         ));
         try {
-            final Map<String, Object> listed = structuredResult(toolCall(
-                server.endpoint(), 10, McpTools.PARAMETERS_LIST, Map.of()
-            ));
-            assertEquals(Boolean.TRUE, listed.get("ok"));
-            assertEquals(2L, integer(listed.get("count")));
-            final Map<String, Object> angle = object(array(listed.get("parameters")).get(0));
-            assertEquals("ParamAngle", angle.get("id"));
-            assertEquals("Angle", angle.get("name"));
-            assertEquals(45.0, number(angle.get("currentValue")), 0.0);
-            assertEquals(-180.0, number(angle.get("minValue")), 0.0);
-            assertEquals(180.0, number(angle.get("maxValue")), 0.0);
-            assertEquals(0.0, number(angle.get("defaultValue")), 0.0);
-            assertEquals(Boolean.TRUE, angle.get("visible"));
-            assertEquals(Boolean.TRUE, angle.get("editable"));
-
-            final Map<String, Object> filtered = structuredResult(toolCall(
-                server.endpoint(), 11, McpTools.PARAMETERS_LIST,
-                Map.of("id", "ParamEyeOpen")
-            ));
-            assertEquals(1L, integer(filtered.get("count")));
-            assertEquals("ParamEyeOpen", object(array(filtered.get("parameters")).get(0)).get("id"));
-
-            final Map<String, Object> missing = structuredResult(toolCall(
-                server.endpoint(), 12, McpTools.PARAMETERS_LIST,
-                Map.of("id", "ParamNope")
-            ));
-            assertEquals(Boolean.TRUE, missing.get("ok"));
-            assertEquals(0L, integer(missing.get("count")));
-            assertEquals(0, array(missing.get("parameters")).size());
-
-            final Map<String, Object> byName = structuredResult(toolCall(
-                server.endpoint(), 23, McpTools.PARAMETERS_LIST,
-                Map.of("name", "eye")
-            ));
-            assertEquals(1L, integer(byName.get("count")));
-            assertEquals("ParamEyeOpen", object(array(byName.get("parameters")).get(0)).get("id"));
-
-            final Map<String, Object> byNameCaseInsensitive = structuredResult(toolCall(
-                server.endpoint(), 24, McpTools.PARAMETERS_LIST,
-                Map.of("name", "EYE")
-            ));
-            assertEquals(1L, integer(byNameCaseInsensitive.get("count")));
-            assertEquals("ParamEyeOpen", object(array(byNameCaseInsensitive.get("parameters")).get(0)).get("id"));
-
-            final Map<String, Object> byNameMiss = structuredResult(toolCall(
-                server.endpoint(), 25, McpTools.PARAMETERS_LIST,
-                Map.of("name", "zzz")
-            ));
-            assertEquals(0L, integer(byNameMiss.get("count")));
-            assertEquals(0, array(byNameMiss.get("parameters")).size());
-
-            final Map<String, Object> byIdAndName = structuredResult(toolCall(
-                server.endpoint(), 26, McpTools.PARAMETERS_LIST,
-                Map.of("id", "ParamAngle", "name", "angle")
-            ));
-            assertEquals(1L, integer(byIdAndName.get("count")));
-            assertEquals("ParamAngle", object(array(byIdAndName.get("parameters")).get(0)).get("id"));
-
-            final Map<String, Object> byIdAndNameMiss = structuredResult(toolCall(
-                server.endpoint(), 27, McpTools.PARAMETERS_LIST,
-                Map.of("id", "ParamAngle", "name", "eye")
-            ));
-            assertEquals(0L, integer(byIdAndNameMiss.get("count")));
-
-            final Map<String, Object> tree = structuredResult(toolCall(
-                server.endpoint(), 13, McpTools.MODEL_HIERARCHY_GET, Map.of()
-            ));
-            final Map<String, Object> root = object(tree.get("root"));
-            assertEquals("ModelRoot", root.get("id"));
-            assertEquals("MODEL", root.get("kind"));
-            assertEquals(null, root.get("parentId"));
-            final Map<String, Object> part = object(array(root.get("children")).get(0));
-            assertEquals("PartBody", part.get("id"));
-            assertEquals("PART", part.get("kind"));
-            assertEquals("ModelRoot", part.get("parentId"));
-            assertEquals("MeshFace", object(array(part.get("children")).get(0)).get("id"));
-
-            final Map<String, Object> subtree = structuredResult(toolCall(
-                server.endpoint(), 14, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("id", "PartBody")
-            ));
-            final Map<String, Object> subRoot = object(subtree.get("root"));
-            assertEquals("PartBody", subRoot.get("id"));
-            assertEquals("ModelRoot", subRoot.get("parentId"));
-            assertEquals(1, array(subRoot.get("children")).size());
-            assertEquals("MeshFace", object(array(subRoot.get("children")).get(0)).get("id"));
-
-            final Map<String, Object> missingNode = structuredResult(toolCall(
-                server.endpoint(), 15, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("id", "MissingNode")
-            ));
-            assertEquals(Boolean.TRUE, missingNode.get("ok"));
-            assertEquals(null, missingNode.get("root"));
-
-            final Map<String, Object> hierarchyByName = structuredResult(toolCall(
-                server.endpoint(), 28, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("name", "body")
-            ));
-            assertEquals(Boolean.TRUE, hierarchyByName.get("ok"));
-            assertEquals(1L, integer(hierarchyByName.get("count")));
-            final Map<String, Object> match = object(array(hierarchyByName.get("matches")).get(0));
-            assertEquals("PartBody", match.get("id"));
-            assertEquals("PART", match.get("kind"));
-            assertEquals("ModelRoot", match.get("parentId"));
-            assertEquals("MeshFace", object(array(match.get("children")).get(0)).get("id"));
-
-            final Map<String, Object> hierarchyByNameCaseInsensitive = structuredResult(toolCall(
-                server.endpoint(), 29, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("name", "BODY")
-            ));
-            assertEquals(1L, integer(hierarchyByNameCaseInsensitive.get("count")));
-            assertEquals("PartBody", object(array(hierarchyByNameCaseInsensitive.get("matches")).get(0)).get("id"));
-
-            final Map<String, Object> hierarchyByNameMiss = structuredResult(toolCall(
-                server.endpoint(), 30, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("name", "zzz")
-            ));
-            assertEquals(0L, integer(hierarchyByNameMiss.get("count")));
-            assertEquals(0, array(hierarchyByNameMiss.get("matches")).size());
-
-            final Map<String, Object> hierarchyByIdAndName = structuredResult(toolCall(
-                server.endpoint(), 31, McpTools.MODEL_HIERARCHY_GET,
-                Map.of("id", "PartBody", "name", "face")
-            ));
-            assertEquals(1L, integer(hierarchyByIdAndName.get("count")));
-            assertEquals("MeshFace", object(array(hierarchyByIdAndName.get("matches")).get(0)).get("id"));
-
-            final Map<String, Object> selection = structuredResult(toolCall(
-                server.endpoint(), 16, McpTools.SELECTION_GET, Map.of()
-            ));
-            assertEquals("ProjectA", selection.get("projectId"));
-            assertEquals("DocA", selection.get("documentId"));
-            assertEquals("ModelA", selection.get("modelId"));
-            assertEquals(List.of("ParamAngle"), selection.get("parameters"));
-            assertEquals(List.of("MeshFace"), selection.get("artMeshes"));
-            assertEquals(List.of("DeformerWarp"), selection.get("deformers"));
-            assertEquals(List.of("PartBody"), selection.get("modelObjects"));
-
-            final Map<String, Object> snapshot = structuredResult(toolCall(
-                server.endpoint(), 17, McpTools.MODEL_SNAPSHOT_GET, Map.of()
-            ));
-            final Map<String, Object> projectOut = object(snapshot.get("project"));
-            assertEquals("ProjectA", projectOut.get("projectId"));
-            final Map<String, Object> documentOut = object(snapshot.get("document"));
-            assertEquals("MODEL", documentOut.get("kind"));
-            assertEquals("ModelA", object(documentOut.get("model")).get("modelId"));
-            assertEquals("ModelA", object(snapshot.get("model")).get("modelId"));
-            assertEquals(3, array(snapshot.get("modelObjects")).size());
-            assertEquals(1, array(snapshot.get("parameters")).size());
-            assertEquals(1, array(snapshot.get("meshes")).size());
-            assertEquals(1, array(snapshot.get("deformers")).size());
-            assertEquals(1, array(snapshot.get("psdDocuments")).size());
-            assertEquals(1, array(snapshot.get("clipMasks")).size());
-            assertEquals(1, array(snapshot.get("textureAtlases")).size());
-            assertEquals(Boolean.TRUE, object(snapshot.get("renderStatus")).get("rendering"));
-            assertEquals("ws1", object(snapshot.get("workspace")).get("workspaceId"));
-            assertEquals(Boolean.TRUE, object(snapshot.get("themeStatus")).get("dark"));
-            final Map<String, Object> selectionOut = object(snapshot.get("selection"));
-            assertEquals(List.of("PartBody"), selectionOut.get("selectedObjectIds"));
-            assertEquals("ParamAngle", selectionOut.get("activeParameterId"));
-
-            final Map<String, Object> masks = structuredResult(toolCall(
-                server.endpoint(), 18, McpTools.CLIP_MASKS_LIST, Map.of()
-            ));
-            assertEquals(2L, integer(masks.get("count")));
-            final Map<String, Object> firstMask = object(array(masks.get("clipMasks")).get(0));
-            assertEquals("9f3e2a1b-c4d5-4e6f-8a7b-1c2d3e4f5a6b", firstMask.get("guid"));
-            assertEquals("Warp1", firstMask.get("id"));
-            assertEquals("Face", firstMask.get("displayName"));
-            assertEquals(Boolean.FALSE, firstMask.get("inverted"));
-            assertEquals(
-                List.of("7d1c9b2a-1111-4a5b-8c9d-0e1f2a3b4c5d"),
-                firstMask.get("orderedMaskGuids")
+            ensureSession(server.endpoint());
+            final String sessionId = SESSIONS.get(server.endpoint());
+            final HttpResponse<byte[]> listed = request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of("jsonrpc", "2.0", "id", 10, "method", "resources/list")
             );
+            assertEquals(7, array(result(listed).get("resources")).size());
 
-            final Map<String, Object> byGuid = structuredResult(toolCall(
-                server.endpoint(), 19, McpTools.CLIP_MASKS_LIST,
-                Map.of("guid", "7d1c9b2a-1111-4a5b-8c9d-0e1f2a3b4c5d")
+            final Map<String, Object> documentResource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 11, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT)
+                )
             ));
-            assertEquals(1L, integer(byGuid.get("count")));
-            assertEquals(
-                "ArtMeshFace",
-                object(array(byGuid.get("clipMasks")).get(0)).get("id")
-            );
+            assertEquals(Boolean.TRUE, documentResource.get("ok"));
+            assertEquals("DocA", object(documentResource.get("document")).get("documentId"));
 
-            final Map<String, Object> byId = structuredResult(toolCall(
-                server.endpoint(), 20, McpTools.CLIP_MASKS_LIST,
-                Map.of("id", "Warp1")
+            final Map<String, Object> hierarchyResource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 12, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.MODEL_HIERARCHY)
+                )
             ));
-            assertEquals(1L, integer(byId.get("count")));
-            final Map<String, Object> byIdMask = object(array(byId.get("clipMasks")).get(0));
-            assertEquals("Warp1", byIdMask.get("id"));
-            assertEquals("9f3e2a1b-c4d5-4e6f-8a7b-1c2d3e4f5a6b", byIdMask.get("guid"));
+            assertEquals("ModelRoot", object(hierarchyResource.get("root")).get("id"));
 
-            final Map<String, Object> byBoth = structuredResult(toolCall(
-                server.endpoint(), 21, McpTools.CLIP_MASKS_LIST,
-                Map.of("id", "Warp1", "guid", "9f3e2a1b-c4d5-4e6f-8a7b-1c2d3e4f5a6b")
+            final Map<String, Object> masks = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 13, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.CLIP_MASKS)
+                )
             ));
-            assertEquals(1L, integer(byBoth.get("count")));
-
-            final Map<String, Object> byBothMismatched = structuredResult(toolCall(
-                server.endpoint(), 22, McpTools.CLIP_MASKS_LIST,
-                Map.of("id", "Warp1", "guid", "7d1c9b2a-1111-4a5b-8c9d-0e1f2a3b4c5d")
-            ));
-            assertEquals(0L, integer(byBothMismatched.get("count")));
-
-            final Map<String, Object> byDisplayName = structuredResult(toolCall(
-                server.endpoint(), 32, McpTools.CLIP_MASKS_LIST,
-                Map.of("name", "face")
-            ));
-            assertEquals(1L, integer(byDisplayName.get("count")));
-            final Map<String, Object> byNameMask = object(array(byDisplayName.get("clipMasks")).get(0));
-            assertEquals("Warp1", byNameMask.get("id"));
-            assertEquals("9f3e2a1b-c4d5-4e6f-8a7b-1c2d3e4f5a6b", byNameMask.get("guid"));
-
-            final Map<String, Object> byDisplayNameCaseInsensitive = structuredResult(toolCall(
-                server.endpoint(), 33, McpTools.CLIP_MASKS_LIST,
-                Map.of("name", "FACE")
-            ));
-            assertEquals(1L, integer(byDisplayNameCaseInsensitive.get("count")));
-
-            final Map<String, Object> byDisplayNameMiss = structuredResult(toolCall(
-                server.endpoint(), 34, McpTools.CLIP_MASKS_LIST,
-                Map.of("name", "zzz")
-            ));
-            assertEquals(0L, integer(byDisplayNameMiss.get("count")));
-            assertEquals(0, array(byDisplayNameMiss.get("clipMasks")).size());
-
-            final Map<String, Object> masksByIdAndName = structuredResult(toolCall(
-                server.endpoint(), 35, McpTools.CLIP_MASKS_LIST,
-                Map.of("id", "Warp1", "name", "face")
-            ));
-            assertEquals(1L, integer(masksByIdAndName.get("count")));
-
-            final Map<String, Object> masksByIdAndNameMiss = structuredResult(toolCall(
-                server.endpoint(), 36, McpTools.CLIP_MASKS_LIST,
-                Map.of("id", "Warp1", "name", "hair")
-            ));
-            assertEquals(0L, integer(masksByIdAndNameMiss.get("count")));
+            assertEquals(1L, integer(masks.get("count")));
         } finally {
             server.close();
         }
     }
 
     @Test
-    void servesAllFiveReadToolsWithEmptyServices() throws Exception {
+    void inspectionResourcesDoNotExposeFileSystemPaths() throws Exception {
+        final FakeReadServices reads = new FakeReadServices();
+        final ModelSnapshot model = new ModelSnapshot(
+            "ModelA", "Demo Model", List.of(), List.of(), List.of(), List.of()
+        );
+        final DocumentSnapshot document = new DocumentSnapshot(
+            "DocA", "Demo Model", "Models/Demo.cmo3", Optional.of(Path.of("Models/Demo.cmo3")),
+            Optional.of(model), DocumentKind.MODEL, Optional.of("ContentA"), Optional.empty()
+        );
+        reads.read.project(new ProjectSnapshot(
+            "ProjectA", "Demo Project", Optional.of(Path.of("Projects/Demo")),
+            List.of(document), List.of(new ProjectContentSnapshot(
+                "ContentA", "Demo Model", ProjectContentKind.MODEL,
+                Optional.of(Path.of("Models/Demo.cmo3")), List.of("DocA"), List.of()
+            ))
+        ));
+        reads.read.document(document);
+        reads.read.model(model);
+
         final McpHttpServer server = McpHttpServer.start(dependencies(
-            new CapturingLogger(),
-            new MutableObjects(),
-            new FakeReadServices()
+            new CapturingLogger(), new MutableObjects(), reads
         ));
         try {
-            final Map<String, Object> listed = structuredResult(toolCall(
-                server.endpoint(), 10, McpTools.PARAMETERS_LIST, Map.of()
+            ensureSession(server.endpoint());
+            final Map<String, Object> resource = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, SESSIONS.get(server.endpoint()),
+                Map.of(
+                    "jsonrpc", "2.0", "id", 15, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT)
+                )
             ));
-            assertEquals(Boolean.TRUE, listed.get("ok"));
-            assertEquals(0L, integer(listed.get("count")));
-            assertEquals(0, array(listed.get("parameters")).size());
+            final String wire = Json.stringify(resource);
+            assertFalse(wire.contains("projectDirectory"));
+            assertFalse(wire.contains("filePath"));
+            assertTrue(wire.contains("relativePath"));
+        } finally {
+            server.close();
+        }
+    }
 
-            final Map<String, Object> tree = structuredResult(toolCall(
-                server.endpoint(), 11, McpTools.MODEL_HIERARCHY_GET, Map.of()
+    @Test
+    void servesEmptyInspectionResources() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            ensureSession(server.endpoint());
+            final Map<String, Object> document = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, SESSIONS.get(server.endpoint()),
+                Map.of(
+                    "jsonrpc", "2.0", "id", 14, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.ACTIVE_DOCUMENT)
+                )
             ));
-            assertEquals(Boolean.TRUE, tree.get("ok"));
-            assertEquals(null, tree.get("root"));
-
-            final Map<String, Object> selection = structuredResult(toolCall(
-                server.endpoint(), 12, McpTools.SELECTION_GET, Map.of()
-            ));
-            assertEquals(null, selection.get("projectId"));
-            assertEquals(null, selection.get("documentId"));
-            assertEquals(null, selection.get("modelId"));
-            assertEquals(0, array(selection.get("parameters")).size());
-            assertEquals(0, array(selection.get("artMeshes")).size());
-            assertEquals(0, array(selection.get("deformers")).size());
-            assertEquals(0, array(selection.get("modelObjects")).size());
-
-            final Map<String, Object> snapshot = structuredResult(toolCall(
-                server.endpoint(), 13, McpTools.MODEL_SNAPSHOT_GET, Map.of()
-            ));
-            assertEquals(null, snapshot.get("project"));
-            assertEquals(null, snapshot.get("document"));
-            assertEquals(null, snapshot.get("model"));
-            assertEquals(null, snapshot.get("parameters"));
-            assertEquals(null, snapshot.get("modelObjects"));
-            assertEquals(null, snapshot.get("meshes"));
-            assertEquals(null, snapshot.get("deformers"));
-            assertEquals(null, snapshot.get("psdDocuments"));
-            assertEquals(null, snapshot.get("clipMasks"));
-            assertEquals(null, snapshot.get("textureAtlases"));
-            assertEquals(null, snapshot.get("renderStatus"));
-            assertEquals(null, snapshot.get("workspace"));
-            assertEquals(null, snapshot.get("themeStatus"));
-            assertEquals(0, array(object(snapshot.get("selection")).get("selectedObjectIds")).size());
-
-            final Map<String, Object> masks = structuredResult(toolCall(
-                server.endpoint(), 14, McpTools.CLIP_MASKS_LIST, Map.of()
-            ));
-            assertEquals(Boolean.TRUE, masks.get("ok"));
-            assertEquals(0L, integer(masks.get("count")));
-            assertEquals(0, array(masks.get("clipMasks")).size());
+            assertEquals(Boolean.TRUE, document.get("ok"));
+            assertEquals(null, document.get("document"));
+            assertEquals(null, document.get("model"));
         } finally {
             server.close();
         }
@@ -709,12 +547,34 @@ final class McpHttpServerIntegrationTest {
         final String tool,
         final Map<String, Object> arguments
     ) throws Exception {
-        return request(endpoint, TOKEN, null, true, Map.of(
+        ensureSession(endpoint);
+        return request(endpoint, TOKEN, null, true, SESSIONS.get(endpoint), Map.of(
             "jsonrpc", "2.0",
             "id", id,
             "method", "tools/call",
             "params", Map.of("name", tool, "arguments", arguments)
         ));
+    }
+
+    private static void ensureSession(final URI endpoint) throws Exception {
+        if (SESSIONS.containsKey(endpoint)) return;
+        final HttpResponse<byte[]> initialized = request(endpoint, TOKEN, null, false, Map.of(
+            "jsonrpc", "2.0",
+            "id", 0,
+            "method", "initialize",
+            "params", Map.of(
+                "protocolVersion", McpProtocol.VERSION,
+                "capabilities", Map.of(),
+                "clientInfo", Map.of("name", "integration-test", "version", "1.0")
+            )
+        ));
+        final String sessionId = initialized.headers().firstValue("MCP-Session-Id").orElseThrow();
+        SESSIONS.put(endpoint, sessionId);
+        final HttpResponse<byte[]> notification = request(
+            endpoint, TOKEN, null, true, sessionId,
+            Map.of("jsonrpc", "2.0", "method", "notifications/initialized")
+        );
+        assertEquals(202, notification.statusCode());
     }
 
     private static HttpResponse<byte[]> request(
@@ -724,6 +584,35 @@ final class McpHttpServerIntegrationTest {
         final boolean includeProtocolVersion,
         final Map<String, Object> body
     ) throws Exception {
+        return request(endpoint, token, origin, includeProtocolVersion, null, body);
+    }
+
+    private static HttpResponse<byte[]> request(
+        final URI endpoint,
+        final String token,
+        final String origin,
+        final boolean includeProtocolVersion,
+        final String sessionId,
+        final Map<String, Object> body
+    ) throws Exception {
+        return request(
+            endpoint,
+            token,
+            origin,
+            includeProtocolVersion ? McpProtocol.VERSION : null,
+            sessionId,
+            body
+        );
+    }
+
+    private static HttpResponse<byte[]> request(
+        final URI endpoint,
+        final String token,
+        final String origin,
+        final String protocolVersion,
+        final String sessionId,
+        final Map<String, Object> body
+    ) throws Exception {
         final HttpRequest.Builder builder = HttpRequest.newBuilder(endpoint)
             .timeout(Duration.ofSeconds(10))
             .header("Accept", "application/json, text/event-stream")
@@ -731,9 +620,10 @@ final class McpHttpServerIntegrationTest {
             .header("Authorization", "Bearer " + token)
             .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)));
         if (origin != null) builder.header("Origin", origin);
-        if (includeProtocolVersion) {
-            builder.header("MCP-Protocol-Version", McpProtocol.VERSION);
+        if (protocolVersion != null) {
+            builder.header("MCP-Protocol-Version", protocolVersion);
         }
+        if (sessionId != null) builder.header("MCP-Session-Id", sessionId);
         return HttpClient.newHttpClient().send(
             builder.build(),
             HttpResponse.BodyHandlers.ofByteArray()
@@ -754,6 +644,14 @@ final class McpHttpServerIntegrationTest {
         final Map<String, Object> toolResult = result(response);
         assertEquals(Boolean.FALSE, toolResult.get("isError"));
         return object(toolResult.get("structuredContent"));
+    }
+
+    private static Map<String, Object> resourceJson(
+        final HttpResponse<byte[]> response
+    ) {
+        final Map<String, Object> read = result(response);
+        final Map<String, Object> content = object(array(read.get("contents")).get(0));
+        return object(Json.parse(((String) content.get("text")).getBytes(StandardCharsets.UTF_8)));
     }
 
     private static UiScheduler immediateUi() {

@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.mcp",
   "name": "Turboism MCP Server",
   "version": "0.1.0",
-  "description": "Loopback Model Context Protocol server exposing typed Turboism model-object operations.",
+  "description": "Loopback Model Context Protocol server exposing typed Cubism inspection, editing, history, and Editor-command workflows.",
   "entrypoints": [
     "dev.turboism.plugin.mcp.McpPlugin"
   ],
@@ -42,12 +42,37 @@
       "id": "turboism.cubism.model.write",
       "scope": "application",
       "reason": "Renames, creates, and deletes active Cubism model objects requested through MCP."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Allows the direct Editor SAVE command requested through MCP."
+    },
+    {
+      "id": "turboism.network.fetch",
+      "scope": "application",
+      "reason": "Allows the typed external-application settings command requested through MCP."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "Allows the typed external-application settings command requested through MCP."
     }
   ],
   "capabilities": [
     "mcp.streamable-http",
+    "mcp.tools",
+    "mcp.resources",
+    "mcp.prompts",
     "cubism.model.objects.read",
-    "cubism.model.objects.write"
+    "cubism.model.objects.write",
+    "cubism.parameters.read",
+    "cubism.parameters.write",
+    "cubism.parameter-bindings.read",
+    "cubism.parameter-bindings.write",
+    "cubism.history.read",
+    "cubism.history.write",
+    "cubism.editor-commands.execute"
   ],
   "environment": {
     "requiresCubism": true,
