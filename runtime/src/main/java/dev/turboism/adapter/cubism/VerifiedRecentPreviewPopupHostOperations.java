@@ -577,6 +577,12 @@ public final class VerifiedRecentPreviewPopupHostOperations
         return renderers.size();
     }
 
+    /** Test visibility: whether EDT-owned menu tracking remains installed. */
+    boolean trackingInstalledForTest() {
+        requireEventDispatchThread();
+        return selectionListener != null || menuBinding != null;
+    }
+
     /** Test visibility: the currently active popup, or null. */
     Popup activePopupForTest() {
         return activePopup;
