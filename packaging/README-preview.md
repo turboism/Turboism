@@ -68,8 +68,9 @@ Graal scripts are isolated, permission-checked automation and bulk-compute
 programs. They are not Java plugins and do not automatically accelerate
 Cubism rendering or native model evaluation. Java plugins remain the correct
 choice for full SDK access, UI/lifecycle contributions, transactions, reviewed
-host adapters, and latency-sensitive work. See `docs/graal-scripts.md` in the
-source tree for the API, trade-offs, and suitable workload shapes.
+host adapters, and latency-sensitive work. The public SDK Javadocs define the
+script API; use Graal scripts for isolated automation and Java plugins for full
+runtime integration.
 
 Run `configure_turboism.ps1` first. It discovers only supported Cubism 5.2.03
 and 5.3.02 roots, checks the official `CubismEditor5.bat`, bundled Java
