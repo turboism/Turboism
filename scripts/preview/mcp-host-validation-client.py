@@ -32,7 +32,13 @@ EXPECTED_RESOURCES = {
     "turboism://active/model/hierarchy",
     "turboism://active/model/clip-masks",
     "turboism://active/model/parameters",
+    "turboism://active/model/statistics",
+    "turboism://active/model/textures",
     "turboism://active/document/history",
+    "turboism://environment/cubism-core",
+    "turboism://environment/workspace",
+    "turboism://environment/workspace/layout",
+    "turboism://environment/diagnostics",
     "turboism://host/editor-commands",
 }
 EXPECTED_TEMPLATES = {
@@ -46,6 +52,8 @@ EXPECTED_PROMPTS = {
     "repair_parameter_bindings",
     "recover_document_history",
     "run_editor_command",
+    "diagnose_environment",
+    "inspect_model_diagnostics",
 }
 
 
@@ -204,8 +212,14 @@ def main() -> int:
         prompt_names = {text_value(object_value(item, "prompt").get("name"), "prompt.name")
                         for item in prompts}
         require(prompt_names == EXPECTED_PROMPTS, f"prompt catalog mismatch: {sorted(prompt_names)}")
-        prompt = client.call("prompts/get", {"name": "inspect_active_document", "arguments": {}})
-        require(len(array_value(prompt.get("messages"), "prompt messages")) == 1, "prompt did not render")
+        for prompt_name in (
+            "inspect_active_document",
+            "diagnose_environment",
+            "inspect_model_diagnostics",
+        ):
+            prompt = client.call("prompts/get", {"name": prompt_name, "arguments": {}})
+            require(len(array_value(prompt.get("messages"), "prompt messages")) == 1,
+                    f"prompt {prompt_name} did not render")
         report.append(f"promptCount={len(prompts)}")
         report.append("assertion.prompts.status=PASS")
 
@@ -220,6 +234,61 @@ def main() -> int:
         assert_no_absolute_paths(document)
         report.append("assertion.document.status=PASS")
         report.append("assertion.noAbsolutePaths.status=PASS")
+
+        core = await_resource(
+            client,
+            "turboism://environment/cubism-core",
+            lambda value: isinstance(value.get("version"), dict)
+                and isinstance(value.get("capabilities"), dict),
+            "Cubism Core diagnostics",
+        )
+        require(set(object_value(core.get("version"), "Core version")) == {"major", "minor", "patch"},
+                "Core version shape mismatch")
+        report.append("assertion.cubismCore.status=PASS")
+
+        workspace = resource_json(client, "turboism://environment/workspace")
+        require(workspace.get("availability") in {"AVAILABLE", "UNAVAILABLE"},
+                "workspace availability is invalid")
+        if workspace.get("availability") == "AVAILABLE":
+            require(isinstance(workspace.get("available"), list), "workspace list is unavailable")
+        report.append(f"workspaceAvailability={sanitize(str(workspace.get('availability')))}")
+        report.append("assertion.workspace.status=PASS")
+
+        workspace_layout = resource_json(client, "turboism://environment/workspace/layout")
+        require(workspace_layout.get("availability") in {"AVAILABLE", "UNAVAILABLE"},
+                "workspace layout availability is invalid")
+        assert_no_absolute_paths(workspace_layout)
+        report.append(f"workspaceLayoutAvailability={sanitize(str(workspace_layout.get('availability')))}")
+        report.append("assertion.workspaceLayout.status=PASS")
+
+        diagnostics = resource_json(client, "turboism://environment/diagnostics")
+        require(isinstance(diagnostics.get("problems"), list), "diagnostics problems are unavailable")
+        require(isinstance(diagnostics.get("truncated"), bool), "diagnostics truncation flag is invalid")
+        assert_sanitized_diagnostics(diagnostics)
+        report.append("assertion.diagnosticsSanitized.status=PASS")
+
+        model_statistics = await_resource(
+            client,
+            "turboism://active/model/statistics",
+            lambda value: isinstance(value.get("parameterCount"), int)
+                and isinstance(value.get("textureCount"), int),
+            "active model statistics",
+        )
+        require(model_statistics.get("offscreenRenderingCount") is None
+                or isinstance(model_statistics.get("offscreenRenderingCount"), int),
+                "offscreen statistics are neither null nor integer")
+        report.append("assertion.modelStatistics.status=PASS")
+
+        model_textures = await_resource(
+            client,
+            "turboism://active/model/textures",
+            lambda value: all(isinstance(value.get(key), list) for key in (
+                "rawImages", "modelImageGroups", "textureAtlases"
+            )),
+            "active model textures",
+        )
+        assert_no_absolute_paths(model_textures)
+        report.append("assertion.modelTextures.status=PASS")
 
         parameters = await_resource(
             client,
@@ -491,12 +560,25 @@ def assert_no_absolute_paths(value: Any, path: str = "$") -> None:
     if isinstance(value, dict):
         for key, item in value.items():
             lower = str(key).lower()
-            if lower in {"filepath", "projectdirectory"} and item is not None:
+            if lower in {"filepath", "projectdirectory", "path"} and item is not None:
                 raise ValidationFailure(f"absolute path field exposed at {path}.{key}")
             assert_no_absolute_paths(item, f"{path}.{key}")
     elif isinstance(value, list):
         for index, item in enumerate(value):
             assert_no_absolute_paths(item, f"{path}[{index}]")
+
+
+def assert_sanitized_diagnostics(value: dict[str, Any]) -> None:
+    assert_no_absolute_paths(value)
+    for item in array_value(value.get("problems"), "diagnostic problems"):
+        problem = object_value(item, "diagnostic problem")
+        require(set(problem) == {"code", "severity", "message"},
+                "diagnostic problem exposed unexpected fields")
+        message = text_value(problem.get("message"), "diagnostic message")
+        require("\n" not in message and "\r" not in message,
+                "diagnostic message is multiline")
+        require(len(message) <= 512, "diagnostic message exceeds bound")
+        require("file:" not in message.lower(), "diagnostic message exposed file URI")
 
 
 def publish_atomic(path: Path, text: str) -> None:
