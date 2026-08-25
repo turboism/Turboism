@@ -5,7 +5,7 @@ Drives the IzPack installer in console mode (Java 17+, no GUI) and asserts
 the frozen acceptance conditions, including the R2 repairs:
 
   1.  The installer JAR and its SHA-256 sidecar exist and match; the sidecar
-      is a repository-root-relative `sha256sum -c` line.
+      names only the sibling JAR so `sha256sum -c` works after download.
   2.  JAR contains en/zh/ja language resources (built-in langpacks and the
       locale-suffixed CustomLangPack variants), generated uninstaller support,
       one required common pack, one required Full-only plugin-payload pack
@@ -1088,19 +1088,13 @@ def assert_jar_layout(jar, payload):
 
 
 def assert_sidecar(jar, sha_path):
-    """Verifies the SHA-256 sidecar: repository-root-relative path and a hash
-    that matches the installer JAR byte-for-byte (sha256sum -c compatible)."""
+    """Verifies a portable sibling SHA-256 sidecar for the installer JAR."""
     check("sidecar exists", os.path.isfile(sha_path), sha_path)
-    content = open(sha_path).read().strip()
-    parts = content.split("  ", 1)
-    check("sidecar has 'hash  relpath' format", len(parts) == 2, repr(content))
-    digest, relpath = parts
-    check("sidecar hash is 64 hex chars",
-          re.fullmatch(r"[0-9a-f]{64}", digest) is not None, digest)
+    content = open(sha_path).read()
     actual = hashlib.sha256(open(jar, "rb").read()).hexdigest()
-    check("sidecar hash matches jar", digest == actual, "jar=%s" % actual)
-    expected_rel = os.path.relpath(os.path.abspath(jar), os.getcwd()).replace(os.sep, "/")
-    check("sidecar path is repository-root-relative", relpath == expected_rel, relpath)
+    expected = "%s  %s\n" % (actual, os.path.basename(jar))
+    check("sidecar has portable 'hash  filename' format",
+          content == expected, repr(content))
 
 
 def snapshot_global_lock():

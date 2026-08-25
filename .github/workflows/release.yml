@@ -72,7 +72,10 @@ jobs:
 
       - name: Verify checksums and release metadata
         run: |
-          sha256sum -c build/windows-installer/dist/*.sha256
+          (
+            cd build/windows-installer/dist
+            sha256sum -c *.sha256
+          )
           python3 scripts/release/verify-release.py \
             --version "${{ steps.version.outputs.version }}" \
             --dist build/windows-installer/dist
@@ -89,10 +92,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" \
-            --repo "$GITHUB_REPOSITORY" \
-            --verify-tag \
-            --title "Turboism ${{ steps.version.outputs.version }}" \
-            --notes-file <(python3 scripts/release/extract-release-notes.py \
-              CHANGELOG.md "${{ steps.version.outputs.version }}") \
-            build/windows-installer/dist/*
+          notes_file="$(mktemp)"
+          trap 'rm -f "$notes_file"' EXIT
+          python3 scripts/release/extract-release-notes.py \
+            CHANGELOG.md "${{ steps.version.outputs.version }}" > "$notes_file"
+          if gh release view "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "Turboism ${{ steps.version.outputs.version }}" \
+              --notes-file "$notes_file"
+            gh release upload "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --clobber \
+              build/windows-installer/dist/*
+          else
+            gh release create "$GITHUB_REF_NAME" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --title "Turboism ${{ steps.version.outputs.version }}" \
+              --notes-file "$notes_file" \
+              build/windows-installer/dist/*
+          fi
