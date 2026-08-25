@@ -4,8 +4,8 @@ import dev.turboism.sdk.cubism.mesh.MeshEditUiService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,7 +26,7 @@ final class NativeMeshMirrorBridgeTest {
      */
     @Test
     void unboundWidgetCallbackDefersAndBindingReplaysItExactlyOnce() {
-        final List<String> diagnostics = new ArrayList<>();
+        final List<String> diagnostics = new CopyOnWriteArrayList<>();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         final Object widget = new javax.swing.JPanel();
 
@@ -49,7 +49,7 @@ final class NativeMeshMirrorBridgeTest {
 
     @Test
     void deferredAttachWaitsForTheAuthorizedContributionAndReplaysWhenItArrives() {
-        final List<String> diagnostics = new ArrayList<>();
+        final List<String> diagnostics = new CopyOnWriteArrayList<>();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         NativeMeshMirrorBridge.attachControl(new javax.swing.JPanel(), new Panel(200.0f, 100.0f));
 
@@ -67,7 +67,7 @@ final class NativeMeshMirrorBridgeTest {
 
     @Test
     void boundWidgetCallbackAttachesDirectlyAndRecordsNothingDeferred() {
-        final List<String> diagnostics = new ArrayList<>();
+        final List<String> diagnostics = new CopyOnWriteArrayList<>();
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         ui.contributeMirrorAxisAngleControl(angleControl());
         NativeMeshMirrorBridge.install(new RuntimeMeshMirrorAxisService(), ui);
@@ -89,7 +89,7 @@ final class NativeMeshMirrorBridgeTest {
         NativeMeshMirrorBridge.uninstall();
 
         assertFalse(NativeMeshMirrorBridge.controlAttached());
-        final List<String> diagnostics = new ArrayList<>();
+        final List<String> diagnostics = new CopyOnWriteArrayList<>();
         NativeMeshMirrorBridge.diagnostics(diagnostics::add);
         final RuntimeMeshEditUiService ui = new RuntimeMeshEditUiService();
         ui.contributeMirrorAxisAngleControl(angleControl());
