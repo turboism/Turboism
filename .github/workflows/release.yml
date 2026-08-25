@@ -1,0 +1,98 @@
+# Product release packaging for immutable vMAJOR.MINOR.PATCH tags.
+# The workflow verifies that the tag, framework version, and installer version
+# are identical before building and publishing the reviewed release payload.
+
+name: Product release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: product-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Resolve and verify release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${GITHUB_REF_NAME#v}"
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          FRAMEWORK_VERSION="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("gradle/common-java.gradle.kts").read_text(encoding="utf-8")
+          match = re.search(r'turboismFrameworkVersion"\]\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', text)
+          if match is None:
+              raise SystemExit("framework version is unavailable")
+          print(match.group(1))
+          PY
+          )"
+          test "$VERSION" = "$FRAMEWORK_VERSION"
+          grep -Fq "## [$VERSION] - " CHANGELOG.md
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Java 17
+        uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Install NSIS
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nsis
+
+      - name: Run release verification
+        run: |
+          ./gradlew --no-daemon checkRelease \
+            -PinstallerVersion="${{ steps.version.outputs.version }}" \
+            -PturboismRelease=true \
+            --console=plain
+
+      - name: Assemble release archives and Windows installer
+        run: bash packaging/windows-installer/assemble-release.sh "${{ steps.version.outputs.version }}"
+
+      - name: Verify checksums and release metadata
+        run: |
+          sha256sum -c build/windows-installer/dist/*.sha256
+          python3 scripts/release/verify-release.py \
+            --version "${{ steps.version.outputs.version }}" \
+            --dist build/windows-installer/dist
+
+      - name: Upload verified release payload
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-${{ steps.version.outputs.version }}
+          path: build/windows-installer/dist
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Turboism ${{ steps.version.outputs.version }}" \
+            --notes-file <(python3 scripts/release/extract-release-notes.py \
+              CHANGELOG.md "${{ steps.version.outputs.version }}") \
+            build/windows-installer/dist/*

@@ -60,7 +60,7 @@ When a coherent change is complete, run the full automated repository gate once:
 ./gradlew checkCompletedCommit
 ```
 
-`checkRelease -PinstallerVersion=<release-version>` adds supply-chain, historical, Java-installer, and other release-artifact checks and is reserved for release-oriented work. Exact-host validation is selected explicitly by feature and version; it requires a separately installed, licensed Live2D Cubism Editor and is never part of a default aggregate.
+`checkRelease -PinstallerVersion=<release-version> -PturboismRelease=true` adds supply-chain, historical, Java-installer, and other release-artifact checks and is reserved for release-oriented work. The installer version must exactly match the framework version. Exact-host validation is selected explicitly by feature and version; it requires a separately installed, licensed Live2D Cubism Editor and is never part of a default aggregate.
 
 The public SDK has one tier. `@CubismEditor` and exact command catalogs describe Editor-version availability; permissions, session state, verified adapters, and capabilities remain separate runtime checks.
 

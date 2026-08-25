@@ -49,7 +49,9 @@ from pathlib import PurePosixPath
 
 FORBIDDEN_SEGMENTS = frozenset({
     ".agent-artifacts", ".artifacts", ".research-artifacts", ".pi-subagents",
-    ".claude", ".cursor", ".pi", ".windsurf", "prompts",
+    ".claude", ".cursor", ".pi", ".specify", ".windsurf", "docs",
+    "docs-internal", "docs_internal", "prompts", "spec", "specs",
+    "validation-artifact",
 })
 
 FORBIDDEN_PATHS = frozenset({
@@ -167,6 +169,8 @@ def classify_path(path):
         return "basename:.aider*"
     if low.endswith(PROMPT_SUFFIX):
         return "suffix:*.prompt.md"
+    if low == "spec.md" or (low.startswith("spec-") and low.endswith(".md")):
+        return "basename:spec*.md"
     return None
 
 
@@ -181,17 +185,19 @@ def scan_content(data):
 def scan_repository_content(path, data):
     """Repository-only local-machine identifiers beyond general secret shapes.
 
-    Generic synthetic paths remain useful in tests and historical documentation.
-    This rule targets executable/configuration files so former real validation-
-    machine values cannot silently return after moving them into local `.env`.
+    Synthetic private paths remain useful in redaction tests. Real developer
+    usernames and repository worktree paths are rejected from every tracked
+    text file so local validation evidence cannot silently return.
     """
     rules = scan_content(data)
-    if b"\x00" in data[:8192] or path.startswith(("docs/", "validation-artifact/")):
+    if b"\x00" in data[:8192]:
         return rules
     text = data.decode("utf-8", errors="replace")
     personal_user = "r" + "ain"
     if "/home/" + personal_user in text:
         rules.append("local-machine-home")
+    if "/workspace/projects/" + "turboism" in text:
+        rules.append("local-machine-workspace")
     if personal_user + "@172.17.0.1" in text:
         rules.append("local-machine-ssh-host")
     if "id_ed25519_" + "turboism_arch_rebuild" in text:

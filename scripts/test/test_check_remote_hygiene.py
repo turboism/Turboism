@@ -63,7 +63,8 @@ class PathRuleTest(unittest.TestCase):
                   ".env.example",
                   "CONTRIBUTING.md",
                   "scripts/dev/build-worktree.sh",
-                  "docs/migration/guide.md",
+                  "sdk-api/baselines/sdk-api-v2-exact.json",
+                  "generated-references/plugin-public-events.md",
                   ".github/workflows/remote-hygiene.yml"]:
             self.assertIsNone(crh.classify_path(p), p)
 
@@ -85,7 +86,11 @@ class PathRuleTest(unittest.TestCase):
             ".cursor/rules/x.mdc": "segment:.cursor",
             ".pi/session.jsonl": "segment:.pi",
             ".windsurf/x": "segment:.windsurf",
-            "docs/migration/prompts/legacy-prompt.md": "segment:prompts",
+            ".specify/memory.json": "segment:.specify",
+            "docs/migration/guide.md": "segment:docs",
+            "docs-internal/notes.md": "segment:docs-internal",
+            "specs/plan.md": "segment:specs",
+            "validation-artifact/report.md": "segment:validation-artifact",
             "prompts/foo.md": "segment:prompts",
             "AGENTS.md": "basename:agents.md",
             "nested/CLAUDE.md": "basename:claude.md",
@@ -104,7 +109,9 @@ class PathRuleTest(unittest.TestCase):
             ".#lockfile.txt": "basename:emacs-lock",
             "backup~": "basename:editor-backup",
             ".aider.tags.cache.v3": "basename:.aider*",
-            "specs/plan.prompt.md": "suffix:*.prompt.md",
+            "notes/plan.prompt.md": "suffix:*.prompt.md",
+            "packaging/tool/SPEC.md": "basename:spec*.md",
+            "packaging/tool/SPEC-LAUNCH.md": "basename:spec*.md",
             "runtime/logs/dialog-transform.log": "path:runtime/logs",
             "RUNTIME/LOGS/host-trace.txt": "path:runtime/logs",
             ".github/copilot-instructions.md": "basename:copilot-instructions.md",
@@ -115,9 +122,9 @@ class PathRuleTest(unittest.TestCase):
 
     def test_case_variant_paths_forbidden(self):
         for p in [".ENV", "nested/AGENTS.MD", "GEMINI.MD", "Prompts/x.md",
-                  "docs/migration/PROMPTS/x.md", ".Agent-Artifacts/x.md",
-                  ".CLAUDE/set.json", ".PI/session.jsonl", "App.LOCAL.yaml",
-                  "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:
+                  "DOCS/migration/x.md", ".Agent-Artifacts/x.md",
+                  ".CLAUDE/set.json", ".PI/session.jsonl", ".SPECIFY/task.json",
+                  "App.LOCAL.yaml", "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:
             self.assertIsNotNone(crh.classify_path(p), p)
 
     def test_runtime_log_is_rejected_in_staged_mode(self):
@@ -166,6 +173,7 @@ class ContentRuleTest(unittest.TestCase):
             "fixture=" + "/home/" + "r" + "ain/project.cmo3": "local-machine-home",
             "ssh=" + "r" + "ain" + "@172.17.0.1": "local-machine-ssh-host",
             "key=id_ed25519_" + "turboism_arch_rebuild": "local-machine-ssh-key-name",
+            "cwd=/workspace/projects/" + "turboism/.worktrees/release": "local-machine-workspace",
         }
         for text, rule in cases.items():
             self.assertIn(rule, crh.scan_repository_content("script.sh", text.encode()))

@@ -136,7 +136,6 @@ class VerifiedProjectWorkspaceImageDocumentTest {
         final String configured = System.getenv("TURBOISM_LEGACY_EVIDENCE");
         final List<Path> candidates = new java.util.ArrayList<>();
         if (configured != null && !configured.isBlank()) candidates.add(Path.of(configured));
-        candidates.add(Path.of("<local-workspace>/turboism-legacy/cubism-ref"));
         Path current = Path.of("").toAbsolutePath().normalize();
         while (current != null) {
             candidates.add(current.resolve("../turboism-legacy/cubism-ref").normalize());

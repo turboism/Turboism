@@ -41,7 +41,10 @@ turboism.*.config.json
 # Spec Kit / spec artifacts — local workflow, not repo contract
 .specify/
 .pi/
+spec/
 specs/
+**/SPEC.md
+**/SPEC-*.md
 
 # 当前本地-only 文件，不进入远端
 00_MASTER_PROMPT_v2.md

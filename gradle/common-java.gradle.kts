@@ -8,10 +8,20 @@ val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as Stri
 // Single source of truth for the externally published Turboism framework version.
 rootProject.extra["turboismFrameworkVersion"] = "0.42.0"
 val turboismFrameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
+val turboismReleaseBuild = providers.gradleProperty("turboismRelease")
+    .map { value ->
+        if (value != "true" && value != "false") {
+            throw GradleException("-PturboismRelease must be true or false")
+        }
+        value == "true"
+    }
+    .orElse(false)
+    .get()
+rootProject.extra["turboismReleaseBuild"] = turboismReleaseBuild
 
 allprojects {
     group = "dev.turboism"
-    version = "$turboismFrameworkVersion-SNAPSHOT"
+    version = if (turboismReleaseBuild) turboismFrameworkVersion else "$turboismFrameworkVersion-SNAPSHOT"
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true

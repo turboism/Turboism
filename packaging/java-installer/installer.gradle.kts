@@ -30,15 +30,35 @@ import java.util.zip.ZipFile
  *                          install/uninstall matrix + locale probes),
  *                          runnable with Java 17 on Linux/macOS/Windows.
  *
- * All three tasks require -PinstallerVersion=<version>.
+ * All three tasks require matching -PinstallerVersion=<version> and
+ * -PturboismRelease=true so published JAR metadata never carries -SNAPSHOT.
  */
 
 val installerVersion = providers.gradleProperty("installerVersion")
+val frameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
+val releaseBuild = rootProject.extra["turboismReleaseBuild"] as Boolean
+val strictVersion = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
 
-fun requireInstallerVersion(): String =
+fun validateInstallerVersion(version: String): String {
+    if (!strictVersion.matches(version)) {
+        throw GradleException("installerVersion must be strict MAJOR.MINOR.PATCH: $version")
+    }
+    if (version != frameworkVersion) {
+        throw GradleException(
+            "installerVersion $version must equal Turboism framework version $frameworkVersion"
+        )
+    }
+    if (!releaseBuild) {
+        throw GradleException("installer tasks require -PturboismRelease=true")
+    }
+    return version
+}
+
+fun requireInstallerVersion(): String = validateInstallerVersion(
     installerVersion.orElse("").get().ifBlank {
         throw GradleException("installer tasks require -PinstallerVersion=<version>")
     }
+)
 
 val payloadDir = layout.buildDirectory.dir("windows-installer/staging")
 val distDir = layout.buildDirectory.dir("windows-installer/dist")
@@ -98,6 +118,19 @@ val installerTemplateFiles = listOf(
     "packaging/java-installer/uninstall.command",
     "packaging/java-installer/README.java-installer.txt"
 )
+
+tasks.register("checkInstallerVersion") {
+    group = "release verification"
+    description = "Verifies the release installer and framework versions are identical and non-SNAPSHOT."
+    doLast {
+        validateInstallerVersion(requireInstallerVersion())
+        if (project(":bootstrap").version.toString() != frameworkVersion) {
+            throw GradleException(
+                "release bootstrap version ${project(":bootstrap").version} must equal $frameworkVersion"
+            )
+        }
+    }
+}
 
 val customLangPackFiles = listOf(
     "CustomLangPack.xml",
