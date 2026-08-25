@@ -2,6 +2,7 @@ import org.gradle.api.plugins.JavaPluginExtension
 import org.gradle.api.tasks.compile.JavaCompile
 import org.gradle.api.tasks.testing.Test
 import org.gradle.jvm.tasks.Jar
+import org.gradle.language.jvm.tasks.ProcessResources
 
 val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
@@ -36,6 +37,13 @@ subprojects {
     )
     tasks.named<Jar>("jar") {
         archiveClassifier.set(resolvedWorktreeId)
+    }
+    if (path.startsWith(":plugins:")) {
+        tasks.named<ProcessResources>("processResources") {
+            from(layout.projectDirectory.file("README.md")) {
+                into("META-INF/turboism/readme")
+            }
+        }
     }
     extensions.configure<JavaPluginExtension> {
         toolchain.languageVersion.set(JavaLanguageVersion.of(17))
