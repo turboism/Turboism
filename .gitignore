@@ -41,8 +41,8 @@ turboism.*.config.json
 # Spec Kit / spec artifacts — local workflow, not repo contract
 .specify/
 .pi/
-spec/
-specs/
+/spec/
+/specs/
 **/SPEC.md
 **/SPEC-*.md
 
