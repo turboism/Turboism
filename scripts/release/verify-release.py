@@ -24,9 +24,9 @@ def verify_sidecar(artifact: Path) -> None:
     sidecar = artifact.with_name(artifact.name + ".sha256")
     if not sidecar.is_file():
         raise ValueError(f"missing checksum sidecar: {sidecar}")
-    fields = sidecar.read_text(encoding="utf-8").strip().split()
-    if len(fields) != 2 or fields[0] != sha256(artifact):
-        raise ValueError(f"invalid checksum sidecar: {sidecar}")
+    expected = f"{sha256(artifact)}  {artifact.name}\n"
+    if sidecar.read_text(encoding="utf-8") != expected:
+        raise ValueError(f"invalid or non-portable checksum sidecar: {sidecar}")
 
 
 def manifest_version(agent: bytes) -> str:
