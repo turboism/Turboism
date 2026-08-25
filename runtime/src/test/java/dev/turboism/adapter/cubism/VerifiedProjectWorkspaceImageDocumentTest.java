@@ -134,17 +134,14 @@ class VerifiedProjectWorkspaceImageDocumentTest {
 
     private static Path locateLegacyEvidence() {
         final String configured = System.getenv("TURBOISM_LEGACY_EVIDENCE");
-        final List<Path> candidates = new java.util.ArrayList<>();
-        if (configured != null && !configured.isBlank()) candidates.add(Path.of(configured));
-        Path current = Path.of("").toAbsolutePath().normalize();
-        while (current != null) {
-            candidates.add(current.resolve("../turboism-legacy/cubism-ref").normalize());
-            current = current.getParent();
+        if (configured == null || configured.isBlank()) {
+            throw new IllegalStateException("TURBOISM_LEGACY_EVIDENCE is required");
         }
-        return candidates.stream()
-            .filter(Files::isDirectory)
-            .findFirst()
-            .orElseThrow(() -> new IllegalStateException("legacy Cubism evidence is unavailable"));
+        final Path evidence = Path.of(configured).toAbsolutePath().normalize();
+        if (!Files.isDirectory(evidence)) {
+            throw new IllegalStateException("legacy Cubism evidence is unavailable");
+        }
+        return evidence;
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {
