@@ -39,7 +39,10 @@ dist="$repo_root/build/windows-installer/dist"
 
 # ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
 echo "[assemble] gradle: stageInstallerPayload"
-./gradlew stageInstallerPayload -PinstallerVersion="$VER" --console=plain
+./gradlew stageInstallerPayload \
+  -PinstallerVersion="$VER" \
+  -PturboismRelease=true \
+  --console=plain
 if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   echo "error: staged payload incomplete at $stage" >&2
   exit 1

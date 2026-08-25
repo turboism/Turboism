@@ -288,7 +288,7 @@ val checkPluginEventReference by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/plugin_event_metadata.py",
         "scripts/test/generate_plugin_event_reference.py",
-        "docs/events/plugin-public-event-reference.md",
+        "generated-references/plugin-public-events.md",
         fileTree("plugins") {
             include("*/src/main/resources/META-INF/turboism/plugin.json")
         }
@@ -299,7 +299,7 @@ val checkPluginEventReference by tasks.registering(Exec::class) {
         "--root",
         rootDir.absolutePath,
         "--output",
-        "docs/events/plugin-public-event-reference.md",
+        "generated-references/plugin-public-events.md",
         "--check"
     )
 }
@@ -636,11 +636,27 @@ val checkCompletedCommit by tasks.registering {
     )
 }
 
+val checkReleaseTooling by tasks.registering(Exec::class) {
+    group = "release verification"
+    description = "Verifies changelog extraction and assembled product release invariants."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/release/extract-release-notes.py",
+        "scripts/release/verify-release.py",
+        "scripts/test/test_release_tooling.py",
+        "CHANGELOG.md",
+        ".github/workflows/release.yml"
+    )
+    commandLine("python3", "scripts/test/test_release_tooling.py")
+}
+
 tasks.register("checkRelease") {
     group = "verification"
     description = "Runs completed-commit verification plus supply-chain and historical release audits."
     dependsOn(
         checkCompletedCommit,
+        checkReleaseTooling,
+        "checkInstallerVersion",
         "checkSdkApiReferenceBuilder",
         "checkSdkV2ExactApiCompatibility",
         "checkSdkV3ExactApiCompatibility",

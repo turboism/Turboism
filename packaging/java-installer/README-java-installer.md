@@ -16,7 +16,9 @@ A release build retains (all under `build/windows-installer/dist/`):
 ## Build
 
 ```bash
-./gradlew izPackCreateInstaller -PinstallerVersion=<version>
+./gradlew izPackCreateInstaller \
+  -PinstallerVersion=<version> \
+  -PturboismRelease=true
 ```
 
 The installer.xml is generated at build time from each plugin JAR's
@@ -93,7 +95,9 @@ uninstaller.jar -console`.
 ## Verification
 
 ```bash
-./gradlew checkJavaInstaller -PinstallerVersion=<version>
+./gradlew checkJavaInstaller \
+  -PinstallerVersion=<version> \
+  -PturboismRelease=true
 ```
 
 Deterministic, non-GUI (console mode), runnable on Linux/macOS/Windows with

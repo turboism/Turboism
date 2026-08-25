@@ -73,7 +73,9 @@ Full automated verification for a coherent completed change:
 Release-oriented verification:
 
 ```bash
-./gradlew checkRelease -PinstallerVersion=<release-version>
+./gradlew checkRelease \
+  -PinstallerVersion=<release-version> \
+  -PturboismRelease=true
 ```
 
 Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubism-host-validation.sh` is the shared exact-host runner: it clones a task-scoped Proton prefix, stages any test-only SDK plugins, launches the official `CubismEditor5.bat`, polls structured readiness/results, collects hashes and logs, and cleans up only the current process tree. Feature wrappers provide their own plugins and assertions:
@@ -110,7 +112,7 @@ For an Editor-attached model, the Editor authoring model remains the only write 
 
 ## Documentation tracking
 
-`docs/` is ignored by default so local research and working notes do not enter Git accidentally. Reviewed current documentation, ADRs, and archive indexes may be explicitly tracked; archived documents are historical evidence rather than current authority. `docs_internal/` remains local-only. Repository builds, tests, and release tooling must depend only on explicitly tracked code, documentation contracts, and machine assets such as `cubism-ref/`, `validation/`, and `packaging/`.
+`docs/` is local-only so research notes, prompts, host evidence, and machine-specific paths do not enter remote history. Repository builds, tests, and release tooling depend only on tracked code and machine assets such as `cubism-ref/`, `sdk-api/`, `generated-references/`, `validation/`, and `packaging/`.
 
 ## Compliance
 
