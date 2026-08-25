@@ -299,7 +299,7 @@ def changed_blobs(repo, sha, read_blob):
         if new_sha == ZERO_SHA or not path:
             continue
         decoded_path = path.decode("utf-8", errors="replace")
-        for rule in scan_content(read_blob(new_sha)):
+        for rule in scan_repository_content(decoded_path, read_blob(new_sha)):
             results.append((decoded_path, "value-signature=" + rule))
     return results
 
@@ -361,7 +361,7 @@ def scan_staged(repo):
                     violations.append((decoded_path, rule))
                 new_sha = fields[3].decode("ascii")
                 if new_sha != ZERO_SHA:
-                    for rule in scan_content(reader.read(new_sha)):
+                    for rule in scan_repository_content(decoded_path, reader.read(new_sha)):
                         violations.append((decoded_path, "value-signature=" + rule))
     finally:
         reader.close()
