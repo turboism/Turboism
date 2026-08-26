@@ -55,7 +55,7 @@ FORBIDDEN_SEGMENTS = frozenset({
 })
 
 FORBIDDEN_PATHS = frozenset({
-    "evidence", "runtime/logs",
+    "evidence", "runtime/logs", "spec",
 })
 
 FORBIDDEN_BASENAMES = frozenset({
