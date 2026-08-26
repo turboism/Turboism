@@ -16,13 +16,14 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Persists the managed launcher's Cubism JVM choice in the canonical config. */
-public final class CubismJvmSettingsFileService implements CubismJvmSettingsService {
+public final class CubismJvmSettingsFileService implements CubismJvmSettingsService, AutoCloseable {
 
     private static final CubismJvm DEFAULT = CubismJvm.GRAALVM;
 
     private final RuntimeConfigRepository config;
     private final Path turboismHome;
     private final Map<String, String> environment;
+    private final dev.turboism.graal.ManagedGraalRuntimeService managedRuntime;
 
     public CubismJvmSettingsFileService(final Path turboismHome) {
         this(
@@ -41,11 +42,30 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         final Path turboismHome,
         final Map<String, String> environment
     ) {
+        this(
+            config,
+            turboismHome,
+            environment,
+            turboismHome == null
+                ? null
+                : new dev.turboism.graal.ManagedGraalRuntimeService(
+                    turboismHome, ignored -> { }
+                )
+        );
+    }
+
+    CubismJvmSettingsFileService(
+        final RuntimeConfigRepository config,
+        final Path turboismHome,
+        final Map<String, String> environment,
+        final dev.turboism.graal.ManagedGraalRuntimeService managedRuntime
+    ) {
         this.config = Objects.requireNonNull(config, "config");
         this.turboismHome = turboismHome == null
             ? null
             : turboismHome.toAbsolutePath().normalize();
         this.environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
+        this.managedRuntime = managedRuntime;
     }
 
     @Override
@@ -69,8 +89,17 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         if (turboismHome == null) return Optional.empty();
         final List<Path> candidates = new ArrayList<>();
         addExecutable(candidates, environment.get("TURBOISM_CUBISM_JAVA"));
+        final Optional<Path> explicit = candidates.stream()
+            .map(path -> path.toAbsolutePath().normalize())
+            .filter(CubismJvmSettingsFileService::compatibleGraalVmExecutable)
+            .findFirst();
+        if (explicit.isPresent()) return explicit;
+        if (managedRuntime != null) {
+            final Optional<Path> managed = managedRuntime.managedJavaExecutableIfReady();
+            if (managed.isPresent()) return managed;
+        }
+        candidates.clear();
         candidates.add(turboismHome.resolve("graalvm/bin/java.exe"));
-        candidates.add(turboismHome.resolve("graal/runtime/bin/java.exe"));
         addHome(candidates, environment.get("TURBOISM_GRAALVM_HOME"));
         addHome(candidates, environment.get("GRAALVM_HOME"));
         return candidates.stream()
@@ -115,11 +144,76 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         try {
             if (Files.size(release) > 64 * 1024) return false;
             final String metadata = Files.readString(release, StandardCharsets.UTF_8);
-            return releaseValue(metadata, "IMPLEMENTOR").orElse("").startsWith("GraalVM")
-                && releaseValue(metadata, "GRAALVM_VERSION").orElse("").startsWith("25.2.");
+            return releaseValue(metadata, "IMPLEMENTOR").orElse("").equals("GraalVM Community")
+                && releaseValue(metadata, "GRAALVM_VERSION").orElse("").equals("25.2.4")
+                && releaseValue(metadata, "JAVA_VERSION").orElse("").equals("25.0.4");
         } catch (IOException | RuntimeException ignored) {
             return false;
         }
+    }
+
+    @Override
+    public ManagedRuntimeStatus managedRuntimeStatus() {
+        return managedRuntime == null
+            ? CubismJvmSettingsService.super.managedRuntimeStatus()
+            : managedStatus(managedRuntime.status());
+    }
+
+    @Override
+    public ManagedRuntimeOperation installManagedRuntime() {
+        if (managedRuntime == null) return CubismJvmSettingsService.super.installManagedRuntime();
+        final dev.turboism.graal.ManagedGraalRuntimeService.Operation operation = managedRuntime.install();
+        return new ManagedRuntimeOperation() {
+            @Override public ManagedRuntimeStatus status() {
+                return managedStatus(operation.status());
+            }
+            @Override public java.util.concurrent.CompletionStage<ManagedRuntimeStatus> completion() {
+                return operation.completion().thenApply(CubismJvmSettingsFileService::managedStatus);
+            }
+            @Override public boolean cancel() { return operation.cancel(); }
+        };
+    }
+
+    @Override
+    public ManagedRuntimeStatus verifyManagedRuntime() {
+        return managedRuntime == null
+            ? CubismJvmSettingsService.super.verifyManagedRuntime()
+            : managedStatus(managedRuntime.verify());
+    }
+
+    @Override
+    public ManagedRuntimeStatus removeManagedRuntime() {
+        return managedRuntime == null
+            ? CubismJvmSettingsService.super.removeManagedRuntime()
+            : managedStatus(managedRuntime.remove());
+    }
+
+    @Override
+    public void close() {
+        if (managedRuntime != null) managedRuntime.close();
+    }
+
+    private static ManagedRuntimeStatus managedStatus(
+        final dev.turboism.graal.ManagedGraalRuntimeService.Status status
+    ) {
+        final ManagedRuntimeState state = switch (status.state()) {
+            case ABSENT -> ManagedRuntimeState.ABSENT;
+            case DOWNLOADING, EXTRACTING, VERIFYING -> ManagedRuntimeState.INSTALLING;
+            case READY -> ManagedRuntimeState.READY;
+            case FAILED -> ManagedRuntimeState.FAILED;
+            case CANCELLED -> ManagedRuntimeState.CANCELLED;
+            case UNSUPPORTED -> ManagedRuntimeState.UNSUPPORTED;
+        };
+        return new ManagedRuntimeStatus(
+            state,
+            status.version(),
+            status.javaVersion(),
+            status.javaExecutable(),
+            status.completedBytes(),
+            status.totalBytes(),
+            status.code(),
+            status.message()
+        );
     }
 
     private static Optional<String> releaseValue(final String metadata, final String key) {

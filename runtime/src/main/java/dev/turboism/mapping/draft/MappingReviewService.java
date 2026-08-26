@@ -573,14 +573,6 @@ public final class MappingReviewService {
                             + ownership.path().getFileName()));
                     continue;
                 }
-                final BasicFileAttributes owned = ownership.attributes();
-                if (owned.size() != current.size()
-                    || !owned.lastModifiedTime().equals(current.lastModifiedTime())) {
-                    failure.addSuppressed(new IOException(
-                        "cleanup retained publication because pathname contents changed: "
-                            + ownership.path().getFileName()));
-                    continue;
-                }
                 Files.delete(ownership.path());
             } catch (java.nio.file.NoSuchFileException ignored) {
                 // The owned publication is already absent.

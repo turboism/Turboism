@@ -6,7 +6,6 @@ import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -146,47 +145,29 @@ final class GraalHostManagerTest {
     void cancellationBeforeDelayedRunIsNeverSentToTheHost() throws Exception {
         final List<String> diagnostics = new CopyOnWriteArrayList<>();
         try (GraalHostManager manager = manager(CancelBeforeRunHost.class, diagnostics)) {
-            final GraalHostManager.TransportResult warmup = manager.submit(
-                "warmup", "", Map.of(), (operation, payload) -> "{}"
-            ).completion().toCompletableFuture().get(2, TimeUnit.SECONDS);
-            assertEquals(GraalHostManager.Status.SUCCEEDED, warmup.status());
+            final GraalHostManager.Execution first = manager.submit(
+                "first", "", Map.of(), (operation, payload) -> "{}"
+            );
+            awaitDiagnostic(diagnostics, "FIRST_RUN_RECEIVED");
+            final GraalHostManager.Execution cancelled = manager.submit(
+                "cancelled", "", Map.of(), (operation, payload) -> "{}"
+            );
 
-            final java.util.concurrent.ThreadPoolExecutor submissions = submissions(manager);
-            final CountDownLatch releaseQueue = new CountDownLatch(1);
-            submissions.execute(() -> {
-                try {
-                    releaseQueue.await();
-                } catch (InterruptedException exception) {
-                    Thread.currentThread().interrupt();
-                }
-            });
-            try {
-                final GraalHostManager.Execution cancelled = manager.submit(
-                    "cancelled", "", Map.of(), (operation, payload) -> "{}"
-                );
+            assertTrue(cancelled.cancel());
+            final GraalHostManager.TransportResult cancelledResult = cancelled.completion()
+                .toCompletableFuture().get(200, TimeUnit.MILLISECONDS);
+            assertEquals(GraalHostManager.Status.CANCELLED, cancelledResult.status());
+            assertEquals("SCRIPT_CANCELLED", cancelledResult.code());
+            assertFalse(cancelled.cancel());
 
-                assertTrue(cancelled.cancel());
-                final GraalHostManager.TransportResult cancelledResult = cancelled.completion()
-                    .toCompletableFuture().get(200, TimeUnit.MILLISECONDS);
-                assertEquals(GraalHostManager.Status.CANCELLED, cancelledResult.status());
-                assertEquals("SCRIPT_CANCELLED", cancelledResult.code());
-                assertFalse(cancelled.cancel());
-            } finally {
-                releaseQueue.countDown();
-            }
+            final GraalHostManager.TransportResult firstResult = first.completion()
+                .toCompletableFuture().get(2, TimeUnit.SECONDS);
+            assertEquals(GraalHostManager.Status.SUCCEEDED, firstResult.status());
             assertTrue(
                 diagnostics.stream().noneMatch(message -> message.contains("CANCELLED_RUN_RECEIVED")),
                 () -> diagnostics.toString()
             );
         }
-    }
-
-    private static java.util.concurrent.ThreadPoolExecutor submissions(
-        final GraalHostManager manager
-    ) throws ReflectiveOperationException {
-        final Field field = GraalHostManager.class.getDeclaredField("submissions");
-        field.setAccessible(true);
-        return (java.util.concurrent.ThreadPoolExecutor) field.get(manager);
     }
 
     @Test
@@ -1115,17 +1096,21 @@ final class GraalHostManagerTest {
             output.write("{\"type\":\"READY\",\"protocolVersion\":1,\"graalAvailable\":true,\"detail\":\"test\"}");
             output.newLine();
             output.flush();
-            String line;
-            while ((line = input.readLine()) != null) {
-                if (!line.contains("\"type\":\"RUN\"")) {
-                    continue;
-                }
-                if (line.contains("\"scriptId\":\"cancelled\"")) {
-                    output.write("{\"type\":\"PROTOCOL_ERROR\",\"code\":\"CANCELLED_RUN_RECEIVED\",\"message\":\"test\"}");
-                } else {
-                    output.write("{\"type\":\"COMPLETE\",\"executionId\":\"" + executionId(line)
-                        + "\",\"status\":\"SUCCEEDED\",\"output\":\"warmup\"}");
-                }
+            final String first = input.readLine();
+            if (first == null) {
+                return;
+            }
+            output.write("{\"type\":\"PROTOCOL_ERROR\",\"code\":\"FIRST_RUN_RECEIVED\",\"message\":\"test\"}");
+            output.newLine();
+            output.flush();
+            Thread.sleep(100L);
+            output.write("{\"type\":\"COMPLETE\",\"executionId\":\"" + executionId(first)
+                + "\",\"status\":\"SUCCEEDED\",\"output\":\"first\"}");
+            output.newLine();
+            output.flush();
+            final String second = input.readLine();
+            if (second != null && second.contains("\"type\":\"RUN\"")) {
+                output.write("{\"type\":\"PROTOCOL_ERROR\",\"code\":\"CANCELLED_RUN_RECEIVED\",\"message\":\"test\"}");
                 output.newLine();
                 output.flush();
             }
