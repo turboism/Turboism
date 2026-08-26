@@ -50,12 +50,12 @@ from pathlib import PurePosixPath
 FORBIDDEN_SEGMENTS = frozenset({
     ".agent-artifacts", ".artifacts", ".research-artifacts", ".pi-subagents",
     ".claude", ".cursor", ".pi", ".specify", ".windsurf", "cubism-ref",
-    "docs", "docs-internal", "docs_internal", "evidence", "generated-references",
+    "docs", "docs-internal", "docs_internal", "generated-references",
     "host-evidence", "prompts", "research", "specs", "validation-artifact",
 })
 
 FORBIDDEN_PATHS = frozenset({
-    "runtime/logs",
+    "evidence", "runtime/logs",
 })
 
 FORBIDDEN_BASENAMES = frozenset({
