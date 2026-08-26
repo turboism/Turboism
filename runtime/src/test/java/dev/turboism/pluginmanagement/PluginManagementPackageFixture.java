@@ -53,10 +53,20 @@ final class PluginManagementPackageFixture {
         final String version,
         final String readme
     ) throws Exception {
+        return pluginJarBytesWithReadmes(id, version, Map.of(
+            "META-INF/turboism/readme/README.md", readme.getBytes(StandardCharsets.UTF_8)
+        ));
+    }
+
+    static byte[] pluginJarBytesWithReadmes(
+        final String id,
+        final String version,
+        final Map<String, byte[]> readmes
+    ) throws Exception {
         final String entrypoint = "example.Plugin";
         return jar(
             descriptor(id, version, entrypoint), entrypoint.replace('.', '/') + ".class",
-            Map.of("README.md", readme.getBytes(StandardCharsets.UTF_8))
+            readmes
         );
     }
 

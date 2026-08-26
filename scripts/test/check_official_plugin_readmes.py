@@ -12,18 +12,22 @@ ROOT = Path(__file__).resolve().parents[2]
 PLUGINS = ROOT / "plugins"
 RELEASE_PLUGINS = ROOT / "packaging/release-plugins.txt"
 DESCRIPTOR = Path("src/main/resources/META-INF/turboism/plugin.json")
-REQUIRED_HEADINGS = (
-    "## What it does",
-    "## Requirements and compatibility",
-    "## Install and enable",
-    "## How to use",
-    "## Capabilities",
-    "## Permissions",
-    "## Privacy and data",
-    "## Status and limitations",
-    "## Troubleshooting",
-    "## Support and license",
-)
+README_VARIANTS = {
+    "README.md": (
+        "## What it does", "## Requirements and compatibility", "## Install and enable",
+        "## How to use", "## Capabilities", "## Permissions", "## Privacy and data",
+        "## Status and limitations", "## Troubleshooting", "## Support and license",
+    ),
+    "README_zh.md": (
+        "## 功能概述", "## 要求与兼容性", "## 安装与启用", "## 使用方法", "## 功能能力",
+        "## 权限", "## 隐私与数据", "## 状态与限制", "## 故障排除", "## 支持与许可证",
+    ),
+    "README_ja.md": (
+        "## 機能概要", "## 要件と互換性", "## インストールと有効化", "## 使い方", "## 機能",
+        "## 権限", "## プライバシーとデータ", "## 状態と制限", "## トラブルシューティング",
+        "## サポートとライセンス",
+    ),
+}
 ALLOWED_KIND = {"core", "feature", "demo", "migration-shell"}
 ALLOWED_STATUS = {"built-in", "preview", "development", "migration-shell"}
 ALLOWED_DELIVERY = {"bundled", "store-candidate", "development-only", "unpublished"}
@@ -76,14 +80,21 @@ def expect(actual: str, expected: str, field: str, errors: list[str]) -> None:
         errors.append(f"front matter {field}={actual!r}; expected {expected!r}")
 
 
-def validate_module(module: Path) -> list[str]:
+def validate_readme(
+    module: Path,
+    descriptor: dict[str, object],
+    filename: str,
+    headings: tuple[str, ...],
+    expected_role: tuple[str, str, str],
+) -> list[str]:
     errors: list[str] = []
-    descriptor_path = module / DESCRIPTOR
-    readme = module / "README.md"
+    readme = module / filename
     if not readme.is_file():
-        return ["README.md is missing"]
-    descriptor = json.loads(descriptor_path.read_text(encoding="utf-8"))
-    text = readme.read_text(encoding="utf-8")
+        return [f"{filename} is missing"]
+    try:
+        text = readme.read_text(encoding="utf-8", errors="strict")
+    except UnicodeError:
+        return [f"{filename} is not valid UTF-8"]
     try:
         metadata = parse_front_matter(readme, text)
     except ValueError as failure:
@@ -109,33 +120,26 @@ def validate_module(module: Path) -> list[str]:
         errors.append(f"unsupported status: {metadata['status']}")
     if metadata["delivery"] not in ALLOWED_DELIVERY:
         errors.append(f"unsupported delivery: {metadata['delivery']}")
-
-    release_module_names = {
-        project.removeprefix(":plugins:")
-        for project in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines()
-        if project.strip()
-    }
-    expected_role = (
-        ("core", "built-in", "bundled") if module.name == "core" else
-        ("feature", "preview", "store-candidate") if module.name in release_module_names else
-        ("demo", "development", "development-only") if module.name == "demo" else
-        ("feature", "development", "development-only")
-    )
     actual_role = (metadata["kind"], metadata["status"], metadata["delivery"])
     if actual_role != expected_role:
         errors.append(f"kind/status/delivery={actual_role!r}; expected {expected_role!r}")
 
     positions: list[int] = []
-    for heading in REQUIRED_HEADINGS:
-        count = text.count(heading)
+    for heading in headings:
+        pattern = rf"^{re.escape(heading)}(?: minimization)?$" if heading == "## Privacy and data" else rf"^{re.escape(heading)}$"
+        matches = list(re.finditer(pattern, text, re.MULTILINE))
+        count = len(matches)
         if count != 1:
             errors.append(f"heading {heading!r} occurs {count} times")
-        positions.append(text.find(heading))
+        positions.append(matches[0].start() if matches else -1)
     if all(position >= 0 for position in positions) and positions != sorted(positions):
         errors.append("required headings are out of order")
 
-    if not re.search(rf"^# {re.escape(descriptor['name'])}$", text, re.MULTILINE):
-        errors.append("title does not match descriptor name")
+    if filename == "README.md":
+        if not re.search(rf"^# {re.escape(descriptor['name'])}$", text, re.MULTILINE):
+            errors.append("title does not match descriptor name")
+    elif not re.search(r"^# \S.*$", text, re.MULTILINE):
+        errors.append("README title is missing")
     for placeholder in ("TODO", "TBD", "COMING SOON", "{manifest.", "{plugin"):
         if placeholder.lower() in text.lower():
             errors.append(f"placeholder text remains: {placeholder}")
@@ -148,12 +152,44 @@ def validate_module(module: Path) -> list[str]:
         token = f"`{capability}`"
         if text.count(token) != 1:
             errors.append(f"capability {token} must appear exactly once")
-    if not descriptor["permissions"] and "The manifest declares no permissions." not in text:
-        errors.append("empty permission inventory is not stated")
-    if not descriptor["capabilities"] and "No capabilities are declared in the plugin manifest." not in text:
-        errors.append("empty capability inventory is not stated")
-
+    if not descriptor["permissions"]:
+        empty_permissions = {
+            "README.md": r"The manifest declares no permissions\.",
+            "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:权限)",
+            "README_ja.md": r"(?:権限).*(?:宣言されていません|宣言していません|ありません)",
+        }
+        if not re.search(empty_permissions[filename], text):
+            errors.append("empty permission inventory is not stated")
+    if not descriptor["capabilities"]:
+        empty_capabilities = {
+            "README.md": r"No capabilities are declared in the plugin manifest\.",
+            "README_zh.md": r"(?:未声明|不声明|没有声明|无).*(?:功能能力|能力)",
+            "README_ja.md": r"(?:機能|ケイパビリティ).*(?:宣言されていません|宣言していません|ありません)",
+        }
+        if not re.search(empty_capabilities[filename], text):
+            errors.append("empty capability inventory is not stated")
     return errors
+
+
+def validate_module(module: Path) -> list[tuple[str, str]]:
+    descriptor = json.loads((module / DESCRIPTOR).read_text(encoding="utf-8"))
+    release_module_names = {
+        project.strip().removeprefix(":plugins:")
+        for project in RELEASE_PLUGINS.read_text(encoding="utf-8").splitlines()
+        if project.strip()
+    }
+    expected_role = (
+        ("core", "built-in", "bundled") if module.name == "core" else
+        ("feature", "preview", "store-candidate") if module.name in release_module_names else
+        ("demo", "development", "development-only") if module.name == "demo" else
+        ("feature", "development", "development-only")
+    )
+    variants = README_VARIANTS if module.name in release_module_names else {"README.md": README_VARIANTS["README.md"]}
+    return [
+        (filename, error)
+        for filename, headings in variants.items()
+        for error in validate_readme(module, descriptor, filename, headings, expected_role)
+    ]
 
 
 def official_modules() -> list[Path]:
@@ -188,14 +224,14 @@ def main() -> int:
         if not (module / DESCRIPTOR).is_file():
             failures.append(f"plugins/{module.name}: official descriptor is missing")
             continue
-        for error in validate_module(module):
-            failures.append(f"plugins/{module.name}/README.md: {error}")
+        for filename, error in validate_module(module):
+            failures.append(f"plugins/{module.name}/{filename}: {error}")
     if failures:
         print("First-party plugin README check failed:", file=sys.stderr)
         for failure in failures:
             print(f"- {failure}", file=sys.stderr)
         return 1
-    print(f"PASS: {len(modules)} first-party plugin READMEs match their descriptors")
+    print(f"PASS: {len(modules)} first-party plugins have valid localized README contracts")
     return 0
 
 
