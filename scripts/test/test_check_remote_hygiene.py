@@ -206,6 +206,13 @@ class ContentRuleTest(unittest.TestCase):
         for text, rule in cases.items():
             self.assertIn(rule, crh.scan_repository_content("script.sh", text.encode()))
 
+    def test_similarly_prefixed_fixture_workspace_is_allowed(self):
+        text = "fixture=/workspace/projects/" + "turboism-legacy/cubism-ref"
+        self.assertNotIn(
+            "local-machine-workspace",
+            crh.scan_repository_content("fixture.java", text.encode()),
+        )
+
     def test_all_history_rejects_real_local_workspace(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-local-history-"))
         (Path(repo) / "note.txt").write_text(
