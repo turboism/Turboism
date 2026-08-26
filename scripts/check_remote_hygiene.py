@@ -206,7 +206,7 @@ def scan_repository_content(path, data):
     personal_user = "r" + "ain"
     if "/home/" + personal_user in text:
         rules.append("local-machine-home")
-    if "/workspace/projects/" + "turboism" in text:
+    if re.search(r"/workspace/projects/" + "turboism" + r"(?:/|$)", text):
         rules.append("local-machine-workspace")
     if personal_user + "@172.17.0.1" in text:
         rules.append("local-machine-ssh-host")
