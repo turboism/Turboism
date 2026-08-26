@@ -97,46 +97,58 @@ tasks.register<JavaExec>("verifyFirstPartyPluginMetadata") {
     }
 }
 
-val firstPartyReadmeFiles = files(
-    firstPartyPluginProjects.map { it.file("README.md") }
+val releasePluginPaths = file("packaging/release-plugins.txt").readLines()
+    .map(String::trim)
+    .filter(String::isNotEmpty)
+val releasePluginProjects = releasePluginPaths.map { project(it) }
+val readmeVariants = listOf("README.md", "README_zh.md", "README_ja.md")
+val releasePluginReadmeFiles = files(
+    releasePluginProjects.flatMap { plugin -> readmeVariants.map(plugin::file) }
 )
 
 val verifyFirstPartyPluginReadmes by tasks.registering {
     group = "verification"
-    description = "Verify every first-party plugin README is packaged byte-for-byte in its JAR."
-    dependsOn(firstPartyPluginProjects.map { "${it.path}:jar" })
-    inputs.files(firstPartyReadmeFiles)
-    inputs.files(firstPartyJarFiles)
+    description = "Verify every official plugin localized README is packaged byte-for-byte in its JAR."
+    dependsOn(releasePluginProjects.map { "${it.path}:jar" })
+    inputs.file("packaging/release-plugins.txt")
+    inputs.files(releasePluginReadmeFiles)
+    inputs.files(provider {
+        releasePluginProjects.map { plugin ->
+            plugin.tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        }
+    })
     doLast {
-        val readmePath = "META-INF/turboism/readme/README.md"
         val failures = mutableListOf<String>()
-        firstPartyPluginProjects.sortedBy { it.name }.forEach { plugin ->
-            val source = plugin.file("README.md")
-            if (!source.isFile) {
-                failures += "${plugin.path}: README.md is missing"
-                return@forEach
-            }
+        releasePluginProjects.forEach { plugin ->
             val jar = plugin.tasks.named<Jar>("jar").get().archiveFile.get().asFile
             if (!jar.isFile) {
                 failures += "${plugin.path}: built JAR is missing"
                 return@forEach
             }
             JarFile(jar).use { archive ->
-                val entries = archive.entries().asSequence()
-                    .filter { it.name == readmePath }
-                    .toList()
-                if (entries.size != 1) {
-                    failures += "${plugin.path}: expected exactly one $readmePath entry; found ${entries.size}"
-                    return@use
-                }
-                val packaged = archive.getInputStream(entries.single()).use { it.readBytes() }
-                if (!packaged.contentEquals(source.readBytes())) {
-                    failures += "${plugin.path}: packaged README differs from README.md"
+                readmeVariants.forEach { filename ->
+                    val source = plugin.file(filename)
+                    if (!source.isFile) {
+                        failures += "${plugin.path}: $filename is missing"
+                        return@forEach
+                    }
+                    val readmePath = "META-INF/turboism/readme/$filename"
+                    val entries = archive.entries().asSequence()
+                        .filter { it.name == readmePath }
+                        .toList()
+                    if (entries.size != 1) {
+                        failures += "${plugin.path}: expected exactly one $readmePath entry; found ${entries.size}"
+                        return@forEach
+                    }
+                    val packaged = archive.getInputStream(entries.single()).use { it.readBytes() }
+                    if (!packaged.contentEquals(source.readBytes())) {
+                        failures += "${plugin.path}: packaged $filename differs from source"
+                    }
                 }
             }
         }
         if (failures.isNotEmpty()) {
-            throw GradleException(failures.joinToString("\n", prefix = "First-party plugin README verification failed:\n"))
+            throw GradleException(failures.joinToString("\n", prefix = "Official plugin README verification failed:\n"))
         }
     }
 }

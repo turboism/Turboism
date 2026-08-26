@@ -276,6 +276,8 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     inputs.file("scripts/test/check_official_plugin_readmes.py")
     inputs.files(fileTree("plugins") {
         include("*/README.md")
+        include("*/README_zh.md")
+        include("*/README_ja.md")
         include("*/src/main/resources/META-INF/turboism/plugin.json")
     })
     commandLine("python3", "scripts/test/check_official_plugin_readmes.py")

@@ -4,6 +4,7 @@ import dev.turboism.plugin.core.CorePluginManagement;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
@@ -47,6 +48,35 @@ class PluginDetailsTest {
         assertEquals(List.of(), details.eventExports());
         assertEquals(List.of(), details.eventImports());
         assertTrue(details.readme().orElseThrow().contains("Rendered **README**"));
+    }
+
+    @Test
+    void displayLocaleSelectsLocalizedReadmeAndFallsBackToEnglish() throws Exception {
+        install("localized.plugin", PluginManagementPackageFixture.pluginJarBytesWithReadmes(
+            "localized.plugin", "1.0.0", java.util.Map.of(
+                "META-INF/turboism/readme/README.md", "English README".getBytes(StandardCharsets.UTF_8),
+                "META-INF/turboism/readme/README_zh.md", "中文说明".getBytes(StandardCharsets.UTF_8),
+                "META-INF/turboism/readme/README_ja.md", "日本語説明".getBytes(StandardCharsets.UTF_8)
+            )
+        ));
+
+        assertEquals("中文说明", details("localized.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
+        assertEquals("中文说明", details("localized.plugin", Locale.TRADITIONAL_CHINESE).readme().orElseThrow());
+        assertEquals("日本語説明", details("localized.plugin", Locale.JAPANESE).readme().orElseThrow());
+        assertEquals("English README", details("localized.plugin", Locale.KOREAN).readme().orElseThrow());
+    }
+
+    @Test
+    void missingOrInvalidLocalizedReadmeFallsBackToEnglish() throws Exception {
+        install("fallback.plugin", PluginManagementPackageFixture.pluginJarBytesWithReadmes(
+            "fallback.plugin", "1.0.0", java.util.Map.of(
+                "META-INF/turboism/readme/README.md", "English fallback".getBytes(StandardCharsets.UTF_8),
+                "META-INF/turboism/readme/README_ja.md", new byte[]{(byte) 0xc3, (byte) 0x28}
+            )
+        ));
+
+        assertEquals("English fallback", details("fallback.plugin", Locale.JAPANESE).readme().orElseThrow());
+        assertEquals("English fallback", details("fallback.plugin", Locale.SIMPLIFIED_CHINESE).readme().orElseThrow());
     }
 
     @Test
@@ -99,6 +129,11 @@ class PluginDetailsTest {
         assertEquals("Project License", details.license());
         assertEquals(Optional.of("https://turboism.dev"), details.website());
         assertTrue(details.readme().orElseThrow().contains("# Turboism Core"));
+    }
+
+    private CorePluginManagement.PluginDetails details(final String id, final Locale locale) {
+        return RuntimePluginManagementService.withMetadataLocale(home, List::of, () -> locale)
+            .details(id).orElseThrow();
     }
 
     private void install(final String id, final byte[] jar) throws Exception {

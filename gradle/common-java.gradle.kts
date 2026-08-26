@@ -40,7 +40,8 @@ subprojects {
     }
     if (path.startsWith(":plugins:")) {
         tasks.named<ProcessResources>("processResources") {
-            from(layout.projectDirectory.file("README.md")) {
+            from(layout.projectDirectory.dir(".")) {
+                include("README.md", "README_zh.md", "README_ja.md")
                 into("META-INF/turboism/readme")
             }
         }
