@@ -20,5 +20,7 @@
 
     <!-- Required common pack display name (console- and GUI-visible). -->
     <str id="turboism-common" txt="Turboism Core"/>
+    <str id="turboism-managed-graal" txt="Install managed GraalVM (optional)"/>
+    <str id="turboism-managed-graal.description" txt="Downloads, verifies, and installs Turboism's pinned private GraalVM Community runtime. No download occurs unless selected."/>
 
 </izpack:langpack>
