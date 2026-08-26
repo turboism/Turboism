@@ -80,6 +80,12 @@ public interface CorePluginManagement extends AutoCloseable {
             readme = readme == null ? Optional.empty() : readme;
         }
 
+        /**
+         * Creates details containing only the already available plugin-list metadata.
+         *
+         * @param plugin the plugin-list row to expose
+         * @return immutable summary details with extended metadata left empty
+         */
         public static PluginDetails summary(final PluginInfo plugin) {
             return new PluginDetails(
                 plugin, "", List.of(), "", Optional.empty(), List.of(), List.of(), List.of(),
