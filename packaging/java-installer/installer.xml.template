@@ -78,6 +78,10 @@
             <fileset dir="__STAGE_REL__/graal/lib" targetdir="$INSTALL_PATH/graal/lib" override="true" os="windows">
                 <include name="*.jar"/>
             </fileset>
+            <fileset dir="__STAGE_REL__/graal/legal" targetdir="$INSTALL_PATH/graal/legal" override="true" os="windows">
+                <include name="LICENSE"/>
+                <include name="THIRD_PARTY_LICENSE.txt"/>
+            </fileset>
             <file src="__STAGE_REL__/LICENSE.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.zh.txt" targetdir="$INSTALL_PATH" override="true"/>

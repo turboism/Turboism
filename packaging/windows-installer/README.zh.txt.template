@@ -14,6 +14,9 @@ Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行�
   launch-cubism-turboism.ps1     PowerShell 启动实现
   cubism-launch-common.ps1       共享的清单/启动辅助代码
   plugins/                       插件 jar（full 包才有；lite 包无此目录）
+  graal\lib/                      随包提供的隔离 GraalJS host 库
+  graal\runtime/                  已安装时的托管 GraalVM 运行时
+  cache\runtime\graal/            托管运行时下载缓存
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 二、使用方法
@@ -38,6 +41,16 @@ Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行�
    非 Turboism JVM 选项会保留。
 6. 仅当启动器不在本目录时才需要设置 TURBOISM_HOME。插件选择保存到
    config.json，安装选择单独保存到 cubism-installations.json。
+7. Cubism 默认使用 GraalVM。若已选择 GraalVM 但它不存在，请打开 Turboism
+   设置 > 性能 > Cubism JVM，并由用户明确启动自动安装。该安装仅支持 Windows
+   x64，会将固定版本 GraalVM Community 25.2.4 / JDK 25.0.4 安装到
+   graal\runtime。激活前会验证官方 HTTPS 主机、发布元数据、精确大小与
+   SHA-256、安全解压以及隔离 host 的 READY 结果；适用的法律文件会保留。它不
+   修改 JAVA_HOME、PATH、注册表、Cubism 或 Cubism 自带 Java。失败或取消会
+   保留原选择。启动时绝不下载；已保存/默认的 GraalVM 选择无法解析时，启动器会
+   警告并使用 Cubism 自带 Java。
+8. 托管运行时服务可以验证或移除托管运行时，但当前 UI 仅提供安装。若要手动
+   移除，请先关闭 Cubism 和 Turboism，再删除 graal\runtime，并保留 graal\lib。
 
 三、config.json
 ---------------
@@ -49,8 +62,9 @@ Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行�
 --------
 - 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home
   目录中的 uninstall.exe。它只清理 Turboism 记录的托管快捷方式/状态与自有
-  文件。卸载确认页含「同时删除 config.json（用户配置）」复选框，默认勾选；
-  取消勾选可保留 config.json。
+  文件；存在时也会删除整个 graal 目录（托管运行时和随包的 graal\lib）。卸载
+  确认页含「同时删除 config.json（用户配置）」复选框，默认勾选；取消勾选可
+  保留 config.json。
 - ZIP 手动安装包无卸载器：关闭 Cubism 后删除 Turboism 目录，不会修改 Cubism。
 
 五、常见问题

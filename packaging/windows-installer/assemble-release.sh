@@ -220,8 +220,11 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
             z.write(full, arc)
     names = set(z.namelist())
     graal = [name for name in names if name.startswith("graal/lib/") and name.endswith(".jar")]
+    graal_legal = {"graal/legal/LICENSE", "graal/legal/THIRD_PARTY_LICENSE.txt"}
     if not graal:
         raise SystemExit("error: Windows zip is missing the common Graal host closure")
+    if not graal_legal.issubset(names):
+        raise SystemExit("error: Windows zip is missing Graal license and notice files")
     if lite and any(name.startswith("plugins/") for name in names):
         raise SystemExit("error: Lite zip unexpectedly contains plugin payload")
     if not lite and not any(name.startswith("plugins/") and name.endswith(".jar") for name in names):
