@@ -29,9 +29,17 @@ def main() -> None:
         root = Path(raw)
         jar = root / "plugin.jar"
         descriptor = b'{"format":"turboism.plugin.meta","schemaVersion":2,"id":"example.plugin","name":"Example","version":"1.0.0","entrypoints":["example.Plugin"],"turboismApi":"[0.1.0,0.2.0)","authors":[{"name":"Test"}],"website":"https://example.test","resources":[],"i18n":{"baseName":"META-INF/turboism/i18n/messages","locales":[]}}'
+        readmes = {
+            "META-INF/turboism/readme/README.md": "# Example\n",
+            "META-INF/turboism/readme/README_zh.md": "# 示例\n",
+            "META-INF/turboism/readme/README_ja.md": "# サンプル\n",
+        }
         with zipfile.ZipFile(jar, "w") as archive:
             archive.writestr("META-INF/turboism/plugin.json", descriptor)
             archive.writestr("example/Plugin.class", b"class")
+            for name, content in readmes.items():
+                archive.writestr(name, content.encode("utf-8"))
+        jar_bytes = jar.read_bytes()
         package = root / "plugin.tplugin"
         subprocess.run([sys.executable, str(BUILDER), str(jar), str(package)], check=True,
                        env={"SOURCE_DATE_EPOCH": "1785456000"})
@@ -41,6 +49,12 @@ def main() -> None:
         ], entries
         assert all(flag & ~0x0808 == 0 for _, flag in entries), entries
         assert all(all(byte < 128 for byte in name) or flag & 0x0800 for name, flag in entries), entries
+        with zipfile.ZipFile(package) as outer:
+            packaged_jar = outer.read("plugin/plugin.jar")
+        assert packaged_jar == jar_bytes
+        with zipfile.ZipFile(__import__("io").BytesIO(packaged_jar)) as inner:
+            for name, content in readmes.items():
+                assert inner.read(name) == content.encode("utf-8")
 
 
 if __name__ == "__main__":

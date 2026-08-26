@@ -47,10 +47,12 @@ record PluginArchiveMetadata(
 ) {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
     private static final String CORE_DESCRIPTOR = "META-INF/turboism/core-plugin.json";
-    private static final List<String> README_PATHS = List.of(
+    private static final List<String> BASE_README_PATHS = List.of(
         "META-INF/turboism/readme/README.md", "README.md", "README.markdown", "README.txt",
         "readme.md", "readme.markdown", "readme.txt"
     );
+    private static final String CHINESE_README = "META-INF/turboism/readme/README_zh.md";
+    private static final String JAPANESE_README = "META-INF/turboism/readme/README_ja.md";
     static final int MAX_README_BYTES = 1024 * 1024;
 
     static Optional<PluginArchiveMetadata> read(final Path path) {
@@ -89,7 +91,7 @@ record PluginArchiveMetadata(
                 final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
                     descriptor.id(), loader, descriptor.i18n(), locale.toLanguageTag(), locale, locale, diagnostics
                 );
-                return Optional.of(metadata(descriptor, localization, readme(jar)));
+                return Optional.of(metadata(descriptor, localization, readme(jar, locale)));
             }
         } catch (Exception failure) {
             return Optional.empty();
@@ -114,7 +116,7 @@ record PluginArchiveMetadata(
             final RuntimePluginLocalization localization = RuntimePluginLocalization.create(
                 descriptor.id(), loader, descriptor.i18n(), locale.toLanguageTag(), locale, locale, diagnostics
             );
-            return Optional.of(metadata(descriptor, localization, readme(loader)));
+            return Optional.of(metadata(descriptor, localization, readme(loader, locale)));
         } catch (Exception failure) {
             return Optional.empty();
         }
@@ -162,29 +164,64 @@ record PluginArchiveMetadata(
         );
     }
 
-    private static Optional<String> readme(final JarFile jar) {
-        for (String path : README_PATHS) {
-            final JarEntry entry = jar.getJarEntry(path);
-            if (entry == null || entry.isDirectory()) continue;
-            if (entry.getSize() > MAX_README_BYTES) return Optional.empty();
-            try (InputStream input = jar.getInputStream(entry)) {
-                return readUtf8(input);
-            } catch (Exception unavailable) {
-                return Optional.empty();
-            }
+    private static Optional<String> readme(final JarFile jar, final Locale locale) {
+        final String localized = localizedReadmePath(locale);
+        if (localized != null) {
+            final ReadmeLookup value = readme(jar, localized);
+            if (value.content().isPresent()) return value.content();
+        }
+        for (String path : BASE_README_PATHS) {
+            final ReadmeLookup value = readme(jar, path);
+            if (value.content().isPresent()) return value.content();
+            if (value.present()) return Optional.empty();
         }
         return Optional.empty();
     }
 
-    private static Optional<String> readme(final ClassLoader loader) {
-        for (String path : README_PATHS) {
-            try (InputStream input = loader.getResourceAsStream(path)) {
-                if (input != null) return readUtf8(input);
-            } catch (Exception unavailable) {
-                return Optional.empty();
-            }
+    private static ReadmeLookup readme(final JarFile jar, final String path) {
+        final JarEntry entry = jar.getJarEntry(path);
+        if (entry == null || entry.isDirectory()) return new ReadmeLookup(false, Optional.empty());
+        if (entry.getSize() > MAX_README_BYTES) return new ReadmeLookup(true, Optional.empty());
+        try (InputStream input = jar.getInputStream(entry)) {
+            return new ReadmeLookup(true, readUtf8(input));
+        } catch (Exception unavailable) {
+            return new ReadmeLookup(true, Optional.empty());
+        }
+    }
+
+    private static Optional<String> readme(final ClassLoader loader, final Locale locale) {
+        final String localized = localizedReadmePath(locale);
+        if (localized != null) {
+            final ReadmeLookup value = readme(loader, localized);
+            if (value.content().isPresent()) return value.content();
+        }
+        for (String path : BASE_README_PATHS) {
+            final ReadmeLookup value = readme(loader, path);
+            if (value.content().isPresent()) return value.content();
+            if (value.present()) return Optional.empty();
         }
         return Optional.empty();
+    }
+
+    private static ReadmeLookup readme(final ClassLoader loader, final String path) {
+        try (InputStream input = loader.getResourceAsStream(path)) {
+            return input == null
+                ? new ReadmeLookup(false, Optional.empty())
+                : new ReadmeLookup(true, readUtf8(input));
+        } catch (Exception unavailable) {
+            return new ReadmeLookup(true, Optional.empty());
+        }
+    }
+
+    private static String localizedReadmePath(final Locale locale) {
+        return switch (locale.getLanguage()) {
+            case "zh" -> CHINESE_README;
+            case "ja" -> JAPANESE_README;
+            default -> null;
+        };
+    }
+
+    private record ReadmeLookup(boolean present, Optional<String> content) {
     }
 
     private static Optional<String> readUtf8(final InputStream input) throws java.io.IOException {
@@ -195,7 +232,14 @@ record PluginArchiveMetadata(
             if (output.size() + count > MAX_README_BYTES) return Optional.empty();
             output.write(buffer, 0, count);
         }
-        return Optional.of(new String(output.toByteArray(), StandardCharsets.UTF_8));
+        try {
+            return Optional.of(StandardCharsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                .decode(java.nio.ByteBuffer.wrap(output.toByteArray())).toString());
+        } catch (java.nio.charset.CharacterCodingException invalidUtf8) {
+            return Optional.empty();
+        }
     }
 
     private static String localized(
