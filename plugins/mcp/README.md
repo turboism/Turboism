@@ -42,7 +42,7 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
-## Install and connect
+## Install and enable
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
 2. Read the generated `mcp-connection.json` from the plugin state directory.
@@ -50,6 +50,10 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 4. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.
 
 The connection file contains a local secret. Do not log it, copy it into validation evidence, or expose it to an untrusted process.
+
+## How to use
+
+Connect a trusted local MCP client with the endpoint and bearer value from `mcp-connection.json`, initialize the session, then use the catalog below. Start with read resources and prompts; invoke write tools only after reviewing the requested operations and their permission scope.
 
 ## Public MCP catalog
 
@@ -105,7 +109,7 @@ Workspace and layout resources may successfully return `availability: "UNAVAILAB
 
 Prompts accept no arguments. The two diagnostic prompts explicitly prohibit mutations.
 
-## Declared capabilities
+## Capabilities
 
 | Capability | User effect |
 |---|---|
@@ -114,10 +118,14 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `mcp.resources` | Publishes static and templated JSON resources. |
 | `mcp.prompts` | Publishes user-controlled workflow prompts. |
 | `cubism.workspace.read` | Reads typed workspace status and dock-layout snapshots. |
-| `cubism.model.objects.read` / `write` | Inspects and edits supported model objects. |
-| `cubism.parameters.read` / `write` | Inspects and edits parameters. |
-| `cubism.parameter-bindings.read` / `write` | Inspects and edits parameter bindings. |
-| `cubism.history.read` / `write` | Reads and moves native Undo history. |
+| `cubism.model.objects.read` | Inspects supported model objects. |
+| `cubism.model.objects.write` | Creates, renames, reparents, and deletes supported model objects. |
+| `cubism.parameters.read` | Reads active-model parameters. |
+| `cubism.parameters.write` | Applies typed parameter value and definition operations. |
+| `cubism.parameter-bindings.read` | Reads parameter bindings. |
+| `cubism.parameter-bindings.write` | Applies typed binding operations and native atomic transfers. |
+| `cubism.history.read` | Reads native Undo history. |
+| `cubism.history.write` | Moves native Undo history with generation and revision guards. |
 | `cubism.editor-commands.execute` | Executes the bounded supported Editor-command surface. |
 
 ## Permissions
