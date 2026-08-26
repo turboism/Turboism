@@ -88,11 +88,13 @@ final class FileSafety {
         return attributes;
     }
 
-    private static boolean identityChanged(final BasicFileAttributes before, final BasicFileAttributes after) {
+    static boolean identityChanged(final BasicFileAttributes before, final BasicFileAttributes after) {
         final Object beforeKey = before.fileKey();
         final Object afterKey = after.fileKey();
         return (beforeKey != null && afterKey != null && !beforeKey.equals(afterKey))
-            || before.size() != after.size();
+            || before.size() != after.size()
+            || !before.creationTime().equals(after.creationTime())
+            || !before.lastModifiedTime().equals(after.lastModifiedTime());
     }
 
     private static void closeSuppressed(final FileChannel channel, final DraftMappingException failure) {
@@ -110,12 +112,14 @@ final class FileSafety {
         final List<PublicationOwnership> ownedTargets,
         final String code
     ) {
+        final int ownershipIndex = ownedTargets.size();
+        BasicFileAttributes created = null;
         try (FileChannel output = openRegularNoFollow(
                  target, Set.of(StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE), code)) {
             // CREATE_NEW acquired this pathname for this operation. Capture its filesystem
             // identity before reading or writing so cleanup can distinguish this file from a
             // competitor that later replaces the pathname.
-            final BasicFileAttributes created = requireRegularAttributes(target, code);
+            created = requireRegularAttributes(target, code);
             ownedTargets.add(new PublicationOwnership(target, created.fileKey(), created));
             try (FileChannel input = openRegularNoFollow(source, Set.of(StandardOpenOption.READ), code)) {
                 input.transferTo(0, input.size(), output);
@@ -124,6 +128,20 @@ final class FileSafety {
             throw exception;
         } catch (IOException exception) {
             throw new DraftMappingException(code, "could not copy into a newly owned target", exception);
+        }
+        try {
+            final BasicFileAttributes completed = requireRegularAttributes(target, code);
+            if (created.fileKey() != null
+                && completed.fileKey() != null
+                && created.fileKey().equals(completed.fileKey())) {
+                ownedTargets.set(
+                    ownershipIndex,
+                    new PublicationOwnership(target, completed.fileKey(), completed)
+                );
+            }
+        } catch (DraftMappingException | IOException exception) {
+            // Keep the CREATE_NEW identity. Cleanup will retain a replacement pathname and attach
+            // the identity diagnostic to the operation failure that triggered cleanup.
         }
     }
 

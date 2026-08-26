@@ -567,7 +567,7 @@ public final class MappingReviewService {
                             + ownership.path().getFileName()));
                     continue;
                 }
-                if (!ownership.fileKey().equals(current.fileKey())) {
+                if (FileSafety.identityChanged(ownership.attributes(), current)) {
                     failure.addSuppressed(new IOException(
                         "cleanup retained publication because pathname ownership changed: "
                             + ownership.path().getFileName()));
