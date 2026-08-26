@@ -37,7 +37,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class SchemaFixtureValidationTest {
 
     private static final Path FIXTURES = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
-        .resolve("testing/test-support/src/main/resources/fixtures/schema");
+        .resolve("testframework/src/main/resources/fixtures/schema");
 
     private final ObjectMapper mapper = new ObjectMapper();
 

@@ -116,13 +116,9 @@ final class FileSafety {
             // identity before reading or writing so cleanup can distinguish this file from a
             // competitor that later replaces the pathname.
             final BasicFileAttributes created = requireRegularAttributes(target, code);
-            final PublicationOwnership ownership =
-                new PublicationOwnership(target, created.fileKey(), created);
-            ownedTargets.add(ownership);
+            ownedTargets.add(new PublicationOwnership(target, created.fileKey(), created));
             try (FileChannel input = openRegularNoFollow(source, Set.of(StandardOpenOption.READ), code)) {
                 input.transferTo(0, input.size(), output);
-            } finally {
-                ownership.observe(requireRegularAttributes(target, code));
             }
         } catch (DraftMappingException exception) {
             throw exception;
@@ -199,37 +195,7 @@ final class FileSafety {
         }
     }
 
-    static final class PublicationOwnership {
-        private final Path path;
-        private final Object fileKey;
-        private BasicFileAttributes attributes;
-
-        PublicationOwnership(
-            final Path path,
-            final Object fileKey,
-            final BasicFileAttributes attributes
-        ) {
-            this.path = path;
-            this.fileKey = fileKey;
-            this.attributes = attributes;
-        }
-
-        Path path() {
-            return path;
-        }
-
-        Object fileKey() {
-            return fileKey;
-        }
-
-        BasicFileAttributes attributes() {
-            return attributes;
-        }
-
-        void observe(final BasicFileAttributes observed) {
-            attributes = observed;
-        }
-    }
+    record PublicationOwnership(Path path, Object fileKey, BasicFileAttributes attributes) { }
 
     record Digest(long size, String sha256) { }
 }

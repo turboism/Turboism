@@ -51,7 +51,6 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
 
 import java.math.BigDecimal;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,10 +58,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import java.util.concurrent.CancellationException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -93,7 +89,7 @@ final class McpTools {
     private final CubismReadCapabilityService read;
     private final CubismClipMaskService clipMasks;
     private final PluginLogger logger;
-    private final UiScheduler uiScheduler;
+    private final McpExecutionBridge execution;
 
     McpTools(
         final ModelObjectService service,
@@ -105,6 +101,28 @@ final class McpTools {
         final PluginLogger logger,
         final UiScheduler uiScheduler
     ) {
+        this(
+            service,
+            parameterQuery,
+            hierarchyQuery,
+            selectionQuery,
+            read,
+            clipMasks,
+            logger,
+            new McpExecutionBridge(uiScheduler)
+        );
+    }
+
+    McpTools(
+        final ModelObjectService service,
+        final ParameterQueryService parameterQuery,
+        final ModelHierarchyQueryService hierarchyQuery,
+        final SelectionQueryService selectionQuery,
+        final CubismReadCapabilityService read,
+        final CubismClipMaskService clipMasks,
+        final PluginLogger logger,
+        final McpExecutionBridge execution
+    ) {
         this.service = Objects.requireNonNull(service, "service");
         this.parameterQuery = Objects.requireNonNull(parameterQuery, "parameterQuery");
         this.hierarchyQuery = Objects.requireNonNull(hierarchyQuery, "hierarchyQuery");
@@ -112,7 +130,7 @@ final class McpTools {
         this.read = Objects.requireNonNull(read, "read");
         this.clipMasks = Objects.requireNonNull(clipMasks, "clipMasks");
         this.logger = Objects.requireNonNull(logger, "logger");
-        this.uiScheduler = Objects.requireNonNull(uiScheduler, "uiScheduler");
+        this.execution = Objects.requireNonNull(execution, "execution");
     }
 
     List<Map<String, Object>> definitions() {
@@ -260,6 +278,7 @@ final class McpTools {
             Objects.requireNonNull(arguments, "arguments")
         );
         try {
+            McpRequestRegistry.throwIfCancelled();
             final Map<String, Object> output = switch (toolName) {
                 case LIST -> list(checkedArguments);
                 case RENAME -> rename(checkedArguments);
@@ -274,6 +293,8 @@ final class McpTools {
                 default -> throw new ToolInputException("Unknown MCP tool: " + toolName);
             };
             return toolResult(output, false);
+        } catch (CancellationException failure) {
+            throw failure;
         } catch (ToolInputException failure) {
             return toolFailure("INVALID_ARGUMENT", failure.getMessage(), failure, false);
         } catch (ModelObjectOperationException failure) {
@@ -293,7 +314,7 @@ final class McpTools {
         only(arguments, "kind");
         final Optional<ModelObjectKind> filter = optionalString(arguments, "kind")
             .map(McpTools::kind);
-        final List<Map<String, Object>> objects = onUi(service::list).stream()
+        final List<Map<String, Object>> objects = execution.ui(service::list).stream()
             .filter(value -> filter.isEmpty() || value.reference().kind() == filter.orElseThrow())
             .map(McpTools::descriptor)
             .toList();
@@ -371,20 +392,20 @@ final class McpTools {
         only(arguments);
         return linked(
             entry("ok", true),
-            entry("project", onUi(read::activeProject).map(McpTools::project).orElse(null)),
-            entry("document", onUi(read::activeDocument).map(McpTools::document).orElse(null)),
-            entry("model", onUi(read::activeModel).map(McpTools::model).orElse(null)),
-            entry("selection", selection(onUi(read::selection))),
-            entry("parameters", list(onUi(read::parameters), McpTools::parameterSnapshot)),
-            entry("modelObjects", list(onUi(read::modelObjects), McpTools::modelObject)),
-            entry("meshes", list(onUi(read::meshes), McpTools::artMesh)),
-            entry("deformers", list(onUi(read::deformers), McpTools::deformer)),
-            entry("psdDocuments", list(onUi(read::psdDocuments), McpTools::psdDocument)),
-            entry("clipMasks", list(onUi(read::clipMasks), McpTools::clipMask)),
-            entry("textureAtlases", list(onUi(read::textureAtlases), McpTools::textureAtlas)),
-            entry("renderStatus", onUi(read::renderStatus).map(McpTools::renderStatus).orElse(null)),
-            entry("workspace", onUi(read::workspace).map(McpTools::workspace).orElse(null)),
-            entry("themeStatus", onUi(read::themeStatus).map(McpTools::themeStatus).orElse(null))
+            entry("project", execution.ui(read::activeProject).map(McpTools::project).orElse(null)),
+            entry("document", execution.ui(read::activeDocument).map(McpTools::document).orElse(null)),
+            entry("model", execution.ui(read::activeModel).map(McpTools::model).orElse(null)),
+            entry("selection", selection(execution.ui(read::selection))),
+            entry("parameters", list(execution.ui(read::parameters), McpTools::parameterSnapshot)),
+            entry("modelObjects", list(execution.ui(read::modelObjects), McpTools::modelObject)),
+            entry("meshes", list(execution.ui(read::meshes), McpTools::artMesh)),
+            entry("deformers", list(execution.ui(read::deformers), McpTools::deformer)),
+            entry("psdDocuments", list(execution.ui(read::psdDocuments), McpTools::psdDocument)),
+            entry("clipMasks", list(execution.ui(read::clipMasks), McpTools::clipMask)),
+            entry("textureAtlases", list(execution.ui(read::textureAtlases), McpTools::textureAtlas)),
+            entry("renderStatus", execution.ui(read::renderStatus).map(McpTools::renderStatus).orElse(null)),
+            entry("workspace", execution.ui(read::workspace).map(McpTools::workspace).orElse(null)),
+            entry("themeStatus", execution.ui(read::themeStatus).map(McpTools::themeStatus).orElse(null))
         );
     }
 
@@ -430,7 +451,7 @@ final class McpTools {
     }
 
     private <T> T readService(final ServiceCall<T> call) {
-        return onUi(() -> {
+        return execution.ui(() -> {
             try {
                 return call.run();
             } catch (CubismServiceException failure) {
@@ -445,7 +466,7 @@ final class McpTools {
         final String name = requiredString(arguments, "name", 256);
         return linked(
             entry("ok", true),
-            entry("object", descriptor(onUi(() -> service.rename(target, name))))
+            entry("object", descriptor(execution.ui(() -> service.rename(target, name))))
         );
     }
 
@@ -463,7 +484,7 @@ final class McpTools {
         }
         return linked(
             entry("ok", true),
-            entry("object", descriptor(onUi(() -> service.reparent(target, parent, index))))
+            entry("object", descriptor(execution.ui(() -> service.reparent(target, parent, index))))
         );
     }
 
@@ -497,7 +518,7 @@ final class McpTools {
         };
         return linked(
             entry("ok", true),
-            entry("object", descriptor(onUi(() -> service.create(request))))
+            entry("object", descriptor(execution.ui(() -> service.create(request))))
         );
     }
 
@@ -513,7 +534,7 @@ final class McpTools {
                 );
             })
             .orElse(ModelObjectDeletePolicy.REJECT_REFERENCED);
-        onUi(() -> {
+        execution.ui(() -> {
             service.delete(target, policy);
             return null;
         });
@@ -555,44 +576,6 @@ final class McpTools {
             entry("structuredContent", output),
             entry("isError", error)
         );
-    }
-
-    private <T> T onUi(final Supplier<T> invocation) {
-        final CompletableFuture<T> result = new CompletableFuture<>();
-        final Registration registration = uiScheduler.runOnUiThread(() -> {
-            try {
-                result.complete(invocation.get());
-            } catch (Throwable failure) {
-                result.completeExceptionally(failure);
-            }
-        });
-        try {
-            return result.get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException failure) {
-            Thread.currentThread().interrupt();
-            throw new ModelObjectOperationException(
-                ModelObjectOperationException.Code.FAILED,
-                "MCP model-object operation was interrupted",
-                failure
-            );
-        } catch (TimeoutException failure) {
-            throw new ModelObjectOperationException(
-                ModelObjectOperationException.Code.UNAVAILABLE,
-                "MCP model-object operation did not complete on the UI thread",
-                failure
-            );
-        } catch (ExecutionException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new ModelObjectOperationException(
-                ModelObjectOperationException.Code.FAILED,
-                "MCP model-object operation failed",
-                cause
-            );
-        } finally {
-            registration.close();
-        }
     }
 
     private static ArtMeshGeometry artMeshGeometry(final Map<String, Object> arguments) {
@@ -736,7 +719,6 @@ final class McpTools {
         return linked(
             entry("projectId", value.projectId()),
             entry("name", value.name()),
-            entry("projectDirectory", value.projectDirectory().map(Path::toString).orElse(null)),
             entry("contents", value.contents().stream().map(McpTools::projectContent).toList()),
             entry("documents", value.documents().stream().map(McpTools::document).toList())
         );
@@ -747,7 +729,6 @@ final class McpTools {
             entry("contentId", value.contentId()),
             entry("name", value.name()),
             entry("kind", value.kind().name()),
-            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
             entry("documentIds", value.documentIds()),
             entry("resources", value.resources().stream().map(McpTools::projectResource).toList())
         );
@@ -768,7 +749,6 @@ final class McpTools {
             entry("name", value.name()),
             entry("kind", value.kind().name()),
             entry("relativePath", value.relativePath()),
-            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
             entry("contentId", value.contentId().orElse(null)),
             entry("model", value.model().map(McpTools::model).orElse(null)),
             entry("animation", value.animation().map(McpTools::animation).orElse(null))
@@ -779,7 +759,6 @@ final class McpTools {
         return linked(
             entry("animationId", value.animationId()),
             entry("name", value.name()),
-            entry("filePath", value.filePath().map(Path::toString).orElse(null)),
             entry("sceneDocumentIds", value.sceneDocumentIds()),
             entry("activeSceneDocumentId", value.activeSceneDocumentId().orElse(null))
         );

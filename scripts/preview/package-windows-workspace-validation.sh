@@ -20,7 +20,7 @@ if [ "${#agent_candidates[@]}" -gt 1 ]; then
   exit 1
 fi
 agent_jar="${agent_candidates[0]}"
-test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-workspace-validation-plugin.json"
@@ -29,11 +29,11 @@ agent_class_dir_rel="dev/turboism/tests/validation"
 launcher_template="$repo_root/scripts/preview/launch-workspace-validation.bat.template"
 command_helper_ps1="$repo_root/scripts/preview/submit-workspace-command.ps1"
 readme="$repo_root/scripts/preview/README-workspace-validation.md"
-record_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-workspace-control.json"
+record_52="$repo_root/compatibility/cubism/verification/cubism-5.2-workspace-control.json"
 record_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-workspace-control.json"
-record_overlay_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-ui-bounding-box-overlay.json"
+record_overlay_52="$repo_root/compatibility/cubism/verification/cubism-5.2-ui-bounding-box-overlay.json"
 record_overlay_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-ui-bounding-box-overlay.json"
-record_project_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-project-workspace.json"
+record_project_52="$repo_root/compatibility/cubism/verification/cubism-5.2-project-workspace.json"
 record_project_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-project-workspace.json"
 
 for required in \
@@ -53,7 +53,7 @@ for required in \
   [ -f "$required" ] || { printf 'error: required input not found: %s\n' "$required" >&2; exit 1; }
 done
 if ! ls "$test_classes"/dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe\$*.class >/dev/null 2>&1; then
-  printf 'error: validation probe nested classes are missing; run :testing:integration-tests:testClasses first\n' >&2
+  printf 'error: validation probe nested classes are missing; run :tests:testClasses first\n' >&2
   exit 1
 fi
 

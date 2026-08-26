@@ -36,7 +36,7 @@ No Cubism binaries or assets are packaged.
 ## Preflight (offline)
 
 ```bash
-./gradlew :bootstrap:jar :testing:integration-tests:testClasses --no-daemon --console=plain
+./gradlew :bootstrap:jar :tests:testClasses --no-daemon --console=plain
 scripts/preview/package-windows-workspace-validation.sh <bundle-dir>
 ```
 
