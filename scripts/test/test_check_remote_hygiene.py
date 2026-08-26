@@ -92,7 +92,7 @@ class PathRuleTest(unittest.TestCase):
             "cubism-ref/core-api/observed/host.json": "segment:cubism-ref",
             "docs/migration/guide.md": "segment:docs",
             "docs-internal/notes.md": "segment:docs-internal",
-            "evidence/host-session/result.tsv": "segment:evidence",
+            "evidence/host-session/result.tsv": "path:evidence",
             "generated-references/plugin-public-events.md": "segment:generated-references",
             "host-evidence/5.3.02/result.json": "segment:host-evidence",
             "research/selector-notes.md": "segment:research",
