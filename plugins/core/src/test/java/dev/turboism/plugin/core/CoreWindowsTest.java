@@ -5,8 +5,11 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
@@ -65,6 +68,48 @@ class CoreWindowsTest {
             @Override public CubismJvm save(final CubismJvm next) { return next; }
             @Override public boolean graalVmAvailable() { return available; }
         };
+    }
+
+    @Test
+    void missingGraalVmOffersManagedInstallAndSelectsItOnlyAfterSuccess() throws Exception {
+        final CubismJvm[] saved = {CubismJvm.BUNDLED};
+        final CubismJvmSettingsService service = new CubismJvmSettingsService() {
+            @Override public CubismJvm read() { return saved[0]; }
+            @Override public CubismJvm save(final CubismJvm next) { return saved[0] = next; }
+            @Override public boolean graalVmAvailable() { return false; }
+            @Override public ManagedRuntimeOperation installManagedRuntime() {
+                final ManagedRuntimeStatus ready = new ManagedRuntimeStatus(
+                    ManagedRuntimeState.READY,
+                    MANAGED_GRAAL_VERSION,
+                    MANAGED_JAVA_VERSION,
+                    Optional.of(java.nio.file.Path.of("managed/bin/java.exe")),
+                    1L,
+                    1L,
+                    "",
+                    "ready"
+                );
+                return new ManagedRuntimeOperation() {
+                    @Override public ManagedRuntimeStatus status() { return ready; }
+                    @Override public java.util.concurrent.CompletionStage<ManagedRuntimeStatus> completion() {
+                        return CompletableFuture.completedFuture(ready);
+                    }
+                    @Override public boolean cancel() { return false; }
+                };
+            }
+        };
+        final var contribution = CubismJvmSettingsContribution.create(I18N, service);
+        final var choice = (dev.turboism.sdk.ui.settings.SettingsControl.Choice) contribution.control();
+
+        final var decision = choice.validator().validate("bundled", "graalvm");
+        assertFalse(decision.accepted());
+        assertTrue(decision.action().isPresent());
+        assertTrue(decision.link().isPresent());
+        assertEquals(CubismJvm.BUNDLED, saved[0]);
+
+        final var result = decision.action().orElseThrow().action().start().completion()
+            .toCompletableFuture().get();
+        assertTrue(result.succeeded());
+        assertEquals(CubismJvm.GRAALVM, saved[0]);
     }
 
     @Test

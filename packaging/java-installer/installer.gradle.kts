@@ -96,7 +96,9 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/configure_turboism.ps1",
     "packaging/windows-installer/cubism-launch-common.ps1",
     "packaging/java-installer/uninstall.command",
-    "packaging/java-installer/README.java-installer.txt"
+    "packaging/java-installer/README.java-installer.txt",
+    "packaging/legal/graalvm-25.2/LICENSE",
+    "packaging/legal/graalvm-25.2/THIRD_PARTY_LICENSE.txt"
 )
 
 val customLangPackFiles = listOf(
@@ -183,6 +185,11 @@ val stageInstallerPayload by tasks.registering {
             from("LICENSE")
             into(stage)
             rename { "LICENSE.txt" }
+        }
+        copy {
+            from("packaging/legal/graalvm-25.2/LICENSE")
+            from("packaging/legal/graalvm-25.2/THIRD_PARTY_LICENSE.txt")
+            into(stage.resolve("graal/legal"))
         }
         listOf(
             "README.en.txt.template" to "README.txt",

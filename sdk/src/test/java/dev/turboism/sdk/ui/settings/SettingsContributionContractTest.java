@@ -9,6 +9,7 @@ import java.util.OptionalInt;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SettingsContributionContractTest {
 
@@ -35,6 +36,42 @@ class SettingsContributionContractTest {
         assertEquals("graalvm", choice.binding().read());
         choice.binding().write("bundled");
         assertEquals("bundled", stored[0]);
+    }
+
+    @Test
+    void priorFourArgumentDecisionConstructorRemainsAvailable() {
+        final SettingsChangeDecision decision = new SettingsChangeDecision(
+            false,
+            "GraalVM is required",
+            "Install GraalVM, then select it again.",
+            java.util.Optional.empty()
+        );
+
+        assertFalse(decision.accepted());
+        assertTrue(decision.action().isEmpty());
+    }
+
+    @Test
+    void rejectedChangeCanDeclareOneExplicitAsynchronousAction() {
+        final SettingsChangeDecision decision = SettingsChangeDecision.rejected(
+            "GraalVM is required",
+            "Install the managed runtime.",
+            new SettingsDecisionAction("Install", () -> new SettingsActionHandle() {
+                @Override public SettingsActionProgress progress() {
+                    return new SettingsActionProgress(1L, 2L, "Downloading");
+                }
+                @Override public java.util.concurrent.CompletionStage<SettingsActionResult> completion() {
+                    return java.util.concurrent.CompletableFuture.completedFuture(
+                        SettingsActionResult.succeeded("Installed", "Restart Cubism.")
+                    );
+                }
+                @Override public boolean cancel() { return true; }
+            })
+        );
+
+        assertFalse(decision.accepted());
+        assertEquals("Install", decision.action().orElseThrow().label());
+        assertEquals(1L, decision.action().orElseThrow().action().start().progress().completed());
     }
 
     @Test

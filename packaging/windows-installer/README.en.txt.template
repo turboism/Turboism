@@ -14,6 +14,9 @@ never modifies, copies, or replaces files inside a Cubism installation.
   launch-cubism-turboism.ps1     PowerShell launcher implementation
   cubism-launch-common.ps1       Shared inventory/launch helpers
   plugins/                       Plugin jars (full package only; absent in lite)
+  graal\lib/                      Packaged isolated GraalJS host libraries
+  graal\runtime/                  Managed GraalVM runtime, when installed
+  cache\runtime\graal/            Managed-runtime download cache
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 2. Usage
@@ -45,6 +48,19 @@ never modifies, copies, or replaces files inside a Cubism installation.
 6. Set TURBOISM_HOME to this folder only when the folder is not the launcher
    folder. Plugin choices are stored in config.json; installation choices are
    stored separately in cubism-installations.json.
+7. Cubism uses GraalVM by default. If GraalVM is selected but missing, open
+   Turboism Settings > Performance > Cubism JVM and explicitly start the
+   automatic install. This Windows x64-only installer downloads the pinned
+   GraalVM Community 25.2.4 / JDK 25.0.4 runtime to graal\runtime. It verifies
+   official HTTPS hosts, release metadata, exact size and SHA-256, safe
+   extraction, and an isolated host READY result before activation. It preserves
+   applicable legal files and does not change JAVA_HOME, PATH, the registry,
+   Cubism, or Cubism's bundled Java. Failure or cancellation keeps the previous
+   choice. Startup never downloads; when a saved/default GraalVM choice cannot
+   be resolved, the launcher warns and uses Cubism's bundled Java.
+8. The managed-runtime service can verify or remove the managed runtime, but the
+   current UI offers installation only. To remove it manually, close Cubism and
+   Turboism, delete graal\runtime, and preserve graal\lib.
 
 3. config.json
 --------------
@@ -56,9 +72,10 @@ never modifies, copies, or replaces files inside a Cubism installation.
 ------------
 - If you installed with the NSIS installer (TurboismInstaller-<ver>.exe),
   run uninstall.exe in the Turboism home directory. It removes only Turboism's
-  recorded managed shortcuts/state and owned payload files. The confirmation
-  page has a check box "Also delete config.json (user configuration)" - checked
-  by default; uncheck it to keep config.json.
+  recorded managed shortcuts/state and owned payload files, including the
+  graal directory when present (managed runtime and packaged graal\lib). The
+  confirmation page has a check box "Also delete config.json (user configuration)"
+  - checked by default; uncheck it to keep config.json.
 - ZIP manual installs have no uninstaller: close Cubism and delete the Turboism
   folder. No Cubism installation file is changed.
 
