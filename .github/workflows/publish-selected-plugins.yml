@@ -1,31 +1,9 @@
-# Selected first-party plugin automatic publication (Turboism source side).
-#
-# A Git-reviewed selection manifest (packaging/market-plugins.json) decides
-# whether anything happens at all. The initial manifest is empty: the plan
-# step exits successfully with selected=0 and every later step (Java setup,
-# Gradle gates, staging, artifact upload, Provider dispatch) is skipped.
-#
-# For a non-empty selection the lane:
-#   - checks out the exact pushed SHA (contents: read only);
-#   - runs exactly the existing validatePluginMeta and
-#     verifyFirstPartyPluginMetadata gates with a fixed
-#     TURBOISM_WORKTREE_ID=market-publish;
-#   - stages only canonical <module>-<descriptor-version>.jar files plus the
-#     deterministic market-release.json sidecar through
-#     scripts/release/prepare-market-release.py;
-#   - uploads one short-retention private Actions artifact named exactly
-#     turboism-market-release-<sha>-<run_id>-<run_attempt>; the same exact
-#     expression is passed as the Provider dispatch artifact_name input;
-#   - dispatches the Provider's publish-plugin-directory-v2.yml workflow on
-#     turboism/turboism-plugin-directory main with the exact source run ID,
-#     source SHA and artifact name, then ends without waiting for it.
-#
-# The Provider verifies the source run independently; the source side never
-# creates Releases, never touches Provider contents and never sees the
-# catalog signing key. The only secret used is the narrow Provider Actions
-# dispatch token PLUGIN_DIRECTORY_DISPATCH_TOKEN.
+# First-party plugin release candidate builder.
+# packaging/market-plugins.json is a persistent store-eligibility policy. The
+# protected publisher compares every built candidate to the verified signed v2
+# catalog and publishes only inferred changes.
 
-name: Selected plugin publication
+name: Plugin release candidate
 
 on:
   push:
@@ -34,55 +12,63 @@ on:
       - "plugins/**"
       - "packaging/market-plugins.json"
       - "scripts/release/prepare-market-release.py"
+      - "scripts/release/turboism-release.py"
+      - "scripts/release/turboism_release/**"
       - "scripts/test/test_prepare_market_release.py"
+      - "scripts/test/test_release_orchestrator.py"
       - ".github/workflows/publish-selected-plugins.yml"
       - "build.gradle.kts"
       - "settings.gradle.kts"
       - "gradle/**"
+  workflow_dispatch:
 
 concurrency:
-  group: selected-plugin-publication-${{ github.ref }}
+  group: plugin-release-candidate-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  publish-selected-plugins:
+  build-plugin-candidate:
     runs-on: ubuntu-22.04
     steps:
       - name: Check out exact event commit
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           ref: ${{ github.sha }}
+          fetch-depth: 0
           persist-credentials: false
 
-      - name: Plan selected plugin publication
-        id: plan
+      - name: Check complete public history hygiene
+        run: python3 scripts/check_remote_hygiene.py --all
+
+      - name: Validate store eligibility policy
+        id: policy
         run: |
           OUTPUT="$(python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
             --manifest packaging/market-plugins.json \
             --plan)"
-          SELECTED="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
-          echo "selected=${SELECTED:-0}" >> "$GITHUB_OUTPUT"
+          ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
+          echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Java 17
-        if: steps.plan.outputs.selected != '0'
+        if: steps.policy.outputs.eligible != '0'
         uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
         with:
           distribution: temurin
           java-version: "17"
           cache: gradle
 
-      - name: Validate plugin metadata gates
-        if: steps.plan.outputs.selected != '0'
+      - name: Validate and build eligible plugin metadata
+        if: steps.policy.outputs.eligible != '0'
         env:
           TURBOISM_WORKTREE_ID: market-publish
         run: ./gradlew --no-daemon validatePluginMeta verifyFirstPartyPluginMetadata
 
-      - name: Stage selected plugin artifacts
-        if: steps.plan.outputs.selected != '0'
+      - name: Stage all eligible plugin candidates
+        if: steps.policy.outputs.eligible != '0'
         run: |
           python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
@@ -91,24 +77,29 @@ jobs:
             --output build/market-release \
             --source-revision "${{ github.sha }}"
 
-      - name: Upload staged artifact
-        if: steps.plan.outputs.selected != '0'
+      - name: Generate deterministic release candidate
+        run: |
+          market_args=()
+          if [ "${{ steps.policy.outputs.eligible }}" != 0 ]; then
+            market_args=(--market-dir build/market-release)
+          fi
+          python3 scripts/release/turboism-release.py build \
+            "${market_args[@]}" \
+            --candidate build/release-orchestrator/candidate.json
+
+      - name: Upload release-plan candidate
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-plugin-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/release-orchestrator/candidate.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload market publication bundle
+        if: steps.policy.outputs.eligible != '0'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: build/market-release
-          retention-days: 1
+          retention-days: 7
           if-no-files-found: error
-
-      - name: Dispatch plugin directory publication
-        if: steps.plan.outputs.selected != '0'
-        env:
-          PLUGIN_DIRECTORY_DISPATCH_TOKEN: ${{ secrets.PLUGIN_DIRECTORY_DISPATCH_TOKEN }}
-        run: |
-          curl --fail --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer ${PLUGIN_DIRECTORY_DISPATCH_TOKEN}" \
-            --header "Accept: application/vnd.github+json" \
-            --header "X-GitHub-Api-Version: 2022-11-28" \
-            --data "{\"ref\":\"main\",\"inputs\":{\"source_run_id\":\"${{ github.run_id }}\",\"source_sha\":\"${{ github.sha }}\",\"artifact_name\":\"turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}\"}}" \
-            "https://api.github.com/repos/turboism/turboism-plugin-directory/actions/workflows/publish-plugin-directory-v2.yml/dispatches"

@@ -1,8 +1,8 @@
-# Product release packaging for immutable vMAJOR.MINOR.PATCH tags.
-# The workflow verifies that the tag, framework version, and installer version
-# are identical before building and publishing the reviewed release payload.
+# Candidate builder for immutable vMAJOR.MINOR.PATCH framework releases.
+# This workflow has read-only repository permissions and no production secrets.
+# The protected release-publisher workflow owns every remote mutation.
 
-name: Product release
+name: Product release candidate
 
 on:
   push:
@@ -10,10 +10,10 @@ on:
       - "v[0-9]+.[0-9]+.[0-9]+"
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: product-release-${{ github.ref }}
+  group: product-release-candidate-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
@@ -26,6 +26,9 @@ jobs:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Check complete public history hygiene
+        run: python3 scripts/check_remote_hygiene.py --all
 
       - name: Resolve and verify release version
         id: version
@@ -60,6 +63,32 @@ jobs:
           sudo apt-get update
           sudo apt-get install --yes --no-install-recommends nsis
 
+      - name: Validate store eligibility policy
+        id: policy
+        run: |
+          OUTPUT="$(python3 scripts/release/prepare-market-release.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --manifest packaging/market-plugins.json \
+            --plan)"
+          ELIGIBLE="$(printf '%s\n' "$OUTPUT" | sed -n 's/^selected=//p')"
+          echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate and build eligible plugin metadata
+        if: steps.policy.outputs.eligible != '0'
+        env:
+          TURBOISM_WORKTREE_ID: market-publish
+        run: ./gradlew --no-daemon validatePluginMeta verifyFirstPartyPluginMetadata
+
+      - name: Stage all eligible plugin candidates
+        if: steps.policy.outputs.eligible != '0'
+        run: |
+          python3 scripts/release/prepare-market-release.py \
+            --repo-root "$GITHUB_WORKSPACE" \
+            --manifest packaging/market-plugins.json \
+            --build-root build/worktree/market-publish \
+            --output build/market-release \
+            --source-revision "${{ github.sha }}"
+
       - name: Run release verification
         run: |
           ./gradlew --no-daemon checkRelease \
@@ -78,39 +107,44 @@ jobs:
           )
           python3 scripts/release/verify-release.py \
             --version "${{ steps.version.outputs.version }}" \
-            --dist build/windows-installer/dist
+            --dist build/windows-installer/dist \
+            --manifest-output build/release-orchestrator/framework-artifacts.json
 
-      - name: Upload verified release payload
+      - name: Generate deterministic release candidate
+        run: |
+          market_args=()
+          if [ "${{ steps.policy.outputs.eligible }}" != 0 ]; then
+            market_args=(--market-dir build/market-release)
+          fi
+          python3 scripts/release/turboism-release.py build \
+            --require-tag \
+            --dist build/windows-installer/dist \
+            "${market_args[@]}" \
+            --candidate build/release-orchestrator/candidate.json
+
+      - name: Extract release notes from changelog
+        run: |
+          python3 scripts/release/extract-release-notes.py \
+            CHANGELOG.md "${{ steps.version.outputs.version }}" \
+            > build/release-orchestrator/release-notes.md
+
+      - name: Upload verified candidate payload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: turboism-${{ steps.version.outputs.version }}
-          path: build/windows-installer/dist
+          name: turboism-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            build/windows-installer/dist
+            build/release-orchestrator/candidate.json
+            build/release-orchestrator/framework-artifacts.json
+            build/release-orchestrator/release-notes.md
           retention-days: 7
           if-no-files-found: error
 
-      - name: Publish GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          notes_file="$(mktemp)"
-          trap 'rm -f "$notes_file"' EXIT
-          python3 scripts/release/extract-release-notes.py \
-            CHANGELOG.md "${{ steps.version.outputs.version }}" > "$notes_file"
-          if gh release view "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "Turboism ${{ steps.version.outputs.version }}" \
-              --notes-file "$notes_file"
-            gh release upload "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --clobber \
-              build/windows-installer/dist/*
-          else
-            gh release create "$GITHUB_REF_NAME" \
-              --repo "$GITHUB_REPOSITORY" \
-              --verify-tag \
-              --title "Turboism ${{ steps.version.outputs.version }}" \
-              --notes-file "$notes_file" \
-              build/windows-installer/dist/*
-          fi
+      - name: Upload market publication bundle
+        if: steps.policy.outputs.eligible != '0'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: build/market-release
+          retention-days: 7
+          if-no-files-found: error
