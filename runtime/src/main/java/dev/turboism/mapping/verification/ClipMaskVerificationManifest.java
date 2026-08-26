@@ -28,7 +28,7 @@ public final class ClipMaskVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.clipmask.static",
-        "5133c670e5c6742a5a43eb60ec6c60581196c35534b37085ca18d441797d47b3",
+        "098619a144e602ada57622a0a216ddd0208401537c3b6b893998a11b21d64316",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -37,7 +37,7 @@ public final class ClipMaskVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "m15.cubism-5.3.02.clipmask.static",
-        "8e4f5a5d9ea7896700a2b40293ba720b7a7df549216bfb6efdedb3d73c951232",
+        "5d4c6cb463b7d5bcb4206249d140bc96493d78efea50fe528a5a288973486e8f",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );

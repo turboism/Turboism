@@ -44,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MappingReviewPipelineTest {
 
     private static final ObjectMapper JSON = new ObjectMapper();
-    private static final String PACK = "cubism-ref/mapping-packs/draft/fixture.json";
+    private static final String PACK = "compatibility/cubism/mapping-packs/draft/fixture.json";
     private static final String SEMANTIC = "fixture.target.class";
     private static final String OLD_RUNTIME = "fixture/OldTarget";
     private static final String CALLER = "fixture/Anchor";
@@ -787,7 +787,7 @@ class MappingReviewPipelineTest {
             // Filesystem does not support symlinks.
         }
 
-        GenerateRequest wrongDirectory = new GenerateRequest(jar, "cubism-ref/mapping-packs/fixture.json", SEMANTIC, OLD_RUNTIME,
+        GenerateRequest wrongDirectory = new GenerateRequest(jar, "compatibility/cubism/mapping-packs/fixture.json", SEMANTIC, OLD_RUNTIME,
             CALLER, CALLER_NAME, CALLER_DESCRIPTOR, TARGET_NAME, TARGET_DESCRIPTOR, InvocationConstraint.INSTANCE);
         assertCode("PACK_PATH_INVALID", () -> workspace.service().generate(wrongDirectory));
     }
@@ -1105,7 +1105,7 @@ class MappingReviewPipelineTest {
         assertFalse(new MappingReviewValidator().validate(review).isEmpty());
 
         candidate = (ObjectNode) JSON.readTree(bundle.candidateBytes());
-        candidate.with("target").put("pack", "cubism-ref/mapping-packs/draft/nested/unsafe.json");
+        candidate.with("target").put("pack", "compatibility/cubism/mapping-packs/draft/nested/unsafe.json");
         assertFalse(new MappingUpdateCandidateValidator().validate(candidate).isEmpty());
         candidate = (ObjectNode) JSON.readTree(bundle.candidateBytes());
         candidate.with("evidence").with("caller").put("name", 7);
@@ -1135,7 +1135,7 @@ class MappingReviewPipelineTest {
         Path root = temp.resolve("worktree-" + System.nanoTime());
         TestWorkspace workspace = new TestWorkspace(root);
         workspace.writePack(OLD_RUNTIME);
-        Files.createDirectories(root.resolve("cubism-ref/verification"));
+        Files.createDirectories(root.resolve("compatibility/cubism/verification"));
         return workspace;
     }
 
@@ -1505,7 +1505,7 @@ class MappingReviewPipelineTest {
         }
         Path root() { return root; }
         Path pack() { return root.resolve(PACK); }
-        Path verificationRecord() { return root.resolve("cubism-ref/verification/fixture.json"); }
+        Path verificationRecord() { return root.resolve("compatibility/cubism/verification/fixture.json"); }
         MappingReviewService service() {
             return new MappingReviewService(
                 root,

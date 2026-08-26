@@ -464,7 +464,7 @@ import java.util.Optional;
 /**
  * Generated complete Cubism Core public-member catalog.
  *
- * <p>Source: cubism-ref/core-api/policy/cubism-core-member-policy.json.
+ * <p>Source: compatibility/cubism/core-api/policy/cubism-core-member-policy.json.
  * Do not edit by hand. The catalog contains names and descriptors only; no Core
  * class, reflection object, method handle, or native handle crosses this boundary.</p>
  */

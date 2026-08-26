@@ -15,9 +15,9 @@ import java.util.Optional;
  * {@code cubism.ui-control-appearance.part.node-source}:</p>
  *
  * <ul>
- *   <li>Cubism 5.2.03 → {@code h()} — {@code cubism-ref/verification/cubism-5.2.03-ui-control-appearance.json},
+ *   <li>Cubism 5.2.03 → {@code h()} — {@code compatibility/cubism/verification/cubism-5.2.03-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_2.ui_control_appearance.method.node_source};</li>
- *   <li>Cubism 5.3.02 → {@code i()} — {@code cubism-ref/verification/cubism-5.3.02-ui-control-appearance.json},
+ *   <li>Cubism 5.3.02 → {@code i()} — {@code compatibility/cubism/verification/cubism-5.3.02-ui-control-appearance.json},
  *       mappingId {@code cubism.mapping.5_3_02.ui_control_appearance.method.node_source}.</li>
  * </ul>
  *

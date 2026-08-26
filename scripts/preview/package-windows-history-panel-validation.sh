@@ -8,7 +8,7 @@ worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-panel-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 panel_jar="$repo_root/build/worktree/$worktree_id/history-panel/libs/history-panel-0.1.0-SNAPSHOT-$worktree_id.jar"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_dir="dev/turboism/tests/plugin"
 probe_class="WindowsHistoryManagerValidationProbe"
 probe_descriptor="$repo_root/scripts/preview/windows-history-manager-validation-plugin.json"
@@ -18,7 +18,7 @@ float_descriptor="$repo_root/scripts/preview/windows-history-float-plugin.json"
 seed_descriptor="$repo_root/scripts/preview/windows-history-seed-validation-plugin.json"
 launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 
-[ -f "$agent_jar" ] || { printf 'error: run ./gradlew previewBundle :plugins:history-panel:jar :tests:testClasses first\n' >&2; exit 1; }
+[ -f "$agent_jar" ] || { printf 'error: run ./gradlew previewBundle :plugins:history-panel:jar :testing:integration-tests:testClasses first\n' >&2; exit 1; }
 [ -f "$panel_jar" ] || { printf 'error: history-panel plugin jar missing: %s\n' "$panel_jar" >&2; exit 1; }
 [ -f "$test_classes/$probe_class_dir/$seed_class.class" ] || { printf 'error: seed class missing\n' >&2; exit 1; }
 

@@ -1,0 +1,54 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "exact-public-classfile-observation",
+  "cubismVersion": "5.2.03",
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_2_03.core.method.model_get_moc",
+      "kind": "method",
+      "owner": "core-moc-info-read",
+      "name": "cubism.core.model.get-moc",
+      "runtime": "getMoc",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismMoc;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.core.class.moc",
+      "kind": "class",
+      "owner": "core-moc-info-read",
+      "name": "cubism.core.moc.class",
+      "runtime": "com/live2d/sdk/cubism/core/CubismMoc",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    }
+  ],
+  "metadata": {
+    "inventoryRef": "compatibility/cubism/core-api/observed/core-5.2.json",
+    "artifactSha256": "85959a0572be02ee45d128cfdaf9046631241310b741d6b149d295a0dec7451e",
+    "validationNotes": "Core MOC-info read selectors (CubismModel.getMoc, CubismMoc.getMocVersion). getMocVersion is absent from the 5.2.03 public surface, so the 5.2 profile fails closed. Dedicated pack: not part of the selector-policy roster until promoted after host validation."
+  }
+}

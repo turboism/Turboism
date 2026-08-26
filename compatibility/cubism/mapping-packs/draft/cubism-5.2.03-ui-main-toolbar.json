@@ -1,0 +1,401 @@
+{
+  "schemaVersion": 1,
+  "packId": "cubism-5.2.03-ui-main-toolbar",
+  "cubismVersion": "5.2.03",
+  "status": "DRAFT",
+  "description": "Exact Cubism 5.2 native main-toolbar selector evidence.",
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.app_ctrl",
+      "name": "cubism.ui-main-toolbar.app-controller.class",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/CEAppCtrl",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.app_ctrl_instance",
+      "name": "cubism.ui-main-toolbar.app-controller.instance",
+      "kind": "method",
+      "runtime": "access$get_instance$cp",
+      "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.app_ctrl_main_frame",
+      "name": "cubism.ui-main-toolbar.app-controller.main-frame",
+      "kind": "method",
+      "runtime": "getMainFrameCtrl",
+      "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.main_frame",
+      "name": "cubism.ui-main-toolbar.main-frame.class",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/view/CEMainFrameCtrl",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.main_frame_view",
+      "name": "cubism.ui-main-toolbar.main-frame.view",
+      "kind": "method",
+      "runtime": "getViewCtrl",
+      "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.main_frame_view",
+      "name": "cubism.ui-main-toolbar.main-frame-view.class",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.home_button",
+      "name": "cubism.ui-main-toolbar.main-frame-view.home-button",
+      "kind": "method",
+      "runtime": "u",
+      "descriptor": "()Lcom/live2d/ui/control/CIconButton;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.widget",
+      "name": "cubism.ui-main-toolbar.widget.class",
+      "kind": "class",
+      "runtime": "com/live2d/ui/CWidget",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_parent",
+      "name": "cubism.ui-main-toolbar.widget.parent",
+      "kind": "method",
+      "runtime": "getParent",
+      "descriptor": "()Lcom/live2d/ui/container/CContainer;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_name",
+      "name": "cubism.ui-main-toolbar.widget.name",
+      "kind": "method",
+      "runtime": "getName",
+      "descriptor": "()Ljava/lang/String;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_set_name",
+      "name": "cubism.ui-main-toolbar.widget.set-name",
+      "kind": "method",
+      "runtime": "setName",
+      "descriptor": "(Ljava/lang/String;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_set_tooltip",
+      "name": "cubism.ui-main-toolbar.widget.set-tooltip",
+      "kind": "method",
+      "runtime": "setToolTipText",
+      "descriptor": "(Ljava/lang/String;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_set_pref_width",
+      "name": "cubism.ui-main-toolbar.widget.set-pref-width",
+      "kind": "method",
+      "runtime": "setPrefWidth",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_set_pref_height",
+      "name": "cubism.ui-main-toolbar.widget.set-pref-height",
+      "kind": "method",
+      "runtime": "setPrefHeight",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_revalidate",
+      "name": "cubism.ui-main-toolbar.widget.revalidate",
+      "kind": "method",
+      "runtime": "revalidate",
+      "descriptor": "()V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_repaint",
+      "name": "cubism.ui-main-toolbar.widget.repaint",
+      "kind": "method",
+      "runtime": "repaint",
+      "descriptor": "()V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.container",
+      "name": "cubism.ui-main-toolbar.container.class",
+      "kind": "class",
+      "runtime": "com/live2d/ui/container/CContainer",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CContainer",
+        "requiredAccessFlags": 1025,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.container_children",
+      "name": "cubism.ui-main-toolbar.container.children",
+      "kind": "method",
+      "runtime": "getChildren",
+      "descriptor": "()Ljava/util/List;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CContainer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.container_add",
+      "name": "cubism.ui-main-toolbar.container.add",
+      "kind": "method",
+      "runtime": "add",
+      "descriptor": "(Lcom/live2d/ui/CWidget;I)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CContainer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.container_remove",
+      "name": "cubism.ui-main-toolbar.container.remove",
+      "kind": "method",
+      "runtime": "remove",
+      "descriptor": "(Lcom/live2d/ui/CWidget;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CContainer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.icon_button",
+      "name": "cubism.ui-main-toolbar.icon-button.class",
+      "kind": "class",
+      "runtime": "com/live2d/ui/control/CIconButton",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CIconButton",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.constructor.icon_button",
+      "name": "cubism.ui-main-toolbar.icon-button.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljavax/swing/Icon;Lkotlin/jvm/functions/Function1;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CIconButton",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.icon_button_set_rollover",
+      "name": "cubism.ui-main-toolbar.icon-button.set-rollover-icon",
+      "kind": "method",
+      "runtime": "setRolloverIcon",
+      "descriptor": "(Lcom/live2d/type/CIcon;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/control/CAbstractButton",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.class.icon",
+      "name": "cubism.ui-main-toolbar.icon.class",
+      "kind": "class",
+      "runtime": "com/live2d/type/CIcon",
+      "descriptor": null,
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CIcon",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.constructor.icon",
+      "name": "cubism.ui-main-toolbar.icon.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljavax/swing/Icon;)V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CIcon",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.field.main_container",
+      "name": "cubism.ui-main-toolbar.main-frame-view.main-container",
+      "kind": "field",
+      "runtime": "mainContainer",
+      "descriptor": "Lcom/live2d/ui/container/CSimplePane;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl$CEMainFrameViewCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.constructor.vbox",
+      "name": "cubism.ui-main-toolbar.vbox.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "()V",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/container/CVBox",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.ui_main_toolbar.method.widget_jcomponent",
+      "name": "cubism.ui-main-toolbar.widget.jcomponent",
+      "kind": "method",
+      "runtime": "getJComponent",
+      "descriptor": "()Ljavax/swing/JComponent;",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
+    }
+  ]
+}

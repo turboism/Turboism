@@ -21,18 +21,18 @@ from cubism_core_api import (  # noqa: E402
     validate_document,
 )
 
-API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
-API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
+API_52 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
+API_53 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
 CORE_PREFIX = "com.live2d.sdk.cubism.core."
 CORE_MODEL_READ_PACKS = {
     "5.2.03": ROOT
-    / "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
+    / "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
     "5.3.02": ROOT
-    / "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
+    / "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
 }
 CORE_PROFILES = {
-    "5.2.03": ROOT / "cubism-ref/profiles/draft/cubism-5.2.03.json",
-    "5.3.02": ROOT / "cubism-ref/profiles/draft/cubism-5.3.02.json",
+    "5.2.03": ROOT / "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
+    "5.3.02": ROOT / "compatibility/cubism/profiles/draft/cubism-5.3.02.json",
 }
 
 
@@ -604,7 +604,7 @@ def test_core_model_read_mapping_packs(
         )
         require(
             pack["metadata"]["inventoryRef"]
-            == f"cubism-ref/core-api/observed/cubism-core-{version}.json",
+            == f"compatibility/cubism/core-api/observed/cubism-core-{version}.json",
             f"{version}: pack inventory reference drift",
         )
         expected_pack_id = f"cubism-{version}-core-model-read"

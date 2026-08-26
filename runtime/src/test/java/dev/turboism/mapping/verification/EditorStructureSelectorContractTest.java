@@ -23,7 +23,7 @@ class EditorStructureSelectorContractTest {
     void exact5302RecordVerifiesPartStructureContract() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -38,7 +38,7 @@ class EditorStructureSelectorContractTest {
     void exact5302RecordVerifiesParameterStructureContract() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -53,7 +53,7 @@ class EditorStructureSelectorContractTest {
     void exact5302RecordVerifiesMorphTargetReadAndWriteContracts() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -73,7 +73,7 @@ class EditorStructureSelectorContractTest {
     void exact5302RecordVerifiesModelProfileContracts() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -93,7 +93,7 @@ class EditorStructureSelectorContractTest {
     void exact5203RecordVerifiesAllNewStructureContracts() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
             artifact,
             loader(artifact)
         );

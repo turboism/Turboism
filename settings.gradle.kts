@@ -30,6 +30,6 @@ include(
     "plugins:perf-stats",
     "plugins:palette-label-style",
     "plugins:parameter-batch-transfer",
-    "testframework",
-    "tests"
+    "testing:test-support",
+    "testing:integration-tests"
 )

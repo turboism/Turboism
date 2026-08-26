@@ -49,9 +49,9 @@ from pathlib import PurePosixPath
 
 FORBIDDEN_SEGMENTS = frozenset({
     ".agent-artifacts", ".artifacts", ".research-artifacts", ".pi-subagents",
-    ".claude", ".cursor", ".pi", ".specify", ".windsurf", "docs",
-    "docs-internal", "docs_internal", "prompts", "specs",
-    "validation-artifact",
+    ".claude", ".cursor", ".pi", ".specify", ".windsurf", "cubism-ref",
+    "docs", "docs-internal", "docs_internal", "generated-references",
+    "host-evidence", "prompts", "research", "specs", "validation-artifact",
 })
 
 FORBIDDEN_PATHS = frozenset({
@@ -66,6 +66,10 @@ ALLOWED_ENV_TEMPLATES = frozenset({".env.example"})
 
 SWAP_SUFFIXES = (".swp", ".swo", ".swn", ".swx")
 PROMPT_SUFFIX = ".prompt.md"
+VALIDATION_OUTPUT_SEGMENTS = frozenset({
+    "build", "dist", "evidence", "log", "logs", "out", "result", "results",
+})
+VALIDATION_OUTPUT_SUFFIXES = (".class", ".jar", ".log")
 ZERO_SHA = "0" * 40
 
 # --------------------------------------------------------------------------
@@ -147,6 +151,12 @@ def classify_path(path):
     for low in lows:
         if low in FORBIDDEN_SEGMENTS:
             return "segment:" + low
+    if lows and lows[0] == "validation":
+        for low in lows[1:-1]:
+            if low in VALIDATION_OUTPUT_SEGMENTS:
+                return "validation-output:" + low
+        if lows[-1].endswith(VALIDATION_OUTPUT_SUFFIXES):
+            return "validation-output:*" + PurePosixPath(lows[-1]).suffix
     base = parts[-1]
     low = base.lower()
     if low in FORBIDDEN_BASENAMES:

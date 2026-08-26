@@ -1,0 +1,256 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "cubism-5.2.03.ui-status-bar.static",
+  "adapterSliceId": "adapter.editor-ui.status-bar",
+  "capabilityIds": [
+    "ui.status.notify"
+  ],
+  "cubismVersion": "5.2.03",
+  "profileId": "cubism-5.2.03",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 40805584,
+    "sha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+  },
+  "evidenceType": "JAR_METADATA",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.2.03-ui-status-bar.json",
+  "owner": "runtime-editor-ui-status-bar-provider",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-editor-ui-status-bar-static-verifier",
+  "verifiedAt": "2026-08-09T00:00:00Z",
+  "safeMode": "Fail closed and keep native bottom-status notifications unavailable when the exact artifact, classloader, application controller, main frame, CX content root, unique memory-viewer anchor, label constructor, or reversible container operations do not match.",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.app_ctrl",
+      "alias": "cubism.ui-status-bar.app-controller.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.app_ctrl_instance",
+      "alias": "cubism.ui-status-bar.app-controller.instance",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "access$get_instance$cp",
+      "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.app_ctrl_main_frame",
+      "alias": "cubism.ui-status-bar.app-controller.main-frame",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "getMainFrameCtrl",
+      "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.main_frame_ctrl",
+      "alias": "cubism.ui-status-bar.main-frame-controller.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.main_frame",
+      "alias": "cubism.ui-status-bar.main-frame-controller.frame",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+      "memberName": "getMainFrame",
+      "descriptor": "()Lcom/live2d/ui/window/CFrame;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.frame",
+      "alias": "cubism.ui-status-bar.frame.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/window/CFrame",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.content_root",
+      "alias": "cubism.ui-status-bar.frame.content-pane",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/window/CFrame",
+      "memberName": "getContentPane",
+      "descriptor": "()Lcom/live2d/ui/CWidget;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.widget",
+      "alias": "cubism.ui-status-bar.widget.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1025,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.widget_set_name",
+      "alias": "cubism.ui-status-bar.widget.set-name",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": "setName",
+      "descriptor": "(Ljava/lang/String;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.widget_set_tooltip",
+      "alias": "cubism.ui-status-bar.widget.set-tooltip",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": "setToolTipText",
+      "descriptor": "(Ljava/lang/String;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.widget_revalidate",
+      "alias": "cubism.ui-status-bar.widget.revalidate",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": "revalidate",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.widget_repaint",
+      "alias": "cubism.ui-status-bar.widget.repaint",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/CWidget",
+      "memberName": "repaint",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.container",
+      "alias": "cubism.ui-status-bar.container.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/container/CContainer",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1025,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.container_children",
+      "alias": "cubism.ui-status-bar.container.children",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/container/CContainer",
+      "memberName": "getChildren",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.container_add",
+      "alias": "cubism.ui-status-bar.container.add",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/container/CContainer",
+      "memberName": "add",
+      "descriptor": "(Lcom/live2d/ui/CWidget;I)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.container_remove",
+      "alias": "cubism.ui-status-bar.container.remove",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/container/CContainer",
+      "memberName": "remove",
+      "descriptor": "(Lcom/live2d/ui/CWidget;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.label",
+      "alias": "cubism.ui-status-bar.label.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/control/CLabel",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.constructor.label",
+      "alias": "cubism.ui-status-bar.label.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/ui/control/CLabel",
+      "memberName": "<init>",
+      "descriptor": "(Ljava/lang/String;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.label_get_text",
+      "alias": "cubism.ui-status-bar.label.text",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CLabel",
+      "memberName": "getText",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.method.label_set_text",
+      "alias": "cubism.ui-status-bar.label.set-text",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/control/CLabel",
+      "memberName": "setText",
+      "descriptor": "(Ljava/lang/String;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.memory_viewer",
+      "alias": "cubism.ui-status-bar.memory-viewer.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/ui/control/CMemoryViewerPanel",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    }
+  ]
+}
