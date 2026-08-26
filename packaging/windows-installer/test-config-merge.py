@@ -263,6 +263,32 @@ def check_nsis_retirement_contract():
               'StrCpy $1 "%s"' % ident in text)
 
 
+def check_managed_graal_installer_contract():
+    """Installer-time managed GraalVM remains opt-in and reuses the pinned Java service."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    bridge_path = INSTALLER_NSI.parent / "install-managed-graal.ps1"
+    bridge = bridge_path.read_text(encoding="utf-8")
+    check("GI1 managed Graal option defaults unchecked",
+          "StrCpy $installManagedGraal 0" in text
+          and "${NSD_Uncheck} $managedGraalCheckbox" in text)
+    check("GI2 managed Graal choice is independent of Full/Lite",
+          "${NSD_CreateCheckbox}" in text and "$(ManagedGraalLabel)" in text
+          and "Function ModeLeave" in text)
+    check("GI3 no install occurs unless selected",
+          "${If} $installManagedGraal == 1" in text
+          and "install-managed-graal.ps1" in text)
+    check("GI4 selected failure aborts installer",
+          "ManagedGraalInstallError" in text and "Abort" in text)
+    check("GI5 bridge invokes only the managed runtime CLI",
+          "dev.turboism.graal.ManagedGraalRuntimeCli install" in bridge
+          and "https://" not in bridge and "sha256" not in bridge.lower())
+    check("GI6 bridge requires Java 17 or newer",
+          "Test-TurboismJava17" in bridge and "-ge 17" in bridge)
+    check("GI7 bridge strips inherited Java options",
+          "JAVA_TOOL_OPTIONS" in bridge and "_JAVA_OPTIONS" in bridge
+          and "JDK_JAVA_OPTIONS" in bridge)
+
+
 def check_graal_fallback_contract():
     """Managed launch must recover from a missing saved/default GraalVM choice.
 
@@ -471,6 +497,7 @@ def main():
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
 
     check_nsis_retirement_contract()
+    check_managed_graal_installer_contract()
     check_graal_fallback_contract()
     check_uninstall_postcondition()
     print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")
