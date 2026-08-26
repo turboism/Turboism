@@ -274,15 +274,21 @@ def check_graal_fallback_contract():
     launcher = (INSTALLER_NSI.parent / "launch-cubism-turboism.ps1").read_text(encoding="utf-8")
     check("G1 nullable GraalVM discovery helper exists",
           "function Find-CubismGraalJava" in common and 'return ""' in common)
-    check("G1b discovery requires GraalVM Community 25.2.x release metadata",
+    check("G1b discovery requires exact GraalVM Community 25.2.4 / JDK 25.0.4 metadata",
           "function Test-CubismCompatibleGraalJava" in common
-          and 'IMPLEMENTOR="GraalVM' in common
-          and 'GRAALVM_VERSION="25\\.2\\.' in common)
+          and 'IMPLEMENTOR="GraalVM Community"' in common
+          and 'GRAALVM_VERSION="25\\.2\\.4"' in common
+          and 'JAVA_VERSION="25\\.0\\.4"' in common)
     check("G2 explicit Cubism Java override remains strict for missing paths",
           "function Resolve-CubismGraalJava" in common
           and "no GraalVM java.exe is available" in common
           and "Resolve-CubismGraalJava -TurboismHome $turboismHome -ExplicitJava $CubismJava" in launcher
           and "Test-CubismNormalFile $explicit" in common)
+    managed = 'Join-Path $TurboismHome "graal\\runtime\\bin\\java.exe"'
+    legacy = 'Join-Path $TurboismHome "graalvm\\bin\\java.exe"'
+    check("G2b managed runtime precedes the legacy packaged runtime",
+          managed in common and legacy in common
+          and common.index(managed) < common.index(legacy))
     fallback = launcher[launcher.index('else {\n    $javaOverride = Find-CubismGraalJava'):
                         launcher.index('Write-Host ($M.Jvm', launcher.index('else {\n    $javaOverride = Find-CubismGraalJava'))]
     check("G3 saved/default GraalVM falls back to bundled mode",

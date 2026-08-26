@@ -1363,13 +1363,34 @@ function Test-CubismCompatibleGraalJava {
     try {
         $bin = Split-Path -Parent ([System.IO.Path]::GetFullPath($JavaPath))
         $home = Split-Path -Parent $bin
+        foreach ($path in @($home, $bin)) {
+            if (-not (Test-CubismNormalDirectory $path)) { return $false }
+        }
         $release = Join-Path $home "release"
         if (-not (Test-CubismNormalFile $release)) { return $false }
         $item = Get-Item -LiteralPath $release -Force -ErrorAction Stop
         if ($item.Length -gt 65536) { return $false }
         $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop
-        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM[^"]*"\s*$' -and
-            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.[^"]*"\s*$'
+        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM Community"\s*$' -and
+            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.4"\s*$' -and
+            $metadata -match '(?m)^JAVA_VERSION="25\.0\.4"\s*$'
+    }
+    catch { return $false }
+}
+
+function Test-CubismManagedGraalChain {
+    param([string]$TurboismHome)
+    try {
+        $home = [System.IO.Path]::GetFullPath($TurboismHome)
+        foreach ($path in @(
+            $home,
+            (Join-Path $home "graal"),
+            (Join-Path $home "graal\runtime"),
+            (Join-Path $home "graal\runtime\bin")
+        )) {
+            if (-not (Test-CubismNormalDirectory $path)) { return $false }
+        }
+        return $true
     }
     catch { return $false }
 }
@@ -1386,20 +1407,23 @@ function Find-CubismGraalJava {
     }
     $candidates = @()
     if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_CUBISM_JAVA)) { $candidates += $env:TURBOISM_CUBISM_JAVA }
-    $candidates += (Join-Path $TurboismHome "graalvm\bin\java.exe")
     $candidates += (Join-Path $TurboismHome "graal\runtime\bin\java.exe")
+    $candidates += (Join-Path $TurboismHome "graalvm\bin\java.exe")
     if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_GRAALVM_HOME)) {
         $candidates += (Join-Path $env:TURBOISM_GRAALVM_HOME "bin\java.exe")
     }
     if (-not [string]::IsNullOrWhiteSpace($env:GRAALVM_HOME)) {
         $candidates += (Join-Path $env:GRAALVM_HOME "bin\java.exe")
     }
+    $managedPath = [System.IO.Path]::GetFullPath((Join-Path $TurboismHome "graal\runtime\bin\java.exe"))
     foreach ($candidate in $candidates) {
         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
         $path = $candidate
         if (Test-Path -LiteralPath $path -PathType Container) { $path = Join-Path $path "bin\java.exe" }
-        if (-not (Test-CubismCompatibleGraalJava $path)) { continue }
-        return [System.IO.Path]::GetFullPath($path)
+        $full = [System.IO.Path]::GetFullPath($path)
+        if ($full -ieq $managedPath -and -not (Test-CubismManagedGraalChain $TurboismHome)) { continue }
+        if (-not (Test-CubismCompatibleGraalJava $full)) { continue }
+        return $full
     }
     return ""
 }
