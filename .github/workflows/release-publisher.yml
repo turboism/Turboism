@@ -1,0 +1,712 @@
+# Protected production publisher. It consumes a completed, verified candidate
+# artifact and revalidates immutable remote state before mutation.
+
+name: Publish coordinated release
+
+run-name: Publish release plan ${{ inputs.plan_id || github.event.workflow_run.id }}
+
+on:
+  workflow_run:
+    workflows: ["Product release candidate", "Plugin release candidate"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: "Completed candidate workflow run id"
+        required: true
+        type: string
+      source_sha:
+        description: "Exact candidate source commit SHA"
+        required: true
+        type: string
+      plan_id:
+        description: "Optional expected release plan id for resume"
+        required: false
+        default: ""
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: turboism-production-release
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: >-
+      (github.event_name == 'workflow_dispatch') ||
+      (github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-22.04
+    outputs:
+      run_id: ${{ steps.source.outputs.run_id }}
+      source_sha: ${{ steps.source.outputs.source_sha }}
+      artifact_name: ${{ steps.source.outputs.artifact_name }}
+      run_attempt: ${{ steps.source.outputs.run_attempt }}
+      source_created_at: ${{ steps.source.outputs.source_created_at }}
+      intent: ${{ steps.plan.outputs.intent }}
+      plan_id: ${{ steps.plan.outputs.plan_id }}
+    steps:
+      - name: Resolve candidate identity
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_NAME: ${{ github.event_name }}
+          MANUAL_RUN_ID: ${{ inputs.candidate_run_id }}
+          MANUAL_SOURCE_SHA: ${{ inputs.source_sha }}
+          AUTO_RUN_ID: ${{ github.event.workflow_run.id }}
+          AUTO_SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          AUTO_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          AUTO_WORKFLOW: ${{ github.event.workflow_run.name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT_NAME" = workflow_dispatch ]; then
+            RUN_ID="$MANUAL_RUN_ID"
+            SOURCE_SHA="$MANUAL_SOURCE_SHA"
+          else
+            RUN_ID="$AUTO_RUN_ID"
+            SOURCE_SHA="$AUTO_SOURCE_SHA"
+          fi
+          [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          RUN_ATTEMPT="$(printf '%s' "$RUN_JSON" | jq -r .run_attempt)"
+          SOURCE_CREATED_AT="$(printf '%s' "$RUN_JSON" | jq -r .created_at)"
+          [[ "$SOURCE_CREATED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]
+          SOURCE_CREATED_AT="${SOURCE_CREATED_AT%Z}.000Z"
+          WORKFLOW="$(printf '%s' "$RUN_JSON" | jq -r .name)"
+          WORKFLOW_PATH="$(printf '%s' "$RUN_JSON" | jq -r .path)"
+          REMOTE_SHA="$(printf '%s' "$RUN_JSON" | jq -r .head_sha)"
+          HEAD_BRANCH="$(printf '%s' "$RUN_JSON" | jq -r .head_branch)"
+          RUN_EVENT="$(printf '%s' "$RUN_JSON" | jq -r .event)"
+          STATUS="$(printf '%s' "$RUN_JSON" | jq -r .status)"
+          CONCLUSION="$(printf '%s' "$RUN_JSON" | jq -r .conclusion)"
+          test "$REMOTE_SHA" = "$SOURCE_SHA"
+          test "$STATUS" = completed
+          test "$CONCLUSION" = success
+          [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          case "$WORKFLOW_PATH" in
+            ".github/workflows/release.yml")
+              test "$WORKFLOW" = "Product release candidate"
+              test "$RUN_EVENT" = push
+              [[ "$HEAD_BRANCH" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+              ARTIFACT_NAME="turboism-release-candidate-${SOURCE_SHA}-${RUN_ID}-${RUN_ATTEMPT}"
+              ;;
+            ".github/workflows/publish-selected-plugins.yml")
+              test "$WORKFLOW" = "Plugin release candidate"
+              case "$RUN_EVENT" in push|workflow_dispatch|workflow_run) ;; *) exit 1 ;; esac
+              test "$HEAD_BRANCH" = main
+              ARTIFACT_NAME="turboism-plugin-candidate-${SOURCE_SHA}-${RUN_ID}-${RUN_ATTEMPT}"
+              ;;
+            *)
+              echo "unsupported candidate workflow path: $WORKFLOW_PATH"
+              exit 1
+              ;;
+          esac
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "run_attempt=$RUN_ATTEMPT" >> "$GITHUB_OUTPUT"
+          echo "source_created_at=$SOURCE_CREATED_AT" >> "$GITHUB_OUTPUT"
+          echo "source_sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          echo "artifact_name=$ARTIFACT_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ steps.source.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check complete public history hygiene
+        run: python3 scripts/check_remote_hygiene.py --all
+
+      - name: Download candidate artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: build/release-publisher/candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ steps.source.outputs.run_id }}
+
+      - name: Check out public Plugin Directory verifier
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: turboism/turboism-plugin-directory
+          ref: main
+          path: build/release-publisher/plugin-directory
+          persist-credentials: false
+
+      - name: Locate and validate candidate contract
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_PLAN_ID: ${{ inputs.plan_id }}
+        run: |
+          set -euo pipefail
+          CANDIDATE="$(find build/release-publisher/candidate -name candidate.json -type f -print -quit)"
+          if [ -z "$CANDIDATE" ]; then
+            echo "candidate artifact does not contain candidate.json"
+            exit 1
+          fi
+          PLAN=build/release-publisher/plan.json
+          RECOVERED=false
+          PUBLISHER_ARTIFACTS=0
+          if [ -n "$EXPECTED_PLAN_ID" ]; then
+            [[ "$EXPECTED_PLAN_ID" =~ ^[0-9a-f]{64}$ ]]
+            PLAN_ARTIFACT="turboism-release-plan-${EXPECTED_PLAN_ID}"
+            while IFS=$'\t' read -r _created_at PLAN_RUN_ID; do
+              test -z "$PLAN_RUN_ID" && continue
+              RUN_PATH="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$PLAN_RUN_ID" --jq .path)"
+              if [ "$RUN_PATH" != ".github/workflows/release-publisher.yml" ]; then
+                continue
+              fi
+              PUBLISHER_ARTIFACTS=$((PUBLISHER_ARTIFACTS + 1))
+              rm -rf build/release-publisher/recovered-plan
+              mkdir -p build/release-publisher/recovered-plan
+              if ! gh run download "$PLAN_RUN_ID" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --name "$PLAN_ARTIFACT" \
+                  --dir build/release-publisher/recovered-plan; then
+                continue
+              fi
+              RECOVERED_PLAN="$(find build/release-publisher/recovered-plan -name plan.json -type f -print -quit)"
+              if [ -z "$RECOVERED_PLAN" ]; then
+                continue
+              fi
+              if ! python3 scripts/release/turboism-release.py verify --plan "$RECOVERED_PLAN"; then
+                continue
+              fi
+              if ! python3 - "$CANDIDATE" "$RECOVERED_PLAN" "$EXPECTED_PLAN_ID" <<'PY'
+          import json
+          import sys
+
+          candidate = json.load(open(sys.argv[1], encoding="utf-8"))
+          plan = json.load(open(sys.argv[2], encoding="utf-8"))
+          if plan.get("planId") != sys.argv[3] or plan.get("source") != candidate.get("source"):
+              raise SystemExit(1)
+          PY
+              then
+                continue
+              fi
+              cp "$RECOVERED_PLAN" "$PLAN"
+              RECOVERED=true
+              break
+            done < <(
+              gh api --paginate \
+                "repos/$GITHUB_REPOSITORY/actions/artifacts?name=turboism-release-plan-${EXPECTED_PLAN_ID}&per_page=100" \
+                --jq '.artifacts[] | select(.expired == false) | [.created_at, (.workflow_run.id | tostring)] | @tsv' \
+                | sort -r
+            )
+          fi
+          if [ "$RECOVERED" != true ]; then
+            if [ "$PUBLISHER_ARTIFACTS" -ne 0 ]; then
+              echo "found prior publisher plan artifacts, but none matched the candidate and canonical plan id"
+              exit 1
+            fi
+            python3 scripts/release/turboism-release.py plan \
+              --candidate "$CANDIDATE" \
+              --plugin-directory-repo build/release-publisher/plugin-directory \
+              --plan "$PLAN"
+          fi
+          PLAN_ID="$(python3 -c 'import json; print(json.load(open("build/release-publisher/plan.json"))["planId"])')"
+          INTENT="$(python3 -c 'import json; print(json.load(open("build/release-publisher/plan.json"))["intent"])')"
+          if [ -n "$EXPECTED_PLAN_ID" ] && [ "$PLAN_ID" != "$EXPECTED_PLAN_ID" ]; then
+            echo "plan id $PLAN_ID does not match requested $EXPECTED_PLAN_ID"
+            exit 1
+          fi
+          echo "plan_id=$PLAN_ID" >> "$GITHUB_OUTPUT"
+          echo "intent=$INTENT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload immutable plan for audit and resume
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-release-plan-${{ steps.plan.outputs.plan_id }}
+          path: build/release-publisher/plan.json
+          retention-days: 30
+          if-no-files-found: error
+
+  publish-plugins:
+    needs: preflight
+    if: contains(fromJSON('["plugins","combined"]'), needs.preflight.outputs.intent)
+    runs-on: ubuntu-22.04
+    environment: production-release
+    timeout-minutes: 45
+    outputs:
+      catalog_fingerprint: ${{ steps.verify.outputs.catalog_fingerprint }}
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download immutable release plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: turboism-release-plan-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/plan
+
+      - name: Check out public Plugin Directory verifier
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: turboism/turboism-plugin-directory
+          ref: main
+          path: build/release-publisher/plugin-directory
+          persist-credentials: false
+
+      - name: Dispatch or resume exact Plugin Directory request
+        id: provider
+        env:
+          GH_TOKEN: ${{ secrets.PLUGIN_DIRECTORY_DISPATCH_TOKEN }}
+          SOURCE_RUN_ID: ${{ needs.preflight.outputs.run_id }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          PLAN_ID: ${{ needs.preflight.outputs.plan_id }}
+          RUN_ATTEMPT: ${{ needs.preflight.outputs.run_attempt }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          REQUEST_ID="release-${PLAN_ID}"
+          DISPLAY_TITLE="Publish Plugin Directory v2 catalog · request ${REQUEST_ID}"
+          MARKET_ARTIFACT="turboism-market-release-${SOURCE_SHA}-${SOURCE_RUN_ID}-${RUN_ATTEMPT}"
+          matches() {
+            gh run list \
+              --repo turboism/turboism-plugin-directory \
+              --workflow publish-plugin-directory-v2.yml \
+              --event workflow_dispatch \
+              --limit 100 \
+              --json databaseId,displayTitle,status,conclusion,url \
+              --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
+          }
+          MATCHES="$(matches)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          if [ "$COUNT" -eq 0 ]; then
+            gh workflow run publish-plugin-directory-v2.yml \
+              --repo turboism/turboism-plugin-directory \
+              --ref main \
+              -f source_run_id="$SOURCE_RUN_ID" \
+              -f source_sha="$SOURCE_SHA" \
+              -f artifact_name="$MARKET_ARTIFACT" \
+              -f plan_id="$PLAN_ID" \
+              -f request_id="$REQUEST_ID"
+            for _ in $(seq 1 30); do
+              sleep 2
+              MATCHES="$(matches)"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              if [ "$COUNT" -ne 0 ]; then break; fi
+            done
+          fi
+          if [ "$COUNT" -ne 1 ]; then
+            echo "expected exactly one Plugin Directory run for $REQUEST_ID, found $COUNT"
+            exit 1
+          fi
+          PROVIDER_RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
+          PROVIDER_STATUS="$(printf '%s\n' "$MATCHES" | jq -r .status)"
+          PROVIDER_CONCLUSION="$(printf '%s\n' "$MATCHES" | jq -r '.conclusion // ""')"
+          if [ "$PROVIDER_STATUS" = completed ]; then
+            test "$PROVIDER_CONCLUSION" = success
+          else
+            gh run watch "$PROVIDER_RUN_ID" \
+              --repo turboism/turboism-plugin-directory \
+              --interval 10 \
+              --exit-status
+          fi
+          echo "provider_run_id=$PROVIDER_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public signed catalog and planned plugin bytes
+        id: verify
+        run: |
+          set -euo pipefail
+          python3 scripts/release/verify-plugin-publication.py \
+            --plan build/release-publisher/plan/plan.json \
+            --verifier-repo build/release-publisher/plugin-directory \
+            --output build/release-publisher/catalog-state.json
+          CATALOG_FINGERPRINT="$(jq -c .catalogFingerprint build/release-publisher/catalog-state.json)"
+          echo "catalog_fingerprint=$CATALOG_FINGERPRINT" >> "$GITHUB_OUTPUT"
+
+      - name: Upload verified catalog state for pointer publication
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-catalog-state-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/catalog-state.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Verify Plugin Directory deployment projection
+        env:
+          EXPECTED_PLUGINS: build/release-publisher/catalog-state.json
+        run: |
+          set -euo pipefail
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error --compressed \
+                https://plugin.turboism.dev/api/plugins \
+                > build/release-publisher/directory.json; then
+              if python3 - <<'PY'
+          import json
+          from pathlib import Path
+          expected = json.loads(Path("build/release-publisher/catalog-state.json").read_text())["plugins"]
+          actual = json.loads(Path("build/release-publisher/directory.json").read_text())
+          payload = actual.get("plugins", actual) if isinstance(actual, dict) else actual
+          if not isinstance(payload, list):
+              raise SystemExit(1)
+          encoded = json.dumps(payload, separators=(",", ":"), sort_keys=True)
+          for item in expected:
+              if item["id"] not in encoded or item["version"] not in encoded or item["jarSha256"] not in encoded:
+                  raise SystemExit(1)
+          PY
+              then
+                curl --fail --silent --show-error --compressed \
+                  https://plugin.turboism.dev/ > build/release-publisher/directory-home.html
+                grep -Fq "Turboism Plugin Directory" build/release-publisher/directory-home.html
+                exit 0
+              fi
+            fi
+            sleep 10
+          done
+          echo "Plugin Directory website did not expose the verified catalog before timeout"
+          exit 1
+
+  publish-framework:
+    needs: [preflight, publish-plugins]
+    if: >-
+      always() &&
+      contains(fromJSON('["framework","combined"]'), needs.preflight.outputs.intent) &&
+      (needs.publish-plugins.result == 'success' || needs.publish-plugins.result == 'skipped')
+    runs-on: ubuntu-22.04
+    environment: production-release
+    timeout-minutes: 60
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download candidate artifact
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ needs.preflight.outputs.artifact_name }}
+          path: build/release-publisher/candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.preflight.outputs.run_id }}
+
+      - name: Download immutable release plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: turboism-release-plan-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/plan
+
+      - name: Create or resume framework draft without overwriting assets
+        id: framework
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          CANDIDATE="$(find build/release-publisher/candidate -name candidate.json -type f -print -quit)"
+          DIST="$(dirname "$(find build/release-publisher/candidate -name 'turboism-*-full.zip' -type f -print -quit)")"
+          NOTES="$(find build/release-publisher/candidate -name release-notes.md -type f -print -quit)"
+          VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework"]["version"])' "$CANDIDATE")"
+          TAG="v$VERSION"
+          python3 scripts/release/verify-release.py --version "$VERSION" --dist "$DIST"
+          python3 scripts/release/build-updates-manifests.py \
+            --candidate "$CANDIDATE" \
+            --source-run-id "${{ needs.preflight.outputs.run_id }}" \
+            --source-run-attempt "${{ needs.preflight.outputs.run_attempt }}" \
+            --published-at "${{ needs.preflight.outputs.source_created_at }}" \
+            --output build/release-publisher/release.json
+          EXPECTED="$(python3 -c 'import json,sys; print(json.dumps({i["name"]:{"size":i["size"],"sha256":i["sha256"]} for i in json.load(open(sys.argv[1]))["framework"]["artifacts"]}, separators=(",",":"), sort_keys=True))' "$CANDIDATE")"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            REMOTE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,tagName)"
+            test "$(printf '%s' "$REMOTE" | jq -r .tagName)" = "$TAG"
+            test "$(printf '%s' "$REMOTE" | jq -r .isPrerelease)" = false
+            REMOTE_DRAFT="$(printf '%s' "$REMOTE" | jq -r .isDraft)"
+            python3 scripts/release/verify-github-assets.py \
+              --expected-json "$EXPECTED" \
+              --release-json "$REMOTE" \
+              --allow-missing \
+              --missing-output build/release-publisher/missing-assets.txt
+            if [ "$REMOTE_DRAFT" != true ] && [ -s build/release-publisher/missing-assets.txt ]; then
+              echo "published release $TAG is incomplete and immutable"
+              exit 1
+            fi
+          else
+            gh release create "$TAG" \
+              --repo "$GITHUB_REPOSITORY" \
+              --verify-tag \
+              --draft \
+              --title "Turboism $VERSION" \
+              --notes-file "$NOTES"
+            REMOTE_DRAFT=true
+            printf '%s\n' "$EXPECTED" | jq -r 'keys[]' > build/release-publisher/missing-assets.txt
+          fi
+          if [ "$REMOTE_DRAFT" != true ]; then
+            echo "release $TAG is already published; only exact no-op verification is permitted"
+            test ! -s build/release-publisher/missing-assets.txt
+          fi
+          while IFS= read -r name; do
+            test -z "$name" && continue
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "$DIST/$name"
+          done < build/release-publisher/missing-assets.txt
+          REMOTE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,tagName)"
+          python3 scripts/release/verify-github-assets.py \
+            --expected-json "$EXPECTED" \
+            --release-json "$REMOTE"
+          MANIFEST_SHA="$(sha256sum build/release-publisher/release.json | cut -d' ' -f1)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "manifest_sha=$MANIFEST_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload reviewed framework manifest handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-framework-manifest-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/release.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Dispatch or resume Updates framework publication
+        id: updates
+        env:
+          GH_TOKEN: ${{ secrets.UPDATES_RELEASE_DISPATCH_TOKEN }}
+          UPDATES_REPOSITORY: ${{ vars.UPDATES_REPOSITORY || 'turboism/turboism-updates' }}
+          TAG: ${{ steps.framework.outputs.tag }}
+          MANIFEST_SHA: ${{ steps.framework.outputs.manifest_sha }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          SOURCE_RUN_ID: ${{ needs.preflight.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.preflight.outputs.run_attempt }}
+          PLAN_ID: ${{ needs.preflight.outputs.plan_id }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          test -n "$UPDATES_REPOSITORY"
+          ARTIFACT_NAME="turboism-framework-manifest-${PLAN_ID}"
+          HANDOFF_ID="framework-${TAG}-${MANIFEST_SHA}"
+          DISPLAY_TITLE="publish-framework-${HANDOFF_ID}"
+          matches() {
+            gh run list --repo "$UPDATES_REPOSITORY" --workflow publish-release.yml --event workflow_dispatch --limit 100 \
+              --json databaseId,displayTitle,status,conclusion,url \
+              --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
+          }
+          MATCHES="$(matches)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          if [ "$COUNT" -eq 0 ]; then
+            gh workflow run publish-release.yml \
+              --repo "$UPDATES_REPOSITORY" \
+              --ref main \
+              -f release_tag="$TAG" \
+              -f reviewed_manifest_sha256="$MANIFEST_SHA" \
+              -f source_revision="$SOURCE_SHA" \
+              -f source_workflow=.github/workflows/release.yml \
+              -f source_run_id="$SOURCE_RUN_ID" \
+              -f source_run_attempt="$SOURCE_RUN_ATTEMPT" \
+              -f publisher_run_id="$GITHUB_RUN_ID" \
+              -f manifest_artifact_name="$ARTIFACT_NAME" \
+              -f handoff_id="$HANDOFF_ID"
+            for _ in $(seq 1 30); do
+              sleep 2
+              MATCHES="$(matches)"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              if [ "$COUNT" -ne 0 ]; then break; fi
+            done
+          fi
+          if [ "$COUNT" -ne 1 ]; then
+            echo "expected exactly one Updates run for $HANDOFF_ID, found $COUNT"
+            exit 1
+          fi
+          UPDATES_RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
+          STATUS="$(printf '%s\n' "$MATCHES" | jq -r .status)"
+          CONCLUSION="$(printf '%s\n' "$MATCHES" | jq -r '.conclusion // ""')"
+          if [ "$STATUS" = completed ]; then
+            test "$CONCLUSION" = success
+          else
+            gh run watch "$UPDATES_RUN_ID" --repo "$UPDATES_REPOSITORY" --interval 10 --exit-status
+          fi
+          echo "updates_run_id=$UPDATES_RUN_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Verify public immutable Updates release and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.framework.outputs.tag }}
+          VERSION: ${{ steps.framework.outputs.version }}
+          MANIFEST_SHA: ${{ steps.framework.outputs.manifest_sha }}
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --compressed \
+            "https://updates.turboism.dev/turboism/releases/$VERSION/release.json" \
+            > build/release-publisher/public-release.json
+          test "$(sha256sum build/release-publisher/public-release.json | cut -d' ' -f1)" = "$MANIFEST_SHA"
+          if [ "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = true ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          fi
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = false
+
+      - name: Dispatch or resume stable pointer publication
+        env:
+          GH_TOKEN: ${{ secrets.UPDATES_RELEASE_DISPATCH_TOKEN }}
+          UPDATES_REPOSITORY: ${{ vars.UPDATES_REPOSITORY || 'turboism/turboism-updates' }}
+          TAG: ${{ steps.framework.outputs.tag }}
+          MANIFEST_SHA: ${{ steps.framework.outputs.manifest_sha }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          SOURCE_RUN_ID: ${{ needs.preflight.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.preflight.outputs.run_attempt }}
+          PLAN_ID: ${{ needs.preflight.outputs.plan_id }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          test -n "$UPDATES_REPOSITORY"
+          ARTIFACT_NAME="turboism-framework-manifest-${PLAN_ID}"
+          HANDOFF_ID="stable-${TAG}-${MANIFEST_SHA}"
+          DISPLAY_TITLE="publish-stable-${HANDOFF_ID}"
+          matches() {
+            gh run list --repo "$UPDATES_REPOSITORY" --workflow publish-stable-pointer.yml --event workflow_dispatch --limit 100 \
+              --json databaseId,displayTitle,status,conclusion,url \
+              --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
+          }
+          MATCHES="$(matches)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          if [ "$COUNT" -eq 0 ]; then
+            gh workflow run publish-stable-pointer.yml \
+              --repo "$UPDATES_REPOSITORY" \
+              --ref main \
+              -f release_tag="$TAG" \
+              -f reviewed_manifest_sha256="$MANIFEST_SHA" \
+              -f source_revision="$SOURCE_SHA" \
+              -f source_workflow=.github/workflows/release.yml \
+              -f source_run_id="$SOURCE_RUN_ID" \
+              -f source_run_attempt="$SOURCE_RUN_ATTEMPT" \
+              -f publisher_run_id="$GITHUB_RUN_ID" \
+              -f manifest_artifact_name="$ARTIFACT_NAME" \
+              -f handoff_id="$HANDOFF_ID"
+            for _ in $(seq 1 30); do
+              sleep 2
+              MATCHES="$(matches)"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              if [ "$COUNT" -ne 0 ]; then break; fi
+            done
+          fi
+          if [ "$COUNT" -ne 1 ]; then
+            echo "expected exactly one stable pointer run for $HANDOFF_ID, found $COUNT"
+            exit 1
+          fi
+          RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
+          STATUS="$(printf '%s\n' "$MATCHES" | jq -r .status)"
+          CONCLUSION="$(printf '%s\n' "$MATCHES" | jq -r '.conclusion // ""')"
+          if [ "$STATUS" = completed ]; then
+            test "$CONCLUSION" = success
+          else
+            gh run watch "$RUN_ID" --repo "$UPDATES_REPOSITORY" --interval 10 --exit-status
+          fi
+          curl --fail --silent --show-error --compressed \
+            https://updates.turboism.dev/turboism/channels/stable/latest.json \
+            > build/release-publisher/public-stable.json
+          test "$(jq -r .version build/release-publisher/public-stable.json)" = "${TAG#v}"
+          test "$(jq -r .releaseManifestSha256 build/release-publisher/public-stable.json)" = "$MANIFEST_SHA"
+
+  publish-plugin-pointer:
+    needs: [preflight, publish-plugins, publish-framework]
+    if: >-
+      always() &&
+      contains(fromJSON('["plugins","combined"]'), needs.preflight.outputs.intent) &&
+      needs.publish-plugins.result == 'success' &&
+      (needs.preflight.outputs.intent == 'plugins' || needs.publish-framework.result == 'success')
+    runs-on: ubuntu-22.04
+    environment: production-release
+    steps:
+      - name: Check out exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ needs.preflight.outputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Download immutable release plan
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: turboism-release-plan-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/plan
+
+      - name: Download verified catalog state
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: turboism-catalog-state-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/catalog
+
+      - name: Generate reviewed plugin-store pointer handoff
+        id: pointer
+        run: |
+          set -euo pipefail
+          python3 scripts/release/build-updates-manifests.py \
+            --plan build/release-publisher/plan/plan.json \
+            --catalog-state build/release-publisher/catalog/catalog-state.json \
+            --published-at "${{ needs.preflight.outputs.source_created_at }}" \
+            --output build/release-publisher/plugin-store-latest.json
+          POINTER_SHA="$(sha256sum build/release-publisher/plugin-store-latest.json | cut -d' ' -f1)"
+          echo "pointer_sha=$POINTER_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Upload reviewed plugin-store pointer handoff
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: turboism-plugin-store-pointer-${{ needs.preflight.outputs.plan_id }}
+          path: build/release-publisher/plugin-store-latest.json
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Dispatch or resume plugin-store pointer publication
+        env:
+          GH_TOKEN: ${{ secrets.UPDATES_RELEASE_DISPATCH_TOKEN }}
+          UPDATES_REPOSITORY: ${{ vars.UPDATES_REPOSITORY || 'turboism/turboism-updates' }}
+          PLAN_ID: ${{ needs.preflight.outputs.plan_id }}
+          POINTER_SHA: ${{ steps.pointer.outputs.pointer_sha }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          test -n "$UPDATES_REPOSITORY"
+          ARTIFACT_NAME="turboism-plugin-store-pointer-${PLAN_ID}"
+          HANDOFF_ID="plugin-${PLAN_ID}-${POINTER_SHA}"
+          DISPLAY_TITLE="publish-plugin-catalog-${HANDOFF_ID}"
+          matches() {
+            gh run list --repo "$UPDATES_REPOSITORY" --workflow publish-plugin-catalog.yml --event workflow_dispatch --limit 100 \
+              --json databaseId,displayTitle,status,conclusion,url \
+              --jq ".[] | select(.displayTitle == \"$DISPLAY_TITLE\")"
+          }
+          MATCHES="$(matches)"
+          COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+          if [ "$COUNT" -eq 0 ]; then
+            gh workflow run publish-plugin-catalog.yml \
+              --repo "$UPDATES_REPOSITORY" \
+              --ref main \
+              -f reviewed_pointer_sha256="$POINTER_SHA" \
+              -f source_run_id="$GITHUB_RUN_ID" \
+              -f artifact_name="$ARTIFACT_NAME" \
+              -f handoff_id="$HANDOFF_ID"
+            for _ in $(seq 1 30); do
+              sleep 2
+              MATCHES="$(matches)"
+              COUNT="$(printf '%s\n' "$MATCHES" | jq -s 'length')"
+              if [ "$COUNT" -ne 0 ]; then break; fi
+            done
+          fi
+          if [ "$COUNT" -ne 1 ]; then
+            echo "expected exactly one Updates plugin run for $HANDOFF_ID, found $COUNT"
+            exit 1
+          fi
+          RUN_ID="$(printf '%s\n' "$MATCHES" | jq -r .databaseId)"
+          STATUS="$(printf '%s\n' "$MATCHES" | jq -r .status)"
+          CONCLUSION="$(printf '%s\n' "$MATCHES" | jq -r '.conclusion // ""')"
+          if [ "$STATUS" = completed ]; then
+            test "$CONCLUSION" = success
+          else
+            gh run watch "$RUN_ID" --repo "$UPDATES_REPOSITORY" --interval 10 --exit-status
+          fi
+          curl --fail --silent --show-error --compressed \
+            https://updates.turboism.dev/turboism/plugin-store/latest.json \
+            > build/release-publisher/public-plugin-store.json
+          test "$(sha256sum build/release-publisher/public-plugin-store.json | cut -d' ' -f1)" = "$POINTER_SHA"
+
+  no-op:
+    needs: preflight
+    if: needs.preflight.outputs.intent == 'none'
+    runs-on: ubuntu-22.04
+    steps:
+      - run: echo "Published state already matches plan ${{ needs.preflight.outputs.plan_id }}"

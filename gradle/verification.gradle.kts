@@ -681,16 +681,27 @@ val checkCompletedCommit by tasks.registering {
 
 val checkReleaseTooling by tasks.registering(Exec::class) {
     group = "release verification"
-    description = "Verifies changelog extraction and assembled product release invariants."
+    description = "Verifies changelog extraction, release payloads, and deterministic release planning."
     workingDir(rootDir)
     inputs.files(
         "scripts/release/extract-release-notes.py",
         "scripts/release/verify-release.py",
+        "scripts/release/audit-v0.42.0.py",
+        "scripts/release/build-updates-manifests.py",
+        "scripts/release/turboism-release.py",
+        "scripts/release/verify-github-assets.py",
+        "scripts/release/verify-plugin-publication.py",
+        fileTree("scripts/release/turboism_release") { include("*.py") },
         "scripts/test/test_release_tooling.py",
+        "scripts/test/test_release_orchestrator.py",
         "CHANGELOG.md",
         ".github/workflows/release.yml"
     )
-    commandLine("python3", "scripts/test/test_release_tooling.py")
+    commandLine(
+        "python3", "-m", "unittest", "-v",
+        "scripts/test/test_release_tooling.py",
+        "scripts/test/test_release_orchestrator.py"
+    )
 }
 
 tasks.register("checkRelease") {
