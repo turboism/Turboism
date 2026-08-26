@@ -14,6 +14,9 @@ Turboism は Live2D Cubism エディター用の Java agent ランタイムで�
   launch-cubism-turboism.ps1     PowerShell ランチャー実装
   cubism-launch-common.ps1       インベントリ/起動の共通ヘルパー
   plugins/                       プラグイン jar（full のみ。lite には無し）
+  graal\lib/                      同梱の隔離 GraalJS host ライブラリ
+  graal\runtime/                  インストール済みの場合の管理対象 GraalVM ランタイム
+  cache\runtime\graal/            管理対象ランタイムのダウンロードキャッシュ
   README.txt / README.zh.txt / README.ja.txt / LICENSE.txt
 
 2. 使い方
@@ -41,6 +44,19 @@ Turboism は Live2D Cubism エディター用の Java agent ランタイムで�
 6. ランチャーがこのフォルダー以外にある場合だけ TURBOISM_HOME を設定します。
    プラグインの選択は config.json、インストールの選択は別の
    cubism-installations.json に保存されます。
+7. Cubism は既定で GraalVM を使用します。GraalVM が選択されていて利用できない
+   場合は、Turboism 設定 > パフォーマンス > Cubism JVM を開き、ユーザーが
+   明示的に自動インストールを開始します。このインストーラーは Windows x64 専用で、
+   固定版 GraalVM Community 25.2.4 / JDK 25.0.4 を graal\runtime に
+   インストールします。有効化前に、公式 HTTPS ホスト、リリースメタデータ、正確な
+   サイズと SHA-256、安全な展開、隔離 host の READY 結果を検証します。該当する
+   法的ファイルは保持されます。JAVA_HOME、PATH、レジストリ、Cubism、Cubism 同梱
+   Java は変更しません。失敗またはキャンセル時は以前の選択を保持します。起動時に
+   ダウンロードは行わず、保存済み/既定の GraalVM 選択を解決できない場合は警告して
+   Cubism 同梱 Java を使用します。
+8. 管理対象ランタイムサービスはランタイムを検証または削除できますが、現在の UI は
+   インストールのみ提供します。手動で削除するには Cubism と Turboism を閉じてから
+   graal\runtime を削除し、graal\lib は保持してください。
 
 3. config.json
 --------------
@@ -52,8 +68,9 @@ Turboism は Live2D Cubism エディター用の Java agent ランタイムで�
 -------------------
 - NSIS インストーラー（TurboismInstaller-<ver>.exe）の場合は Turboism home の
   uninstall.exe を実行します。Turboism が記録した管理対象ショートカット/状態と
-  所有するファイルだけを削除します。確認ページの「config.json（ユーザー設定）も
-  削除」チェックは既定でオンです。オフにすると config.json を保持します。
+  所有するファイルだけを削除し、存在する場合は graal ディレクトリ全体（管理対象
+  ランタイムと同梱の graal\lib）も削除します。確認ページの「config.json（ユーザー
+  設定）も削除」チェックは既定でオンです。オフにすると config.json を保持します。
 - ZIP 手動インストールにはアンインストーラーがありません。Cubism を閉じて
   Turboism フォルダーを削除してください。Cubism 自体は変更されません。
 

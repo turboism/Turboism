@@ -104,8 +104,9 @@ function Test-CompatibleGraalJava {
             return $false
         }
         $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop
-        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM[^"]*"\s*$' -and
-            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.[^"]*"\s*$'
+        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM Community"\s*$' -and
+            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.4"\s*$' -and
+            $metadata -match '(?m)^JAVA_VERSION="25\.0\.4"\s*$'
     }
     catch { return $false }
 }
@@ -116,7 +117,7 @@ function Resolve-GraalJava {
     if (-not [string]::IsNullOrWhiteSpace($Requested)) {
         $resolved = Resolve-JavaExecutable -Requested $Requested -Label "Graal"
         if (-not (Test-CompatibleGraalJava $resolved)) {
-            throw "Graal Java must be a compatible GraalVM 25.2.x executable: $Requested"
+            throw "Graal Java must be GraalVM Community 25.2.4 / JDK 25.0.4: $Requested"
         }
         return $resolved
     }
@@ -125,8 +126,8 @@ function Resolve-GraalJava {
     if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_GRAAL_JAVA)) {
         $candidates += $env:TURBOISM_GRAAL_JAVA
     }
-    $candidates += (Join-Path $previewRoot "graalvm\bin\java.exe")
     $candidates += (Join-Path $previewRoot "graal\runtime\bin\java.exe")
+    $candidates += (Join-Path $previewRoot "graalvm\bin\java.exe")
     if (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_GRAALVM_HOME)) {
         $candidates += (Join-Path $env:TURBOISM_GRAALVM_HOME "bin\java.exe")
     }
