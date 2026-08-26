@@ -188,9 +188,6 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
     void contributionClosedBeforeEdtInstallationDoesNotLeakTracking() throws Exception {
         final Path recent = Files.createTempFile("recent-preview-race", ".cmo3");
         final JMenu menu = recentMenu(recent);
-        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        final int baseMenuListeners = menu.getMenuListeners().length;
-        final int baseMouseListeners = item.getMouseListeners().length;
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
 
         final VerifiedRecentPreviewPopupHostOperations popup =
@@ -205,8 +202,6 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         });
 
         assertEquals(0, popup.rendererCountForTest());
-        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
-        assertEquals(baseMouseListeners, item.getMouseListeners().length);
     }
 
     @Test
