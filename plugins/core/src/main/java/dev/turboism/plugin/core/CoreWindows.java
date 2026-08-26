@@ -40,7 +40,6 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LinearGradientPaint;
 import java.awt.RenderingHints;
-import java.awt.Desktop;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URI;
