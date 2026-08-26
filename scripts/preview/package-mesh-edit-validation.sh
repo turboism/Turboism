@@ -14,7 +14,7 @@ mesh_enhance_jars=("$repo_root"/build/worktree/"$worktree_id"/mesh-edit-mirror-a
   exit 1
 }
 mesh_enhance_jar="${mesh_enhance_jars[0]}"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 class_dir="dev/turboism/tests/plugin"
 main_class="WindowsMeshEditValidationProbe"
 descriptor="$repo_root/scripts/preview/mesh-edit-validation-plugin.json"

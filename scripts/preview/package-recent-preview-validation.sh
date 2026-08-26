@@ -9,12 +9,12 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-recent-preview-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 plugin_jar_dir="$repo_root/build/worktree/$worktree_id/recent-preview/libs"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-recent-preview-validation-plugin.json"
 
 printf '[package] building fresh worktree artifacts (bootstrap, recent-preview plugin, tests, preview bundle)\n'
-./gradlew :bootstrap:jar :plugins:recent-preview:jar :tests:testClasses previewBundle --console=plain
+./gradlew :bootstrap:jar :plugins:recent-preview:jar :testing:integration-tests:testClasses previewBundle --console=plain
 
 [ -f "$agent_jar" ] || { printf 'error: preview agent not found: %s\n' "$agent_jar" >&2; exit 1; }
 mapfile -t plugin_jars < <(

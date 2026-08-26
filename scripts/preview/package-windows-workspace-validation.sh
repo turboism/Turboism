@@ -20,7 +20,7 @@ if [ "${#agent_candidates[@]}" -gt 1 ]; then
   exit 1
 fi
 agent_jar="${agent_candidates[0]}"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-workspace-validation-plugin.json"
@@ -53,7 +53,7 @@ for required in \
   [ -f "$required" ] || { printf 'error: required input not found: %s\n' "$required" >&2; exit 1; }
 done
 if ! ls "$test_classes"/dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe\$*.class >/dev/null 2>&1; then
-  printf 'error: validation probe nested classes are missing; run :tests:testClasses first\n' >&2
+  printf 'error: validation probe nested classes are missing; run :testing:integration-tests:testClasses first\n' >&2
   exit 1
 fi
 
