@@ -44,6 +44,21 @@ with no plugin JAR copied. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
 
+On Windows x64, when GraalVM is selected but absent, Turboism Settings >
+Performance > Cubism JVM offers an explicit, user-initiated automatic install.
+It installs the pinned GraalVM Community 25.2.4 / JDK 25.0.4 runtime at
+`<home>/graal/runtime`; the packaged isolated host libraries remain at
+`<home>/graal/lib`, and the download cache is `<home>/cache/runtime/graal`.
+Before activation it verifies official HTTPS hosts, release metadata, exact size
+and SHA-256, safe extraction, and an isolated host `READY` result. Applicable
+legal files are preserved. It does not change `JAVA_HOME`, `PATH`, the registry,
+Cubism, or Cubism's bundled Java. Failure or cancellation retains the prior
+selection. Startup never downloads; an unavailable saved/default GraalVM choice
+warns and falls back to Cubism's bundled Java. The managed-runtime service can
+verify or remove the runtime, but the current UI exposes installation only. For
+manual removal, close Cubism and Turboism, delete `<home>/graal/runtime`, and
+preserve `<home>/graal/lib`.
+
 `config.json` is never overwritten blindly: an existing valid config is
 parsed with a bounded JSON parser, unrelated fields are preserved, and only
 `worktreeId` (`turboism-runtime`), `pluginDirs` (`["plugins"]`) and
@@ -67,7 +82,11 @@ On Windows, the staged payload also includes `configure_turboism.ps1` and `cubis
 ## Uninstall
 
 The installer generates `Uninstaller/uninstaller.jar` under the home
-directory. The uninstaller removes the installed agent, installer-owned
+directory. On Windows, the uninstaller also removes the entire `graal` directory
+(including a managed runtime and packaged `graal/lib`), together with the
+installed agent, installer-owned plugin JARs, installer-owned launch/configuration
+files, the generated uninstaller, and the runtime `logs`, `state` and `cache`
+directories. On macOS and Linux, it removes the installed agent, installer-owned
 plugin JARs, installer-owned launch/configuration files, the generated
 uninstaller, and the runtime `logs`, `state` and `cache` directories.
 `config.json` is removed only when selected (en/zh/ja confirmation,

@@ -49,6 +49,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Runtime-owned core windows; plugins never receive Swing objects. */
 final class CoreWindows implements AutoCloseable {
@@ -60,6 +61,8 @@ final class CoreWindows implements AutoCloseable {
     private JDialog settingsDialog;
     private JDialog pluginsDialog;
     private JDialog aboutDialog;
+    private volatile boolean closed;
+    private ActiveSettingsAction activeSettingsAction;
     static final String ABOUT_LOGO_TEXT = "Turboism";
     private static final Object ABOUT_LOGO_LOCK = new Object();
     private static volatile Path aboutLogoPng;
@@ -114,8 +117,17 @@ final class CoreWindows implements AutoCloseable {
 
     @Override
     public void close() {
+        closed = true;
         CoreDialogs.onEdt(() -> {
             logWindow.close();
+            final ActiveSettingsAction active = activeSettingsAction;
+            activeSettingsAction = null;
+            if (active != null) {
+                active.finished().set(true);
+                active.handle().cancel();
+                active.timer().stop();
+                active.dialog().dispose();
+            }
             if (settingsDialog != null) settingsDialog.dispose();
             if (pluginsDialog != null) pluginsDialog.dispose();
             if (aboutDialog != null) aboutDialog.dispose();
@@ -361,7 +373,7 @@ final class CoreWindows implements AutoCloseable {
         final JDialog owner,
         final SettingsChangeDecision decision
     ) {
-        if (decision.link().isEmpty()) {
+        if (decision.action().isEmpty() && decision.link().isEmpty()) {
             javax.swing.JOptionPane.showMessageDialog(
                 owner,
                 decision.message(),
@@ -370,8 +382,10 @@ final class CoreWindows implements AutoCloseable {
             );
             return;
         }
-        final var link = decision.link().orElseThrow();
-        final Object[] options = {link.label(), text("common.cancel")};
+        final List<Object> options = new ArrayList<>();
+        decision.action().ifPresent(action -> options.add(action.label()));
+        decision.link().ifPresent(link -> options.add(link.label()));
+        options.add(text("common.cancel"));
         final int choice = javax.swing.JOptionPane.showOptionDialog(
             owner,
             decision.message(),
@@ -379,10 +393,131 @@ final class CoreWindows implements AutoCloseable {
             javax.swing.JOptionPane.DEFAULT_OPTION,
             javax.swing.JOptionPane.WARNING_MESSAGE,
             null,
-            options,
-            options[0]
+            options.toArray(),
+            options.get(0)
         );
-        if (choice == 0) openSettingsLink(link);
+        if (choice < 0) return;
+        if (decision.action().isPresent()) {
+            if (choice == 0) {
+                runSettingsAction(owner, decision.action().orElseThrow());
+                return;
+            }
+            if (choice == 1 && decision.link().isPresent()) {
+                openSettingsLink(decision.link().orElseThrow());
+            }
+            return;
+        }
+        if (choice == 0 && decision.link().isPresent()) {
+            openSettingsLink(decision.link().orElseThrow());
+        }
+    }
+
+    private void runSettingsAction(
+        final JDialog owner,
+        final dev.turboism.sdk.ui.settings.SettingsDecisionAction action
+    ) {
+        final ActiveSettingsAction existing = activeSettingsAction;
+        if (closed || existing != null && !existing.finished().get()) return;
+        final dev.turboism.sdk.ui.settings.SettingsActionHandle handle;
+        try {
+            handle = action.action().start();
+        } catch (RuntimeException failure) {
+            CoreDialogs.message(
+                owner,
+                text("common.turboism"),
+                text("settings.action.start-failed")
+            );
+            return;
+        }
+        if (closed) {
+            handle.cancel();
+            return;
+        }
+        final JDialog progressDialog = CoreDialogs.create(action.label(), 500, 150);
+        if (progressDialog == null) {
+            handle.cancel();
+            return;
+        }
+        progressDialog.setDefaultCloseOperation(javax.swing.WindowConstants.DO_NOTHING_ON_CLOSE);
+        progressDialog.setLayout(new BorderLayout(8, 8));
+        final JLabel message = new JLabel();
+        final javax.swing.JProgressBar progress = new javax.swing.JProgressBar();
+        final JButton cancel = new JButton(text("common.cancel"));
+        final AtomicBoolean finished = new AtomicBoolean(false);
+        cancel.addActionListener(ignored -> {
+            if (handle.cancel()) {
+                cancel.setEnabled(false);
+                message.setText(text("settings.action.cancelling"));
+            }
+        });
+        final JPanel center = new JPanel(new BorderLayout(8, 8));
+        center.setBorder(BorderFactory.createEmptyBorder(12, 16, 4, 16));
+        center.add(message, BorderLayout.NORTH);
+        center.add(progress, BorderLayout.CENTER);
+        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        buttons.add(cancel);
+        progressDialog.add(center, BorderLayout.CENTER);
+        progressDialog.add(buttons, BorderLayout.SOUTH);
+
+        final Runnable refresh = () -> {
+            if (finished.get()) return;
+            final dev.turboism.sdk.ui.settings.SettingsActionProgress value = handle.progress();
+            message.setText(value.message());
+            if (value.total() <= 0L) {
+                progress.setIndeterminate(true);
+            } else {
+                progress.setIndeterminate(false);
+                progress.setMaximum(1000);
+                progress.setValue((int) Math.min(
+                    1000L,
+                    (value.completed() * 1000L) / value.total()
+                ));
+            }
+        };
+        final javax.swing.Timer timer = new javax.swing.Timer(150, ignored -> refresh.run());
+        activeSettingsAction = new ActiveSettingsAction(
+            handle, progressDialog, timer, finished
+        );
+        refresh.run();
+        handle.completion().whenComplete((result, failure) -> CoreDialogs.onEdt(() ->
+            finishSettingsAction(owner, result, failure, finished, timer, progressDialog)
+        ));
+        if (!finished.get()) {
+            timer.start();
+            CoreDialogs.show(progressDialog);
+        }
+    }
+
+    private void finishSettingsAction(
+        final JDialog owner,
+        final dev.turboism.sdk.ui.settings.SettingsActionResult result,
+        final Throwable failure,
+        final AtomicBoolean finished,
+        final javax.swing.Timer timer,
+        final JDialog progressDialog
+    ) {
+        if (!finished.compareAndSet(false, true)) return;
+        timer.stop();
+        progressDialog.dispose();
+        if (activeSettingsAction != null
+            && activeSettingsAction.dialog() == progressDialog) {
+            activeSettingsAction = null;
+        }
+        if (closed) return;
+        if (failure != null || result == null) {
+            CoreDialogs.message(
+                owner,
+                text("common.turboism"),
+                text("settings.action.failed")
+            );
+            return;
+        }
+        CoreDialogs.message(owner, result.title(), result.message());
+        if (result.succeeded() && settingsDialog == owner) {
+            settingsDialog.dispose();
+            settingsDialog = createSettingsDialog();
+            CoreDialogs.show(settingsDialog);
+        }
     }
 
     private void openSettingsLink(final dev.turboism.sdk.ui.settings.SettingsLink link) {
@@ -395,6 +530,14 @@ final class CoreWindows implements AutoCloseable {
         } catch (IOException | RuntimeException failure) {
             CoreDialogs.message(settingsDialog, text("common.turboism"), link.openFailureMessage());
         }
+    }
+
+    private record ActiveSettingsAction(
+        dev.turboism.sdk.ui.settings.SettingsActionHandle handle,
+        JDialog dialog,
+        javax.swing.Timer timer,
+        AtomicBoolean finished
+    ) {
     }
 
     record BuiltinTab(String title, int index, JPanel panel) {
