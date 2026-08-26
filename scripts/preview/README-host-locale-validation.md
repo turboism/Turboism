@@ -25,7 +25,7 @@ gate verifies the descriptor, catalog, key, and message-format contracts.
 ## Verification levels
 
 The focused build gates are build-only evidence. They do not establish Cubism
-readiness. Run `:tests:officialPluginI18nCompletenessTest` or
+readiness. Run `:testing:integration-tests:officialPluginI18nCompletenessTest` or
 `checkOfficialPluginI18nCompleteness` for catalog checks, and use
 `launch-cubism-host-locale-validation.sh` (or the `-52`/`-53` exact-version
 wrappers) only after the exact host fixture, identity, readiness, result, and

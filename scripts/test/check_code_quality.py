@@ -9,7 +9,7 @@ Four rules, all fail-closed:
    test. A second copy can drift from the reviewed record and silently widen admission.
 3. No production type name encodes a Cubism version. Versions are declared as data so that no
    type can quietly mean "the other version".
-4. No retired governance token (``m14``/``m15``) survives in ``cubism-ref/`` asset filenames.
+4. No retired governance token (``m14``/``m15``) survives in ``compatibility/cubism/`` asset filenames.
 
 Usage: check_code_quality.py [repo-root] [--rules RULE[,RULE...]] [--report]
 """
@@ -39,11 +39,11 @@ DIGEST_SCAN_ROOTS = PRODUCTION_ROOTS + (
     PLUGIN_ROOT,
     "runtime/src/test/java",
     "bootstrap/src/test/java",
-    "tests/src/test/java",
+    "testing/integration-tests/src/test/java",
 )
 
 RETIRED_ASSET_TOKENS = ("m14", "m15")
-ASSET_ROOT = "cubism-ref"
+ASSET_ROOT = "compatibility/cubism"
 
 # Grandfathered: these two names are frozen inside hash-anchored reviewed records. The retired
 # token also appears in each pack's `semanticName` values, which are bound bidirectionally to the
@@ -52,8 +52,8 @@ ASSET_ROOT = "cubism-ref"
 # digests -- a governance action that breaks the audit chain for a cosmetic gain. The rule's
 # purpose is to stop NEW retired-governance names from appearing.
 GRANDFATHERED_ASSETS = (
-    "cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json",
-    "cubism-ref/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
+    "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-project-workspace.json",
+    "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m15-clipmask.json",
 )
 
 TYPE_DECLARATION = re.compile(

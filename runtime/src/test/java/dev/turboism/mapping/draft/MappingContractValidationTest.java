@@ -32,14 +32,14 @@ class MappingContractValidationTest {
             "\"operation\":\"UPDATE_CLASS_RUNTIME\"", "\"operation\":\"UPDATE_METHOD_RUNTIME\"")),
             "MAPPING_UPDATE_CANDIDATE_BAD_OPERATION");
         for (String unsafePack : List.of(
-            "cubism-ref/mapping-packs/draft/nested/fixture.json",
-            "cubism-ref/mapping-packs/draft/fixture\\\\name.json",
-            "cubism-ref/mapping-packs/draft/fixture:name.json",
-            "cubism-ref/mapping-packs/draft/fixture..json",
-            "cubism-ref/mapping-packs/draft/fixture\\u0001.json"
+            "compatibility/cubism/mapping-packs/draft/nested/fixture.json",
+            "compatibility/cubism/mapping-packs/draft/fixture\\\\name.json",
+            "compatibility/cubism/mapping-packs/draft/fixture:name.json",
+            "compatibility/cubism/mapping-packs/draft/fixture..json",
+            "compatibility/cubism/mapping-packs/draft/fixture\\u0001.json"
         )) {
             assertHasCode(new MappingUpdateCandidateValidator().validate(with(candidate(),
-                "\"pack\":\"cubism-ref/mapping-packs/draft/fixture.json\"", "\"pack\":\"" + unsafePack + "\"")),
+                "\"pack\":\"compatibility/cubism/mapping-packs/draft/fixture.json\"", "\"pack\":\"" + unsafePack + "\"")),
                 "MAPPING_UPDATE_CANDIDATE_BAD_TARGET");
         }
         for (String unsafeSemantic : List.of("fixture]target", "fixture[target", "fixture/target", "fixture\\\\target", "fixture:target", "fixture..target", "fixture\\u0001target")) {
@@ -123,11 +123,11 @@ class MappingContractValidationTest {
             "\"before\":\"fixture/Old\",\"after\":\"fixture/New\"",
             "\"before\":\"fixture/Old\",\"after\":\"fixture/Old\"")),
             "MAPPING_UPDATE_DIFF_BAD_CHANGES");
-        for (String unsafePack : List.of("/tmp/fixture.json", "cubism-ref/mapping-packs/draft/nested/fixture.json",
-            "cubism-ref/mapping-packs/draft/fixture\\\\name.json", "cubism-ref/mapping-packs/draft/fixture:name.json",
-            "cubism-ref/mapping-packs/draft/fixture..json", "cubism-ref/mapping-packs/draft/fixture\\u0001.json")) {
+        for (String unsafePack : List.of("/tmp/fixture.json", "compatibility/cubism/mapping-packs/draft/nested/fixture.json",
+            "compatibility/cubism/mapping-packs/draft/fixture\\\\name.json", "compatibility/cubism/mapping-packs/draft/fixture:name.json",
+            "compatibility/cubism/mapping-packs/draft/fixture..json", "compatibility/cubism/mapping-packs/draft/fixture\\u0001.json")) {
             assertHasCode(validator.validate(with(diff(),
-                "\"pack\":\"cubism-ref/mapping-packs/draft/fixture.json\"", "\"pack\":\"" + unsafePack + "\"")),
+                "\"pack\":\"compatibility/cubism/mapping-packs/draft/fixture.json\"", "\"pack\":\"" + unsafePack + "\"")),
                 "MAPPING_UPDATE_DIFF_BAD_TARGET");
         }
         for (String unsafeSemantic : List.of("fixture]target", "fixture[target", "fixture/target", "fixture\\\\target", "fixture:target", "fixture..target", "fixture\\u0001target")) {
@@ -163,7 +163,7 @@ class MappingContractValidationTest {
         return """
             {"format":"turboism.mapping.update.candidate","schemaVersion":1,
              "operation":"UPDATE_CLASS_RUNTIME",
-             "target":{"pack":"cubism-ref/mapping-packs/draft/fixture.json","semanticName":"fixture.target.class"},
+             "target":{"pack":"compatibility/cubism/mapping-packs/draft/fixture.json","semanticName":"fixture.target.class"},
              "basePackSha256":"%s",
              "artifact":{"name":"fixture.jar","size":1,"sha256":"%s"},
              "scannerPolicy":{"maxArtifactBytes":1,"maxEntries":1,"maxClassEntries":1,"maxEntryBytes":1,"maxExpandedBytes":1},
@@ -184,7 +184,7 @@ class MappingContractValidationTest {
     private static String diff() {
         return "{\"format\":\"turboism.mapping.update.diff\",\"schemaVersion\":1,"
             + "\"candidateSha256\":\"" + HASH + "\","
-            + "\"target\":{\"pack\":\"cubism-ref/mapping-packs/draft/fixture.json\",\"semanticName\":\"fixture.target.class\"},"
+            + "\"target\":{\"pack\":\"compatibility/cubism/mapping-packs/draft/fixture.json\",\"semanticName\":\"fixture.target.class\"},"
             + "\"changes\":[{\"path\":\"entries[semanticName=fixture.target.class].runtime\","
             + "\"before\":\"fixture/Old\",\"after\":\"fixture/New\"}]}";
     }

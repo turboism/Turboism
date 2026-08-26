@@ -10,6 +10,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 - Expanded the GitHub README with the supported Windows host platform, exact Cubism Editor versions, installation choices, current capabilities, and verification guidance.
 - Added a regression check that every GitHub Release takes its notes from the matching version section in `CHANGELOG.md`.
+- Grouped reusable test support and cross-module integration tests under `testing/`, and moved reviewed SDK API contracts beneath the `sdk/` domain.
+- Separated public Cubism compatibility contracts from ignored local Cubism references and host evidence, and moved generated reference reports under `build/reports/`.
+- Strengthened repository hygiene so forced additions of local reference, research, generated-report, and validation-output paths are rejected.
 
 ## [0.42.0] - 2026-08-25
 

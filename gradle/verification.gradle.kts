@@ -54,7 +54,7 @@ tasks.register("checkGraalScriptHostValidation") {
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
     description = "Verifies baseline localization-key completeness for participating official plugins."
-    dependsOn(":tests:officialPluginI18nCompletenessTest")
+    dependsOn(":testing:integration-tests:officialPluginI18nCompletenessTest")
 }
 
 val checkAsyncHostReadStructuralBoundaries by tasks.registering(Exec::class) {
@@ -75,7 +75,7 @@ val checkAsyncHostReadFoundation by tasks.registering {
         ":sdk:asyncHostReadContractTest",
         ":runtime:asyncHostReadFoundationTest",
         ":plugins:project-inspector:asyncHostReadConsumerTest",
-        ":tests:asyncHostReadPreviewIntegrationTest",
+        ":testing:integration-tests:asyncHostReadPreviewIntegrationTest",
         checkAsyncHostReadStructuralBoundaries
     )
 }
@@ -87,12 +87,12 @@ val checkCubismCoreApiInventory by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/cubism_core_api.py",
         "scripts/test/test_cubism_core_api_inventory.py",
-        "cubism-ref/index.md",
-        fileTree("cubism-ref/core-api/observed") { include("*.json") },
-        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
-        "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
-        "cubism-ref/profiles/draft/cubism-5.2.03.json",
-        "cubism-ref/profiles/draft/cubism-5.3.02.json"
+        "compatibility/cubism/index.md",
+        fileTree("compatibility/cubism/core-api/observed") { include("*.json") },
+        "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
+        "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json",
+        "compatibility/cubism/profiles/draft/cubism-5.2.03.json",
+        "compatibility/cubism/profiles/draft/cubism-5.3.02.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_api_inventory.py")
 }
@@ -104,8 +104,8 @@ val checkCubismCoreMemberPolicy by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/cubism_core_policy.py",
         "scripts/test/test_cubism_core_member_policy.py",
-        "cubism-ref/core-api/policy/cubism-core-member-policy.json",
-        fileTree("cubism-ref/core-api/observed") { include("*.json") }
+        "compatibility/cubism/core-api/policy/cubism-core-member-policy.json",
+        fileTree("compatibility/cubism/core-api/observed") { include("*.json") }
     )
     commandLine("python3", "scripts/test/test_cubism_core_member_policy.py")
 }
@@ -117,9 +117,9 @@ val checkCubismCoreSelectorPolicy by tasks.registering(Exec::class) {
     inputs.files(
         "scripts/cubism_core_selector_policy.py",
         "scripts/test/test_cubism_core_selector_policy.py",
-        "cubism-ref/core-api/policy/cubism-core-selector-policy.json",
-        "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
-        "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+        "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json",
+        "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json",
+        "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
     )
     commandLine("python3", "scripts/test/test_cubism_core_selector_policy.py")
 }
@@ -153,7 +153,7 @@ tasks.register<Exec>("checkCodeQuality") {
         fileTree("runtime/src/main/java") { include("**/*.java") },
         fileTree("bootstrap/src/main/java") { include("**/*.java") },
         fileTree("plugins") { include("**/src/main/java/**/*.java") },
-        fileTree("cubism-ref") { include("**/*.json") }
+        fileTree("compatibility/cubism") { include("**/*.json") }
     )
     val selectedRules = providers.gradleProperty("turboismCodeQualityRules")
     val strict = providers.gradleProperty("turboismCodeQualityStrict")
@@ -185,8 +185,8 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
     inputs.files("scripts/test/check_editor_model_aliases.py")
     inputs.files(
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
-        "cubism-ref/verification/cubism-5.2.03-editor-model.json",
-        "cubism-ref/verification/cubism-5.3.02-editor-model.json"
+        "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
+        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json"
     )
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
 }
@@ -281,27 +281,67 @@ val checkOfficialPluginReadmes by tasks.registering(Exec::class) {
     commandLine("python3", "scripts/test/check_official_plugin_readmes.py")
 }
 
-val checkPluginEventReference by tasks.registering(Exec::class) {
-    group = "verification"
-    description = "Verifies deterministic first-party plugin public-event documentation."
+val pluginEventReferenceReport = layout.buildDirectory.file(
+    "reports/plugin-events/plugin-public-events.md"
+)
+
+val generatePluginEventReference by tasks.registering(Exec::class) {
+    group = "documentation"
+    description = "Generates the first-party plugin public-event report under build/reports."
     workingDir(rootDir)
     inputs.files(
         "scripts/plugin_event_metadata.py",
         "scripts/test/generate_plugin_event_reference.py",
-        "generated-references/plugin-public-events.md",
         fileTree("plugins") {
             include("*/src/main/resources/META-INF/turboism/plugin.json")
         }
     )
+    outputs.file(pluginEventReferenceReport)
     commandLine(
         "python3",
         "scripts/test/generate_plugin_event_reference.py",
         "--root",
         rootDir.absolutePath,
         "--output",
-        "generated-references/plugin-public-events.md",
-        "--check"
+        pluginEventReferenceReport.get().asFile.absolutePath
     )
+}
+
+val checkPluginEventReference by tasks.registering {
+    group = "verification"
+    description = "Proves the first-party plugin public-event report generator is deterministic."
+    dependsOn(generatePluginEventReference)
+    val verificationReport = layout.buildDirectory.file(
+        "tmp/plugin-event-reference-check/plugin-public-events.md"
+    )
+    inputs.files(
+        "scripts/plugin_event_metadata.py",
+        "scripts/test/generate_plugin_event_reference.py",
+        fileTree("plugins") {
+            include("*/src/main/resources/META-INF/turboism/plugin.json")
+        }
+    )
+    inputs.file(pluginEventReferenceReport)
+    outputs.file(verificationReport)
+    doLast {
+        val report = verificationReport.get().asFile
+        report.parentFile.mkdirs()
+        exec {
+            workingDir(rootDir)
+            commandLine(
+                "python3",
+                "scripts/test/generate_plugin_event_reference.py",
+                "--root",
+                rootDir.absolutePath,
+                "--output",
+                report.absolutePath
+            )
+        }
+        val generated = pluginEventReferenceReport.get().asFile
+        if (!generated.readBytes().contentEquals(report.readBytes())) {
+            throw GradleException("plugin event reference generation is not deterministic")
+        }
+    }
 }
 
 val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
@@ -319,7 +359,7 @@ val checkMarketReleaseMetadata by tasks.registering(Exec::class) {
 }
 
 val productionClasses = subprojects
-    .filterNot { it.path == ":tests" }
+    .filterNot { it.path == ":testing:integration-tests" }
     .map { "${it.path}:classes" }
 
 val checkRemoteHygieneSelfTest by tasks.registering(Exec::class) {
@@ -361,7 +401,7 @@ val resolvedHostValidationWorktreeId = rootProject.extra["turboismResolvedWorktr
 val packageParameterHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the test-only SDK probe and parameter host-validation bundle."
-    dependsOn("previewBundle", ":plugins:parameter:jar", ":tests:testClasses")
+    dependsOn("previewBundle", ":plugins:parameter:jar", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
     environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
     commandLine("bash", "scripts/preview/package-windows-parameter-validation.sh")
@@ -370,7 +410,7 @@ val packageParameterHostValidation by tasks.registering(Exec::class) {
 val packageWorkspaceHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the test-only SDK probe and workspace host-validation bundle."
-    dependsOn("previewBundle", ":tests:testClasses")
+    dependsOn("previewBundle", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
     environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
     commandLine("bash", "scripts/preview/package-windows-workspace-validation.sh")
@@ -497,7 +537,7 @@ fun registerThemeHostValidation(name: String, version: String, displayVersion: S
 val packagePsdClipMaskHostValidation by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Packages the PSD clip-mask import plugin and its test-only SDK probe for exact-host validation."
-    dependsOn("previewBundle", ":plugins:psd-clip-mask-import:jar", ":tests:testClasses")
+    dependsOn("previewBundle", ":plugins:psd-clip-mask-import:jar", ":testing:integration-tests:testClasses")
     workingDir(rootDir)
     environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
     // Bind the bundle to the exact artifact of the current Gradle jar task;
@@ -610,7 +650,7 @@ tasks.register("checkIntegration") {
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
         "previewBootstrapBridgeTest",
-        ":tests:previewPluginRuntimeTest"
+        ":testing:integration-tests:previewPluginRuntimeTest"
     )
 }
 

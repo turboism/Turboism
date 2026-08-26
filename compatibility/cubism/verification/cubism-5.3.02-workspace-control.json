@@ -1,0 +1,168 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "m.workspace-5.3.02.control.static",
+  "adapterSliceId": "adapter.workspace.control.v5_3",
+  "capabilityIds": [
+    "cubism.workspace.control"
+  ],
+  "cubismVersion": "5.3.02",
+  "profileId": "cubism-5.3.02",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 41922739,
+    "sha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+  },
+  "evidenceType": "JAR_METADATA",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.3.02-workspace-control.json",
+  "owner": "runtime-adapter",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-workspace-static-verifier",
+  "verifiedAt": "2026-07-30T00:00:00Z",
+  "safeMode": "Fail closed until exact-host workspace switch/update/reset validation is admitted.",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.01",
+      "alias": "workspace.app.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.02",
+      "alias": "workspace.app.instance",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "access$get_instance$cp",
+      "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.03",
+      "alias": "workspace.app.main-frame",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "getMainFrameCtrl",
+      "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.04",
+      "alias": "workspace.main-frame.dock",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+      "memberName": "getDockManager",
+      "descriptor": "()Lcom/live2d/cubism/view/CEDockWrapper;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.05",
+      "alias": "workspace.dock.current",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "getLastWorkspace",
+      "descriptor": "()Lcom/live2d/ui/dock/CPMLayoutWorkspace;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.06",
+      "alias": "workspace.dock.preset",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "getPresetWorkspaces",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.07",
+      "alias": "workspace.dock.custom",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "getCustomWorkspaces",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.08",
+      "alias": "workspace.workspace.id",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+      "memberName": "getId",
+      "descriptor": "()Lcom/live2d/ui/dock/CWorkspaceId;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.09",
+      "alias": "workspace.workspace.name",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/ui/dock/CPMLayoutWorkspace",
+      "memberName": "getName",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.10",
+      "alias": "workspace.id.value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/core/id/Id",
+      "memberName": "getIdString",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.11",
+      "alias": "workspace.dock.change",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "changeWorkspace",
+      "descriptor": "(Lcom/live2d/ui/dock/CWorkspaceId;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.12",
+      "alias": "workspace.dock.update-default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "command_storeCurrentWorkspaceLayoutAsDefault",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.workspace_control.13",
+      "alias": "workspace.dock.reset-default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/view/CEDockWrapper",
+      "memberName": "command_resetCurrentWorkspaceLayout",
+      "descriptor": "()V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    }
+  ]
+}

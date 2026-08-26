@@ -22,7 +22,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-status-bar.static",
-        "45e529ae8771adfd00500100214afa9fa14fa463e967a227806e4e3a9f3e66a5",
+        "452e9376e407b608117972819ebabb6a93729534699e8c2f8b82271ca7f99e39",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -31,7 +31,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-status-bar.static",
-        "afdc21fa80c62f3359d998aac8f8afbe6b6d8ebbbae2a1c24c9754225b53f8d2",
+        "8ba8977755edef54e921fc300f0bbe4ba9975c2c8c1b3b6c61afc0e7da4c7f85",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );

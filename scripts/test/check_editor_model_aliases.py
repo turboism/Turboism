@@ -18,8 +18,8 @@ from pathlib import Path
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
 RECORDS = (
-    "cubism-ref/verification/cubism-5.2.03-editor-model.json",
-    "cubism-ref/verification/cubism-5.3.02-editor-model.json",
+    "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
+    "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
 )
 ALIAS_PREFIX = "cubism.editor-model"
 ALIAS_LITERAL = re.compile(r'"(' + re.escape(ALIAS_PREFIX) + r'[^\"]*)"')

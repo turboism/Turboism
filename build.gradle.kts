@@ -30,7 +30,7 @@ allprojects {
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
     description = "Runs the production-backed strict ZIP mutation matrix."
-    dependsOn(":tests:pluginInspectionMutationTest")
+    dependsOn(":testing:integration-tests:pluginInspectionMutationTest")
 }
 
 tasks.register<JavaExec>("mappingReview") {

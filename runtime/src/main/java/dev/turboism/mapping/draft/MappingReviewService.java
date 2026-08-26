@@ -265,7 +265,7 @@ public final class MappingReviewService {
     }
 
     static Path resolveTracked(final Path root, final String relative) {
-        if (relative == null || !relative.matches("cubism-ref/mapping-packs/draft/[^/]+\\.json")) {
+        if (relative == null || !relative.matches("compatibility/cubism/mapping-packs/draft/[^/]+\\.json")) {
             fail("PACK_PATH_INVALID", "pack path must be a draft mapping pack JSON file");
         }
         final Path supplied = Path.of(relative);
@@ -294,7 +294,7 @@ public final class MappingReviewService {
     }
 
     private void rejectStaticVerificationReference(final String semanticName) {
-        final Path directory = root.resolve("cubism-ref/verification");
+        final Path directory = root.resolve("compatibility/cubism/verification");
         if (!Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) return;
         try {
             FileSafety.requireDirectoryNoLinks(directory, "STATIC_VERIFICATION_RECORD_INVALID");

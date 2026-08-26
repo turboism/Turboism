@@ -2,7 +2,7 @@ package dev.turboism.mapping.draft;
 
 /** Shared strict grammar for draft mapping target paths and semantic names. */
 final class DraftMappingGrammar {
-    private static final String PACK_PREFIX = "cubism-ref/mapping-packs/draft/";
+    private static final String PACK_PREFIX = "compatibility/cubism/mapping-packs/draft/";
 
     private DraftMappingGrammar() { }
 

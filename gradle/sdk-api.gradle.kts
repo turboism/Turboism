@@ -3,11 +3,11 @@ import org.gradle.jvm.tasks.Jar
 
 val sdkApiBaselineTool = layout.projectDirectory.file("scripts/test/sdk_api_baseline_cli.py")
 val sdkApiReferenceBuilder = layout.projectDirectory.file("scripts/test/build_sdk_api_reference.py")
-val sdkV2ExactBaseline = layout.projectDirectory.file("sdk-api/baselines/sdk-api-v2-exact.json")
+val sdkV2ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v2-exact.json")
 val sdkV2ExactReferenceBuilder = layout.projectDirectory.file("scripts/test/reconstruct_sdk_gradle_jar.py")
 val sdkV2ExactCommit = "d15df10b810ce93668d9f26f938109da8921d9cb"
 val sdkV2ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v2-exact-reference.jar")
-val sdkV3ExactBaseline = layout.projectDirectory.file("sdk-api/baselines/sdk-api-v3-exact.json")
+val sdkV3ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v3-exact.json")
 val sdkV3ExactCommit = "91a8fd0451d079ac7179e20968c05286ca1683d1"
 val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v3-exact-reference.jar")
 val sdkJarArtifact = project(":sdk").tasks.named<Jar>("jar").flatMap { it.archiveFile }
@@ -143,10 +143,10 @@ private fun validateSdkBaselineGenerationArguments(output: Boolean, role: Boolea
 }
 
 private fun rejectReviewedBaselineOutput(output: java.io.File) {
-    val reviewedDirectory = file("sdk-api/baselines").canonicalFile
+    val reviewedDirectory = file("sdk/api-contracts/baselines").canonicalFile
     if (output.toPath().startsWith(reviewedDirectory.toPath())) {
         throw GradleException(
-            "Baseline generation must write to a caller-selected review path outside sdk-api/baselines; " +
+            "Baseline generation must write to a caller-selected review path outside sdk/api-contracts/baselines; " +
                 "the check lifecycle never overwrites reviewed baselines."
         )
     }

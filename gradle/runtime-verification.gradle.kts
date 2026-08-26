@@ -44,7 +44,7 @@ tasks.register<JavaExec>("verifyStaticHostSelectors") {
 
 val pluginMetaFiles = files(
     fileTree("plugins") { include("**/src/main/resources/META-INF/turboism/plugin.json") },
-    fileTree("testframework/src/main/resources/fixtures/schema/plugin-meta-v2/valid") { include("*.json") }
+    fileTree("testing/test-support/src/main/resources/fixtures/schema/plugin-meta-v2/valid") { include("*.json") }
 )
 
 tasks.register<JavaExec>("validatePluginMeta") {

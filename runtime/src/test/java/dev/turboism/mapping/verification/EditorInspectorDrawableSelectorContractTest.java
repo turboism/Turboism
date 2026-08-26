@@ -22,7 +22,7 @@ class EditorInspectorDrawableSelectorContractTest {
     @Test
     void exact5302RecordVerifiesTheCompleteInspectorDrawableWriteContract() throws Exception {
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.3.02-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"),
             loader(LEGACY_EVIDENCE.resolve("Cubism-5.3.02/jars/Live2D_Cubism.jar"))
         );
@@ -43,7 +43,7 @@ class EditorInspectorDrawableSelectorContractTest {
     void exact5203RecordVerifiesThe52InspectorDrawableWriteContractWithoutAlpha() throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve("Cubism-5.2/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/cubism-5.2.03-editor-model.json"),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
             artifact,
             loader(artifact)
         );
@@ -76,7 +76,7 @@ class EditorInspectorDrawableSelectorContractTest {
     ) throws Exception {
         final Path artifact = LEGACY_EVIDENCE.resolve(evidenceDirectory + "/jars/Live2D_Cubism.jar");
         final var resolver = new VerifiedEditorModelResolverFactory().create(
-            PROJECT_ROOT.resolve("cubism-ref/verification/" + recordName),
+            PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
             artifact,
             loader(artifact)
         );

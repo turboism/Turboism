@@ -16,7 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 class EditorParameterizedStaticEvidenceTest {
     @Test
     void everyParameterizedCommandHasAnExplicitFailClosedEvidenceRow() throws IOException {
-        Path evidence = Path.of("..", "sdk-api", "editor-parameterized-static-evidence.tsv");
+        Path evidence = Path.of("api-contracts", "editor-parameterized-static-evidence.tsv");
         Map<String, String[]> rows = Files.lines(evidence)
             .skip(1)
             .map(line -> line.split("\\t", -1))

@@ -31,7 +31,7 @@ class EditorParameterBindingSelectorContractTest {
         final Path artifact = LEGACY_EVIDENCE.resolve(artifactDirectory + "/jars/Live2D_Cubism.jar");
         try (URLClassLoader loader = loader(artifact)) {
             final VerifiedMemberResolver resolver = new VerifiedEditorModelResolverFactory().create(
-                PROJECT_ROOT.resolve("cubism-ref/verification/" + recordName),
+                PROJECT_ROOT.resolve("compatibility/cubism/verification/" + recordName),
                 artifact,
                 loader
             );

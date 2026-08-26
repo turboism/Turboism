@@ -1,0 +1,17 @@
+{
+  "format": "turboism.mapping.update.candidate",
+  "schemaVersion": 2,
+  "operation": "UPDATE_CLASS_RUNTIME",
+  "target": { "pack": "compatibility/cubism/mapping-packs/draft/fixture.json", "semanticName": "fixture.target.class" },
+  "basePackSha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "artifact": { "name": "fixture.jar", "size": 1024, "sha256": "1111111111111111111111111111111111111111111111111111111111111111" },
+  "scannerPolicy": { "maxArtifactBytes": 1048576, "maxEntries": 100, "maxClassEntries": 50, "maxEntryBytes": 262144, "maxExpandedBytes": 2097152 },
+  "evidence": {
+    "caller": { "owner": "fixture/Anchor", "name": "anchor", "descriptor": "()V" },
+    "selectedTarget": { "owner": "fixture/NewTarget", "name": "selected", "descriptor": "()V" },
+    "invocation": "INSTANCE"
+  },
+  "before": { "kind": "class", "runtime": "fixture/OldTarget" },
+  "after": { "kind": "class", "runtime": "fixture/NewTarget" },
+  "resultPackSha256": "2222222222222222222222222222222222222222222222222222222222222222"
+}

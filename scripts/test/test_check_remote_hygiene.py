@@ -63,8 +63,10 @@ class PathRuleTest(unittest.TestCase):
                   ".env.example",
                   "CONTRIBUTING.md",
                   "scripts/dev/build-worktree.sh",
-                  "sdk-api/baselines/sdk-api-v2-exact.json",
-                  "generated-references/plugin-public-events.md",
+                  "compatibility/cubism/verification/cubism-5.3.02-core-model-read.json",
+                  "sdk/api-contracts/baselines/sdk-api-v2-exact.json",
+                  "validation/mcp-host-probe/src/dev/turboism/Probe.java",
+                  "validation/mcp-host-probe/src/META-INF/turboism/plugin.json",
                   ".github/workflows/remote-hygiene.yml"]:
             self.assertIsNone(crh.classify_path(p), p)
 
@@ -87,10 +89,18 @@ class PathRuleTest(unittest.TestCase):
             ".pi/session.jsonl": "segment:.pi",
             ".windsurf/x": "segment:.windsurf",
             ".specify/memory.json": "segment:.specify",
+            "cubism-ref/core-api/observed/host.json": "segment:cubism-ref",
             "docs/migration/guide.md": "segment:docs",
             "docs-internal/notes.md": "segment:docs-internal",
+            "generated-references/plugin-public-events.md": "segment:generated-references",
+            "host-evidence/5.3.02/result.json": "segment:host-evidence",
+            "research/selector-notes.md": "segment:research",
             "specs/plan.md": "segment:specs",
             "validation-artifact/report.md": "segment:validation-artifact",
+            "validation/mcp-host-probe/out/Probe.class": "validation-output:out",
+            "validation/mcp-host-probe/results/result.json": "validation-output:results",
+            "validation/mcp-host-probe/probe.jar": "validation-output:*.jar",
+            "validation/mcp-host-probe/host.log": "validation-output:*.log",
             "prompts/foo.md": "segment:prompts",
             "AGENTS.md": "basename:agents.md",
             "nested/CLAUDE.md": "basename:claude.md",
@@ -122,10 +132,25 @@ class PathRuleTest(unittest.TestCase):
 
     def test_case_variant_paths_forbidden(self):
         for p in [".ENV", "nested/AGENTS.MD", "GEMINI.MD", "Prompts/x.md",
-                  "DOCS/migration/x.md", ".Agent-Artifacts/x.md",
+                  "CUBISM-REF/host.json", "DOCS/migration/x.md",
+                  "GENERATED-REFERENCES/report.md", "HOST-EVIDENCE/result.json",
+                  "RESEARCH/notes.md", ".Agent-Artifacts/x.md",
                   ".CLAUDE/set.json", ".PI/session.jsonl", ".SPECIFY/task.json",
                   "App.LOCAL.yaml", "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:
             self.assertIsNotNone(crh.classify_path(p), p)
+
+    def test_force_added_local_reference_is_rejected_in_staged_mode(self):
+        repo = fresh_repo(tempfile.mkdtemp(prefix="crh-local-ref-"))
+        (Path(repo) / ".gitignore").write_text("/cubism-ref/\n")
+        (Path(repo) / "ok.txt").write_text("fine\n")
+        commit_all(repo, "base")
+        path = Path(repo) / "cubism-ref" / "host.json"
+        path.parent.mkdir(parents=True)
+        path.write_text("{}\n")
+        run_git(repo, "add", "-f", "cubism-ref/host.json")
+        out = run_checker(repo, "--staged")
+        self.assertEqual(out.returncode, 1, out.stdout + out.stderr)
+        self.assertIn("segment:cubism-ref", out.stdout)
 
     def test_runtime_log_is_rejected_in_staged_mode(self):
         repo = fresh_repo(tempfile.mkdtemp(prefix="crh-runtime-log-"))

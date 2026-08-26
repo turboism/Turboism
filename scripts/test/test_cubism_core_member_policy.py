@@ -21,9 +21,9 @@ from cubism_core_policy import (  # noqa: E402
     validate_policy,
 )
 
-API_52 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
-API_53 = ROOT / "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
-POLICY = ROOT / "cubism-ref/core-api/policy/cubism-core-member-policy.json"
+API_52 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
+API_53 = ROOT / "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
+POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
 
 
 def require(condition: bool, message: str) -> None:

@@ -9,7 +9,7 @@ import java.util.Set;
  *
  * <p>Every member below is declared with the precise owner internal name, member name, JVM
  * descriptor, and access flags observed on the Cubism 5.2.03 and 5.3.02 host JARs (javap
- * evidence, 2026-08-05). DRAFT evidence from {@code cubism-ref/mapping-packs/draft} is admitted
+ * evidence, 2026-08-05). DRAFT evidence from {@code compatibility/cubism/mapping-packs/draft} is admitted
  * only through this contract; no bare-string reflective calls are allowed outside it.</p>
  */
 public final class EditorObjectHierarchyEditSelectorContract {

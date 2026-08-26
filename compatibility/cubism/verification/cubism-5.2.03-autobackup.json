@@ -1,0 +1,301 @@
+{
+ "format": "turboism.static.verification.record",
+ "schemaVersion": 1,
+ "verificationId": "cubism-5.2.03.autobackup.static",
+ "adapterSliceId": "adapter.cubism.autobackup",
+ "capabilityIds": [
+  "cubism.autobackup.settings",
+  "cubism.autobackup.backup"
+ ],
+ "cubismVersion": "5.2.03",
+ "profileId": "cubism-5.2.03",
+ "artifact": {
+  "name": "Live2D_Cubism.jar",
+  "size": 40805584,
+  "sha256": "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd"
+ },
+ "evidenceType": "JAR_METADATA",
+ "evidencePath": "compatibility/cubism/verification/cubism-5.2.03-autobackup.json",
+ "owner": "runtime-adapter",
+ "status": "VERIFIED_STATIC",
+ "verifiedBy": "turboism-autobackup-static-verifier",
+ "verifiedAt": "2026-08-08T00:00:00Z",
+ "safeMode": "Fail closed with UNAVAILABLE and keep the auto-backup service unavailable until runtime resolution and smoke evidence exist.",
+ "selectors": [
+  {
+   "mappingId": "cubism.mapping.v5_2_03.class.manager_class",
+   "alias": "cubism.auto-backup.manager.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.field.manager_instance",
+   "alias": "cubism.auto-backup.manager.instance",
+   "kind": "field",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "a",
+   "descriptor": "Lcom/live2d/cubism/util/a;",
+   "requiredAccessFlags": 9,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.is_enabled",
+   "alias": "cubism.auto-backup.is-enabled",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "a",
+   "descriptor": "()Z",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.set_enabled",
+   "alias": "cubism.auto-backup.set-enabled",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "a",
+   "descriptor": "(Z)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.set_interval_minute",
+   "alias": "cubism.auto-backup.set-interval-minute",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "a",
+   "descriptor": "(I)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.attach_pack",
+   "alias": "cubism.auto-backup.attach-pack",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "a",
+   "descriptor": "(Lcom/live2d/cubism/pack/CECompletePack;)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.get_interval_minute",
+   "alias": "cubism.auto-backup.get-interval-minute",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "b",
+   "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.set_max_mb",
+   "alias": "cubism.auto-backup.set-max-mb",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "b",
+   "descriptor": "(I)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.get_max_mb",
+   "alias": "cubism.auto-backup.get-max-mb",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "c",
+   "descriptor": "()I",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.update",
+   "alias": "cubism.auto-backup.update",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "h",
+   "descriptor": "()V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.backup_dir",
+   "alias": "cubism.auto-backup.backup-dir",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/util/a",
+   "memberName": "i",
+   "descriptor": "()Ljava/io/File;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.class.app_controller_class",
+   "alias": "cubism.auto-backup.app-controller.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.app_controller_get_complete_pack",
+   "alias": "cubism.auto-backup.app-controller.get-complete-pack",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+   "memberName": "getCompletePack",
+   "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.class.complete_pack_class",
+   "alias": "cubism.auto-backup.complete-pack.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.complete_pack_file_contents",
+   "alias": "cubism.auto-backup.complete-pack.file-contents",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+   "memberName": "getAllFileContents",
+   "descriptor": "()Ljava/util/List;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.class.file_content_class",
+   "alias": "cubism.auto-backup.file-content.class",
+   "kind": "class",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": null,
+   "descriptor": null,
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.file_content_last_auto_backup_time",
+   "alias": "cubism.auto-backup.file-content.last-auto-backup-time",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": "getLastAutoBackupTime",
+   "descriptor": "()J",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.file_content_set_last_auto_backup_time",
+   "alias": "cubism.auto-backup.file-content.set-last-auto-backup-time",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": "setLastAutoBackupTime",
+   "descriptor": "(J)V",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.file_content_last_saved_time",
+   "alias": "cubism.auto-backup.file-content.last-saved-time",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": "getLastSavedTime",
+   "descriptor": "()J",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.file_content_modified_after_saving",
+   "alias": "cubism.auto-backup.file-content.modified-after-saving",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": "isModifiedAfterSaving",
+   "descriptor": "()Z",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.file_content_file",
+   "alias": "cubism.auto-backup.file-content.file",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/IFileContent",
+   "memberName": "getFile",
+   "descriptor": "()Ljava/io/File;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.autobackup.method.app_controller_instance",
+   "alias": "cubism.auto-backup.app-controller.instance",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+   "memberName": "access$get_instance$cp",
+   "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+   "requiredAccessFlags": 9,
+   "forbiddenAccessFlags": 0,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.document_uid_modeling",
+   "alias": "cubism.auto-backup.document-uid.modeling",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+   "memberName": "getDocumentUID",
+   "descriptor": "()Ljava/lang/String;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.scene_docs",
+   "alias": "cubism.auto-backup.scene-docs",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/animation/CAnimationFileContent",
+   "memberName": "getSceneDocs",
+   "descriptor": "()Lcom/live2d/type/CArrayList;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  },
+  {
+   "mappingId": "cubism.mapping.v5_2_03.method.document_uid_scene",
+   "alias": "cubism.auto-backup.document-uid.scene",
+   "kind": "method",
+   "ownerInternalName": "com/live2d/cubism/doc/animation/CSceneDocument",
+   "memberName": "getDocumentUID",
+   "descriptor": "()Ljava/lang/String;",
+   "requiredAccessFlags": 1,
+   "forbiddenAccessFlags": 8,
+   "status": "VERIFIED_STATIC"
+  }
+ ]
+}
