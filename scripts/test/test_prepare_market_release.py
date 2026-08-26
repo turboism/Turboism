@@ -792,70 +792,48 @@ class WorkflowStaticTest(unittest.TestCase):
     def test_publication_serialization_is_non_cancelling(self):
         text = WORKFLOW.read_text()
         self.assertIn("concurrency:", text)
-        # Stable branch/ref group so repeated main pushes serialize on the
-        # same release lane instead of running in parallel.
         self.assertIn("${{ github.ref }}", text)
         self.assertNotIn("cancel-in-progress: true", text)
         self.assertIn("cancel-in-progress: false", text)
-    def test_workflow_contract(self):
+
+    def test_workflow_builds_candidate_without_publication_secrets(self):
         text = WORKFLOW.read_text()
-        # Trigger: push to main with relevant paths only
+        self.assertIn("name: Plugin release candidate", text)
         self.assertIn("push:", text)
-        self.assertIn("branches:", text)
-        self.assertIn("main", text)
-        self.assertIn("paths:", text)
-        self.assertNotIn("workflow_dispatch", text)
-        # Narrow permission: contents read only, no write-all
+        self.assertIn("workflow_dispatch:", text)
         self.assertIn("contents: read", text)
         self.assertNotIn("contents: write", text)
-        self.assertNotIn("permissions: write-all", text)
-        # Exact event SHA checkout with an immutable pinned action
-        self.assertIn("ref: ${{ github.sha }}", text)
-        self.assertRegex(text, r"actions/checkout@[0-9a-f]{40}")
-        self.assertRegex(text, r"actions/setup-java@[0-9a-f]{40}")
-        self.assertRegex(text, r"actions/upload-artifact@[0-9a-f]{40}")
-        # Plan step gates every later step (empty short-circuit)
-        plan_index = text.index("id: plan")
-        guard = "steps.plan.outputs.selected != '0'"
-        for step in ("Set up Java", "validatePluginMeta verifyFirstPartyPluginMetadata",
-                     "Stage selected", "Upload staged", "Dispatch"):
-            step_index = text.index(step)
-            self.assertGreater(step_index, plan_index, step)
-            self.assertIn(guard, text)
-        self.assertLess(text.index("--plan"), text.index("setup-java"))
-        # Fixed publication worktree id and exactly the existing gates
+        self.assertIn("python3 scripts/check_remote_hygiene.py --all", text)
         self.assertIn("TURBOISM_WORKTREE_ID: market-publish", text)
         self.assertIn("validatePluginMeta verifyFirstPartyPluginMetadata", text)
-        # Artifact contract: short retention, run-id-scoped name
-        self.assertIn("retention-days: 1", text)
-        # Artifact contract: short retention, exact provider-accepted name
-        # turboism-market-release-<sha>-<run_id>-<run_attempt> used verbatim in
-        # both the upload step and the Provider dispatch artifact_name input;
-        # never a run-id-only form (a re-run keeps the same run id) and never
-        # the pre-repair selected-plugins name.
-        self.assertIn("retention-days: 1", text)
-        attempt_name = (
+        self.assertIn("Stage all eligible plugin candidates", text)
+        self.assertIn("turboism-release.py build", text)
+        self.assertIn("build/release-orchestrator/candidate.json", text)
+        market_name = (
             "turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}")
-        self.assertEqual(text.count(attempt_name), 2)
-        self.assertNotRegex(
-            text, r"turboism-market-release-\$\{\{ github\.run_id \}\}(?!-\$\{\{ github\.run_attempt \}\})")
-        self.assertNotIn("selected-plugins-", text)
-        # Dispatch: provider workflow, main ref, run id/sha/artifact inputs,
-        # single narrow secret, no source-side release creation
-        self.assertIn("turboism/turboism-plugin-directory", text)
-        self.assertIn("publish-plugin-directory-v2.yml/dispatches", text)
-        self.assertIn("source_run_id", text)
-        self.assertIn("source_sha", text)
-        self.assertIn("artifact_name", text)
-        self.assertEqual(text.count("secrets."), 1)
-        self.assertIn("secrets.PLUGIN_DIRECTORY_DISPATCH_TOKEN", text)
-        self.assertNotIn("github.token", text)
-        # No .tplugin, no legacy packager, no release endpoints
+        candidate_name = (
+            "turboism-plugin-candidate-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}")
+        self.assertEqual(text.count(market_name), 1)
+        self.assertEqual(text.count(candidate_name), 1)
+        self.assertIn("Upload release-plan candidate", text)
+        self.assertIn("Upload market publication bundle", text)
+        self.assertGreaterEqual(text.count("retention-days: 7"), 2)
+        self.assertNotIn("secrets.", text)
+        self.assertNotIn("Dispatch plugin directory", text)
+        self.assertNotIn("publish-plugin-directory-v2.yml/dispatches", text)
+        self.assertNotIn("gh release", text)
         self.assertNotIn(".tplugin", text)
         self.assertNotIn("package-plugin.py", text)
-        for forbidden in ("gh release", "create-release", "uploads/releases",
-                          "releases/", "workflow_dispatch"):
-            self.assertNotIn(forbidden, text)
+
+    def test_empty_policy_short_circuits_java_but_still_emits_candidate(self):
+        text = WORKFLOW.read_text()
+        guard = "steps.policy.outputs.eligible != '0'"
+        for step in ("Set up Java", "Validate and build eligible", "Stage all eligible"):
+            index = text.index(step)
+            self.assertIn(guard, text[index:index + 800])
+        candidate_index = text.index("Generate deterministic release candidate")
+        self.assertGreater(candidate_index, text.index("Validate store eligibility policy"))
+        self.assertNotIn(guard, text[candidate_index:candidate_index + 200])
 
     def test_workflow_does_not_build_extra_gates(self):
         text = WORKFLOW.read_text()

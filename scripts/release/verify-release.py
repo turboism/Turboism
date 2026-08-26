@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
+import os
 import re
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -59,41 +62,98 @@ def verify_zip(path: Path, version: str, full: bool) -> None:
         raise ValueError(f"agent Implementation-Version is not {version}: {path}")
 
 
-def verify(dist: Path, version: str) -> None:
+def release_artifacts(dist: Path, version: str) -> list[Path]:
     if not STRICT_VERSION.fullmatch(version):
         raise ValueError(f"invalid release version: {version}")
-    expected = [
+    primary = [
         dist / f"turboism-{version}-lite.zip",
         dist / f"turboism-{version}-full.zip",
         dist / f"TurboismInstaller-{version}.exe",
         dist / f"TurboismInstaller-{version}.jar",
     ]
+    return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
+
+
+def verify(dist: Path, version: str) -> None:
+    expected = release_artifacts(dist, version)
     expected_names = {path.name for path in expected}
-    expected_names.update(path.name + ".sha256" for path in expected)
     actual_names = {path.name for path in dist.iterdir() if path.is_file()}
     if actual_names != expected_names:
         raise ValueError(
             "release directory contents differ\n"
             f"expected: {sorted(expected_names)}\nactual: {sorted(actual_names)}"
         )
-    for artifact in expected:
+    primary = [path for path in expected if not path.name.endswith(".sha256")]
+    for artifact in primary:
         if not artifact.is_file() or artifact.stat().st_size == 0:
             raise ValueError(f"missing or empty artifact: {artifact}")
         verify_sidecar(artifact)
-    verify_zip(expected[0], version, full=False)
-    verify_zip(expected[1], version, full=True)
+    verify_zip(dist / f"turboism-{version}-lite.zip", version, full=False)
+    verify_zip(dist / f"turboism-{version}-full.zip", version, full=True)
+
+
+def artifact_manifest(dist: Path, version: str) -> dict:
+    """Return a deterministic manifest without writing into the eight-file dist."""
+    verify(dist, version)
+    artifacts = []
+    for path in release_artifacts(dist, version):
+        suffix = ".sha256" if path.name.endswith(".sha256") else path.suffix.lower()
+        media_type = {
+            ".zip": "application/zip",
+            ".exe": "application/octet-stream",
+            ".jar": "application/java-archive",
+            ".sha256": "text/plain",
+        }[suffix]
+        artifacts.append({
+            "name": path.name,
+            "mediaType": media_type,
+            "size": path.stat().st_size,
+            "sha256": sha256(path),
+        })
+    return {
+        "format": "turboism.framework-artifacts",
+        "schemaVersion": 1,
+        "version": version,
+        "artifacts": artifacts,
+    }
+
+
+def write_manifest(path: Path, document: dict) -> None:
+    path = path.resolve()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(prefix=f".{path.name}.", suffix=".tmp", dir=path.parent)
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(json.dumps(
+                document, ensure_ascii=False, allow_nan=False,
+                separators=(",", ":"), sort_keys=True,
+            ).encode("utf-8") + b"\n")
+            output.flush()
+            os.fsync(output.fileno())
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
     parser.add_argument("--dist", required=True, type=Path)
+    parser.add_argument(
+        "--manifest-output", type=Path,
+        help="optional output outside dist for a deterministic framework artifact manifest",
+    )
     args = parser.parse_args()
     try:
-        verify(args.dist.resolve(), args.version)
+        document = artifact_manifest(args.dist.resolve(), args.version)
+        if args.manifest_output is not None:
+            write_manifest(args.manifest_output, document)
     except (OSError, ValueError, zipfile.BadZipFile, KeyError) as failure:
         raise SystemExit(f"release verification failed: {failure}") from failure
     print(f"release verification passed: {args.version}")
+    if args.manifest_output is not None:
+        print(f"release artifact manifest: {args.manifest_output.resolve()}")
 
 
 if __name__ == "__main__":
