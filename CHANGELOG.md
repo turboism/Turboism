@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Expanded the GitHub README with the supported Windows host platform, exact Cubism Editor versions, installation choices, current capabilities, and verification guidance.
+- Added a regression check that every GitHub Release takes its notes from the matching version section in `CHANGELOG.md`.
+
 ## [0.42.0] - 2026-08-25
 
 ### Added

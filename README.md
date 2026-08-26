@@ -1,7 +1,71 @@
 # Turboism
 
-Turboism is a runtime enhancement tool and plugin framework for Live2D Cubism Editor.
-It uses Java 17, a thin Java Agent bootstrap, a version-routed runtime, and SDK-only first-party plugins.
+Turboism is a Windows-first runtime enhancement tool and plugin framework for
+Live2D Cubism Editor. It uses Java 17, a thin Java Agent bootstrap, a
+version-routed runtime, and SDK-only first-party plugins.
+
+[Download the latest release](https://github.com/Turboism/Turboism/releases/latest)
+· [Changelog](CHANGELOG.md)
+
+## Compatibility
+
+| Item | Status |
+| --- | --- |
+| Host platform | Windows x64 is the supported Cubism host platform. |
+| Cubism Editor | Exact-version adapters for **5.2.03** and **5.3.02**. Other versions fail closed and are not claimed compatible. |
+| Installer | NSIS `.exe` is preferred on Windows; Lite/Full Windows ZIPs and a Java 17 IzPack installer are also published. |
+| macOS | Java installer/payload packaging is preview-only; Cubism host readiness is not claimed. |
+| Linux | Installer/payload semantics only; running Cubism Editor as a Turboism host is unsupported. |
+
+Turboism does not bundle Cubism Editor. A separately installed, licensed copy
+of a supported version is required. Published installers are currently
+unsigned; verify the accompanying `.sha256` files after downloading.
+
+## Current capabilities
+
+The 0.42.0 release includes:
+
+- a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
+  configuration, localization, tasks, events, actions, menus, toolbars,
+  workspace services, transactions, Undo-aware Editor writes, and
+  exact-version host adapters;
+- a built-in Turboism menu, toolbar, settings UI, plugin manager, package
+  inspection, and Plugin Directory integration;
+- parameter batch transfer with optional inversion;
+- mesh-edit mirror-axis enhancements;
+- Recent Files hover thumbnails;
+- clip-mask inspection, Cubism palette filtering, palette label styling,
+  scene-palette ordering, texture-atlas statistics and MaxRects-BSSF layout;
+- physics-editor workflow enhancements, UI themes, performance statistics,
+  WebDAV auto-backup, and a loopback MCP server;
+- an isolated, permission-checked Graal script host when a compatible GraalVM
+  runtime is available.
+
+Capabilities remain subject to plugin permissions, active document/session
+state, exact Cubism version availability, and verified host evidence. Turboism
+fails closed when a required adapter or host capability is unavailable.
+
+## Install on Windows
+
+Download one of the following from the
+[latest GitHub Release](https://github.com/Turboism/Turboism/releases/latest):
+
+- `TurboismInstaller-<version>.exe` — recommended Windows installer;
+- `turboism-<version>-full.zip` — agent plus the reviewed first-party plugin bundle;
+- `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs;
+- `TurboismInstaller-<version>.jar` — Java 17 installer, primarily an alternate packaging route.
+
+Each artifact has a sibling SHA-256 sidecar. After downloading both files,
+verify from their directory, for example:
+
+```bash
+sha256sum -c TurboismInstaller-0.42.0.exe.sha256
+```
+
+Run `configure_turboism.ps1` after installation to discover or select Cubism
+Editor 5.2.03 / 5.3.02 installations and create Turboism-owned launch
+shortcuts. The launcher invokes the official `CubismEditor5.bat`; it does not
+modify the Cubism installation.
 
 ## Architecture
 
@@ -31,7 +95,7 @@ Turboism is developed by product and framework capability rather than numbered m
 - a unified Turboism-owned Cubism object API;
 - Editor-owned authoring writes with transaction and Undo support;
 - consistent `before` / `on` / `after` invocation semantics;
-- version-routed Cubism 5.3.02 providers;
+- exact-version Cubism 5.2.03 and 5.3.02 providers;
 - semantic project, selection, model-tree and UI adapters;
 - SDK-only restoration of official Parameter, Mesh, PSD, UI and performance workflows;
 - production hooks only where explicit APIs and callbacks are insufficient.
