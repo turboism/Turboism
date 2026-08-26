@@ -67,6 +67,21 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertNotIn("TURBOISM_LEGACY_EVIDENCE", workflow)
         self.assertIn("./gradlew --no-daemon checkRelease", workflow)
 
+    def test_release_notes_are_extracted_from_changelog(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertIn("scripts/release/extract-release-notes.py", workflow)
+        self.assertIn('CHANGELOG.md "${{ steps.version.outputs.version }}"', workflow)
+        self.assertIn('--notes-file "$notes_file"', workflow)
+        self.assertNotIn("--generate-notes", workflow)
+
+    def test_readme_states_supported_host_versions_and_platform(self):
+        readme = (ROOT / "README.md").read_text(encoding="utf-8")
+        self.assertIn("Windows x64", readme)
+        self.assertIn("5.2.03", readme)
+        self.assertIn("5.3.02", readme)
+        self.assertIn("Current capabilities", readme)
+        self.assertIn("CHANGELOG.md", readme)
+
     def test_windows_zip_writer_uses_a_fixed_timestamp(self):
         script = (
             ROOT / "packaging/windows-installer/assemble-release.sh"
