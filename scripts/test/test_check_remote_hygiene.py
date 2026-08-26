@@ -96,6 +96,7 @@ class PathRuleTest(unittest.TestCase):
             "generated-references/plugin-public-events.md": "segment:generated-references",
             "host-evidence/5.3.02/result.json": "segment:host-evidence",
             "research/selector-notes.md": "segment:research",
+            "spec/plan.md": "path:spec",
             "specs/plan.md": "segment:specs",
             "validation-artifact/report.md": "segment:validation-artifact",
             "validation/mcp-host-probe/out/Probe.class": "validation-output:out",
