@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Packages the test-only host dialog automation probe bundle.
 # Usage: bash scripts/preview/package-windows-dialog-automation-validation.sh [bundle_root]
-# Depends on: ./gradlew previewBundle :testing:integration-tests:testClasses
+# Depends on: ./gradlew previewBundle :tests:testClasses
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -10,14 +10,14 @@ cd "$repo_root"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-dialog-automation-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
-test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/HostDialogAutomationValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/dialog-automation-validation-plugin.json"
 
 if [ ! -f "$agent_jar" ]; then
   printf 'error: preview agent not found: %s\n' "$agent_jar" >&2
-  printf 'run: ./gradlew previewBundle :testing:integration-tests:testClasses\n' >&2
+  printf 'run: ./gradlew previewBundle :tests:testClasses\n' >&2
   exit 1
 fi
 [ -f "$test_classes/$probe_class_rel" ] || {

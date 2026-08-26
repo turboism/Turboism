@@ -6,6 +6,7 @@ import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicReference;
@@ -98,6 +99,42 @@ class RuntimeSettingsServiceTest {
             environmentJava.toAbsolutePath().normalize(),
             environmentService.graalVmJava().orElseThrow()
         );
+    }
+
+    @Test
+    void prefersManagedRuntimeOverLegacyPackagedRuntime() throws Exception {
+        final Path managed = home.resolve("graal/runtime/bin/java.exe");
+        Files.createDirectories(managed.getParent());
+        Files.write(managed, new byte[]{1});
+        writeGraalVmRelease(home.resolve("graal/runtime"));
+        final Path legacy = home.resolve("graalvm/bin/java.exe");
+        Files.createDirectories(legacy.getParent());
+        Files.write(legacy, new byte[]{2});
+        writeGraalVmRelease(home.resolve("graalvm"));
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
+        );
+
+        assertEquals(managed.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+    }
+
+    @Test
+    void ignoresManagedRuntimeBehindALinkedAncestor() throws Exception {
+        final Path outside = home.resolve("outside-graal");
+        final Path managed = outside.resolve("runtime/bin/java.exe");
+        Files.createDirectories(managed.getParent());
+        Files.write(managed, new byte[]{1});
+        writeGraalVmRelease(outside.resolve("runtime"));
+        try {
+            Files.createSymbolicLink(home.resolve("graal"), outside);
+        } catch (UnsupportedOperationException | IOException unavailable) {
+            org.junit.jupiter.api.Assumptions.abort("symbolic links unavailable: " + unavailable);
+        }
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
+        );
+
+        assertTrue(service.graalVmJava().isEmpty());
     }
 
     @Test

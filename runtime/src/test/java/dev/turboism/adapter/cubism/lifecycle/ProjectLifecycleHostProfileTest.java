@@ -18,6 +18,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectLifecycleHostProfileTest {
 
+    private static final Path PROJECT_ROOT = locateProjectRoot();
     private static final Path LEGACY_EVIDENCE = locateLegacyEvidence();
 
     @Test
@@ -99,16 +100,25 @@ class ProjectLifecycleHostProfileTest {
         }
     }
 
+    private static Path locateProjectRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null && !Files.isRegularFile(current.resolve("settings.gradle.kts"))) {
+            current = current.getParent();
+        }
+        if (current == null) throw new IllegalStateException("project root is unavailable");
+        return current;
+    }
+
     private static Path locateLegacyEvidence() {
         final String configured = System.getenv("TURBOISM_LEGACY_EVIDENCE");
-        if (configured == null || configured.isBlank()) {
-            throw new IllegalStateException("TURBOISM_LEGACY_EVIDENCE is required");
-        }
-        final Path evidence = Path.of(configured).toAbsolutePath().normalize();
-        if (!Files.isDirectory(evidence)) {
-            throw new IllegalStateException("legacy Cubism evidence is unavailable");
-        }
-        return evidence;
+        final List<Path> candidates = new java.util.ArrayList<>();
+        if (configured != null && !configured.isBlank()) candidates.add(Path.of(configured));
+        candidates.add(PROJECT_ROOT.resolve("../turboism-legacy/cubism-ref").normalize());
+        candidates.add(Path.of("/workspace/projects/turboism-legacy/cubism-ref"));
+        return candidates.stream()
+            .filter(Files::isDirectory)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("legacy Cubism evidence is unavailable"));
     }
 
     private static URLClassLoader loader(final Path artifact) throws Exception {

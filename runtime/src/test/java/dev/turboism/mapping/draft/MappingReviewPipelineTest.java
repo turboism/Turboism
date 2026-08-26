@@ -18,10 +18,8 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
 import java.time.Clock;
@@ -244,7 +242,6 @@ class MappingReviewPipelineTest {
 
         FileSafety.copyCreateNewNoFollow(source, target, owned, "COPY_FAILED");
         assertEquals(1, owned.size(), "CREATE_NEW publication must be operation-owned");
-        final Object ownedFileKey = owned.get(0).fileKey();
         Files.delete(target);
         Files.writeString(target, "competitor", StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
 
@@ -253,18 +250,10 @@ class MappingReviewPipelineTest {
 
         assertEquals("competitor", Files.readString(target), "cleanup must retain the replacement competitor");
         assertEquals(1, failure.getSuppressed().length);
-        final String diagnostic = failure.getSuppressed()[0].getMessage();
-        if (ownedFileKey != null && !ownedFileKey.equals(
-            Files.readAttributes(target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS).fileKey())) {
-            assertTrue(
-                diagnostic.contains("pathname ownership changed"),
-                "cleanup must attach a suppressed filesystem-identity diagnostic");
-        } else {
-            assertTrue(
-                diagnostic.contains("pathname contents changed"),
-                "cleanup must attach a suppressed filesystem-content diagnostic when identity is reused");
-        }
-        assertTrue(diagnostic.contains(target.getFileName().toString()));
+        assertTrue(
+            failure.getSuppressed()[0].getMessage().contains("pathname ownership changed"),
+            "cleanup must attach a suppressed filesystem-identity diagnostic");
+        assertTrue(failure.getSuppressed()[0].getMessage().contains(target.getFileName().toString()));
     }
 
     @Test

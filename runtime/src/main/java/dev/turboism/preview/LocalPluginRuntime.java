@@ -346,6 +346,13 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            if (cubismJvmSettings instanceof AutoCloseable closeable) {
+                try {
+                    closeable.close();
+                } catch (Exception failure) {
+                    shutdown.tryLogStableFailure("runtime", "GRAAL_RUNTIME_CLOSE_FAILED");
+                }
+            }
             contextFactory.close();
             editorLifecycleEvents.close();
             projectFileLifecycle.close();
