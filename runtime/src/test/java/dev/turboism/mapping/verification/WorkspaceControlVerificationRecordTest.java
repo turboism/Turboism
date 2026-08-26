@@ -19,11 +19,11 @@ class WorkspaceControlVerificationRecordTest {
         verify("cubism-5.2.03-workspace-control.json", "m.workspace-5.2.03.control.static",
             "adapter.workspace.control.v5_2", "5.2.03", "cubism-5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "f42efb4d878ac4dfb9398dfc978705217d1c55a21d9521690d77fede9af32fed");
+            "88811e3a663e595d7b02675fc0e86e486132eb78c96772a90bef3e7d3c7abb94");
         verify("cubism-5.3.02-workspace-control.json", "m.workspace-5.3.02.control.static",
             "adapter.workspace.control.v5_3", "5.3.02", "cubism-5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02.size(),
             ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-            "7c675de8b23e63e6de14ae6c67403717d3b64fc8eefab54ac4124fffb3633f16");
+            "cbf5c201267d7aa70d3f82404e9125f61429c7a251457a5a23011c6d6bf27b4f");
     }
 
     private static void verify(String file, String verificationId, String slice, String version,
