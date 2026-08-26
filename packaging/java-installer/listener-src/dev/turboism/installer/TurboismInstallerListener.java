@@ -43,6 +43,8 @@ import java.util.Set;
 public final class TurboismInstallerListener extends AbstractInstallerListener {
 
     static final String BUNDLED_PLUGINS_VAR = "turboism.bundledPlugins";
+    static final String MANAGED_GRAAL_PACK_ID = "turboism-managed-graal";
+    static final String MANAGED_GRAAL_VAR = "turboism.installManagedGraal";
     static final String INSTALL_GROUP_VAR = "INSTALL_GROUP";
     static final String INSTALL_PATH_VAR = "INSTALL_PATH";
 
@@ -78,15 +80,16 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
 
     /**
      * Runs after the payload files have been copied: mark the bundled
-     * uninstall.command executable on macOS. The file does not exist during
-     * beforePacks, so the chmod must happen here.
+     * uninstall.command executable on macOS and, only when its optional pack
+     * was selected on Windows, invoke the pinned managed-Graal installer bridge.
      */
     @Override
     public void afterPacks(List<Pack> packs, ProgressListener listener) {
         try {
             makeUninstallCommandExecutable();
+            installManagedGraalIfSelected();
         } catch (IOException e) {
-            throw new RuntimeException("Turboism: cannot make uninstall.command executable: " + e.getMessage(), e);
+            throw new RuntimeException("Turboism: installer post-processing failed: " + e.getMessage(), e);
         }
     }
 
@@ -133,14 +136,73 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         ConfigMerge.write(home, ConfigMerge.applyPolicy(seed, disabled));
     }
 
+    private void installManagedGraalIfSelected() throws IOException {
+        final boolean selected = selectedPackIds().contains(MANAGED_GRAAL_PACK_ID);
+        final String declared = installData.getVariable(MANAGED_GRAAL_VAR);
+        if (!selected) {
+            if (declared != null && !declared.isBlank()
+                && !"false".equalsIgnoreCase(declared.trim())) {
+                throw new IOException("managed GraalVM selection variable disagreed with selected packs");
+            }
+            return;
+        }
+        installData.setVariable(MANAGED_GRAAL_VAR, "true");
+        final String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        if (!os.contains("win")) {
+            throw new IOException("managed GraalVM installation is supported only on Windows x64");
+        }
+        final String installPath = installData.getVariable(INSTALL_PATH_VAR);
+        if (installPath == null || installPath.trim().isEmpty()) {
+            throw new IOException("install path is not set");
+        }
+        final Path home = Paths.get(installPath).toAbsolutePath().normalize();
+        final Path agent = home.resolve("turboism-agent.jar");
+        if (!Files.isRegularFile(agent, LinkOption.NOFOLLOW_LINKS)
+            || Files.isSymbolicLink(agent)) {
+            throw new IOException("Turboism agent is missing or unsafe: " + agent);
+        }
+        final Path java = Paths.get(
+            System.getProperty("java.home", ""), "bin", "java.exe"
+        ).toAbsolutePath().normalize();
+        if (!Files.isRegularFile(java, LinkOption.NOFOLLOW_LINKS)
+            || Files.isSymbolicLink(java)) {
+            throw new IOException("the Java runtime executing the installer is unavailable: " + java);
+        }
+        final ProcessBuilder command = new ProcessBuilder(
+            java.toString(),
+            "-cp", agent.toString(),
+            "dev.turboism.graal.ManagedGraalRuntimeCli",
+            "install", home.toString()
+        ).inheritIO();
+        command.environment().remove("JAVA_TOOL_OPTIONS");
+        command.environment().remove("_JAVA_OPTIONS");
+        command.environment().remove("JDK_JAVA_OPTIONS");
+        final Process process = command.start();
+        try {
+            final int result = process.waitFor();
+            if (result != 0) {
+                throw new IOException("managed GraalVM installation failed with exit code " + result);
+            }
+        } catch (InterruptedException interrupted) {
+            process.destroyForcibly();
+            Thread.currentThread().interrupt();
+            throw new IOException("managed GraalVM installation was interrupted", interrupted);
+        }
+    }
+
     /**
      * Selected plugin ids, read directly from the IzPack pack identity: every
      * generated plugin pack carries the XML {@code id} attribute equal to its
      * plugin id, exposed at runtime as {@link Pack#getLangPackId()}. The
-     * required common pack ("turboism-common") is not a bundled plugin id and
-     * is therefore harmless in this set; the merge only consults bundled ids.
+     * required common and optional managed-Graal packs are not bundled plugin
+     * ids and are therefore harmless in this set; the merge only consults
+     * bundled ids.
      */
     private Set<String> selectedPluginIds() {
+        return selectedPackIds();
+    }
+
+    private Set<String> selectedPackIds() {
         Set<String> selected = new HashSet<>();
         for (Pack pack : installData.getSelectedPacks()) {
             String id = pack.getLangPackId();

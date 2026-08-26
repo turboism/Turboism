@@ -357,11 +357,17 @@ def load_plugin_metadata(manifest_path, modules):
     return metadata
 
 
-def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None):
+def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
+                    install_graal=False):
     answers = [str(lang_index), "1", "1"]  # language, welcome, license
     # console InstallationGroupPanel: asks per group (full first, then lite)
     answers += ["n", "y"] if mode == "lite" else ["y"]
     answers += ["1"]  # group panel continue
+    # The optional managed-Graal pack is Windows-only. On Windows it is
+    # available in Full and Lite, is default-unselected, and precedes the
+    # Full-only plugin selection packs; other hosts do not render the pack.
+    if os.name == "nt":
+        answers.append("y" if install_graal else "n")
     if mode == "full":
         for p in payload_plugins:
             answers.append("n" if p["id"] in deselect else "y")
@@ -418,6 +424,18 @@ def assert_locale_probe(jar, payload_plugins, lang_index, iso3):
               "output did not contain the localized %s mode name" % mode)
         check("locale %s %s mode description" % (iso3, mode), description in out,
               "output did not contain the localized %s mode description" % mode)
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_default_install_does_not_download_graal(jar, payload_plugins):
+    base = tempfile.mkdtemp(prefix="turboism-no-graal ")
+    target = os.path.join(base, "home")
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers("lite", target))
+    check("default-unselected managed Graal install exits 0", rc == 0,
+          "rc=%s" % rc)
+    check("default-unselected managed Graal creates no runtime",
+          not os.path.lexists(os.path.join(target, "graal", "runtime")))
     shutil.rmtree(base, ignore_errors=True)
 
 
@@ -1051,8 +1069,17 @@ def assert_jar_layout(jar, payload):
         check("jar install listener",
               "dev/turboism/installer/TurboismInstallerListener.class" in names)
         check("jar config template resource", "turboism/config.template.json" in names)
+        agent_path = os.path.join(payload, "turboism-agent.jar")
+        with zipfile.ZipFile(agent_path) as agent:
+            check("staged agent contains managed Graal CLI",
+                  "dev/turboism/graal/ManagedGraalRuntimeCli.class" in agent.namelist())
         core_pack_name = "resources/packs/pack-Turboism Core"
         check("jar Windows core pack", core_pack_name in names)
+        managed_pack_names = [name for name in names
+                              if name.startswith("resources/packs/pack-")
+                              and "GraalVM" in name]
+        check("jar has one optional managed Graal pack", len(managed_pack_names) == 1,
+              "packs=%s" % managed_pack_names)
         core_pack = z.read(core_pack_name)
         graal_library_root = os.path.join(payload, "graal", "lib")
         check("staged Windows Graal host library directory exists",
@@ -1076,7 +1103,8 @@ def assert_jar_layout(jar, payload):
                 with open(os.path.join(graal_library_root, name), "rb") as f:
                     check("jar embeds Windows Graal library %s" % name,
                           f.read() in core_pack)
-        for helper in ("launch-cubism-turboism.ps1", "cubism-launch-common.ps1", "configure_turboism.ps1"):
+        for helper in ("launch-cubism-turboism.ps1", "cubism-launch-common.ps1",
+                       "configure_turboism.ps1", "install-managed-graal.ps1"):
             staged = os.path.join(payload, helper)
             check("staged Windows helper %s is regular" % helper,
                   os.path.isfile(staged) and not os.path.islink(staged), staged)
@@ -1269,6 +1297,7 @@ def main():
         for iso3 in LOCALES:
             assert_locale_probe(jar, payload_plugins, lang_indices[iso3], iso3)
 
+        assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_full_defaults_all(jar, payload_plugins)
         assert_full_install(jar, payload_plugins)

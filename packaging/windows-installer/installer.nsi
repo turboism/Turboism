@@ -138,6 +138,16 @@ LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs 
 LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
 LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
 
+LangString ManagedGraalLabel ${LANG_ENGLISH} "Download and install Turboism-managed GraalVM (optional; about 326 MiB)"
+LangString ManagedGraalLabel ${LANG_SIMPCHINESE} "下载并安装 Turboism 托管的 GraalVM（可选；约 326 MiB）"
+LangString ManagedGraalLabel ${LANG_JAPANESE} "Turboism 管理の GraalVM をダウンロードしてインストール（任意、約 326 MiB）"
+LangString ManagedGraalHelp ${LANG_ENGLISH} "The pinned archive is downloaded from the official GraalVM GitHub release, then size, SHA-256, release metadata, and the isolated host are verified before private activation. No download occurs unless selected."
+LangString ManagedGraalHelp ${LANG_SIMPCHINESE} "将从 GraalVM 官方 GitHub Release 下载固定版本，并在私有启用前校验大小、SHA-256、发布元数据和隔离宿主。仅在勾选后下载。"
+LangString ManagedGraalHelp ${LANG_JAPANESE} "GraalVM 公式 GitHub Release から固定版をダウンロードし、サイズ、SHA-256、リリース情報、分離ホストを検証してから専用領域で有効化します。選択しない限りダウンロードしません。"
+LangString ManagedGraalInstallError ${LANG_ENGLISH} "The managed GraalVM installation failed. Turboism was not reported as successfully installed. Review the installer log, ensure a supported Cubism Editor or Java 17+ is available, and retry."
+LangString ManagedGraalInstallError ${LANG_SIMPCHINESE} "托管 GraalVM 安装失败，Turboism 不会报告安装成功。请检查安装日志，确认存在受支持的 Cubism Editor 或 Java 17+，然后重试。"
+LangString ManagedGraalInstallError ${LANG_JAPANESE} "管理対象 GraalVM のインストールに失敗したため、Turboism のインストール成功として扱いません。ログを確認し、対応 Cubism Editor または Java 17 以降を用意して再試行してください。"
+
 
 LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism Configurator"
 LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism 配置器"
@@ -166,6 +176,9 @@ Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
 Var ModeDialog
 Var LiteRadio
 Var FullRadio
+Var installManagedGraal  ; 1 = 用户选择下载并安装托管 GraalVM（默认 0）
+Var managedGraalCheckbox
+Var managedGraalHelp
 Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
 Var existingDisabled     ; 既有 config.json 的 disabledPlugins，';' 分隔
 Var disabledFinal        ; 合并排序后的列表，';' 分隔
@@ -205,6 +218,7 @@ Var unCfgStyle          ; 复选框控件样式
 ; ---------- 初始化 ----------
 Function .onInit
   StrCpy $Mode 1
+  StrCpy $installManagedGraal 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
 FunctionEnd
 
@@ -226,10 +240,19 @@ Function ModeCreate
   Pop $FullRadio
   ${NSD_CreateRadioButton} 0 52u 100% 14u "$(ModeLiteLabel)"
   Pop $LiteRadio
+  ${NSD_CreateCheckbox} 0 78u 100% 14u "$(ManagedGraalLabel)"
+  Pop $managedGraalCheckbox
+  ${NSD_CreateLabel} 12u 98u 96% 48u "$(ManagedGraalHelp)"
+  Pop $managedGraalHelp
   ${If} $Mode == 1
     ${NSD_Check} $FullRadio
   ${Else}
     ${NSD_Check} $LiteRadio
+  ${EndIf}
+  ${If} $installManagedGraal == 1
+    ${NSD_Check} $managedGraalCheckbox
+  ${Else}
+    ${NSD_Uncheck} $managedGraalCheckbox
   ${EndIf}
   nsDialogs::Show
 FunctionEnd
@@ -240,6 +263,12 @@ Function ModeLeave
     StrCpy $Mode 1
   ${Else}
     StrCpy $Mode 0
+  ${EndIf}
+  ${NSD_GetState} $managedGraalCheckbox $0
+  ${If} $0 == 1
+    StrCpy $installManagedGraal 1
+  ${Else}
+    StrCpy $installManagedGraal 0
   ${EndIf}
   ; Lite：取消全部插件 Section（其代码将不执行）；Full：恢复全选
   StrCpy $0 $Mode
@@ -278,10 +307,21 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
   File "${STAGING_DIR}/configure_turboism.ps1"
   File "${STAGING_DIR}/cubism-launch-common.ps1"
+  File "${STAGING_DIR}/install-managed-graal.ps1"
   File "${STAGING_DIR}/README.txt"
   File "${STAGING_DIR}/README.zh.txt"
   File "${STAGING_DIR}/README.ja.txt"
   File "${LICENSE_FILE}"
+SectionEnd
+
+Section "-托管 GraalVM" SecManagedGraal
+  ${If} $installManagedGraal == 1
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR"' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(ManagedGraalInstallError)"
+      Abort
+    ${EndIf}
+  ${EndIf}
 SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
@@ -628,6 +668,7 @@ Section "Uninstall"
   Delete "$INSTDIR\launch-cubism-turboism.ps1"
   Delete "$INSTDIR\cubism-launch-common.ps1"
   Delete "$INSTDIR\configure_turboism.ps1"
+  Delete "$INSTDIR\install-managed-graal.ps1"
   ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
   Delete "$INSTDIR\LICENSE"

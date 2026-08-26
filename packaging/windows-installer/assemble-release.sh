@@ -209,7 +209,7 @@ zip_dir() {
   python3 - "$src" "$out" "$lite" <<'PYEOF'
 import os, stat, sys, zipfile
 src, out, lite = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
-EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command"}
+EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command", "install-managed-graal.ps1"}
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
 
 def write_bytes(archive, name, data, mode):

@@ -69,7 +69,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "Loopback Model Context Protocol server exposing typed Turboism model-object operations."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "Loopback Model Context Protocol server exposing typed Cubism inspection, editing, history, and Editor-command workflows."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "Enhances Cubism mesh editing with mirror-axis rotation and exact-host mirror-tool parity."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "Batch-transfer parameter bindings of one ArtMesh or Deformer to other parameters, with optional inversion, through a modal dialog."
