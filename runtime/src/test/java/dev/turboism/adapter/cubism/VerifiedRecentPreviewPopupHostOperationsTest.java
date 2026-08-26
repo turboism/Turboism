@@ -138,8 +138,12 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         final JMenu menu = recentMenu(recent);
         PanelHost.setRoot(RecentPreviewHostFixture.panelChain(menu));
         final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        final int baseMenuListeners = menu.getMenuListeners().length;
-        final int baseMouseListeners = item.getMouseListeners().length;
+        final java.util.Set<javax.swing.event.MenuListener> baseMenuListeners = identitySet(
+            menu.getMenuListeners()
+        );
+        final java.util.Set<java.awt.event.MouseListener> baseMouseListeners = identitySet(
+            item.getMouseListeners()
+        );
 
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", getClass().getClassLoader()));
@@ -148,8 +152,14 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
             popup.ownsBindingForTest(menu, item),
             "the bridge must own the current menu and item binding"
         ));
-        assertTrue(menu.getMenuListeners().length > baseMenuListeners);
-        assertTrue(item.getMouseListeners().length > baseMouseListeners);
+        assertFalse(
+            baseMenuListeners.containsAll(identitySet(menu.getMenuListeners())),
+            "the bridge must add a menu listener"
+        );
+        assertFalse(
+            baseMouseListeners.containsAll(identitySet(item.getMouseListeners())),
+            "the bridge must add an item mouse listener"
+        );
 
         registration.close();
         SwingUtilities.invokeAndWait(() -> {
@@ -162,8 +172,16 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
                 "closing the bridge must release all EDT-owned tracking"
             );
         });
-        assertEquals(baseMenuListeners, menu.getMenuListeners().length);
-        assertEquals(baseMouseListeners, item.getMouseListeners().length);
+        assertEquals(baseMenuListeners, identitySet(menu.getMenuListeners()));
+        assertEquals(baseMouseListeners, identitySet(item.getMouseListeners()));
+    }
+
+    private static <T> java.util.Set<T> identitySet(final T[] values) {
+        final java.util.Set<T> result = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>()
+        );
+        java.util.Collections.addAll(result, values);
+        return result;
     }
 
     @Test
