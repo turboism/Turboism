@@ -32,10 +32,10 @@ The authoritative project list is `settings.gradle.kts`.
   First-party plugins. They are treated like external consumers and depend
   on :sdk with compileOnly scope.
 
-:testframework
+:testing:test-support
   Fake hosts, fixtures, and reusable test support.
 
-:tests
+:testing:integration-tests
   Cross-module and packaged integration tests.
 ```
 

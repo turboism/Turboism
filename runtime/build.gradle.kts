@@ -25,13 +25,13 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
         rootProject.file("scripts/cubism_core_api.py"),
         rootProject.file("scripts/cubism_core_policy.py"),
         rootProject.file(
-            "cubism-ref/core-api/policy/cubism-core-member-policy.json"
+            "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
         ),
         rootProject.file(
-            "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
+            "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
         ),
         rootProject.file(
-            "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
+            "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
         )
     )
     outputs.file(generatedCoreCatalogFile)
@@ -44,17 +44,17 @@ val generateCorePublicApiCatalog by tasks.registering(Exec::class) {
             "render-java",
             "--policy",
             rootProject.file(
-                "cubism-ref/core-api/policy/cubism-core-member-policy.json"
+                "compatibility/cubism/core-api/policy/cubism-core-member-policy.json"
             ),
             "--output",
             output,
             "--inventory",
             rootProject.file(
-                "cubism-ref/core-api/observed/cubism-core-5.2.03.json"
+                "compatibility/cubism/core-api/observed/cubism-core-5.2.03.json"
             ),
             "--inventory",
             rootProject.file(
-                "cubism-ref/core-api/observed/cubism-core-5.3.02.json"
+                "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json"
             )
         )
     }
@@ -67,13 +67,13 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
         rootProject.file("scripts/cubism_core_api.py"),
         rootProject.file("scripts/cubism_core_selector_policy.py"),
         rootProject.file(
-            "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
+            "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
         ),
         rootProject.file(
-            "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
+            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
         ),
         rootProject.file(
-            "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+            "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
         )
     )
     outputs.file(generatedCoreSelectorContractFile)
@@ -98,17 +98,17 @@ val generateCorePublicApiSelectorContract by tasks.registering(Exec::class) {
             "render-java",
             "--policy",
             rootProject.file(
-                "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
+                "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
             ),
             "--output",
             output,
             "--pack",
             rootProject.file(
-                "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
+                "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
             ),
             "--pack",
             rootProject.file(
-                "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+                "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
             )
         )
     }
@@ -260,7 +260,7 @@ tasks.named<Test>("test") {
 }
 
 tasks.named<ProcessResources>("processTestResources") {
-    from(project(":testframework").file(
+    from(project(":testing:test-support").file(
         "src/main/resources/fixtures/schema/preview-report-v1"
     )) {
         into("fixtures/schema/preview-report-v1")

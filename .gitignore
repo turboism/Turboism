@@ -1,13 +1,16 @@
 # 本地-only 目录，不进入远端
-.codegraph/
-.cortexkit/
-.omo/
-.docs/
+/.codegraph/
+/.cortexkit/
+/.omo/
+/.docs/
 /AGENTS.md
 /docs/
 /docs_internal/
 /docs-internal/
-cubism-ref/Cubism-*/
+/cubism-ref/
+/generated-references/
+/host-evidence/
+/research/
 
 # 构建产物与运行期目录
 __pycache__/
@@ -17,6 +20,19 @@ dist/
 /release/
 .gradle/
 runtime/logs/
+
+# Exact-host validation outputs; probe source and descriptors stay tracked.
+/validation/**/build/
+/validation/**/dist/
+/validation/**/out/
+/validation/**/log/
+/validation/**/logs/
+/validation/**/result/
+/validation/**/results/
+/validation/**/evidence/
+/validation/**/*.jar
+/validation/**/*.class
+/validation/**/*.log
 
 # IDE / editor metadata
 .classpath
@@ -51,7 +67,6 @@ turboism.*.config.json
 CONTEXT.md
 FILE_MANIFEST.md
 INITIALIZE.md
-/README.md
 
 # 验证 artifact 目录（本机工作流产物，不入库）
 .agent-artifacts/

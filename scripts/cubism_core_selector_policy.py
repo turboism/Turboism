@@ -343,7 +343,7 @@ def render_java(policy: dict[str, Any], roster: Sequence[dict[str, Any]]) -> str
         "/**",
         " * Generated exact selector contract for the admitted Cubism Core slice.",
         " *",
-        " * <p>Source: cubism-ref/core-api/policy/cubism-core-selector-policy.json.",
+        " * <p>Source: compatibility/cubism/core-api/policy/cubism-core-selector-policy.json.",
         " * Do not edit by hand. This class contains stable aliases only and cannot",
         " * create or authorize verified evidence.</p>",
         " */",

@@ -24,7 +24,7 @@ class StatusBarVerificationManifestTest {
 
     @Test
     void manifestMatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
-        final Path record = repositoryPath("cubism-ref/verification/" + RECORD_NAME);
+        final Path record = repositoryPath("compatibility/cubism/verification/" + RECORD_NAME);
         final String recordSha = sha256(record);
         assertEquals(StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(), recordSha,
             "manifest record digest must match the reviewed record bytes");
@@ -54,7 +54,7 @@ class StatusBarVerificationManifestTest {
 
     @Test
     void manifest52MatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
-        final Path record = repositoryPath("cubism-ref/verification/" + RECORD_NAME_52);
+        final Path record = repositoryPath("compatibility/cubism/verification/" + RECORD_NAME_52);
         final String recordSha = sha256(record);
         assertEquals(StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(), recordSha,
             "the 5.2 manifest record digest must match the reviewed 5.2 record bytes");
@@ -96,7 +96,7 @@ class StatusBarVerificationManifestTest {
     @Test
     void manifest52RecordPackAndProfileStayConsistent() throws Exception {
         final JsonNode record = mapper.readTree(
-            repositoryPath("cubism-ref/verification/" + RECORD_NAME_52).toFile());
+            repositoryPath("compatibility/cubism/verification/" + RECORD_NAME_52).toFile());
         final Set<String> recordMappingIds = new HashSet<>();
         for (JsonNode selector : record.get("selectors")) {
             recordMappingIds.add(selector.get("mappingId").asText());
@@ -104,7 +104,7 @@ class StatusBarVerificationManifestTest {
         assertEquals(21, recordMappingIds.size());
 
         final JsonNode pack = mapper.readTree(repositoryPath(
-            "cubism-ref/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json").toFile());
+            "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-ui-status-bar.json").toFile());
         assertEquals("DRAFT", pack.get("status").asText(),
             "the 5.2 status-bar mapping pack must stay DRAFT");
         assertEquals("5.2.03", pack.get("cubismVersion").asText());
@@ -119,7 +119,7 @@ class StatusBarVerificationManifestTest {
             "record selectors and mapping entries must match bidirectionally");
 
         final JsonNode profile = mapper.readTree(repositoryPath(
-            "cubism-ref/profiles/draft/cubism-5.2.03.json").toFile());
+            "compatibility/cubism/profiles/draft/cubism-5.2.03.json").toFile());
         assertEquals("5.2.03", profile.get("cubismVersion").asText());
         boolean listed = false;
         for (JsonNode packId : profile.get("mappingPacks")) {
@@ -174,7 +174,7 @@ class StatusBarVerificationManifestTest {
     @Test
     void resolverFactoryFailsClosedBeforeTrustingAnyUnreviewedMaterial() throws Exception {
         final VerifiedStatusBarResolverFactory factory = new VerifiedStatusBarResolverFactory();
-        final Path reviewed = repositoryPath("cubism-ref/verification/" + RECORD_NAME);
+        final Path reviewed = repositoryPath("compatibility/cubism/verification/" + RECORD_NAME);
 
         // Missing artifact: fail closed before the record is even considered.
         assertThrows(java.nio.file.NoSuchFileException.class, () -> factory.create(
@@ -189,7 +189,7 @@ class StatusBarVerificationManifestTest {
             reviewed, foreignArtifact, getClass().getClassLoader()
         ));
         assertThrows(IllegalArgumentException.class, () -> factory.create(
-            repositoryPath("cubism-ref/verification/cubism-5.3.02-project-workspace.json"),
+            repositoryPath("compatibility/cubism/verification/cubism-5.3.02-project-workspace.json"),
             foreignArtifact,
             getClass().getClassLoader()
         ));

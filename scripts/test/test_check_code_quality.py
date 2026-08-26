@@ -109,7 +109,7 @@ def case_version_suffixed_type(root: Path) -> None:
 
 
 def case_retired_asset_token(root: Path) -> None:
-    write(root, "cubism-ref/mapping-packs/draft/cubism-5.3.02-m14-thing.json", "{}\n")
+    write(root, "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-m14-thing.json", "{}\n")
     result = run(root, "assets")
     assert result.returncode == 1, "retired governance token must fail"
     assert "retired governance token" in result.stdout

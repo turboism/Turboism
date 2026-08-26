@@ -1,0 +1,9 @@
+{
+  "format": "turboism.mapping.update.diff",
+  "schemaVersion": 1,
+  "candidateSha256": "4444444444444444444444444444444444444444444444444444444444444444",
+  "target": {
+    "pack": "compatibility/cubism/mapping-packs/draft/fixture.json",
+    "semanticName": "fixture.target.class"
+  }
+}

@@ -1,0 +1,180 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "exact-public-classfile-observation",
+  "cubismVersion": "5.3.02",
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.class.moc",
+      "kind": "class",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.moc.class",
+      "runtime": "com/live2d/sdk/cubism/core/CubismMoc",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.moc_instantiate",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.moc.instantiate",
+      "runtime": "instantiate",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "intermediary": "",
+      "descriptor": "([B)Lcom/live2d/sdk/cubism/core/CubismMoc;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.moc_instantiate_model",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.moc.instantiate-model",
+      "runtime": "instantiateModel",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismModel;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.moc_get_native_handle",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.moc.get-native-handle",
+      "runtime": "getNativeHandle",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()J"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.moc_close",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.moc.close",
+      "runtime": "close",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismMoc",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.model_get_native_handle",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.model.get-native-handle",
+      "runtime": "getNativeHandle",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()J"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.model_update",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.model.update",
+      "runtime": "update",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.core.method.model_close",
+      "kind": "method",
+      "owner": "core-owned-moc",
+      "name": "cubism.core.model.close",
+      "runtime": "close",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/sdk/cubism/core/CubismModel",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()V"
+    }
+  ],
+  "metadata": {
+    "inventoryRef": "compatibility/cubism/core-api/observed/cubism-core-5.3.02.json",
+    "artifactSha256": "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "validationNotes": "Owned-Moc lifecycle selectors (CubismMoc.instantiate/instantiateModel/getNativeHandle/close, CubismModel.getNativeHandle/update/close). CubismMoc.getMocVersion exists in the 5.3.02 public surface, but the owned loader uses byte-level Live2DCubismCore.getMocVersion instead (present in both versions, so the 5.2 profile never fails closed on version reads). Dedicated pack: not part of the selector-policy roster until promoted after host validation."
+  }
+}

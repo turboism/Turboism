@@ -1,0 +1,2443 @@
+{
+  "artifact": {
+    "fileName": "Live2DCubismCore.jar",
+    "sha256": "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
+    "sizeBytes": 42471
+  },
+  "authorizesRuntime": false,
+  "classes": [
+    {
+      "declaration": "public final class com.live2d.sdk.cubism.core.CubismAlphaBlendType extends java.lang.Enum<com.live2d.sdk.cubism.core.CubismAlphaBlendType>",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismAlphaBlendType ATOP;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "field",
+          "name": "ATOP"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismAlphaBlendType CONJOINT_OVER;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "field",
+          "name": "CONJOINT_OVER"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismAlphaBlendType DISJOINT_OVER;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "field",
+          "name": "DISJOINT_OVER"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismAlphaBlendType OUT;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "field",
+          "name": "OUT"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismAlphaBlendType OVER;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "field",
+          "name": "OVER"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getNumber();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getNumber"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismAlphaBlendType valueOf(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "method",
+          "name": "valueOf"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismAlphaBlendType[] values();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismAlphaBlendType;",
+          "kind": "method",
+          "name": "values"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismAlphaBlendType"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismCanvasInfo",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getOriginInPixels();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getOriginInPixels"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getPixelsPerUnit();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getPixelsPerUnit"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getSizeInPixels();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getSizeInPixels"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismCanvasInfo"
+    },
+    {
+      "declaration": "public final class com.live2d.sdk.cubism.core.CubismColorBlendType extends java.lang.Enum<com.live2d.sdk.cubism.core.CubismColorBlendType>",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType ADD;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "ADD"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType ADD_COMPATIBLE;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "ADD_COMPATIBLE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType ADD_GLOW;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "ADD_GLOW"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType COLOR;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "COLOR"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType COLOR_BURN;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "COLOR_BURN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType COLOR_DODGE;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "COLOR_DODGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType DARKEN;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "DARKEN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType HARD_LIGHT;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "HARD_LIGHT"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType HUE;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "HUE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType LIGHTEN;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "LIGHTEN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType LINEAR_BURN;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "LINEAR_BURN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType LINEAR_LIGHT;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "LINEAR_LIGHT"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType MULTIPLY;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "MULTIPLY"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType MULTIPLY_COMPATIBLE;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "MULTIPLY_COMPATIBLE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType NORMAL;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "NORMAL"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType OVERLAY;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "OVERLAY"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType SCREEN;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "SCREEN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismColorBlendType SOFT_LIGHT;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "field",
+          "name": "SOFT_LIGHT"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getNumber();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getNumber"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismColorBlendType valueOf(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "method",
+          "name": "valueOf"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismColorBlendType[] values();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismColorBlendType;",
+          "kind": "method",
+          "name": "values"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismColorBlendType"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismCoreVersion",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getMajor();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getMajor"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getMinor();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getMinor"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getPatch();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getPatch"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getVersionNumber();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getVersionNumber"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String toString();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "toString"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismCoreVersion"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDeformerView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDeformers getDeformers();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismDeformers;",
+          "kind": "method",
+          "name": "getDeformers"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String getId();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "getId"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameters();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getParentDeformerIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getParentDeformerIndex"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDeformerView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDeformers",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDeformers(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String[] getIds();",
+          "descriptor": "()[Ljava/lang/String;",
+          "kind": "method",
+          "name": "getIds"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameterCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameterCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[][] getParameters();",
+          "descriptor": "()[[I",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParentDeformsers();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParentDeformsers"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDeformers"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDrawableFlag",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawableFlag();",
+          "descriptor": "()V",
+          "kind": "constructor",
+          "name": "<init>"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDrawableFlag"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDrawableFlag$ConstantFlag",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "1",
+          "declaration": "public static final byte BLEND_ADDITIVE = 1;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "BLEND_ADDITIVE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "2",
+          "declaration": "public static final byte BLEND_MULTIPLICATIVE = 2;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "BLEND_MULTIPLICATIVE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "4",
+          "declaration": "public static final byte IS_DOUBLE_SIDED = 4;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "IS_DOUBLE_SIDED"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "8",
+          "declaration": "public static final byte IS_INVERTED_MASK = 8;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "IS_INVERTED_MASK"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawableFlag$ConstantFlag();",
+          "descriptor": "()V",
+          "kind": "constructor",
+          "name": "<init>"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDrawableFlag$ConstantFlag"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDrawableFlag$DynamicFlag",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "64",
+          "declaration": "public static final byte BLEND_COLOR_DID_CHANGE = 64;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "BLEND_COLOR_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "8",
+          "declaration": "public static final byte DRAW_ORDER_DID_CHANGE = 8;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "DRAW_ORDER_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "1",
+          "declaration": "public static final byte IS_VISIBLE = 1;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "IS_VISIBLE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "4",
+          "declaration": "public static final byte OPACITY_DID_CHANGE = 4;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "OPACITY_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "16",
+          "declaration": "public static final byte RENDER_ORDER_DID_CHANGE = 16;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "RENDER_ORDER_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "32",
+          "declaration": "public static final byte VERTEX_POSITIONS_DID_CHANGE = 32;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "VERTEX_POSITIONS_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "2",
+          "declaration": "public static final byte VISIBILITY_DID_CHANGE = 2;",
+          "descriptor": "B",
+          "kind": "field",
+          "name": "VISIBILITY_DID_CHANGE"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawableFlag$DynamicFlag();",
+          "descriptor": "()V",
+          "kind": "constructor",
+          "name": "<init>"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDrawableFlag$DynamicFlag"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDrawableView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getBlendMode();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getBlendMode"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte getConstantFlag();",
+          "descriptor": "()B",
+          "kind": "method",
+          "name": "getConstantFlag"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getDrawOrder();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getDrawOrder"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawables getDrawables();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismDrawables;",
+          "kind": "method",
+          "name": "getDrawables"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte getDynamicFlag();",
+          "descriptor": "()B",
+          "kind": "method",
+          "name": "getDynamicFlag"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String getId();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "getId"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public short[] getIndices();",
+          "descriptor": "()[S",
+          "kind": "method",
+          "name": "getIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getMasks();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getMasks"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getMultiplyColors();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getMultiplyColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getOpacity();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getOpacity"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameters();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getParentDeformerIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getParentDeformerIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getParentPartIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getParentPartIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getScreenColors();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getScreenColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getTextureIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getTextureIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getVertexCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getVertexCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getVertexPositions();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getVertexPositions"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getVertexUvs();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getVertexUvs"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDrawableView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismDrawables",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawables(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getBlendModes();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getBlendModes"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte[] getConstantFlags();",
+          "descriptor": "()[B",
+          "kind": "method",
+          "name": "getConstantFlags"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getDrawOrders();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getDrawOrders"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte[] getDynamicFlags();",
+          "descriptor": "()[B",
+          "kind": "method",
+          "name": "getDynamicFlags"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String[] getIds();",
+          "descriptor": "()[Ljava/lang/String;",
+          "kind": "method",
+          "name": "getIds"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getIndexCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getIndexCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public short[][] getIndices();",
+          "descriptor": "()[[S",
+          "kind": "method",
+          "name": "getIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getMaskCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getMaskCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[][] getMasks();",
+          "descriptor": "()[[I",
+          "kind": "method",
+          "name": "getMasks"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getMultiplyColors();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getMultiplyColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getOpacities();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getOpacities"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameterCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameterCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[][] getParameters();",
+          "descriptor": "()[[I",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParentDeformsers();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParentDeformsers"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParentPartIndices();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParentPartIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getScreenColors();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getScreenColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getTextureIndices();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getTextureIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getVertexCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getVertexCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getVertexPositions();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getVertexPositions"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getVertexUvs();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getVertexUvs"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismDrawables"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismGlueView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getDrawableA();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getDrawableA"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getDrawableB();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getDrawableB"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismGlues getGlues();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismGlues;",
+          "kind": "method",
+          "name": "getGlues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String getId();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "getId"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameters();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameters"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismGlueView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismGlues",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismGlues(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getDrawablesA();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getDrawablesA"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getDrawablesB();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getDrawablesB"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String[] getIds();",
+          "descriptor": "()[Ljava/lang/String;",
+          "kind": "method",
+          "name": "getIds"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParameterCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParameterCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[][] getParameters();",
+          "descriptor": "()[[I",
+          "kind": "method",
+          "name": "getParameters"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismGlues"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismMoc implements java.io.Closeable",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void close();",
+          "descriptor": "()V",
+          "kind": "method",
+          "name": "close"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getMocVersion();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getMocVersion"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.util.List<com.live2d.sdk.cubism.core.CubismModel> getModels();",
+          "descriptor": "()Ljava/util/List;",
+          "kind": "method",
+          "name": "getModels"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public long getNativeHandle();",
+          "descriptor": "()J",
+          "kind": "method",
+          "name": "getNativeHandle"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismMoc instantiate(byte[]) throws java.text.ParseException;",
+          "descriptor": "([B)Lcom/live2d/sdk/cubism/core/CubismMoc;",
+          "kind": "method",
+          "name": "instantiate"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismModel instantiateModel();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismModel;",
+          "kind": "method",
+          "name": "instantiateModel"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismMoc"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismModel implements java.io.Closeable",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismModel();",
+          "descriptor": "()V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void close();",
+          "descriptor": "()V",
+          "kind": "method",
+          "name": "close"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismPartialUpdateModelFactor createPartialUpdateModelFactor();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismPartialUpdateModelFactor;",
+          "kind": "method",
+          "name": "createPartialUpdateModelFactor"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDeformerView findDeformerView(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismDeformerView;",
+          "kind": "method",
+          "name": "findDeformerView"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawableView findDrawableView(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismDrawableView;",
+          "kind": "method",
+          "name": "findDrawableView"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismGlueView findGlueView(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismGlueView;",
+          "kind": "method",
+          "name": "findGlueView"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameterView findParameterView(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismParameterView;",
+          "kind": "method",
+          "name": "findParameterView"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismPartView findPartView(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismPartView;",
+          "kind": "method",
+          "name": "findPartView"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismCanvasInfo getCanvasInfo();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismCanvasInfo;",
+          "kind": "method",
+          "name": "getCanvasInfo"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDeformerView[] getDeformerViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismDeformerView;",
+          "kind": "method",
+          "name": "getDeformerViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDeformers getDeformers();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismDeformers;",
+          "kind": "method",
+          "name": "getDeformers"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawableView[] getDrawableViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismDrawableView;",
+          "kind": "method",
+          "name": "getDrawableViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismDrawables getDrawables();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismDrawables;",
+          "kind": "method",
+          "name": "getDrawables"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismGlueView[] getGlueViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismGlueView;",
+          "kind": "method",
+          "name": "getGlueViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismGlues getGlues();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismGlues;",
+          "kind": "method",
+          "name": "getGlues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismMoc getMoc();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismMoc;",
+          "kind": "method",
+          "name": "getMoc"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public long getNativeHandle();",
+          "descriptor": "()J",
+          "kind": "method",
+          "name": "getNativeHandle"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismOffscreenRendering getOffscreenRendering();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismOffscreenRendering;",
+          "kind": "method",
+          "name": "getOffscreenRendering"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismOffscreenRenderingView[] getOffscreenRenderingViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismOffscreenRenderingView;",
+          "kind": "method",
+          "name": "getOffscreenRenderingViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameterView[] getParameterViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismParameterView;",
+          "kind": "method",
+          "name": "getParameterViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameters getParameters();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismParameters;",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismPartView[] getPartViews();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismPartView;",
+          "kind": "method",
+          "name": "getPartViews"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParts getParts();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismParts;",
+          "kind": "method",
+          "name": "getParts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getRenderOrders();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getRenderOrders"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void partialUpdate(com.live2d.sdk.cubism.core.CubismPartialUpdateModelFactor);",
+          "descriptor": "(Lcom/live2d/sdk/cubism/core/CubismPartialUpdateModelFactor;)V",
+          "kind": "method",
+          "name": "partialUpdate"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetDrawableDynamicFlags();",
+          "descriptor": "()V",
+          "kind": "method",
+          "name": "resetDrawableDynamicFlags"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void update();",
+          "descriptor": "()V",
+          "kind": "method",
+          "name": "update"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismModel"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismOffscreenRendering",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismOffscreenRendering(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getBlendModes();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getBlendModes"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte[] getConstantFlags();",
+          "descriptor": "()[B",
+          "kind": "method",
+          "name": "getConstantFlags"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getMaskCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getMaskCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[][] getMasks();",
+          "descriptor": "()[[I",
+          "kind": "method",
+          "name": "getMasks"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getMultiplyColors();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getMultiplyColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getOpacities();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getOpacities"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getOwnerIndices();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getOwnerIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getScreenColors();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getScreenColors"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismOffscreenRendering"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismOffscreenRenderingView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getBlendMode();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getBlendMode"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public byte getConstantFlag();",
+          "descriptor": "()B",
+          "kind": "method",
+          "name": "getConstantFlag"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getMasks();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getMasks"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getMultiplyColors();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getMultiplyColors"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getOpacity();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getOpacity"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getReferenceObjectIndices();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getReferenceObjectIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getScreenColors();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getScreenColors"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismOffscreenRenderingView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismParameterView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getDefaultValue();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getDefaultValue"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String getId();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "getId"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getKeyCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getKeyCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getKeyValue();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getKeyValue"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getMaximumValue();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getMaximumValue"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getMinimumValue();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getMinimumValue"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameters getParameters();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismParameters;",
+          "kind": "method",
+          "name": "getParameters"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameters$ParameterType getType();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "method",
+          "name": "getType"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getValue();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getValue"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public boolean isRepeat();",
+          "descriptor": "()Z",
+          "kind": "method",
+          "name": "isRepeat"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void setValue(float);",
+          "descriptor": "(F)V",
+          "kind": "method",
+          "name": "setValue"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismParameterView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismParameters",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameters(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getDefaultValues();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getDefaultValues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String[] getIds();",
+          "descriptor": "()[Ljava/lang/String;",
+          "kind": "method",
+          "name": "getIds"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getKeyCounts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getKeyCounts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[][] getKeyValues();",
+          "descriptor": "()[[F",
+          "kind": "method",
+          "name": "getKeyValues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getMaximumValues();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getMaximumValues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getMinimumValues();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getMinimumValues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public boolean[] getParameterRepeats();",
+          "descriptor": "()[Z",
+          "kind": "method",
+          "name": "getParameterRepeats"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParameters$ParameterType[] getTypes();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "method",
+          "name": "getTypes"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getValues();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getValues"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismParameters"
+    },
+    {
+      "declaration": "public final class com.live2d.sdk.cubism.core.CubismParameters$ParameterType extends java.lang.Enum<com.live2d.sdk.cubism.core.CubismParameters$ParameterType>",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismParameters$ParameterType BLEND_SHAPE;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "field",
+          "name": "BLEND_SHAPE"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "declaration": "public static final com.live2d.sdk.cubism.core.CubismParameters$ParameterType NORMAL;",
+          "descriptor": "Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "field",
+          "name": "NORMAL"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getNumber();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getNumber"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismParameters$ParameterType toType(int);",
+          "descriptor": "(I)Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "method",
+          "name": "toType"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismParameters$ParameterType valueOf(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "method",
+          "name": "valueOf"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismParameters$ParameterType[] values();",
+          "descriptor": "()[Lcom/live2d/sdk/cubism/core/CubismParameters$ParameterType;",
+          "kind": "method",
+          "name": "values"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismParameters$ParameterType"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismPartView",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String getId();",
+          "descriptor": "()Ljava/lang/String;",
+          "kind": "method",
+          "name": "getId"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getOffscreenIndices();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getOffscreenIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float getOpacity();",
+          "descriptor": "()F",
+          "kind": "method",
+          "name": "getOpacity"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getParentPartIndex();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getParentPartIndex"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismParts getParts();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismParts;",
+          "kind": "method",
+          "name": "getParts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void setOpacity(float);",
+          "descriptor": "(F)V",
+          "kind": "method",
+          "name": "setOpacity"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismPartView"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismPartialUpdateModelFactor",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismPartialUpdateModelFactor(int, int, int, int, int);",
+          "descriptor": "(IIIII)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getDeformers();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getDeformers"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getDrawables();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getDrawables"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getGlues();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getGlues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getOffscreenRendering();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getOffscreenRendering"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParts();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParts"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetAll(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetAll"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetDeformers(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetDeformers"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetDrawables(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetDrawables"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetGlues(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetGlues"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetOffscreenRendering(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetOffscreenRendering"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public void resetParts(int);",
+          "descriptor": "(I)V",
+          "kind": "method",
+          "name": "resetParts"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismPartialUpdateModelFactor"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismParts",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int getCount();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getCount"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public java.lang.String[] getIds();",
+          "descriptor": "()[Ljava/lang/String;",
+          "kind": "method",
+          "name": "getIds"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getOffscreenIndices();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getOffscreenIndices"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public float[] getOpacities();",
+          "descriptor": "()[F",
+          "kind": "method",
+          "name": "getOpacities"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getParentPartIndices();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getParentPartIndices"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismParts"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.CubismRenderOrders",
+      "members": [
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.CubismRenderOrders(int);",
+          "descriptor": "(I)V",
+          "kind": "constructor",
+          "name": "<init>"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public int[] getRenderOrders();",
+          "descriptor": "()[I",
+          "kind": "method",
+          "name": "getRenderOrders"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.CubismRenderOrders"
+    },
+    {
+      "declaration": "public interface com.live2d.sdk.cubism.core.ICubismLogger",
+      "members": [
+        {
+          "access": [
+            "public",
+            "abstract"
+          ],
+          "declaration": "public abstract void print(java.lang.String);",
+          "descriptor": "(Ljava/lang/String;)V",
+          "kind": "method",
+          "name": "print"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.ICubismLogger"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.Live2DCubismCore",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static int getLatestMocVersion();",
+          "descriptor": "()I",
+          "kind": "method",
+          "name": "getLatestMocVersion"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.ICubismLogger getLogger();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/ICubismLogger;",
+          "kind": "method",
+          "name": "getLogger"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static int getMocVersion(byte[]);",
+          "descriptor": "([B)I",
+          "kind": "method",
+          "name": "getMocVersion"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static com.live2d.sdk.cubism.core.CubismCoreVersion getVersion();",
+          "descriptor": "()Lcom/live2d/sdk/cubism/core/CubismCoreVersion;",
+          "kind": "method",
+          "name": "getVersion"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static boolean hasMocConsistency(byte[]);",
+          "descriptor": "([B)Z",
+          "kind": "method",
+          "name": "hasMocConsistency"
+        },
+        {
+          "access": [
+            "public",
+            "static"
+          ],
+          "declaration": "public static void setLogger(com.live2d.sdk.cubism.core.ICubismLogger);",
+          "descriptor": "(Lcom/live2d/sdk/cubism/core/ICubismLogger;)V",
+          "kind": "method",
+          "name": "setLogger"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.Live2DCubismCore"
+    },
+    {
+      "declaration": "public class com.live2d.sdk.cubism.core.Live2DCubismCore$MocVersion",
+      "members": [
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "0",
+          "declaration": "public static final int UNKNOWN = 0;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "UNKNOWN"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "1",
+          "declaration": "public static final int V30 = 1;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V30"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "2",
+          "declaration": "public static final int V33 = 2;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V33"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "3",
+          "declaration": "public static final int V40 = 3;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V40"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "4",
+          "declaration": "public static final int V42 = 4;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V42"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "5",
+          "declaration": "public static final int V50 = 5;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V50"
+        },
+        {
+          "access": [
+            "public",
+            "static",
+            "final"
+          ],
+          "constantValue": "6",
+          "declaration": "public static final int V53 = 6;",
+          "descriptor": "I",
+          "kind": "field",
+          "name": "V53"
+        },
+        {
+          "access": [
+            "public"
+          ],
+          "declaration": "public com.live2d.sdk.cubism.core.Live2DCubismCore$MocVersion();",
+          "descriptor": "()V",
+          "kind": "constructor",
+          "name": "<init>"
+        }
+      ],
+      "name": "com.live2d.sdk.cubism.core.Live2DCubismCore$MocVersion"
+    }
+  ],
+  "cubismVersion": "5.3.02",
+  "extraction": {
+    "includes": [
+      "JVM_DESCRIPTORS",
+      "PUBLIC_CONSTANTS",
+      "PUBLIC_DECLARATIONS"
+    ],
+    "packagePrefix": "com.live2d.sdk.cubism.core.",
+    "scope": "EXACT_CLASSFILE_PUBLIC_SURFACE",
+    "tool": "javap -public -s -constants"
+  },
+  "format": "turboism.cubism-core.public-api",
+  "schemaVersion": 1,
+  "status": "OBSERVED",
+  "summary": {
+    "classCount": 27,
+    "publicCallableCount": 194,
+    "publicFieldCount": 43
+  }
+}

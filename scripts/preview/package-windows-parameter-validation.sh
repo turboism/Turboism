@@ -8,7 +8,7 @@ worktree_id="${TURBOISM_WORKTREE_ID:-main}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-parameter-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 parameter_jar="$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-0.1.0-SNAPSHOT-$worktree_id.jar"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsParameterValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-parameter-validation-plugin.json"
@@ -18,7 +18,7 @@ launcher_script="$repo_root/scripts/preview/launch-cubism-parameter-validation.p
 
 if [ ! -f "$agent_jar" ]; then
   printf 'error: preview agent not found: %s\n' "$agent_jar" >&2
-  printf 'run: ./gradlew previewBundle :plugins:parameter:jar :tests:testClasses\n' >&2
+  printf 'run: ./gradlew previewBundle :plugins:parameter:jar :testing:integration-tests:testClasses\n' >&2
   exit 1
 fi
 [ -f "$parameter_jar" ] || { printf 'error: parameter plugin jar not found: %s\n' "$parameter_jar" >&2; exit 1; }

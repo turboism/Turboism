@@ -22,9 +22,9 @@ from cubism_core_selector_policy import (  # noqa: E402
     validate_policy,
 )
 
-POLICY = ROOT / "cubism-ref/core-api/policy/cubism-core-selector-policy.json"
-PACK_52 = ROOT / "cubism-ref/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
-PACK_53 = ROOT / "cubism-ref/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
+POLICY = ROOT / "compatibility/cubism/core-api/policy/cubism-core-selector-policy.json"
+PACK_52 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.2.03-core-model-read.json"
+PACK_53 = ROOT / "compatibility/cubism/mapping-packs/draft/cubism-5.3.02-core-model-read.json"
 
 
 def require(condition: bool, message: str) -> None:
