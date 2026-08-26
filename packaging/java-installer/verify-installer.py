@@ -1076,6 +1076,17 @@ def assert_jar_layout(jar, payload):
                 with open(os.path.join(graal_library_root, name), "rb") as f:
                     check("jar embeds Windows Graal library %s" % name,
                           f.read() in core_pack)
+        graal_legal_root = os.path.join(payload, "graal", "legal")
+        for legal_name in ("LICENSE", "THIRD_PARTY_LICENSE.txt"):
+            staged = os.path.join(graal_legal_root, legal_name)
+            check("staged Graal legal file %s is regular" % legal_name,
+                  os.path.isfile(staged) and not os.path.islink(staged), staged)
+            with open(staged, "rb") as f:
+                legal_bytes = f.read()
+            check("staged Graal legal file %s is non-empty" % legal_name,
+                  len(legal_bytes) > 1024)
+            check("jar embeds Graal legal file %s" % legal_name,
+                  legal_bytes in core_pack)
         for helper in ("launch-cubism-turboism.ps1", "cubism-launch-common.ps1", "configure_turboism.ps1"):
             staged = os.path.join(payload, helper)
             check("staged Windows helper %s is regular" % helper,
