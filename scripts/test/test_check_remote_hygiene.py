@@ -92,6 +92,7 @@ class PathRuleTest(unittest.TestCase):
             "cubism-ref/core-api/observed/host.json": "segment:cubism-ref",
             "docs/migration/guide.md": "segment:docs",
             "docs-internal/notes.md": "segment:docs-internal",
+            "evidence/host-session/result.tsv": "segment:evidence",
             "generated-references/plugin-public-events.md": "segment:generated-references",
             "host-evidence/5.3.02/result.json": "segment:host-evidence",
             "research/selector-notes.md": "segment:research",
@@ -133,7 +134,8 @@ class PathRuleTest(unittest.TestCase):
     def test_case_variant_paths_forbidden(self):
         for p in [".ENV", "nested/AGENTS.MD", "GEMINI.MD", "Prompts/x.md",
                   "CUBISM-REF/host.json", "DOCS/migration/x.md",
-                  "GENERATED-REFERENCES/report.md", "HOST-EVIDENCE/result.json",
+                  "EVIDENCE/host-session/result.tsv", "GENERATED-REFERENCES/report.md",
+                  "HOST-EVIDENCE/result.json",
                   "RESEARCH/notes.md", ".Agent-Artifacts/x.md",
                   ".CLAUDE/set.json", ".PI/session.jsonl", ".SPECIFY/task.json",
                   "App.LOCAL.yaml", "nested/COPILOT.MD", "RUNTIME/LOGS/trace.log"]:

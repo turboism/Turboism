@@ -176,7 +176,7 @@ For an Editor-attached model, the Editor authoring model remains the only write 
 
 ## Documentation tracking
 
-`docs/`, `cubism-ref/`, `generated-references/`, `host-evidence/`, and `research/` are local-only so research notes, licensed references, generated reports, host evidence, and machine-specific paths do not enter remote history. Repository builds, tests, and release tooling depend only on tracked product sources and public contracts such as `compatibility/cubism/`, `sdk/api-contracts/`, reproducible probe source under `validation/`, and `packaging/`. Generated reports are written under `build/reports/`.
+`docs/`, `cubism-ref/`, `evidence/`, `generated-references/`, `host-evidence/`, and `research/` are local-only so research notes, licensed references, generated reports, host evidence, AI review artifacts, and machine-specific paths do not enter remote history. Repository builds, tests, and release tooling depend only on tracked product sources and public contracts such as `compatibility/cubism/`, `sdk/api-contracts/`, reproducible probe source under `validation/`, and `packaging/`. Generated reports are written under `build/reports/`.
 
 ## Compliance
 
