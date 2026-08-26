@@ -7,7 +7,7 @@ cd "$repo_root"
 worktree_id="${TURBOISM_WORKTREE_ID:-$(scripts/dev/worktree-id.sh)}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-history-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_dir="dev/turboism/tests/plugin"
 probe_class="WindowsHistoryManagerValidationProbe"
 descriptor="$repo_root/scripts/preview/windows-history-manager-validation-plugin.json"
@@ -15,7 +15,7 @@ seed_class="WindowsHistorySeedValidationProbe"
 seed_descriptor="$repo_root/scripts/preview/windows-history-seed-validation-plugin.json"
 launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 
-[ -f "$agent_jar" ] || { printf 'error: run ./gradlew previewBundle :tests:testClasses first\n' >&2; exit 1; }
+[ -f "$agent_jar" ] || { printf 'error: run ./gradlew previewBundle :testing:integration-tests:testClasses first\n' >&2; exit 1; }
 [ -f "$test_classes/$probe_class_dir/$probe_class.class" ] || { printf 'error: probe class missing\n' >&2; exit 1; }
 [ -f "$test_classes/$probe_class_dir/$seed_class.class" ] || { printf 'error: seed class missing\n' >&2; exit 1; }
 

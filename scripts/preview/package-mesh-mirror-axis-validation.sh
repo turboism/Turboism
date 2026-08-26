@@ -10,7 +10,7 @@ worktree_id="${TURBOISM_WORKTREE_ID:-main}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/mesh-mirror-axis-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 mesh_enhance_jar="$repo_root/build/worktree/$worktree_id/mesh-edit-mirror-axis-enhance/libs/mesh-edit-mirror-axis-enhance-0.1.0-SNAPSHOT-$worktree_id.jar"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/mesh-mirror-axis-validation-plugin.json"
 

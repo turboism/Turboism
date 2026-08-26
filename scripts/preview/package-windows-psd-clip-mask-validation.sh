@@ -13,7 +13,7 @@ agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
 # Exact artifact of the current :plugins:psd-clip-mask-import:jar task, exported
 # by the packagePsdClipMaskHostValidation Gradle task; no glob/version scanning.
 plugin_jar="${PSD_CLIP_MASK_PLUGIN_JAR:-}"
-test_classes="$repo_root/build/worktree/$worktree_id/tests/classes/java/test"
+test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsPsdClipMaskValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
 probe_descriptor="$repo_root/scripts/preview/windows-psd-clip-mask-validation-plugin.json"
@@ -22,7 +22,7 @@ plugin_classes="$repo_root/build/worktree/$worktree_id/psd-clip-mask-import/clas
 
 if [ ! -f "$agent_jar" ]; then
   printf 'error: preview agent not found: %s\n' "$agent_jar" >&2
-  printf 'run: ./gradlew previewBundle :plugins:psd-clip-mask-import:jar :tests:testClasses\n' >&2
+  printf 'run: ./gradlew previewBundle :plugins:psd-clip-mask-import:jar :testing:integration-tests:testClasses\n' >&2
   exit 1
 fi
 [ -n "$plugin_jar" ] || { printf 'error: PSD_CLIP_MASK_PLUGIN_JAR is not set; run packagePsdClipMaskHostValidation (the Gradle task exports the exact :plugins:psd-clip-mask-import:jar archiveFile)\n' >&2; exit 1; }
