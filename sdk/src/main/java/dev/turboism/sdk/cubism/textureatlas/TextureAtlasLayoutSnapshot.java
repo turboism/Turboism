@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 
 import java.util.HashSet;
 import java.util.List;
@@ -7,6 +8,7 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Complete immutable planning input for the active texture atlas. */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record TextureAtlasLayoutSnapshot(
     TextureAtlasLayoutTarget target,
     String documentId,

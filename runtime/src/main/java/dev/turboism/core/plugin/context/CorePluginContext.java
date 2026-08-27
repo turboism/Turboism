@@ -110,6 +110,7 @@ public final class CorePluginContext implements PluginContext {
     private final dev.turboism.sdk.ui.workspace.WorkspaceService workspaceService;
     private final dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService workspaceLayoutService;
     private final dev.turboism.adapter.cubism.backup.AutoBackupCoordinator backupCoordinator;
+    private final CubismEditorApiAvailabilityInterceptor editorApiAvailability;
 
     private final SceneTableService sceneTableService;
     private final dev.turboism.sdk.runtime.CubismLogService cubismLogService;
@@ -408,7 +409,12 @@ public final class CorePluginContext implements PluginContext {
             userFileAccessService,
             asyncHostReadService
         );
-        this.fileChooserHistory = fileChooserHistory;
+        this.fileChooserHistory = fileChooserHistory == null
+            ? null
+            : editorApiAvailability.wrapForTesting(
+                fileChooserHistory,
+                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class
+            );
     }
 
     CorePluginContext(final Dependencies dependencies, final CubismServicesFactory cubismServicesFactory) {
@@ -512,7 +518,12 @@ public final class CorePluginContext implements PluginContext {
             asyncHostReadService
         );
         this.runtimeSettings = runtimeSettings;
-        this.fileChooserHistory = fileChooserHistory;
+        this.fileChooserHistory = fileChooserHistory == null
+            ? null
+            : editorApiAvailability.wrapForTesting(
+                fileChooserHistory,
+                dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.class
+            );
     }
 
     private CorePluginContext(
@@ -532,8 +543,15 @@ public final class CorePluginContext implements PluginContext {
                 hostAccess.adapters().projectWorkspace()
             ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
-        this.cubismServices = Objects.requireNonNull(cubismServicesFactory, "cubismServicesFactory")
-            .create(
+        final CubismServicesFactory servicesFactory = Objects.requireNonNull(
+            cubismServicesFactory, "cubismServicesFactory"
+        );
+        this.editorApiAvailability = new CubismEditorApiAvailabilityInterceptor(
+            servicesFactory instanceof DefaultCubismServicesFactory defaultFactory
+                ? defaultFactory.cubismEditorVersion()
+                : java.util.Optional::empty
+        );
+        this.cubismServices = servicesFactory.create(
                 this.dependencies,
                 taskScheduler instanceof dev.turboism.task.RuntimePluginTaskScheduler runtimeTasks
                     ? runtimeTasks
@@ -655,16 +673,18 @@ public final class CorePluginContext implements PluginContext {
         this.hostDialogAutomationService = new RuntimeHostDialogAutomationService(
             uiPermissionChecker
         );
-        this.workspaceService = hostAccess == null
+        final dev.turboism.sdk.ui.workspace.WorkspaceService workspace = hostAccess == null
             ? dev.turboism.sdk.ui.workspace.WorkspaceService.unavailable()
             : new dev.turboism.ui.workspace.RuntimeWorkspaceService(
                 uiPermissionChecker,
                 hostAccess.workspaceCoordinator()
             );
-        if (hostAccess != null) {
-            this.dependencies.disposableScope().register(
-                (dev.turboism.ui.workspace.RuntimeWorkspaceService) this.workspaceService
-            );
+        this.workspaceService = editorApiAvailability.wrapForTesting(
+            workspace,
+            dev.turboism.sdk.ui.workspace.WorkspaceService.class
+        );
+        if (workspace instanceof dev.turboism.ui.workspace.RuntimeWorkspaceService runtimeWorkspace) {
+            this.dependencies.disposableScope().register(runtimeWorkspace);
         }
         final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
             hostAccess == null ? null : hostAccess.workspaceLayoutCoordinator();

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.clipmask.PsdClipMaskDocumentSnapshot;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -11,6 +12,7 @@ import java.util.Optional;
 /** One Cubism model exposed as natural objects and methods. */
 public interface CubismModel {
 
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     ModelId id();
 
     default String name() {
@@ -25,6 +27,7 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism MOC metadata is unavailable.");
     }
 
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default ParameterDefinitions parameterDefinitions() {
         throw new UnsupportedOperationException(
             "Cubism parameter-definition access is unavailable."
@@ -75,8 +78,8 @@ public interface CubismModel {
      * <p>No stable Editor document entry exists for auto-face evaluation state,
      * so no auto-face projection is declared; see the adapter evidence records.
      * Animation scene add/delete ({@code CAnimationFileContent.addScene /
-     * deleteScene / setCurrentSceneDoc}) has no Undo registration in Cubism
-     * 5.2.03 or 5.3.02, so scene writes stay unavailable (fail closed).</p>
+     * deleteScene / setCurrentSceneDoc}) has no reviewed Undo registration in Cubism
+     * 5.2.03, 5.3.02, or 5.3.03, so scene writes stay unavailable (fail closed).</p>
      */
     default List<AnimationDocument> animationDocuments() {
         throw new UnsupportedOperationException(
@@ -137,6 +140,7 @@ public interface CubismModel {
         );
     }
 
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default Canvas canvas() {
         throw new UnsupportedOperationException("Cubism canvas access is unavailable.");
     }

@@ -43,8 +43,9 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
      * already inside an invocation - invocations never nest. It answers {@code true} only when
      * the callback returns true and the invocation was marked handled; in every other case,
      * including a callback that throws, the native session is restored and {@code false} is
-     * returned so the host proceeds with its own behaviour. Exceptions from the callback do not
-     * propagate to the host.
+     * returned so the host proceeds with its own behaviour. A connection change while the callback
+     * is running also cancels the handled result and restores the native session before falling back.
+     * Exceptions from the callback do not propagate to the host.
      *
      * @param callback the work to run inside the invocation scope; must not be null
      * @return a predicate the native hook can call with the packing receiver
@@ -78,15 +79,26 @@ public final class TextureAtlasNativeInvocationCoordinator implements AutoClosea
         }
         active.set(invocation);
         boolean callbackSucceeded = false;
+        boolean invocationCurrent = false;
+        boolean result = false;
         try {
             callbackSucceeded = callback.getAsBoolean();
-            return callbackSucceeded && invocation.handled();
+            invocationCurrent = currentInvocation(invocation);
+            result = callbackSucceeded && invocation.handled() && invocationCurrent;
+            return result;
         } catch (RuntimeException | Error failure) {
             return false;
         } finally {
             active.remove();
-            if (!callbackSucceeded || !invocation.handled()) invocation.restore();
+            if (!callbackSucceeded || !invocation.handled() || !invocationCurrent) {
+                invocation.restore();
+            }
         }
+    }
+
+    private synchronized boolean currentInvocation(final Invocation invocation) {
+        return !closed && adapter != null
+            && invocation.valid(ownerToken, generation, Thread.currentThread());
     }
 
     /**

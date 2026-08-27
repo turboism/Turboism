@@ -149,6 +149,10 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         this.history = java.util.Objects.requireNonNull(history, "history");
     }
 
+    java.util.function.Supplier<java.util.Optional<String>> cubismEditorVersion() {
+        return cubismEditorVersion;
+    }
+
     /** Wiring seam for tests: the adapter this factory forwards to the backup coordinator. */
     AutoBackupAdapter autoBackupAdapter() {
         return autoBackup;

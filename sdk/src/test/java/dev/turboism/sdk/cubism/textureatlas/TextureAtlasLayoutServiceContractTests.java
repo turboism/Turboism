@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismFacade;
 import org.junit.jupiter.api.Test;
 
@@ -19,6 +20,14 @@ class TextureAtlasLayoutServiceContractTests {
 
         assertEquals(TextureAtlasLayoutService.class, accessor.getReturnType());
         assertTrue(java.lang.reflect.Modifier.isPublic(accessor.getModifiers()));
+        assertEquals(
+            List.of("5.2.03", "5.3.02", "5.3.03"),
+            List.of(accessor.getAnnotation(CubismEditor.class).value())
+        );
+        assertEquals(
+            List.of("5.2.03", "5.3.02", "5.3.03"),
+            List.of(TextureAtlasLayoutService.class.getAnnotation(CubismEditor.class).value())
+        );
         assertThrows(UnsupportedOperationException.class, () -> new NoOpFacade().textureAtlasLayouts());
     }
 

@@ -34,8 +34,8 @@ class CompleteCubismModelReadApiContractTest {
             "getParameterBindings", "getValue", "id", "index", "isBlendShape", "keyValues", "name", "repeat",
             "resetToDefault", "setValue", "type", "ui", "uncombine", "updateDefinition");
         assertMethods(ParameterGroup.class, "childGroupIds", "id", "name", "parameterIds", "parentId", "rename", "ui");
-        assertMethods(WarpDeformer.class, "grid", "replaceGrid");
-        assertMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
+        assertDeclaredMethods(WarpDeformer.class, "grid", "replaceGrid");
+        assertDeclaredMethods(RotationDeformer.class, "baseAngle", "form", "replaceForm", "setBaseAngle");
         assertMethods(Glue.class,
             "drawableA", "drawableAId", "drawableB", "drawableBId", "id", "index", "intensity", "name", "parameterIds", "parameters", "setDrawableA", "setDrawableB", "setId", "setIntensity", "setName");
         assertMethods(Parts.class, "add", "all", "copy", "create", "find", "remove");
@@ -48,17 +48,36 @@ class CompleteCubismModelReadApiContractTest {
     }
 
     private static void assertMethods(final Class<?> type, final String... names) {
+        assertMethodSet(type, type.getMethods(), names);
+    }
+
+    private static void assertDeclaredMethods(final Class<?> type, final String... names) {
+        assertMethodSet(type, type.getDeclaredMethods(), names);
+    }
+
+    private static void assertMethodSet(
+        final Class<?> type,
+        final Method[] methods,
+        final String... names
+    ) {
         assertEquals(
             Set.copyOf(Arrays.asList(names)),
-            Arrays.stream(type.getDeclaredMethods()).filter(method -> Modifier.isPublic(method.getModifiers())).map(Method::getName).collect(java.util.stream.Collectors.toSet()),
+            Arrays.stream(methods)
+                .filter(method -> Modifier.isPublic(method.getModifiers()))
+                .filter(method -> method.getDeclaringClass() != Object.class)
+                .map(Method::getName)
+                .collect(java.util.stream.Collectors.toSet()),
             type.getName()
         );
-        Arrays.stream(type.getDeclaredMethods()).filter(method -> Modifier.isPublic(method.getModifiers())).forEach(method -> {
-            assertNoRawHostType(method.getReturnType());
-            Arrays.stream(method.getParameterTypes()).forEach(
-                CompleteCubismModelReadApiContractTest::assertNoRawHostType
-            );
-        });
+        Arrays.stream(methods)
+            .filter(method -> Modifier.isPublic(method.getModifiers()))
+            .filter(method -> method.getDeclaringClass() != Object.class)
+            .forEach(method -> {
+                assertNoRawHostType(method.getReturnType());
+                Arrays.stream(method.getParameterTypes()).forEach(
+                    CompleteCubismModelReadApiContractTest::assertNoRawHostType
+                );
+            });
     }
 
     private static Class<?> returnType(final Class<?> type, final String method) throws Exception {

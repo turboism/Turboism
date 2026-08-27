@@ -11,6 +11,8 @@ import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLay
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.BoundingBoxOverlayButtonVerificationManifest;
 import dev.turboism.mapping.verification.EmbeddedPanelVerificationManifest;
 import dev.turboism.mapping.verification.HostArtifactDigest;
@@ -446,7 +448,12 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final PanelMaterial panel = panelMaterial(evidence);
         final TopMenuMaterial topMenu = topMenuMaterial(evidence);
         final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
-        if (toolbar == null && panel == null && topMenu == null && overlay == null && workspace == null) {
+        if (toolbar == null
+            && panel == null
+            && topMenu == null
+            && overlay == null
+            && workspace == null
+            && textureAtlasProvider == null) {
             return HostAdapterConnection.of(
                 adapters,
                 modelAccess,
@@ -478,6 +485,13 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final String sessionId,
         final TextureAtlasDataModelCapture capture
     ) {
+        if (resolver.isExactCubismVersion("5.3.03")) {
+            return resolver.authorizesFeature(
+                VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID,
+                VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES
+            ) ? new VerifiedCubism5303TextureAtlasLayoutProvider(resolver, sessionId, capture) : null;
+        }
         if (resolver.isExactCubismVersion("5.3.02")) {
             return resolver.authorizesFeature(
                 VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
@@ -1079,10 +1093,20 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final HostArtifactDigest artifact = HostArtifactDigest.from(slice.verifiedArtifact());
         final String version = dev.turboism.mapping.verification.ProjectWorkspaceVerificationManifest
             .versionForArtifact(artifact);
-        return new FlatLafAppearanceHostProvider(
+        return productionAppearanceProviderForVersion(
             version,
             new SwingFlatLafHostOperations(slice.hostClassLoader())
         );
+    }
+
+    static AppearanceHostProvider productionAppearanceProviderForVersion(
+        final String version,
+        final FlatLafAppearanceHostProvider.HostOperations hostOperations
+    ) {
+        if (!dev.turboism.mapping.verification.ReviewedHostArtifacts.admitsFullRuntime(version)) {
+            return unavailableAppearanceProvider();
+        }
+        return new FlatLafAppearanceHostProvider(version, hostOperations);
     }
 
     @FunctionalInterface

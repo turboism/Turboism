@@ -24,7 +24,9 @@ import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -46,8 +48,9 @@ class CorePluginContextFileChooserHistoryTest {
     }
 
     @Test
-    void returnsInjectedServiceInstance() {
-        final FileChooserHistoryService injected = FileChooserHistoryService.unavailable();
+    void rejectsInjectedServiceWithoutAReviewedEditorVersionBeforeDelegateInvocation() {
+        final AtomicInteger calls = new AtomicInteger();
+        final FileChooserHistoryService injected = recordingService(calls);
         final CorePluginContext context = new CorePluginContext(
             dependencies(TEMP),
             RuntimeHostAdapters.safeMode(),
@@ -58,7 +61,28 @@ class CorePluginContextFileChooserHistoryTest {
             null,
             injected
         );
-        assertSame(injected, context.fileChooserHistory());
+
+        assertThrows(
+            dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+            context.fileChooserHistory()::projectRecentDirectory
+        );
+        assertEquals(0, calls.get());
+    }
+
+    private static FileChooserHistoryService recordingService(final AtomicInteger calls) {
+        return new FileChooserHistoryService() {
+            @Override public Optional<Path> projectRecentDirectory() {
+                calls.incrementAndGet();
+                return Optional.empty();
+            }
+            @Override public Optional<Path> exportRecentDirectory() { return Optional.empty(); }
+            @Override public void setProjectRecentDirectory(final Path dir) { }
+            @Override public void setExportRecentDirectory(final Path dir) { }
+            @Override public boolean exportSeparationEnabled() { return false; }
+            @Override public Registration registerProvider(final Provider provider) {
+                return () -> { };
+            }
+        };
     }
 
     private static CorePluginContext.Dependencies dependencies(final Path dataDir) {
