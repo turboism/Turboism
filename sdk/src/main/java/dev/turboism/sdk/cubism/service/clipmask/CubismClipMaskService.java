@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.service.clipmask;
 
+import dev.turboism.sdk.CubismEditor;
 
 import java.util.List;
 import java.util.Objects;
@@ -19,6 +20,7 @@ public interface CubismClipMaskService {
      * @return immutable snapshot records deduplicated by {@code guid} (first occurrence
      *         wins); empty when no active model or no clip-mask data is available
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     List<ClipMaskRecord> collectClipMaskRecords();
 
     /**
@@ -32,7 +34,7 @@ public interface CubismClipMaskService {
      * @param orderedMaskGuids ordered GUID list of ArtMeshes used as this ArtMesh's
      *        clip masks; immutable, elements non-blank
      */
-    record ClipMaskRecord(
+        record ClipMaskRecord(
         String guid,
         String id,
         String displayName,

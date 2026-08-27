@@ -12,14 +12,35 @@ public record HistorySnapshot(
     int position,
     List<HistoryEntry> entries,
     boolean canUndo,
-    boolean canRedo
+    boolean canRedo,
+    String documentBindingId,
+    String managerBindingId
 ) {
+
+    public HistorySnapshot(
+        final Availability availability,
+        final long generation,
+        final long revision,
+        final int position,
+        final List<HistoryEntry> entries,
+        final boolean canUndo,
+        final boolean canRedo
+    ) {
+        this(availability, generation, revision, position, entries, canUndo, canRedo, "", "");
+    }
 
     public HistorySnapshot {
         availability = Objects.requireNonNull(availability, "availability");
         if (generation < 0) throw new IllegalArgumentException("generation must not be negative");
         if (revision < 0) throw new IllegalArgumentException("revision must not be negative");
         entries = List.copyOf(Objects.requireNonNull(entries, "entries"));
+        documentBindingId = normalizeBindingId(documentBindingId, "documentBindingId");
+        managerBindingId = normalizeBindingId(managerBindingId, "managerBindingId");
+        if ((documentBindingId.isEmpty()) != (managerBindingId.isEmpty())) {
+            throw new IllegalArgumentException(
+                "history binding identities must be both present or both absent"
+            );
+        }
         if (position < 0 || position > entries.size()) {
             throw new IllegalArgumentException("position must be within [0, entries.size]");
         }
@@ -28,9 +49,20 @@ public record HistorySnapshot(
                 throw new IllegalArgumentException("entry indexes must be contiguous from zero");
             }
         }
-        if (availability == Availability.UNAVAILABLE && (!entries.isEmpty() || position != 0 || canUndo || canRedo)) {
+        if (availability == Availability.UNAVAILABLE
+            && (!entries.isEmpty()
+                || position != 0
+                || canUndo
+                || canRedo
+                || !documentBindingId.isEmpty()
+                || !managerBindingId.isEmpty())) {
             throw new IllegalArgumentException("unavailable history must be empty");
         }
+    }
+
+    private static String normalizeBindingId(final String value, final String name) {
+        Objects.requireNonNull(value, name);
+        return value.strip();
     }
 
     /**

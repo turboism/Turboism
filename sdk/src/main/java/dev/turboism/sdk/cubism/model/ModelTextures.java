@@ -45,6 +45,6 @@ public interface ModelTextures {
     void removeTextureAtlas(TextureAtlasId id);
 
     /** Removes one raw layered image and its layer inputs by id. */
-    @CubismEditor("5.3.02")
+    @CubismEditor({"5.3.02", "5.3.03"})
     void removeRawImage(RawImageId id);
 }

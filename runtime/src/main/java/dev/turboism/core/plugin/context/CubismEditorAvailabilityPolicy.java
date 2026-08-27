@@ -89,7 +89,7 @@ final class CubismEditorAvailabilityPolicy {
         if ((!exact.isEmpty() && hasRange)
             || hasDuplicates(exact)
             || hasDuplicates(excluded)
-            || exact.stream().anyMatch(version -> !REVIEWED_VERSION_SET.contains(version))
+            || exact.stream().anyMatch(version -> !isDeclaredOrReviewedVersion(version))
             || exact.stream().anyMatch(version -> !isExactVersion(version))
             || excluded.stream().anyMatch(version -> !isExactVersion(version))
             || (!from.isEmpty() && !isExactVersion(from))
@@ -110,6 +110,10 @@ final class CubismEditorAvailabilityPolicy {
 
     private static boolean hasDuplicates(final List<String> versions) {
         return new LinkedHashSet<>(versions).size() != versions.size();
+    }
+
+    private static boolean isDeclaredOrReviewedVersion(final String version) {
+        return REVIEWED_VERSION_SET.contains(version) || "5.3.03".equals(version);
     }
 
     private static boolean isExactVersion(final String version) {

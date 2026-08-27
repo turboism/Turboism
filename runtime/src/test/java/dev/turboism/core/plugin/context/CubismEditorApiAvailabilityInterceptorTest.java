@@ -54,6 +54,39 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @Test
+    void accepts5303DeclarationsWithoutAdmittingAnActive5303Host() {
+        final AtomicInteger calls = new AtomicInteger();
+        final Declared5303 proxy = proxy(
+            (Declared5303) calls::incrementAndGet,
+            Declared5303.class,
+            Optional.of("5.3.03")
+        );
+
+        final CubismEditorApiUnavailableException failure = assertThrows(
+            CubismEditorApiUnavailableException.class,
+            proxy::call
+        );
+
+        assertEquals(0, calls.get());
+        assertEquals(Optional.of("5.3.03"), failure.activeVersion());
+        assertEquals(List.of("5.3.02"), failure.supportedVersions());
+    }
+
+    @Test
+    void declarationContaining5303PreservesExistingReviewedHosts() {
+        final AtomicInteger calls = new AtomicInteger();
+        final Declared5303 proxy = proxy(
+            (Declared5303) calls::incrementAndGet,
+            Declared5303.class,
+            Optional.of("5.3.02")
+        );
+
+        proxy.call();
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
     void recursivelyWrapsOptionalListAndCompletionStageResults() {
         final Example proxy = proxy(new ExampleImpl(new AtomicInteger()), Optional.of("5.2.03"));
 
@@ -196,6 +229,11 @@ class CubismEditorApiAvailabilityInterceptorTest {
         }
 
         @Override public void accept(final Example example) { }
+    }
+
+    @CubismEditor({"5.3.02", "5.3.03"})
+    interface Declared5303 {
+        void call();
     }
 
     @CubismEditor(from = "5.2.03", to = "5.3.02")

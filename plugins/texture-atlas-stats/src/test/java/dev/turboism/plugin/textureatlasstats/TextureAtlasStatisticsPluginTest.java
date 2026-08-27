@@ -57,19 +57,45 @@ class TextureAtlasStatisticsPluginTest {
 
         assertNotNull(ui.attached);
         assertEquals(1, ui.attachCount);
+        assertEquals(1, ui.liveCount);
+
         plugin.disable();
+        assertEquals(0, ui.liveCount);
+
+        plugin.enable();
+        assertEquals(2, ui.attachCount);
+        assertEquals(1, ui.liveCount);
+
         plugin.shutdown();
+        assertEquals(0, ui.liveCount);
     }
 
     private static final class RecordingUi implements TextureAtlasEditorUi {
         javax.swing.JLabel attached;
         int attachCount;
+        int liveCount;
 
         @Override
         public TextureAtlasEditorPanel attach() {
             attachCount++;
+            liveCount++;
             attached = new javax.swing.JLabel();
-            return attached::setText;
+            final javax.swing.JLabel label = attached;
+            return new TextureAtlasEditorPanel() {
+                private boolean closed;
+
+                @Override
+                public void setText(final String text) {
+                    if (!closed) label.setText(text);
+                }
+
+                @Override
+                public void close() {
+                    if (closed) return;
+                    closed = true;
+                    liveCount--;
+                }
+            };
         }
     }
 

@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -43,6 +44,9 @@ class EditorHistorySnapshotProviderTest {
         assertEquals("Set Parameter", first.entries().get(0).label());
         assertTrue(first.canUndo());
         assertFalse(first.canRedo());
+        assertFalse(first.documentBindingId().isBlank());
+        assertFalse(first.managerBindingId().isBlank());
+        assertTrue(provider.isCurrentBinding(first));
         assertEquals(first.revision(), same.revision());
         assertEquals(first.revision() + 1, undone.revision());
         assertFalse(undone.canUndo());
@@ -93,12 +97,67 @@ class EditorHistorySnapshotProviderTest {
         );
         final HistorySnapshot before = provider.snapshot();
 
-        final HistoryMoveResult result = provider.moveTo(7, before.revision(), 1);
+        final HistoryMoveResult result = provider.moveTo(before, 1);
 
         assertEquals(HistoryMoveResult.Outcome.MOVED, result.outcome());
         assertEquals(1, result.snapshot().position());
         assertEquals(before.revision() + 1, result.snapshot().revision());
         assertTrue(result.diagnosticId().isEmpty());
+    }
+
+    @Test
+    void bindingIdentityRejectsDocumentAndManagerFocusDrift() {
+        final Manager firstManager = managerAt(1);
+        final Document firstDocument = new Document(firstManager);
+        Host.document = firstDocument;
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 8
+        );
+        final HistorySnapshot first = provider.snapshot();
+        assertTrue(provider.isCurrentBinding(first));
+
+        Host.document = new Document(new Manager());
+        assertFalse(provider.isCurrentBinding(first));
+
+        Host.document = new Document(firstManager);
+        assertFalse(provider.isCurrentBinding(first));
+
+        Host.document = firstDocument;
+        assertTrue(provider.isCurrentBinding(first));
+    }
+
+    @Test
+    void boundMoveRejectsDocumentAndManagerFocusDriftBeforeCallingTheHost() {
+        final Manager firstManager = managerAt(3);
+        final Document firstDocument = new Document(firstManager);
+        Host.document = firstDocument;
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 9
+        );
+        final HistorySnapshot expected = provider.snapshot();
+
+        Host.document = new Document(new Manager());
+        assertEquals(
+            HistoryMoveResult.Outcome.REJECTED_STALE,
+            provider.moveTo(expected, 1).outcome()
+        );
+        assertEquals(3, firstManager.position);
+        assertEquals(0, firstManager.moveCalls);
+
+        Host.document = new Document(firstManager);
+        assertEquals(
+            HistoryMoveResult.Outcome.REJECTED_STALE,
+            provider.moveTo(expected, 1).outcome()
+        );
+        assertEquals(3, firstManager.position);
+        assertEquals(0, firstManager.moveCalls);
+
+        Host.document = firstDocument;
+        assertEquals(HistoryMoveResult.Outcome.MOVED, provider.moveTo(expected, 1).outcome());
+        assertEquals(1, firstManager.position);
+        assertEquals(1, firstManager.moveCalls);
     }
 
     @Test
@@ -126,6 +185,29 @@ class EditorHistorySnapshotProviderTest {
         manager.entries.add(new Entry("Third", true));
         manager.position = position;
         return manager;
+    }
+
+    @Test
+    void exact5303RuntimeAuthorizationFailsClosedWithoutHistoryCapabilityOrSelectors() {
+        final VerifiedMemberResolver resolver5303 = TestVerifiedResolvers.create(
+            "5.3.03",
+            "adapter.editor-model.readwrite",
+            Set.of("cubism.editor-model.read", "cubism.editor-model.texture.read"),
+            List.of(
+                StaticSelector.classSelector(
+                    "cubism.editor-model.app-controller.class", internal(Host.class)
+                )
+            ),
+            Host.class.getClassLoader()
+        );
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver5303),
+            () -> 11
+        );
+
+        assertEquals(HistorySnapshot.Availability.UNAVAILABLE, provider.snapshot().availability());
+        assertEquals(HistoryMoveResult.Outcome.UNAVAILABLE, provider.moveTo(11, 0, 0).outcome());
+        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     @Test

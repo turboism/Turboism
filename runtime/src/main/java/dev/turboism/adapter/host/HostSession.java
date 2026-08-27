@@ -54,9 +54,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new TextureAtlasLayoutCoordinator();
     private final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator
         textureAtlasNativeInvocations = new dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator();
-    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
-    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
-    private dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms =
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi =
+        new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession =
+        new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
+            () -> optionalEditorModelResolver().orElse(null),
+            textureAtlasEditorUi::view
+        );
+    private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms =
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
@@ -540,45 +545,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         return textureAtlasAlgorithms;
     }
 
-    /**
-     * @return the texture-atlas editor UI for this session, created lazily on first call under the
-     *     lifecycle monitor and reused afterwards
-     */
+    /** @return the stable texture-atlas editor UI owned by this host session. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi textureAtlasEditorUi() {
-        synchronized (lifecycleMonitor) {
-            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi ui = textureAtlasEditorUi;
-            if (ui == null) {
-                ui = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
-                textureAtlasEditorUi = ui;
-            }
-            return ui;
-        }
+        return textureAtlasEditorUi;
     }
 
-    /**
-     * @return the texture-atlas editor session, created lazily under the lifecycle monitor over the
-     *     currently verified resolver and this session's editor UI view
-     */
+    /** @return the stable texture-atlas editor session resolved against the active connection. */
     public dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession() {
-        synchronized (lifecycleMonitor) {
-            dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession session = textureAtlasEditorSession;
-            if (session == null) {
-                dev.turboism.mapping.verification.VerifiedMemberResolver resolver = null;
-                try {
-                    resolver = editorModelResolver();
-                } catch (IllegalStateException unavailable) {
-                    // no active connection yet: the session stays unattached
-                }
-                session = resolver == null
-                    ? dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession.unavailable()
-                    : new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
-                        resolver,
-                        () -> textureAtlasEditorUi().view()
-                    );
-                textureAtlasEditorSession = session;
-            }
-            return session;
-        }
+        return textureAtlasEditorSession;
     }
 
     /**
@@ -707,6 +681,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             partLifecycle.close();
             textureAtlasLayouts.close();
             textureAtlasNativeInvocations.close();
+            textureAtlasEditorUi.close();
             parameterLifecycle.close();
             meshEditUiService.resetSession();
             meshMirrorAxisService.resetSession();
@@ -759,6 +734,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
         dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
+        textureAtlasEditorUi.deactivate();
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
         activeConnectionKey = null;

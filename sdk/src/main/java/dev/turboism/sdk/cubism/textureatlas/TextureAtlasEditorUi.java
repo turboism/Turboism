@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 
 /**
  * Framework capability: contributes plugin-owned UI into the native texture-atlas
@@ -8,6 +9,7 @@ package dev.turboism.sdk.cubism.textureatlas;
  * content and refresh policy (for example, a statistics panel fed by
  * {@link TextureAtlasEditorSession}).
  */
+@CubismEditor({"5.3.02", "5.3.03"})
 public interface TextureAtlasEditorUi {
 
     /**

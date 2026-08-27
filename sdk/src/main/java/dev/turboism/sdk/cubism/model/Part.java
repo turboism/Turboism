@@ -2,19 +2,15 @@ package dev.turboism.sdk.cubism.model;
 
 import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
-import dev.turboism.sdk.ui.appearance.model.PartAppearance;
 
 import java.util.List;
 import java.util.Optional;
 
 /** One Cubism Part. */
 @CubismEditor({"5.2.03", "5.3.02"})
-public interface Part {
+public interface Part extends PartAppearanceAccess {
 
     PartId id();
-
-    /** Returns this Part's Cubism palette UI projection. */
-    default PartAppearance ui() { return PartAppearance.unavailable(); }
 
     default int index() { throw unavailable("Part index"); }
 

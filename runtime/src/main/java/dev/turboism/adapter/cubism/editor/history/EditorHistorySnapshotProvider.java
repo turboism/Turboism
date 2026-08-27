@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
@@ -23,6 +25,13 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private final Supplier<Optional<VerifiedMemberResolver>> resolver;
     private final LongSupplier generation;
     private final Object revisionLock = new Object();
+    private final Object identityLock = new Object();
+    private final java.util.IdentityHashMap<Object, Long> documentIdentities =
+        new java.util.IdentityHashMap<>();
+    private final java.util.IdentityHashMap<Object, Long> managerIdentities =
+        new java.util.IdentityHashMap<>();
+    private long nextDocumentIdentity;
+    private long nextManagerIdentity;
     private long revisionGeneration = -1;
     private long revision;
     private String lastFingerprint = "";
@@ -40,11 +49,43 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final long expectedGeneration = generation.getAsLong();
         if (expectedGeneration <= 0) return HistorySnapshot.unavailable();
         final Optional<VerifiedMemberResolver> available = resolver.get();
-        if (available.isEmpty()) return HistorySnapshot.unavailable();
+        if (available.isEmpty() || !available.orElseThrow().authorizesFeature(
+            EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorHistoryReadSelectorContract.CAPABILITY_ID,
+            EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+        )) return HistorySnapshot.unavailable();
         try {
             return onEdt(() -> project(available.orElseThrow(), expectedGeneration));
         } catch (Exception exception) {
             return HistorySnapshot.unavailable();
+        }
+    }
+
+    @Override
+    public boolean isCurrentBinding(final HistorySnapshot snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE
+            || snapshot.documentBindingId().isEmpty()
+            || snapshot.managerBindingId().isEmpty()) {
+            return false;
+        }
+        final long expectedGeneration = generation.getAsLong();
+        if (expectedGeneration != snapshot.generation()) return false;
+        final Optional<VerifiedMemberResolver> available = resolver.get();
+        if (available.isEmpty()) return false;
+        try {
+            return onEdt(() -> {
+                final Binding binding = currentBinding(available.orElseThrow());
+                return generation.getAsLong() == expectedGeneration
+                    && documentBindingId(binding.document()).equals(
+                        snapshot.documentBindingId()
+                    )
+                    && managerBindingId(binding.manager()).equals(
+                        snapshot.managerBindingId()
+                    );
+            });
+        } catch (Exception failure) {
+            return false;
         }
     }
 
@@ -54,18 +95,54 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final long expectedRevision,
         final int position
     ) {
+        return moveToAuthorized(expectedGeneration, expectedRevision, "", "", position);
+    }
+
+    @Override
+    public HistoryMoveResult moveTo(
+        final HistorySnapshot expected,
+        final int position
+    ) {
+        Objects.requireNonNull(expected, "expected");
+        if (expected.availability() != HistorySnapshot.Availability.AVAILABLE
+            || expected.documentBindingId().isEmpty()
+            || expected.managerBindingId().isEmpty()) {
+            return new HistoryMoveResult(
+                HistoryMoveResult.Outcome.REJECTED_STALE,
+                snapshot(),
+                Optional.of("history.move.binding-required")
+            );
+        }
+        return moveToAuthorized(
+            expected.generation(),
+            expected.revision(),
+            expected.documentBindingId(),
+            expected.managerBindingId(),
+            position
+        );
+    }
+
+    private HistoryMoveResult moveToAuthorized(
+        final long expectedGeneration,
+        final long expectedRevision,
+        final String expectedDocumentBindingId,
+        final String expectedManagerBindingId,
+        final int position
+    ) {
         final Optional<VerifiedMemberResolver> available = resolver.get();
         if (available.isEmpty()) return unavailableMove("history.move.unavailable");
         if (!available.orElseThrow().authorizesFeature(
-            "adapter.editor-model.readwrite",
-            "cubism.editor-history.move",
-            java.util.Set.of("cubism.editor-history.manager.move-to")
+            EditorHistoryMoveSelectorContract.ADAPTER_SLICE_ID,
+            EditorHistoryMoveSelectorContract.CAPABILITY_ID,
+            EditorHistoryMoveSelectorContract.REQUIRED_ALIASES
         )) return unavailableMove("history.move.unavailable");
         try {
             return onEdt(() -> move(
                 available.orElseThrow(),
                 expectedGeneration,
                 expectedRevision,
+                expectedDocumentBindingId,
+                expectedManagerBindingId,
                 position
             ));
         } catch (Exception exception) {
@@ -81,9 +158,33 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final VerifiedMemberResolver resolver,
         final long expectedGeneration,
         final long expectedRevision,
+        final String expectedDocumentBindingId,
+        final String expectedManagerBindingId,
         final int target
     ) {
         final long currentGeneration = generation.getAsLong();
+        final boolean bindingRequired = !expectedDocumentBindingId.isEmpty()
+            || !expectedManagerBindingId.isEmpty();
+        if (bindingRequired) {
+            final Binding activeBinding;
+            try {
+                activeBinding = currentBinding(resolver);
+            } catch (IllegalStateException unavailable) {
+                return new HistoryMoveResult(
+                    HistoryMoveResult.Outcome.REJECTED_STALE,
+                    HistorySnapshot.unavailable(),
+                    Optional.of("history.move.binding-stale")
+                );
+            }
+            if (!documentBindingId(activeBinding.document()).equals(expectedDocumentBindingId)
+                || !managerBindingId(activeBinding.manager()).equals(expectedManagerBindingId)) {
+                return new HistoryMoveResult(
+                    HistoryMoveResult.Outcome.REJECTED_STALE,
+                    HistorySnapshot.unavailable(),
+                    Optional.of("history.move.binding-stale")
+                );
+            }
+        }
         final HistorySnapshot before = project(resolver, currentGeneration);
         if (before.availability() != HistorySnapshot.Availability.AVAILABLE) {
             return new HistoryMoveResult(
@@ -163,16 +264,25 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private Object currentManager(final VerifiedMemberResolver resolver) {
+        return currentBinding(resolver).manager();
+    }
+
+    private Binding currentBinding(final VerifiedMemberResolver resolver) {
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        if (document == null || !resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        if (document == null
+            || !resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
             throw new IllegalStateException("Active Modeling document is unavailable");
         }
-        final Object manager = resolver.invoke("cubism.editor-history.document.undo-manager", document);
+        final Object manager = resolver.invoke(
+            "cubism.editor-history.document.undo-manager", document
+        );
         if (!resolver.isInstance("cubism.editor-history.manager.class", manager)) {
             throw new IllegalStateException("Active history manager is unavailable");
         }
-        return manager;
+        return new Binding(document, manager);
     }
 
     private HistorySnapshot project(
@@ -180,15 +290,14 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final long expectedGeneration
     ) {
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
-        if (document == null || !resolver.isInstance("cubism.editor-model.modeling-document.class", document)) {
+        final Binding binding;
+        try {
+            binding = currentBinding(resolver);
+        } catch (IllegalStateException unavailable) {
             return HistorySnapshot.unavailable();
         }
-        final Object manager = resolver.invoke("cubism.editor-history.document.undo-manager", document);
-        if (!resolver.isInstance("cubism.editor-history.manager.class", manager)) {
-            return HistorySnapshot.unavailable();
-        }
+        final Object document = binding.document();
+        final Object manager = binding.manager();
         final Object rawEntries = resolver.invoke("cubism.editor-history.manager.entries", manager);
         if (!(rawEntries instanceof List<?> values)) return HistorySnapshot.unavailable();
         final ArrayList<HistoryEntry> entries = new ArrayList<>(values.size());
@@ -220,8 +329,34 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             position,
             entries,
             canUndo,
-            canRedo
+            canRedo,
+            documentBindingId(document),
+            managerBindingId(manager)
         );
+    }
+
+    private String documentBindingId(final Object document) {
+        synchronized (identityLock) {
+            return "history-document-" + Long.toUnsignedString(
+                documentIdentities.computeIfAbsent(
+                    document,
+                    ignored -> ++nextDocumentIdentity
+                ),
+                36
+            );
+        }
+    }
+
+    private String managerBindingId(final Object manager) {
+        synchronized (identityLock) {
+            return "history-manager-" + Long.toUnsignedString(
+                managerIdentities.computeIfAbsent(
+                    manager,
+                    ignored -> ++nextManagerIdentity
+                ),
+                36
+            );
+        }
     }
 
     private long nextRevision(
@@ -245,6 +380,13 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
                 lastFingerprint = fingerprint;
             }
             return revision;
+        }
+    }
+
+    private record Binding(Object document, Object manager) {
+        Binding {
+            Objects.requireNonNull(document, "document");
+            Objects.requireNonNull(manager, "manager");
         }
     }
 
