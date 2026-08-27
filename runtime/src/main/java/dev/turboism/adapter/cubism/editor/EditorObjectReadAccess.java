@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
@@ -196,6 +197,22 @@ final class EditorObjectReadAccess {
         )) {
             throw new UnsupportedOperationException(
                 "Editor ArtMesh and Deformer reads require exact verified host evidence."
+            );
+        }
+    }
+
+    private void requireClipMaskReadAuthorized() {
+        if (!resolver.authorizesFeature(
+            EditorObjectReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectReadSelectorContract.CAPABILITY_ID,
+            EditorObjectReadSelectorContract.REQUIRED_ALIASES
+        ) || !resolver.authorizesFeature(
+            EditorClipMaskReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorClipMaskReadSelectorContract.CAPABILITY_ID,
+            EditorClipMaskReadSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Editor ArtMesh clip-mask reads require independent exact verified host evidence."
             );
         }
     }
@@ -655,7 +672,13 @@ final class EditorObjectReadAccess {
             resolver.invoke("cubism.editor-model.art-mesh-source.indices", source),
             "Editor ArtMesh indices"
         );
-        return new ArtMeshGeometry(points(positions, "ArtMesh positions"), points(uvs, "ArtMesh UVs"), boxed(indices));
+        final List<Point2> positionPoints = points(positions, "ArtMesh positions");
+        final List<Point2> uvPoints = points(uvs, "ArtMesh UVs");
+        if (positionPoints.size() != uvPoints.size()) {
+            throw unavailable("Editor ArtMesh positions and UVs have different vertex counts.");
+        }
+        validateTriangleIndices(indices, positionPoints.size(), "Editor ArtMesh indices");
+        return new ArtMeshGeometry(positionPoints, uvPoints, boxed(indices));
     }
 
     private WarpGrid warpGrid(final Object source, final Object instance) {
@@ -899,16 +922,22 @@ final class EditorObjectReadAccess {
         writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, List.of(objectSource), action, mutation, false);
     }
 
-    /** Batch envelope: admits one target-handler Undo snapshot per ordered source into one edit session. */
-    private void writeBatch(
-        final Kind kind,
+    /** Clip-mask batch envelope after the caller's dedicated capability admission. */
+    private void writeClipMaskBatch(
         final Object modelSource,
         final List<Object> undoSources,
         final String action,
         final Runnable mutation
     ) {
-        requireWriteAuthorized(kind);
-        writeEnvelope(UndoKind.ALL_EDIT, kind, modelSource, undoSources, action, mutation, false);
+        writeEnvelope(
+            UndoKind.ALL_EDIT,
+            Kind.ART_MESH,
+            modelSource,
+            undoSources,
+            action,
+            mutation,
+            false
+        );
     }
 
     /** Inspector-write envelope: requires the dedicated inspector capability and mirrors the Inspector undo kinds. */
@@ -2256,7 +2285,10 @@ final class EditorObjectReadAccess {
         @Override public Optional<PartId> parentPartId() { return EditorObjectReadAccess.this.parentPartId(current().source()); }
         @Override public Optional<DeformerId> parentDeformerId() { return EditorObjectReadAccess.this.parentDeformerId(identity, modelSource, model, current().source()); }
         @Override public List<ParameterId> parameterIds() { return EditorObjectReadAccess.this.parameterIds(current().source()); }
-        @Override public List<ArtMeshId> maskIds() { return EditorObjectReadAccess.this.maskIds(identity, modelSource, model, current().source()); }
+        @Override public List<ArtMeshId> maskIds() {
+            requireClipMaskReadAuthorized();
+            return EditorObjectReadAccess.this.maskIds(identity, modelSource, model, current().source());
+        }
         @Override public String guid() {
             current();
             return guidValue(resolver.invoke("cubism.editor-model.art-mesh-source.guid", current().source()));
@@ -2284,7 +2316,14 @@ final class EditorObjectReadAccess {
         @Override public int drawOrder() { return integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", artMeshForm(current().instance())), "ArtMesh draw order"); }
         @Override public ArtMeshGeometry geometry() { final ObjectRef value = current(); return EditorObjectReadAccess.this.geometry(value.source(), value.instance()); }
         @Override public void replaceGeometry(final ArtMeshGeometry geometry) { final ObjectRef value = current(); replaceArtMeshGeometry(modelSource, value, geometry); }
-        @Override public boolean invertedMask() { return sourceFlag("cubism.editor-model.art-mesh-source.inverted-mask", current().source(), "ArtMesh inverted-mask state"); }
+        @Override public boolean invertedMask() {
+            requireClipMaskReadAuthorized();
+            return sourceFlag(
+                "cubism.editor-model.art-mesh-source.inverted-mask",
+                current().source(),
+                "ArtMesh inverted-mask state"
+            );
+        }
         @Override public boolean culling() { return sourceFlag("cubism.editor-model.art-mesh-source.culling", current().source(), "ArtMesh culling state"); }
         @Override public String userData() { final Object value = resolver.invoke("cubism.editor-model.art-mesh-source.user-data", current().source()); return value == null ? "" : string(value, "ArtMesh user data"); }
         @Override public FloatSequence vertexPositions() { return floatSequence(flatten(geometry().positions())); }
@@ -2741,6 +2780,7 @@ final class EditorObjectReadAccess {
     private static float[] floats(final Object value, final String label) { if (!(value instanceof float[] values)) throw unavailable(label + " is invalid."); final float[] copy = values.clone(); for (float item : copy) if (!Float.isFinite(item)) throw unavailable(label + " contains a non-finite value."); return copy; }
     private static int[] ints(final Object value, final String label) { if (!(value instanceof int[] values)) throw unavailable(label + " is invalid."); return values.clone(); }
     private static List<Point2> points(final float[] values, final String label) { if (values.length % 2 != 0) throw unavailable(label + " does not contain XY pairs."); final ArrayList<Point2> points = new ArrayList<>(values.length / 2); for (int index = 0; index < values.length; index += 2) points.add(new Point2(values[index], values[index + 1])); return List.copyOf(points); }
+    private static void validateTriangleIndices(final int[] values, final int vertexCount, final String label) { if (values.length % 3 != 0) throw unavailable(label + " does not contain triangle triples."); for (int value : values) if (value < 0 || value >= vertexCount) throw unavailable(label + " contains an out-of-range vertex index."); }
     private static List<Integer> boxed(final int[] values) { return java.util.Arrays.stream(values).boxed().toList(); }
     private static List<Float> flatten(final List<Point2> points) { final ArrayList<Float> values = new ArrayList<>(points.size() * 2); for (Point2 point : points) { values.add(point.x()); values.add(point.y()); } return List.copyOf(values); }
     private static FloatSequence floatSequence(final List<Float> values) { final float[] copy = new float[values.size()]; for (int index = 0; index < copy.length; index++) copy[index] = values.get(index); return new FloatSequence() { @Override public int size() { return copy.length; } @Override public float get(final int index) { return copy[index]; } }; }
@@ -2804,6 +2844,7 @@ final class EditorObjectReadAccess {
 
         final java.util.HashSet<String> targetIds = new java.util.HashSet<>();
         final ArrayList<ClipMaskPlan> plans = new ArrayList<>(batch.size());
+        boolean changed = false;
         for (ClipMaskReplacement replacement : batch) {
             final String targetId = replacement.targetArtMeshId().value();
             if (!targetIds.add(targetId)) {
@@ -2848,6 +2889,8 @@ final class EditorObjectReadAccess {
                 "Editor ArtMesh clipping masks"
             );
             final Object originalClipGuidList = newClipGuidList(originalGuids);
+            changed |= !actualMasks.equals(replacement.replacementMaskArtMeshIds())
+                || actualInverted != replacement.replacementInverted();
             plans.add(new ClipMaskPlan(
                 target,
                 actualMasks,
@@ -2858,6 +2901,8 @@ final class EditorObjectReadAccess {
             ));
         }
 
+        if (!changed) return;
+
         final ArrayList<Object> undoSources = new ArrayList<>(plans.size());
         for (ClipMaskPlan plan : plans) {
             undoSources.add(plan.target().source());
@@ -2865,7 +2910,7 @@ final class EditorObjectReadAccess {
         // Exact 5.2 and 5.3.02 evidence: handler Undo snapshots are target-scoped, so the
         // batch admits one snapshot per planned target in plan order inside the single edit
         // session; the host groups those snapshots into one Undo step.
-        writeBatch(Kind.ART_MESH, modelSource, undoSources, "Replace ArtMesh clip masks", () -> {
+        writeClipMaskBatch(modelSource, undoSources, "Replace ArtMesh clip masks", () -> {
             final ArrayList<ClipMaskPlan> applied = new ArrayList<>(plans.size());
             try {
                 for (ClipMaskPlan plan : plans) {

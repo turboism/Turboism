@@ -24,9 +24,27 @@ final class EditorPartStructureAccess {
     }
 
     PartId add(final String identity, final Object source, final Object model, final PartId id, final PartId parentId) {
-        requireAuthorization();
+        return EditorHostThread.dispatch("Cubism Part structure", () ->
+            addOnHostThread(identity, source, model, id, parentId)
+        );
+    }
+
+    private PartId addOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id,
+        final PartId parentId
+    ) {
+        if (parentId == null) {
+            requireRootCreateAuthorization();
+        } else {
+            requireAuthorization();
+        }
         Objects.requireNonNull(id, "id");
-        if (id.value().isBlank()) throw new IllegalArgumentException("id must not be blank");
+        if (!InspectorIdRules.isValidCubismId(id.value())) {
+            throw new IllegalArgumentException("id violates Cubism ID rules: " + id.value());
+        }
         modelGuard.requireCurrent(identity, model);
         if (findSource(source, model, id) != null) {
             throw new IllegalArgumentException("Cubism part ID is already present: " + id.value());
@@ -48,6 +66,17 @@ final class EditorPartStructureAccess {
     }
 
     PartId copy(final String identity, final Object source, final Object model, final PartId id) {
+        return EditorHostThread.dispatch("Cubism Part structure", () ->
+            copyOnHostThread(identity, source, model, id)
+        );
+    }
+
+    private PartId copyOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id
+    ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
@@ -71,7 +100,7 @@ final class EditorPartStructureAccess {
         );
         resolver.invoke("cubism.editor-model.part-source.set-id", copied, freshId);
         resolver.invoke("cubism.editor-model.part-source.set-guid", copied, resolver.construct("cubism.editor-model.part-guid.create"));
-        final int index = childCount(parent);
+        final int index = childIndex(parent, current) + 1;
         write(identity, source, model, "Turboism: Duplicate Part", () -> resolver.invoke(
             "cubism.editor-model.part-handler.add-part-child",
             parentHandler(parent), copied, Integer.valueOf(index)));
@@ -80,6 +109,18 @@ final class EditorPartStructureAccess {
     }
 
     void remove(final String identity, final Object source, final Object model, final PartId id) {
+        EditorHostThread.dispatch("Cubism Part structure", () -> {
+            removeOnHostThread(identity, source, model, id);
+            return null;
+        });
+    }
+
+    private void removeOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final PartId id
+    ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
@@ -92,14 +133,26 @@ final class EditorPartStructureAccess {
     }
 
     private void requireAuthorization() {
+        requireAuthorization(
+            EditorPartStructureSelectorContract.REQUIRED_ALIASES,
+            "Part structure editing is unavailable without exact verified host evidence."
+        );
+    }
+
+    private void requireRootCreateAuthorization() {
+        requireAuthorization(
+            EditorPartStructureSelectorContract.ROOT_CREATE_REQUIRED_ALIASES,
+            "Root Part creation is unavailable without exact verified host evidence."
+        );
+    }
+
+    private void requireAuthorization(final java.util.Set<String> aliases, final String message) {
         if (!resolver.authorizesFeature(
             EditorPartStructureSelectorContract.ADAPTER_SLICE_ID,
             EditorPartStructureSelectorContract.CAPABILITY_ID,
-            EditorPartStructureSelectorContract.REQUIRED_ALIASES
+            aliases
         )) {
-            throw new UnsupportedOperationException(
-                "Part structure editing is unavailable without exact verified host evidence."
-            );
+            throw new UnsupportedOperationException(message);
         }
     }
 
@@ -128,11 +181,25 @@ final class EditorPartStructureAccess {
     }
 
     private int childCount(final Object partSource) {
+        return children(partSource).size();
+    }
+
+    private int childIndex(final Object partSource, final Object child) {
+        final int index = children(partSource).indexOf(child);
+        if (index < 0) {
+            throw new IllegalStateException(
+                "Editor part is absent from its declared parent."
+            );
+        }
+        return index;
+    }
+
+    private List<?> children(final Object partSource) {
         final Object raw = resolver.invoke("cubism.editor-model.part-source.children", partSource);
         if (!(raw instanceof List<?> children)) {
             throw new IllegalStateException("Editor part children are unavailable.");
         }
-        return children.size();
+        return children;
     }
 
     private Object findSource(final Object source, final Object model, final PartId id) {
@@ -169,8 +236,10 @@ final class EditorPartStructureAccess {
         final String actionName,
         final Supplier<Object> undoSupplier
     ) {
+        requireHostThread();
+        modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object document = activeDocumentFor(source, app);
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
         boolean completed = false;
@@ -188,13 +257,47 @@ final class EditorPartStructureAccess {
                     return null;
                 }
             );
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            requireListenerAccepted(
+                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
+                actionName
+            );
+            modelGuard.requireCurrent(identity, model);
+            activeDocumentFor(source, app);
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
             resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
+        }
+    }
+
+    private Object activeDocumentFor(final Object source, final Object app) {
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object activeSource = resolver.invoke(
+            "cubism.editor-model.modeling-document.model-source", document
+        );
+        if (activeSource != source) {
+            throw new IllegalStateException(
+                "Cubism document reference is stale for the active Editor model generation."
+            );
+        }
+        return document;
+    }
+
+    private static void requireListenerAccepted(final Object accepted, final String actionName) {
+        if (!(accepted instanceof Boolean value) || !value) {
+            throw new IllegalStateException(
+                "Cubism rejected the " + actionName + " Undo listener."
+            );
+        }
+    }
+
+    private static void requireHostThread() {
+        if (!EditorHostThread.isCurrent()) {
+            throw new IllegalStateException("Cubism Part structure write escaped the EDT.");
         }
     }
 

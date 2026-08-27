@@ -16,6 +16,7 @@ public record ProjectLifecycleHostProfile(
 ) {
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     public ProjectLifecycleHostProfile {
         hostVersion = requireText(hostVersion, "hostVersion");
@@ -24,9 +25,9 @@ public record ProjectLifecycleHostProfile(
     }
 
     /**
-     * Resolves the reviewed lifecycle bindings for a host artifact. Only the two admitted Cubism Editor
-     * builds are recognised — 5.2.03 and 5.3.02 — and both currently share the same reviewed method
-     * selectors for model open, animation open, editor exit, and model/animation save and close.
+     * Resolves the reviewed lifecycle bindings for a host artifact. Cubism Editor 5.2.03, 5.3.02,
+     * and 5.3.03 currently share the same reviewed method selectors for model open, animation open,
+     * editor exit, and model/animation save and close. Runtime admission is decided separately.
      *
      * @param artifact digest of the host artifact actually loaded
      * @return the matching profile, or empty when the artifact is not a reviewed Cubism build, in which
@@ -40,6 +41,7 @@ public record ProjectLifecycleHostProfile(
         final String version;
         if (artifact.equals(CUBISM_52)) version = "5.2.03";
         else if (artifact.equals(CUBISM_53)) version = "5.3.02";
+        else if (artifact.equals(CUBISM_5303)) version = "5.3.03";
         else return Optional.empty();
 
         final String app = "com/live2d/cubism/CEAppCtrl";

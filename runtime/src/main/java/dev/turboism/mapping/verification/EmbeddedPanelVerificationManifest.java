@@ -6,8 +6,8 @@ import java.util.Set;
 /**
  * Runtime trust root for exact-version Cubism embedded-panel providers.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data; every other artifact fails closed.</p>
+ * <p>Each reviewed Cubism version is declared as its own {@link ReviewedSliceRecord}; every
+ * other artifact fails closed.</p>
  */
 public final class EmbeddedPanelVerificationManifest {
 
@@ -17,11 +17,14 @@ public final class EmbeddedPanelVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed embedded-panel record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-embedded-panel.static",
-        "7434756c7e32e6d817f8117d10554c3334319ab18022510d05289bf79eb7b8ea",
+        "5ec9331ab80b79f6eff6777f282738bfbe26400620b2e27e23715963a23b7d89",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -30,12 +33,25 @@ public final class EmbeddedPanelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-embedded-panel.static",
-        "b03722ff0f8cd07c2b6c21c62b27d24c06477877a0bb7ba6d63cc7c1eafeeb62",
+        "6f8514a907b77b93f1eef36f2e4226455a6eceec820efae736868ee81ee45a2a",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed embedded-panel record admitted for exact Cubism 5.3.03 static resolution. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.ui-embedded-panel.static",
+        "f520ec5496dfd80b78c0dad54d6f9ab0db56142720156b4c551cd38c02cfdb23",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.embedded-panel";
     public static final String CAPABILITY_ID = "cubism.editor-ui.embedded-panel";

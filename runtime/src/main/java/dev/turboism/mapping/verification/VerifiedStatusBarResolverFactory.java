@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 /**
- * Pinned resolver factory for the reviewed exact Cubism 5.2.03 and 5.3.02
+ * Pinned resolver factory for the reviewed exact Cubism 5.2.03, 5.3.02 and 5.3.03
  * status-bar slice; the manifest dispatches on the artifact digest.
  */
 public final class VerifiedStatusBarResolverFactory {

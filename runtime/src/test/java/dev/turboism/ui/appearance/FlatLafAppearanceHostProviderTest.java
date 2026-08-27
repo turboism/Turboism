@@ -30,8 +30,8 @@ class FlatLafAppearanceHostProviderTest {
 
         provider.restore(baseline);
 
-        // Native restore drops owned overrides; it does not re-put captured
-        // values (the early bootstrap may already have injected the theme).
+        // This synthetic host does not opt into captured-baseline restoration, matching the
+        // fail-safe native fallback used by non-Swing host operations.
         assertEquals(Map.of(), host.values);
         assertEquals(2, host.refreshes);
         assertEquals(AppearanceBase.NATIVE, provider.readStatus().base());
@@ -45,6 +45,34 @@ class FlatLafAppearanceHostProviderTest {
         assertEquals(AppearanceHostProvider.ApplyOutcome.APPLIED, provider.apply(request()));
         assertEquals(AppearanceHostProvider.ApplyOutcome.NO_CHANGE, provider.apply(request()));
         assertEquals(1, host.refreshes);
+    }
+
+    @Test
+    void exact5303CanBeConstructedForValidationWithoutWideningConnectorAdmission() {
+        RecordingHost host = new RecordingHost(Map.of());
+        FlatLafAppearanceHostProvider provider = new FlatLafAppearanceHostProvider("5.3.03", host);
+
+        assertEquals("5.3.03", provider.hostVersion());
+        assertEquals(AppearanceHostProvider.ApplyOutcome.APPLIED, provider.apply(request()));
+    }
+
+    @Test
+    void restorableHostOperationsReapplyTheCapturedBaseline() {
+        RestorableRecordingHost host = new RestorableRecordingHost(Map.of(
+            "CubismCommon.blue", "#010203",
+            "Panel.background", "#040506"
+        ));
+        FlatLafAppearanceHostProvider provider = new FlatLafAppearanceHostProvider("5.3.03", host);
+        AppearanceHostProvider.RestorePoint baseline = provider.captureRestorePoint();
+
+        provider.apply(request());
+        provider.restore(baseline);
+
+        assertEquals(Map.of(
+            "CubismCommon.blue", "#010203",
+            "Panel.background", "#040506"
+        ), host.values);
+        assertEquals(0, host.nativeRestores);
     }
 
     private static AppearanceRequest request() {
@@ -67,11 +95,12 @@ class FlatLafAppearanceHostProviderTest {
         );
     }
 
-    private static final class RecordingHost implements FlatLafAppearanceHostProvider.HostOperations {
-        private final LinkedHashMap<String, String> values;
+    private static class RecordingHost implements FlatLafAppearanceHostProvider.HostOperations {
+        protected final LinkedHashMap<String, String> values;
         private int refreshes;
+        protected int nativeRestores;
 
-        private RecordingHost(final Map<String, String> initial) {
+        protected RecordingHost(final Map<String, String> initial) {
             values = new LinkedHashMap<>(initial);
         }
 
@@ -88,6 +117,7 @@ class FlatLafAppearanceHostProviderTest {
 
         @Override
         public void restoreNative() {
+            nativeRestores++;
             values.clear();
             refresh();
         }
@@ -95,6 +125,24 @@ class FlatLafAppearanceHostProviderTest {
         @Override
         public void refresh() {
             refreshes++;
+        }
+    }
+
+    private static final class RestorableRecordingHost extends RecordingHost {
+        private RestorableRecordingHost(final Map<String, String> initial) {
+            super(initial);
+        }
+
+        @Override
+        public boolean capturedBaselineCanBeRestored() {
+            return true;
+        }
+
+        @Override
+        public void restore(final Map<String, String> defaults) {
+            values.clear();
+            values.putAll(defaults);
+            refresh();
         }
     }
 }

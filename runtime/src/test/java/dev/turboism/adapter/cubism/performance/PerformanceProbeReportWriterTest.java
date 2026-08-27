@@ -52,6 +52,7 @@ class PerformanceProbeReportWriterTest {
         final Path output = temporary.resolve("logs/performance-probe.json");
         new PerformanceProbeReportWriter().write(
             output,
+            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
             ARTIFACT_SHA,
             AGENT_SHA,
             FIXTURE_SHA,
@@ -98,5 +99,30 @@ class PerformanceProbeReportWriterTest {
         assertTrue(root.path("capture").path("endEpochMs").asLong()
             > root.path("capture").path("startEpochMs").asLong());
         assertFalse(root.path("writtenAt").asText().isBlank());
+    }
+
+    @Test
+    void reportCarriesTheExact5303ProfileIdentity() throws Exception {
+        final PerformanceProbeRecorder recorder = new PerformanceProbeRecorder();
+        final Path output = temporary.resolve("logs/performance-probe-5303.json");
+
+        new PerformanceProbeReportWriter().write(
+            output,
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+            AGENT_SHA,
+            FIXTURE_SHA,
+            "camera",
+            1_700_000_000_000L,
+            1_700_000_030_000L,
+            recorder.snapshot()
+        );
+
+        final JsonNode root = JSON.readTree(Files.readAllBytes(output));
+        assertEquals("5.3.03", root.path("cubismVersion").asText());
+        assertEquals(
+            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+            root.path("artifactSha256").asText()
+        );
     }
 }

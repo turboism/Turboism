@@ -36,6 +36,8 @@ public final class TextureAtlasAutoLayoutDialogContributor {
     /** Shared bridge key consumed by the texture-atlas plugin and the runtime dialog ingress. */
     public static final String ALGORITHM_KEY = "dev.turboism.texture-atlas.dialog.algorithm";
     public static final String PARALLEL_KEY = "dev.turboism.texture-atlas.dialog.parallel";
+    public static final String VALIDATION_OBSERVER_KEY =
+        "dev.turboism.texture-atlas.dialog.validation-observer";
     public static final String ALGO_NATIVE = "native";
     public static final String ALGO_MAXRECTS = "maxrects";
 
@@ -92,6 +94,11 @@ public final class TextureAtlasAutoLayoutDialogContributor {
             return;
         }
 
+        final List<TextureAtlasLayoutAlgorithm> algorithms = registry.algorithms();
+        if (algorithms.isEmpty()) {
+            return;
+        }
+
         // Push any existing spacer on the native layout row 5 down so the
         // contributed rows stay visible (port of the legacy dialog injection).
         for (Component component : center.getComponents()) {
@@ -121,7 +128,6 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         labelConstraints.insets = new Insets(insetY, 0, insetY, 12);
         center.add(algorithmLabel, labelConstraints);
 
-        final List<TextureAtlasLayoutAlgorithm> algorithms = registry.algorithms();
         final String[] names = algorithms.stream()
             .map(TextureAtlasLayoutAlgorithm::displayName)
             .toArray(String[]::new);
@@ -193,7 +199,42 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         parallelConstraints.weightx = 1.0;
         parallelConstraints.insets = new Insets(insetY, 0, insetY, 0);
         center.add(parallelCheck, parallelConstraints);
+        notifyValidationObserver(new DialogObservation(
+            center,
+            algorithmLabel,
+            algorithmCombo,
+            parallelLabel,
+            parallelCheck,
+            List.copyOf(algorithms)
+        ));
     }
+
+    private static void notifyValidationObserver(final DialogObservation observation) {
+        final Object registered = System.getProperties().get(VALIDATION_OBSERVER_KEY);
+        if (!(registered instanceof java.util.function.Consumer<?> consumer)) {
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        final java.util.function.Consumer<Object> observer =
+            (java.util.function.Consumer<Object>) consumer;
+        try {
+            observer.accept(observation);
+        } catch (RuntimeException | Error failure) {
+            System.err.println(
+                "Turboism texture-atlas dialog validation observer failed safely: " + failure
+            );
+        }
+    }
+
+    /** Task-scoped exact-host observation of the injected semantic controls. */
+    public record DialogObservation(
+        JPanel center,
+        JLabel algorithmLabel,
+        JComboBox<String> algorithmCombo,
+        JLabel parallelLabel,
+        JCheckBox parallelCheck,
+        List<TextureAtlasLayoutAlgorithm> algorithms
+    ) { }
 
     private static JPanel findGridBagPanel(final Container container) {
         for (Component component : container.getComponents()) {

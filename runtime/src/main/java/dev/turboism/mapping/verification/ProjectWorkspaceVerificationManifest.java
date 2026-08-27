@@ -6,7 +6,7 @@ import java.util.Set;
 /**
  * Runtime-owned allowlist for the reviewed Cubism project/workspace evidence.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * <p>All admitted Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
  * data; every other artifact fails closed.</p>
  */
 public final class ProjectWorkspaceVerificationManifest {
@@ -17,14 +17,14 @@ public final class ProjectWorkspaceVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
-    /** Cubism version reported for the reviewed 5.3.03 static record. */
+    /** Cubism version reported for the reviewed 5.3.03 read-only artifact. */
     public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
 
     /** Reviewed project/workspace record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "m15.cubism-5.2.03.project-workspace.static",
-        "38a9da7d0d6a37b7b37a54499cb788341f5a081bb545c6aafabf3e0fd262ea3f",
+        "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -33,25 +33,21 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "m15.cubism-5.3.02.project-workspace.static",
-        "902e3284dad2180a4211f87b777df67fe031a98a48c6fa339acd5602f33ef38b",
+        "182659e0b3ccae047689ade53bf42e0b441e8144d996242b0cb888f0a0c61191",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    /** Reviewed static project/workspace record identified for exact Cubism 5.3.03. */
+    /** Reviewed project/workspace read record admitted for exact Cubism 5.3.03. */
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "m15.cubism-5.3.03.project-workspace.static",
-        "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
+        "d7f45e0c7d70925b4c77db18022b06ee4f089bc7b1cbe585ef311efa754f168e",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(
-        RECORD_5_2_03,
-        RECORD_5_3_02,
-        RECORD_5_3_03
-    );
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02, RECORD_5_3_03);
 
     public static final String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
     public static final Set<String> CAPABILITY_IDS = Set.of(
@@ -95,7 +91,8 @@ public final class ProjectWorkspaceVerificationManifest {
         if (resolver == null) {
             return false;
         }
-        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION_5_3_02)
+        final boolean reviewedVersion = resolver.isExactCubismVersion(CUBISM_VERSION_5_3_03)
+            || resolver.isExactCubismVersion(CUBISM_VERSION_5_3_02)
             || resolver.isExactCubismVersion(CUBISM_VERSION_5_2_03);
         return reviewedVersion && resolver.authorizes(
             ADAPTER_SLICE_ID,

@@ -10,6 +10,7 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.modeling-document.class",
+        "cubism.editor-model.modeling-document.model-source",
         "cubism.editor-model.model-source.guid",
         "cubism.editor-model.guid.value",
         "cubism.texture-atlas.data-model.class",
@@ -18,6 +19,12 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
         "cubism.texture-atlas.texture-manager.atlases",
         "cubism.texture-atlas.model-source.texture-manager",
         "cubism.texture-atlas.texture-manager.images",
+        "cubism.editor-model.texture-manager.handler",
+        "cubism.texture-atlas.texture-manager-handler.drawable-uses",
+        "cubism.texture-atlas.texture-input-relink.helper-instance",
+        "cubism.texture-atlas.texture-input-relink.rebuild",
+        "cubism.editor-model.model-source.verify",
+        "cubism.texture-atlas.texture-manager.change-input-to-atlas",
         "cubism.texture-atlas.atlas.class",
         "cubism.texture-atlas.atlas.create",
         "cubism.texture-atlas.atlas.name",
@@ -40,7 +47,15 @@ public final class VerifiedCubism520TextureAtlasSelectorContract {
         "cubism.editor-model.edit-mode.end",
         "cubism.texture-atlas.undo.create",
         "cubism.texture-atlas.undo.force-redo",
-        "cubism.texture-atlas.group-undo.add"
+        "cubism.texture-atlas.group-undo.add",
+        "cubism.editor-model.app-controller.instance",
+        "cubism.editor-model.app-controller.current-document",
+        "cubism.editor-model.app-controller.complete-pack",
+        "cubism.editor-model.undo-listener.class",
+        "cubism.editor-model.undo.add-listener",
+        "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.complete-pack.repaint-canvas",
+        "cubism.editor-model.modeling-document.mark-dirty"
     );
 
     public static final Set<String> HOOK_ALIASES = Set.of(

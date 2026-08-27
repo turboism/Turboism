@@ -3,7 +3,7 @@ package dev.turboism.mapping.verification;
 import java.io.IOException;
 import java.nio.file.Path;
 
-/** Pinned resolver factory for the verified Cubism auto-backup slices (5.3.02 and 5.2.03). */
+/** Pinned resolver factory for exact reviewed Cubism auto-backup slices. */
 public final class VerifiedAutoBackupResolverFactory {
 
     private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();

@@ -6,15 +6,14 @@ import java.util.Set;
 /**
  * Runtime trust root for the reviewed Cubism clip-mask selector evidence.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data; every other artifact fails closed.</p>
+ * <p>Each supported Cubism version is declared as its own {@link ReviewedSliceRecord}; every other
+ * artifact fails closed.</p>
  *
- * <p>The 5.2.03 record authorises the same selector set as 5.3.02 because every reviewed selector
- * resolves identically in the exact 5.2.03 artifact: same owners, member names, descriptors and
- * access flags, all reported {@code VERIFIED_STATIC} by
- * {@link StaticVerificationCli} against that artifact. Nothing was widened to make the versions
- * agree. Code-level routing is not a readiness claim: real-host clip-mask evidence for 5.2.03 is
- * still separately authorized work.</p>
+ * <p>The 5.2.03 and 5.3.03 records authorise the same read-only selector contract as 5.3.02 only
+ * after exact-artifact verification. For 5.3.03, all 16 selector tuples and all eight invoked
+ * method bodies were independently shown unchanged from 5.3.02. Nothing here admits writes, UI,
+ * hooks, persistence, or broad 5.3.x compatibility, and code-level routing is not an exact-host
+ * readiness claim.</p>
  */
 public final class ClipMaskVerificationManifest {
 
@@ -24,11 +23,14 @@ public final class ClipMaskVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed clip-mask record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.clipmask.static",
-        "098619a144e602ada57622a0a216ddd0208401537c3b6b893998a11b21d64316",
+        "5133c670e5c6742a5a43eb60ec6c60581196c35534b37085ca18d441797d47b3",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -37,12 +39,25 @@ public final class ClipMaskVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "m15.cubism-5.3.02.clipmask.static",
-        "5d4c6cb463b7d5bcb4206249d140bc96493d78efea50fe528a5a288973486e8f",
+        "8e4f5a5d9ea7896700a2b40293ba720b7a7df549216bfb6efdedb3d73c951232",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed clip-mask record admitted for exact Cubism 5.3.03. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "m15.cubism-5.3.03.clipmask.static",
+        "1af607ece139f64700c7058225724503598730572606de86bd81d1a82077c194",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     /** Adapter slice identity for the read-only clip-mask family. */
     public static final String ADAPTER_SLICE_ID = "adapter.clipmask.readonly";
@@ -72,7 +87,11 @@ public final class ClipMaskVerificationManifest {
 
     /** Reviewed exact Cubism versions this clip-mask trust root can serve. */
     public static Set<String> reviewedCubismVersions() {
-        return Set.of(CUBISM_VERSION_5_2_03, CUBISM_VERSION_5_3_02);
+        return Set.of(
+            CUBISM_VERSION_5_2_03,
+            CUBISM_VERSION_5_3_02,
+            CUBISM_VERSION_5_3_03
+        );
     }
 
     static PinnedVerifiedResolverWorkflow.Manifest forArtifact(final HostArtifactDigest artifact) {

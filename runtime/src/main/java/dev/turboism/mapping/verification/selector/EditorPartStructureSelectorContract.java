@@ -11,11 +11,52 @@ public final class EditorPartStructureSelectorContract {
 
     public static final Set<String> REQUIRED_ALIASES = aliases();
 
+    /** Narrow exact-host candidate contract for creating one empty root Part. */
+    public static final Set<String> ROOT_CREATE_REQUIRED_ALIASES = Set.of(
+        "cubism.editor-model.app-controller.instance",
+        "cubism.editor-model.app-controller.current-document",
+        "cubism.editor-model.app-controller.complete-pack",
+        "cubism.editor-model.modeling-document.model-source",
+        "cubism.editor-model.modeling-document.edit-mode",
+        "cubism.editor-model.modeling-document.mark-dirty",
+        "cubism.editor-model.edit-mode.begin",
+        "cubism.editor-model.edit-mode.end",
+        "cubism.editor-model.undo.add",
+        "cubism.editor-model.undo.add-listener",
+        "cubism.editor-model.undo-listener.class",
+        "cubism.editor-model.model-source.update-instances",
+        "cubism.editor-model.complete-pack.update-part-palette",
+        "cubism.editor-model.complete-pack.repaint-canvas",
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.model.parts",
+        "cubism.editor-model.model-source.root-part",
+        "cubism.editor-model.model-source.handler",
+        "cubism.editor-model.model-handler.class",
+        "cubism.editor-model.part.class",
+        "cubism.editor-model.part.source",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.create",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-source.set-id",
+        "cubism.editor-model.part-source.set-guid",
+        "cubism.editor-model.part-source.set-local-name",
+        "cubism.editor-model.part-source.set-default-order",
+        "cubism.editor-model.part-source.children",
+        "cubism.editor-model.part-source.handler",
+        "cubism.editor-model.part-handler.class",
+        "cubism.editor-model.part-handler.add-part-child",
+        "cubism.editor-model.part-id.create",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.part-guid.create",
+        "cubism.editor-model.id.value"
+    );
+
     private static Set<String> aliases() {
         final HashSet<String> aliases = new HashSet<>(Set.of(
             "cubism.editor-model.app-controller.instance",
             "cubism.editor-model.app-controller.current-document",
             "cubism.editor-model.app-controller.complete-pack",
+            "cubism.editor-model.modeling-document.model-source",
             "cubism.editor-model.modeling-document.edit-mode",
             "cubism.editor-model.modeling-document.mark-dirty",
             "cubism.editor-model.edit-mode.begin",

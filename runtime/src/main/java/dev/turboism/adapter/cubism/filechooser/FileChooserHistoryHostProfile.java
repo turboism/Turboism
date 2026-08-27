@@ -25,6 +25,7 @@ public record FileChooserHistoryHostProfile(
 
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     private static final String FILE_CHOOSER_CLASS = "com/live2d/ui/window/n";
     private static final String EXPORTER_CONTEXT_CLASS = "com.live2d.cubism.doc.model.exporter.b";
@@ -58,8 +59,9 @@ public record FileChooserHistoryHostProfile(
     /**
      * Resolves the reviewed selector set for a host artifact.
      *
-     * <p>Only the two admitted Cubism builds are recognised: 5.2.03 and 5.3.02. They share the
-     * save-dialog method bindings and differ only in the app-controller export-context class name.
+     * <p>Only the exact reviewed Cubism builds are recognised: 5.2.03, 5.3.02, and 5.3.03.
+     * They share the save-dialog method bindings and differ only in the app-controller
+     * export-context class name.
      * Any other artifact yields empty, which is the fail-closed signal that the file-chooser hook
      * must not be installed against an unreviewed host.
      *
@@ -76,6 +78,9 @@ public record FileChooserHistoryHostProfile(
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_52);
         } else if (artifact.equals(CUBISM_53)) {
             version = "5.3.02";
+            contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
+        } else if (artifact.equals(CUBISM_5303)) {
+            version = "5.3.03";
             contextClasses = List.of(EXPORTER_CONTEXT_CLASS, APP_CTRL_EXPORT_CONTEXT_CLASS_53);
         } else {
             return Optional.empty();

@@ -27,10 +27,11 @@ public final class PerformanceProbeReportWriter {
      * Writes one capture as a {@code turboism.cubism.performance-probe} schema-version-1
      * JSON document, creating parent directories and replacing any existing file.
      *
-     * <p>The {@code cubismVersion} field is fixed at {@code 5.3.02}: this writer describes
-     * the full-metric 5.3.02 probe slice.</p>
+     * <p>The exact Cubism version and artifact digest are supplied by the installer profile
+     * that selected the independently reviewed target set.</p>
      *
      * @param output             destination path; resolved to an absolute normalized path
+     * @param cubismVersion      exact reviewed Cubism Editor version
      * @param artifactSha256     digest of the instrumented Cubism artifact
      * @param agentSha256        digest of the probe agent that did the instrumenting
      * @param fixtureSha256      digest of the model fixture the scenario ran against
@@ -43,6 +44,7 @@ public final class PerformanceProbeReportWriter {
      */
     public void write(
         final Path output,
+        final String cubismVersion,
         final String artifactSha256,
         final String agentSha256,
         final String fixtureSha256,
@@ -54,7 +56,7 @@ public final class PerformanceProbeReportWriter {
         final Map<String, Object> report = new LinkedHashMap<>();
         report.put("format", "turboism.cubism.performance-probe");
         report.put("schemaVersion", 1);
-        report.put("cubismVersion", "5.3.02");
+        report.put("cubismVersion", requireText(cubismVersion, "cubismVersion"));
         report.put("artifactSha256", artifactSha256);
         report.put("agentSha256", agentSha256);
         report.put("fixtureSha256", fixtureSha256);
@@ -86,6 +88,13 @@ public final class PerformanceProbeReportWriter {
         } catch (java.nio.file.AtomicMoveNotSupportedException ignored) {
             Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
         }
+    }
+
+    private static String requireText(final String value, final String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 
     static String metricName(final PerformanceProbeMetric metric) {

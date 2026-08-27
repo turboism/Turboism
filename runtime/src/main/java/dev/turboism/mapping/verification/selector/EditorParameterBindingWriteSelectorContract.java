@@ -10,6 +10,7 @@ public final class EditorParameterBindingWriteSelectorContract {
     public static final String WARP_CAPABILITY_ID = "cubism.editor-model.warp-deformer.parameter-bindings.write";
     public static final String ROTATION_CAPABILITY_ID = "cubism.editor-model.rotation-deformer.parameter-bindings.write";
 
+    /** Exact selectors shared by all ordinary parameter-binding writes. */
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
         "cubism.editor-model.app-controller.current-document",

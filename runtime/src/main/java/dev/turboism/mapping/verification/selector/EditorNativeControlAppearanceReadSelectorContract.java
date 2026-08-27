@@ -11,6 +11,19 @@ public final class EditorNativeControlAppearanceReadSelectorContract {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-model.native-control-appearance.read";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
+        "cubism.editor-model.model-source.root-parameter-group",
+        "cubism.editor-model.parameter-group.class",
+        "cubism.editor-model.parameter-group.id",
+        "cubism.editor-model.parameter-group.children",
+        "cubism.editor-model.model-source.parts",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.model-source.all-deformers",
+        "cubism.editor-model.model-source.all-art-meshes",
+        "cubism.editor-model.art-mesh-source.class",
+        "cubism.editor-model.parameter-controllable-source.id",
+        "cubism.editor-model.id.value",
         "cubism.editor-model.parameter-group.label-color",
         "cubism.editor-model.parameter-controllable-source.label-color",
         "cubism.editor-model.deformer-source.class",

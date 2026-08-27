@@ -5,7 +5,8 @@ import java.util.Set;
 /**
  * Exact additive selector contract for Editor physics settings document reads.
  *
- * <p>Evidence (exact public class-file observation, Cubism 5.2.03 and 5.3.02):
+ * <p>Evidence (exact public class-file observation, Cubism 5.2.03, 5.3.02,
+ * and 5.3.03):
  * {@code CModelSource.getPhysicsSettingsSourceSet()} exposes gravity/wind as
  * {@code GVector2} ({@code getX()}/{@code getY()}), an optional settings FPS,
  * and the source list; each {@code CPhysicsSettingsSource} exposes its id

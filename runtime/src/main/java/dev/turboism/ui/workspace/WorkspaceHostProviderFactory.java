@@ -13,7 +13,7 @@ public final class WorkspaceHostProviderFactory {
      * or unverified host yields no provider at all.
      *
      * @param resolver verified member resolver bound to the running host
-     * @return a provider for Cubism 5.2.03 or 5.3.02, whichever the resolver is
+     * @return a provider for Cubism 5.2.03, 5.3.02, or 5.3.03, whichever the resolver is
      *     admitted for
      * @throws IllegalArgumentException if the resolver is admitted for neither
      */
@@ -21,7 +21,8 @@ public final class WorkspaceHostProviderFactory {
         if (WorkspaceControlAdmission.authorizes5203(resolver)) {
             return new Cubism52WorkspaceHostProvider(resolver);
         }
-        if (WorkspaceControlAdmission.authorizes5302(resolver)) {
+        if (WorkspaceControlAdmission.authorizes5302(resolver)
+            || WorkspaceControlAdmission.authorizes5303(resolver)) {
             return new Cubism53WorkspaceHostProvider(resolver);
         }
         throw new IllegalArgumentException("resolver is not admitted for workspace control");

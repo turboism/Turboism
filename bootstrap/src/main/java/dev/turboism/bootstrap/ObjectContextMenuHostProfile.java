@@ -14,6 +14,7 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
 
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
     private static final String MENU = "com/live2d/ui/menu/k";
     private static final String ITEM = "Lcom/live2d/ui/menu/CMenuItem;";
 
@@ -26,13 +27,22 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
 
     static Optional<ObjectContextMenuHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (artifact.equals(CUBISM_52)) return Optional.of(profile("R", 21, 23, 3, 2));
-        if (artifact.equals(CUBISM_53)) return Optional.of(profile("T", 22, 22, 1, 1));
+        if (artifact.equals(CUBISM_52)) {
+            return Optional.of(profile("R", "aL", 7, 21, 23, 3, 2));
+        }
+        if (artifact.equals(CUBISM_53)) {
+            return Optional.of(profile("T", "aL", 7, 22, 22, 1, 1));
+        }
+        if (artifact.equals(CUBISM_5303)) {
+            return Optional.of(profile("T", "aM", 10, 22, 22, 3, 1));
+        }
         return Optional.empty();
     }
 
     private static ObjectContextMenuHostProfile profile(
         final String partsOwner,
+        final String parameterOwner,
+        final int parameterAppends,
         final int partsAppends,
         final int workspaceAppends,
         final int deformerInjectionPoint,
@@ -45,9 +55,9 @@ record ObjectContextMenuHostProfile(List<VerifiedObjectContextMenuHookInstaller.
                 Location.DEFORMER_TAB, 11, deformerInjectionPoint, 2, 3
             ),
             append(
-                "parameter", "com/live2d/cubism/view/palette/parameter/aL", "a",
+                "parameter", "com/live2d/cubism/view/palette/parameter/" + parameterOwner, "a",
                 "(Ljava/awt/event/MouseEvent;)V", "c", "(" + ITEM + ")V",
-                Location.PARAMETER_TAB, 7, 3, 2
+                Location.PARAMETER_TAB, parameterAppends, 3, 2
             ),
             append(
                 "parts", "com/live2d/cubism/view/palette/parts/" + partsOwner, "a",

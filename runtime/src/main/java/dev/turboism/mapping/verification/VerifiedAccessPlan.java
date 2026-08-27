@@ -90,6 +90,16 @@ final class VerifiedAccessPlan {
             && selectors.keySet().equals(requiredAliases);
     }
 
+    boolean authorizesFeatureSet(
+        final String requiredAdapterSliceId,
+        final java.util.Set<String> requiredCapabilityIds,
+        final java.util.Set<String> requiredAliases
+    ) {
+        return adapterSliceId.equals(requiredAdapterSliceId)
+            && capabilityIds.containsAll(requiredCapabilityIds)
+            && selectors.keySet().containsAll(requiredAliases);
+    }
+
     boolean authorizesFeature(
         final String requiredAdapterSliceId,
         final String requiredCapabilityId,
@@ -98,6 +108,30 @@ final class VerifiedAccessPlan {
         return adapterSliceId.equals(requiredAdapterSliceId)
             && capabilityIds.contains(requiredCapabilityId)
             && selectors.keySet().containsAll(requiredAliases);
+    }
+
+    VerifiedAccessPlan restrictTo(
+        final java.util.Set<String> admittedCapabilityIds,
+        final java.util.Set<String> admittedAliases
+    ) {
+        final java.util.Set<String> capabilities = java.util.Set.copyOf(admittedCapabilityIds);
+        final java.util.Set<String> aliases = java.util.Set.copyOf(admittedAliases);
+        if (!capabilityIds.containsAll(capabilities) || !selectors.keySet().containsAll(aliases)) {
+            throw new IllegalArgumentException(
+                "restricted access plan is not a subset of the verified record"
+            );
+        }
+        final Map<String, StaticSelector> restrictedSelectors = new LinkedHashMap<>();
+        for (final String alias : aliases) {
+            restrictedSelectors.put(alias, selectors.get(alias));
+        }
+        return new VerifiedAccessPlan(
+            adapterSliceId,
+            capabilities,
+            cubismVersion,
+            artifact,
+            restrictedSelectors
+        );
     }
 
     java.util.List<StaticSelector> selectors() {

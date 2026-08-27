@@ -2,6 +2,8 @@ package dev.turboism.adapter.cubism.startup;
 
 import dev.turboism.config.RuntimeStartupConfig;
 import dev.turboism.mapping.verification.HostArtifactDigest;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
+import dev.turboism.mapping.verification.StartupSuppressionVerificationManifest;
 
 import java.io.IOException;
 import java.lang.instrument.Instrumentation;
@@ -107,9 +109,9 @@ public final class StartupSuppressionInstaller {
             );
         }
         final Optional<StartupSuppressionProfile> admitted =
-            StartupSuppressionProfile.forArtifact(digest);
+            runtimeProfileForArtifact(digest);
         if (admitted.isEmpty()) {
-            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_UNREVIEWED");
+            report(diagnostic, "STARTUP_SUPPRESSION_ARTIFACT_NOT_RUNTIME_ADMITTED");
             return Installation.completed(Status.ARTIFACT_REJECTED, policy);
         }
         final StartupSuppressionProfile profile = admitted.orElseThrow();
@@ -143,6 +145,23 @@ public final class StartupSuppressionInstaller {
             report(diagnostic, "STARTUP_SUPPRESSION_INSTALL_FAILED");
             return Installation.completed(Status.INSTALL_FAILED, policy);
         }
+    }
+
+    static Optional<StartupSuppressionProfile> runtimeProfileForArtifact(
+        final HostArtifactDigest artifact
+    ) {
+        Objects.requireNonNull(artifact, "artifact");
+        final Optional<String> version = ReviewedHostArtifacts.cubismVersionOf(artifact);
+        if (version.isEmpty()) {
+            return Optional.empty();
+        }
+        final String exactVersion = version.orElseThrow();
+        if (!ReviewedHostArtifacts.admitsFullRuntime(exactVersion)
+            && !("5.3.03".equals(exactVersion)
+                && StartupSuppressionVerificationManifest.admits5303ValidationCandidate())) {
+            return Optional.empty();
+        }
+        return StartupSuppressionProfile.forArtifact(artifact);
     }
 
     private static boolean requested(final RuntimeStartupConfig policy) {

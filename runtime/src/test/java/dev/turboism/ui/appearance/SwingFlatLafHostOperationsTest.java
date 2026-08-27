@@ -90,6 +90,27 @@ class SwingFlatLafHostOperationsTest {
     }
 
     @Test
+    void restoresCapturedBaselineAndDeletesTheRuntimeSource() {
+        UIManager.put("CubismCommon.blue", new Color(1, 2, 3));
+        UIManager.put("Panel.background", "native-panel");
+        SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());
+        Map<String, String> baseline = host.capture();
+
+        host.replace(Map.of("CubismCommon.blue", "#112233"));
+        assertTrue(java.nio.file.Files.exists(ThemeRuntimeProperties.path()));
+        try {
+            host.restore(baseline);
+            org.junit.jupiter.api.Assertions.fail("expected FlatLaf failure outside the host");
+        } catch (IllegalStateException expected) {
+            // The unit environment has no com.formdev.flatlaf.FlatLaf class.
+        }
+
+        assertEquals(new Color(1, 2, 3), UIManager.get("CubismCommon.blue"));
+        assertEquals("native-panel", UIManager.get("Panel.background"));
+        assertFalse(java.nio.file.Files.exists(ThemeRuntimeProperties.path()));
+    }
+
+    @Test
     void restoreNativeDropsOwnedKeysAndDeletesTheRuntimeSource() {
         UIManager.put("CubismCommon.blue", new Color(1, 2, 3));
         SwingFlatLafHostOperations host = new SwingFlatLafHostOperations(getClass().getClassLoader());

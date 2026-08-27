@@ -53,14 +53,23 @@ final class EditorModelStatisticsAccess {
         final Set<List<String>> maskGroups = new HashSet<>();
         for (Object mesh : artMeshes) {
             final Object meshSource = resolver.invoke("cubism.editor-model.art-mesh.source", mesh);
-            vertices = Math.addExact(vertices, arrayLength(
+            final int positionLength = arrayLength(
                 resolver.invoke("cubism.editor-model.art-mesh-source.positions", meshSource),
                 "Editor ArtMesh positions"
-            ) / 2);
-            triangles = Math.addExact(triangles, arrayLength(
+            );
+            if (positionLength % 2 != 0) {
+                throw new IllegalStateException(
+                    "Editor ArtMesh positions do not contain XY pairs."
+                );
+            }
+            final int vertexCount = positionLength / 2;
+            final int[] indices = indices(
                 resolver.invoke("cubism.editor-model.art-mesh-source.indices", meshSource),
                 "Editor ArtMesh indices"
-            ) / 3);
+            );
+            validateTriangleIndices(indices, vertexCount, "Editor ArtMesh indices");
+            vertices = Math.addExact(vertices, vertexCount);
+            triangles = Math.addExact(triangles, indices.length / 3);
             final Object texture = resolver.invoke("cubism.editor-model.art-mesh-source.texture", meshSource);
             if (texture != null) {
                 final Object textureGuid = resolver.invoke("cubism.editor-model.texture.guid", texture);
@@ -80,11 +89,11 @@ final class EditorModelStatisticsAccess {
 
         final OptionalInt offscreenCount;
         final OptionalInt maxOffscreenDepth;
-        if (resolver.isExactCubismVersion("5.3.02")) {
+        if (supportsOffscreenStatistics(resolver.cubismVersion())) {
             int count = 0;
             int depth = 0;
             for (Object part : parts) {
-                if (Boolean.TRUE.equals(resolver.invoke("cubism.editor-model.part-source.use-offscreen", part))) {
+                if (offscreen(part)) {
                     count++;
                     depth = Math.max(depth, partDepth(part));
                 }
@@ -106,19 +115,36 @@ final class EditorModelStatisticsAccess {
 
     private int partDepth(final Object part) {
         int depth = 1;
+        final Set<Object> visited = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>()
+        );
+        visited.add(part);
         Object parent = resolver.invoke("cubism.editor-model.part-source.parent", part);
         while (parent != null) {
-            if (Boolean.TRUE.equals(resolver.invoke("cubism.editor-model.part-source.use-offscreen", parent))) depth++;
+            if (!visited.add(parent)) {
+                throw new IllegalStateException("Editor Part hierarchy contains a cycle.");
+            }
+            if (offscreen(parent)) depth++;
             parent = resolver.invoke("cubism.editor-model.part-source.parent", parent);
         }
         return depth;
+    }
+
+    private boolean offscreen(final Object part) {
+        final Object value = resolver.invoke(
+            "cubism.editor-model.part-source.use-offscreen", part
+        );
+        if (!(value instanceof Boolean result)) {
+            throw new IllegalStateException("Editor Part offscreen state is invalid.");
+        }
+        return result;
     }
 
     private void requireAuthorized() {
         final java.util.HashSet<String> aliases = new java.util.HashSet<>(
             EditorObjectReadSelectorContract.STATISTICS_ALIASES
         );
-        if (resolver.isExactCubismVersion("5.3.02")) {
+        if (supportsOffscreenStatistics(resolver.cubismVersion())) {
             aliases.addAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
         }
         if (!resolver.authorizesFeature(
@@ -130,6 +156,10 @@ final class EditorModelStatisticsAccess {
                 "Editor model statistics require exact verified host evidence."
             );
         }
+    }
+
+    static boolean supportsOffscreenStatistics(final String cubismVersion) {
+        return Set.of("5.3.02", "5.3.03").contains(cubismVersion);
     }
 
     private static List<?> list(final Object value, final String label) {
@@ -147,6 +177,30 @@ final class EditorModelStatisticsAccess {
             throw new IllegalStateException(label + " is unavailable.");
         }
         return java.lang.reflect.Array.getLength(value);
+    }
+
+    private static int[] indices(final Object value, final String label) {
+        if (!(value instanceof int[] indices)) {
+            throw new IllegalStateException(label + " is unavailable.");
+        }
+        return indices;
+    }
+
+    private static void validateTriangleIndices(
+        final int[] values,
+        final int vertexCount,
+        final String label
+    ) {
+        if (values.length % 3 != 0) {
+            throw new IllegalStateException(label + " does not contain triangle triples.");
+        }
+        for (int value : values) {
+            if (value < 0 || value >= vertexCount) {
+                throw new IllegalStateException(
+                    label + " contains an out-of-range vertex index."
+                );
+            }
+        }
     }
 
     private static String text(final Object value) {

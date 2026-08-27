@@ -14,6 +14,8 @@ import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSe
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelInstanceReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorModelProfileSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorNativeControlAppearanceWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
@@ -25,12 +27,15 @@ import dev.turboism.mapping.verification.selector.EditorParameterBindingWriteSel
 import dev.turboism.mapping.verification.selector.EditorParameterCombinedWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterGroupsReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterStructureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartBasicSettingsSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacity52SelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartOpacitySelectorContract;
+import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
@@ -41,8 +46,8 @@ import java.util.Set;
 /**
  * Runtime trust root for the Cubism Editor model read/write binding.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data. The two versions deliberately authorise different capability and alias sets: 5.2.03
+ * <p>All admitted Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
+ * data. The versions deliberately authorise different capability and alias sets: 5.2.03
  * exposes a strict subset, and the family supplies that scope per record.</p>
  */
 public final class EditorModelVerificationManifest {
@@ -53,14 +58,14 @@ public final class EditorModelVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
-    /** Cubism version reported for the reviewed 5.3.03 static record. */
+    /** Cubism version reported for the reviewed 5.3.03 Editor records. */
     public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
 
     /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "0b6767554352851c035de65caf7ed18d2d12210fb419cf762067f2f6053a6df3",
+        "1e73650b8ec8c0adacab5a651f4c8088b4d013b311e57ba8eab14d8a79a6b512",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -69,24 +74,26 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "422eb72d76b7030d1603b76cf8aaca7dc5fa6a2a4faeb596717742180067f281",
+        "f6946b4b05bfde1c267e8e31eec657c2fd25b55ef7be3ba5fee9cbc559f21905",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    /** Reviewed static Editor-model record identified for exact Cubism 5.3.03. */
+
+    /**
+     * Full 5.3.03 static selector record used by the exact admitted Editor runtime.
+     * Capabilities and selectors are pinned independently from the 5.3.02 record.
+     */
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
+        "d9fc0b9412a3014e623ff3f962efd0b1f350f713e1d5275a7f0ce661c33444bb",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
 
     private static final List<ReviewedSliceRecord> RECORDS = List.of(
-        RECORD_5_2_03,
-        RECORD_5_3_02,
-        RECORD_5_3_03
+        RECORD_5_2_03, RECORD_5_3_02, RECORD_5_3_03
     );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
@@ -312,6 +319,8 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-model.edit-mode.end",
         "cubism.editor-model.undo.class",
         "cubism.editor-model.undo.add",
+        "cubism.editor-model.undo.local-simple-factory-instance",
+        "cubism.editor-model.undo.local-simple-factory-create",
         "cubism.editor-model.simple-undo.create",
         "cubism.editor-model.parameter-operation.property-editor",
         "cubism.editor-model.parameter-operation.validator",
@@ -544,6 +553,8 @@ public final class EditorModelVerificationManifest {
         "object-context-menu.parameter-point.guid-value",
         "object-context-menu.menu.component",
         "cubism.editor-model.keyform-grid.bindings",
+        "cubism.editor-model.keyform-grid.keyforms-on-grid",
+        "cubism.editor-model.keyform-on-grid.form-guid",
         "cubism.editor-model.keyform-binding.class",
         "cubism.editor-model.keyform-binding.parameter-id",
         "cubism.editor-model.keyform-binding.parameter-guid",
@@ -661,8 +672,8 @@ public final class EditorModelVerificationManifest {
     ) {
         final ReviewedSliceRecord record =
             ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "Editor model");
-        // The two reviewed versions authorise different capability and alias sets: 5.2.03 exposes
-        // a strict subset. The record carries identity; the family supplies the per-version scope.
+        // Each exact record owns its capability and alias scope. 5.3.03 reuses the mature
+        // 5.3.02 surface while resolving against its independently reviewed selector tuples.
         if (RECORD_5_2_03.equals(record)) {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
@@ -684,18 +695,15 @@ public final class EditorModelVerificationManifest {
         );
     }
 
-    /**
-     * Returns the selector roster pinned by the exact 5.3.03 static record.
-     *
-     * <p>This establishes record loading and exact routing only. It does not widen the top-level
-     * full-runtime, host-UI, or SDK availability gates.</p>
-     *
-     * @return the mature 5.3.02 aliases plus selectors added by the 5.3.03 static record
-     */
+    private static Set<String> union(final Set<String> left, final Set<String> right) {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(left);
+        values.addAll(right);
+        return Set.copyOf(values);
+    }
+
+    /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
         return union(REQUIRED_ALIASES, Set.of(
-            "cubism.editor-model.keyform-grid.keyforms-on-grid",
-            "cubism.editor-model.keyform-on-grid.form-guid",
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
@@ -707,20 +715,629 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.parameter-group.guid",
             "cubism.editor-model.part-source.remove-child",
             "cubism.editor-model.part.id",
-            "cubism.editor-model.undo.local-simple-factory-create",
-            "cubism.editor-model.undo.local-simple-factory-instance",
-            "cubism.editor-model.update-manager.selection-guid-list",
-            "cubism.texture-atlas.texture-input-relink.helper-instance",
-            "cubism.texture-atlas.texture-input-relink.rebuild",
-            "cubism.texture-atlas.texture-manager-handler.drawable-uses",
-            "cubism.texture-atlas.texture-manager.change-input-to-atlas"
+            "cubism.editor-model.update-manager.selection-guid-list"
         ));
     }
 
-    private static Set<String> union(final Set<String> left, final Set<String> right) {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(left);
-        values.addAll(right);
-        return Set.copyOf(values);
+    /**
+     * Returns the complete mature Editor runtime scope for exact Cubism 5.3.03.
+     *
+     * <p>The capability set is identical to 5.3.02. The alias set deliberately excludes the
+     * 5.3.03-only host helpers that are recorded for future compatibility work but are not required
+     * by any established Turboism capability.</p>
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(CAPABILITY_IDS, REQUIRED_ALIASES);
+    }
+
+    /** Read-only baseline shared by the task-scoped exact-host validation candidates. */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303ValidationBaselineScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            cubism5303ReadCapabilities(),
+            cubism5303ReadAliases()
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to validate the exact 5.3.03 texture-atlas data-model,
+     * automatic-layout, dialog, statistics, and native-invocation Hook families. Within this
+     * diagnostic scope, every unrelated write remains excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303TextureAtlasValidationScope() {
+        final boolean persistence =
+            TextureAtlasVerificationManifest.admits5303PersistenceValidationCandidate();
+        final Set<String> capabilities = union(Set.of(
+            dev.turboism.adapter.cubism.textureatlas
+                .VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID,
+            "cubism.texture-atlas.data-model-hook",
+            "cubism.texture-atlas.auto-layout-hook",
+            "cubism.texture-atlas.native-layout-invocation",
+            "cubism.texture-atlas.dialog-injection"
+        ), persistence ? Set.of(EditorHistoryMoveSelectorContract.CAPABILITY_ID) : Set.of());
+        final Set<String> aliases = union(
+            dev.turboism.adapter.cubism.textureatlas
+                .VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES,
+            union(
+                dev.turboism.adapter.cubism.textureatlas
+                    .VerifiedCubism5303TextureAtlasSelectorContract.HOOK_ALIASES,
+                union(
+                    dev.turboism.adapter.cubism.textureatlas
+                        .VerifiedCubism5303TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                    union(
+                        dev.turboism.adapter.cubism.textureatlas
+                            .VerifiedCubism5303TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES,
+                        union(
+                            dev.turboism.adapter.cubism.textureatlas
+                                .VerifiedCubism5303TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES,
+                            union(
+                                dev.turboism.adapter.cubism.textureatlas
+                                    .VerifiedCubism5303TextureAtlasSelectorContract.STATISTICS_ALIASES,
+                                persistence
+                                    ? EditorHistoryMoveSelectorContract.REQUIRED_ALIASES
+                                    : Set.of()
+                            )
+                        )
+                    )
+                )
+            )
+        );
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(cubism5303ReadCapabilities(), capabilities),
+            union(cubism5303ReadAliases(), aliases)
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for model edit-level writes.
+     * Every other 5.3.03 write capability remains excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303EditLevelWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorModelEditLevelWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorModelEditLevelWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one parameter value write
+     * plus native Undo/Redo and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303ParameterValueWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorParameterValueWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped prerequisite for the exact-host auto-backup matrix.
+     *
+     * <p>The backup exerciser uses the already proven parameter-value mutation only to make the
+     * fixture dirty before triggering native auto-backup. This scope does not admit any additional
+     * Editor-model write, normal auto-backup production use, or broader runtime behavior.</p>
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303AutoBackupValidationScope() {
+        return cubism5303ParameterValueWriteValidationScope();
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for default-keyform lock write,
+     * native Undo/Redo, and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303DefaultKeyformLockWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorDefaultKeyformLockWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorDefaultKeyformLockWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one parameter-definition
+     * name update, native Undo/Redo, and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterDefinitionWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorParameterDefinitionWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorParameterDefinitionWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one Combined parameter pair,
+     * native Undo/Redo, and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterCombinedWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorParameterCombinedWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorParameterCombinedWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one model name write,
+     * native Undo/Redo, and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303ModelNameWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorModelProfileSelectorContract.NAME_WRITE_CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorModelProfileSelectorContract.NAME_WRITE_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for creating one empty
+     * parameter folder, native Undo/Redo, and final restoration. Other structure operations and
+     * every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterStructureWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorParameterStructureSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorParameterStructureSelectorContract.FOLDER_CREATE_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for creating one empty root
+     * Part, native Undo/Redo, and final restoration. Part copy/delete/move and every other
+     * 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303PartStructureWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorPartStructureSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorPartStructureSelectorContract.ROOT_CREATE_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for native control appearance
+     * writes, native Undo/Redo, and final restoration. Every other 5.3.03 write stays excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303NativeControlAppearanceWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorNativeControlAppearanceWriteSelectorContract.CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorNativeControlAppearanceWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one clip-mask replacement,
+     * native Undo/Redo, and final restoration. ArtMesh geometry, Warp, Rotation,
+     * parameter-binding, and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ClipMaskWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorObjectWriteSelectorContract.CLIP_MASK_CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorObjectWriteSelectorContract.CLIP_MASK_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for ordinary ArtMesh
+     * parameter-binding writes, native Undo/Redo, and final restoration. Other object targets,
+     * batch binding operations, and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ArtMeshParameterBindingWriteValidationScope() {
+        return cubism5303ParameterBindingWriteValidationScope(
+            EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID
+        );
+    }
+
+    /** Exact-host candidate for ordinary Warp Deformer parameter-binding writes only. */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303WarpParameterBindingWriteValidationScope() {
+        return cubism5303ParameterBindingWriteValidationScope(
+            EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID
+        );
+    }
+
+    /** Exact-host candidate for ordinary Rotation Deformer parameter-binding writes only. */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303RotationParameterBindingWriteValidationScope() {
+        return cubism5303ParameterBindingWriteValidationScope(
+            EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID
+        );
+    }
+
+    private static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterBindingWriteValidationScope(final String capabilityId) {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(cubism5303ReadCapabilities(), Set.of(capabilityId)),
+            union(
+                cubism5303ReadAliases(),
+                EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for atomic ordinary
+     * parameter-binding inversion. The three ordinary target capabilities are included only so the
+     * probe can construct and later remove temporary missing target bindings. Native form-GUID order
+     * is the authoritative inversion observation. Transfer, Morph transfer, parameter-value writes,
+     * and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterBindingInvertValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(
+                    EditorParameterBindingBatchWriteSelectorContract.INVERT_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID
+                )
+            ),
+            union(
+                union(
+                    union(
+                        cubism5303ReadAliases(),
+                        EditorParameterBindingBatchWriteSelectorContract.INVERT_REQUIRED_ALIASES
+                    ),
+                    EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
+                ),
+                EditorParameterBindingBatchWriteSelectorContract
+                    .INVERT_VALIDATION_OBSERVATION_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for atomic ordinary
+     * parameter-binding transfer. The three ordinary target capabilities are included only so the
+     * probe can establish and later restore source/destination bindings. Native parameter GUIDs are
+     * the authoritative transfer observation. Batch inversion, clamped remapping, Morph transfer,
+     * parameter-value writes, and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterBindingTransferValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(
+                    EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID
+                )
+            ),
+            union(
+                union(
+                    union(
+                        cubism5303ReadAliases(),
+                        EditorParameterBindingBatchWriteSelectorContract
+                            .TRANSFER_REQUIRED_ALIASES
+                    ),
+                    EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
+                ),
+                EditorParameterBindingBatchWriteSelectorContract
+                    .TRANSFER_VALIDATION_SETUP_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for atomic ordinary
+     * parameter-binding transfer with linear range remapping. The three ordinary target
+     * capabilities are validation-only setup/restoration prerequisites. Ordinary transfer,
+     * inversion, Morph transfer, and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterBindingClampedTransferValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(
+                    EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ART_MESH_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.WARP_CAPABILITY_ID,
+                    EditorParameterBindingWriteSelectorContract.ROTATION_CAPABILITY_ID
+                )
+            ),
+            union(
+                union(
+                    union(
+                        cubism5303ReadAliases(),
+                        EditorParameterBindingBatchWriteSelectorContract.REQUIRED_ALIASES
+                    ),
+                    EditorParameterBindingWriteSelectorContract.REQUIRED_ALIASES
+                ),
+                EditorParameterBindingBatchWriteSelectorContract
+                    .CLAMPED_TRANSFER_VALIDATION_OBSERVATION_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for atomic ArtMesh Morph Target
+     * binding transfer and final native Undo restoration. Parameter structure creation is admitted
+     * only to create and finally Undo one task-unique temporary BLEND_SHAPE destination. Direct
+     * Morph Target writes, ordinary target writes, ordinary/clamped transfer, inversion, deformer
+     * Morph transfer, and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ParameterBindingMorphTransferValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(
+                    EditorParameterBindingBatchWriteSelectorContract.TRANSFER_CAPABILITY_ID,
+                    EditorParameterStructureSelectorContract.CAPABILITY_ID
+                )
+            ),
+            union(
+                union(
+                    cubism5303ReadAliases(),
+                    EditorParameterBindingBatchWriteSelectorContract
+                        .MORPH_TRANSFER_REQUIRED_ALIASES
+                ),
+                union(
+                    EditorParameterBindingBatchWriteSelectorContract
+                        .MORPH_TRANSFER_VALIDATION_OBSERVATION_ALIASES,
+                    EditorParameterStructureSelectorContract.PARAMETER_CREATE_REQUIRED_ALIASES
+                )
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one ArtMesh geometry write,
+     * native Undo/Redo, and final restoration. Warp, Rotation, clip-mask, parameter-binding, and
+     * every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303ArtMeshGeometryWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorObjectWriteSelectorContract.ART_MESH_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one Warp grid write,
+     * native Undo/Redo, and final restoration. ArtMesh, Rotation, clip-mask, parameter-binding,
+     * and every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303WarpGridWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorObjectWriteSelectorContract.WARP_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /**
+     * Task-scoped candidate used only to obtain exact-host evidence for one Rotation form write,
+     * native Undo/Redo, and final restoration. ArtMesh, Warp, clip-mask, parameter-binding, and
+     * every other 5.3.03 write remain excluded.
+     */
+    static PinnedVerifiedResolverWorkflow.RuntimeScope
+    cubism5303RotationFormWriteValidationScope() {
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            union(
+                cubism5303ReadCapabilities(),
+                Set.of(EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID)
+            ),
+            union(
+                cubism5303ReadAliases(),
+                EditorObjectWriteSelectorContract.ROTATION_REQUIRED_ALIASES
+            )
+        );
+    }
+
+    /** Returns the capability-scoped exact 5.3.03 read set; no write capability is included. */
+    public static Set<String> cubism5303ReadCapabilities() {
+        return Set.of(
+            "cubism.editor-model.read",
+            EditorTextureSelectorContract.READ_CAPABILITY_ID,
+            EditorObjectReadSelectorContract.CAPABILITY_ID,
+            EditorObjectReadSelectorContract.STATISTICS_CAPABILITY_ID,
+            EditorPsdSnapshotSelectorContract.CAPABILITY_ID,
+            EditorPartNameSelectorContract.CAPABILITY_ID,
+            EditorPartTreeSelectorContract.CAPABILITY_ID,
+            EditorPartBasicSettingsSelectorContract.READ_CAPABILITY_ID,
+            EditorModelProfileSelectorContract.PROFILE_READ_CAPABILITY_ID,
+            EditorParameterGroupsReadSelectorContract.CAPABILITY_ID,
+            EditorDefaultKeyformLockReadSelectorContract.CAPABILITY_ID,
+            EditorModelEditLevelReadSelectorContract.CAPABILITY_ID,
+            EditorParameterBindingReadSelectorContract.CAPABILITY_ID,
+            EditorMorphTargetSelectorContract.READ_CAPABILITY_ID,
+            EditorAnimationReadSelectorContract.CAPABILITY_ID,
+            EditorAutoYureReadSelectorContract.CAPABILITY_ID,
+            EditorPhysicsReadSelectorContract.CAPABILITY_ID,
+            EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
+            EditorNativeControlAppearanceReadSelectorContract.CAPABILITY_ID,
+            EditorClipMaskReadSelectorContract.CAPABILITY_ID,
+            EditorHistoryReadSelectorContract.CAPABILITY_ID
+        );
+    }
+
+    /** Exact aliases required by the 5.3.03 model-statistics projection. */
+    public static Set<String> cubism5303StatisticsReadAliases() {
+        return union(
+            EditorObjectReadSelectorContract.STATISTICS_ALIASES,
+            EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES
+        );
+    }
+
+    /** Returns the exact 5.3.03 static read alias subset admitted by this manifest. */
+    public static Set<String> cubism5303ReadAliases() {
+        final Set<String> baseAliases = Set.of(
+            "cubism.editor-model.app-controller.class",
+            "cubism.editor-model.app-controller.instance",
+            "cubism.editor-model.app-controller.current-document",
+            "cubism.editor-model.modeling-document.class",
+            "cubism.editor-model.modeling-document.model-source",
+            "cubism.editor-model.model-source.class",
+            "cubism.editor-model.model-source.current-instance",
+            "cubism.editor-model.model-source.guid",
+            "cubism.editor-model.model.class",
+            "cubism.editor-model.guid.class",
+            "cubism.editor-model.guid.value",
+            "cubism.editor-model.model-source.parts",
+            "cubism.editor-model.model.parts",
+            "cubism.editor-model.model-source.all-art-meshes",
+            "cubism.editor-model.model.all-art-meshes",
+            "cubism.editor-model.art-mesh-source.class",
+            "cubism.editor-model.art-mesh.class",
+            "cubism.editor-model.parameter.class",
+            "cubism.editor-model.parameter.id",
+            "cubism.editor-model.parameter.value",
+            "cubism.editor-model.parameter-set.parameters",
+            "cubism.editor-model.parameter-set.class",
+            "cubism.editor-model.parameter-group.class",
+            "cubism.editor-model.parameter-group.id",
+            "cubism.editor-model.parameter-group.name",
+            "cubism.editor-model.parameter-group.parent",
+            "cubism.editor-model.parameter-group.children",
+            "cubism.editor-model.parameter-source.class",
+            "cubism.editor-model.parameter-source.id",
+            "cubism.editor-model.parameter-source.name",
+            "cubism.editor-model.parameter-source.minimum",
+            "cubism.editor-model.parameter-source.default",
+            "cubism.editor-model.parameter-source.maximum",
+            "cubism.editor-model.parameter-source.morph-target",
+            "cubism.editor-model.parameter-source.repeat"
+        );
+        return union(
+            union(
+                union(
+                    union(baseAliases, EditorTextureSelectorContract.READ_REQUIRED_ALIASES),
+                    EditorObjectReadSelectorContract.REQUIRED_ALIASES
+                ),
+                union(
+                    EditorPartNameSelectorContract.REQUIRED_ALIASES,
+                    union(
+                        union(
+                            EditorPartTreeSelectorContract.REQUIRED_ALIASES,
+                            EditorPartBasicSettingsSelectorContract.READ_REQUIRED_ALIASES
+                        ),
+                        union(
+                            union(
+                                EditorModelProfileSelectorContract.PROFILE_READ_REQUIRED_ALIASES,
+                                EditorParameterGroupsReadSelectorContract.REQUIRED_ALIASES
+                            ),
+                            union(
+                                union(
+                                    EditorDefaultKeyformLockReadSelectorContract.REQUIRED_ALIASES,
+                                    EditorModelEditLevelReadSelectorContract.REQUIRED_ALIASES
+                                ),
+                                union(
+                                    union(
+                                        EditorParameterBindingReadSelectorContract.REQUIRED_ALIASES,
+                                        EditorMorphTargetSelectorContract.READ_REQUIRED_ALIASES
+                                    ),
+                                    union(
+                                        union(
+                                            EditorAnimationReadSelectorContract.REQUIRED_ALIASES,
+                                            EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
+                                        ),
+                                        union(
+                                            union(
+                                                EditorPhysicsReadSelectorContract.REQUIRED_ALIASES,
+                                                EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
+                                            ),
+                                            union(
+                                                EditorNativeControlAppearanceReadSelectorContract.REQUIRED_ALIASES,
+                                                union(
+                                                    EditorClipMaskReadSelectorContract.REQUIRED_ALIASES,
+                                                    EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+                                                )
+                                            )
+                                        )
+                                    )
+                                )
+                            )
+                        )
+                    )
+                )
+            ),
+            union(
+                cubism5303StatisticsReadAliases(),
+                EditorPsdSnapshotSelectorContract.REQUIRED_ALIASES
+            )
+        );
     }
 
     private static Set<String> partNameOnlyCapabilities() {
@@ -775,6 +1392,10 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
+        values.removeAll(Set.of(
+            "cubism.editor-model.keyform-grid.keyforms-on-grid",
+            "cubism.editor-model.keyform-on-grid.form-guid"
+        ));
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);

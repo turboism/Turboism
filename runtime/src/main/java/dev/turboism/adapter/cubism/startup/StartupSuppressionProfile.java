@@ -20,6 +20,7 @@ record StartupSuppressionProfile(
     private static final String APP_CONTROLLER_OWNER = "com/live2d/cubism/CEAppCtrl";
     private static final HostArtifactDigest CUBISM_52_ARTIFACT = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53_ARTIFACT = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303_ARTIFACT = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     StartupSuppressionProfile {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
@@ -38,6 +39,9 @@ record StartupSuppressionProfile(
         }
         if (CUBISM_53_ARTIFACT.equals(artifact)) {
             return Optional.of(profile("5.3.02", artifact, "()Lcom/live2d/ui/window/V;"));
+        }
+        if (CUBISM_5303_ARTIFACT.equals(artifact)) {
+            return Optional.of(profile("5.3.03", artifact, "()Lcom/live2d/ui/window/V;"));
         }
         return Optional.empty();
     }

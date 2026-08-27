@@ -5,6 +5,7 @@ import java.util.Set;
 /** Exact public selectors required for immutable native Undo-history snapshots. */
 public final class EditorHistoryReadSelectorContract {
 
+    public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = "cubism.editor-history.read";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-history.document.undo-manager",

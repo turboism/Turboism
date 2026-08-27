@@ -5,7 +5,8 @@ import java.util.Set;
 /**
  * Exact additive selector contract for Editor animation document reads.
  *
- * <p>Evidence (exact public class-file observation, Cubism 5.2.03 and 5.3.02):
+ * <p>Evidence (exact public class-file observation, Cubism 5.2.03, 5.3.02,
+ * and 5.3.03):
  * {@code CModelingDocument.getFileContentDocs()} returns the file-content
  * documents, which include {@code CAnimationFileContent}; its
  * {@code getAnimation()} exposes the animation name and scene list, and
