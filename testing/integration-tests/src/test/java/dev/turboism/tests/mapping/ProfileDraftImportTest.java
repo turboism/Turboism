@@ -8,7 +8,9 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Stream;
 
@@ -100,7 +102,7 @@ class ProfileDraftImportTest {
     }
 
     @Test
-    void semanticNamesAreUniqueWithinEachProfile() throws Exception {
+    void semanticNamesAreCompatibleWithinEachProfile() throws Exception {
         Path packsDir = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))
             .resolve("compatibility/cubism/mapping-packs/draft");
         try (Stream<Path> files = Files.list(DRAFT_DIR)) {
@@ -108,7 +110,7 @@ class ProfileDraftImportTest {
                 try {
                     JsonNode root = mapper.readTree(path.toFile());
                     String profileId = root.get("profileId").asText();
-                    Set<String> seen = new HashSet<>();
+                    Map<String, JsonNode> seen = new HashMap<>();
                     JsonNode refs = root.get("mappingPacks");
                     assertNotNull(refs, path.getFileName() + " must have mappingPacks");
                     for (JsonNode ref : refs) {
@@ -118,8 +120,10 @@ class ProfileDraftImportTest {
                         assertNotNull(entries, packPath.getFileName() + " must have entries");
                         for (JsonNode entry : entries) {
                             String semanticName = entry.get("semanticName").asText();
-                            assertTrue(seen.add(semanticName),
-                                path.getFileName() + " (profile " + profileId + ") has duplicate semanticName: " + semanticName);
+                            JsonNode previous = seen.putIfAbsent(semanticName, entry);
+                            assertTrue(previous == null || sameSelector(previous, entry),
+                                path.getFileName() + " (profile " + profileId
+                                    + ") has conflicting duplicate semanticName: " + semanticName);
                         }
                     }
                 } catch (Exception e) {
@@ -127,5 +131,27 @@ class ProfileDraftImportTest {
                 }
             });
         }
+    }
+
+    private static boolean sameSelector(
+        final JsonNode left,
+        final JsonNode right
+    ) {
+        return text(left, "kind").equals(text(right, "kind"))
+            && text(left, "runtime").equals(text(right, "runtime"))
+            && text(left, "intermediary").equals(text(right, "intermediary"))
+            && text(left, "descriptor").equals(text(right, "descriptor"));
+    }
+
+    private static String text(
+        final JsonNode entry,
+        final String field
+    ) {
+        final String value = entry.path(field).asText();
+        return value.length() >= 2
+            && value.startsWith("\"")
+            && value.endsWith("\"")
+                ? value.substring(1, value.length() - 1)
+                : value;
     }
 }

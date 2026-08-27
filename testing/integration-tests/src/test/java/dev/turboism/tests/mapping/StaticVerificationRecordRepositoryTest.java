@@ -50,7 +50,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("compatibility/cubism/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "compatibility/cubism/verification/cubism-5.2.03-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.03.project-workspace.static",
@@ -231,7 +231,153 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "416ec0e9e45e1dfd44216969aa02a5171eb0688145b3738f583beb9bafe5131e",
             74, "5.3.02")
-    ))))))))));
+    )))))))))));
+
+    private static Map<String, SliceExpectation> with5303(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        for (String fileName : new String[] {
+            "cubism-5.3.03-autobackup.json",
+            "cubism-5.3.03-clipmask.json",
+            "cubism-5.3.03-editor-model.json",
+            "cubism-5.3.03-performance-render-scene.json",
+            "cubism-5.3.03-project-workspace.json",
+            "cubism-5.3.03-ui-bounding-box-overlay.json",
+            "cubism-5.3.03-ui-control-appearance.json",
+            "cubism-5.3.03-ui-embedded-panel.json",
+            "cubism-5.3.03-ui-main-toolbar.json",
+            "cubism-5.3.03-ui-status-bar.json",
+            "cubism-5.3.03-ui-top-menu.json",
+            "cubism-5.3.03-workspace-control.json"
+        }) {
+            add5303RecordExpectation(
+                expectations,
+                Path.of("compatibility/cubism/verification/" + fileName)
+            );
+        }
+        return Map.copyOf(expectations);
+    }
+
+    private static void add5303RecordExpectation(
+        final Map<String, SliceExpectation> expectations,
+        final Path recordPath
+    ) {
+        final Path absoluteRecord = PROJECT_ROOT.resolve(recordPath);
+        final String repositoryPath = recordPath.toString().replace('\\', '/');
+        try {
+            final JsonNode record = new ObjectMapper().readTree(absoluteRecord.toFile());
+            final String fileName = recordPath.getFileName().toString().replace(".json", "");
+            final String packId = packIdFor5303(fileName);
+            final Path packPath = Path.of(
+                "compatibility/cubism/mapping-packs/draft/" + packId + ".json"
+            );
+            if (!Files.isRegularFile(PROJECT_ROOT.resolve(packPath))) {
+                throw new IllegalStateException("missing required 5.3.03 DRAFT pack " + packPath);
+            }
+            final Set<String> aliases = recordAliases(repositoryPath);
+            final Set<String> classAliases = recordClassAliases(repositoryPath);
+            final SliceKind kind = fileName.contains("editor-model") ? SliceKind.EDITOR_MODEL
+                : fileName.contains("project-workspace") ? SliceKind.PROJECT_WORKSPACE
+                : fileName.contains("clipmask") ? SliceKind.CLIP_MASK
+                : fileName.contains("performance") ? SliceKind.PERFORMANCE
+                : SliceKind.EDITOR_UI;
+            expectations.put(
+                repositoryPath,
+                new SliceExpectation(
+                    record.get("verificationId").asText(),
+                    record.get("adapterSliceId").asText(),
+                    "5.3.03",
+                    "cubism-5.3.03",
+                    recordCapabilities(repositoryPath),
+                    "Live2D_Cubism.jar",
+                    42_010_633L,
+                    "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+                    expected5303RecordSha(fileName),
+                    aliases.size(),
+                    aliases,
+                    aliases,
+                    difference(aliases, classAliases),
+                    classAliases,
+                    packId,
+                    packPath,
+                    Path.of("compatibility/cubism/profiles/draft/cubism-5.3.03.json"),
+                    "5.3.03",
+                    kind
+                )
+            );
+        } catch (Exception failure) {
+            throw new ExceptionInInitializerError(failure);
+        }
+    }
+
+    private static String expected5303RecordSha(final String fileName) {
+        return switch (fileName) {
+            case "cubism-5.3.03-autobackup" ->
+                "7ed9f31588a9f9ba9fff3ac9300d9e1e8ff324aac2428b601c94599b8f0070ad";
+            case "cubism-5.3.03-clipmask" ->
+                "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
+            case "cubism-5.3.03-editor-model" ->
+                "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665";
+            case "cubism-5.3.03-performance-render-scene" ->
+                "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
+            case "cubism-5.3.03-project-workspace" ->
+                "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2";
+            case "cubism-5.3.03-ui-bounding-box-overlay" ->
+                "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5";
+            case "cubism-5.3.03-ui-control-appearance" ->
+                "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0";
+            case "cubism-5.3.03-ui-embedded-panel" ->
+                "089a76ea22fd2dcc688e18bdc2157997416095ba61ab1e290769d92390891065";
+            case "cubism-5.3.03-ui-main-toolbar" ->
+                "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07";
+            case "cubism-5.3.03-ui-status-bar" ->
+                "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7";
+            case "cubism-5.3.03-ui-top-menu" ->
+                "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
+            case "cubism-5.3.03-workspace-control" ->
+                "19a28870070b7f0e5c49060fef15dea087ebd37c7d20963d6aabd55fc5a464da";
+            default -> throw new IllegalArgumentException("unregistered 5.3.03 record " + fileName);
+        };
+    }
+
+    private static String packIdFor5303(final String fileName) {
+        return fileName.equals("cubism-5.3.03-editor-model")
+            ? "cubism-5.3.03-editor-model-read"
+            : fileName;
+    }
+
+    private static Set<String> recordAliases(final String recordPath) {
+        return recordStringSet(recordPath, "selectors", "alias");
+    }
+
+    private static Set<String> recordCapabilities(final String recordPath) {
+        try {
+            final JsonNode root = new ObjectMapper().readTree(
+                PROJECT_ROOT.resolve(recordPath).toFile()
+            );
+            return asStringSet(root.get("capabilityIds"));
+        } catch (Exception failure) {
+            throw new IllegalStateException("cannot read reviewed record " + recordPath, failure);
+        }
+    }
+
+    private static Set<String> recordStringSet(
+        final String recordPath,
+        final String arrayField,
+        final String valueField
+    ) {
+        try {
+            final JsonNode root = new ObjectMapper().readTree(
+                PROJECT_ROOT.resolve(recordPath).toFile()
+            );
+            final Set<String> values = new HashSet<>();
+            root.get(arrayField).forEach(node -> values.add(node.get(valueField).asText()));
+            return Set.copyOf(values);
+        } catch (Exception failure) {
+            throw new IllegalStateException("cannot read reviewed record " + recordPath, failure);
+        }
+    }
 
     private static Map<String, SliceExpectation> withWorkspaceControl(
         final Map<String, SliceExpectation> existing

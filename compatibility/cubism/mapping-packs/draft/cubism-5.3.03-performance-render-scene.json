@@ -1,0 +1,159 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "jar-metadata-probe",
+  "cubismVersion": "5.3.03",
+  "metadata": {
+    "validationNotes": "Exact metadata inventory for adapter.cubism.performance.fps-hook, taken verbatim from the targets the probe transformer binds. Every selector is VERIFIED_STATIC against the exact artifact. Pack remains DRAFT; its hash-anchored record does not admit the 5.3.03 FPS installer."
+  },
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.render_scene",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.render-scene",
+      "runtime": "renderScene_exe",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.modeling_pre_render_update",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.modeling-pre-render-update",
+      "runtime": "a",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/a;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/K",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.render_system",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.render-system",
+      "runtime": "b",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.scene_traversal",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.scene-traversal",
+      "runtime": "a",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;ZZZLjava/util/ArrayList;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.renderer_dispatch",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.renderer-dispatch",
+      "runtime": "a",
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics3d/component/AGRenderer;Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.update_model_instances",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.update-model-instances",
+      "runtime": "updateModelInstances",
+      "intermediary": "",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_03.performance.reinit_model_instance",
+      "kind": "method",
+      "owner": "performance-fps-hook",
+      "name": "cubism.performance.reinit-model-instance",
+      "runtime": "reinitModelInstance_exe",
+      "intermediary": "",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "jar-metadata-probe",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 0
+      }
+    }
+  ]
+}
