@@ -221,6 +221,7 @@ class EditorParameterBindingBatchAccessTest {
             method("cubism.editor-model.keyform-grid.rearrange-keys", Grid.class, "rearrangeKeyformsOnParameter", descriptor(void.class, Object.class, List.class, List.class)),
             method("cubism.editor-model.parameter.source", Parameter.class, "source", descriptor(Source.class)),
             method("cubism.editor-model.parameter-source.guid", Source.class, "guid", descriptor(Object.class)),
+            method("cubism.editor-model.parameter-source.morph-target", Source.class, "morphTarget", descriptor(boolean.class)),
             method("cubism.editor-model.parameter-source.minimum", Source.class, "minimum", descriptor(float.class)),
             method("cubism.editor-model.parameter-source.maximum", Source.class, "maximum", descriptor(float.class)),
             method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", descriptor(void.class)),
@@ -442,6 +443,7 @@ class EditorParameterBindingBatchAccessTest {
         }
 
         public Object guid() { return guid; }
+        public boolean morphTarget() { return false; }
         public float minimum() { return minimum; }
         public float maximum() { return maximum; }
     }

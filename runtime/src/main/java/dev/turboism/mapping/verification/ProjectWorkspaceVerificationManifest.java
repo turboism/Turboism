@@ -24,7 +24,7 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "m15.cubism-5.2.03.project-workspace.static",
-        "59ac1ee40d386aed22b6f3f8c6eb0fe876c5af69190affd7f0c00209d1f12de4",
+        "38a9da7d0d6a37b7b37a54499cb788341f5a081bb545c6aafabf3e0fd262ea3f",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -33,7 +33,7 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "m15.cubism-5.3.02.project-workspace.static",
-        "182659e0b3ccae047689ade53bf42e0b441e8144d996242b0cb888f0a0c61191",
+        "902e3284dad2180a4211f87b777df67fe031a98a48c6fa339acd5602f33ef38b",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -42,7 +42,7 @@ public final class ProjectWorkspaceVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "m15.cubism-5.3.03.project-workspace.static",
-        "d7f45e0c7d70925b4c77db18022b06ee4f089bc7b1cbe585ef311efa754f168e",
+        "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );

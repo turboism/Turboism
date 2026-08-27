@@ -170,7 +170,7 @@ class EditorParameterBindingMorphTransferTest {
             method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", descriptor(GroupUndo.class, String.class)),
             method("cubism.editor-model.edit-mode.end", EditMode.class, "end", descriptor(void.class, boolean.class, Object.class)),
             method("cubism.editor-model.undo.add", GroupUndo.class, "add", descriptor(boolean.class, Undo.class, boolean.class)),
-            method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", descriptor(void.class, Listener.class)),
+            method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", descriptor(boolean.class, Listener.class)),
             StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(Listener.class)),
             method("cubism.editor-model.model-source.update-instances", ModelSource.class, "updateInstances", descriptor(void.class)),
             method("cubism.editor-model.complete-pack.update-parameter", Pack.class, "updateParameter", descriptor(void.class, boolean.class)),
@@ -191,6 +191,7 @@ class EditorParameterBindingMorphTransferTest {
             method("cubism.editor-model.parameter-source.id", ParameterSource.class, "id", descriptor(HostParameterId.class)),
             method("cubism.editor-model.id.value", HostParameterId.class, "value", descriptor(String.class)),
             method("cubism.editor-model.parameter-source.guid", ParameterSource.class, "guid", descriptor(HostParameterGuid.class)),
+            method("cubism.editor-model.parameter-source.morph-target", ParameterSource.class, "morphTarget", descriptor(boolean.class)),
             method("cubism.editor-model.parameter-source.minimum", ParameterSource.class, "minimum", descriptor(float.class)),
             method("cubism.editor-model.parameter-source.maximum", ParameterSource.class, "maximum", descriptor(float.class)),
             StaticSelector.field(
@@ -335,6 +336,7 @@ class EditorParameterBindingMorphTransferTest {
 
         public HostParameterId id() { return id; }
         public HostParameterGuid guid() { return guid; }
+        public boolean morphTarget() { return true; }
         public float minimum() { return minimum; }
         public float maximum() { return maximum; }
     }
@@ -355,7 +357,7 @@ class EditorParameterBindingMorphTransferTest {
     }
 
     public static class Undo {
-        public void addListener(final Listener listener) { }
+        public boolean addListener(final Listener listener) { return true; }
         public void undo() { }
         public void redo() { }
     }
@@ -382,19 +384,21 @@ class EditorParameterBindingMorphTransferTest {
         }
     }
 
-    public static final class GroupUndo {
+    public static final class GroupUndo extends Undo {
         final List<Undo> entries = new ArrayList<>();
+
+        @Override public boolean addListener(final Listener listener) { return true; }
 
         public boolean add(final Undo undo, final boolean significant) {
             entries.add(undo);
             return true;
         }
 
-        void undo() {
+        @Override public void undo() {
             for (int index = entries.size() - 1; index >= 0; index--) entries.get(index).undo();
         }
 
-        void redo() {
+        @Override public void redo() {
             entries.forEach(Undo::redo);
         }
     }

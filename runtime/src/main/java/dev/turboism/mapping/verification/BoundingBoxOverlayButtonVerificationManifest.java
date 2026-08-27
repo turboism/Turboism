@@ -9,9 +9,9 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.bounding-box-overlay-button";
     public static final String CAPABILITY_ID = "cubism.editor-ui.bounding-box-overlay-button";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
-    private static final String RECORD_SHA_52 = "f2e39e94f199f54833413965a7d510b7b34b20b7c3cd20adde53b44353d7c291";
-    private static final String RECORD_SHA_5302 = "606a1837c03b00c62c8711dcb5eb53fe04eb7025f78736281a2e2afacd21ce54";
-    private static final String RECORD_SHA_5303 = "5250893619f75791aec026d8f93fb62e4b4ed61760f9f193604d63e5f85ea2f0";
+    private static final String RECORD_SHA_52 = "62df5f6ac28c3c362ecd2e425184305ff82e1a3967a804b49ce5f394dc1cc365";
+    private static final String RECORD_SHA_5302 = "f4b910d06d20e383a3f8f3556fbc14a26e15b9d315c9e7b141338990ed44f528";
+    private static final String RECORD_SHA_5303 = "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-bounding-box-overlay.bounding-box.update",
         "cubism.ui-bounding-box-overlay.button.create",

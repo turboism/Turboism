@@ -86,7 +86,6 @@ class EditorDefaultKeyformLockWriteTest {
         final String operation = internal(ParameterOperation.class);
         final String editMode = internal(EditMode.class);
         final String undo = internal(Undo.class);
-        final String copyable = internal(Copyable.class);
         final java.util.Set<String> capabilities = writeAuthorized
             ? java.util.Set.of(
                 "cubism.editor-model.read",
@@ -139,11 +138,20 @@ class EditorDefaultKeyformLockWriteTest {
                 method("cubism.editor-model.undo.add", Undo.class, "add", "(Ljava/lang/Object;Z)Z"),
                 method("cubism.editor-model.undo.add-listener", Undo.class, "addListener", "(L" + internal(UndoListener.class) + ";)Z"),
                 StaticSelector.classSelector("cubism.editor-model.undo-listener.class", internal(UndoListener.class)),
-                StaticSelector.constructor(
-                    "cubism.editor-model.simple-undo.create",
-                    internal(SimpleUndo.class),
-                    "(Ljava/lang/String;L" + copyable + ";Ljava/lang/Object;)V",
-                    StaticSelector.ACCESS_PUBLIC
+                StaticSelector.field(
+                    "cubism.editor-model.undo.local-simple-factory-instance",
+                    internal(LocalSimpleUndoFactory.class),
+                    "INSTANCE",
+                    "L" + internal(LocalSimpleUndoFactory.class) + ";",
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+                ),
+                method(
+                    "cubism.editor-model.undo.local-simple-factory-create",
+                    LocalSimpleUndoFactory.class,
+                    "create",
+                    "(Ljava/lang/String;ZL" + internal(Action.class) + ";L"
+                        + internal(Action.class) + ";L" + internal(UpdateAction.class) + ";)L"
+                        + internal(SimpleUndo.class) + ";"
                 )
             ),
             Host.class.getClassLoader()
@@ -180,6 +188,14 @@ class EditorDefaultKeyformLockWriteTest {
 
     public interface UndoListener {
         void executed(Object event);
+    }
+
+    public interface Action {
+        void run();
+    }
+
+    public interface UpdateAction {
+        void run(Object ignored);
     }
 
     public record Id(String value) {
@@ -254,22 +270,38 @@ class EditorDefaultKeyformLockWriteTest {
     }
 
     public static final class SimpleUndo {
-        final Copyable target;
-        final Object before;
-        Object after;
+        final Action redo;
+        final Action undo;
+        final UpdateAction updated;
 
-        public SimpleUndo(final String name, final Copyable target, final Object context) {
-            this.target = target;
-            this.before = target.snapshot();
+        SimpleUndo(final Action redo, final Action undo, final UpdateAction updated) {
+            this.redo = redo;
+            this.undo = undo;
+            this.updated = updated;
         }
 
         void undo() {
-            after = target.snapshot();
-            target.restore(before);
+            undo.run();
+            updated.run(null);
         }
 
         void redo() {
-            target.restore(after);
+            redo.run();
+            updated.run(null);
+        }
+    }
+
+    public static final class LocalSimpleUndoFactory {
+        public static final LocalSimpleUndoFactory INSTANCE = new LocalSimpleUndoFactory();
+
+        public SimpleUndo create(
+            final String name,
+            final boolean ignored,
+            final Action redo,
+            final Action undo,
+            final UpdateAction updated
+        ) {
+            return new SimpleUndo(redo, undo, updated);
         }
     }
 

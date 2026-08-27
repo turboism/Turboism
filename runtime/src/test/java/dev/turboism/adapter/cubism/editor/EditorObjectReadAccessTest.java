@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorMorphTargetSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingBatchWriteSelectorContract;
@@ -789,6 +790,7 @@ class EditorObjectReadAccessTest {
     ) {
         final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
         capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorClipMaskReadSelectorContract.CAPABILITY_ID);
         capabilities.add(dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract.CAPABILITY_ID);
         if (includeWrite) {
             capabilities.add(dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract.ART_MESH_CAPABILITY_ID);
