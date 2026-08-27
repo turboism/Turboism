@@ -10,7 +10,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class WorkspaceControlVerificationRecordTest {
     private static final Path ROOT = locateRepositoryRoot();
@@ -20,7 +20,7 @@ class WorkspaceControlVerificationRecordTest {
         verify("cubism-5.2.03-workspace-control.json", "5.2.03", ReviewedHostArtifacts.CUBISM_5_2_03);
         verify("cubism-5.3.02-workspace-control.json", "5.3.02", ReviewedHostArtifacts.CUBISM_5_3_02);
         verify("cubism-5.3.03-workspace-control.json", "5.3.03", ReviewedHostArtifacts.CUBISM_5_3_03);
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     private static void verify(

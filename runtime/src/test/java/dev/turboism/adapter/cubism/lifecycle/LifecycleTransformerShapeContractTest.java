@@ -32,12 +32,12 @@ final class LifecycleTransformerShapeContractTest {
     }
 
     @Test
-    void exact5303StaticContractCarriesParameterLifecycleAliasWhileRuntimeStaysClosed() {
+    void exact5303StaticContractCarriesParameterLifecycleAliasForTheAdmittedRuntime() {
         assertTrue(dev.turboism.mapping.verification.EditorModelVerificationManifest
             .cubism5303StaticAliases()
             .contains("cubism.editor-model.parameter-operation.set-value"));
         assertEquals(List.of(1, 2), argumentSlots("(Ljava/lang/Object;F)V"));
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     private static List<Integer> argumentSlots(

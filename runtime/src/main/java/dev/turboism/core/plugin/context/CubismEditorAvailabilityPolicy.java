@@ -12,7 +12,7 @@ import java.util.Set;
 /** Resolves reviewed Cubism Editor availability declared on public SDK interfaces and methods. */
 final class CubismEditorAvailabilityPolicy {
 
-    private static final List<String> REVIEWED_VERSIONS = List.of("5.2.03", "5.3.02");
+    private static final List<String> REVIEWED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
     private static final Set<String> REVIEWED_VERSION_SET = Set.copyOf(REVIEWED_VERSIONS);
 
     private CubismEditorAvailabilityPolicy() {
@@ -113,7 +113,7 @@ final class CubismEditorAvailabilityPolicy {
     }
 
     private static boolean isDeclaredOrReviewedVersion(final String version) {
-        return REVIEWED_VERSION_SET.contains(version) || "5.3.03".equals(version);
+        return REVIEWED_VERSION_SET.contains(version);
     }
 
     private static boolean isExactVersion(final String version) {

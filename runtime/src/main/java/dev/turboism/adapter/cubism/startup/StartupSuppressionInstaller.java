@@ -156,9 +156,7 @@ public final class StartupSuppressionInstaller {
             return Optional.empty();
         }
         final String exactVersion = version.orElseThrow();
-        if (!ReviewedHostArtifacts.admitsFullRuntime(exactVersion)
-            && !("5.3.03".equals(exactVersion)
-                && StartupSuppressionVerificationManifest.admits5303ValidationCandidate())) {
+        if (!ReviewedHostArtifacts.admitsFullRuntime(exactVersion)) {
             return Optional.empty();
         }
         return StartupSuppressionProfile.forArtifact(artifact);

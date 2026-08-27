@@ -9,10 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class TurboismAgentFileChooserHistoryAdmissionTest {
 
     @Test
-    void keepsExact5303ClosedOutsideTheExplicitValidationLane() {
-        assertTrue(TurboismAgent.fileChooserHistoryRuntimeAdmitted("5.3.02", true));
-        assertFalse(TurboismAgent.fileChooserHistoryRuntimeAdmitted("5.3.02", false));
+    void admitsExact5303OnlyAfterFullRuntimeAdmission() {
+        assertTrue(TurboismAgent.fileChooserHistoryRuntimeAdmitted("5.3.03", true));
         assertFalse(TurboismAgent.fileChooserHistoryRuntimeAdmitted("5.3.03", false));
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertFalse(TurboismAgent.fileChooserHistoryRuntimeAdmitted("5.3.04", true));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 }

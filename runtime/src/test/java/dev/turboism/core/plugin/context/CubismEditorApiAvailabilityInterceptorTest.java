@@ -20,9 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
-    void reviewed5303IdentityDoesNotEnterTheSdkAvailabilitySet() {
-        assertEquals(List.of("5.2.03", "5.3.02"), CubismEditorAvailabilityPolicy.reviewedVersions());
-        assertFalse(CubismEditorAvailabilityPolicy.reviewedVersions().contains("5.3.03"));
+    void reviewed5303IdentityEntersTheSdkAvailabilitySet() {
+        assertEquals(
+            List.of("5.2.03", "5.3.02", "5.3.03"),
+            CubismEditorAvailabilityPolicy.reviewedVersions()
+        );
     }
 
     @Test
@@ -54,7 +56,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @Test
-    void accepts5303DeclarationsWithoutAdmittingAnActive5303Host() {
+    void admitsDeclaredApisOnTheReviewed5303Host() {
         final AtomicInteger calls = new AtomicInteger();
         final Declared5303 proxy = proxy(
             (Declared5303) calls::incrementAndGet,
@@ -62,14 +64,9 @@ class CubismEditorApiAvailabilityInterceptorTest {
             Optional.of("5.3.03")
         );
 
-        final CubismEditorApiUnavailableException failure = assertThrows(
-            CubismEditorApiUnavailableException.class,
-            proxy::call
-        );
+        proxy.call();
 
-        assertEquals(0, calls.get());
-        assertEquals(Optional.of("5.3.03"), failure.activeVersion());
-        assertEquals(List.of("5.3.02"), failure.supportedVersions());
+        assertEquals(1, calls.get());
     }
 
     @Test
@@ -140,7 +137,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
             CubismEditorApiUnavailableException.class,
             proxy::call
         );
-        assertEquals(List.of("5.2.03"), failure.supportedVersions());
+        assertEquals(List.of("5.2.03", "5.3.03"), failure.supportedVersions());
     }
 
     @Test
@@ -273,7 +270,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
         @Override public void narrow() { }
     }
 
-    @CubismEditor(exclude = {"5.2.03", "5.3.02"})
+    @CubismEditor(exclude = {"5.2.03", "5.3.02", "5.3.03"})
     interface ProhibitedExample {
         void call();
     }

@@ -95,13 +95,14 @@ public final class ReviewedHostArtifacts {
      * identity remains closed until its runtime, UI, and SDK surfaces are enabled explicitly.</p>
      *
      * @param cubismVersion exact reviewed Editor version string
-     * @return {@code true} only for the explicitly mature 5.2.03 and 5.3.02 profiles
+     * @return {@code true} only for the explicitly admitted 5.2.03, 5.3.02, and 5.3.03 profiles
      * @throws NullPointerException when {@code cubismVersion} is null
      */
     public static boolean admitsFullRuntime(final String cubismVersion) {
         Objects.requireNonNull(cubismVersion, "cubismVersion");
         return CUBISM_5_2_03_VERSION.equals(cubismVersion)
-            || CUBISM_5_3_02_VERSION.equals(cubismVersion);
+            || CUBISM_5_3_02_VERSION.equals(cubismVersion)
+            || CUBISM_5_3_03_VERSION.equals(cubismVersion);
     }
 
     private ReviewedHostArtifacts() {
