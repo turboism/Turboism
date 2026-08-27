@@ -65,7 +65,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "1e73650b8ec8c0adacab5a651f4c8088b4d013b311e57ba8eab14d8a79a6b512",
+        "0b6767554352851c035de65caf7ed18d2d12210fb419cf762067f2f6053a6df3",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -74,7 +74,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "f6946b4b05bfde1c267e8e31eec657c2fd25b55ef7be3ba5fee9cbc559f21905",
+        "422eb72d76b7030d1603b76cf8aaca7dc5fa6a2a4faeb596717742180067f281",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -87,7 +87,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "d9fc0b9412a3014e623ff3f962efd0b1f350f713e1d5275a7f0ce661c33444bb",
+        "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -691,13 +691,31 @@ public final class EditorModelVerificationManifest {
         return record.toManifest(
             ADAPTER_SLICE_ID,
             ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
-            ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
+            ObjectContextMenuVerificationManifest.aliases(cubism5302Aliases())
         );
     }
 
     private static Set<String> union(final Set<String> left, final Set<String> right) {
         final java.util.HashSet<String> values = new java.util.HashSet<>(left);
         values.addAll(right);
+        return Set.copyOf(values);
+    }
+
+    private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
+        "cubism.editor-model.keyform-grid.keyforms-on-grid",
+        "cubism.editor-model.keyform-on-grid.form-guid",
+        "cubism.editor-model.undo.local-simple-factory-create",
+        "cubism.editor-model.undo.local-simple-factory-instance",
+        "cubism.texture-atlas.texture-input-relink.helper-instance",
+        "cubism.texture-atlas.texture-input-relink.rebuild",
+        "cubism.texture-atlas.texture-manager-handler.drawable-uses",
+        "cubism.texture-atlas.texture-manager.change-input-to-atlas"
+    );
+
+    /** Exact selector roster carried by the reviewed 5.3.02 static record. */
+    public static Set<String> cubism5302Aliases() {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(CUBISM_5303_ONLY_ALIASES);
         return Set.copyOf(values);
     }
 
@@ -1392,10 +1410,7 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
-        values.removeAll(Set.of(
-            "cubism.editor-model.keyform-grid.keyforms-on-grid",
-            "cubism.editor-model.keyform-on-grid.form-guid"
-        ));
+        values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);
         values.removeAll(PART_OPACITY_ADDITIVE_ALIASES);
         values.removeAll(EditorObjectReadSelectorContract.OFFSCREEN_STATISTICS_ALIASES);
@@ -1415,6 +1430,7 @@ public final class EditorModelVerificationManifest {
         values.removeAll(EditorTextureSelectorContract.REMOVE_RAW_IMAGE_ALIASES);
         values.removeAll(EditorInspectorDrawableWriteSelectorContract.ALPHA_COMPOSITION_ALIASES);
         values.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
+        values.removeAll(CUBISM_5303_ONLY_ALIASES);
         return Set.copyOf(values);
     }
 

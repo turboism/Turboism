@@ -24,7 +24,7 @@ public final class TopMenuVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-top-menu.static",
-        "a704c04bad828734044d5167cde0dabc3e1f91314dd46e74c1fc008278f2c12e",
+        "9b8e9a30ba2b08be45c4dd3ad262d4d1efbd3779b4584e4dadfdef344c9c00f8",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -33,7 +33,7 @@ public final class TopMenuVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-top-menu.static",
-        "fa98853b6b834a6937f27c8b48119d3e56cfabbf96305aa57ad3427c7393850e",
+        "0cbb09b1100cc4208d5cc3d9c73dff4434e28abb2f970eb4b6c27a86fc7dc79f",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -42,7 +42,7 @@ public final class TopMenuVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.ui-top-menu.static",
-        "4c54e06b5d22e6af5936044645edea0c55b529cb38b1c6da59fd53a18fc3da0e",
+        "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );

@@ -216,8 +216,8 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
             600,
-            EditorModelVerificationManifest.REQUIRED_ALIASES,
-            EditorModelVerificationManifest.REQUIRED_ALIASES,
+            EditorModelVerificationManifest.cubism5302Aliases(),
+            EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             recordClassAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
             "cubism-5.3.02-editor-model-read",
@@ -1294,23 +1294,6 @@ class StaticVerificationRecordRepositoryTest {
                 methodAliases,
                 attestationClassAliases
             );
-        }
-        if (!expectation.manifestAliases().equals(aliases)) {
-            System.err.println("DIAG slice=" + expectation.verificationId()
-                + " manifestAliases=" + expectation.manifestAliases().size()
-                + " aliases=" + aliases.size()
-                + " missing=" + (expectation.manifestAliases().size() - aliases.size()));
-            try {
-                java.nio.file.Files.writeString(
-                    java.nio.file.Path.of("/tmp/diag-aliases.txt"),
-                    "slice=" + expectation.verificationId() + " missing="
-                        + difference(expectation.manifestAliases(), aliases) + "\n",
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND
-                );
-            } catch (Throwable ignored) { }
-            for (String missing : difference(expectation.manifestAliases(), aliases)) {
-                System.err.println("DIAG missing=" + missing);
-            }
         }
         assertEquals(expectation.manifestAliases(), aliases, "manifest aliases drifted from verified record");
         assertEquals(expectation.implementationAliases(), aliases,

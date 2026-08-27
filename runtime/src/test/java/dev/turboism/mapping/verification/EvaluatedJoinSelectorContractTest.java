@@ -21,7 +21,7 @@ class EvaluatedJoinSelectorContractTest {
     @Test
     void autoYureReadContractCoversTheDocumentModelPath() {
         final var aliases = EditorAutoYureReadSelectorContract.REQUIRED_ALIASES;
-        assertEquals(27, aliases.size());
+        assertEquals(30, aliases.size());
         assertTrue(aliases.contains("cubism.editor-model.parameter-controllable-source.extensions"));
         assertTrue(aliases.contains("cubism.editor-model.auto-yure-config-extension.param-to-config-map"));
         assertTrue(aliases.contains("cubism.editor-model.auto-yure-config.left"));
