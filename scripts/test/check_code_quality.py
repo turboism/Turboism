@@ -30,10 +30,16 @@ PLUGIN_ROOT = "plugins"
 REVIEWED_DIGESTS = (
     "bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd",
     "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
+    "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
 )
 DIGEST_DECLARATION_SITES = (
     "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifacts.java",
     "runtime/src/test/java/dev/turboism/mapping/verification/ReviewedHostArtifactsTest.java",
+    # P1 published the 5.3.03 public records before the production trust root existed; these
+    # agreement tests pin those already-reviewed public bytes and are the repository's allowed
+    # test locations for the same exact identity.
+    "testing/integration-tests/src/test/java/dev/turboism/tests/mapping/MappingPackDraftImportTest.java",
+    "testing/integration-tests/src/test/java/dev/turboism/tests/mapping/StaticVerificationRecordRepositoryTest.java",
 )
 DIGEST_SCAN_ROOTS = PRODUCTION_ROOTS + (
     PLUGIN_ROOT,
