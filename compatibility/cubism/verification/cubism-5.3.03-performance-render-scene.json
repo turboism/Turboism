@@ -1,0 +1,102 @@
+{
+  "adapterSliceId": "adapter.cubism.performance.fps-hook",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "sha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+    "size": 42010633
+  },
+  "capabilityIds": [
+    "turboism.performance.stats.read"
+  ],
+  "cubismVersion": "5.3.03",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.3.03-performance-render-scene.json",
+  "evidenceType": "JAR_METADATA",
+  "format": "turboism.static.verification.record",
+  "owner": "bootstrap-performance-fps-hook",
+  "profileId": "cubism-5.3.03",
+  "safeMode": "FPS counting stays disabled with one bounded diagnostic when the exact 5.3.03 artifact, host classloader, or any owner/member/descriptor does not match; partial instrumentation is not allowed and this static record does not admit the 5.3.03 FPS installer.",
+  "schemaVersion": 1,
+  "selectors": [
+    {
+      "alias": "cubism.performance.render-scene",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;Lcom/live2d/type/CRect;)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.render_scene",
+      "memberName": "renderScene_exe",
+      "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.modeling-pre-render-update",
+      "descriptor": "(Lcom/live2d/graphics3d/a;)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.modeling_pre_render_update",
+      "memberName": "a",
+      "ownerInternalName": "com/live2d/cubism/view/context/K",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.render-system",
+      "descriptor": "(Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;ZZ)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.render_system",
+      "memberName": "b",
+      "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.scene-traversal",
+      "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;ZZZLjava/util/ArrayList;)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.scene_traversal",
+      "memberName": "a",
+      "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.renderer-dispatch",
+      "descriptor": "(Lcom/live2d/graphics3d/component/AGRenderer;Lcom/live2d/graphics3d/a;Lcom/live2d/type/CRect;)V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.renderer_dispatch",
+      "memberName": "a",
+      "ownerInternalName": "com/live2d/graphics3d/rendering/e",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.update-model-instances",
+      "descriptor": "()V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.update_model_instances",
+      "memberName": "updateModelInstances",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "alias": "cubism.performance.reinit-model-instance",
+      "descriptor": "()V",
+      "forbiddenAccessFlags": 0,
+      "kind": "method",
+      "mappingId": "cubism.mapping.v5_3_03.performance.reinit_model_instance",
+      "memberName": "reinitModelInstance_exe",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModel",
+      "requiredAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    }
+  ],
+  "status": "VERIFIED_STATIC",
+  "verificationId": "cubism-5.3.03.performance.render-scene.static",
+  "verifiedAt": "2026-08-22T00:00:00Z",
+  "verifiedBy": "turboism-static-verifier"
+}

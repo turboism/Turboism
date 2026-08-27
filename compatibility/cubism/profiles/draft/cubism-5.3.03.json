@@ -1,0 +1,31 @@
+{
+  "format": "turboism.profile",
+  "schemaVersion": 1,
+  "profileId": "cubism-5.3.03",
+  "product": "cubism-editor",
+  "fingerprintStrategy": "none",
+  "mappingPacks": [
+    "cubism-5.3.03-project-workspace",
+    "cubism-5.3.03-clipmask",
+    "cubism-5.3.03-editor-model-read",
+    "cubism-5.3.03-ui-main-toolbar",
+    "cubism-5.3.03-ui-embedded-panel",
+    "cubism-5.3.03-ui-top-menu",
+    "cubism-5.3.03-ui-bounding-box-overlay",
+    "cubism-5.3.03-ui-control-appearance",
+    "cubism-5.3.03-workspace-control",
+    "cubism-5.3.03-ui-status-bar",
+    "cubism-5.3.03-autobackup",
+    "cubism-5.3.03-performance-render-scene",
+    "cubism-5.3.02-core-model-read"
+  ],
+  "status": "DRAFT",
+  "source": "legacy-inventory",
+  "verifiedBy": "none",
+  "verifiedAt": null,
+  "inherits": [],
+  "hookSelectorRefs": [],
+  "capabilities": [],
+  "notes": "DRAFT profile for exact Cubism Editor 5.3.03. Static exact-artifact records and DRAFT mapping packs are repository evidence only; runtime admission remains explicitly capability-scoped and does not claim exact-host readiness.",
+  "cubismVersion": "5.3.03"
+}

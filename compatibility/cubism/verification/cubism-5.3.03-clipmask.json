@@ -1,0 +1,201 @@
+{
+  "format": "turboism.static.verification.record",
+  "schemaVersion": 1,
+  "verificationId": "m15.cubism-5.3.03.clipmask.static",
+  "adapterSliceId": "adapter.clipmask.readonly",
+  "capabilityIds": [
+    "cubism.clipmask.read"
+  ],
+  "cubismVersion": "5.3.03",
+  "profileId": "cubism-5.3.03",
+  "artifact": {
+    "name": "Live2D_Cubism.jar",
+    "size": 42010633,
+    "sha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166"
+  },
+  "evidenceType": "JAR_METADATA",
+  "evidencePath": "compatibility/cubism/verification/cubism-5.3.03-clipmask.json",
+  "owner": "runtime-adapter",
+  "status": "VERIFIED_STATIC",
+  "verifiedBy": "turboism-m15-static-verifier",
+  "verifiedAt": "2026-08-15T00:00:00Z",
+  "safeMode": "Fail closed with MAPPING_NOT_VERIFIED and keep clip-mask reads unavailable until runtime resolution and smoke evidence exist.",
+  "selectors": [
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.app_ctrl",
+      "alias": "cubism.clipmask.app-controller.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.app_ctrl_instance",
+      "alias": "cubism.clipmask.app-controller.instance",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "access$get_instance$cp",
+      "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.current_document",
+      "alias": "cubism.clipmask.app-controller.current-document",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "getCurrentDoc",
+      "descriptor": "()Lcom/live2d/cubism/doc/IDocument;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.document",
+      "alias": "cubism.clipmask.document.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/IDocument",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.modeling_document",
+      "alias": "cubism.clipmask.modeling-document.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.model_source",
+      "alias": "cubism.clipmask.modeling-document.model-source",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+      "memberName": "getModelSource",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/CModelSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.model_source",
+      "alias": "cubism.clipmask.model-source.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.all_art_meshes",
+      "alias": "cubism.clipmask.model-source.all-art-meshes",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+      "memberName": "getAllArtMeshes",
+      "descriptor": "()Ljava/util/List;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.art_mesh_source",
+      "alias": "cubism.clipmask.art-mesh-source.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.drawable_source",
+      "alias": "cubism.clipmask.drawable-source.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.drawable_guid",
+      "alias": "cubism.clipmask.drawable-source.guid",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+      "memberName": "getGuid",
+      "descriptor": "()Lcom/live2d/type/CDrawableGuid;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.clip_guid_list",
+      "alias": "cubism.clipmask.drawable-source.clip-guid-list",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+      "memberName": "getClipGuidList",
+      "descriptor": "()Lcom/live2d/type/CArrayList;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.invert_clipping_mask",
+      "alias": "cubism.clipmask.drawable-source.invert-clipping-mask",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/drawable/ACDrawableSource",
+      "memberName": "getInvertClippingMask",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.drawable_guid",
+      "alias": "cubism.clipmask.drawable-guid.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/type/CDrawableGuid",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.class.guid",
+      "alias": "cubism.clipmask.guid.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/type/Guid",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_03.clipmask.method.guid_string",
+      "alias": "cubism.clipmask.guid.value",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/type/Guid",
+      "memberName": "getUuidString",
+      "descriptor": "()Ljava/lang/String;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    }
+  ]
+}

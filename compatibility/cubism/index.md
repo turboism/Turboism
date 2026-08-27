@@ -6,7 +6,7 @@ This directory contains the public, reproducible contracts required to build and
 
 - `verification/` — hash-pinned static records packaged into the agent under `META-INF/turboism/verification/`.
 - `mapping-packs/draft/` — selector catalogues bound to the reviewed records and exact-version profiles.
-- `profiles/draft/` — exact-version mapping-pack catalogues for 5.2.03 and 5.3.02.
+- `profiles/draft/` — exact-version mapping-pack catalogues for 5.2.03, 5.3.02, and 5.3.03.
 - `core-api/observed/` — exact-artifact public class declarations, JVM descriptors, and public constants governed by `turboism.cubism-core.public-api` v1.
 - `core-api/policy/` — complete-surface classification and selector policies with SHA-256 roster bindings.
 
