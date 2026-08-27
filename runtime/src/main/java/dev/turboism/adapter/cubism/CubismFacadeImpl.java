@@ -791,22 +791,101 @@ public final class CubismFacadeImpl implements CubismFacade {
 
     @Override
     public TextureAtlasLayoutService textureAtlasLayouts() {
-        return textureAtlasLayouts;
+        requireActiveScope();
+        final TextureAtlasLayoutService delegate = textureAtlasLayouts;
+        return new TextureAtlasLayoutService() {
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
+                requireActiveScope();
+                return delegate.current();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult apply(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan
+            ) {
+                requireActiveScope();
+                return delegate.apply(target, plan);
+            }
+        };
     }
 
     @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
-        return textureAtlasEditorSession;
+        requireActiveScope();
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession delegate =
+            textureAtlasEditorSession;
+        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession() {
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary> summary() {
+                requireActiveScope();
+                return delegate.summary();
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasSummary> selectedTexture() {
+                requireActiveScope();
+                return delegate.selectedTexture();
+            }
+        };
     }
 
     @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
-        return textureAtlasEditorUi;
+        requireActiveScope();
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi delegate = textureAtlasEditorUi;
+        return () -> {
+            requireActiveScope();
+            final dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel panel = delegate.attach();
+            return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel() {
+                @Override
+                public void setText(final String text) {
+                    requireActiveScope();
+                    panel.setText(text);
+                }
+
+                @Override
+                public void close() {
+                    requireActiveScope();
+                    panel.close();
+                }
+            };
+        };
     }
 
     @Override
     public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms() {
-        return textureAtlasAlgorithms;
+        requireActiveScope();
+        final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry delegate =
+            textureAtlasAlgorithms;
+        return new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry() {
+            @Override
+            public dev.turboism.sdk.plugin.Registration register(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm algorithm
+            ) {
+                requireActiveScope();
+                final dev.turboism.sdk.plugin.Registration registration = delegate.register(algorithm);
+                return () -> {
+                    requireActiveScope();
+                    registration.close();
+                };
+            }
+
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm> find(
+                final String id
+            ) {
+                requireActiveScope();
+                return delegate.find(id);
+            }
+
+            @Override
+            public List<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm> algorithms() {
+                requireActiveScope();
+                return delegate.algorithms();
+            }
+        };
     }
 
     private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {
