@@ -3,9 +3,15 @@ package dev.turboism.adapter.ui;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HostUiVersionCheckTest {
+
+    @Test
+    void reviewed5303IdentityDoesNotEnterTheHostUiAllowlist() {
+        assertFalse(HostUiVersionCheck.REVIEWED_HOST_VERSIONS.contains("5.3.03"));
+    }
 
     @Test
     void admitsOnlyReviewedExactHostVersions() {

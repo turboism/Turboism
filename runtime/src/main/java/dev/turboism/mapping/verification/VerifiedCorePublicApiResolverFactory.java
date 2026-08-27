@@ -9,6 +9,24 @@ public final class VerifiedCorePublicApiResolverFactory {
     private final PinnedVerifiedResolverWorkflow workflow = new PinnedVerifiedResolverWorkflow();
 
     /**
+     * Resolves the reviewed Core profile from the exact Core artifact digest.
+     *
+     * <p>Editor release labels are deliberately not consulted: Cubism Editor 5.3.03 continues to
+     * select the existing 5.3.02 Core profile when its paired {@code Live2DCubismCore.jar} has that
+     * exact reviewed digest.</p>
+     *
+     * @param verifiedArtifact exact Cubism Core artifact
+     * @return {@code "5.2.03"} or {@code "5.3.02"}
+     * @throws IOException when the artifact cannot be read
+     * @throws IllegalArgumentException when the digest is not reviewed
+     */
+    public static String profileForArtifact(final Path verifiedArtifact) throws IOException {
+        return CorePublicApiVerificationManifest.profileFor(
+            HostArtifactDigest.from(verifiedArtifact)
+        );
+    }
+
+    /**
      * Builds a Core public-API resolver, deriving the Cubism profile from the
      * artifact digest rather than trusting a caller-supplied version.
      *
@@ -27,9 +45,7 @@ public final class VerifiedCorePublicApiResolverFactory {
         final ClassLoader hostClassLoader
     ) throws IOException {
         return create(
-            CorePublicApiVerificationManifest.profileFor(
-                HostArtifactDigest.from(verifiedArtifact)
-            ),
+            profileForArtifact(verifiedArtifact),
             reviewedRecord,
             verifiedArtifact,
             hostClassLoader

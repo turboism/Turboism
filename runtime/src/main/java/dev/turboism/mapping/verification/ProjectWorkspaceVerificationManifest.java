@@ -17,6 +17,9 @@ public final class ProjectWorkspaceVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 static record. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed project/workspace record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
@@ -35,7 +38,20 @@ public final class ProjectWorkspaceVerificationManifest {
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed static project/workspace record identified for exact Cubism 5.3.03. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "m15.cubism-5.3.03.project-workspace.static",
+        "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.project-workspace.readonly";
     public static final Set<String> CAPABILITY_IDS = Set.of(

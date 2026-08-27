@@ -12,11 +12,18 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CubismEditorApiAvailabilityInterceptorTest {
+
+    @Test
+    void reviewed5303IdentityDoesNotEnterTheSdkAvailabilitySet() {
+        assertEquals(List.of("5.2.03", "5.3.02"), CubismEditorAvailabilityPolicy.reviewedVersions());
+        assertFalse(CubismEditorAvailabilityPolicy.reviewedVersions().contains("5.3.03"));
+    }
 
     @Test
     void rejectsNarrowMethodBeforeDelegateOnUnsupportedHost() {

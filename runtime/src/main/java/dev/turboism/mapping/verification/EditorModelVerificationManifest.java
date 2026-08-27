@@ -53,6 +53,9 @@ public final class EditorModelVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 static record. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
@@ -71,7 +74,20 @@ public final class EditorModelVerificationManifest {
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed static Editor-model record identified for exact Cubism 5.3.03. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.editor-model.static",
+        "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final Set<String> CAPABILITY_IDS = Set.of(
@@ -654,11 +670,51 @@ public final class EditorModelVerificationManifest {
                 ObjectContextMenuVerificationManifest.aliases(cubism52Aliases())
             );
         }
+        if (RECORD_5_3_03.equals(record)) {
+            return record.toManifest(
+                ADAPTER_SLICE_ID,
+                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+                ObjectContextMenuVerificationManifest.aliases(cubism5303StaticAliases())
+            );
+        }
         return record.toManifest(
             ADAPTER_SLICE_ID,
             ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
             ObjectContextMenuVerificationManifest.aliases(REQUIRED_ALIASES)
         );
+    }
+
+    /**
+     * Returns the selector roster pinned by the exact 5.3.03 static record.
+     *
+     * <p>This establishes record loading and exact routing only. It does not widen the top-level
+     * full-runtime, host-UI, or SDK availability gates.</p>
+     *
+     * @return the mature 5.3.02 aliases plus selectors added by the 5.3.03 static record
+     */
+    public static Set<String> cubism5303StaticAliases() {
+        return union(REQUIRED_ALIASES, Set.of(
+            "cubism.editor-model.keyform-grid.keyforms-on-grid",
+            "cubism.editor-model.keyform-on-grid.form-guid",
+            "cubism.editor-model.model-source.all-parameters",
+            "cubism.editor-model.modeling-document.last-active-view",
+            "cubism.editor-model.modeling-view.model",
+            "cubism.editor-model.morph-target-set.create-undo",
+            "cubism.editor-model.morph-target-set.remove",
+            "cubism.editor-model.morph-target.set-parameter",
+            "cubism.editor-model.morph-target.set-parameter-and-key-value",
+            "cubism.editor-model.parameter-controllable-source.internal-set-parent",
+            "cubism.editor-model.parameter-group.guid",
+            "cubism.editor-model.part-source.remove-child",
+            "cubism.editor-model.part.id",
+            "cubism.editor-model.undo.local-simple-factory-create",
+            "cubism.editor-model.undo.local-simple-factory-instance",
+            "cubism.editor-model.update-manager.selection-guid-list",
+            "cubism.texture-atlas.texture-input-relink.helper-instance",
+            "cubism.texture-atlas.texture-input-relink.rebuild",
+            "cubism.texture-atlas.texture-manager-handler.drawable-uses",
+            "cubism.texture-atlas.texture-manager.change-input-to-atlas"
+        ));
     }
 
     private static Set<String> union(final Set<String> left, final Set<String> right) {

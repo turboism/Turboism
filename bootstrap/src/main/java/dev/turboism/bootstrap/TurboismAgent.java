@@ -218,12 +218,9 @@ public final class TurboismAgent {
             "Turboism pipe shim status=" + pipeImplShim.status()
                 + ", transformOutcome=" + pipeImplShim.transformOutcome()
         );
-        final Thread bootstrap = new Thread(
-            () -> start(options, instrumentation),
-            "turboism-bootstrap"
+        final Thread bootstrap = BootstrapThreadFactory.create(
+            () -> start(options, instrumentation)
         );
-        bootstrap.setDaemon(true);
-        bootstrap.setContextClassLoader(TurboismAgent.class.getClassLoader());
         bootstrap.start();
     }
 
@@ -255,15 +252,23 @@ public final class TurboismAgent {
                 options.home(),
                 "cubism-" + profile + "-editor-model.json"
             );
-            final Path coreRuntimeVerificationRecord = extractVerificationRecord(
-                options.home(),
-                "cubism-" + profile + "-core-model-read.json"
-            );
             final Path coreArtifact = host.artifact().resolveSibling("Live2DCubismCore.jar")
                 .toAbsolutePath().normalize();
             if (!Files.isRegularFile(coreArtifact)) {
                 throw new IOException("Exact Cubism Core artifact is missing beside the Editor JAR");
             }
+            final String coreProfile = dev.turboism.mapping.verification
+                .VerifiedCorePublicApiResolverFactory.profileForArtifact(coreArtifact);
+            if (!dev.turboism.mapping.verification.ReviewedHostArtifacts.admitsFullRuntime(profile)) {
+                System.err.println(
+                    "Turboism bootstrap stopped: exact Editor identity is reviewed, but full runtime admission is closed"
+                );
+                return;
+            }
+            final Path coreRuntimeVerificationRecord = extractVerificationRecord(
+                options.home(),
+                "cubism-" + coreProfile + "-core-model-read.json"
+            );
             final Path mainToolbarVerificationRecord = extractVerificationRecord(
                 options.home(),
                 "cubism-" + profile + "-ui-main-toolbar.json"

@@ -35,6 +35,11 @@ final class ReviewedHostArtifactsTest {
             "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21",
             ReviewedHostArtifacts.CUBISM_5_3_02.sha256()
         );
+        assertEquals(42_010_633L, ReviewedHostArtifacts.CUBISM_5_3_03.size());
+        assertEquals(
+            "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+            ReviewedHostArtifacts.CUBISM_5_3_03.sha256()
+        );
     }
 
     @Test
@@ -46,6 +51,10 @@ final class ReviewedHostArtifactsTest {
         assertEquals(
             ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
             ReviewedHostArtifacts.cubismVersionOf(ReviewedHostArtifacts.CUBISM_5_3_02).orElseThrow()
+        );
+        assertEquals(
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.cubismVersionOf(ReviewedHostArtifacts.CUBISM_5_3_03).orElseThrow()
         );
 
         final HostArtifactDigest sizeOnlyMatch = new HostArtifactDigest(
@@ -63,11 +72,22 @@ final class ReviewedHostArtifactsTest {
     }
 
     @Test
-    void allCoversTheSupportedMatrixOldestFirst() {
+    void reviewedIdentityDoesNotOpenTheFullRuntimeGate() {
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.2.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.02"));
+        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.04"));
+        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.3"));
+        assertFalse(ReviewedHostArtifacts.admitsFullRuntime(" 5.3.03"));
+    }
+
+    @Test
+    void allCoversTheReviewedIdentityMatrixOldestFirst() {
         assertEquals(
             java.util.List.of(
                 ReviewedHostArtifacts.CUBISM_5_2_03,
-                ReviewedHostArtifacts.CUBISM_5_3_02
+                ReviewedHostArtifacts.CUBISM_5_3_02,
+                ReviewedHostArtifacts.CUBISM_5_3_03
             ),
             ReviewedHostArtifacts.all()
         );

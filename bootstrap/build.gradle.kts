@@ -13,10 +13,12 @@ tasks.processResources {
     listOf(
         "cubism-5.2.03-project-workspace.json",
         "cubism-5.3.02-project-workspace.json",
+        "cubism-5.3.03-project-workspace.json",
         "cubism-5.2.03-core-model-read.json",
         "cubism-5.3.02-core-model-read.json",
         "cubism-5.2.03-editor-model.json",
         "cubism-5.3.02-editor-model.json",
+        "cubism-5.3.03-editor-model.json",
         "cubism-5.2.03-ui-main-toolbar.json",
         "cubism-5.3.02-ui-main-toolbar.json",
         "cubism-5.2.03-ui-embedded-panel.json",
