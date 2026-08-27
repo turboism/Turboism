@@ -116,6 +116,28 @@ class EditorLifecycleCoordinatorTest {
         coordinator.close();
     }
 
+    @Test
+    void scopeBoundPluginRegisteredAfterStartupReceivesCurrent5303Snapshot() {
+        final List<String> events = new CopyOnWriteArrayList<>();
+        final EditorLifecycleCoordinator coordinator = new EditorLifecycleCoordinator();
+        coordinator.publishStartup("5.3.03");
+        coordinator.register(new Object(), plugin(new EditorLifecycleHooks() {
+            @Override public void beforeEditorStartup(final EditorLifecycleSnapshot editor) {
+                events.add("before:" + editor.hostVersion());
+            }
+            @Override public void onEditorStarted(final EditorLifecycleSnapshot editor) {
+                events.add("on");
+            }
+            @Override public void afterEditorStartup(final EditorLifecycleSnapshot editor) {
+                events.add("after");
+            }
+        }));
+        coordinator.awaitIdle();
+
+        assertEquals(List.of("before:5.3.03", "on", "after"), events);
+        coordinator.close();
+    }
+
     private static EditorLifecycleCoordinator.PluginHooks plugin(
         final EditorLifecycleHooks hooks
     ) {

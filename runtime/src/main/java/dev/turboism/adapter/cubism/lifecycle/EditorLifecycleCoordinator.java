@@ -76,11 +76,18 @@ public final class EditorLifecycleCoordinator implements AutoCloseable {
     }
 
     void register(final Object token, final PluginHooks plugin) {
+        final Registration registration = new Registration(
+            Objects.requireNonNull(token, "token"),
+            Objects.requireNonNull(plugin, "plugin")
+        );
         synchronized (registrationLock) {
-            plugins.add(new Registration(
-                Objects.requireNonNull(token, "token"),
-                Objects.requireNonNull(plugin, "plugin")
-            ));
+            plugins.add(registration);
+            final EditorLifecycleSnapshot started = current;
+            if (startupPublished.get()
+                && started != null
+                && registration.plugin().observeAllowed()) {
+                publishStartupTo(registration, started);
+            }
         }
     }
 
