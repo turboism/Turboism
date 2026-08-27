@@ -8,9 +8,9 @@ import java.util.Set;
  * create, delete, rename, and reparent).
  *
  * <p>Every member below is declared with the precise owner internal name, member name, JVM
- * descriptor, and access flags observed on the Cubism 5.2.03 and 5.3.02 host JARs (javap
- * evidence, 2026-08-05). DRAFT evidence from {@code compatibility/cubism/mapping-packs/draft} is admitted
- * only through this contract; no bare-string reflective calls are allowed outside it.</p>
+ * descriptor, and access flags observed on the exact Cubism 5.2.03, 5.3.02, and 5.3.03 host
+ * artifacts. Public draft contracts from {@code compatibility/cubism/mapping-packs/draft} are
+ * admitted only through this contract; no bare-string reflective calls are allowed outside it.</p>
  */
 public final class EditorObjectHierarchyEditSelectorContract {
 

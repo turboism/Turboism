@@ -36,7 +36,19 @@ final class EditorParameterStructureAccess {
         final ParameterDefinition definition,
         final Optional<ParameterGroupId> folderId
     ) {
-        requireAuthorization();
+        return EditorHostThread.dispatch("Cubism parameter structure", () ->
+            createOnHostThread(identity, source, model, definition, folderId)
+        );
+    }
+
+    private ParameterId createOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterDefinition definition,
+        final Optional<ParameterGroupId> folderId
+    ) {
+        requireParameterCreateAuthorization();
         Objects.requireNonNull(definition, "definition");
         Objects.requireNonNull(folderId, "folderId");
         modelGuard.requireCurrent(identity, model);
@@ -79,6 +91,18 @@ final class EditorParameterStructureAccess {
         final List<ParameterDefinition> definitions,
         final Optional<ParameterGroupId> folderId
     ) {
+        return EditorHostThread.dispatch("Cubism parameter structure", () ->
+            createManyOnHostThread(identity, source, model, definitions, folderId)
+        );
+    }
+
+    private List<ParameterId> createManyOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final List<ParameterDefinition> definitions,
+        final Optional<ParameterGroupId> folderId
+    ) {
         requireAuthorization();
         Objects.requireNonNull(definitions, "definitions");
         Objects.requireNonNull(folderId, "folderId");
@@ -103,6 +127,7 @@ final class EditorParameterStructureAccess {
             .map(id -> requireGroup(source, model, id))
             .orElseGet(() -> rootGroup(source));
         final List<Supplier<Object>> undoSuppliers = new ArrayList<>(definitions.size());
+        final int firstIndex = groupChildCount(parentGroup);
         for (ParameterDefinition definition : definitions) {
             final Object hostId = resolver.construct(
                 "cubism.editor-model.parameter-id.create", definition.id().value());
@@ -122,7 +147,7 @@ final class EditorParameterStructureAccess {
             );
             resolver.invoke(
                 "cubism.editor-model.parameter-source.set-repeat", hostSource, Boolean.valueOf(definition.repeat()));
-            final int index = groupChildCount(parentGroup);
+            final int index = firstIndex + hostSources.size();
             hostSources.add(hostSource);
             undoSuppliers.add(() -> resolver.invoke(
                 "cubism.editor-model.parameter-group-handler.add-parameter-child",
@@ -138,6 +163,18 @@ final class EditorParameterStructureAccess {
     }
 
     void removeMany(
+        final String identity,
+        final Object source,
+        final Object model,
+        final List<ParameterId> ids
+    ) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            removeManyOnHostThread(identity, source, model, ids);
+            return null;
+        });
+    }
+
+    private void removeManyOnHostThread(
         final String identity,
         final Object source,
         final Object model,
@@ -169,6 +206,17 @@ final class EditorParameterStructureAccess {
     }
 
     ParameterId copy(final String identity, final Object source, final Object model, final ParameterId id) {
+        return EditorHostThread.dispatch("Cubism parameter structure", () ->
+            copyOnHostThread(identity, source, model, id)
+        );
+    }
+
+    private ParameterId copyOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterId id
+    ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
@@ -197,21 +245,37 @@ final class EditorParameterStructureAccess {
             null,
             type
         );
-        resolver.invoke("cubism.editor-model.parameter-source.set-repeat", hostSource, Boolean.FALSE);
-        final int index = groupChildCount(parentGroup);
+        final Object repeat = resolver.invoke(
+            "cubism.editor-model.parameter-source.repeat", current
+        );
+        if (!(repeat instanceof Boolean value)) {
+            throw new IllegalStateException("Editor parameter repeat state is unavailable.");
+        }
+        resolver.invoke(
+            "cubism.editor-model.parameter-source.set-repeat", hostSource, value
+        );
+        final int index = childIndex(parentGroup, current) + 1;
         write(identity, source, model, "Turboism: Duplicate Parameter", () -> resolver.invoke(
             "cubism.editor-model.parameter-group-handler.add-parameter-child",
             groupHandler(parentGroup), hostSource, Integer.valueOf(index)));
         modelGuard.requireCurrent(identity, model);
-        // Read the copy identity back from the host state the undo envelope actually registered
-        // (the child the host appended to the parent group), not from the createFreeId guess: the
-        // returned id must agree with the host state both after this write and after undo/redo.
-        final Object registeredId = lastChildId(parentGroup);
         return new ParameterId(text(resolver.invoke(
-            "cubism.editor-model.id.value", registeredId != null ? registeredId : hostId)));
+            "cubism.editor-model.id.value", hostId)));
     }
 
     void remove(final String identity, final Object source, final Object model, final ParameterId id) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            removeOnHostThread(identity, source, model, id);
+            return null;
+        });
+    }
+
+    private void removeOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterId id
+    ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
@@ -225,7 +289,18 @@ final class EditorParameterStructureAccess {
     }
 
     ParameterGroupId addGroup(final String identity, final Object source, final Object model, final String name) {
-        requireAuthorization();
+        return EditorHostThread.dispatch("Cubism parameter structure", () ->
+            addGroupOnHostThread(identity, source, model, name)
+        );
+    }
+
+    private ParameterGroupId addGroupOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final String name
+    ) {
+        requireFolderCreateAuthorization();
         Objects.requireNonNull(name, "name");
         if (name.isBlank()) throw new IllegalArgumentException("name must not be blank");
         modelGuard.requireCurrent(identity, model);
@@ -254,6 +329,18 @@ final class EditorParameterStructureAccess {
     }
 
     void removeGroup(final String identity, final Object source, final Object model, final ParameterGroupId id) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            removeGroupOnHostThread(identity, source, model, id);
+            return null;
+        });
+    }
+
+    private void removeGroupOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterGroupId id
+    ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
         modelGuard.requireCurrent(identity, model);
@@ -271,6 +358,19 @@ final class EditorParameterStructureAccess {
 
     void renameGroup(
         final String identity, final Object source, final Object model, final ParameterGroupId id, final String name
+    ) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            renameGroupOnHostThread(identity, source, model, id, name);
+            return null;
+        });
+    }
+
+    private void renameGroupOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterGroupId id,
+        final String name
     ) {
         requireAuthorization();
         Objects.requireNonNull(id, "id");
@@ -296,6 +396,19 @@ final class EditorParameterStructureAccess {
         final ParameterId parameterId,
         final ParameterGroupId targetGroupId
     ) {
+        EditorHostThread.dispatch("Cubism parameter structure", () -> {
+            moveParameterOnHostThread(identity, source, model, parameterId, targetGroupId);
+            return null;
+        });
+    }
+
+    private void moveParameterOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model,
+        final ParameterId parameterId,
+        final ParameterGroupId targetGroupId
+    ) {
         requireAuthorization();
         Objects.requireNonNull(parameterId, "parameterId");
         Objects.requireNonNull(targetGroupId, "targetGroupId");
@@ -310,14 +423,33 @@ final class EditorParameterStructureAccess {
     }
 
     private void requireAuthorization() {
+        requireAuthorization(
+            EditorParameterStructureSelectorContract.REQUIRED_ALIASES,
+            "Parameter structure editing is unavailable without exact verified host evidence."
+        );
+    }
+
+    private void requireParameterCreateAuthorization() {
+        requireAuthorization(
+            EditorParameterStructureSelectorContract.PARAMETER_CREATE_REQUIRED_ALIASES,
+            "Parameter creation is unavailable without exact verified host evidence."
+        );
+    }
+
+    private void requireFolderCreateAuthorization() {
+        requireAuthorization(
+            EditorParameterStructureSelectorContract.FOLDER_CREATE_REQUIRED_ALIASES,
+            "Parameter folder creation is unavailable without exact verified host evidence."
+        );
+    }
+
+    private void requireAuthorization(final java.util.Set<String> aliases, final String message) {
         if (!resolver.authorizesFeature(
             EditorParameterStructureSelectorContract.ADAPTER_SLICE_ID,
             EditorParameterStructureSelectorContract.CAPABILITY_ID,
-            EditorParameterStructureSelectorContract.REQUIRED_ALIASES
+            aliases
         )) {
-            throw new UnsupportedOperationException(
-                "Parameter structure editing is unavailable without exact verified host evidence."
-            );
+            throw new UnsupportedOperationException(message);
         }
     }
 
@@ -346,26 +478,25 @@ final class EditorParameterStructureAccess {
     }
 
     private int groupChildCount(final Object group) {
+        return groupChildren(group).size();
+    }
+
+    private int childIndex(final Object group, final Object child) {
+        final int index = groupChildren(group).indexOf(child);
+        if (index < 0) {
+            throw new IllegalStateException(
+                "Editor parameter is absent from its declared parent folder."
+            );
+        }
+        return index;
+    }
+
+    private List<?> groupChildren(final Object group) {
         final Object raw = resolver.invoke("cubism.editor-model.parameter-group.children", group);
         if (!(raw instanceof List<?> children)) {
             throw new IllegalStateException("Editor parameter folder children are unavailable.");
         }
-        return children.size();
-    }
-
-    /**
-     * Returns the host id of the child the host appended last to {@code group} (the parameter the
-     * add-parameter-child undo envelope registered), or {@code null} when the tail is not a
-     * parameter source or the children are unavailable.
-     */
-    private Object lastChildId(final Object group) {
-        final Object raw = resolver.invoke("cubism.editor-model.parameter-group.children", group);
-        if (!(raw instanceof List<?> children) || children.isEmpty()) return null;
-        final Object last = children.get(children.size() - 1);
-        if (last == null || !resolver.isInstance("cubism.editor-model.parameter-source.class", last)) {
-            return null;
-        }
-        return resolver.invoke("cubism.editor-model.parameter-source.id", last);
+        return children;
     }
 
     private ParameterGroupId groupId(final Object group) {
@@ -451,8 +582,10 @@ final class EditorParameterStructureAccess {
         final String actionName,
         final Supplier<Object> undoSupplier
     ) {
+        requireHostThread();
+        modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object document = activeDocumentFor(source, app);
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
         boolean completed = false;
@@ -470,7 +603,12 @@ final class EditorParameterStructureAccess {
                     return null;
                 }
             );
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            requireListenerAccepted(
+                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
+                actionName
+            );
+            modelGuard.requireCurrent(identity, model);
+            activeDocumentFor(source, app);
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
@@ -487,8 +625,10 @@ final class EditorParameterStructureAccess {
         final String actionName,
         final List<Supplier<Object>> undoSuppliers
     ) {
+        requireHostThread();
+        modelGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        final Object document = resolver.invoke("cubism.editor-model.app-controller.current-document", app);
+        final Object document = activeDocumentFor(source, app);
         final Object editMode = resolver.invoke("cubism.editor-model.modeling-document.edit-mode", document);
         // One edit-mode envelope around the whole batch: every child operation lands
         // in a single Undo entry, never one entry per parameter.
@@ -496,6 +636,8 @@ final class EditorParameterStructureAccess {
         boolean completed = false;
         try {
             for (Supplier<Object> undoSupplier : undoSuppliers) {
+                modelGuard.requireCurrent(identity, model);
+                activeDocumentFor(source, app);
                 final Object undo = undoSupplier.get();
                 final Object accepted = resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE);
                 if (!(accepted instanceof Boolean value) || !value) {
@@ -509,14 +651,48 @@ final class EditorParameterStructureAccess {
                         return null;
                     }
                 );
-                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+                requireListenerAccepted(
+                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
+                    actionName
+                );
             }
+            modelGuard.requireCurrent(identity, model);
+            activeDocumentFor(source, app);
             resolver.invoke("cubism.editor-model.model-source.update-instances", source);
             refresh(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
         } finally {
             resolver.invoke("cubism.editor-model.edit-mode.end", editMode, Boolean.valueOf(!completed), null);
+        }
+    }
+
+    private Object activeDocumentFor(final Object source, final Object app) {
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object activeSource = resolver.invoke(
+            "cubism.editor-model.modeling-document.model-source", document
+        );
+        if (activeSource != source) {
+            throw new IllegalStateException(
+                "Cubism document reference is stale for the active Editor model generation."
+            );
+        }
+        return document;
+    }
+
+    private static void requireListenerAccepted(final Object accepted, final String actionName) {
+        if (!(accepted instanceof Boolean value) || !value) {
+            throw new IllegalStateException(
+                "Cubism rejected the " + actionName + " Undo listener."
+            );
+        }
+    }
+
+    private static void requireHostThread() {
+        if (!EditorHostThread.isCurrent()) {
+            throw new IllegalStateException("Cubism parameter structure write escaped the EDT.");
         }
     }
 

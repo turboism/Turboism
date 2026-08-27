@@ -231,20 +231,26 @@ final class VerifiedTextureAtlasNativeInvocationAdapter {
                 resolver.invoke(
                     ITEM_TRANSFORM,
                     entry.getKey(),
-                    resolver.construct(AFFINE_CREATE, copyTransform(entry.getValue()))
+                    restoredTransform(AFFINE_CREATE, entry.getValue())
                 );
             }
             for (Map.Entry<Object, Object> entry : originalLayerTransforms.entrySet()) {
                 resolver.invoke(
                     LAYER_REF_SET_TRANSFORM,
                     entry.getKey(),
-                    resolver.construct(EDITOR_AFFINE_CREATE, copyTransform(entry.getValue()))
+                    restoredTransform(EDITOR_AFFINE_CREATE, entry.getValue())
                 );
             }
             resolver.invoke(DATA_SCALE, data, originalScale);
             overflow.clear();
             overflow.addAll(originalOverflow);
             mutated = false;
+        }
+
+        private Object restoredTransform(final String constructor, final Object value) {
+            return value == null
+                ? null
+                : resolver.construct(constructor, copyTransform(value));
         }
 
         private void updateLayer(final Object item, final Object affine) {

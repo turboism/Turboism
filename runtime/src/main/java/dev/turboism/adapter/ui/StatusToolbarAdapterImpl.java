@@ -36,8 +36,8 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
     }
 
     /**
-     * Verified-CX composition seam for the reviewed exact-version (5.2.03 or
-     * 5.3.02) status slice: wraps the
+     * Verified-CX composition seam for the reviewed exact-version (5.2.03,
+     * 5.3.02 or 5.3.03) status slice: wraps the
      * package-private native operations over a resolver-backed access. Per-call
      * version and capability gating still applies through {@link #notifyStatus}.
      */
@@ -76,7 +76,7 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
     ) {
         try {
             final Optional<SafeModeDiagnostic> versionDiagnostic =
-                HostUiVersionCheck.diagnosticFor(capability.id(), operations.hostVersion());
+                statusVersionDiagnostic(capability, operations.hostVersion());
             if (versionDiagnostic.isPresent()) {
                 return AdapterResult.unavailable(versionDiagnostic.orElseThrow());
             }
@@ -92,6 +92,23 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
                 "Host status/toolbar adapter call failed safely."
             ));
         }
+    }
+
+    private static Optional<SafeModeDiagnostic> statusVersionDiagnostic(
+        final Capability capability,
+        final String hostVersion
+    ) {
+        final Optional<SafeModeDiagnostic> diagnostic =
+            HostUiVersionCheck.diagnosticFor(capability.id(), hostVersion);
+        if (diagnostic.isPresent()
+            && capability == Capability.STATUS_NOTIFY
+            && dev.turboism.mapping.verification.StatusBarVerificationManifest
+                .CUBISM_VERSION_5_3_03.equals(hostVersion)
+            && dev.turboism.mapping.verification.StatusBarVerificationManifest
+                .admits5303ValidationCandidate()) {
+            return Optional.empty();
+        }
+        return diagnostic;
     }
 
     private static <T> Supplier<AdapterResult<T>> unavailable(final Capability capability) {

@@ -56,6 +56,9 @@ final class PerformanceFpsHookInstallerTest {
     private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
     private static final String CUBISM_5302_SHA256 =
         ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
+    private static final long CUBISM_5303_SIZE = ReviewedHostArtifacts.CUBISM_5_3_03.size();
+    private static final String CUBISM_5303_SHA256 =
+        ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
 
     @TempDir
     Path temporary;
@@ -126,6 +129,22 @@ final class PerformanceFpsHookInstallerTest {
     }
 
     @Test
+    void acceptsReviewed5303DigestThroughItsExactProfile() {
+        final List<PerformanceProbeMethodTransformer.Target> expected = PerformanceProbeTargets
+            .cubism5303().stream()
+            .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
+            .toList();
+        final List<PerformanceProbeMethodTransformer.Target> targets =
+            PerformanceFpsHookInstaller.fpsTargetsFor(
+                new HostArtifactDigest(CUBISM_5303_SIZE, CUBISM_5303_SHA256)
+            );
+
+        assertEquals(expected, targets);
+        assertEquals(1, targets.size());
+        assertEquals(PerformanceProbeMetric.RENDER_SCENE, targets.get(0).metric());
+    }
+
+    @Test
     void rejectsUnknownDigest() {
         assertThrows(
             IllegalArgumentException.class,
@@ -154,8 +173,8 @@ final class PerformanceFpsHookInstallerTest {
         final HostArtifactDigest fakeDigest = HostArtifactDigest.from(fakeArtifact);
         assertEquals(
             "unsupported Cubism artifact for FPS counting"
-                + " (expected Cubism 5.2.03 or 5.3.02; got size=" + fakeDigest.size()
-                + " sha256=" + fakeDigest.sha256() + ")",
+                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size="
+                + fakeDigest.size() + " sha256=" + fakeDigest.sha256() + ")",
             failure.getMessage()
         );
     }

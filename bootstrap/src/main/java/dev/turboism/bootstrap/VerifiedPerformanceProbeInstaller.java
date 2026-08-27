@@ -33,17 +33,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.jar.JarFile;
 
-/** Owns the exact Cubism 5.3.02 validation-only timing transformer. */
+/** Owns an exact-version Cubism 5.3 validation-only timing transformer. */
 final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
 
-    private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
     private static final Duration ADMISSION_TIMEOUT = Duration.ofSeconds(120);
     private static final Duration ADMISSION_POLL_INTERVAL = Duration.ofMillis(500);
     private static final Duration TRIGGER_POLL_INTERVAL = Duration.ofMillis(500);
-    private static final String CUBISM_5302_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
 
     private final Instrumentation instrumentation;
     private final ClassLoader hostClassLoader;
+    private final String cubismVersion;
+    private final String artifactSha256;
     private final List<PerformanceProbeMethodTransformer.Target> targets;
     private final PerformanceProbeMethodTransformer transformer;
     private final PerformanceProbeRollbackObserver rollbackObserver;
@@ -80,9 +80,10 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         this.instrumentation = Objects.requireNonNull(instrumentation, "instrumentation");
         this.hostClassLoader = Objects.requireNonNull(hostClassLoader, "hostClassLoader");
         final HostArtifactDigest digest = HostArtifactDigest.from(hostArtifact);
-        if (digest.size() != CUBISM_5302_SIZE || !CUBISM_5302_SHA256.equals(digest.sha256())) {
-            throw new IllegalArgumentException("unsupported Cubism artifact for performance probe");
-        }
+        final ProbeProfile profile = profileForArtifact(digest);
+        this.cubismVersion = profile.cubismVersion();
+        this.artifactSha256 = digest.sha256();
+        this.targets = profile.targets();
         appendCarrier(Objects.requireNonNull(carrierJar, "carrierJar"));
         final Class<?> visibleCarrier = Class.forName(
             PerformanceProbeCarrier.class.getName(), false, hostClassLoader
@@ -91,9 +92,25 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             || visibleCarrier.getClassLoader() != ClassLoader.getSystemClassLoader()) {
             throw new IllegalStateException("performance probe carrier identity mismatch");
         }
-        this.targets = PerformanceProbeTargets.cubism5302();
         this.transformer = new PerformanceProbeMethodTransformer(hostClassLoader, hostArtifact, targets);
         this.rollbackObserver = new PerformanceProbeRollbackObserver(hostClassLoader, hostArtifact, targets);
+    }
+
+    static ProbeProfile profileForArtifact(final HostArtifactDigest artifact) {
+        Objects.requireNonNull(artifact, "artifact");
+        if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
+            return new ProbeProfile(
+                ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+                PerformanceProbeTargets.cubism5302()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
+            return new ProbeProfile(
+                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+                PerformanceProbeTargets.cubism5303()
+            );
+        }
+        throw new IllegalArgumentException("unsupported Cubism artifact for performance probe");
     }
 
     void install(
@@ -258,7 +275,8 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 try {
                     new PerformanceProbeReportWriter().write(
                         output,
-                        CUBISM_5302_SHA256,
+                        cubismVersion,
+                        artifactSha256,
                         agentSha256,
                         fixtureSha256,
                         scenario,
@@ -356,7 +374,8 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                 restorationMatches.put(owner.replace('/', '.'), count));
             new PerformanceProbeRollbackWriter().write(
                 rollbackOutput,
-                CUBISM_5302_SHA256,
+                cubismVersion,
+                artifactSha256,
                 runId,
                 variant,
                 scenario,
@@ -369,6 +388,19 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             );
         } catch (Throwable failure) {
             throw new IllegalStateException("performance probe rollback manifest failed", failure);
+        }
+    }
+
+    record ProbeProfile(
+        String cubismVersion,
+        List<PerformanceProbeMethodTransformer.Target> targets
+    ) {
+        ProbeProfile {
+            Objects.requireNonNull(cubismVersion, "cubismVersion");
+            targets = List.copyOf(Objects.requireNonNull(targets, "targets"));
+            if (targets.isEmpty()) {
+                throw new IllegalArgumentException("performance probe targets must not be empty");
+            }
         }
     }
 }

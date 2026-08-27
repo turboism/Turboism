@@ -40,6 +40,9 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
     private static final long CUBISM_5302_SIZE = ReviewedHostArtifacts.CUBISM_5_3_02.size();
     private static final String CUBISM_5302_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_02.sha256();
 
+    private static final long CUBISM_5303_SIZE = ReviewedHostArtifacts.CUBISM_5_3_03.size();
+    private static final String CUBISM_5303_SHA256 = ReviewedHostArtifacts.CUBISM_5_3_03.sha256();
+
     /**
      * How long the deferred loaded-target retransform waits for the host
      * FlatLaf look-and-feel before it runs anyway: the startup race window
@@ -109,15 +112,24 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
             return PerformanceProbeTargets.cubism5203();
         }
         if (digest.size() == CUBISM_5302_SIZE && CUBISM_5302_SHA256.equals(digest.sha256())) {
-            return PerformanceProbeTargets.cubism5302().stream()
-                .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
-                .toList();
+            return renderSceneTargets(PerformanceProbeTargets.cubism5302());
+        }
+        if (digest.size() == CUBISM_5303_SIZE && CUBISM_5303_SHA256.equals(digest.sha256())) {
+            return renderSceneTargets(PerformanceProbeTargets.cubism5303());
         }
         throw new IllegalArgumentException(
             "unsupported Cubism artifact for FPS counting"
-                + " (expected Cubism 5.2.03 or 5.3.02; got size=" + digest.size()
+                + " (expected Cubism 5.2.03, 5.3.02, or 5.3.03; got size=" + digest.size()
                 + " sha256=" + digest.sha256() + ")"
         );
+    }
+
+    private static List<PerformanceProbeMethodTransformer.Target> renderSceneTargets(
+        final List<PerformanceProbeMethodTransformer.Target> targets
+    ) {
+        return targets.stream()
+            .filter(target -> target.metric() == PerformanceProbeMetric.RENDER_SCENE)
+            .toList();
     }
 
     @Override

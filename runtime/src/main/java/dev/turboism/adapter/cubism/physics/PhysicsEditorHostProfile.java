@@ -22,6 +22,7 @@ public record PhysicsEditorHostProfile(
 ) {
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     public PhysicsEditorHostProfile {
         panelOwnerInternalName = text(panelOwnerInternalName, "panelOwnerInternalName");
@@ -40,8 +41,8 @@ public record PhysicsEditorHostProfile(
     /**
      * Resolves the reviewed selector tuple for a host artifact.
      *
-     * <p>Only the two admitted Cubism builds are recognised, 5.2.03 and 5.3.02, and both map to the
-     * identical selector tuple. Any other artifact yields empty, which is the fail-closed signal that
+     * <p>Only the three admitted Cubism builds are recognised, 5.2.03, 5.3.02 and 5.3.03, and all
+     * map to the identical selector tuple. Any other artifact yields empty, which is the fail-closed signal that
      * the physics editor hook must not be installed against an unreviewed host.
      *
      * @param artifact digest of the host jar actually loaded
@@ -50,7 +51,11 @@ public record PhysicsEditorHostProfile(
      */
     public static Optional<PhysicsEditorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         Objects.requireNonNull(artifact, "artifact");
-        if (!artifact.equals(CUBISM_52) && !artifact.equals(CUBISM_53)) return Optional.empty();
+        if (!artifact.equals(CUBISM_52)
+            && !artifact.equals(CUBISM_53)
+            && !artifact.equals(CUBISM_5303)) {
+            return Optional.empty();
+        }
         return Optional.of(new PhysicsEditorHostProfile(
             "com/live2d/cubism/doc/modeling/ui/viewer/physics/ViewerPhysics_GroupList$GroupListPanel",
             "getTableArea", "this$0", "l", "getSources", "getEnable", "setEnable", "getGuid",

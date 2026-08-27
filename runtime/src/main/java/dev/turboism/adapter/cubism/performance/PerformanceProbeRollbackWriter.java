@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.regex.Pattern;
 
 /**
- * Validation-only rollback evidence manifest for the exact Cubism 5.3.02
+ * Validation-only rollback evidence manifest for an exact-version Cubism 5.3
  * performance probe, written from actual class bytes observed during install
  * and restoration. Mirrors the strict schema enforced by
  * scripts/preview/verify-cubism-performance-probe.py: exactly the target
@@ -26,7 +26,6 @@ public final class PerformanceProbeRollbackWriter {
 
     private static final String FORMAT = "turboism.cubism.performance-probe-rollback";
     private static final int SCHEMA_VERSION = 1;
-    private static final String CUBISM_VERSION = "5.3.02";
     private static final int MAX_BYTES = 256 * 1024;
     private static final Pattern SHA256_PATTERN = Pattern.compile("[0-9a-f]{64}");
 
@@ -44,11 +43,12 @@ public final class PerformanceProbeRollbackWriter {
      * really removed); and exactly one selector match and one restoration observation per
      * target and owner.</p>
      *
-     * <p>The manifest is fixed at {@code cubismVersion} 5.3.02, capped at 256 KiB, and
-     * published through a sibling {@code .tmp} file moved into place, atomically where the
-     * filesystem supports it.</p>
+     * <p>The manifest carries the exact Cubism version selected by the installer profile,
+     * is capped at 256 KiB, and is published through a sibling {@code .tmp} file moved into
+     * place, atomically where the filesystem supports it.</p>
      *
      * @param output             destination path, resolved to an absolute normalized path
+     * @param cubismVersion      exact reviewed Cubism Editor version
      * @param artifactSha256     digest of the Cubism artifact the probe was installed into
      * @param runId              identity of the validation run
      * @param variant            which build variant was exercised
@@ -64,6 +64,7 @@ public final class PerformanceProbeRollbackWriter {
      */
     public void write(
         final Path output,
+        final String cubismVersion,
         final String artifactSha256,
         final String runId,
         final String variant,
@@ -86,7 +87,7 @@ public final class PerformanceProbeRollbackWriter {
         final Map<String, Object> manifest = new LinkedHashMap<>();
         manifest.put("format", FORMAT);
         manifest.put("schemaVersion", SCHEMA_VERSION);
-        manifest.put("cubismVersion", CUBISM_VERSION);
+        manifest.put("cubismVersion", requireText(cubismVersion, "cubismVersion"));
         manifest.put("artifactSha256", artifactSha256);
         manifest.put("runId", runId);
         manifest.put("variant", variant);
@@ -185,6 +186,13 @@ public final class PerformanceProbeRollbackWriter {
                 throw new IllegalArgumentException("rollback restoration count must be exactly 1 per owner");
             }
         }
+    }
+
+    private static String requireText(final String value, final String name) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException(name + " must not be blank");
+        }
+        return value;
     }
 
     private static void requireSha256(final String value, final String label) {

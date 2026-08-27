@@ -5,7 +5,8 @@ import java.util.Set;
 /**
  * Exact additive selector contract for Editor model-instance reads.
  *
- * <p>Evidence (exact public class-file observation, Cubism 5.2.03 and 5.3.02):</p>
+ * <p>Evidence (exact public class-file observation, Cubism 5.2.03, 5.3.02,
+ * and 5.3.03):</p>
  * <ul>
  *   <li>{@code CModelSource.getModelInstances()} returns the instance list
  *       ({@code CArrayList<CModel>}); {@code getCurrentInstance()} returns the
@@ -14,7 +15,7 @@ import java.util.Set;
  *   <li>{@code CModel.getRenderType()} returns the instance render kind;
  *       {@code com.live2d.graphics3d.rendering.RenderType} is a public enum with
  *       NORMAL(1), PSD_EXPORT(2), ART_PATH(3), ART_PATH_ILLEGAL(4) in both
- *       versions, plus ONION_SKIN_FOR_MODELING(5) in 5.3.02 only.</li>
+ *       versions, plus ONION_SKIN_FOR_MODELING(5) in exact 5.3.02 and 5.3.03.</li>
  *   <li>All five instance mutations ({@code createModelInstance},
  *       {@code setCurrentInstance}, {@code setModelEditing}, {@code createRootPart},
  *       {@code removeParameterControllableSource}) are plain field/list mutations
@@ -25,6 +26,7 @@ import java.util.Set;
 public final class EditorModelInstanceReadSelectorContract {
 
     public static final String CUBISM_VERSION = "5.3.02";
+    public static final String CUBISM_5_3_03_VERSION = "5.3.03";
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
 

@@ -5,7 +5,8 @@ import java.util.Set;
 /**
  * Exact additive selector contract for Editor auto-Yure evaluation reads.
  *
- * <p>Evidence (exact public class-file observation, Cubism 5.2.03 and 5.3.02):</p>
+ * <p>Evidence (exact public class-file observation, Cubism 5.2.03, 5.3.02,
+ * and 5.3.03):</p>
  * <ul>
  *   <li>{@code ACParameterControllableSource.getExtensions()} returns the
  *       extension list of every controllable source (warp deformer sources
@@ -51,9 +52,12 @@ public final class EditorAutoYureReadSelectorContract {
         "cubism.editor-model.yure-deform-config.decay-level",
         "cubism.editor-model.warp-source.class",
         "cubism.editor-model.model-source.all-deformers",
+        "cubism.editor-model.model.parameter-set",
+        "cubism.editor-model.parameter-set.parameters",
+        "cubism.editor-model.parameter.class",
+        "cubism.editor-model.parameter.source",
         "cubism.editor-model.parameter-source.guid",
         "cubism.editor-model.guid.value",
-        "cubism.editor-model.parameter.class",
         "cubism.editor-model.parameter.id",
         "cubism.editor-model.parameter-controllable-source.id",
         "cubism.editor-model.id.value"

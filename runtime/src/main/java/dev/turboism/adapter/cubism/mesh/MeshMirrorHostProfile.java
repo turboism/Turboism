@@ -89,11 +89,14 @@ public record MeshMirrorHostProfile(
 
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     /** Returns the exact reviewed selector profile for the artifact, if it is supported. */
     public static Optional<MeshMirrorHostProfile> forArtifact(final HostArtifactDigest artifact) {
         if (CUBISM_52.equals(artifact)) return Optional.of(reviewed52());
-        if (CUBISM_53.equals(artifact)) return Optional.of(reviewed52And53());
+        if (CUBISM_53.equals(artifact) || CUBISM_5303.equals(artifact)) {
+            return Optional.of(reviewed52And53());
+        }
         return Optional.empty();
     }
 

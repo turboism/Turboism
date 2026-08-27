@@ -77,6 +77,7 @@ class PerformanceProbeRollbackTest {
         final Path output = temporary.resolve("run/rollback-manifest.json");
         new PerformanceProbeRollbackWriter().write(
             output,
+            ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
             ARTIFACT_SHA,
             "run-01",
             "on",
@@ -116,6 +117,28 @@ class PerformanceProbeRollbackTest {
             assertTrue(selector.path("owner").asText().startsWith("fixture."));
             assertTrue(selector.path("metric").asText().matches("[a-z][A-Za-z]*"));
         }
+
+        final Path output5303 = temporary.resolve("run/rollback-manifest-5303.json");
+        new PerformanceProbeRollbackWriter().write(
+            output5303,
+            ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+            "run-5303",
+            "on",
+            "camera",
+            AGENT_SHA,
+            FIXTURE_SHA,
+            targets,
+            owners(before, instrumented, after),
+            transformer.matchCounts(),
+            dotted(restorations)
+        );
+        final JsonNode root5303 = JSON.readTree(Files.readAllBytes(output5303));
+        assertEquals("5.3.03", root5303.path("cubismVersion").asText());
+        assertEquals(
+            ReviewedHostArtifacts.CUBISM_5_3_03.sha256(),
+            root5303.path("artifactSha256").asText()
+        );
     }
 
     @Test
@@ -142,7 +165,8 @@ class PerformanceProbeRollbackTest {
         corruptedAfter.put("fixture.RenderTarget", "c".repeat(64));
         final Path mismatch = temporary.resolve("mismatch.json");
         assertThrows(IllegalArgumentException.class, () -> writer.write(
-            mismatch, ARTIFACT_SHA, "run-01", "on", "camera", AGENT_SHA, FIXTURE_SHA,
+            mismatch, ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, ARTIFACT_SHA,
+            "run-01", "on", "camera", AGENT_SHA, FIXTURE_SHA,
             targets, owners(before, instrumentedHashes, corruptedAfter),
             transformer.matchCounts(), dotted(observer.observationCounts())));
         assertFalse(Files.exists(mismatch));
@@ -150,7 +174,8 @@ class PerformanceProbeRollbackTest {
         // Missing restoration observation: no admissible manifest.
         final Path partial = temporary.resolve("partial.json");
         assertThrows(IllegalArgumentException.class, () -> writer.write(
-            partial, ARTIFACT_SHA, "run-01", "on", "camera", AGENT_SHA, FIXTURE_SHA,
+            partial, ReviewedHostArtifacts.CUBISM_5_3_02_VERSION, ARTIFACT_SHA,
+            "run-01", "on", "camera", AGENT_SHA, FIXTURE_SHA,
             targets, owners(before, instrumentedHashes, observer.observedSha256()),
             transformer.matchCounts(), Map.of()));
         assertFalse(Files.exists(partial));

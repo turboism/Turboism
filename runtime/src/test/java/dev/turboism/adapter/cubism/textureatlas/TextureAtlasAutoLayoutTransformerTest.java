@@ -5,13 +5,124 @@ import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class TextureAtlasAutoLayoutTransformerTest {
+
+    @Test
+    void validationObserversDistinguishNativeBodyEntryFromHandledReturn() throws Exception {
+        final String callbackKey = "test.texture-atlas.auto-layout.callback";
+        final String handledReturnKey = "test.texture-atlas.auto-layout.handled-return";
+        final String nativeBodyEntryKey = "test.texture-atlas.auto-layout.native-body-entry";
+        final String completionKey = "test.texture-atlas.auto-layout.native-completion";
+        final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
+            "fixture/AutoLayout",
+            "a",
+            "(Ljava/lang/Object;)Z",
+            null,
+            callbackKey,
+            handledReturnKey,
+            nativeBodyEntryKey,
+            completionKey
+        );
+        final byte[] transformed = transformer.transform(
+            null, null, "fixture/AutoLayout", null, null, fixtureClass()
+        );
+        final FixtureLoader loader = new FixtureLoader(null);
+        final Class<?> type = loader.define("fixture.AutoLayout", transformed);
+        final Object instance = type.getConstructor().newInstance();
+        final AtomicInteger handledReturns = new AtomicInteger();
+        final AtomicInteger entries = new AtomicInteger();
+        final AtomicInteger completions = new AtomicInteger();
+        System.getProperties().put(
+            handledReturnKey,
+            (Consumer<Object>) target -> handledReturns.incrementAndGet()
+        );
+        System.getProperties().put(
+            nativeBodyEntryKey,
+            (Consumer<Object>) target -> entries.incrementAndGet()
+        );
+        System.getProperties().put(
+            completionKey,
+            (Consumer<Object>) target -> completions.incrementAndGet()
+        );
+        try {
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(0, handledReturns.get());
+            assertEquals(1, entries.get());
+            assertEquals(1, completions.get());
+            System.getProperties().put(callbackKey, (Predicate<Object>) target -> true);
+            assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, handledReturns.get());
+            assertEquals(1, entries.get());
+            assertEquals(1, completions.get());
+            System.getProperties().put(callbackKey, (Predicate<Object>) target -> false);
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, handledReturns.get());
+            assertEquals(2, entries.get());
+            assertEquals(2, completions.get());
+            System.getProperties().put(callbackKey, (Predicate<Object>) target -> {
+                throw new AssertionError("validation ingress failure");
+            });
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, handledReturns.get());
+            assertEquals(3, entries.get());
+            assertEquals(3, completions.get());
+        } finally {
+            System.getProperties().remove(callbackKey);
+            System.getProperties().remove(handledReturnKey);
+            System.getProperties().remove(nativeBodyEntryKey);
+            System.getProperties().remove(completionKey);
+        }
+    }
+
+    @Test
+    void validationCompletionIngressObservesOnlyOriginalNativeReturns() throws Exception {
+        final String callbackKey = "test.texture-atlas.auto-layout.callback";
+        final String completionKey = "test.texture-atlas.auto-layout.native-completion";
+        final TextureAtlasAutoLayoutTransformer transformer = new TextureAtlasAutoLayoutTransformer(
+            "fixture/AutoLayout",
+            "a",
+            "(Ljava/lang/Object;)Z",
+            null,
+            callbackKey,
+            completionKey
+        );
+        final byte[] transformed = transformer.transform(
+            null, null, "fixture/AutoLayout", null, null, fixtureClass()
+        );
+        final FixtureLoader loader = new FixtureLoader(null);
+        final Class<?> type = loader.define("fixture.AutoLayout", transformed);
+        final Object instance = type.getConstructor().newInstance();
+        final AtomicInteger completions = new AtomicInteger();
+        final AtomicReference<Object> receiver = new AtomicReference<>();
+        System.getProperties().put(completionKey, (Consumer<Object>) target -> {
+            completions.incrementAndGet();
+            receiver.set(target);
+        });
+        try {
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, completions.get());
+            assertSame(instance, receiver.get());
+            System.getProperties().put(callbackKey, (Predicate<Object>) target -> true);
+            assertTrue((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(1, completions.get());
+            System.getProperties().put(callbackKey, (Predicate<Object>) target -> false);
+            assertFalse((Boolean) type.getMethod("a", Object.class).invoke(instance, new Object()));
+            assertEquals(2, completions.get());
+        } finally {
+            System.getProperties().remove(callbackKey);
+            System.getProperties().remove(completionKey);
+        }
+    }
 
     @Test
     void passesTheReceiverToTheLoaderNeutralRuntimeIngressAndHandlesOnlyItsSuccess() throws Exception {

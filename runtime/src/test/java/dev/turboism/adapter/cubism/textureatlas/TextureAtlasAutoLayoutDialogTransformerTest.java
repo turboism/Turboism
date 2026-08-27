@@ -98,6 +98,24 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
     }
 
     @Test
+    void emptyRegistryLeavesTheNativePanelUntouched() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final GridBagLayout grid = (GridBagLayout) center.getLayout();
+        final JPanel spacer = new JPanel();
+        final GridBagConstraints spacerConstraints = new GridBagConstraints();
+        spacerConstraints.gridy = 5;
+        center.add(spacer, spacerConstraints);
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry registry =
+            new RuntimeTextureAtlasLayoutAlgorithmRegistry();
+
+        new TextureAtlasAutoLayoutDialogContributor(registry, java.util.Locale.ENGLISH)
+            .injectInto(center);
+
+        assertEquals(1, center.getComponentCount());
+        assertEquals(5, grid.getConstraints(spacer).gridy);
+    }
+
+    @Test
     void contributorAddsAlgorithmComboAndPersistsSelection() {
         final JPanel center = new JPanel(new GridBagLayout());
         final GridBagLayout grid = (GridBagLayout) center.getLayout();
@@ -128,6 +146,54 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             );
         } finally {
             System.getProperties().remove(TextureAtlasAutoLayoutDialogContributor.ALGORITHM_KEY);
+        }
+    }
+
+    @Test
+    void validationObserverReceivesOnlyCompleteInjectedControls() {
+        final JPanel center = new JPanel(new GridBagLayout());
+        final AtomicReference<Object> received = new AtomicReference<>();
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+            (Consumer<Object>) received::set
+        );
+        try {
+            contributor().injectInto(center);
+
+            final var observation =
+                (TextureAtlasAutoLayoutDialogContributor.DialogObservation) received.get();
+            assertNotNull(observation);
+            assertEquals(center, observation.center());
+            assertEquals("Layout algorithm", observation.algorithmLabel().getText());
+            assertEquals(2, observation.algorithmCombo().getItemCount());
+            assertEquals("Parallel search", observation.parallelLabel().getText());
+            assertNotNull(observation.parallelCheck());
+            assertEquals(2, observation.algorithms().size());
+        } finally {
+            System.getProperties().remove(
+                TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY
+            );
+        }
+    }
+
+    @Test
+    void emptyRegistryDoesNotNotifyValidationObserver() {
+        final AtomicReference<Object> received = new AtomicReference<>();
+        System.getProperties().put(
+            TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY,
+            (Consumer<Object>) received::set
+        );
+        try {
+            new TextureAtlasAutoLayoutDialogContributor(
+                new RuntimeTextureAtlasLayoutAlgorithmRegistry(),
+                java.util.Locale.ENGLISH
+            ).injectInto(new JPanel(new GridBagLayout()));
+
+            assertEquals(null, received.get());
+        } finally {
+            System.getProperties().remove(
+                TextureAtlasAutoLayoutDialogContributor.VALIDATION_OBSERVER_KEY
+            );
         }
     }
 

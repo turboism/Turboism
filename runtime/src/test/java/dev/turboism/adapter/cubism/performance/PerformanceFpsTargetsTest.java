@@ -31,6 +31,15 @@ class PerformanceFpsTargetsTest {
     }
 
     @Test
+    void cubism5303CarriesAnIndependentFullMetricTargetSet() {
+        final List<PerformanceProbeMethodTransformer.Target> targets =
+            PerformanceProbeTargets.cubism5303();
+
+        assertEquals(7, targets.size());
+        assertEquals(PerformanceProbeTargets.cubism5302(), targets);
+    }
+
+    @Test
     void cubism5302SetIsUnchanged() {
         final List<PerformanceProbeMethodTransformer.Target> targets =
             PerformanceProbeTargets.cubism5302();
