@@ -239,6 +239,38 @@ class MappingPackDraftImportTest {
     }
 
     @Test
+    void editorModel5303PackPinsMinimalCapabilityAssociation() throws Exception {
+        final JsonNode root = mapper.readTree(
+            DRAFT_DIR.resolve("cubism-5.3.03-editor-model-read.json").toFile()
+        );
+        final JsonNode metadata = root.path("metadata");
+        assertEquals(
+            "compatibility/cubism/verification/cubism-5.3.03-editor-model.json",
+            metadata.path("inventoryRef").asText()
+        );
+        assertEquals(
+            "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+            metadata.path("artifactSha256").asText()
+        );
+        assertEquals(620, root.path("entries").size());
+        assertEquals(58, metadata.path("capabilityCount").asInt());
+        final Set<String> capabilities = asStringSet(metadata.path("capabilityIds"));
+        assertEquals(metadata.path("capabilityCount").asInt(), capabilities.size());
+        assertTrue(capabilities.containsAll(Set.of(
+            "cubism.editor-model.read",
+            "cubism.editor-model.texture.read",
+            "cubism.editor-model.parameter-structure.write",
+            "cubism.editor-model.part-structure.write"
+        )));
+    }
+
+    private static Set<String> asStringSet(final JsonNode array) {
+        final java.util.HashSet<String> values = new java.util.HashSet<>();
+        array.forEach(value -> assertTrue(values.add(value.asText())));
+        return Set.copyOf(values);
+    }
+
+    @Test
     void draftPacksAreNotInRuntimeEnabledResources() throws Exception {
 
         Path runtimeMapping = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")))

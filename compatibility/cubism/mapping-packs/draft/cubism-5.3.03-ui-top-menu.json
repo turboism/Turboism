@@ -1,0 +1,1403 @@
+{
+  "format": "turboism.mapping.pack",
+  "schemaVersion": 1,
+  "status": "DRAFT",
+  "source": "derived-from-verified-record",
+  "cubismVersion": "5.3.03",
+  "entries": [
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.app_controller_instance",
+      "name": "cubism.ui-top-menu.app-controller.instance",
+      "kind": "method",
+      "runtime": "access$get_instance$cp",
+      "descriptor": "()Lcom/live2d/cubism/CEAppCtrl;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.app_controller_main_frame",
+      "name": "cubism.ui-top-menu.app-controller.main-frame",
+      "kind": "method",
+      "runtime": "getMainFrameCtrl",
+      "descriptor": "()Lcom/live2d/cubism/view/CEMainFrameCtrl;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.main_frame_window",
+      "name": "cubism.ui-top-menu.main-frame.window",
+      "kind": "method",
+      "runtime": "getMainFrame",
+      "descriptor": "()Lcom/live2d/ui/window/CFrame;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/CEMainFrameCtrl",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_add",
+      "name": "cubism.ui-top-menu.menu.add",
+      "kind": "method",
+      "runtime": "add",
+      "descriptor": "(Lcom/live2d/ui/menu/CMenuItem;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_bar_add",
+      "name": "cubism.ui-top-menu.menu-bar.add",
+      "kind": "method",
+      "runtime": "add",
+      "descriptor": "(Lcom/live2d/ui/menu/CMenu;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenuBar",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_bar_menus",
+      "name": "cubism.ui-top-menu.menu-bar.menus",
+      "kind": "method",
+      "runtime": "getMenus",
+      "descriptor": "()Ljava/util/List;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenuBar",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_bar_swing",
+      "name": "cubism.ui-top-menu.menu-bar.swing",
+      "kind": "method",
+      "runtime": "getJMenuBar",
+      "descriptor": "()Lcom/live2d/ui/swingImpl/r;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenuBar",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_create",
+      "name": "cubism.ui-top-menu.menu.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljava/lang/String;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_item_create",
+      "name": "cubism.ui-top-menu.menu-item.create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljava/lang/String;Lcom/live2d/type/CIcon;Lkotlin/jvm/functions/Function1;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenuItem",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.menu_swing",
+      "name": "cubism.ui-top-menu.menu.swing",
+      "kind": "method",
+      "runtime": "getJMenu",
+      "descriptor": "()Lcom/live2d/ui/swingImpl/s;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/menu/CMenu",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_begin-edit",
+      "name": "cubism.editor-command.canvas.begin-edit",
+      "kind": "method",
+      "runtime": "beginEdit",
+      "descriptor": "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_canvas",
+      "name": "cubism.editor-command.canvas.canvas",
+      "kind": "method",
+      "runtime": "getCanvas",
+      "descriptor": "()Lcom/live2d/graphics/CImageCanvas;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_companion",
+      "name": "cubism.editor-command.canvas.companion",
+      "kind": "field",
+      "runtime": "Companion",
+      "descriptor": "Lcom/live2d/graphics/CImageCanvas$a;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_complete-pack",
+      "name": "cubism.editor-command.canvas.complete-pack",
+      "kind": "method",
+      "runtime": "getCompletePack",
+      "descriptor": "()Lcom/live2d/cubism/pack/CECompletePack;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_current-view-context",
+      "name": "cubism.editor-command.canvas.current-view-context",
+      "kind": "method",
+      "runtime": "getCurrentViewContext",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_doc-size",
+      "name": "cubism.editor-command.canvas.doc-size",
+      "kind": "method",
+      "runtime": "getDocumentSize",
+      "descriptor": "()Lcom/live2d/type/CSize;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_edit-mode",
+      "name": "cubism.editor-command.canvas.edit-mode",
+      "kind": "method",
+      "runtime": "getCurrentEditMode",
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_edit-mode-main",
+      "name": "cubism.editor-command.canvas.edit-mode-main",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
+      "descriptor": "",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_end-edit-default",
+      "name": "cubism.editor-command.canvas.end-edit-default",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Lcom/live2d/doc/IEditMode;ZLkotlin/jvm/functions/Function1;ILjava/lang/Object;)Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/doc/IEditMode$b",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_group-add",
+      "name": "cubism.editor-command.canvas.group-add",
+      "kind": "method",
+      "runtime": "plusAssign",
+      "descriptor": "(Lcom/live2d/undo/ACUndoable;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_handler",
+      "name": "cubism.editor-command.canvas.handler",
+      "kind": "method",
+      "runtime": "getHandler",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ModelHandler;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/CModelSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_is-editing",
+      "name": "cubism.editor-command.canvas.is-editing",
+      "kind": "method",
+      "runtime": "isEditing",
+      "descriptor": "()Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_mark-dirty",
+      "name": "cubism.editor-command.canvas.mark-dirty",
+      "kind": "method",
+      "runtime": "updateLastModifiedTime",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_model",
+      "name": "cubism.editor-command.canvas.model",
+      "kind": "method",
+      "runtime": "getModel",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/CModel;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_model-source",
+      "name": "cubism.editor-command.canvas.model-source",
+      "kind": "method",
+      "runtime": "getModelSource",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/CModelSource;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_modeling-doc",
+      "name": "cubism.editor-command.canvas.modeling-doc",
+      "kind": "method",
+      "runtime": "getDoc",
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingDocument;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_modeling-view",
+      "name": "cubism.editor-command.canvas.modeling-view",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+      "descriptor": "",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_notify-size",
+      "name": "cubism.editor-command.canvas.notify-size",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(II)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas$a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_pixel-height",
+      "name": "cubism.editor-command.canvas.pixel-height",
+      "kind": "method",
+      "runtime": "getPixelHeight",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_pixel-width",
+      "name": "cubism.editor-command.canvas.pixel-width",
+      "kind": "method",
+      "runtime": "getPixelWidth",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_scale-with-anchor",
+      "name": "cubism.editor-command.canvas.scale-with-anchor",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/CModel;FLcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;Lcom/live2d/undo/GroupUndo;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_set-pixel-height",
+      "name": "cubism.editor-command.canvas.set-pixel-height",
+      "kind": "method",
+      "runtime": "setPixelHeight",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_set-pixel-width",
+      "name": "cubism.editor-command.canvas.set-pixel-width",
+      "kind": "method",
+      "runtime": "setPixelWidth",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageCanvas",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_simple-undo",
+      "name": "cubism.editor-command.canvas.simple-undo",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(Ljava/lang/String;Lcom/live2d/core/ICopyable;Lcom/live2d/core/a;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_size-height",
+      "name": "cubism.editor-command.canvas.size-height",
+      "kind": "method",
+      "runtime": "getHeight",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CSize",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_size-width",
+      "name": "cubism.editor-command.canvas.size-width",
+      "kind": "method",
+      "runtime": "getWidth",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CSize",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_undo",
+      "name": "cubism.editor-command.canvas.undo",
+      "kind": "method",
+      "runtime": "undo",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/CUndoManager",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_undo-manager",
+      "name": "cubism.editor-command.canvas.undo-manager",
+      "kind": "method",
+      "runtime": "getUndoManager",
+      "descriptor": "()Lcom/live2d/undo/CUndoManager;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingEditMode_Main",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_undo-pos",
+      "name": "cubism.editor-command.canvas.undo-pos",
+      "kind": "method",
+      "runtime": "getCurrentPos",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/CUndoManager",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_vector2",
+      "name": "cubism.editor-command.canvas.vector2",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(FF)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_canvas_vector2-zero",
+      "name": "cubism.editor-command.canvas.vector2-zero",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_config_instance",
+      "name": "cubism.editor-command.config.instance",
+      "kind": "field",
+      "runtime": "a",
+      "descriptor": "Lcom/live2d/util/UUConfig;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/util/UUConfig",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_config_read",
+      "name": "cubism.editor-command.config.read",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/util/UUConfig",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_config_write",
+      "name": "cubism.editor-command.config.write",
+      "kind": "method",
+      "runtime": "b",
+      "descriptor": "(Ljava/lang/String;Ljava/lang/Object;)Ljava/lang/Object;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/util/UUConfig",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_companion",
+      "name": "cubism.editor-command.external-app.companion",
+      "kind": "field",
+      "runtime": "a",
+      "descriptor": "Lcom/live2d/cubism/doc/webSocket/l$a;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_connected",
+      "name": "cubism.editor-command.external-app.connected",
+      "kind": "method",
+      "runtime": "f",
+      "descriptor": "()Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_get-port",
+      "name": "cubism.editor-command.external-app.get-port",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_get-remote",
+      "name": "cubism.editor-command.external-app.get-remote",
+      "kind": "method",
+      "runtime": "k",
+      "descriptor": "()Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_instance",
+      "name": "cubism.editor-command.external-app.instance",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "()Lcom/live2d/cubism/doc/webSocket/l;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_manager",
+      "name": "cubism.editor-command.external-app.manager",
+      "kind": "field",
+      "runtime": "a",
+      "descriptor": "Lcom/live2d/cubism/doc/webSocket/x;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_set-port",
+      "name": "cubism.editor-command.external-app.set-port",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_set-remote",
+      "name": "cubism.editor-command.external-app.set-remote",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Z)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l$a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_start",
+      "name": "cubism.editor-command.external-app.start",
+      "kind": "method",
+      "runtime": "d",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/l",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_external-app_stop",
+      "name": "cubism.editor-command.external-app.stop",
+      "kind": "method",
+      "runtime": "d",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/webSocket/x",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_file_save-model",
+      "name": "cubism.editor-command.file.save-model",
+      "kind": "method",
+      "runtime": "saveDocument",
+      "descriptor": "(Ljava/io/File;Z)Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_file_save-scene",
+      "name": "cubism.editor-command.file.save-scene",
+      "kind": "method",
+      "runtime": "saveDocument",
+      "descriptor": "(Ljava/io/File;Z)Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/animation/CAnimationFileContent",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_file_scene-content",
+      "name": "cubism.editor-command.file.scene-content",
+      "kind": "method",
+      "runtime": "getAnimationContent",
+      "descriptor": "()Lcom/live2d/cubism/doc/animation/CAnimationFileContent;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/animation/CSceneDocument",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_file_scene-document",
+      "name": "cubism.editor-command.file.scene-document",
+      "kind": "class",
+      "runtime": "com/live2d/cubism/doc/animation/CSceneDocument",
+      "descriptor": "",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/animation/CSceneDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_all-view-contexts",
+      "name": "cubism.editor-command.grid.all-view-contexts",
+      "kind": "method",
+      "runtime": "getAllViewContext",
+      "descriptor": "()Ljava/util/List;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_color-create",
+      "name": "cubism.editor-command.grid.color-create",
+      "kind": "constructor",
+      "runtime": "<init>",
+      "descriptor": "(III)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CColor",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_developer-setting",
+      "name": "cubism.editor-command.grid.developer-setting",
+      "kind": "field",
+      "runtime": "INSTANCE",
+      "descriptor": "Lcom/live2d/cubism/setting/AppSetting$DeveloperSetting;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/setting/AppSetting$DeveloperSetting",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_entity",
+      "name": "cubism.editor-command.grid.entity",
+      "kind": "field",
+      "runtime": "a",
+      "descriptor": "Lcom/live2d/cubism/view/context/gridPanel/GridPanelEntity$a;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/gridPanel/GridPanelEntity$a",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_entity-from-draw",
+      "name": "cubism.editor-command.grid.entity-from-draw",
+      "kind": "method",
+      "runtime": "l",
+      "descriptor": "()Lcom/live2d/cubism/view/context/gridPanel/GridPanelEntity;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/K",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_get-bold",
+      "name": "cubism.editor-command.grid.get-bold",
+      "kind": "method",
+      "runtime": "b",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/gridPanel/GridPanelEntity$a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_get-color",
+      "name": "cubism.editor-command.grid.get-color",
+      "kind": "method",
+      "runtime": "getGridSelectColor",
+      "descriptor": "()Lcom/live2d/type/CColor;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/setting/AppSetting$DeveloperSetting",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_get-jcolor",
+      "name": "cubism.editor-command.grid.get-jcolor",
+      "kind": "method",
+      "runtime": "getJColor",
+      "descriptor": "()Ljava/awt/Color;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CColor",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_get-spacing",
+      "name": "cubism.editor-command.grid.get-spacing",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "()I",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/gridPanel/GridPanelEntity$a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_modeling-draw",
+      "name": "cubism.editor-command.grid.modeling-draw",
+      "kind": "method",
+      "runtime": "getDrawImpl",
+      "descriptor": "()Lcom/live2d/cubism/view/context/K;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext_ModelingView",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_repaint-default",
+      "name": "cubism.editor-command.grid.repaint-default",
+      "kind": "method",
+      "runtime": "repaintCanvas$default",
+      "descriptor": "(Lcom/live2d/cubism/CEUpdateManager;Lcom/live2d/cubism/CEUpdateManager$b;ILjava/lang/Object;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEUpdateManager",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_set-color",
+      "name": "cubism.editor-command.grid.set-color",
+      "kind": "method",
+      "runtime": "setGridSelectColor",
+      "descriptor": "(Lcom/live2d/type/CColor;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/setting/AppSetting$DeveloperSetting",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_set-reset",
+      "name": "cubism.editor-command.grid.set-reset",
+      "kind": "method",
+      "runtime": "setResetFlg",
+      "descriptor": "(Z)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/gridPanel/GridPanelEntity",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_set-spacing",
+      "name": "cubism.editor-command.grid.set-spacing",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(I)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/gridPanel/GridPanelEntity$a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_grid_update-manager",
+      "name": "cubism.editor-command.grid.update-manager",
+      "kind": "method",
+      "runtime": "getUpdateManager",
+      "descriptor": "()Lcom/live2d/cubism/CEUpdateManager;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/pack/CECompletePack",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_resize_guard",
+      "name": "cubism.editor-command.resize.guard",
+      "kind": "field",
+      "runtime": "a",
+      "descriptor": "Lcom/live2d/cubism/view/b/a;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/b/a",
+        "requiredAccessFlags": 25,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_resize_guard-active",
+      "name": "cubism.editor-command.resize.guard-active",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Ljava/lang/String;)Z",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/b/a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_resize_guard-current",
+      "name": "cubism.editor-command.resize.guard-current",
+      "kind": "method",
+      "runtime": "d",
+      "descriptor": "()Ljava/lang/String;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/b/a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.typed_resize_scale-model",
+      "name": "cubism.editor-command.resize.scale-model",
+      "kind": "method",
+      "runtime": "a",
+      "descriptor": "(Lcom/live2d/cubism/doc/model/ModelHandler;Lcom/live2d/cubism/pack/CECompletePack;Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Main;Lcom/live2d/cubism/doc/model/CModel;FLcom/live2d/graphics3d/type/GVector2;Lcom/live2d/graphics3d/type/GVector2;ILjava/lang/Object;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.widget_name",
+      "name": "cubism.ui-top-menu.widget.name",
+      "kind": "method",
+      "runtime": "getName",
+      "descriptor": "()Ljava/lang/String;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.widget_repaint",
+      "name": "cubism.ui-top-menu.widget.repaint",
+      "kind": "method",
+      "runtime": "repaint",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.widget_revalidate",
+      "name": "cubism.ui-top-menu.widget.revalidate",
+      "kind": "method",
+      "runtime": "revalidate",
+      "descriptor": "()V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.widget_set_name",
+      "name": "cubism.ui-top-menu.widget.set-name",
+      "kind": "method",
+      "runtime": "setName",
+      "descriptor": "(Ljava/lang/String;)V",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/CWidget",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_top_menu.window_menu_bar",
+      "name": "cubism.ui-top-menu.window.menu-bar",
+      "kind": "method",
+      "runtime": "getMenuBar",
+      "descriptor": "()Lcom/live2d/ui/menu/CMenuBar;",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/ui/window/CFrame",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "medium"
+    }
+  ]
+}
