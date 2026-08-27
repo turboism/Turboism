@@ -8,7 +8,10 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedHostAdapterConnectorAppearanceTest {
 
@@ -43,6 +46,68 @@ class VerifiedHostAdapterConnectorAppearanceTest {
             connection.appearanceProvider()
         );
         assertEquals("5.3.02", provider.hostVersion());
+    }
+
+    @Test
+    void productionPolicyKeepsExact5303AppearanceClosedWithTheFullRuntimeGate() {
+        final var provider = VerifiedHostAdapterConnector.productionAppearanceProviderForVersion(
+            "5.3.03",
+            new NoOpHost()
+        );
+
+        assertFalse(provider.isAvailable());
+        assertInstanceOf(
+            dev.turboism.ui.appearance.UnavailableAppearanceHostProvider.class,
+            provider
+        );
+        assertFalse(
+            dev.turboism.mapping.verification.ReviewedHostArtifacts.admitsFullRuntime("5.3.03")
+        );
+    }
+
+    @Test
+    void productionPolicyKeepsExact5302AppearanceAvailable() {
+        final FlatLafAppearanceHostProvider provider = assertInstanceOf(
+            FlatLafAppearanceHostProvider.class,
+            VerifiedHostAdapterConnector.productionAppearanceProviderForVersion(
+                "5.3.02",
+                new NoOpHost()
+            )
+        );
+
+        assertTrue(provider.isAvailable());
+        assertEquals("5.3.02", provider.hostVersion());
+    }
+
+    @Test
+    void minimalConnectionKeepsUiAndContextMenuSurfacesAbsent() throws Exception {
+        final VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
+            ignored -> RuntimeHostAdapters.safeMode(),
+            slice -> { throw new AssertionError("editor resolver not expected"); },
+            (resolver, session, core) -> { throw new AssertionError("editor access not expected"); },
+            null,
+            null,
+            null,
+            ignored -> VerifiedHostAdapterConnector.productionAppearanceProviderForVersion(
+                "5.3.03",
+                new NoOpHost()
+            )
+        );
+        final HostVerificationEvidence.Slice project = new HostVerificationEvidence.Slice(
+            Path.of("project-record.json"),
+            Path.of("Live2D_Cubism.jar"),
+            getClass().getClassLoader()
+        );
+
+        final HostAdapterConnection connection = connector.connect(new HostInstanceDescriptor(
+            "session-5303",
+            HostVerificationEvidence.projectOnly(project)
+        ));
+
+        assertTrue(connection.editorUiProviders(1).isEmpty());
+        assertNull(connection.objectContextMenuHandler(1));
+        assertNull(connection.parameterPointMenuHandler(1));
+        assertFalse(connection.appearanceProvider().isAvailable());
     }
 
     @Test
