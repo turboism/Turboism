@@ -308,6 +308,74 @@ class CubismFacadeImplTest {
     }
 
     @Test
+    void retainedTextureAtlasServicesRecheckPluginScopeBeforeDelegateCalls() {
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final int[] calls = new int[8];
+        final var layout = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService() {
+            @Override
+            public Optional<dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutSnapshot> current() {
+                calls[0]++;
+                return Optional.empty();
+            }
+
+            @Override
+            public dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult apply(
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutTarget target,
+                final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutPlan plan
+            ) {
+                calls[1]++;
+                throw new UnsupportedOperationException();
+            }
+        };
+        final var session = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
+            () -> {
+                calls[2]++;
+                return null;
+            },
+            () -> null
+        );
+        final var ui = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
+        final var algorithms = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            emptySource(),
+            new CubismPermissionGate("plugin.demo", List.of(), ignored -> { }, FIXED_CLOCK),
+            new ImmutableSnapshotFactory(),
+            (context, document) -> { throw new UnsupportedOperationException(); },
+            () -> emptyModel("texture-model"),
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            layout,
+            new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(),
+            active::get,
+            ui,
+            session,
+            algorithms
+        );
+        final var retainedLayouts = facade.textureAtlasLayouts();
+        final var retainedSession = facade.textureAtlasEditorSession();
+        final var retainedUi = facade.textureAtlasEditorUi();
+        final var retainedPanel = retainedUi.attach();
+        final var retainedAlgorithms = facade.textureAtlasAlgorithms();
+        final var algorithm = new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
+            "test", "Test", false, null
+        );
+        final var retainedRegistration = retainedAlgorithms.register(algorithm);
+
+        active.set(false);
+
+        assertThrows(IllegalStateException.class, retainedLayouts::current);
+        assertThrows(IllegalStateException.class, retainedSession::summary);
+        assertThrows(IllegalStateException.class, retainedUi::attach);
+        assertThrows(IllegalStateException.class, () -> retainedPanel.setText("stale"));
+        assertThrows(IllegalStateException.class, () -> retainedAlgorithms.find("test"));
+        assertThrows(IllegalStateException.class, retainedAlgorithms::algorithms);
+        assertThrows(IllegalStateException.class, retainedRegistration::close);
+        assertEquals(0, calls[0]);
+        assertEquals(0, calls[1]);
+        assertEquals(0, calls[2]);
+    }
+
+    @Test
     void fixedWritesValidateArgumentsBeforeUnavailableDelegates() {
         final dev.turboism.sdk.cubism.model.Part backendPart =
             new dev.turboism.sdk.cubism.model.Part() {

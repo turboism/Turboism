@@ -18,9 +18,15 @@ import dev.turboism.sdk.cubism.command.EditorCommandResult;
 import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.command.EditorFileCommand;
 import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
+import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.command.EditorResizeModelRequest;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorPanel;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
+import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -44,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /**
  * Guards the DefaultCubismServicesFactory wiring: a retained EditorCommandService must fail
@@ -52,6 +59,50 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class EditorCommandServiceLifecycleCompositionTest {
 
     @TempDir Path temporary;
+
+    @Test
+    void retainedTextureAtlasServicesFailClosedAfterPluginScopeCloses() throws Exception {
+        DisposableScope scope = new DisposableScope();
+        RuntimeScheduler scheduler = scheduler();
+        try {
+            DefaultCubismServicesFactory factory = DefaultCubismServicesFactoryTestSupport.withModelAccess(
+                RuntimeHostAdapters.safeMode(),
+                () -> { throw new IllegalStateException("no model"); }
+            );
+            CorePluginContext.Dependencies dependencies = new CorePluginContext.Dependencies(
+                descriptor(),
+                logger(),
+                paths(),
+                uiScheduler(),
+                scheduler,
+                diagnostics(),
+                scope,
+                noopHostSnapshotSource(),
+                ignored -> { },
+                CLOCK
+            );
+            CubismFacade facade = factory.create(dependencies).cubismFacade();
+            TextureAtlasLayoutService layouts = facade.textureAtlasLayouts();
+            TextureAtlasEditorSession editorSession = facade.textureAtlasEditorSession();
+            TextureAtlasEditorUi editorUi = facade.textureAtlasEditorUi();
+            TextureAtlasEditorPanel panel = editorUi.attach();
+            TextureAtlasLayoutAlgorithmRegistry algorithms = facade.textureAtlasAlgorithms();
+
+            scope.close();
+
+            assertThrows(IllegalStateException.class, layouts::current);
+            assertThrows(IllegalStateException.class, editorSession::summary);
+            assertThrows(IllegalStateException.class, editorSession::selectedTexture);
+            assertThrows(IllegalStateException.class, editorUi::attach);
+            assertThrows(IllegalStateException.class, () -> panel.setText("closed"));
+            assertThrows(IllegalStateException.class, panel::close);
+            assertThrows(IllegalStateException.class, () -> algorithms.find("missing"));
+            assertThrows(IllegalStateException.class, algorithms::algorithms);
+        } finally {
+            scope.close();
+            if (!scheduler.isClosed()) scheduler.shutdown();
+        }
+    }
 
     @Test
     void retainedCommandServiceFailsClosedAfterPluginScopeCloses() throws Exception {
