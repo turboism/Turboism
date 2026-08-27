@@ -4,6 +4,9 @@ import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.bootstrap.HostRuntimeIngress;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostVerificationEvidence;
+import dev.turboism.mapping.verification.CubismEditorReleaseDeclaration;
+import dev.turboism.mapping.verification.CubismEditorReleaseDetector;
+import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
@@ -226,6 +229,11 @@ public final class PreviewRuntime implements AutoCloseable {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
         Objects.requireNonNull(autoBackupVerificationRecord, "autoBackupVerificationRecord");
+        final Path normalizedHostArtifact = Objects.requireNonNull(
+            hostArtifact,
+            "hostArtifact"
+        ).toAbsolutePath().normalize();
+        requireReviewedEditorRelease(normalizedHostArtifact);
         final TurboismHomeLayout layout = TurboismHomeLayout.create(requestedHome);
         final Path home = layout.home();
         LegacyHomeMigration.migrate(home);
@@ -307,10 +315,6 @@ public final class PreviewRuntime implements AutoCloseable {
             final Path normalizedVerificationRecord = Objects.requireNonNull(
                 verificationRecord,
                 "verificationRecord"
-            ).toAbsolutePath().normalize();
-            final Path normalizedHostArtifact = Objects.requireNonNull(
-                hostArtifact,
-                "hostArtifact"
             ).toAbsolutePath().normalize();
             final Path normalizedCoreArtifact = coreArtifact == null
                 ? null
@@ -458,6 +462,38 @@ public final class PreviewRuntime implements AutoCloseable {
             RecentPreviewDiagnostics.uninstall();
             throw failure;
         }
+    }
+
+    /** Package-private exact release/artifact agreement seam for focused admission tests. */
+    static String requireReviewedEditorRelease(final Path hostArtifact) throws IOException {
+        final Path normalized = Objects.requireNonNull(hostArtifact, "hostArtifact")
+            .toAbsolutePath().normalize();
+        final CubismEditorReleaseDeclaration declaration = CubismEditorReleaseDetector
+            .detect(normalized)
+            .orElseThrow(() -> new IllegalStateException(
+                "Cubism host release declaration missing or ambiguous; admission failed closed"
+            ));
+        final String reviewedVersion = ReviewedHostArtifacts.cubismVersionOf(
+            dev.turboism.mapping.verification.HostArtifactDigest.from(normalized)
+        ).orElseThrow(() -> new IllegalStateException(
+            "Cubism host artifact is not an exact reviewed identity; admission failed closed"
+        ));
+        return requireReleaseAgreement(reviewedVersion, declaration.version());
+    }
+
+    /** Package-private semantic release and exact-artifact agreement seam for focused tests. */
+    static String requireReleaseAgreement(
+        final String reviewedVersion,
+        final String declaredVersion
+    ) {
+        final String reviewed = Objects.requireNonNull(reviewedVersion, "reviewedVersion");
+        final String declared = Objects.requireNonNull(declaredVersion, "declaredVersion");
+        if (!reviewed.equals(declared)) {
+            throw new IllegalStateException(
+                "Cubism host release/artifact mismatch; admission failed closed"
+            );
+        }
+        return reviewed;
     }
 
     /** @return the normalized absolute Turboism home directory this runtime reads and writes under */
