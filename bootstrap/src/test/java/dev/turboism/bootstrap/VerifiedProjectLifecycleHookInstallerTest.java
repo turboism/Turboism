@@ -54,7 +54,7 @@ final class VerifiedProjectLifecycleHookInstallerTest {
     }
 
     @Test
-    void sanitized5303ProfileIsInstallableWithoutOpeningTheFullRuntimeGate() throws Exception {
+    void sanitized5303ProfileIsInstallableAfterOpeningTheFullRuntimeGate() throws Exception {
         final List<String> calls = new ArrayList<>();
         final Instrumentation instrumentation = instrumentation(calls, new Class<?>[0]);
         final ProjectFileLifecycleCoordinator projectFiles = new ProjectFileLifecycleCoordinator();
@@ -79,7 +79,7 @@ final class VerifiedProjectLifecycleHookInstallerTest {
         }
 
         assertEquals(List.of("add:true", "remove"), calls);
-        org.junit.jupiter.api.Assertions.assertFalse(
+        org.junit.jupiter.api.Assertions.assertTrue(
             ReviewedHostArtifacts.admitsFullRuntime("5.3.03")
         );
     }

@@ -15,14 +15,14 @@ import java.util.Set;
 public final class HostUiVersionCheck {
 
     /** Exact Cubism versions whose host artifacts have been reviewed. */
-    public static final Set<String> REVIEWED_HOST_VERSIONS = Set.of("5.2.03", "5.3.02");
+    public static final Set<String> REVIEWED_HOST_VERSIONS = Set.of("5.2.03", "5.3.02", "5.3.03");
 
     public static final String STATUS_NOTIFY_CAPABILITY_ID = "ui.status.notify";
 
     /**
      * Capability-specific exceptions to the default exact-version admission policy.
      *
-     * <p>The default admits both reviewed artifacts. A capability belongs here only when its
+     * <p>The default admits all reviewed artifacts. A capability belongs here only when its
      * reviewed records support a strict subset of those hosts. This structure intentionally cannot
      * admit a patch version merely because it falls inside the same minor-version line.</p>
      */
@@ -36,8 +36,8 @@ public final class HostUiVersionCheck {
      *
      * <p>Unknown capability IDs use the default reviewed-host set; capability-specific evidence can
      * narrow that set through {@link #CAPABILITY_VERSION_OVERRIDES}. Version ranges are deliberately
-     * not parsed here: an unreviewed patch such as 5.3.03 must fail closed rather than inherit the
-     * evidence for 5.3.02.</p>
+     * not parsed here: an unreviewed patch such as 5.3.04 must fail closed rather than inherit the
+     * evidence for 5.3.03.</p>
      *
      * @param capabilityId capability being guarded
      * @param hostVersion exact version string reported by the host

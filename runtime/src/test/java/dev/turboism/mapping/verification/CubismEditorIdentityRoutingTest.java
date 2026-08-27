@@ -19,7 +19,7 @@ class CubismEditorIdentityRoutingTest {
         assertManifest(
             EditorModelVerificationManifest.forArtifact(artifact),
             "cubism-5.3.03.editor-model.static",
-            "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
+            "d9fc0b9412a3014e623ff3f962efd0b1f350f713e1d5275a7f0ce661c33444bb",
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
             EditorModelVerificationManifest.CAPABILITY_IDS,
             EditorModelVerificationManifest.cubism5303StaticAliases()
@@ -27,7 +27,7 @@ class CubismEditorIdentityRoutingTest {
         assertManifest(
             ProjectWorkspaceVerificationManifest.forArtifact(artifact),
             "m15.cubism-5.3.03.project-workspace.static",
-            "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
+            "d7f45e0c7d70925b4c77db18022b06ee4f089bc7b1cbe585ef311efa754f168e",
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES
@@ -35,8 +35,10 @@ class CubismEditorIdentityRoutingTest {
     }
 
     @Test
-    void identificationDoesNotOpenFullRuntimeOrCreateACoreProfile() {
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+    void identificationOpensFullRuntimeWithoutCreatingASeparateCoreProfile() {
+        org.junit.jupiter.api.Assertions.assertTrue(
+            ReviewedHostArtifacts.admitsFullRuntime("5.3.03")
+        );
         assertThrows(
             IllegalArgumentException.class,
             () -> dev.turboism.adapter.cubism.core.CoreVersionExpectation.reviewedProfile("5.3.03")

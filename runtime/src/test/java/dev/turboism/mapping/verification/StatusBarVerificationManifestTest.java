@@ -76,7 +76,7 @@ class StatusBarVerificationManifestTest {
     }
 
     @Test
-    void forArtifactServesReviewedVersionsAndKeeps5303Closed() {
+    void forArtifactServesEveryReviewedVersion() {
         assertEquals("5.3.02", StatusBarVerificationManifest.forArtifact(REVIEWED_5302).cubismVersion());
         assertEquals("5.2.03", StatusBarVerificationManifest.forArtifact(REVIEWED_52).cubismVersion());
         assertEquals("5.3.03", StatusBarVerificationManifest.forArtifact(
@@ -85,7 +85,7 @@ class StatusBarVerificationManifestTest {
         assertThrows(IllegalArgumentException.class, () -> StatusBarVerificationManifest.forArtifact(
             new HostArtifactDigest(1L, "0".repeat(64))
         ));
-        assertTrue(!ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     private static Path repositoryPath(final String relative) {

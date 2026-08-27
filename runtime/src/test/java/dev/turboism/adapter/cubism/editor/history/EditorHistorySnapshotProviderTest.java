@@ -207,7 +207,7 @@ class EditorHistorySnapshotProviderTest {
 
         assertEquals(HistorySnapshot.Availability.UNAVAILABLE, provider.snapshot().availability());
         assertEquals(HistoryMoveResult.Outcome.UNAVAILABLE, provider.moveTo(11, 0, 0).outcome());
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     @Test
