@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.filechooser;
 
+import dev.turboism.sdk.CubismEditor;
 
 import java.nio.file.Path;
 import java.util.Optional;
@@ -23,15 +24,19 @@ import java.util.Optional;
 public interface FileChooserHistoryService {
 
     /** Returns the recent directory remembered for project saves, if any. */
+    @CubismEditor({"5.3.02", "5.3.03"})
     Optional<Path> projectRecentDirectory();
 
     /** Returns the recent directory remembered for export-output saves, if any. */
+    @CubismEditor({"5.3.02", "5.3.03"})
     Optional<Path> exportRecentDirectory();
 
     /** Persists the recent directory for project saves. */
+    @CubismEditor({"5.3.02", "5.3.03"})
     void setProjectRecentDirectory(Path dir);
 
     /** Persists the recent directory for export-output saves. */
+    @CubismEditor({"5.3.02", "5.3.03"})
     void setExportRecentDirectory(Path dir);
 
     /**
@@ -39,6 +44,7 @@ public interface FileChooserHistoryService {
      * directories. Backed by {@code RuntimeSettings.separateExportSaveDirectory}
      * ({@code hooks.startup.separateExportSaveDirectory} in config.json).
      */
+    @CubismEditor({"5.3.02", "5.3.03"})
     boolean exportSeparationEnabled();
 
     /**
@@ -58,7 +64,7 @@ public interface FileChooserHistoryService {
      * must tolerate a missing or partially corrupt store (missing data loads
      * as {@link Optional#empty()}).
      */
-    interface Provider {
+        interface Provider {
 
         /** Loads the recent directory remembered for project saves, if any. */
         Optional<Path> loadProjectDirectory();
@@ -74,7 +80,7 @@ public interface FileChooserHistoryService {
     }
 
     /** Handle for a provider registration; {@link #unregister()} is idempotent. */
-    interface Registration extends AutoCloseable {
+        interface Registration extends AutoCloseable {
 
         void unregister();
 
@@ -84,7 +90,7 @@ public interface FileChooserHistoryService {
         }
     }
 
-    enum Unavailable implements FileChooserHistoryService {
+        enum Unavailable implements FileChooserHistoryService {
         INSTANCE;
 
         @Override

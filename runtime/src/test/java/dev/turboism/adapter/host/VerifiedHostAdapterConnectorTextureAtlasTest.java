@@ -6,6 +6,8 @@ import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasLay
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism520TextureAtlasSelectorContract;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasLayoutProvider;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasLayoutProvider;
+import dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5303TextureAtlasSelectorContract;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
@@ -19,6 +21,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedHostAdapterConnectorTextureAtlasTest {
@@ -52,8 +55,49 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
     }
 
     @Test
+    void retainsTheAtlasCaptureWhenNoIndependentUiSliceIsPresent() throws Exception {
+        final RuntimeHostAdapters adapters = RuntimeHostAdapters.safeMode();
+        final String owner = getClass().getName().replace('.', '/');
+        final List<StaticSelector> selectors = VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES
+            .stream()
+            .map(alias -> StaticSelector.classSelector(alias, owner))
+            .toList();
+        final VerifiedMemberResolver resolver = TestVerifiedResolvers.create(
+            "5.3.03",
+            VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            Set.of(VerifiedCubism5303TextureAtlasSelectorContract.CAPABILITY_ID),
+            selectors,
+            getClass().getClassLoader()
+        );
+        final VerifiedHostAdapterConnector connector = new VerifiedHostAdapterConnector(
+            ignored -> adapters,
+            ignored -> resolver,
+            (verified, sessionId, core) -> () -> { throw new IllegalStateException(sessionId); }
+        );
+        final HostVerificationEvidence.Slice slice = new HostVerificationEvidence.Slice(
+            Path.of("editor.json"), Path.of("host.jar"), getClass().getClassLoader()
+        );
+
+        final HostAdapterConnection connection = connector.connect(new HostInstanceDescriptor(
+            "session-atlas-only",
+            new HostVerificationEvidence(slice, Optional.empty(), Optional.of(slice), Optional.empty())
+        ));
+
+        assertSame(adapters, connection.adapters());
+        assertInstanceOf(
+            VerifiedCubism5303TextureAtlasLayoutProvider.class,
+            connection.textureAtlasLayoutProvider().orElseThrow()
+        );
+        assertTrue(connection.textureAtlasDataModelCapture().current().isEmpty());
+    }
+
+    @Test
     void selectsOnlyTheExactVersionProviderAndFailsClosedOtherwise() {
         final List<StaticSelector> selectors = VerifiedCubism5302TextureAtlasSelectorContract.REQUIRED_ALIASES
+            .stream()
+            .map(alias -> StaticSelector.classSelector(alias, getClass().getName().replace('.', '/')))
+            .toList();
+        final List<StaticSelector> selectors5303 = VerifiedCubism5303TextureAtlasSelectorContract.REQUIRED_ALIASES
             .stream()
             .map(alias -> StaticSelector.classSelector(alias, getClass().getName().replace('.', '/')))
             .toList();
@@ -65,6 +109,20 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
             VerifiedCubism5302TextureAtlasSelectorContract.CAPABILITY_ID
         );
 
+        assertInstanceOf(
+            VerifiedCubism5303TextureAtlasLayoutProvider.class,
+            VerifiedHostAdapterConnector.textureAtlasProvider(
+                TestVerifiedResolvers.create(
+                    "5.3.03",
+                    VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                    capability,
+                    selectors5303,
+                    getClass().getClassLoader()
+                ),
+                "session-5303",
+                new TextureAtlasDataModelCapture()
+            )
+        );
         assertInstanceOf(
             VerifiedCubism5302TextureAtlasLayoutProvider.class,
             VerifiedHostAdapterConnector.textureAtlasProvider(
@@ -102,6 +160,17 @@ class VerifiedHostAdapterConnectorTextureAtlasTest {
                 getClass().getClassLoader()
             ),
             "session-unsupported",
+            new TextureAtlasDataModelCapture()
+        ));
+        assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(
+            TestVerifiedResolvers.create(
+                "5.3.03",
+                VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                capability,
+                selectors5303.subList(1, selectors5303.size()),
+                getClass().getClassLoader()
+            ),
+            "session-5303-incomplete",
             new TextureAtlasDataModelCapture()
         ));
         assertNull(VerifiedHostAdapterConnector.textureAtlasProvider(

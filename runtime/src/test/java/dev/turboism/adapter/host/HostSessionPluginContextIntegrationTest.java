@@ -403,6 +403,53 @@ class HostSessionPluginContextIntegrationTest {
     }
 
     @Test
+    void stableTextureAtlasEditorCapabilitiesTrackConnectionReplacementAndSafeMode() {
+        final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final HostSession session = new HostSession(
+            () -> Optional.ofNullable(current.get()),
+            descriptor -> connectionWithAtlasProvider(new RecordingAtlasProvider(descriptor.sessionId()))
+        );
+        final var access = session.adapterAccess();
+        final var ui = access.textureAtlasEditorUi();
+        final var editorSession = access.textureAtlasEditorSession();
+
+        try {
+            assertTrue(editorSession.summary().isEmpty());
+            assertTrue(editorSession.selectedTexture().isEmpty());
+
+            current.set(dualDescriptor("atlas-session-a", "atlas-session-a"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals("5.3.02", session.editorModelResolver().cubismVersion());
+            assertEquals(ui, session.textureAtlasEditorUi());
+            assertEquals(editorSession, session.textureAtlasEditorSession());
+
+            final javax.swing.JPanel first = new javax.swing.JPanel(new java.awt.BorderLayout());
+            ui.attach().setText("Atlas statistics");
+            ui.ingress().accept(first);
+            assertEquals(1, first.getComponentCount());
+
+            current.set(dualDescriptor("atlas-session-b", "atlas-session-b"));
+            assertEquals(HostSession.State.ACTIVE, session.refresh());
+            assertEquals(0, first.getComponentCount());
+            assertEquals(ui, access.textureAtlasEditorUi());
+            assertEquals(editorSession, access.textureAtlasEditorSession());
+
+            final javax.swing.JPanel second = new javax.swing.JPanel(new java.awt.BorderLayout());
+            ui.ingress().accept(second);
+            assertEquals(1, second.getComponentCount());
+
+            current.set(null);
+            assertEquals(HostSession.State.SAFE_MODE, session.refresh());
+            assertEquals(0, second.getComponentCount());
+            assertTrue(editorSession.summary().isEmpty());
+            assertTrue(editorSession.selectedTexture().isEmpty());
+        } finally {
+            session.close();
+        }
+        assertThrows(IllegalStateException.class, ui::attach);
+    }
+
+    @Test
     void textureAtlasProviderFlowsThroughProductionContextAndInvalidatesOnReplacementAndClose() {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
         final java.util.Map<String, RecordingAtlasProvider> providers = new java.util.HashMap<>();
@@ -423,7 +470,10 @@ class HostSessionPluginContextIntegrationTest {
         );
 
         try {
-            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            assertThrows(
+                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> context.cubism().textureAtlasLayouts()
+            );
             current.set(dualDescriptor("atlas-a", "atlas-a"));
             assertEquals(HostSession.State.ACTIVE, session.refresh());
             final var first = context.cubism().textureAtlasLayouts().current().orElseThrow();
@@ -443,9 +493,15 @@ class HostSessionPluginContextIntegrationTest {
 
             current.set(null);
             assertEquals(HostSession.State.SAFE_MODE, session.refresh());
-            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            assertThrows(
+                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> context.cubism().textureAtlasLayouts()
+            );
             session.close();
-            assertTrue(context.cubism().textureAtlasLayouts().current().isEmpty());
+            assertThrows(
+                dev.turboism.sdk.cubism.CubismEditorApiUnavailableException.class,
+                () -> context.cubism().textureAtlasLayouts()
+            );
         } finally {
             session.close();
             scheduler.shutdown();
@@ -455,8 +511,22 @@ class HostSessionPluginContextIntegrationTest {
     private static HostAdapterConnection connectionWithAtlasProvider(
         final TextureAtlasLayoutProvider provider
     ) {
+        final var resolver = dev.turboism.mapping.verification.TestVerifiedResolvers.create(
+            "5.3.02",
+            "fixture.atlas-session",
+            java.util.Set.of("fixture.atlas-session"),
+            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                "fixture.atlas-session.class",
+                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
+            )),
+            HostSessionPluginContextIntegrationTest.class.getClassLoader()
+        );
         return new HostAdapterConnection() {
             @Override public RuntimeHostAdapters adapters() { return RuntimeHostAdapters.safeMode(); }
+            @Override public dev.turboism.mapping.verification.VerifiedMemberResolver
+                editorModelResolver() {
+                return resolver;
+            }
             @Override public Optional<TextureAtlasLayoutProvider> textureAtlasLayoutProvider() {
                 return Optional.of(provider);
             }

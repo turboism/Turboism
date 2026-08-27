@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.textureatlas;
 
+import dev.turboism.sdk.CubismEditor;
 
 import java.util.HashSet;
 import java.util.List;
@@ -7,12 +8,23 @@ import java.util.Objects;
 import java.util.Set;
 
 /** Complete, immutable host-independent atlas layout plan. */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record TextureAtlasLayoutPlan(
     int pageWidth,
     int pageHeight,
     int pageCount,
+    List<String> pageNames,
     List<TextureAtlasPlacement> placements
 ) {
+
+    public TextureAtlasLayoutPlan(
+        final int pageWidth,
+        final int pageHeight,
+        final int pageCount,
+        final List<TextureAtlasPlacement> placements
+    ) {
+        this(pageWidth, pageHeight, pageCount, defaultPageNames(pageCount), placements);
+    }
 
     public TextureAtlasLayoutPlan {
         if (pageWidth < 1 || pageHeight < 1) {
@@ -21,6 +33,27 @@ public record TextureAtlasLayoutPlan(
         if (pageCount < 1) {
             throw new IllegalArgumentException("Atlas page count must be positive.");
         }
+        pageNames = List.copyOf(Objects.requireNonNull(pageNames, "pageNames"));
+        if (!pageNames.isEmpty() && pageNames.size() != pageCount) {
+            throw new IllegalArgumentException(
+                "Atlas page names must be empty or match the page count."
+            );
+        }
+        final Set<String> names = new HashSet<>();
+        final java.util.ArrayList<String> normalizedNames = new java.util.ArrayList<>(
+            pageNames.size()
+        );
+        for (String name : pageNames) {
+            final String normalized = Objects.requireNonNull(name, "page name").strip();
+            if (normalized.isEmpty()) {
+                throw new IllegalArgumentException("Atlas page names must not be blank.");
+            }
+            if (!names.add(normalized)) {
+                throw new IllegalArgumentException("Atlas page names must be unique: " + normalized);
+            }
+            normalizedNames.add(normalized);
+        }
+        pageNames = List.copyOf(normalizedNames);
         placements = List.copyOf(Objects.requireNonNull(placements, "placements"));
         final Set<String> textureIds = new HashSet<>();
         for (int index = 0; index < placements.size(); index++) {
@@ -53,6 +86,12 @@ public record TextureAtlasLayoutPlan(
                 }
             }
         }
+    }
+
+    private static List<String> defaultPageNames(final int pageCount) {
+        return java.util.stream.IntStream.range(0, pageCount)
+            .mapToObj(index -> "Turboism Atlas " + (index + 1))
+            .toList();
     }
 
     private static boolean overlaps(

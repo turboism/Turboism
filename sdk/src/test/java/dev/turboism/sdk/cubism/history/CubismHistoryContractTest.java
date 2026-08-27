@@ -79,6 +79,44 @@ class CubismHistoryContractTest {
     }
 
     @Test
+    void boundMoveFailsClosedWhenAProviderDoesNotImplementIt() {
+        final HistorySnapshot expected = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            1,
+            2,
+            0,
+            List.of(),
+            false,
+            false,
+            "document",
+            "manager"
+        );
+        final CubismHistory history = new CubismHistory() {
+            @Override
+            public HistorySnapshot snapshot() {
+                return expected;
+            }
+
+            @Override
+            public HistoryMoveResult moveTo(
+                final long expectedGeneration,
+                final long expectedRevision,
+                final int position
+            ) {
+                throw new AssertionError("legacy move must not be used");
+            }
+        };
+
+        final HistoryMoveResult result = history.moveTo(expected, 0);
+
+        assertEquals(HistoryMoveResult.Outcome.REJECTED_STALE, result.outcome());
+        assertEquals(
+            "history.move.binding-unsupported",
+            result.diagnosticId().orElseThrow()
+        );
+    }
+
+    @Test
     void unavailableProviderFailsClosed() {
         final CubismHistory history = CubismHistory.unavailable();
 

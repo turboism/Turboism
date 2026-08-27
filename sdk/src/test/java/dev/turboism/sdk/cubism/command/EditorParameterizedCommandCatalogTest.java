@@ -22,7 +22,6 @@ class EditorParameterizedCommandCatalogTest {
             EditorParameterizedCommand.EXTERNAL_APP_SETTING,
             EditorParameterizedCommand.GRID_SETTING,
             EditorParameterizedCommand.MODEL_SETTING,
-            EditorParameterizedCommand.MODELING_STATISTICS,
             EditorParameterizedCommand.RESIZE_MODEL_DOCUMENT
         );
         assertTrue(java.util.Arrays.stream(EditorParameterizedCommand.values())

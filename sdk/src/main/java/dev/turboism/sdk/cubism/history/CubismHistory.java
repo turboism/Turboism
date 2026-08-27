@@ -1,14 +1,42 @@
 package dev.turboism.sdk.cubism.history;
 
+import dev.turboism.sdk.CubismEditor;
 
+import java.util.Objects;
 import java.util.Optional;
 
 /** Active-document access to Cubism's native Undo history. */
+@CubismEditor({"5.3.02", "5.3.03"})
 public interface CubismHistory {
 
     HistorySnapshot snapshot();
 
     HistoryMoveResult moveTo(long expectedGeneration, long expectedRevision, int position);
+
+    /**
+     * Moves only if the active native document and Undo manager still match {@code expected}.
+     * Implementations that do not support atomic native-binding checks fail closed.
+     */
+    default HistoryMoveResult moveTo(
+        final HistorySnapshot expected,
+        final int position
+    ) {
+        Objects.requireNonNull(expected, "expected");
+        return new HistoryMoveResult(
+            HistoryMoveResult.Outcome.REJECTED_STALE,
+            snapshot(),
+            Optional.of("history.move.binding-unsupported")
+        );
+    }
+
+    /**
+     * Returns whether this history provider is still bound to the document and native Undo manager
+     * identified by {@code snapshot}. Providers that cannot expose a native binding identity fail
+     * closed and return {@code false}.
+     */
+    default boolean isCurrentBinding(final HistorySnapshot snapshot) {
+        return false;
+    }
 
     /**
      * Undoes {@code steps} entries in one call (PS-style multi-step undo).
@@ -23,11 +51,7 @@ public interface CubismHistory {
         if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
             return noMove("history.move.unavailable");
         }
-        return moveTo(
-            snapshot.generation(),
-            snapshot.revision(),
-            Math.max(0, snapshot.position() - steps)
-        );
+        return moveTo(snapshot, Math.max(0, snapshot.position() - steps));
     }
 
     /**
@@ -43,8 +67,7 @@ public interface CubismHistory {
             return noMove("history.move.unavailable");
         }
         return moveTo(
-            snapshot.generation(),
-            snapshot.revision(),
+            snapshot,
             Math.min(snapshot.entries().size(), snapshot.position() + steps)
         );
     }

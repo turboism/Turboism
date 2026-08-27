@@ -70,6 +70,7 @@ public interface CubismFacade {
     }
 
     /** Returns active-document native Undo history access when installed by Runtime. */
+    @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default CubismHistory history() {
         return CubismHistory.unavailable();
     }
@@ -78,6 +79,7 @@ public interface CubismFacade {
     TransactionManager transactionManager();
 
     /** Returns complete texture-atlas authoring layout access when installed. */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService textureAtlasLayouts() {
         throw new UnsupportedOperationException(
             "Texture atlas layout service is unavailable"
@@ -85,6 +87,7 @@ public interface CubismFacade {
     }
 
     /** Returns read access to the active native texture-atlas editor session. */
+    @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession textureAtlasEditorSession() {
         throw new UnsupportedOperationException(
             "Texture atlas editor session is unavailable"
@@ -92,6 +95,7 @@ public interface CubismFacade {
     }
 
     /** Returns UI contribution access to the native texture-atlas editor window. */
+    @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
     default dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi textureAtlasEditorUi() {
         throw new UnsupportedOperationException(
             "Texture atlas editor UI contribution is unavailable"

@@ -1,5 +1,6 @@
 package dev.turboism.sdk.ui.workspace;
 
+import dev.turboism.sdk.CubismEditor;
 
 import java.util.List;
 import java.util.Objects;
@@ -24,6 +25,7 @@ public interface WorkspaceService {
      *         {@link WorkspaceStatus.Availability#UNAVAILABLE} rather than failing when the host
      *         cannot be queried
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     CompletionStage<WorkspaceStatus> current();
 
     /**
@@ -33,6 +35,7 @@ public interface WorkspaceService {
      * @return a stage completing with the outcome; an unknown id yields
      *         {@link WorkspaceOperationResult.Outcome#NOT_FOUND} rather than a failed stage
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     CompletionStage<WorkspaceOperationResult> switchTo(WorkspaceId workspaceId);
 
     /**

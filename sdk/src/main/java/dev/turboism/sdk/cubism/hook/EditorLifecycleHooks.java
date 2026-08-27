@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.hook;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.EditorExitResult;
 import dev.turboism.sdk.cubism.EditorLifecycleSnapshot;
 
@@ -19,6 +20,7 @@ public interface EditorLifecycleHooks {
     }
 
     /** Runs synchronously at the beginning of Cubism's exit command. */
+    @CubismEditor({"5.3.02", "5.3.03"})
     default void beforeEditorExit(final EditorLifecycleSnapshot editor) {
     }
 

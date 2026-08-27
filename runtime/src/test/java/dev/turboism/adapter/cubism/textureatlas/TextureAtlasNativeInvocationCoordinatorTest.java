@@ -80,6 +80,76 @@ class TextureAtlasNativeInvocationCoordinatorTest {
         assertTrue(service.current().isEmpty());
     }
 
+    @Test
+    void connectionReplacementDuringCallbackCancelsAndRestoresHandledOutput() {
+        final Fixture fixture = new Fixture();
+        final AffineTransform firstBefore = new AffineTransform(fixture.first.f);
+        final AffineTransform secondBefore = new AffineTransform(fixture.second.f);
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations =
+            new TextureAtlasNativeInvocationCoordinator();
+        nativeInvocations.connect(resolver());
+        final RuntimeTextureAtlasLayoutService service = service(
+            new TextureAtlasLayoutCoordinator(), nativeInvocations
+        );
+
+        final boolean handled = nativeInvocations.ingress(() -> {
+            final var snapshot = service.current().orElseThrow();
+            assertTrue(service.apply(snapshot.target(), plan()).status().isPresent());
+            nativeInvocations.connect(resolver());
+            return true;
+        }).test(fixture.receiver);
+
+        assertFalse(handled);
+        assertEquals(firstBefore, fixture.first.f);
+        assertEquals(secondBefore, fixture.second.f);
+        assertTrue(service.current().isEmpty());
+    }
+
+    @Test
+    void callbackThrowableFallsBackAndRestoresHandledOutput() {
+        final Fixture fixture = new Fixture();
+        final AffineTransform firstBefore = new AffineTransform(fixture.first.f);
+        final AffineTransform secondBefore = new AffineTransform(fixture.second.f);
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations =
+            new TextureAtlasNativeInvocationCoordinator();
+        nativeInvocations.connect(resolver());
+        final RuntimeTextureAtlasLayoutService service = service(
+            new TextureAtlasLayoutCoordinator(), nativeInvocations
+        );
+
+        final boolean handled = nativeInvocations.ingress(() -> {
+            final var snapshot = service.current().orElseThrow();
+            assertTrue(service.apply(snapshot.target(), plan()).status().isPresent());
+            throw new AssertionError("callback failed");
+        }).test(fixture.receiver);
+
+        assertFalse(handled);
+        assertEquals(firstBefore, fixture.first.f);
+        assertEquals(secondBefore, fixture.second.f);
+        assertTrue(service.current().isEmpty());
+    }
+
+    @Test
+    void nestedInvocationDeclinesWithoutRunningNestedCallback() {
+        final Fixture fixture = new Fixture();
+        final AtomicInteger nestedCalls = new AtomicInteger();
+        final TextureAtlasNativeInvocationCoordinator nativeInvocations =
+            new TextureAtlasNativeInvocationCoordinator();
+        nativeInvocations.connect(resolver());
+
+        final boolean handled = nativeInvocations.ingress(() -> {
+            final boolean nested = nativeInvocations.ingress(() -> {
+                nestedCalls.incrementAndGet();
+                return true;
+            }).test(fixture.receiver);
+            assertFalse(nested);
+            return false;
+        }).test(fixture.receiver);
+
+        assertFalse(handled);
+        assertEquals(0, nestedCalls.get());
+    }
+
     private static TextureAtlasLayoutPlan plan() {
         return new TextureAtlasLayoutPlan(32, 16, 1, List.of(
             new TextureAtlasPlacement("native-item-0", 0, 1, 1, 4, 3, false),

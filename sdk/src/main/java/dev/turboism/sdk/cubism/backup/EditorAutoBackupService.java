@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.backup;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.ProjectContentSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 
@@ -26,6 +27,7 @@ public interface EditorAutoBackupService {
      *
      * @throws UnsupportedOperationException when the service is unavailable
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     EditorAutoBackupSettings settings();
 
     /**
@@ -39,12 +41,14 @@ public interface EditorAutoBackupService {
      * @throws UnsupportedOperationException when the service is unavailable
      * @throws IllegalStateException when the update failed and the rollback is unverified
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     EditorAutoBackupSettings updateSettings(EditorAutoBackupSettings settings);
 
     /**
      * Per-document auto-backup snapshot (lastAutoBackupTime / lastSavedTime /
      * modifiedAfterSaving / file) for every file content in the current pack.
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     List<EditorAutoBackupStatus> statuses();
 
     /**
@@ -59,6 +63,7 @@ public interface EditorAutoBackupService {
      * via {@link #registerSyncTarget} are invoked with the new files after
      * completion; target failures never fail the backup result.</p>
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     CompletionStage<BackupRunResult> backupNow();
 
     /**
@@ -85,7 +90,7 @@ public interface EditorAutoBackupService {
      * host UI thread and never block the save callback or the EDT.</p>
      *
      * @param saved the snapshot of the saved document
-     * @return the completed backup event, or a stage failed exceptionally when
+     * @return the completed backup result, or a stage failed exceptionally when
      *         no pack content matches the snapshot, the host call failed, the
      *         artifact polling timed out, or the service is unavailable
      */
@@ -95,6 +100,7 @@ public interface EditorAutoBackupService {
      * Registers a sync target invoked with the new backup files after each
      * successful {@link #backupNow()} completion.
      */
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     Registration registerSyncTarget(BackupSyncTarget target);
 
     /** Safe-mode instance: every operation fails closed to UNAVAILABLE. */

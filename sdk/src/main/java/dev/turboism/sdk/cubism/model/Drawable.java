@@ -170,7 +170,7 @@ public interface Drawable {
     }
 
     /** Sets this ArtMesh's alpha composition (Inspector {@code alphaComposition}). */
-    @CubismEditor("5.3.02")
+    @CubismEditor({"5.3.02", "5.3.03"})
     default void setAlphaComposition(final AlphaComposition composition) {
         throw unavailable("ArtMesh alpha composition editing");
     }
