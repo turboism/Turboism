@@ -79,17 +79,29 @@ final class EditorDocumentReadAccess {
         } else {
             throw unavailable("Editor physics settings FPS is invalid.");
         }
+        final float gravityX = vectorComponent(
+            gravity, "cubism.editor-model.vector2.x", "gravity X"
+        );
+        final float gravityY = vectorComponent(
+            gravity, "cubism.editor-model.vector2.y", "gravity Y"
+        );
+        final float windX = vectorComponent(
+            wind, "cubism.editor-model.vector2.x", "wind X"
+        );
+        final float windY = vectorComponent(
+            wind, "cubism.editor-model.vector2.y", "wind Y"
+        );
+        final List<PhysicsSettingsSource> sources = list(
+            rawSources, "Editor physics settings sources"
+        ).stream().map(this::physicsSource).toList();
+        modelGuard.requireCurrent(identity, model);
         return new PhysicsSettings() {
-            @Override public float gravityX() { return vectorComponent(gravity, "cubism.editor-model.vector2.x", "gravity X"); }
-            @Override public float gravityY() { return vectorComponent(gravity, "cubism.editor-model.vector2.y", "gravity Y"); }
-            @Override public float windX() { return vectorComponent(wind, "cubism.editor-model.vector2.x", "wind X"); }
-            @Override public float windY() { return vectorComponent(wind, "cubism.editor-model.vector2.y", "wind Y"); }
+            @Override public float gravityX() { return gravityX; }
+            @Override public float gravityY() { return gravityY; }
+            @Override public float windX() { return windX; }
+            @Override public float windY() { return windY; }
             @Override public Integer settingFps() { return fps; }
-            @Override public List<PhysicsSettingsSource> sources() {
-                return list(rawSources, "Editor physics settings sources").stream()
-                    .map(EditorDocumentReadAccess.this::physicsSource)
-                    .toList();
-            }
+            @Override public List<PhysicsSettingsSource> sources() { return sources; }
         };
     }
 
@@ -133,15 +145,18 @@ final class EditorDocumentReadAccess {
                     config,
                     "Editor auto-Yure configuration is invalid."
                 );
+                final AutoYureConfig projectedConfig = yureConfig(config);
                 bindings.add(new AutoYureBinding() {
                     @Override public DeformerId deformerId() { return new DeformerId(deformerId); }
                     @Override public ParameterId parameterId() { return parameterId; }
-                    @Override public AutoYureConfig config() { return yureConfig(config); }
+                    @Override public AutoYureConfig config() { return projectedConfig; }
                 });
             }
         }
+        final List<AutoYureBinding> projectedBindings = List.copyOf(bindings);
+        modelGuard.requireCurrent(identity, model);
         return new AutoYure() {
-            @Override public List<AutoYureBinding> bindings() { return List.copyOf(bindings); }
+            @Override public List<AutoYureBinding> bindings() { return projectedBindings; }
         };
     }
 
@@ -196,6 +211,9 @@ final class EditorDocumentReadAccess {
             final List<String> sceneNames = scenes.stream()
                 .map(EditorDocumentReadAccess.this::sceneName)
                 .toList();
+            if (currentName.isPresent() && !sceneNames.contains(currentName.orElseThrow())) {
+                throw unavailable("Editor current animation scene is absent from the scene list.");
+            }
             documents.add(new AnimationDocument() {
                 @Override public String animationName() { return animationName; }
                 @Override public int sceneCount() { return sceneNames.size(); }
@@ -203,7 +221,9 @@ final class EditorDocumentReadAccess {
                 @Override public List<String> sceneNames() { return sceneNames; }
             });
         }
-        return List.copyOf(documents);
+        final List<AnimationDocument> projectedDocuments = List.copyOf(documents);
+        modelGuard.requireCurrent(identity, model);
+        return projectedDocuments;
     }
 
     private PhysicsSettingsSource physicsSource(final Object rawSource) {
@@ -295,7 +315,9 @@ final class EditorDocumentReadAccess {
                 resolver.invoke("cubism.editor-model.id.value", rawId),
                 "Editor parameter id"
             );
-            byGuid.put(guid, new ParameterId(id));
+            if (byGuid.put(guid, new ParameterId(id)) != null) {
+                throw unavailable("Editor parameter GUIDs are not unique: " + guid);
+            }
         }
         return Map.copyOf(byGuid);
     }
@@ -314,9 +336,11 @@ final class EditorDocumentReadAccess {
             resolver.invoke("cubism.editor-model.auto-yure-config.flip", rawConfig),
             "Editor auto-Yure flip flag"
         );
+        final YureDeformConfig leftConfig = yureDeform(left);
+        final YureDeformConfig rightConfig = yureDeform(right);
         return new AutoYureConfig() {
-            @Override public YureDeformConfig left() { return yureDeform(left); }
-            @Override public YureDeformConfig right() { return yureDeform(right); }
+            @Override public YureDeformConfig left() { return leftConfig; }
+            @Override public YureDeformConfig right() { return rightConfig; }
             @Override public boolean syncLeftRight() { return sync; }
             @Override public YureRootDirection rootDirection() { return root; }
             @Override public boolean isFlip() { return flip; }

@@ -15,6 +15,7 @@ class FileChooserHistoryHostProfileTest {
 
     private static final HostArtifactDigest CUBISM_52 = ReviewedHostArtifacts.CUBISM_5_2_03;
     private static final HostArtifactDigest CUBISM_53 = ReviewedHostArtifacts.CUBISM_5_3_02;
+    private static final HostArtifactDigest CUBISM_5303 = ReviewedHostArtifacts.CUBISM_5_3_03;
 
     @Test
     void fiveTwoProfileCarriesReviewedSelectors() {
@@ -49,6 +50,27 @@ class FileChooserHistoryHostProfileTest {
             FileChooserHistoryHostProfile.forArtifact(CUBISM_53).orElseThrow();
 
         assertEquals("5.3.02", profile.hostVersion());
+        assertEquals(
+            List.of(
+                "com.live2d.cubism.doc.model.exporter.b",
+                "com.live2d.cubism.appCtrlImpl.al"
+            ),
+            profile.exportContextClassNames()
+        );
+        assertEquals(
+            new FileChooserHistoryHostProfile.SaveDialogMethod(
+                "c", "(Lcom/live2d/ui/window/V;)Ljava/io/File;"
+            ),
+            profile.saveDialogMethods().get(0)
+        );
+    }
+
+    @Test
+    void fiveThreeZeroThreeProfileUsesItsExactVersionAndReviewedContexts() {
+        final FileChooserHistoryHostProfile profile =
+            FileChooserHistoryHostProfile.forArtifact(CUBISM_5303).orElseThrow();
+
+        assertEquals("5.3.03", profile.hostVersion());
         assertEquals(
             List.of(
                 "com.live2d.cubism.doc.model.exporter.b",

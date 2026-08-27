@@ -6,17 +6,32 @@ import java.util.Set;
 /**
  * Runtime trust root for the reviewed native bottom status bar.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data. Every other artifact fails closed; no record stands in for a version it was not reviewed
- * against.</p>
+ * <p>Each reviewed Cubism version is declared as its own {@link ReviewedSliceRecord}. Every other
+ * artifact fails closed; no record stands in for a version it was not reviewed against.</p>
  */
 public final class StatusBarVerificationManifest {
+
+    private static final String VALIDATION_PROPERTY =
+        "turboism.validation.statusBar";
+    private static final String VALIDATION_TOKEN =
+        "EXACT_5303_STATUS_BAR_CANDIDATE";
+    private static final String VALIDATION_HOST_VERSION_PROPERTY =
+        "turboism.validation.hostVersion";
+    private static final String VALIDATION_HOST_VERSION = "5303";
+    private static final String VALIDATION_MODE_PROPERTY =
+        "turboism.validation.statusBar.mode";
+    private static final String VALIDATION_MODE = "manager";
+    private static final String VALIDATION_RUN_ID_PROPERTY =
+        "turboism.validation.runId";
 
     /** Cubism version reported for the reviewed 5.2.03 artifact. */
     public static final String CUBISM_VERSION_5_2_03 = "5.2.03";
 
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
+
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
 
     /** Reviewed status-bar record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
@@ -36,7 +51,20 @@ public final class StatusBarVerificationManifest {
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed status-bar record admitted for exact Cubism 5.3.03 static resolution. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.ui-status-bar.static",
+        "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.status-bar";
     public static final String CAPABILITY_ID = "ui.status.notify";
@@ -44,7 +72,40 @@ public final class StatusBarVerificationManifest {
 
     /** Reviewed exact Cubism versions this status-bar trust root can serve. */
     public static Set<String> reviewedCubismVersions() {
-        return Set.of(CUBISM_VERSION_5_2_03, CUBISM_VERSION_5_3_02);
+        return Set.of(
+            CUBISM_VERSION_5_2_03,
+            CUBISM_VERSION_5_3_02,
+            CUBISM_VERSION_5_3_03
+        );
+    }
+
+    /**
+     * Returns whether this JVM is the exact task-scoped 5.3.03 status-bar validation lane.
+     *
+     * <p>The static record and resolver stay available independently. This predicate now identifies
+     * only the exact task-scoped validation lane; ordinary 5.3.03 launches use established full-runtime
+     * admission and do not depend on this token.</p>
+     */
+    public static boolean admits5303ValidationCandidate() {
+        return admits5303ValidationCandidate(
+            System.getProperty(VALIDATION_PROPERTY),
+            System.getProperty(VALIDATION_HOST_VERSION_PROPERTY),
+            System.getProperty(VALIDATION_MODE_PROPERTY),
+            System.getProperty(VALIDATION_RUN_ID_PROPERTY)
+        );
+    }
+
+    static boolean admits5303ValidationCandidate(
+        final String token,
+        final String hostVersion,
+        final String mode,
+        final String runId
+    ) {
+        return VALIDATION_TOKEN.equals(token)
+            && VALIDATION_HOST_VERSION.equals(hostVersion)
+            && VALIDATION_MODE.equals(mode)
+            && runId != null
+            && !runId.isBlank();
     }
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(

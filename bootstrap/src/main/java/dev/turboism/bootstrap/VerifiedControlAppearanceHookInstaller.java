@@ -72,8 +72,7 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
         final PaletteAppearanceCoordinator coordinator
     ) {
         Objects.requireNonNull(resolver, "resolver");
-        if (!(resolver.isExactCubismVersion("5.2.03") || resolver.isExactCubismVersion("5.3.02"))
-            || hostGeneration <= 0) {
+        if (!supportsStaticProfile(resolver.cubismVersion()) || hostGeneration <= 0) {
             throw new IllegalArgumentException("control appearance requires an exact supported active generation");
         }
         final ClassLoader loader = resolver.hostClassLoader();
@@ -188,6 +187,10 @@ final class VerifiedControlAppearanceHookInstaller implements AutoCloseable {
             ),
             coordinator
         );
+    }
+
+    static boolean supportsStaticProfile(final String cubismVersion) {
+        return Set.of("5.2.03", "5.3.02", "5.3.03").contains(cubismVersion);
     }
 
     void install() throws Exception {

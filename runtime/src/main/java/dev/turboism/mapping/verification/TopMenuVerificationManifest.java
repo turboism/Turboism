@@ -6,8 +6,8 @@ import java.util.Set;
 /**
  * Runtime trust root for exact-version Cubism top-menu providers.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data; every other artifact fails closed.</p>
+ * <p>Each reviewed Cubism version is declared as its own {@link ReviewedSliceRecord}; every
+ * other artifact fails closed.</p>
  */
 public final class TopMenuVerificationManifest {
 
@@ -17,11 +17,14 @@ public final class TopMenuVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed top-menu record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-top-menu.static",
-        "9b8e9a30ba2b08be45c4dd3ad262d4d1efbd3779b4584e4dadfdef344c9c00f8",
+        "a704c04bad828734044d5167cde0dabc3e1f91314dd46e74c1fc008278f2c12e",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -30,12 +33,25 @@ public final class TopMenuVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-top-menu.static",
-        "0cbb09b1100cc4208d5cc3d9c73dff4434e28abb2f970eb4b6c27a86fc7dc79f",
+        "fa98853b6b834a6937f27c8b48119d3e56cfabbf96305aa57ad3427c7393850e",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed top-menu record admitted for exact Cubism 5.3.03 static resolution. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.ui-top-menu.static",
+        "4c54e06b5d22e6af5936044645edea0c55b529cb38b1c6da59fd53a18fc3da0e",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.top-menu";
     public static final String CAPABILITY_ID = "cubism.editor-ui.top-menu";

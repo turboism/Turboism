@@ -23,9 +23,8 @@ public final class EditorDefaultKeyformLockWriteSelectorContract {
         "cubism.editor-model.edit-mode.begin",
         "cubism.editor-model.edit-mode.end",
         "cubism.editor-model.undo.add",
-        "cubism.editor-model.undo.add-listener",
-        "cubism.editor-model.undo-listener.class",
-        "cubism.editor-model.simple-undo.create",
+        "cubism.editor-model.undo.local-simple-factory-instance",
+        "cubism.editor-model.undo.local-simple-factory-create",
         "cubism.editor-model.model-source.default-keyform-locked",
         "cubism.editor-model.model-source.set-default-keyform-locked"
     );

@@ -6,7 +6,6 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import java.lang.instrument.Instrumentation;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Installs and owns the exact native texture-atlas editor data-model capture transformer. */
 public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoCloseable {
@@ -19,8 +18,8 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
     private final String targetClassName;
     private final ClassLoader hostClassLoader;
     private final TextureAtlasDataModelTransformer transformer;
-    private final AtomicBoolean installed = new AtomicBoolean(false);
-    private volatile Class<?> transformedClass;
+    private boolean installed;
+    private boolean transformerRemoved;
 
     private VerifiedTextureAtlasDataModelHookInstaller(
         final Instrumentation instrumentation,
@@ -50,7 +49,7 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
      * Builds an installer after verifying that this host is one the data-model hook is authorized
      * for.
      *
-     * <p>Admits exactly Cubism 5.3.02 and 5.2.0, checks the version's hook aliases against the
+     * <p>Admits exact Cubism 5.3.03, 5.3.02, and 5.2.03 profiles, checks the version's hook aliases against the
      * authorization contract, and requires both verified selectors to be instance methods sharing
      * a single owning class. Nothing is instrumented until {@link #install()} is called.
      *
@@ -74,7 +73,10 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         final Set<String> hookAliases;
         final String adapterSliceId;
-        if (verified.isExactCubismVersion("5.3.02")) {
+        if (verified.isExactCubismVersion("5.3.03")) {
+            hookAliases = VerifiedCubism5303TextureAtlasSelectorContract.HOOK_ALIASES;
+            adapterSliceId = VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
+        } else if (verified.isExactCubismVersion("5.3.02")) {
             hookAliases = VerifiedCubism5302TextureAtlasSelectorContract.HOOK_ALIASES;
             adapterSliceId = VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
         } else if (verified.isExactCubismVersion("5.2.03")) {
@@ -115,20 +117,20 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
      *                               case the installer stays uninstalled
      * @throws Exception if retransforming the target class fails
      */
-    public void install() throws Exception {
-        if (!installed.compareAndSet(false, true)) return;
+    public synchronized void install() throws Exception {
+        if (installed) return;
         if (!instrumentation.isRetransformClassesSupported()) {
-            installed.set(false);
             throw new IllegalStateException("Class retransformation is unavailable.");
         }
         instrumentation.addTransformer(transformer, true);
+        installed = true;
+        transformerRemoved = false;
         try {
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (loaded.getName().equals(targetClassName)
                     && loaded.getClassLoader() == hostClassLoader
                     && instrumentation.isModifiableClass(loaded)) {
                     instrumentation.retransformClasses(loaded);
-                    transformedClass = loaded;
                     break;
                 }
             }
@@ -139,17 +141,25 @@ public final class VerifiedTextureAtlasDataModelHookInstaller implements AutoClo
     }
 
     @Override
-    public void close() {
-        if (!installed.compareAndSet(true, false)) return;
-        instrumentation.removeTransformer(transformer);
-        final Class<?> loaded = transformedClass;
-        transformedClass = null;
-        if (loaded != null && instrumentation.isModifiableClass(loaded)) {
-            try {
-                instrumentation.retransformClasses(loaded);
-            } catch (Throwable failure) {
-                throw new IllegalStateException("Texture-atlas hook restoration failed.", failure);
+    public synchronized void close() {
+        if (!installed) return;
+        if (!transformerRemoved) {
+            if (!instrumentation.removeTransformer(transformer)) {
+                throw new IllegalStateException("Texture-atlas transformer removal was not acknowledged.");
             }
+            transformerRemoved = true;
+        }
+        try {
+            for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
+                if (loaded.getName().equals(targetClassName)
+                    && loaded.getClassLoader() == hostClassLoader
+                    && instrumentation.isModifiableClass(loaded)) {
+                    instrumentation.retransformClasses(loaded);
+                }
+            }
+            installed = false;
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Texture-atlas hook restoration failed.", failure);
         }
     }
 }

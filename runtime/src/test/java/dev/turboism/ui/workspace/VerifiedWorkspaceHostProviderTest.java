@@ -19,7 +19,7 @@ class VerifiedWorkspaceHostProviderTest {
 
     @Test
     void exactProvidersReadSwitchAndRunSemanticCommands() {
-        for (String version : List.of("5.2.03", "5.3.02")) {
+        for (String version : List.of("5.2.03", "5.3.02", "5.3.03")) {
             SyntheticApp.instance = new SyntheticApp(new SyntheticMainFrame(new SyntheticDock(
                 workspace("modeling", "Modeling"),
                 new java.util.ArrayList<>(List.of(workspace("modeling", "Modeling"), workspace("animation", "Animation")))
@@ -49,6 +49,11 @@ class VerifiedWorkspaceHostProviderTest {
         VerifiedMemberResolver resolver52 = resolver("5.2.03");
         assertTrue(WorkspaceControlAdmission.authorizes5203(resolver52));
         assertFalse(WorkspaceControlAdmission.authorizes5302(resolver52));
+        assertFalse(WorkspaceControlAdmission.authorizes5303(resolver52));
+
+        VerifiedMemberResolver resolver5303 = resolver("5.3.03");
+        assertFalse(WorkspaceControlAdmission.authorizes5302(resolver5303));
+        assertTrue(WorkspaceControlAdmission.authorizes5303(resolver5303));
 
         SyntheticDock dock = new SyntheticDock(
             workspace("modeling", "Modeling"),
@@ -174,9 +179,7 @@ class VerifiedWorkspaceHostProviderTest {
     }
 
     private static WorkspaceHostProvider provider(String version, VerifiedMemberResolver resolver) {
-        return version.equals("5.2.03")
-            ? new Cubism52WorkspaceHostProvider(resolver)
-            : new Cubism53WorkspaceHostProvider(resolver);
+        return WorkspaceHostProviderFactory.create(resolver);
     }
 
     private static SyntheticWorkspace workspace(String id, String name) {

@@ -38,7 +38,7 @@ public record EditorModelAdmissionEvidence(
      * Returns the admission evidence matching an admitted resolver's exact Cubism version.
      *
      * @param resolver a resolver already admitted against a reviewed Editor-model record
-     * @return evidence for that resolver's reviewed version
+     * @return evidence for that resolver's reviewed Editor-model version
      * @throws IllegalArgumentException when the resolver reports an unsupported version
      */
     public static EditorModelAdmissionEvidence forResolver(final VerifiedMemberResolver resolver) {
@@ -47,6 +47,8 @@ public record EditorModelAdmissionEvidence(
                 of(EditorModelVerificationManifest.RECORD_5_3_02);
             case EditorModelVerificationManifest.CUBISM_VERSION_5_2_03 ->
                 of(EditorModelVerificationManifest.RECORD_5_2_03);
+            case EditorModelVerificationManifest.CUBISM_VERSION_5_3_03 ->
+                of(EditorModelVerificationManifest.RECORD_5_3_03);
             default -> throw new IllegalArgumentException("Unsupported Editor model resolver version");
         };
     }

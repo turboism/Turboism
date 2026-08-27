@@ -36,7 +36,7 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
 
     @Override
     public synchronized RestorePoint captureRestorePoint() {
-        return new Point(host.capture());
+        return new Point(host.capture(), host.capturedBaselineCanBeRestored());
     }
 
     @Override
@@ -64,18 +64,21 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         if (!(restorePoint instanceof Point point)) {
             throw new IllegalArgumentException("restore point was not created by this provider");
         }
-        // Native restore drops owned overrides and deletes the shared
-        // custom-defaults source file; captured baseline values are unreliable
-        // because the early bootstrap may already have injected the theme
-        // before the first apply.
-        host.restoreNative();
+        if (point.restorable()) {
+            host.restore(point.defaults());
+        } else {
+            // Native restore drops owned overrides and deletes the shared
+            // custom-defaults source file; captured baseline values are unreliable
+            // when the early bootstrap may already have injected the theme.
+            host.restoreNative();
+        }
         lastRequest = null;
         status = nativeStatus(status.revision() + 1);
     }
 
     /**
-     * @return the admitted Cubism host version this provider was built for, one of the
-     *     exactly two supported builds ({@code 5.2.03} or {@code 5.3.02})
+     * @return the exact Cubism host version this provider was built for; ordinary runtime
+     *     admission remains independently gated by the connector
      */
     public String hostVersion() {
         return hostVersion;
@@ -148,13 +151,13 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
         if (value.equals("5.2.03")) {
             return "5.2.03";
         }
-        if (!value.equals("5.3.02") && !value.equals("5.2.03")) {
+        if (!value.equals("5.3.03") && !value.equals("5.3.02") && !value.equals("5.2.03")) {
             throw new IllegalArgumentException("unsupported appearance host version");
         }
         return value;
     }
 
-    private record Point(Map<String, String> defaults) implements RestorePoint {
+    private record Point(Map<String, String> defaults, boolean restorable) implements RestorePoint {
         private Point {
             defaults = Map.copyOf(defaults);
         }
@@ -163,7 +166,15 @@ public final class FlatLafAppearanceHostProvider implements AppearanceHostProvid
     public interface HostOperations {
         Map<String, String> capture();
 
+        default boolean capturedBaselineCanBeRestored() {
+            return false;
+        }
+
         void replace(Map<String, String> defaults);
+
+        default void restore(final Map<String, String> defaults) {
+            throw new UnsupportedOperationException("captured appearance baseline is not restorable");
+        }
 
         void restoreNative();
 

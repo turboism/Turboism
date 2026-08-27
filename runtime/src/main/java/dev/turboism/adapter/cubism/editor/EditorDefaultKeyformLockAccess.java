@@ -54,22 +54,11 @@ final class EditorDefaultKeyformLockAccess {
         final Object undo = resolver.invoke(
             "cubism.editor-model.edit-mode.begin", editMode, ACTION_NAME
         );
+        final boolean before = locked(source);
         boolean completed = false;
         try {
-            addUndo(undo, source);
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    refreshUi(app);
-                    return null;
-                }
-            );
-            resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
-            resolver.invoke(
-                "cubism.editor-model.model-source.set-default-keyform-locked",
-                source,
-                Boolean.valueOf(locked)
-            );
+            addUndo(undo, source, before, locked, app);
+            setLocked(source, locked);
             refreshUi(app);
             resolver.invoke("cubism.editor-model.modeling-document.mark-dirty", document);
             completed = true;
@@ -94,22 +83,67 @@ final class EditorDefaultKeyformLockAccess {
         return locked;
     }
 
-    private void addUndo(final Object edit, final Object source) {
-        final Object sourceUndo = resolver.construct(
-            "cubism.editor-model.simple-undo.create",
+    private void addUndo(
+        final Object edit,
+        final Object source,
+        final boolean before,
+        final boolean after,
+        final Object app
+    ) {
+        final String factoryAlias = "cubism.editor-model.undo.local-simple-factory-create";
+        final Object redo = resolver.createFunctionalArgumentProxy(
+            factoryAlias,
+            2,
+            ignored -> {
+                setLocked(source, after);
+                return null;
+            }
+        );
+        final Object undo = resolver.createFunctionalArgumentProxy(
+            factoryAlias,
+            3,
+            ignored -> {
+                setLocked(source, before);
+                return null;
+            }
+        );
+        final Object updated = resolver.createFunctionalArgumentProxy(
+            factoryAlias,
+            4,
+            ignored -> {
+                refreshUi(app);
+                return null;
+            }
+        );
+        final Object factory = resolver.readStaticField(
+            "cubism.editor-model.undo.local-simple-factory-instance"
+        );
+        final Object valueUndo = resolver.invoke(
+            factoryAlias,
+            factory,
             ACTION_NAME,
-            source,
-            null
+            Boolean.FALSE,
+            redo,
+            undo,
+            updated
         );
         final Object accepted = resolver.invoke(
             "cubism.editor-model.undo.add",
             edit,
-            sourceUndo,
+            valueUndo,
             Boolean.TRUE
         );
         if (!(accepted instanceof Boolean value) || !value) {
             throw new IllegalStateException("Cubism rejected the default-keyform lock Undo entry.");
         }
+    }
+
+    private void setLocked(final Object source, final boolean locked) {
+        resolver.invoke(
+            "cubism.editor-model.model-source.set-default-keyform-locked",
+            source,
+            Boolean.valueOf(locked)
+        );
     }
 
     private void refreshUi(final Object app) {

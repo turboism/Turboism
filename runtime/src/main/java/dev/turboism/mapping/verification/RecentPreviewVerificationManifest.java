@@ -41,10 +41,7 @@ public final class RecentPreviewVerificationManifest {
     private RecentPreviewVerificationManifest() {
     }
 
-    /**
-     * Accepts only the reviewed version pairs on the same host artifact: both 5.3.02,
-     * or the 5.2.03 host whose project-workspace record is labeled 5.2.0.
-     */
+    /** Accepts only same-version reviewed resolver pairs on the same host artifact. */
     public static boolean authorizes(
         final VerifiedMemberResolver projectResolver,
         final VerifiedMemberResolver panelResolver
@@ -54,8 +51,8 @@ public final class RecentPreviewVerificationManifest {
         }
         final String projectVersion = projectResolver.cubismVersion();
         final String panelVersion = panelResolver.cubismVersion();
-        final boolean reviewed = "5.3.02".equals(projectVersion) && "5.3.02".equals(panelVersion)
-            || "5.2.03".equals(projectVersion) && "5.2.03".equals(panelVersion);
+        final boolean reviewed = projectVersion.equals(panelVersion)
+            && ReviewedHostArtifacts.admitsFullRuntime(projectVersion);
         if (!reviewed) {
             return false;
         }

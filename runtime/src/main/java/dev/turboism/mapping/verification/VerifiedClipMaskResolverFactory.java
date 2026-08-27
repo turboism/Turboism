@@ -6,8 +6,8 @@ import java.nio.file.Path;
 /**
  * Sole public resolver entrypoint pinned to the reviewed clip-mask trust roots.
  *
- * <p>The manifest dispatches on the artifact digest, so the exact 5.2.03 and 5.3.02 artifacts each
- * resolve their own reviewed record and nothing else is admitted.</p>
+ * <p>The manifest dispatches on the artifact digest, so each exact reviewed artifact resolves its
+ * own versioned record and nothing else is admitted.</p>
  */
 public final class VerifiedClipMaskResolverFactory {
 

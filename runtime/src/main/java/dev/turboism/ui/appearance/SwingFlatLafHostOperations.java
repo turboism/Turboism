@@ -102,15 +102,34 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
     }
 
     @Override
+    public boolean capturedBaselineCanBeRestored() {
+        return true;
+    }
+
+    @Override
     public void replace(final Map<String, String> defaults) {
+        replace(defaults, true);
+    }
+
+    @Override
+    public void restore(final Map<String, String> defaults) {
+        replace(defaults, false);
+        refresh();
+    }
+
+    private void replace(final Map<String, String> defaults, final boolean persist) {
         Objects.requireNonNull(defaults, "defaults");
         onEdt(() -> {
             removeOwnedKeys();
             defaults.forEach((key, value) -> UIManager.put(key, uiValue(value)));
             try {
-                ThemeRuntimeProperties.write(defaults);
+                if (persist) {
+                    ThemeRuntimeProperties.write(defaults);
+                } else {
+                    ThemeRuntimeProperties.delete();
+                }
             } catch (java.io.IOException exception) {
-                throw new IllegalStateException("Could not write FlatLaf custom defaults source", exception);
+                throw new IllegalStateException("Could not update FlatLaf custom defaults source", exception);
             }
             return null;
         });

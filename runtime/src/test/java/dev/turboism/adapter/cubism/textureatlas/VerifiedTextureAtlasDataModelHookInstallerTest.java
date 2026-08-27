@@ -50,11 +50,97 @@ class VerifiedTextureAtlasDataModelHookInstallerTest {
         ), calls);
     }
 
+    @Test
+    void restoresACompatibleTargetLoadedAfterInstallation() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final Class<?>[][] loaded = {new Class<?>[0]};
+        final Instrumentation instrumentation = instrumentation(calls, loaded);
+        final VerifiedTextureAtlasDataModelHookInstaller installer =
+            VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                resolver(Set.of(VerifiedTextureAtlasDataModelHookInstaller.CAPABILITY_ID)),
+                Target.class.getClassLoader(),
+                new TextureAtlasDataModelCapture()
+            );
+
+        installer.install();
+        loaded[0] = new Class<?>[]{Target.class};
+        installer.close();
+
+        assertEquals(List.of(
+            "add:true",
+            "remove",
+            "retransform:" + Target.class.getName()
+        ), calls);
+    }
+
+    @Test
+    void closeRetriesAfterUnacknowledgedRemoval() throws Exception {
+        final List<String> calls = new ArrayList<>();
+        final int[] removals = {0};
+        final Instrumentation instrumentation = (Instrumentation) Proxy.newProxyInstance(
+            getClass().getClassLoader(),
+            new Class<?>[]{Instrumentation.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "isRetransformClassesSupported" -> true;
+                case "addTransformer" -> { calls.add("add"); yield null; }
+                case "getAllLoadedClasses" -> new Class<?>[]{Target.class};
+                case "isModifiableClass" -> true;
+                case "retransformClasses" -> { calls.add("retransform"); yield null; }
+                case "removeTransformer" -> {
+                    removals[0]++;
+                    calls.add("remove:" + removals[0]);
+                    yield removals[0] > 1;
+                }
+                default -> defaultValue(method.getReturnType());
+            }
+        );
+        final VerifiedTextureAtlasDataModelHookInstaller installer =
+            VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                resolver(Set.of(VerifiedTextureAtlasDataModelHookInstaller.CAPABILITY_ID)),
+                Target.class.getClassLoader(),
+                new TextureAtlasDataModelCapture()
+            );
+        installer.install();
+
+        assertThrows(IllegalStateException.class, installer::close);
+        installer.close();
+
+        assertEquals(List.of("add", "retransform", "remove:1", "remove:2", "retransform"), calls);
+    }
+
+    @Test
+    void preparesAnIndependentExact5303HookProfile() {
+        VerifiedTextureAtlasDataModelHookInstaller.fromVerifiedResolver(
+            instrumentation(new ArrayList<>()),
+            resolver(
+                "5.3.03",
+                VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+                Set.of(VerifiedTextureAtlasDataModelHookInstaller.CAPABILITY_ID)
+            ),
+            Target.class.getClassLoader(),
+            new TextureAtlasDataModelCapture()
+        ).close();
+    }
+
     private VerifiedMemberResolver resolver(final Set<String> capabilities) {
-        final String owner = Target.class.getName().replace('.', '/');
-        return TestVerifiedResolvers.create(
+        return resolver(
             "5.3.02",
             VerifiedCubism5302TextureAtlasSelectorContract.ADAPTER_SLICE_ID,
+            capabilities
+        );
+    }
+
+    private VerifiedMemberResolver resolver(
+        final String version,
+        final String adapterSliceId,
+        final Set<String> capabilities
+    ) {
+        final String owner = Target.class.getName().replace('.', '/');
+        return TestVerifiedResolvers.create(
+            version,
+            adapterSliceId,
             capabilities,
             List.of(
                 StaticSelector.classSelector(
@@ -74,13 +160,20 @@ class VerifiedTextureAtlasDataModelHookInstallerTest {
     }
 
     private Instrumentation instrumentation(final List<String> calls) {
+        return instrumentation(calls, new Class<?>[][]{{Target.class}});
+    }
+
+    private Instrumentation instrumentation(
+        final List<String> calls,
+        final Class<?>[][] loaded
+    ) {
         return (Instrumentation) Proxy.newProxyInstance(
             getClass().getClassLoader(),
             new Class<?>[]{Instrumentation.class},
             (proxy, method, arguments) -> switch (method.getName()) {
                 case "isRetransformClassesSupported" -> true;
                 case "addTransformer" -> { calls.add("add:" + arguments[1]); yield null; }
-                case "getAllLoadedClasses" -> new Class<?>[]{Target.class};
+                case "getAllLoadedClasses" -> loaded[0];
                 case "isModifiableClass" -> true;
                 case "retransformClasses" -> {
                     calls.add("retransform:" + ((Class<?>[]) arguments[0])[0].getName());

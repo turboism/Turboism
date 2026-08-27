@@ -992,10 +992,14 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public Part add(final PartId id, final PartId parentId) {
-            modelGuard.requireCurrent(identity, model);
-            final PartId created = structureAccess.add(identity, source, model, id, parentId);
-            final PartBinding value = binding(source, model, created);
-            return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
+            return EditorHostThread.dispatch("Cubism Parts", () -> {
+                modelGuard.requireCurrent(identity, model);
+                final PartId created = structureAccess.add(identity, source, model, id, parentId);
+                final PartBinding value = binding(source, model, created);
+                return new EditorPart(
+                    identity, source, model, value.id(), value.source(), value.part()
+                );
+            });
         }
 
         @Override public Part add(final PartId id) {
@@ -1003,15 +1007,22 @@ final class EditorPartOpacityAccess {
         }
 
         @Override public Part copy(final PartId id) {
-            modelGuard.requireCurrent(identity, model);
-            final PartId copied = structureAccess.copy(identity, source, model, id);
-            final PartBinding value = binding(source, model, copied);
-            return new EditorPart(identity, source, model, value.id(), value.source(), value.part());
+            return EditorHostThread.dispatch("Cubism Parts", () -> {
+                modelGuard.requireCurrent(identity, model);
+                final PartId copied = structureAccess.copy(identity, source, model, id);
+                final PartBinding value = binding(source, model, copied);
+                return new EditorPart(
+                    identity, source, model, value.id(), value.source(), value.part()
+                );
+            });
         }
 
         @Override public void remove(final PartId id) {
-            modelGuard.requireCurrent(identity, model);
-            structureAccess.remove(identity, source, model, id);
+            EditorHostThread.dispatch("Cubism Parts", () -> {
+                modelGuard.requireCurrent(identity, model);
+                structureAccess.remove(identity, source, model, id);
+                return null;
+            });
         }
 
         @Override public Part create(final String name, final Part parent, final int index) {

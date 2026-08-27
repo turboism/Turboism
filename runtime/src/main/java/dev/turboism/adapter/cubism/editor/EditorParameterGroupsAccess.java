@@ -191,9 +191,15 @@ final class EditorParameterGroupsAccess {
          * @throws NoSuchElementException        if the created group cannot be found afterwards
          */
         public ParameterGroup addGroup(final String name) {
-            current();
-            final ParameterGroupId created = structureAccess.addGroup(identity, source, model, name);
-            return new EditorParameterGroup(identity, source, model, requireGroupById(created));
+            return EditorHostThread.dispatch("Cubism parameter groups", () -> {
+                current();
+                final ParameterGroupId created = structureAccess.addGroup(
+                    identity, source, model, name
+                );
+                return new EditorParameterGroup(
+                    identity, source, model, requireGroupById(created)
+                );
+            });
         }
 
         @Override

@@ -6,8 +6,8 @@ import java.util.Set;
 /**
  * Runtime trust root for exact-version Cubism native main-toolbar providers.
  *
- * <p>Both supported Cubism versions are declared symmetrically as {@link ReviewedSliceRecord}
- * data; every other artifact fails closed.</p>
+ * <p>Each reviewed Cubism version is declared as its own {@link ReviewedSliceRecord}; every
+ * other artifact fails closed.</p>
  */
 public final class MainToolbarVerificationManifest {
 
@@ -17,11 +17,14 @@ public final class MainToolbarVerificationManifest {
     /** Cubism version reported for the reviewed 5.3.02 artifact. */
     public static final String CUBISM_VERSION_5_3_02 = "5.3.02";
 
+    /** Cubism version reported for the reviewed 5.3.03 artifact. */
+    public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
+
     /** Reviewed main-toolbar record admitted for exact Cubism 5.2.03. */
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-main-toolbar.static",
-        "7410b189c1a5c77e99e58e8eba1edc6f973b939f998703e8c04a4cc6c8026a7d",
+        "b8e6de878db814fa58fcdceb8213fe9f147a9a4bebdf54a9033ca211ff8dd7d8",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -30,12 +33,25 @@ public final class MainToolbarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-main-toolbar.static",
-        "ac519c81aea296d63a15a37331effd9cb9998ba2617628e87e975e88eacc62ff",
+        "fa95beaca4ba59509f59d817e6411629f82aec1a2b0e7f8b8ec4dc36846cf9a5",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
 
-    private static final List<ReviewedSliceRecord> RECORDS = List.of(RECORD_5_2_03, RECORD_5_3_02);
+    /** Reviewed main-toolbar record admitted for exact Cubism 5.3.03 static resolution. */
+    public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
+        ReviewedHostArtifacts.CUBISM_5_3_03,
+        "cubism-5.3.03.ui-main-toolbar.static",
+        "06a8e47b238503f224b60f6c3e29e404c2c7ca3041f1e3418f855badeb542262",
+        CUBISM_VERSION_5_3_03,
+        "cubism-5.3.03"
+    );
+
+    private static final List<ReviewedSliceRecord> RECORDS = List.of(
+        RECORD_5_2_03,
+        RECORD_5_3_02,
+        RECORD_5_3_03
+    );
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.main-toolbar";
     public static final String CAPABILITY_ID = "cubism.editor-ui.main-toolbar";

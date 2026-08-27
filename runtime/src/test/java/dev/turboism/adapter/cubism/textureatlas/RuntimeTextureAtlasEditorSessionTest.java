@@ -9,10 +9,43 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeTextureAtlasEditorSessionTest {
+
+    @Test
+    void absentViewReturnsEmptyForBothProjections() {
+        final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(
+            resolver(), () -> null
+        );
+
+        assertTrue(session.summary().isEmpty());
+        assertTrue(session.selectedTexture().isEmpty());
+    }
+
+    @Test
+    void stableSessionTracksResolverAndViewAvailability() {
+        final Fixture fixture = new Fixture();
+        final AtomicReference<VerifiedMemberResolver> resolver = new AtomicReference<>();
+        final AtomicReference<Object> view = new AtomicReference<>();
+        final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(
+            resolver::get, view::get
+        );
+
+        assertTrue(session.summary().isEmpty());
+        assertTrue(session.selectedTexture().isEmpty());
+
+        resolver.set(resolver());
+        view.set(fixture.view);
+        assertTrue(session.selectedTexture().isPresent());
+
+        view.set(null);
+        assertTrue(session.summary().isEmpty());
+        assertTrue(session.selectedTexture().isEmpty());
+    }
 
     @Test
     void readsCurrentPageWithoutRequiringModelImageSelection() {

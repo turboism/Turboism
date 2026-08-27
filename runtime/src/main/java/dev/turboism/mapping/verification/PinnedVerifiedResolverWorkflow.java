@@ -18,6 +18,16 @@ final class PinnedVerifiedResolverWorkflow {
         final ClassLoader hostClassLoader,
         final Manifest manifest
     ) throws IOException {
+        return create(reviewedRecord, verifiedArtifact, hostClassLoader, manifest, null);
+    }
+
+    VerifiedMemberResolver create(
+        final Path reviewedRecord,
+        final Path verifiedArtifact,
+        final ClassLoader hostClassLoader,
+        final Manifest manifest,
+        final RuntimeScope runtimeScope
+    ) throws IOException {
         Objects.requireNonNull(reviewedRecord, "reviewedRecord");
         Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
         Objects.requireNonNull(hostClassLoader, "hostClassLoader");
@@ -39,19 +49,32 @@ final class PinnedVerifiedResolverWorkflow {
             record.artifact(),
             record.selectors()
         );
-        final VerifiedAccessPlan accessPlan = VerifiedAccessPlan.from(record, report);
-        if (!accessPlan.authorizes(
-            manifest.adapterSliceId(),
-            manifest.capabilityIds(),
-            manifest.requiredAliases()
-        )) {
+        final VerifiedAccessPlan verifiedPlan = VerifiedAccessPlan.from(record, report);
+        final boolean manifestMatches = runtimeScope == null
+            ? verifiedPlan.authorizes(
+                manifest.adapterSliceId(),
+                manifest.capabilityIds(),
+                manifest.requiredAliases()
+            )
+            : verifiedPlan.authorizesFeatureSet(
+                manifest.adapterSliceId(),
+                manifest.capabilityIds(),
+                manifest.requiredAliases()
+            );
+        if (!manifestMatches) {
             throw new IllegalArgumentException("record selectors do not match the runtime-owned manifest");
         }
-        attestor.attest(verifiedArtifact, hostClassLoader, accessPlan.selectors());
+        attestor.attest(verifiedArtifact, hostClassLoader, verifiedPlan.selectors());
         final HostArtifactDigest after = HostArtifactDigest.from(verifiedArtifact);
         if (!after.equals(before)) {
             throw new IllegalArgumentException("verified artifact changed during runtime attestation");
         }
+        final VerifiedAccessPlan accessPlan = runtimeScope == null
+            ? verifiedPlan
+            : verifiedPlan.restrictTo(
+                runtimeScope.capabilityIds(),
+                runtimeScope.requiredAliases()
+            );
         return new VerifiedMemberResolver(accessPlan, hostClassLoader);
     }
 
@@ -67,6 +90,16 @@ final class PinnedVerifiedResolverWorkflow {
             || record.artifact().size() != manifest.artifactSize()
             || !record.artifact().sha256().equals(manifest.artifactSha256())) {
             throw new IllegalArgumentException("verification record fields do not match the reviewed manifest");
+        }
+    }
+
+    record RuntimeScope(
+        Set<String> capabilityIds,
+        Set<String> requiredAliases
+    ) {
+        RuntimeScope {
+            capabilityIds = Set.copyOf(capabilityIds);
+            requiredAliases = Set.copyOf(requiredAliases);
         }
     }
 

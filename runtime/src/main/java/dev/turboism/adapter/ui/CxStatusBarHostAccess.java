@@ -11,7 +11,7 @@ import java.util.List;
  * construction, name/text/severity appearance updates, the native
  * {@code add(CWidget, int)} / remove calls, and revalidate/repaint refresh.
  * Production binds it only through the reviewed exact-version resolver
- * (5.2.03 or 5.3.02); absent, unreviewed, and other-version evidence remains
+ * (5.2.03, 5.3.02 or 5.3.03); absent, unreviewed, and other-version evidence remains
  * in safe mode.</p>
  */
 interface CxStatusBarHostAccess {

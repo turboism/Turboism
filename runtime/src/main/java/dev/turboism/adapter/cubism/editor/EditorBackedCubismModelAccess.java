@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
@@ -286,6 +287,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         if (!Float.isFinite(value)) {
             throw new IllegalArgumentException("value must be finite");
         }
+        if (!resolver.authorizesFeature(
+            EditorParameterValueWriteSelectorContract.ADAPTER_SLICE_ID,
+            EditorParameterValueWriteSelectorContract.CAPABILITY_ID,
+            EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES
+        )) {
+            throw new UnsupportedOperationException(
+                "Parameter value editing is unavailable without exact verified host evidence."
+            );
+        }
         final Binding currentBinding = binding();
         if (!currentBinding.identity().equals(expectedIdentity)
             || currentBinding.model() != expectedModel) {
@@ -367,7 +377,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 "cubism.editor-model.parameter-operation.set-value",
                 operation,
                 source,
-                Float.valueOf(value)
+                Float.valueOf(expectedValue)
             );
             resolver.invoke(
                 "cubism.editor-model.complete-pack.update-parameter",
@@ -966,22 +976,31 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             final ParameterDefinition definition,
             final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
         ) {
-            current();
-            final ParameterId created = parameterStructureAccess.create(
-                identity, activeSource, model, definition, folderId);
-            return new EditorParameter(identity, model, created);
+            return EditorHostThread.dispatch("Cubism Parameters", () -> {
+                current();
+                final ParameterId created = parameterStructureAccess.create(
+                    identity, activeSource, model, definition, folderId
+                );
+                return new EditorParameter(identity, model, created);
+            });
         }
 
         @Override public Parameter copy(final ParameterId id) {
-            current();
-            final ParameterId copied = parameterStructureAccess.copy(
-                identity, activeSource, model, id);
-            return new EditorParameter(identity, model, copied);
+            return EditorHostThread.dispatch("Cubism Parameters", () -> {
+                current();
+                final ParameterId copied = parameterStructureAccess.copy(
+                    identity, activeSource, model, id
+                );
+                return new EditorParameter(identity, model, copied);
+            });
         }
 
         @Override public void remove(final ParameterId id) {
-            current();
-            parameterStructureAccess.remove(identity, activeSource, model, id);
+            EditorHostThread.dispatch("Cubism Parameters", () -> {
+                current();
+                parameterStructureAccess.remove(identity, activeSource, model, id);
+                return null;
+            });
         }
 
         @Override public List<Parameter> createMany(final List<ParameterDefinition> definitions) {
@@ -993,17 +1012,23 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             final List<ParameterDefinition> definitions,
             final java.util.Optional<dev.turboism.sdk.cubism.id.ParameterGroupId> folderId
         ) {
-            current();
-            final List<ParameterId> created = parameterStructureAccess.createMany(
-                identity, activeSource, model, definitions, folderId);
-            return created.stream()
-                .map(id -> (Parameter) new EditorParameter(identity, model, id))
-                .toList();
+            return EditorHostThread.dispatch("Cubism Parameters", () -> {
+                current();
+                final List<ParameterId> created = parameterStructureAccess.createMany(
+                    identity, activeSource, model, definitions, folderId
+                );
+                return created.stream()
+                    .map(id -> (Parameter) new EditorParameter(identity, model, id))
+                    .toList();
+            });
         }
 
         @Override public void removeMany(final List<ParameterId> ids) {
-            current();
-            parameterStructureAccess.removeMany(identity, activeSource, model, ids);
+            EditorHostThread.dispatch("Cubism Parameters", () -> {
+                current();
+                parameterStructureAccess.removeMany(identity, activeSource, model, ids);
+                return null;
+            });
         }
     }
 

@@ -2,7 +2,7 @@ package dev.turboism.mapping.verification;
 
 import java.util.Set;
 
-/** Runtime trust root for exact Cubism 5.2.03/5.3.02 control-appearance hooks. */
+/** Static trust roots for exact-version Cubism control-appearance selectors. */
 public final class ControlAppearanceVerificationManifest {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.control-appearance";
     public static final Set<String> CAPABILITY_IDS = Set.of(
@@ -60,7 +60,7 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
-                "f23f375e3dca62b390752b6e559870ff7ba03303e2445944bf73c4beb1763b8b",
+                "429a9bc1f4ae9fe6d38cbdfd5d418d14a236860a0a9db0771a443b4cdb28ae5c",
                 ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
                 "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
@@ -70,11 +70,21 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return manifest(
                 "cubism-5.3.02.ui-control-appearance.static",
-                "370b287fe9961b0f6d37e49dacf8bfdd52ae66ac3ae422be6d8633478e71299f",
+                "44c3e370bd4488fa86f231b37235547969f67b3eb35a41e3c4306d18e2879927",
                 ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256()
+            );
+        }
+        if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
+            return manifest(
+                "cubism-5.3.03.ui-control-appearance.static",
+                "7a29da7e518727c6f3ccc43309ff1922fb0a4ed08fbe90879396cc7e86a0f6de",
+                ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
+                "cubism-5.3.03",
+                ReviewedHostArtifacts.CUBISM_5_3_03.size(),
+                ReviewedHostArtifacts.CUBISM_5_3_03.sha256()
             );
         }
         throw new IllegalArgumentException("host artifact is not a reviewed Cubism control-appearance artifact");

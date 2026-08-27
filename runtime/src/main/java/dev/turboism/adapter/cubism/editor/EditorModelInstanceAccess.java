@@ -50,7 +50,9 @@ final class EditorModelInstanceAccess {
         for (Object instance : instances) {
             projections.add(project(instance));
         }
-        return List.copyOf(projections);
+        final List<ModelInstance> result = List.copyOf(projections);
+        modelGuard.requireCurrent(identity, model);
+        return result;
     }
 
     Optional<ModelInstance> currentModelInstance(
@@ -62,17 +64,21 @@ final class EditorModelInstanceAccess {
         modelGuard.requireCurrent(identity, model);
         final Object rawCurrent = resolver.invoke(CURRENT_INSTANCE_ALIAS, source);
         if (rawCurrent == null) {
+            modelGuard.requireCurrent(identity, model);
             return Optional.empty();
         }
         final Object rawInstances = resolver.invoke(INSTANCES_ALIAS, source);
-        if (rawInstances instanceof List<?> instances) {
-            for (Object instance : instances) {
-                if (instance == rawCurrent) {
-                    return Optional.of(project(instance));
-                }
+        if (!(rawInstances instanceof List<?> instances)) {
+            throw unavailable("Editor model-instance list is unavailable.");
+        }
+        for (Object instance : instances) {
+            if (instance == rawCurrent) {
+                final ModelInstance result = project(instance);
+                modelGuard.requireCurrent(identity, model);
+                return Optional.of(result);
             }
         }
-        return Optional.of(project(rawCurrent));
+        throw unavailable("Editor current model instance is absent from the instance list.");
     }
 
     boolean modelEditing(final String identity, final Object source, final Object model) {
@@ -82,6 +88,7 @@ final class EditorModelInstanceAccess {
         if (!(rawEditing instanceof Boolean editing)) {
             throw unavailable("Editor model-editing state is invalid.");
         }
+        modelGuard.requireCurrent(identity, model);
         return editing;
     }
 
@@ -106,7 +113,7 @@ final class EditorModelInstanceAccess {
         if (sameInstance(rawType, "cubism.editor-model.render-type.art-path-illegal")) {
             return InstanceRenderType.ART_PATH_ILLEGAL;
         }
-        if (resolver.isExactCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
+        if (supportsOnionSkin()
             && sameInstance(rawType, "cubism.editor-model.render-type.onion-skin-for-modeling")) {
             return InstanceRenderType.ONION_SKIN_FOR_MODELING;
         }
@@ -130,7 +137,7 @@ final class EditorModelInstanceAccess {
     }
 
     private Set<String> requiredAliases() {
-        if (resolver.isExactCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)) {
+        if (supportsOnionSkin()) {
             return EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES;
         }
         final HashSet<String> aliases = new HashSet<>(
@@ -138,6 +145,13 @@ final class EditorModelInstanceAccess {
         );
         aliases.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         return Set.copyOf(aliases);
+    }
+
+    private boolean supportsOnionSkin() {
+        return resolver.isExactCubismVersion(EditorModelInstanceReadSelectorContract.CUBISM_VERSION)
+            || resolver.isExactCubismVersion(
+                EditorModelInstanceReadSelectorContract.CUBISM_5_3_03_VERSION
+            );
     }
 
     private static IllegalStateException unavailable(final String message) {

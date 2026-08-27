@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -76,6 +77,20 @@ class FileChooserHistoryNativeMethodTransformerTest {
             @Override public boolean exportSeparationEnabled() { return true; }
             @Override public Registration registerProvider(final Provider provider) { return () -> { }; }
         };
+    }
+
+    @Test
+    void recordsEachExactTransformedSelector() throws Exception {
+        final AtomicInteger transformed = new AtomicInteger();
+        final byte[] bytes = new FileChooserHistoryNativeMethodTransformer(
+            OWNER,
+            profile().saveDialogMethods(),
+            null,
+            ignored -> transformed.incrementAndGet()
+        ).transform(null, null, OWNER, null, null, fixtureClass());
+
+        assertNotNull(bytes);
+        assertEquals(2, transformed.get());
     }
 
     @Test
