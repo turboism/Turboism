@@ -60,7 +60,7 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_2_03.equals(artifact)) {
             return manifest(
                 "cubism-5.2.03.ui-control-appearance.static",
-                "429a9bc1f4ae9fe6d38cbdfd5d418d14a236860a0a9db0771a443b4cdb28ae5c",
+                "f23f375e3dca62b390752b6e559870ff7ba03303e2445944bf73c4beb1763b8b",
                 ReviewedHostArtifacts.CUBISM_5_2_03_VERSION,
                 "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
@@ -70,7 +70,7 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_3_02.equals(artifact)) {
             return manifest(
                 "cubism-5.3.02.ui-control-appearance.static",
-                "44c3e370bd4488fa86f231b37235547969f67b3eb35a41e3c4306d18e2879927",
+                "370b287fe9961b0f6d37e49dacf8bfdd52ae66ac3ae422be6d8633478e71299f",
                 ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
@@ -80,7 +80,7 @@ public final class ControlAppearanceVerificationManifest {
         if (ReviewedHostArtifacts.CUBISM_5_3_03.equals(artifact)) {
             return manifest(
                 "cubism-5.3.03.ui-control-appearance.static",
-                "7a29da7e518727c6f3ccc43309ff1922fb0a4ed08fbe90879396cc7e86a0f6de",
+                "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0",
                 ReviewedHostArtifacts.CUBISM_5_3_03_VERSION,
                 "cubism-5.3.03",
                 ReviewedHostArtifacts.CUBISM_5_3_03.size(),

@@ -788,6 +788,8 @@ class EditorNativeControlAppearanceAccessTest {
             method("cubism.editor-model.model-source.root-parameter-group", ModelSource.class, "rootParameterGroup", desc(ParameterGroup.class)),
             method("cubism.editor-model.model-source.parts", ModelSource.class, "parts", "()Ljava/util/List;"),
             method("cubism.editor-model.model-source.all-deformers", ModelSource.class, "allDeformers", "()Ljava/util/List;"),
+            method("cubism.editor-model.model-source.all-art-meshes", ModelSource.class, "allArtMeshes", "()Ljava/util/List;"),
+            StaticSelector.classSelector("cubism.editor-model.art-mesh-source.class", internal(ArtMeshSource.class)),
             StaticSelector.classSelector("cubism.editor-model.model.class", model),
             StaticSelector.classSelector("cubism.editor-model.parameter-group.class", group),
             method("cubism.editor-model.parameter-group.id", ParameterGroup.class, "id", desc(Id.class)),
@@ -1010,12 +1012,16 @@ class EditorNativeControlAppearanceAccessTest {
         public Id id() { return id; }
     }
 
+    public static final class ArtMeshSource extends ParameterControllableSource {
+    }
+
     public static final class ModelSource {
         final Id guid;
         final Model model = new Model();
         final ParameterGroup root;
         final List<PartSource> parts = new ArrayList<>();
         final List<DeformerSource> deformers = new ArrayList<>();
+        final List<ArtMeshSource> artMeshes = new ArrayList<>();
         ModelSource(final String id) {
             guid = new Id(id);
             root = new ParameterGroup("GroupRoot", null);
@@ -1025,6 +1031,7 @@ class EditorNativeControlAppearanceAccessTest {
         public ParameterGroup rootParameterGroup() { return root; }
         public List<PartSource> parts() { return parts; }
         public List<DeformerSource> allDeformers() { return deformers; }
+        public List<ArtMeshSource> allArtMeshes() { return artMeshes; }
 
         int instanceUpdates;
         boolean instancesSynchronized = true;

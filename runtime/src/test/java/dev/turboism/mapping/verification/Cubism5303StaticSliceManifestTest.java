@@ -18,7 +18,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             MainToolbarVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-main-toolbar.static",
-            "06a8e47b238503f224b60f6c3e29e404c2c7ca3041f1e3418f855badeb542262",
+            "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07",
             MainToolbarVerificationManifest.ADAPTER_SLICE_ID,
             MainToolbarVerificationManifest.CAPABILITY_IDS,
             MainToolbarVerificationManifest.REQUIRED_ALIASES
@@ -26,7 +26,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             EmbeddedPanelVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-embedded-panel.static",
-            "f520ec5496dfd80b78c0dad54d6f9ab0db56142720156b4c551cd38c02cfdb23",
+            "089a76ea22fd2dcc688e18bdc2157997416095ba61ab1e290769d92390891065",
             EmbeddedPanelVerificationManifest.ADAPTER_SLICE_ID,
             EmbeddedPanelVerificationManifest.CAPABILITY_IDS,
             EmbeddedPanelVerificationManifest.REQUIRED_ALIASES
@@ -34,7 +34,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             TopMenuVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-top-menu.static",
-            "4c54e06b5d22e6af5936044645edea0c55b529cb38b1c6da59fd53a18fc3da0e",
+            "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b",
             TopMenuVerificationManifest.ADAPTER_SLICE_ID,
             TopMenuVerificationManifest.CAPABILITY_IDS,
             TopMenuVerificationManifest.REQUIRED_ALIASES
@@ -42,7 +42,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             BoundingBoxOverlayButtonVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-bounding-box-overlay.static",
-            "5250893619f75791aec026d8f93fb62e4b4ed61760f9f193604d63e5f85ea2f0",
+            "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5",
             BoundingBoxOverlayButtonVerificationManifest.ADAPTER_SLICE_ID,
             BoundingBoxOverlayButtonVerificationManifest.CAPABILITY_IDS,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES
@@ -58,7 +58,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             ControlAppearanceVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-control-appearance.static",
-            "7a29da7e518727c6f3ccc43309ff1922fb0a4ed08fbe90879396cc7e86a0f6de",
+            "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0",
             ControlAppearanceVerificationManifest.ADAPTER_SLICE_ID,
             ControlAppearanceVerificationManifest.CAPABILITY_IDS,
             ControlAppearanceVerificationManifest.REQUIRED_ALIASES
@@ -66,7 +66,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             WorkspaceControlVerificationManifest.forArtifact(REVIEWED),
             "m.workspace-5.3.03.control.static",
-            "2cd67a76c2377e1ee2a60829091a824a0ea9487f562251360534fba1225a2690",
+            "19a28870070b7f0e5c49060fef15dea087ebd37c7d20963d6aabd55fc5a464da",
             "adapter.workspace.control.v5_3",
             Set.of(WorkspaceControlVerificationManifest.CAPABILITY_ID),
             WorkspaceControlVerificationManifest.REQUIRED_ALIASES
@@ -74,7 +74,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             ProjectWorkspaceVerificationManifest.forArtifact(REVIEWED),
             "m15.cubism-5.3.03.project-workspace.static",
-            "d7f45e0c7d70925b4c77db18022b06ee4f089bc7b1cbe585ef311efa754f168e",
+            "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2",
             ProjectWorkspaceVerificationManifest.ADAPTER_SLICE_ID,
             ProjectWorkspaceVerificationManifest.CAPABILITY_IDS,
             ProjectWorkspaceVerificationManifest.REQUIRED_ALIASES

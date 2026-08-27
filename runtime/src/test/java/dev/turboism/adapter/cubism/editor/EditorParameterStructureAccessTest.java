@@ -294,6 +294,7 @@ class EditorParameterStructureAccessTest {
         selectors.add(method("cubism.editor-model.parameter-source.id", ParameterSource.class, "id", desc(Id.class)));
         selectors.add(method("cubism.editor-model.parameter-source.guid", ParameterSource.class, "guid", desc(Id.class)));
         selectors.add(method("cubism.editor-model.parameter-source.name", ParameterSource.class, "name", "()Ljava/lang/String;"));
+        selectors.add(method("cubism.editor-model.parameter-source.repeat", ParameterSource.class, "isRepeat", "()Z"));
         selectors.add(method("cubism.editor-model.parameter-source.minimum", ParameterSource.class, "minValue", "()F"));
         selectors.add(method("cubism.editor-model.parameter-source.maximum", ParameterSource.class, "maxValue", "()F"));
         selectors.add(method("cubism.editor-model.parameter-source.default", ParameterSource.class, "defaultValue", "()F"));
@@ -426,6 +427,7 @@ class EditorParameterStructureAccessTest {
         public Id id() { return id; }
         public Id guid() { return guid; }
         public String name() { return id.value; }
+        public boolean isRepeat() { return repeat; }
         public float minValue() { return 0.0F; }
         public float maxValue() { return 1.0F; }
         public float defaultValue() { return 0.5F; }
