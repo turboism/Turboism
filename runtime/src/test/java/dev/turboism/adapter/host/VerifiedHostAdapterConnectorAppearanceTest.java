@@ -49,20 +49,17 @@ class VerifiedHostAdapterConnectorAppearanceTest {
     }
 
     @Test
-    void productionPolicyKeepsExact5303AppearanceClosedWithTheFullRuntimeGate() {
-        final var provider = VerifiedHostAdapterConnector.productionAppearanceProviderForVersion(
-            "5.3.03",
-            new NoOpHost()
+    void productionPolicyMakesExact5303AppearanceAvailable() {
+        final FlatLafAppearanceHostProvider provider = assertInstanceOf(
+            FlatLafAppearanceHostProvider.class,
+            VerifiedHostAdapterConnector.productionAppearanceProviderForVersion(
+                "5.3.03",
+                new NoOpHost()
+            )
         );
 
-        assertFalse(provider.isAvailable());
-        assertInstanceOf(
-            dev.turboism.ui.appearance.UnavailableAppearanceHostProvider.class,
-            provider
-        );
-        assertFalse(
-            dev.turboism.mapping.verification.ReviewedHostArtifacts.admitsFullRuntime("5.3.03")
-        );
+        assertTrue(provider.isAvailable());
+        assertEquals("5.3.03", provider.hostVersion());
     }
 
     @Test
@@ -107,7 +104,7 @@ class VerifiedHostAdapterConnectorAppearanceTest {
         assertTrue(connection.editorUiProviders(1).isEmpty());
         assertNull(connection.objectContextMenuHandler(1));
         assertNull(connection.parameterPointMenuHandler(1));
-        assertFalse(connection.appearanceProvider().isAvailable());
+        assertTrue(connection.appearanceProvider().isAvailable());
     }
 
     @Test

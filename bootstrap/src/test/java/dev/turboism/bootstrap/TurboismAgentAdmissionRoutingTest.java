@@ -9,9 +9,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TurboismAgentAdmissionRoutingTest {
 
     @Test
-    void exact5303IdentityDoesNotPassTheAgentFullRuntimeGate() {
+    void exact5303IdentityPassesTheAgentFullRuntimeGate() {
         assertTrue(ReviewedHostArtifacts.isReviewed(ReviewedHostArtifacts.CUBISM_5_3_03));
-        assertFalse(
+        assertTrue(
             ReviewedHostArtifacts.admitsFullRuntime(
                 ReviewedHostArtifacts.CUBISM_5_3_03_VERSION
             )

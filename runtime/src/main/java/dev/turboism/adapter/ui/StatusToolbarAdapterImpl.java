@@ -98,17 +98,7 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
         final Capability capability,
         final String hostVersion
     ) {
-        final Optional<SafeModeDiagnostic> diagnostic =
-            HostUiVersionCheck.diagnosticFor(capability.id(), hostVersion);
-        if (diagnostic.isPresent()
-            && capability == Capability.STATUS_NOTIFY
-            && dev.turboism.mapping.verification.StatusBarVerificationManifest
-                .CUBISM_VERSION_5_3_03.equals(hostVersion)
-            && dev.turboism.mapping.verification.StatusBarVerificationManifest
-                .admits5303ValidationCandidate()) {
-            return Optional.empty();
-        }
-        return diagnostic;
+        return HostUiVersionCheck.diagnosticFor(capability.id(), hostVersion);
     }
 
     private static <T> Supplier<AdapterResult<T>> unavailable(final Capability capability) {

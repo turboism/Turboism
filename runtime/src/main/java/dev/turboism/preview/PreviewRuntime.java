@@ -172,7 +172,7 @@ public final class PreviewRuntime implements AutoCloseable {
      * @param topMenuVerificationRecord verification record for the top-menu slice
      * @param boundingBoxOverlayVerificationRecord verification record for the bounding-box overlay
      * @param hostArtifact the Cubism host artifact the records were verified against; only
-     *     Cubism 5.2.03 and 5.3.02 are admitted
+     *     Cubism 5.2.03, 5.3.02, and 5.3.03 are admitted
      * @param hostClassLoader classloader through which host classes are resolved
      * @return a started runtime with plugins loaded and initial reports written
      * @throws IOException if the home directory or its log and report files cannot be prepared

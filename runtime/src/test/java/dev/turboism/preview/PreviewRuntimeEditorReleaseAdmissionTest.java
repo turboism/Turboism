@@ -12,7 +12,7 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PreviewRuntimeEditorReleaseAdmissionTest {
@@ -52,12 +52,12 @@ class PreviewRuntimeEditorReleaseAdmissionTest {
     }
 
     @Test
-    void exactReviewed5303AgreementStillLeavesFullRuntimeClosed() {
+    void exactReviewed5303AgreementOpensFullRuntimeAdmission() {
         assertEquals(
             "5.3.03",
             PreviewRuntime.requireReleaseAgreement("5.3.03", "5.3.03")
         );
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 
     private Path editorJar(final String version, final int build) throws Exception {

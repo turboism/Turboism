@@ -72,10 +72,10 @@ final class ReviewedHostArtifactsTest {
     }
 
     @Test
-    void reviewedIdentityDoesNotOpenTheFullRuntimeGate() {
+    void fullRuntimeAdmissionIsExactAndFailsClosedForUnreviewedVersions() {
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.2.03"));
         assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.02"));
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
         assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.04"));
         assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.3"));
         assertFalse(ReviewedHostArtifacts.admitsFullRuntime(" 5.3.03"));

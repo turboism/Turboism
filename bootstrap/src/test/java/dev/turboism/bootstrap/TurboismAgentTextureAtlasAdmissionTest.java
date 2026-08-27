@@ -9,10 +9,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class TurboismAgentTextureAtlasAdmissionTest {
 
     @Test
-    void keepsExact5303ClosedBehindFullRuntimeAdmission() {
-        assertTrue(TurboismAgent.textureAtlasRuntimeAdmitted("5.3.02", true));
-        assertFalse(TurboismAgent.textureAtlasRuntimeAdmitted("5.3.02", false));
+    void admitsExact5303OnlyAfterFullRuntimeAdmission() {
+        assertTrue(TurboismAgent.textureAtlasRuntimeAdmitted("5.3.03", true));
         assertFalse(TurboismAgent.textureAtlasRuntimeAdmitted("5.3.03", false));
-        assertFalse(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
+        assertFalse(TurboismAgent.textureAtlasRuntimeAdmitted("5.3.04", true));
+        assertTrue(ReviewedHostArtifacts.admitsFullRuntime("5.3.03"));
     }
 }
