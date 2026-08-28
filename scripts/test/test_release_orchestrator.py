@@ -21,13 +21,14 @@ def load_package():
 
     if str(PACKAGE) not in sys.path:
         sys.path.insert(0, str(PACKAGE))
+    from turboism_release import candidate as candidate_builder
     from turboism_release import contracts
     from turboism_release import executor
     from turboism_release import planner
-    return contracts, executor, planner
+    return candidate_builder, contracts, executor, planner
 
 
-contracts, executor, planner = load_package()
+candidate_builder, contracts, executor, planner = load_package()
 
 
 HASH_A = "a" * 64
@@ -259,6 +260,70 @@ class DecisionMatrixTest(unittest.TestCase):
         value = candidate(eligible=False, plugins=[plugin_candidate(built=False)])
         with self.assertRaisesRegex(contracts.ReleaseError, "has not been built"):
             self.make(value, plugin_catalog=catalog())
+
+
+class CandidateBuilderTest(unittest.TestCase):
+    @mock.patch("turboism_release.candidate._load_script")
+    def test_framework_artifacts_passes_roster_and_sibling_stage(self, loader):
+        version = "0.42.0"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            repo = root / "repo"
+            dist = root / "payload" / "dist"
+            stage = dist.parent / "staging"
+            roster = repo / "packaging" / "release-plugins.txt"
+            dist.mkdir(parents=True)
+            stage.mkdir()
+            roster.parent.mkdir(parents=True)
+            roster.write_text(":plugins:core\n:plugins:mcp\n", encoding="utf-8")
+            for item in artifacts(version):
+                (dist / item["name"]).write_bytes(b"payload")
+
+            verifier = mock.Mock()
+            loader.return_value = verifier
+            result = candidate_builder.framework_artifacts(repo, dist, version)
+
+            verifier.verify.assert_called_once_with(
+                dist.resolve(), version, roster.resolve(), stage.resolve()
+            )
+            self.assertEqual(8, len(result))
+            self.assertEqual(
+                sorted(item["name"] for item in artifacts(version)),
+                sorted(item["name"] for item in result),
+            )
+
+    @mock.patch("turboism_release.candidate.bundled_plugins", return_value=[])
+    @mock.patch("turboism_release.candidate.plugin_candidates")
+    @mock.patch("turboism_release.candidate.framework_artifacts")
+    @mock.patch("turboism_release.candidate.changelog_entry")
+    @mock.patch("turboism_release.candidate.git_source")
+    @mock.patch("turboism_release.candidate.framework_version", return_value="0.42.0")
+    def test_build_candidate_routes_repo_root_into_framework_verification(
+        self,
+        _version,
+        source,
+        changelog,
+        framework,
+        plugins,
+        _bundled,
+    ):
+        source.return_value = {
+            "repository": "turboism/Turboism",
+            "revision": SOURCE,
+            "tag": None,
+        }
+        changelog.return_value = {"date": "2026-08-25", "sha256": HASH_A}
+        framework.return_value = []
+        plugins.return_value = {"policySha256": HASH_B, "candidates": []}
+        with tempfile.TemporaryDirectory() as directory:
+            repo = Path(directory) / "repo"
+            dist = Path(directory) / "payload" / "dist"
+            repo.mkdir()
+            dist.mkdir(parents=True)
+            candidate_builder.build_candidate(
+                repo, dist=dist, market_dir=None, require_tag=False
+            )
+        framework.assert_called_once_with(repo.resolve(), dist.resolve(), "0.42.0")
 
 
 class ManifestScriptTest(unittest.TestCase):

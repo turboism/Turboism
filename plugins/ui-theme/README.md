@@ -38,7 +38,7 @@ Manages built-in and user theme packages and applies reviewed semantic appearanc
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** The plugin can initialize without Cubism. Applying a theme to Cubism still requires an exact reviewed Editor artifact (`5.2.03` or `5.3.02`) and the semantic appearance service.
+- **Cubism:** The plugin can initialize without Cubism. Applying a theme to Cubism still requires an exact reviewed Editor artifact (`5.2.03`, `5.3.02`, or `5.3.03`) and the semantic appearance service.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 

@@ -12,7 +12,7 @@ version-routed runtime, and SDK-only first-party plugins.
 | Item | Status |
 | --- | --- |
 | Host platform | Windows x64 is the supported Cubism host platform. |
-| Cubism Editor | Exact-version adapters for **5.2.03** and **5.3.02**. Other versions fail closed and are not claimed compatible. |
+| Cubism Editor | Exact-version adapters for **5.2.03**, **5.3.02**, and **5.3.03**. Other versions fail closed and are not claimed compatible. |
 | Installer | NSIS `.exe` is preferred on Windows; Lite/Full Windows ZIPs and a Java 17 IzPack installer are also published. |
 | macOS | Java installer/payload packaging is preview-only; Cubism host readiness is not claimed. |
 | Linux | Installer/payload semantics only; running Cubism Editor as a Turboism host is unsupported. |
@@ -65,7 +65,7 @@ sha256sum -c TurboismInstaller-0.42.0.exe.sha256
 ```
 
 Run `configure_turboism.ps1` after installation to discover or select Cubism
-Editor 5.2.03 / 5.3.02 installations and create Turboism-owned launch
+Editor 5.2.03 / 5.3.02 / 5.3.03 installations and create Turboism-owned launch
 shortcuts. The launcher invokes the official `CubismEditor5.bat`; it does not
 modify the Cubism installation.
 
@@ -97,7 +97,7 @@ Turboism is developed by product and framework capability rather than numbered m
 - a unified Turboism-owned Cubism object API;
 - Editor-owned authoring writes with transaction and Undo support;
 - consistent `before` / `on` / `after` invocation semantics;
-- exact-version Cubism 5.2.03 and 5.3.02 providers;
+- exact-version Cubism 5.2.03, 5.3.02, and 5.3.03 providers;
 - semantic project, selection, model-tree and UI adapters;
 - SDK-only restoration of official Parameter, Mesh, PSD, UI and performance workflows;
 - production hooks only where explicit APIs and callbacks are insufficient.
