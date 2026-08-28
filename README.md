@@ -23,7 +23,7 @@ unsigned; verify the accompanying `.sha256` files after downloading.
 
 ## Current capabilities
 
-The 0.42.0 release includes:
+The 0.43.0 release includes:
 
 - a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
   configuration, localization, tasks, events, actions, menus, toolbars,
@@ -61,7 +61,7 @@ Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
 
 ```bash
-sha256sum -c TurboismInstaller-0.42.0.exe.sha256
+sha256sum -c TurboismInstaller-0.43.0.exe.sha256
 ```
 
 Run `configure_turboism.ps1` after installation to discover or select Cubism
