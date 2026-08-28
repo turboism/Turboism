@@ -105,7 +105,11 @@ Before publication CI must run:
 python3 scripts/check_remote_hygiene.py --all
 ./gradlew --no-daemon checkRelease -PinstallerVersion=<version> -PturboismRelease=true --console=plain
 bash packaging/windows-installer/assemble-release.sh <version>
-python3 scripts/release/verify-release.py --version <version> --dist build/windows-installer/dist
+python3 scripts/release/verify-release.py \
+  --version <version> \
+  --dist build/windows-installer/dist \
+  --release-plugins packaging/release-plugins.txt \
+  --windows-stage build/windows-installer/staging
 ```
 
 Release notes are always extracted from the exact version section of `CHANGELOG.md`.
