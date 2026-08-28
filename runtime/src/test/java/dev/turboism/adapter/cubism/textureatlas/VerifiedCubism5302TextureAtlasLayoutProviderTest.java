@@ -33,7 +33,7 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
         assertEquals("model-a", current.modelId());
         assertEquals("atlas-a", current.atlasId());
         assertEquals(List.of("atlas-a"), current.currentPlan().pageNames());
-        assertEquals(2, current.items().size());
+        assertEquals(3, current.items().size());
         assertEquals(8, current.currentPlan().placements().get(1).x());
 
         final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(16, 8, 2, List.of(
@@ -88,26 +88,26 @@ class VerifiedCubism5302TextureAtlasLayoutProviderTest {
     }
 
     @Test
-    void excludesNativeUnusedImagesFromProjectionAndStaging() {
+    void preservesAnAtlasEntryWhoseDrawableUseIsTemporarilyAbsent() {
         final Fixture fixture = new Fixture();
         final VerifiedCubism5302TextureAtlasLayoutProvider provider = provider(
             resolver("5.3.02", true), "session-a", fixture
         );
 
         final TextureAtlasAuthoringState current = provider.current().orElseThrow();
-        assertEquals(List.of("texture-a", "texture-b"), current.items().stream()
+        assertEquals(List.of("texture-a", "texture-b", "texture-unused"), current.items().stream()
             .map(item -> item.textureId()).toList());
-        assertEquals(List.of("texture-a", "texture-b"), current.currentPlan().placements().stream()
+        assertEquals(List.of("texture-a", "texture-b", "texture-unused"), current.currentPlan().placements().stream()
             .map(TextureAtlasPlacement::textureId).toList());
 
-        final TextureAtlasLayoutPlan invalidPlan = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
-            new TextureAtlasPlacement("texture-unused", 0, 1, 1, 1, 1, false)
+        final TextureAtlasLayoutPlan replacement = new TextureAtlasLayoutPlan(16, 8, 1, List.of(
+            new TextureAtlasPlacement("texture-a", 0, 2, 1, 4, 3, false),
+            new TextureAtlasPlacement("texture-b", 0, 8, 1, 2, 2, false),
+            new TextureAtlasPlacement("texture-unused", 0, 12, 1, 1, 1, false)
         ));
-        assertThrows(IllegalStateException.class, () -> provider.apply(current, invalidPlan));
-        assertTrue(fixture.document.editMode.edits.isEmpty());
-        assertTrue(fixture.document.editMode.undos.isEmpty());
-        assertEquals(List.of("atlas-a"), fixture.source.textureManager.atlases.stream()
-            .map(Atlas::name).toList());
+        assertEquals(TextureAtlasLayoutProvider.ApplyOutcome.APPLIED, provider.apply(current, replacement));
+        assertEquals(List.of("texture-a", "texture-b", "texture-unused"), fixture.source.textureManager
+            .atlases.get(0).entries.stream().map(entry -> entry.image.guid.value).toList());
     }
 
     @Test
