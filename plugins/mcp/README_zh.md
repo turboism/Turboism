@@ -45,11 +45,11 @@ interface: none
 ## 安装与启用
 
 1. 通过 Turboism 的官方发布包和**插件管理**安装并启用插件。
-2. 从插件状态目录读取生成的 `mcp-connection.json`。
+2. 在能够强制仅所有者权限的 POSIX 文件系统上，从插件状态目录读取生成的 `mcp-connection.json`。Windows 当前会在启动时关闭失败，因为 Java 17 无法证明受保护的 DACL，也无法以句柄相对且防重解析点的方式发布 Bearer 文件。
 3. 使用精确的数字回环端点和 Bearer 授权值配置本地 MCP 客户端。
 4. 完成 `initialize`，保留 `MCP-Session-Id`，发送 `notifications/initialized`，并在后续请求中包含协商后的协议版本。
 
-连接文件包含本地密钥。请勿记录它、将其复制到验证证据中，或将其暴露给不受信任的进程。
+连接文件包含本地密钥。请勿记录它、将其复制到验证证据中，或将其暴露给不受信任的进程。在生成该文件之前，Windows 支持需要原生的受保护 DACL 和防重解析点发布机制。
 
 ## 使用方法
 
