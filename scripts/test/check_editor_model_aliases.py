@@ -3,8 +3,9 @@
 
 The checker scans every runtime production Java source for aliases passed to VerifiedMemberResolver
 operations. It follows simple string constants and expands the finite preset-color alias builder.
-Implementation aliases not declared by either reviewed record fail hard. Reviewed method aliases
-not consumed by production also fail: reviewed admission must be no wider than actual use.
+Implementation aliases not declared by the older exact-use records or the fixed additive subset of
+the public 5.3.03 reviewed record fail hard. Admitted method aliases not consumed by production also
+fail: reviewed admission must be no wider than actual use.
 
 Usage: check_editor_model_aliases.py [repo-root] [--report]
 """
@@ -17,10 +18,17 @@ import sys
 from pathlib import Path
 
 IMPLEMENTATION_ROOT = "runtime/src/main/java"
-RECORDS = (
+BASE_RECORDS = (
     "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
     "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
 )
+ADDITIVE_RECORD = "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
+ADDITIVE_ALIASES = frozenset({
+    "cubism.editor-model.keyform-grid.keyforms-on-grid",
+    "cubism.editor-model.keyform-on-grid.form-guid",
+    "cubism.editor-model.undo.local-simple-factory-create",
+    "cubism.editor-model.undo.local-simple-factory-instance",
+})
 ALIAS_PREFIX = "cubism.editor-model"
 ALIAS_LITERAL = re.compile(r'"(' + re.escape(ALIAS_PREFIX) + r'[^\"]*)"')
 VERIFICATION_PATH = "/mapping/verification/"
@@ -48,22 +56,50 @@ def implementation_aliases(root: Path) -> set[str]:
     return aliases
 
 
+def aliases_in_record(root: Path, relative: str) -> set[str]:
+    """Return non-class Editor-model aliases in one public reviewed record."""
+    path = root / relative
+    if not path.exists():
+        return set()
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return {
+        selector["alias"]
+        for selector in data["selectors"]
+        if selector["alias"].startswith(ALIAS_PREFIX) and selector["kind"] != "class"
+    }
+
+
 def record_aliases(root: Path) -> tuple[set[str], dict[str, set[str]]]:
-    """Return all non-class aliases declared by the reviewed Editor-model records."""
+    """Return exact consumed admission from the public reviewed records.
+
+    The 5.3.03 record is a full static host inventory and intentionally contains selectors for
+    capabilities this runtime does not consume. Only its four additive, invoked aliases extend the
+    exact-use admission held by the 5.2.03/5.3.02 records. The subset is fixed here so adding an
+    arbitrary selector to any record cannot silently widen runtime admission.
+    """
     union: set[str] = set()
     per_record: dict[str, set[str]] = {}
-    for relative in RECORDS:
-        path = root / relative
-        if not path.exists():
-            continue
-        data = json.loads(path.read_text(encoding="utf-8"))
-        aliases = {
-            selector["alias"]
-            for selector in data["selectors"]
-            if selector["alias"].startswith(ALIAS_PREFIX) and selector["kind"] != "class"
-        }
-        per_record[Path(relative).name] = aliases
-        union |= aliases
+    for relative in BASE_RECORDS:
+        aliases = aliases_in_record(root, relative)
+        if aliases:
+            per_record[Path(relative).name] = aliases
+            union |= aliases
+
+    additive_record = aliases_in_record(root, ADDITIVE_RECORD)
+    missing = ADDITIVE_ALIASES - additive_record
+    if missing:
+        raise ValueError(
+            "5.3.03 reviewed record lacks required additive aliases: "
+            + ", ".join(sorted(missing))
+        )
+    unexpected_base = ADDITIVE_ALIASES & union
+    if unexpected_base:
+        raise ValueError(
+            "5.3.03-only aliases unexpectedly appear in older records: "
+            + ", ".join(sorted(unexpected_base))
+        )
+    per_record[Path(ADDITIVE_RECORD).name + " (admitted subset)"] = set(ADDITIVE_ALIASES)
+    union |= ADDITIVE_ALIASES
     return union, per_record
 
 
@@ -75,7 +111,11 @@ def main() -> int:
 
     root = Path(args.root).resolve()
     implementation = implementation_aliases(root)
-    union, per_record = record_aliases(root)
+    try:
+        union, per_record = record_aliases(root)
+    except (KeyError, TypeError, ValueError, json.JSONDecodeError) as failure:
+        print(f"FAIL: invalid reviewed Editor-model record: {failure}", file=sys.stderr)
+        return 2
     if not implementation or not union:
         print("FAIL: could not read the implementation or reviewed records", file=sys.stderr)
         return 2
