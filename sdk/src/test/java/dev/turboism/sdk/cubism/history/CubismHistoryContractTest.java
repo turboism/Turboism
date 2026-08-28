@@ -79,18 +79,25 @@ class CubismHistoryContractTest {
     }
 
     @Test
-    void boundMoveFailsClosedWhenAProviderDoesNotImplementIt() {
+    void undoAndRedoBridgeBindingSnapshotsToLegacyThreeArgumentProviders() {
         final HistorySnapshot expected = new HistorySnapshot(
             HistorySnapshot.Availability.AVAILABLE,
-            1,
-            2,
-            0,
-            List.of(),
-            false,
-            false,
+            4,
+            7,
+            3,
+            List.of(
+                new HistoryEntry(0, "First", true),
+                new HistoryEntry(1, "Second", true),
+                new HistoryEntry(2, "Third", true),
+                new HistoryEntry(3, "Fourth", true),
+                new HistoryEntry(4, "Fifth", true)
+            ),
+            true,
+            true,
             "document",
             "manager"
         );
+        final ArrayList<String> moves = new ArrayList<>();
         final CubismHistory history = new CubismHistory() {
             @Override
             public HistorySnapshot snapshot() {
@@ -103,18 +110,20 @@ class CubismHistoryContractTest {
                 final long expectedRevision,
                 final int position
             ) {
-                throw new AssertionError("legacy move must not be used");
+                moves.add(expectedGeneration + ":" + expectedRevision + ":" + position);
+                return new HistoryMoveResult(
+                    HistoryMoveResult.Outcome.MOVED,
+                    expected,
+                    java.util.Optional.empty()
+                );
             }
         };
 
-        final HistoryMoveResult result = history.moveTo(expected, 0);
-
-        assertEquals(HistoryMoveResult.Outcome.REJECTED_STALE, result.outcome());
-        assertEquals(
-            "history.move.binding-unsupported",
-            result.diagnosticId().orElseThrow()
-        );
+        assertEquals(HistoryMoveResult.Outcome.MOVED, history.undo(2).outcome());
+        assertEquals(HistoryMoveResult.Outcome.MOVED, history.redo(4).outcome());
+        assertEquals(List.of("4:7:1", "4:7:5"), moves);
     }
+
 
     @Test
     void unavailableProviderFailsClosed() {
