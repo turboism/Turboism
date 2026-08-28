@@ -1573,7 +1573,7 @@ def main():
 
     # Shared-manifest + committed-descriptor regression oracle: the staged
     # payload must equal the allowlisted plugin modules (core excluded) and
-    # never carry one of the ten excluded public modules or their committed
+    # never carry one of the seven excluded public modules or their committed
     # ids; every included payload module's id/name is compared exactly to its
     # committed plugin.json descriptor (see assert_plugin_identity).
     manifest_modules = load_release_manifest(args.manifest)
