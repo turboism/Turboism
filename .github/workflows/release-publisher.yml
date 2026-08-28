@@ -405,10 +405,15 @@ jobs:
           set -euo pipefail
           CANDIDATE="$(find build/release-publisher/candidate -name candidate.json -type f -print -quit)"
           DIST="$(dirname "$(find build/release-publisher/candidate -name 'turboism-*-full.zip' -type f -print -quit)")"
+          WINDOWS_STAGE="$(dirname "$DIST")/staging"
           NOTES="$(find build/release-publisher/candidate -name release-notes.md -type f -print -quit)"
           VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["framework"]["version"])' "$CANDIDATE")"
           TAG="v$VERSION"
-          python3 scripts/release/verify-release.py --version "$VERSION" --dist "$DIST"
+          python3 scripts/release/verify-release.py \
+            --version "$VERSION" \
+            --dist "$DIST" \
+            --release-plugins packaging/release-plugins.txt \
+            --windows-stage "$WINDOWS_STAGE"
           python3 scripts/release/build-updates-manifests.py \
             --candidate "$CANDIDATE" \
             --source-run-id "${{ needs.preflight.outputs.run_id }}" \

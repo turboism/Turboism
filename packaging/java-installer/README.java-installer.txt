@@ -12,11 +12,16 @@ Run the installer with a Java 17+ runtime:
     java -jar TurboismInstaller-<version>.jar
 
 Full mode installs the agent, every first-party plugin, and the matching
-offline managed fx runtime. Thin mode installs the same plugins without native
-fx bytes; Turboism with fx can explicitly download and verify the exact reviewed
-platform runtime later. Both plugin modes let you deselect individual plugins.
-Lite mode installs only the agent and common files. The installer never
-overwrites an existing config.json blindly: it
+offline managed fx runtime on reviewed macOS/Linux OS and CPU pairs. It rejects
+Windows before changing config or payload files. Thin mode installs the same
+plugins without native fx bytes; on reviewed macOS/Linux pairs, Turboism with fx
+can explicitly download and verify the exact reviewed platform runtime later.
+On Windows, Thin installation and an explicit custom executable path are
+structurally accepted, but Turboism with fx cannot operate because the
+first-party MCP server fails closed until a native protected-DACL,
+reparse-safe bearer-publication service exists. Both plugin modes let you
+deselect individual plugins. Lite mode installs only the agent and common
+files. The installer never overwrites an existing config.json blindly: it
 preserves unrelated settings and only merges the plugin selection
 (disabledPlugins). Rerun the installer at any time to change the selected
 plugin set.

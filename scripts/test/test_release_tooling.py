@@ -109,6 +109,31 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("scripts/check_remote_hygiene.py --all", workflow)
         self.assertIn("turboism-release.py", workflow)
 
+    def test_all_release_verifier_calls_supply_roster_and_windows_stage(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
+        runbook = (ROOT / "RELEASING.md").read_text(encoding="utf-8")
+        candidate = (
+            ROOT / "scripts/release/turboism_release/candidate.py"
+        ).read_text(encoding="utf-8")
+        for text in (workflow, publisher, runbook):
+            self.assertIn("scripts/release/verify-release.py", text)
+            self.assertIn("--release-plugins", text)
+            self.assertIn("--windows-stage", text)
+        self.assertIn("packaging/release-plugins.txt", candidate)
+        self.assertIn('dist.resolve().parent / "staging"', candidate)
+        self.assertIn("build/windows-installer/staging", workflow)
+        self.assertIn('WINDOWS_STAGE="$(dirname "$DIST")/staging"', publisher)
+        self.assertIn("build/windows-installer/staging", runbook)
+
+    def test_candidate_artifact_includes_windows_stage(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        self.assertRegex(
+            workflow,
+            r"(?s)Upload verified candidate payload.*?build/windows-installer/dist"
+            r".*?build/windows-installer/staging",
+        )
+
     def test_product_candidate_is_tag_only_and_can_publish_plugins_too(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertNotIn("workflow_dispatch:", workflow)

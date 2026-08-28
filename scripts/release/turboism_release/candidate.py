@@ -34,10 +34,19 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def framework_artifacts(dist: Path, version: str) -> list[dict[str, Any]]:
+def framework_artifacts(
+    repo_root: Path,
+    dist: Path,
+    version: str,
+) -> list[dict[str, Any]]:
     verifier = _load_script("verify_release_candidate", Path(__file__).parents[1] / "verify-release.py")
     try:
-        verifier.verify(dist.resolve(), version)
+        verifier.verify(
+            dist.resolve(),
+            version,
+            (repo_root / "packaging/release-plugins.txt").resolve(),
+            (dist.resolve().parent / "staging").resolve(),
+        )
     except (OSError, ValueError, zipfile.BadZipFile, KeyError) as failure:
         raise ReleaseError(f"release payload verification failed: {failure}") from failure
     names = []
@@ -161,7 +170,7 @@ def build_candidate(
         "bundledPlugins": [],
     }
     if dist is not None:
-        framework["artifacts"] = framework_artifacts(dist.resolve(), version)
+        framework["artifacts"] = framework_artifacts(repo_root, dist.resolve(), version)
         framework["bundledPlugins"] = bundled_plugins(dist.resolve(), version)
     return {
         "format": "turboism.release-candidate",
