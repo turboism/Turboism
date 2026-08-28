@@ -182,7 +182,8 @@ tasks.register<Exec>("checkCodeQuality") {
  * Editor-model is the one capability family whose aliases are inline literals rather than
  * constants, so it has no Verified*HostOperations.methodAliasesUsed() for a test to compare
  * against. The repository test used a hand-maintained list instead, which drifted until it
- * matched neither the implementation nor the record. This derives both sides.
+ * matched neither the implementation nor the record. This derives production use and the older
+ * exact-use records, then admits only the fixed invoked subset of the broader 5.3.03 static record.
  */
 val checkEditorModelAliases by tasks.registering(Exec::class) {
     group = "verification"
@@ -190,13 +191,41 @@ val checkEditorModelAliases by tasks.registering(Exec::class) {
         "Rejects Editor-model selector aliases the implementation invokes without a reviewed " +
             "record, and holds the unused-alias count non-increasing."
     workingDir(rootDir)
-    inputs.files("scripts/test/check_editor_model_aliases.py")
+    inputs.files(
+        "scripts/test/check_editor_model_aliases.py",
+        "scripts/test/test_editor_model_aliases.py"
+    )
     inputs.files(
         fileTree("runtime/src/main/java/dev/turboism/adapter/cubism") { include("**/*.java") },
         "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
-        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json"
+        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
+        "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
     )
     commandLine("python3", "scripts/test/check_editor_model_aliases.py", rootDir.absolutePath)
+}
+
+val checkEditorModelAliasesSelfTest by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Runs fail-closed regression fixtures for Editor-model alias admission."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/test/check_editor_model_aliases.py",
+        "scripts/test/test_editor_model_aliases.py"
+    )
+    inputs.files(
+        "compatibility/cubism/verification/cubism-5.2.03-editor-model.json",
+        "compatibility/cubism/verification/cubism-5.3.02-editor-model.json",
+        "compatibility/cubism/verification/cubism-5.3.03-editor-model.json"
+    )
+    commandLine(
+        "python3", "-m", "unittest",
+        "scripts.test.test_editor_model_aliases",
+        "-v"
+    )
+}
+
+checkEditorModelAliases.configure {
+    dependsOn(checkEditorModelAliasesSelfTest)
 }
 
 val checkPackageLayout by tasks.registering(Exec::class) {
