@@ -52,10 +52,17 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 15 approved
+      `packaging/release-plugins.txt` exactly (the frozen 16 approved
       projects; runtime-owned core is never a payload plugin), and the seven
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
+  9.  Managed fx packaging fails closed: simulated unsupported Windows rejects
+      Full and Thin before payload mutation; the normal Lite matrix remains
+      platform-independent. A selected platform symlink rejects Full without
+      touching its target; a Full upgrade removes pre-existing non-current
+      Linux and macOS platform directories. Thin/Lite transitions over an
+      existing Full home fail closed before config or payload mutation until
+      the managed runtime is removed through a separate explicit action.
 
 Runnable on Linux/macOS/Windows with Java 17. stdlib-only.
 """
@@ -110,18 +117,24 @@ LOCALIZED_MODE = {
     "eng": {
         "full": ("Full installation (all plugins)",
                  "Installs the Turboism agent and every first-party plugin. You can deselect individual plugins on the next page."),
+        "thin": ("Thin installation (plugins, online fx repair)",
+                 "Installs every first-party plugin without native fx runtime bytes. Turboism with fx can explicitly install the exact reviewed platform runtime online later."),
         "lite": ("Lite installation (no plugins)",
                  "Installs only the Turboism agent and common files. No first-party plugin JAR is copied."),
     },
     "chn": {
         "full": ("完整安装（全部插件）",
                  "安装 Turboism 代理与全部第一方插件。可在下一页取消勾选个别插件。"),
+        "thin": ("轻量安装（含插件，fx 在线修复）",
+                 "安装全部第一方插件但不包含 fx 原生运行时字节；Turboism with fx 可在之后显式在线安装经过审查的精确平台运行时。"),
         "lite": ("精简安装（不含插件）",
                  "仅安装 Turboism 代理与公共文件，不复制任何第一方插件 JAR。"),
     },
     "jpn": {
         "full": ("フルインストール（全プラグイン）",
                  "Turboism エージェントと全ファーストパーティプラグインをインストールします。次のページで個別に選択を解除できます。"),
+        "thin": ("Thin インストール（プラグインあり、fx オンライン修復）",
+                 "全ファーストパーティプラグインをインストールしますが、fx ネイティブランタイムは含みません。Turboism with fx からレビュー済みの正確なプラットフォームランタイムを後で明示的にオンラインインストールできます。"),
         "lite": ("ライトインストール（プラグインなし）",
                  "Turboism エージェントと共通ファイルのみをインストールします。ファーストパーティプラグインの JAR はコピーされません。"),
     },
@@ -129,7 +142,7 @@ LOCALIZED_MODE = {
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact list plus the seven excluded public module names is the regression
+# This exact 16-project list plus the seven excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
@@ -148,6 +161,7 @@ MANIFEST_EXPECTED = [
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
+    ":plugins:turboism-with-fx",
     ":plugins:ui-theme",
 ]
 # The seven public-exclusion modules: absent from the manifest and therefore
@@ -177,6 +191,15 @@ RETIRED_PLUGIN_IDS = [
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
 ]
+
+FX_VERSION = "0.0.5"
+FX_SOURCE_COMMIT = "df7e6245e1992758d4060c97477ceafa27770551"
+FX_PLATFORM = {
+    "linux-x86_64": (11870712, "27a5e9474fd749d6ca2503ab93765176a93ffbd0f0e7173e8f2e3e4c6b51876f"),
+    "linux-aarch64": (10133856, "35e972dc8be31b736a0d7fd733157f9d77a6a46dee33e0172ee51cd27915577d"),
+    "macos-x86_64": (12307081, "3170e25c2238b73971d992936b482d058282cb19d7beb34098e808d71c244428"),
+    "macos-aarch64": (6431792, "caad628680cd2af24d79063f109965b71c24f69c7b06318b50178c76cc40d0c9"),
+}
 
 
 def fail(msg):
@@ -209,13 +232,13 @@ def clear_task_lock():
         pass
 
 
-def run_console(jar, answers, timeout=TIMEOUT):
+def run_console(jar, answers, timeout=TIMEOUT, java_flags=()):
     """Runs `java -jar <jar> -console` with piped answers.
 
     stdin is deliberately kept open: the console prompts read incrementally
     and an early EOF aborts the install. Returns (exit_code, output).
     """
-    cmd = java_cmd() + ["-jar", jar, "-console"]
+    cmd = java_cmd(java_flags) + ["-jar", jar, "-console"]
     proc = subprocess.Popen(
         cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT, text=True, encoding="utf-8", bufsize=1, env=PROC_ENV)
@@ -292,10 +315,58 @@ def load_plugin_inventory(payload):
     return plugins
 
 
+def load_properties(path):
+    values = {}
+    for line in open(path, encoding="utf-8"):
+        line = line.rstrip("\r\n")
+        if not line or line.startswith(("#", "!")):
+            continue
+        key, separator, value = line.partition("=")
+        check("managed fx manifest line has '='", bool(separator), line)
+        check("managed fx manifest has unique keys", key not in values, key)
+        values[key] = value
+    return values
+
+
+def assert_managed_fx_payload(payload):
+    root = os.path.join(payload, "runtimes", "fx", FX_VERSION)
+    check("staged managed fx root exists", os.path.isdir(root), root)
+    check("staged managed fx platforms are exact",
+          sorted(os.listdir(root)) == sorted(FX_PLATFORM),
+          "actual=%s" % sorted(os.listdir(root)))
+    for platform, (expected_size, expected_hash) in FX_PLATFORM.items():
+        directory = os.path.join(root, platform)
+        expected_files = {
+            "fx", "LICENSE", "THIRD_PARTY_NOTICES.md",
+            "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties",
+        }
+        check("managed fx %s file inventory" % platform,
+              set(os.listdir(directory)) == expected_files,
+              "actual=%s" % sorted(os.listdir(directory)))
+        executable = os.path.join(directory, "fx")
+        check("managed fx %s executable is regular" % platform,
+              os.path.isfile(executable) and not os.path.islink(executable), executable)
+        check("managed fx %s executable size" % platform,
+              os.path.getsize(executable) == expected_size,
+              str(os.path.getsize(executable)))
+        digest = hashlib.sha256(open(executable, "rb").read()).hexdigest()
+        check("managed fx %s executable hash" % platform,
+              digest == expected_hash, digest)
+        manifest = load_properties(os.path.join(directory, "manifest.properties"))
+        check("managed fx %s manifest version" % platform,
+              manifest.get("fxVersion") == FX_VERSION)
+        check("managed fx %s manifest source commit" % platform,
+              manifest.get("sourceCommit") == FX_SOURCE_COMMIT)
+        for notice in ("LICENSE", "THIRD_PARTY_NOTICES.md",
+                       "TURBOISM-DISTRIBUTION-NOTICE.txt"):
+            check("managed fx %s %s non-empty" % (platform, notice),
+                  os.path.getsize(os.path.join(directory, notice)) > 0)
+
+
 def load_release_manifest(path):
     """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
     fail-closed: blank/comment lines, malformed or non-plugin entries,
-    duplicates, unsorted order, or drift from the frozen 15-project allowlist
+    duplicates, unsorted order, or drift from the frozen 16-project allowlist
     are fatal. Returns the allowlisted plugin module names (manifest entries
     minus the runtime-owned core)."""
     check("release manifest exists", os.path.isfile(path), path)
@@ -310,7 +381,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 15-project allowlist",
+    check("release manifest matches the frozen 16-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
@@ -360,15 +431,19 @@ def load_plugin_metadata(manifest_path, modules):
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
                     install_graal=False):
     answers = [str(lang_index), "1", "1"]  # language, welcome, license
-    # console InstallationGroupPanel: asks per group (full first, then lite)
-    answers += ["n", "y"] if mode == "lite" else ["y"]
+    # IzPack sorts groups by id in console mode: full, lite, then thin.
+    if mode == "full":
+        answers += ["y"]
+    elif mode == "thin":
+        answers += ["n", "n", "y"]
+    else:
+        answers += ["n", "y"]
     answers += ["1"]  # group panel continue
-    # The optional managed-Graal pack is Windows-only. On Windows it is
-    # available in Full and Lite, is default-unselected, and precedes the
-    # Full-only plugin selection packs; other hosts do not render the pack.
+    # The optional managed-Graal pack is Windows-only. It is available in
+    # Full and Lite, default-unselected, and precedes plugin selection packs.
     if os.name == "nt":
         answers.append("y" if install_graal else "n")
-    if mode == "full":
+    if mode in ("full", "thin"):
         for p in payload_plugins:
             answers.append("n" if p["id"] in deselect else "y")
     answers += ["1"]  # packs panel continue
@@ -418,7 +493,7 @@ def assert_locale_probe(jar, payload_plugins, lang_index, iso3):
     check("locale %s built-in headline" % iso3,
           LOCALIZED_HEADLINE[iso3] in out,
           "output did not contain the localized wizard headline")
-    for mode in ("full", "lite"):
+    for mode in ("full", "thin", "lite"):
         name, description = LOCALIZED_MODE[iso3][mode]
         check("locale %s %s mode name" % (iso3, mode), name in out,
               "output did not contain the localized %s mode name" % mode)
@@ -439,6 +514,28 @@ def assert_default_install_does_not_download_graal(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
+def assert_thin_install(jar, payload_plugins):
+    base = tempfile.mkdtemp(prefix="turboism-thin ")
+    target = os.path.join(base, "home with spaces")
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers("thin", target, payload_plugins=payload_plugins))
+    platform = current_fx_platform()
+    if platform is None:
+        check("thin unsupported platform aborts before installation", rc != 0, "rc=%s" % rc)
+        check("thin unsupported platform leaves target unmodified", not os.path.lexists(target))
+        shutil.rmtree(base, ignore_errors=True)
+        return
+    check("thin install exit 0", rc == 0, "rc=%s" % rc)
+    installed = sorted(os.listdir(os.path.join(target, "plugins")))
+    expected_modules = sorted(p["module"] + ".jar" for p in payload_plugins)
+    check("thin installs every bundled plugin jar", installed == expected_modules, str(installed))
+    check("thin has no managed fx runtime",
+          not os.path.lexists(os.path.join(target, "runtimes", "fx")))
+    config = json.load(open(os.path.join(target, "config.json")))
+    check("thin defaults all plugins enabled", "disabledPlugins" not in config)
+    shutil.rmtree(base, ignore_errors=True)
+
+
 def assert_lite_install(jar, payload_plugins):
     base = tempfile.mkdtemp(prefix="turboism-lite ")
     target = os.path.join(base, "home with spaces")
@@ -446,6 +543,8 @@ def assert_lite_install(jar, payload_plugins):
     rc, out = run_console(jar, install_answers("lite", target))
     check("lite install exit 0", rc == 0, "rc=%s" % rc)
     check("lite no plugins dir", not os.path.isdir(os.path.join(target, "plugins")))
+    check("lite has no managed fx runtime",
+          not os.path.lexists(os.path.join(target, "runtimes", "fx")))
     check("lite common pack required line", "Turboism Core' required" in out)
     config = json.load(open(os.path.join(target, "config.json")))
     expected = sorted(p["id"] for p in payload_plugins)
@@ -466,10 +565,198 @@ def assert_lite_install(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_full_install(jar, payload_plugins):
+def assert_unsupported_windows_modes(jar, payload_plugins):
+    java_flags = ("-Dos.name=Windows 11", "-Dos.arch=amd64")
+    for mode in ("full", "thin"):
+        base = tempfile.mkdtemp(prefix="turboism-windows-%s " % mode)
+        target = os.path.join(base, "home")
+        clear_task_lock()
+        rc, out = run_console(
+            jar,
+            install_answers(mode, target, payload_plugins=payload_plugins),
+            java_flags=java_flags,
+        )
+        check("unsupported Windows %s rejects" % mode, rc != 0, "rc=%s" % rc)
+        check("unsupported Windows %s leaves config absent" % mode,
+              not os.path.lexists(os.path.join(target, "config.json")))
+        check("unsupported Windows %s leaves agent absent" % mode,
+              not os.path.lexists(os.path.join(target, "turboism-agent.jar")))
+        check("unsupported Windows %s leaves plugins absent" % mode,
+              not os.path.lexists(os.path.join(target, "plugins")))
+        check("unsupported Windows %s leaves fx absent" % mode,
+              not os.path.lexists(os.path.join(target, "runtimes", "fx")))
+        shutil.rmtree(base, ignore_errors=True)
+
+
+
+def assert_selected_fx_platform_symlink_rejected(jar, payload_plugins):
+    platform = current_fx_platform()
+    if platform is None:
+        print("  skip: selected managed fx platform symlink (unsupported host)")
+        return
+    base = tempfile.mkdtemp(prefix="turboism-fx-selected-link ")
+    target = os.path.join(base, "home")
+    outside = os.path.join(base, "outside")
+    selected = os.path.join(target, "runtimes", "fx", FX_VERSION, platform)
+    os.makedirs(os.path.dirname(selected))
+    os.makedirs(outside)
+    sentinel = os.path.join(outside, "sentinel")
+    sentinel_bytes = b"selected platform symlink target"
+    open(sentinel, "wb").write(sentinel_bytes)
+    try:
+        os.symlink(outside, selected)
+    except (OSError, NotImplementedError):
+        print("  skip: selected managed fx platform symlink unavailable")
+        shutil.rmtree(base, ignore_errors=True)
+        return
+    clear_task_lock()
+    rc, out = run_console(
+        jar,
+        install_answers("full", target, payload_plugins=payload_plugins),
+    )
+    check("selected managed fx platform symlink rejects Full", rc != 0, "rc=%s" % rc)
+    check("selected managed fx platform symlink diagnostic",
+          "managed fx runtime ancestor is a symlink" in out)
+    check("selected managed fx platform remains a symlink", os.path.islink(selected))
+    check("selected managed fx platform target remains intact",
+          open(sentinel, "rb").read() == sentinel_bytes)
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def current_fx_platform():
+    if sys.platform.startswith("linux"):
+        os_id = "linux"
+    elif sys.platform == "darwin":
+        os_id = "macos"
+    else:
+        return None
+    machine = __import__("platform").machine().lower()
+    if machine in ("amd64", "x86_64", "x64"):
+        architecture = "x86_64"
+    elif machine in ("aarch64", "arm64"):
+        architecture = "aarch64"
+    else:
+        return None
+    return os_id + "-" + architecture
+
+
+def snapshot_tree(root):
+    """Captures an ordinary install subtree without following symlinks."""
+    snapshot = {}
+    if not os.path.lexists(root):
+        return snapshot
+    for current, directories, files in os.walk(root, followlinks=False):
+        relative = os.path.relpath(current, root)
+        snapshot[(relative, "directory")] = os.lstat(current).st_mode
+        for name in sorted(directories + files):
+            path = os.path.join(current, name)
+            key = os.path.normpath(os.path.join(relative, name))
+            if os.path.islink(path):
+                snapshot[(key, "symlink")] = os.readlink(path)
+            elif os.path.isfile(path):
+                snapshot[(key, "file")] = (
+                    os.lstat(path).st_mode,
+                    hashlib.sha256(open(path, "rb").read()).hexdigest(),
+                )
+    return snapshot
+
+
+def assert_nonfull_transition_from_full_rejected(jar, payload_plugins, mode):
+    base = tempfile.mkdtemp(prefix="turboism-full-to-%s " % mode)
+    target = os.path.join(base, "home")
+    clear_task_lock()
+    rc, out = run_console(
+        jar,
+        install_answers("full", target, deselect=(), payload_plugins=payload_plugins),
+    )
+    check("%s transition setup Full exit 0" % mode, rc == 0, "rc=%s" % rc)
+    platform = current_fx_platform()
+    assert platform is not None
+    assert_installed_fx_runtime(target, platform)
+    config_path = os.path.join(target, "config.json")
+    config_before = open(config_path, "rb").read()
+    tree_before = snapshot_tree(target)
+
+    clear_task_lock()
+    rc, out = run_console(
+        jar,
+        install_answers(mode, target, payload_plugins=payload_plugins),
+    )
+    check("Full-to-%s transition rejects" % mode, rc != 0, "rc=%s" % rc)
+    check("Full-to-%s transition diagnostic" % mode,
+          "managed fx runtime to be removed explicitly" in out)
+    check("Full-to-%s preserves config bytes" % mode,
+          open(config_path, "rb").read() == config_before)
+    check("Full-to-%s preserves installed tree" % mode,
+          snapshot_tree(target) == tree_before)
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_nonfull_transitions_from_full_rejected(jar, payload_plugins):
+    for mode in ("thin", "lite"):
+        assert_nonfull_transition_from_full_rejected(jar, payload_plugins, mode)
+
+
+def assert_installed_fx_runtime(target, platform):
+    expected_size, expected_hash = FX_PLATFORM[platform]
+    directory = os.path.join(target, "runtimes", "fx", FX_VERSION, platform)
+    executable = os.path.join(directory, "fx")
+    check("full installs current managed fx runtime %s" % platform,
+          os.path.isfile(executable) and not os.path.islink(executable), executable)
+    check("installed managed fx executable size",
+          os.path.getsize(executable) == expected_size, str(os.path.getsize(executable)))
+    digest = hashlib.sha256(open(executable, "rb").read()).hexdigest()
+    check("installed managed fx executable hash", digest == expected_hash, digest)
+    check("installed managed fx executable is runnable", os.access(executable, os.X_OK))
+    for notice in ("LICENSE", "THIRD_PARTY_NOTICES.md",
+                   "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"):
+        check("installed managed fx notice %s" % notice,
+              os.path.isfile(os.path.join(directory, notice)))
+    other = sorted(set(FX_PLATFORM) - {platform})
+    check("full install excludes non-current managed fx platforms",
+          not any(os.path.lexists(os.path.join(target, "runtimes", "fx", FX_VERSION, value))
+                  for value in other), "other=%s" % other)
+
+
+def assert_required_plugin_dependency_selection(jar, payload_plugins):
+    by_module = {plugin["module"]: plugin for plugin in payload_plugins}
+    mcp_id = by_module["mcp"]["id"]
+    fx_id = by_module["turboism-with-fx"]["id"]
+    base = tempfile.mkdtemp(prefix="turboism-required-dependency ")
+    target = os.path.join(base, "home")
+    clear_task_lock()
+    rc, out = run_console(
+        jar,
+        install_answers(
+            "thin",
+            target,
+            deselect={mcp_id},
+            payload_plugins=payload_plugins,
+        ),
+    )
+    check("required MCP dependency selection install exit 0", rc == 0, "rc=%s" % rc)
+    disabled = json.load(open(os.path.join(target, "config.json"))).get(
+        "disabledPlugins", []
+    )
+    check("deselecting MCP also disables Turboism with fx",
+          mcp_id in disabled and fx_id in disabled, str(disabled))
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_full_install(jar, payload, payload_plugins):
     deselect = {payload_plugins[0]["id"], payload_plugins[-1]["id"]}
     base = tempfile.mkdtemp(prefix="turboism-full ")
     target = os.path.join(base, "full home")
+    platform = current_fx_platform()
+    if platform is not None:
+        fx_root = os.path.join(target, "runtimes", "fx", FX_VERSION)
+        payload_root = os.path.join(
+            os.path.abspath(payload), "runtimes", "fx", FX_VERSION,
+        )
+        payload_root = os.path.normpath(payload_root)
+        for platform_name in FX_PLATFORM:
+            directory = os.path.join(fx_root, platform_name)
+            shutil.copytree(os.path.join(payload_root, platform_name), directory)
     clear_task_lock()
     rc, out = run_console(jar, install_answers("full", target, deselect=deselect, payload_plugins=payload_plugins))
     check("full install exit 0", rc == 0, "rc=%s" % rc)
@@ -477,6 +764,8 @@ def assert_full_install(jar, payload_plugins):
     # r6: 载荷 pack 安装全部捆绑 JAR；勾选只控制 disabledPlugins
     expected_modules = sorted(p["module"] + ".jar" for p in payload_plugins)
     check("full installs every bundled jar (payload pack)", installed == expected_modules, str(installed))
+    if platform is not None:
+        assert_installed_fx_runtime(target, platform)
     config = json.load(open(os.path.join(target, "config.json")))
     check("full disabledPlugins == deselected", config.get("disabledPlugins") == sorted(deselect),
           str(config.get("disabledPlugins")))
@@ -492,6 +781,9 @@ def assert_full_defaults_all(jar, payload_plugins):
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
     check("full-all installs every plugin jar",
           installed == sorted(p["module"] + ".jar" for p in payload_plugins), str(installed))
+    platform = current_fx_platform()
+    if platform is not None:
+        assert_installed_fx_runtime(target, platform)
     config = json.load(open(os.path.join(target, "config.json")))
     check("full-all omits empty disabledPlugins", "disabledPlugins" not in config)
     shutil.rmtree(base, ignore_errors=True)
@@ -752,6 +1044,28 @@ def assert_fail_closed(jar, name, setup, expect_rc_nonzero=True):
     shutil.rmtree(base, ignore_errors=True)
 
 
+def assert_install_home_symlink_rejected(jar):
+    base = tempfile.mkdtemp(prefix="turboism-home-link ")
+    outside = os.path.join(base, "outside")
+    target = os.path.join(base, "home")
+    os.makedirs(outside)
+    sentinel = os.path.join(outside, "sentinel")
+    open(sentinel, "wb").write(b"preserve")
+    try:
+        os.symlink(outside, target)
+    except (OSError, NotImplementedError):
+        print("  skip: install-home symlink case (not supported on this host)")
+        shutil.rmtree(base, ignore_errors=True)
+        return
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers("lite", target))
+    check("install-home symlink aborts Lite", rc != 0, "rc=%s" % rc)
+    check("install-home symlink remains a link", os.path.islink(target))
+    check("install-home symlink target remains unchanged",
+          os.listdir(outside) == ["sentinel"] and open(sentinel, "rb").read() == b"preserve")
+    shutil.rmtree(base, ignore_errors=True)
+
+
 def assert_strict_numbers_fail_closed(jar):
     """RFC 8259 number lexing is strict: leading zeros, missing fraction or
     exponent digits and other malformed spellings fail closed."""
@@ -870,6 +1184,8 @@ def assert_uninstall(jar, payload_plugins, delete_config):
           not os.path.exists(os.path.join(home, "logs"))
           and not os.path.exists(os.path.join(home, "state"))
           and not os.path.exists(os.path.join(home, "cache")))
+    check("uninstall removes installer-owned managed fx runtime",
+          not os.path.exists(os.path.join(home, "runtimes", "fx", FX_VERSION)))
     if os.name == "nt":
         check("uninstall removes empty takeover backup directories",
               not os.path.exists(os.path.join(home, "installer", "shortcut-backups"))
@@ -1073,6 +1389,16 @@ def assert_jar_layout(jar, payload):
         with zipfile.ZipFile(agent_path) as agent:
             check("staged agent contains managed Graal CLI",
                   "dev/turboism/graal/ManagedGraalRuntimeCli.class" in agent.namelist())
+        fx_pack_name = "resources/packs/pack-Managed fx Runtime"
+        check("jar managed fx runtime pack", fx_pack_name in names)
+        fx_pack = z.read(fx_pack_name)
+        platform = current_fx_platform()
+        if platform is not None:
+            runtime_root = os.path.join(payload, "runtimes", "fx", FX_VERSION, platform)
+            for name in ("fx", "LICENSE", "THIRD_PARTY_NOTICES.md",
+                         "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"):
+                content = open(os.path.join(runtime_root, name), "rb").read()
+                check("jar managed fx %s embeds %s" % (platform, name), content in fx_pack)
         core_pack_name = "resources/packs/pack-Turboism Core"
         check("jar Windows core pack", core_pack_name in names)
         managed_pack_names = [name for name in names
@@ -1245,6 +1571,7 @@ def main():
     if not os.path.isfile(jar):
         fail("installer jar not found: %s" % jar)
     payload_plugins = load_plugin_inventory(args.payload)
+    assert_managed_fx_payload(args.payload)
     if len(payload_plugins) < 3:
         fail("payload plugin inventory too small: %d" % len(payload_plugins))
     global ALL_BUNDLED_IDS
@@ -1299,11 +1626,20 @@ def main():
 
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
-        assert_full_defaults_all(jar, payload_plugins)
-        assert_full_install(jar, payload_plugins)
-        assert_reselection(jar, payload_plugins)
+        assert_install_home_symlink_rejected(jar)
+        assert_unsupported_windows_modes(jar, payload_plugins)
+        assert_thin_install(jar, payload_plugins)
+        assert_required_plugin_dependency_selection(jar, payload_plugins)
+        supported_fx = current_fx_platform() is not None
+        if supported_fx:
+            assert_full_defaults_all(jar, payload_plugins)
+            assert_full_install(jar, args.payload, payload_plugins)
+            assert_nonfull_transitions_from_full_rejected(jar, payload_plugins)
+            assert_selected_fx_platform_symlink_rejected(jar, payload_plugins)
+            assert_reselection(jar, payload_plugins)
         assert_config_merge(jar)
-        assert_retired_upgrade(jar, payload_plugins)
+        if supported_fx:
+            assert_retired_upgrade(jar, payload_plugins)
         assert_number_preservation(jar)
         assert_size_boundary(jar)
 
@@ -1341,16 +1677,17 @@ def main():
         assert_fail_closed(jar, "non-regular-fifo", fifo_setup)
         assert_fail_closed(jar, "not-a-file",
                            lambda t: os.makedirs(os.path.join(t, "config.json")))
-        assert_uninstall(jar, payload_plugins, delete_config=True)
-        assert_uninstall(jar, payload_plugins, delete_config=False)
+        if supported_fx:
+            assert_uninstall(jar, payload_plugins, delete_config=True)
+            assert_uninstall(jar, payload_plugins, delete_config=False)
 
-        # the uninstaller phases must have run inside the task tmpdir
-        iz_logs = [f for f in os.listdir(TASK_TMP)
-                   if f.startswith("izpack") and f.endswith(".log")]
-        check("uninstaller phases confined to task tmpdir", len(iz_logs) >= 2,
-              "found=%s" % iz_logs[:5])
+            # the uninstaller phases must have run inside the task tmpdir
+            iz_logs = [f for f in os.listdir(TASK_TMP)
+                       if f.startswith("izpack") and f.endswith(".log")]
+            check("uninstaller phases confined to task tmpdir", len(iz_logs) >= 2,
+                  "found=%s" % iz_logs[:5])
 
-        assert_malformed_identity_safety(jar, payload_plugins)
+            assert_malformed_identity_safety(jar, payload_plugins)
 
         assert_global_lock_untouched(lock_state)
         print("checkJavaInstaller passed: all acceptance conditions verified on this host.")

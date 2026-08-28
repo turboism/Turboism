@@ -29,6 +29,7 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.storage.PluginStorage;
 import dev.turboism.sdk.script.ScriptService;
@@ -238,6 +239,18 @@ public interface PluginContext {
 
     default RuntimeSettingsService runtimeSettings() {
         throw new UnsupportedOperationException("runtime settings service is not available");
+    }
+
+    /**
+     * Returns the process-local authenticated MCP connection exchange.
+     *
+     * <p>The runtime permission-scopes publication and reads independently. Authorization material
+     * obtained through this service must not be logged or persisted by plugins.</p>
+     *
+     * @return the current plugin's MCP connection service
+     */
+    default McpConnectionService mcpConnections() {
+        return McpConnectionService.unavailable();
     }
 
     UiScheduler uiScheduler();

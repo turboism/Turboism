@@ -12,4 +12,5 @@
 :plugins:recent-preview
 :plugins:scene-palette-enhancer
 :plugins:texture-atlas-stats
+:plugins:turboism-with-fx
 :plugins:ui-theme

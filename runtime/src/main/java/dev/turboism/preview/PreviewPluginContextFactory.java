@@ -148,6 +148,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 graalHost,
                 diagnostic -> log.warn(requestedDescriptor.id(), diagnostic)
             ));
+            context.installMcpConnectionService(services.mcpConnections());
             return new PluginContextBundle(
                 context, services.localization(), services.cleanupEvidence(), eventOwner
             );

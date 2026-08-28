@@ -6,6 +6,7 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
+import javax.swing.JSeparator;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
 import java.net.URL;
@@ -17,6 +18,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Exact Cubism 5.3.02 main-toolbar operations restricted to verified aliases. */
 public final class VerifiedMainToolbarHostOperations implements MainToolbarHostOperations {
 
+    /**
+     * Cubism's main-toolbar icons are 32×32 and the owning CHBox supplies its native three-pixel
+     * inter-child spacing. Keeping contributions at the same footprint avoids the visibly narrower
+     * gap caused by shrinking only plugin buttons to 28×28.
+     */
+    private static final int NATIVE_BUTTON_SIZE = 32;
+
     private static final String APP_INSTANCE =
         "cubism.ui-main-toolbar.app-controller.instance";
     private static final String APP_MAIN_FRAME =
@@ -27,6 +35,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         "cubism.ui-main-toolbar.main-frame-view.home-button";
     private static final String WIDGET_PARENT = "cubism.ui-main-toolbar.widget.parent";
     private static final String WIDGET_NAME = "cubism.ui-main-toolbar.widget.name";
+    private static final String WIDGET_JCOMPONENT = "cubism.ui-main-toolbar.widget.jcomponent";
     private static final String WIDGET_SET_NAME = "cubism.ui-main-toolbar.widget.set-name";
     private static final String WIDGET_SET_TOOLTIP = "cubism.ui-main-toolbar.widget.set-tooltip";
     private static final String WIDGET_SET_PREF_WIDTH =
@@ -108,15 +117,20 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         final Object button = resolver.construct(ICON_BUTTON_CREATE, normal, callback);
         resolver.invoke(WIDGET_SET_NAME, button, nativeId);
         resolver.invoke(WIDGET_SET_TOOLTIP, button, contribution.tooltip());
-        resolver.invoke(WIDGET_SET_PREF_WIDTH, button, 28);
-        resolver.invoke(WIDGET_SET_PREF_HEIGHT, button, 28);
+        resolver.invoke(WIDGET_SET_PREF_WIDTH, button, NATIVE_BUTTON_SIZE);
+        resolver.invoke(WIDGET_SET_PREF_HEIGHT, button, NATIVE_BUTTON_SIZE);
         contribution.icons().hover().ifPresent(path -> resolver.invoke(
             ICON_BUTTON_SET_ROLLOVER,
             button,
             resolver.construct(ICON_CREATE, icon(contribution.pluginId(), path))
         ));
 
-        final int index = insertionIndex(children, contribution.placement(), homeButton);
+        final int index = insertionIndex(
+            children,
+            contribution.placement(),
+            homeButton,
+            widget -> resolver.invoke(WIDGET_JCOMPONENT, widget) instanceof JSeparator
+        );
         resolver.invoke(CONTAINER_ADD, container, button, index);
         refresh(container);
         final AtomicBoolean closed = new AtomicBoolean();
@@ -157,17 +171,42 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
         return List.copyOf(list);
     }
 
-    private static int insertionIndex(
+    /**
+     * Resolves a semantic placement without splitting Cubism's native Home group divider.
+     *
+     * <p>The exact 5.2.03 and 5.3.02 {@code CEMainFrame.cx} resources place a vertical
+     * {@code CSeparator} immediately after the native Home button. AFTER contributions belong on
+     * the far side of that host-owned boundary. Later contributions still insert at that same group
+     * start, so the authority's ascending order yields the requested right-to-left visual order.</p>
+     */
+    static int nativeButtonSize() {
+        return NATIVE_BUTTON_SIZE;
+    }
+
+    static int insertionIndex(
         final List<?> children,
         final MainToolbarRegistry.Placement placement,
-        final Object homeButton
+        final Object homeButton,
+        final java.util.function.Predicate<Object> separator
     ) {
+        Objects.requireNonNull(children, "children");
+        Objects.requireNonNull(placement, "placement");
+        Objects.requireNonNull(separator, "separator");
         return switch (placement.position()) {
             case FIRST -> 0;
             case LAST -> -1;
             case BEFORE -> requiredAnchorIndex(children, homeButton);
-            case AFTER -> requiredAnchorIndex(children, homeButton) + 1;
+            case AFTER -> afterHomeBoundary(children, homeButton, separator);
         };
+    }
+
+    private static int afterHomeBoundary(
+        final List<?> children,
+        final Object homeButton,
+        final java.util.function.Predicate<Object> separator
+    ) {
+        final int next = requiredAnchorIndex(children, homeButton) + 1;
+        return next < children.size() && separator.test(children.get(next)) ? next + 1 : next;
     }
 
     private static int requiredAnchorIndex(final List<?> children, final Object anchor) {

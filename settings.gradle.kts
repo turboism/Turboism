@@ -13,6 +13,7 @@ include(
     "plugins:parameter",
     "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:mcp",
+    "plugins:turboism-with-fx",
     "plugins:project-inspector",
     "plugins:clipmask-viewer",
     "plugins:bounding-box",

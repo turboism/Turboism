@@ -100,7 +100,7 @@ class RuntimeSchedulerTest {
         final RecordingSidecarDispatcher sidecar = new RecordingSidecarDispatcher();
         final RuntimeScheduler scheduler = scheduler(events, sidecar);
         final AtomicInteger executions = new AtomicInteger();
-        final PluginTask heavy = task("config.write", "none");
+        final PluginTask heavy = task("transaction.commit", "none");
 
         scheduler.dispatch(heavy, executions::incrementAndGet);
 
@@ -116,7 +116,7 @@ class RuntimeSchedulerTest {
         final RuntimeScheduler scheduler = scheduler(events, SidecarDispatcher.noop());
         final AtomicInteger executions = new AtomicInteger();
 
-        scheduler.dispatch(task("config.write", "none"), executions::incrementAndGet);
+        scheduler.dispatch(task("transaction.commit", "none"), executions::incrementAndGet);
 
         assertEquals(0, executions.get());
         assertEquals(PluginWorkBudgetEvent.Phase.REJECTED, events.get(0).phase());
