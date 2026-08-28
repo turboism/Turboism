@@ -215,6 +215,41 @@ class EditorBackedCubismModelAccessTest {
     }
 
     @Test
+    void findTraversesEachParameterGroupOnlyOnceWhileValidatingTheEntireHierarchy() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final ParameterGroup jaw = new ParameterGroup("GroupJaw", "Jaw", host.source.rootGroup);
+        final ParameterGroup brow = new ParameterGroup("GroupBrow", "Brow", host.source.rootGroup);
+        final ParameterGroup eye = new ParameterGroup("GroupEye", "Eye", host.source.rootGroup);
+        host.source.rootGroup.children.addAll(List.of(jaw, brow, eye));
+        Host.install(host);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+        final var groups = access.active().parameterGroups();
+        ParameterGroup.resetIdReads();
+
+        final var found = groups.find(new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupEye"));
+
+        assertEquals(5, ParameterGroup.idReads());
+        assertEquals(new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupEye"), found.id());
+    }
+
+    @Test
+    void findContinuesValidationAfterItFindsTheRequestedParameterGroup() {
+        final Fixture host = new Fixture("model-a", 12.0F);
+        final ParameterGroup face = (ParameterGroup) host.source.rootGroup.children.get(0);
+        face.children.add(host.source.rootGroup);
+        Host.install(host);
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(), "session-a"
+        );
+
+        assertThrows(IllegalStateException.class, () -> access.active().parameterGroups().find(
+            new dev.turboism.sdk.cubism.id.ParameterGroupId("GroupFace")
+        ));
+    }
+
+    @Test
     void detachedParameterGroupReferencesFailClosedWithinTheSameModelGeneration() {
         Fixture host = new Fixture("model-a", 12.0F);
         Host.install(host);
@@ -539,6 +574,7 @@ class EditorBackedCubismModelAccessTest {
         public boolean combined() { return true; }
     }
     public static final class ParameterGroup {
+        private static int idReads;
         final Id id;
         final String name;
         final ParameterGroup parent;
@@ -549,7 +585,9 @@ class EditorBackedCubismModelAccessTest {
             this.name = name;
             this.parent = parent;
         }
-        public Id id() { return id; }
+        static void resetIdReads() { idReads = 0; }
+        static int idReads() { return idReads; }
+        public Id id() { idReads++; return id; }
         public String name() { return name; }
         public ParameterGroup parent() { return parent; }
         public LabelColor labelColor() { return labelColor; }
