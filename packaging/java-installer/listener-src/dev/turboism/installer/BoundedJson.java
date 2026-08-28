@@ -178,12 +178,15 @@ final class BoundedJson {
                         if (pos + 4 >= text.length()) {
                             throw new JsonException("truncated \\u escape at offset " + pos);
                         }
-                        try {
-                            sb.append((char) Integer.parseInt(text.substring(pos + 1, pos + 5), 16));
-                        } catch (NumberFormatException nfe) {
-                            // malformed hex digits: typed bounded-parser failure
-                            throw new JsonException("invalid \\u escape at offset " + pos);
+                        int unit = 0;
+                        for (int index = 1; index <= 4; index++) {
+                            int digit = asciiHex(text.charAt(pos + index));
+                            if (digit < 0) {
+                                throw new JsonException("invalid \\u escape at offset " + pos);
+                            }
+                            unit = (unit << 4) | digit;
                         }
+                        sb.append((char) unit);
                         pos += 4;
                         break;
                     default:
@@ -268,6 +271,13 @@ final class BoundedJson {
 
     private static boolean isDigit(char c) {
         return c >= '0' && c <= '9';
+    }
+
+    private static int asciiHex(char c) {
+        if (c >= '0' && c <= '9') return c - '0';
+        if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+        if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+        return -1;
     }
 
     private void expectLiteral(String literal) {
