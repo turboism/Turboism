@@ -168,12 +168,34 @@ final class EditorParameterGroupsAccess {
         @Override
         public ParameterGroup find(final ParameterGroupId id) {
             Objects.requireNonNull(id, "id");
-            return all().stream()
-                .filter(group -> group.id().equals(id))
-                .findFirst()
-                .orElseThrow(() -> new NoSuchElementException(
-                    "Cubism parameter group is absent: " + id.value()
-                ));
+            current();
+            final Set<Object> identities = Collections.newSetFromMap(new IdentityHashMap<>());
+            final Set<ParameterGroupId> ids = new HashSet<>();
+            final ArrayDeque<Object> pending = new ArrayDeque<>();
+            Object match = null;
+            pending.add(rootGroup(source));
+            while (!pending.isEmpty()) {
+                final Object candidate = pending.removeFirst();
+                if (!identities.add(candidate)) {
+                    throw unavailable("Editor parameter group hierarchy contains a cycle.");
+                }
+                final ParameterGroupId candidateId = groupId(candidate);
+                if (!ids.add(candidateId)) {
+                    throw unavailable("Editor parameter group identifiers are not unique.");
+                }
+                if (candidateId.equals(id)) {
+                    match = candidate;
+                }
+                for (Object child : children(candidate)) {
+                    if (resolver.isInstance("cubism.editor-model.parameter-group.class", child)) {
+                        pending.addLast(child);
+                    }
+                }
+            }
+            if (match == null) {
+                throw new NoSuchElementException("Cubism parameter group is absent: " + id.value());
+            }
+            return new EditorParameterGroup(identity, source, model, match);
         }
         /**
          * Creates a new parameter folder as the last child of the root group, through the host's own
