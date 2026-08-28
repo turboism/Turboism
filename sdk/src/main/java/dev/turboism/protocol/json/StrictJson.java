@@ -298,11 +298,18 @@ public final class StrictJson {
             if (offset + 4 > input.length()) throw error("incomplete unicode escape");
             int value = 0;
             for (int index = 0; index < 4; index++) {
-                final int digit = Character.digit(input.charAt(offset++), 16);
+                final int digit = asciiHex(input.charAt(offset++));
                 if (digit < 0) throw error("invalid unicode escape");
                 value = value * 16 + digit;
             }
             return (char) value;
+        }
+
+        private static int asciiHex(final char value) {
+            if (value >= '0' && value <= '9') return value - '0';
+            if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+            if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+            return -1;
         }
 
         private Object number() {

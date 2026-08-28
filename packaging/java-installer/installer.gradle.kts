@@ -17,13 +17,15 @@ import java.util.zip.ZipFile
  * Turboism cross-platform Java installer (Lane C packaging).
  *
  * Wiring:
- *   stageInstallerPayload  one Gradle-owned staged payload shared by the
- *                          NSIS installer, the Lite/Full ZIPs and the Java
- *                          installer (spec: "One Gradle-owned staged payload").
- *                          Every source/template file, the bootstrap JAR and
- *                          each plugin JAR are declared as Gradle inputs so an
+ *   stageInstallerPayload  one Gradle-owned runtime-free Windows stage shared
+ *                          by the NSIS installer and Lite/Full ZIPs. Every
+ *                          source/template file, the bootstrap JAR and each
+ *                          plugin JAR are declared as Gradle inputs so an
  *                          up-to-date decision can never retain stale payload
  *                          bytes after an input changes.
+ *   stageJavaInstallerPayload copies the Windows-safe stage into a Java-only
+ *                          stage and adds reviewed Linux/macOS managed fx
+ *                          payloads; Windows artifacts never consume it.
  *   izPackCreateInstaller  builds build/windows-installer/dist/
  *                          TurboismInstaller-<version>.jar (+ .sha256) with
  *                          the pinned IzPack toolchain. Both the JAR and its
@@ -407,7 +409,7 @@ val stageFxRuntimePayload by tasks.registering {
 }
 
 // ---------------------------------------------------------------------------
-// Shared payload staging (also consumed by packaging/windows-installer/)
+// Plugin metadata parser contract and shared Windows payload staging
 // ---------------------------------------------------------------------------
 
 val checkInstallerPluginJsonUnicodeEscapes by tasks.registering {
