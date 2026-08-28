@@ -142,6 +142,6 @@ class CoreWindowsTest {
     void frameworkVersion_readsPackagedResource() {
         final String version = CoreWindows.frameworkVersion();
         assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), "framework version: " + version);
-        assertEquals("0.42.0", version);
+        assertEquals("0.43.0", version);
     }
 }
