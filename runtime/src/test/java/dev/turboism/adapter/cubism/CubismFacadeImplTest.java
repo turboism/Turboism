@@ -406,8 +406,7 @@ class CubismFacadeImplTest {
             () -> {
                 calls[2]++;
                 return null;
-            },
-            () -> null
+            }
         );
         final var ui = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
         final var algorithms = new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();

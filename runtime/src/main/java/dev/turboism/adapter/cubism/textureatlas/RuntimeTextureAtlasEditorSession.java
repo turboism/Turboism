@@ -15,31 +15,19 @@ import java.util.function.Supplier;
 
 /**
  * Read-only framework capability over the active native texture-atlas editor view.
- * The view reference is supplied by {@link RuntimeTextureAtlasEditorUi} (updated by
- * the exact-host ingress); all reads go through the verified resolver.
+ * Every read uses one generation-bound resolver/view snapshot supplied by
+ * {@link RuntimeTextureAtlasEditorUi}; it never combines independently-read host state.
  */
 public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEditorSession {
 
-    private final Supplier<VerifiedMemberResolver> resolver;
-    private final Supplier<Object> view;
-
-    public RuntimeTextureAtlasEditorSession(
-        final VerifiedMemberResolver resolver,
-        final Supplier<Object> view
-    ) {
-        this(() -> resolver, view);
-    }
+    private final Supplier<GenerationBinding> binding;
 
     /**
-     * Creates a stable session view whose verified resolver may change with the host connection.
-     * Each read snapshots the current resolver once, so one projection cannot span generations.
+     * Creates a session over an atomically captured host generation. The supplier must return
+     * {@code null} while no matching resolver and editor view are live.
      */
-    public RuntimeTextureAtlasEditorSession(
-        final Supplier<VerifiedMemberResolver> resolver,
-        final Supplier<Object> view
-    ) {
-        this.resolver = Objects.requireNonNull(resolver, "resolver");
-        this.view = Objects.requireNonNull(view, "view");
+    public RuntimeTextureAtlasEditorSession(final Supplier<GenerationBinding> binding) {
+        this.binding = Objects.requireNonNull(binding, "binding");
     }
 
     /**
@@ -50,23 +38,21 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
      * @return an unattached session whose reads always yield {@link java.util.Optional#empty()}
      */
     public static RuntimeTextureAtlasEditorSession unavailable() {
-        return new RuntimeTextureAtlasEditorSession(() -> null, () -> null);
+        return new RuntimeTextureAtlasEditorSession(() -> null);
     }
 
     @Override
     public Optional<TextureAtlasSummary> summary() {
-        final VerifiedMemberResolver selected = resolver.get();
-        final Object viewValue = view.get();
-        if (selected == null || viewValue == null) return Optional.empty();
-        return wholeAtlasSummary(selected, viewValue);
+        final GenerationBinding current = binding.get();
+        if (current == null) return Optional.empty();
+        return wholeAtlasSummary(current.resolver(), current.view());
     }
 
     @Override
     public Optional<TextureAtlasSummary> selectedTexture() {
-        final VerifiedMemberResolver selected = resolver.get();
-        final Object viewValue = view.get();
-        if (selected == null || viewValue == null) return Optional.empty();
-        return selectedTextureSummary(selected, viewValue);
+        final GenerationBinding current = binding.get();
+        if (current == null) return Optional.empty();
+        return selectedTextureSummary(current.resolver(), current.view());
     }
 
     private Optional<Object> textureManager(
@@ -173,5 +159,14 @@ public final class RuntimeTextureAtlasEditorSession implements TextureAtlasEdito
 
     private static int intValue(final Object value) {
         return value instanceof Number number ? number.intValue() : 0;
+    }
+
+    /** Immutable resolver/view pair for one verified host generation. */
+    public record GenerationBinding(long generation, VerifiedMemberResolver resolver, Object view) {
+        public GenerationBinding {
+            if (generation < 0) throw new IllegalArgumentException("generation must not be negative");
+            resolver = Objects.requireNonNull(resolver, "resolver");
+            view = Objects.requireNonNull(view, "view");
+        }
     }
 }

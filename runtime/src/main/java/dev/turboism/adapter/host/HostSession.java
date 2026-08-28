@@ -58,8 +58,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi();
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession textureAtlasEditorSession =
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorSession(
-            () -> optionalEditorModelResolver().orElse(null),
-            textureAtlasEditorUi::view
+            textureAtlasEditorUi::binding
         );
     private final dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms =
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
@@ -293,6 +292,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
             dynamicAppearance.connect(candidate.appearanceProvider());
             paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
+            bindTextureAtlasEditorSession(editorUiGeneration, candidate);
             candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
@@ -578,6 +578,17 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             } catch (IllegalStateException unavailable) {
                 return java.util.Optional.empty();
             }
+        }
+    }
+
+    private void bindTextureAtlasEditorSession(
+        final long generation,
+        final HostAdapterConnection connection
+    ) {
+        try {
+            textureAtlasEditorUi.bind(generation, connection.editorModelResolver());
+        } catch (IllegalStateException unavailable) {
+            textureAtlasEditorUi.deactivate();
         }
     }
 

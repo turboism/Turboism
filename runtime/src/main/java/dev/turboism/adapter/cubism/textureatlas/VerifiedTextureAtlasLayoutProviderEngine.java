@@ -276,27 +276,20 @@ final class VerifiedTextureAtlasLayoutProviderEngine {
             : plan.pageNames().get(index);
     }
 
+    /**
+     * Returns every native texture image. A layout apply replaces the native atlas collection, so
+     * omitting an image from the public state would otherwise delete a still-atlased image merely
+     * because its drawable-use index is temporarily empty.
+     */
     private Map<String, Object> imagesById(final Object textureManager) {
-        final Object handler = resolver.invoke(
-            "cubism.editor-model.texture-manager.handler", textureManager
-        );
-        final Map<?, ?> drawableUses = map(resolver.invoke(
-            "cubism.texture-atlas.texture-manager-handler.drawable-uses", handler
-        ));
         final Map<String, Object> result = new HashMap<>();
         for (Object image : list(resolver.invoke(
             "cubism.texture-atlas.texture-manager.images", textureManager
         ))) {
-            final Object guid = resolver.invoke("cubism.texture-atlas.image.guid", image);
-            if (!hasDrawableUse(drawableUses.get(guid))) continue;
             final String id = imageId(image);
             if (id != null) result.put(id, image);
         }
         return result;
-    }
-
-    private static boolean hasDrawableUse(final Object value) {
-        return value instanceof Set<?> uses && !uses.isEmpty();
     }
 
     private List<?> atlases(final Object textureManager) {

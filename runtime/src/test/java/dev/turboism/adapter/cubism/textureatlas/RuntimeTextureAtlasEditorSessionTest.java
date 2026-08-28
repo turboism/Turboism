@@ -19,7 +19,7 @@ class RuntimeTextureAtlasEditorSessionTest {
     @Test
     void absentViewReturnsEmptyForBothProjections() {
         final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(
-            resolver(), () -> null
+            () -> null
         );
 
         assertTrue(session.summary().isEmpty());
@@ -27,23 +27,36 @@ class RuntimeTextureAtlasEditorSessionTest {
     }
 
     @Test
-    void stableSessionTracksResolverAndViewAvailability() {
+    void stableSessionRequiresOneGenerationBoundResolverAndView() {
         final Fixture fixture = new Fixture();
-        final AtomicReference<VerifiedMemberResolver> resolver = new AtomicReference<>();
-        final AtomicReference<Object> view = new AtomicReference<>();
+        final AtomicReference<RuntimeTextureAtlasEditorSession.GenerationBinding> binding =
+            new AtomicReference<>();
         final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(
-            resolver::get, view::get
+            binding::get
         );
 
         assertTrue(session.summary().isEmpty());
         assertTrue(session.selectedTexture().isEmpty());
 
-        resolver.set(resolver());
-        view.set(fixture.view);
+        binding.set(new RuntimeTextureAtlasEditorSession.GenerationBinding(1, resolver(), fixture.view));
         assertTrue(session.selectedTexture().isPresent());
 
-        view.set(null);
+        binding.set(null);
         assertTrue(session.summary().isEmpty());
+        assertTrue(session.selectedTexture().isEmpty());
+    }
+
+    @Test
+    void failsClosedWhenNoSameGenerationPairIsAvailable() {
+        final Fixture fixture = new Fixture();
+        final AtomicReference<RuntimeTextureAtlasEditorSession.GenerationBinding> binding =
+            new AtomicReference<>(new RuntimeTextureAtlasEditorSession.GenerationBinding(
+                1, resolver(), fixture.view
+            ));
+        final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(binding::get);
+
+        binding.set(null);
+
         assertTrue(session.selectedTexture().isEmpty());
     }
 
@@ -51,7 +64,7 @@ class RuntimeTextureAtlasEditorSessionTest {
     void readsCurrentPageWithoutRequiringModelImageSelection() {
         final Fixture fixture = new Fixture();
         final RuntimeTextureAtlasEditorSession session = new RuntimeTextureAtlasEditorSession(
-            resolver(), () -> fixture.view
+            () -> new RuntimeTextureAtlasEditorSession.GenerationBinding(1, resolver(), fixture.view)
         );
 
         assertEquals(
