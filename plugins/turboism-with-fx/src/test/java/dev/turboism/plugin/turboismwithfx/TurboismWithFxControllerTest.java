@@ -334,6 +334,24 @@ final class TurboismWithFxControllerTest {
     }
 
     @Test
+    void closeReturnsPromptlyOnTheSwingEventThread() throws Exception {
+        final Fixture fixture = new Fixture();
+        final TurboismWithFxController controller = fixture.controller();
+        final java.util.concurrent.atomic.AtomicLong elapsed =
+            new java.util.concurrent.atomic.AtomicLong(Long.MAX_VALUE);
+
+        javax.swing.SwingUtilities.invokeAndWait(() -> {
+            final long started = System.nanoTime();
+            controller.close();
+            elapsed.set(java.util.concurrent.TimeUnit.NANOSECONDS.toMillis(
+                System.nanoTime() - started
+            ));
+        });
+
+        assertTrue(elapsed.get() < 1_000L, "controller close blocked the Swing EDT");
+    }
+
+    @Test
     void submissionsAfterCloseAreIgnoredWithoutExecutorRejection() {
         final Fixture fixture = new Fixture();
         final TurboismWithFxController controller = fixture.controller();

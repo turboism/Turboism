@@ -586,7 +586,7 @@ final class FxAcpClient implements AutoCloseable {
         final Object result,
         final FxAcpCapabilities sessionCapabilities
     ) {
-        final Map<String, Object> response = object(result);
+        final Map<String, Object> response = objectOrEmpty(result);
         return new FxAcpSession(
             sessionId,
             configOptions(response.get("configOptions")),
