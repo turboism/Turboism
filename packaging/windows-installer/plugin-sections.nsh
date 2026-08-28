@@ -18,6 +18,7 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
     File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
     File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    File "/oname=turboism-with-fx.jar" "${STAGING_DIR}/plugins/turboism-with-fx.jar"
     File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
   ${EndIf}
 SectionEnd
@@ -61,6 +62,9 @@ SectionEnd
 Section "Texture Atlas Statistics 0.1.0" SEC_dev_turboism_plugin_texture_atlas_stats
 SectionEnd
 
+Section "Turboism with fx 0.1.0" SEC_dev_turboism_plugin_turboism_with_fx
+SectionEnd
+
 Section "UI Theme Plugin 0.1.0" SEC_dev_turboism_plugin_uitheme
 SectionEnd
 
@@ -79,6 +83,7 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "Sorts and manually reorders items in the Cubism Scene palette."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "Shows the total and current-texture model-image counts in the native texture-atlas editor window."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_turboism_with_fx} "ACP v1 Agent and Settings windows that connect Turboism's verified managed fx runtime to the authenticated MCP server."
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -162,6 +167,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_texture_atlas_stats} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -289,6 +300,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-stats"
     ${EndIf}
   ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.turboism-with-fx"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.turboism-with-fx"
+    ${EndIf}
+  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -353,6 +373,10 @@ Function RemoveBundledFromExistingDisabled
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.texture-atlas-stats"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.turboism-with-fx"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
