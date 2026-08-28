@@ -11,10 +11,13 @@
 
     <str id="InstallationGroupPanel.group.full" txt="完整安装（全部插件）"/>
     <str id="InstallationGroupPanel.description.full" txt="安装 Turboism 代理与全部第一方插件。可在下一页取消勾选个别插件。"/>
+    <str id="InstallationGroupPanel.group.thin" txt="轻量安装（含插件，fx 在线修复）"/>
+    <str id="InstallationGroupPanel.description.thin" txt="安装全部第一方插件但不包含 fx 原生运行时字节；Turboism with fx 可在之后显式在线安装经过审查的精确平台运行时。"/>
     <str id="InstallationGroupPanel.group.lite" txt="精简安装（不含插件）"/>
     <str id="InstallationGroupPanel.description.lite" txt="仅安装 Turboism 代理与公共文件，不复制任何第一方插件 JAR。"/>
     <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
-    <str id="InstallationGroupPanel.sortKey.lite" txt="2"/>
+    <str id="InstallationGroupPanel.sortKey.thin" txt="2"/>
+    <str id="InstallationGroupPanel.sortKey.lite" txt="3"/>
 
     <!-- Required common pack display name (console- and GUI-visible). -->
     <str id="turboism-common" txt="Turboism 核心"/>

@@ -43,6 +43,7 @@ import dev.turboism.sdk.event.EventBus;
 import dev.turboism.sdk.hostread.AsyncHostReadService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.permission.PluginPermission;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
@@ -98,6 +99,7 @@ public final class CorePluginContext implements PluginContext {
     private final PluginTaskScheduler taskScheduler;
     private final PluginStorage pluginStorage;
     private volatile ScriptService scriptService = ScriptService.unavailable();
+    private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
@@ -828,6 +830,16 @@ public final class CorePluginContext implements PluginContext {
         this.scriptService = Objects.requireNonNull(service, "service");
     }
 
+    /** Runtime composition seam; plugins cannot replace their permission-scoped MCP view. */
+    public void installMcpConnectionService(final McpConnectionService service) {
+        this.mcpConnectionService = Objects.requireNonNull(service, "service");
+    }
+
+    @Override
+    public McpConnectionService mcpConnections() {
+        return mcpConnectionService;
+    }
+
     @Override
     public UserFileAccessService userFiles() {
         return userFileAccessService == null
@@ -1353,6 +1365,7 @@ public final class CorePluginContext implements PluginContext {
                     permissionsFromDescriptor(descriptor),
                     paths,
                     runtimeScheduler,
+                    disposableScope,
                     cubismAuditSink,
                     clock,
                     logger,
@@ -1421,6 +1434,7 @@ public final class CorePluginContext implements PluginContext {
             List<PluginPermission> permissions,
             PluginPaths paths,
             RuntimeScheduler runtimeScheduler,
+            DisposableScope disposableScope,
             Consumer<CubismFacadeAuditEvent> cubismAuditSink,
             Clock clock,
             PluginLogger logger,
@@ -1453,15 +1467,42 @@ public final class CorePluginContext implements PluginContext {
                 new RuntimePaletteToolbarRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimePaletteFilterRegistry(checker, runtimeScheduler, descriptor.id()),
                 new RuntimeContextMenuRegistry(checker, descriptor.id()),
-                new RuntimePluginConfigRegistry(
+                legacyConfig(
                     checker,
                     runtimeScheduler,
                     paths.configDir(),
                     descriptor.id(),
                     diagnosticSink,
-                    failureSink
+                    failureSink,
+                    disposableScope
                 )
             );
+        }
+
+        private static RuntimePluginConfigRegistry legacyConfig(
+            final PermissionChecker checker,
+            final RuntimeScheduler runtimeScheduler,
+            final java.nio.file.Path configDir,
+            final String pluginId,
+            final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+            final RuntimeFailureSink failureSink,
+            final DisposableScope disposableScope
+        ) {
+            final RuntimePluginConfigRegistry config = new RuntimePluginConfigRegistry(
+                checker,
+                runtimeScheduler,
+                configDir,
+                pluginId,
+                diagnosticSink,
+                failureSink
+            );
+            try {
+                disposableScope.register(config);
+                return config;
+            } catch (RuntimeException | Error failure) {
+                config.close();
+                throw failure;
+            }
         }
 
         private record DefaultServices(

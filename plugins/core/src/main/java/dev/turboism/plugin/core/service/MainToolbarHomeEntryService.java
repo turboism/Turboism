@@ -117,8 +117,7 @@ public final class MainToolbarHomeEntryService {
     }
 
     /**
-     * Contributes the Turboism button to the main toolbar, placed immediately after the host's own
-     * home entry.
+     * Contributes the Turboism button to the main toolbar, after the host-owned Home group divider.
      *
      * @return the button registration; closing it removes the button from the toolbar
      */

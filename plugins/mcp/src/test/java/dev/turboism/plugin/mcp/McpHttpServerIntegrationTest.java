@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.protocol.json.StrictJson;
+
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -23,6 +25,7 @@ import dev.turboism.sdk.cubism.id.DocumentId;
 import dev.turboism.sdk.cubism.id.ModelObjectId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ProjectId;
+import dev.turboism.sdk.cubism.command.EditorCommandService;
 import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
 import dev.turboism.sdk.cubism.model.ModelObjectDeletePolicy;
 import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
@@ -41,10 +44,16 @@ import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.mcp.McpConnectionService;
+import dev.turboism.sdk.mcp.McpHttpConnection;
+import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.sdk.plugin.PluginPaths;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.UiScheduler;
+import dev.turboism.sdk.ui.workspace.WorkspaceService;
+import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -70,6 +79,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class McpHttpServerIntegrationTest {
@@ -94,7 +104,7 @@ final class McpHttpServerIntegrationTest {
         try {
             assertEquals("127.0.0.1", server.endpoint().getHost());
             assertTrue(Files.isRegularFile(connectionFile));
-            final Map<String, Object> connection = object(Json.parse(Files.readAllBytes(connectionFile)));
+            final Map<String, Object> connection = object(StrictJson.parse(Files.readAllBytes(connectionFile)));
             assertEquals(server.endpoint().toString(), connection.get("endpoint"));
             assertEquals("Bearer " + TOKEN, connection.get("authorization"));
             assertEquals(McpProtocol.VERSION, connection.get("protocolVersion"));
@@ -272,6 +282,47 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void unsupportedProtocolVersionReturnsFxCompatibleNegotiationError() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(),
+            new MutableObjects(),
+            new FakeReadServices()
+        ));
+        try {
+            final String requested = "2026-07-28";
+            final HttpResponse<byte[]> response = request(
+                server.endpoint(),
+                TOKEN,
+                null,
+                requested,
+                Map.of(
+                    "jsonrpc", "2.0",
+                    "id", 1,
+                    "method", "server/discover",
+                    "params", Map.of("_meta", Map.of())
+                )
+            );
+
+            assertEquals(400, response.statusCode());
+            assertEquals("application/json; charset=utf-8", response.headers()
+                .firstValue("Content-Type").orElse(null));
+            final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
+            assertEquals(null, envelope.get("id"));
+            final Map<String, Object> error = object(envelope.get("error"));
+            assertEquals(-32022L, integer(error.get("code")));
+            assertEquals("Unsupported protocol version", error.get("message"));
+            final Map<String, Object> data = object(error.get("data"));
+            assertEquals(requested, data.get("requested"));
+            assertEquals(
+                List.of(McpProtocol.VERSION, "2025-06-18", "2025-03-26"),
+                array(data.get("supported"))
+            );
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
     void doesNotCreateSessionForFailedInitialize() throws Exception {
         final McpHttpServer server = McpHttpServer.start(dependencies(
             new CapturingLogger(), new MutableObjects(), new FakeReadServices()
@@ -329,6 +380,56 @@ final class McpHttpServerIntegrationTest {
         } finally {
             server.close();
         }
+    }
+
+    @Test
+    void pluginLifecyclePublishesAndRevokesTheAuthenticatedConnection() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        final PluginContext context = pluginContext(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections
+        );
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(context);
+
+        plugin.enable();
+        final McpHttpConnection published = connections.current.orElseThrow();
+        final Path connectionFile = plugin.serverForTests().connectionFile();
+        assertEquals(plugin.serverForTests().endpoint(), published.endpoint());
+        assertEquals(McpProtocol.VERSION, published.protocolVersion());
+        assertEquals(plugin.serverForTests().authorization(), published.authorization());
+        assertTrue(published.authorization().startsWith("Bearer "));
+        assertTrue(Files.isRegularFile(connectionFile));
+
+        plugin.disable();
+        assertTrue(connections.current.isEmpty());
+        assertFalse(Files.exists(connectionFile));
+        assertEquals(1, connections.revocations);
+
+        plugin.enable();
+        assertTrue(connections.current.isPresent());
+        plugin.shutdown();
+        assertTrue(connections.current.isEmpty());
+        assertEquals(2, connections.revocations);
+    }
+
+    @Test
+    void publicationFailureClosesTheStartedServerAndLeavesThePluginRetryable() throws Exception {
+        final RecordingConnections connections = new RecordingConnections();
+        connections.failNextPublish = true;
+        final McpPlugin plugin = new McpPlugin();
+        plugin.init(pluginContext(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections
+        ));
+
+        assertThrows(IllegalStateException.class, plugin::enable);
+        assertEquals(null, plugin.serverForTests());
+        assertTrue(connections.current.isEmpty());
+        assertFalse(Files.exists(temporaryDirectory.resolve("mcp-connection.json")));
+
+        plugin.enable();
+        assertTrue(connections.current.isPresent());
+        plugin.shutdown();
+        assertTrue(connections.current.isEmpty());
     }
 
     @Test
@@ -641,6 +742,16 @@ final class McpHttpServerIntegrationTest {
         final String token,
         final String origin,
         final String protocolVersion,
+        final Map<String, Object> body
+    ) throws Exception {
+        return request(endpoint, token, origin, protocolVersion, null, body);
+    }
+
+    private static HttpResponse<byte[]> request(
+        final URI endpoint,
+        final String token,
+        final String origin,
+        final String protocolVersion,
         final String sessionId,
         final Map<String, Object> body
     ) throws Exception {
@@ -649,7 +760,7 @@ final class McpHttpServerIntegrationTest {
             .header("Accept", "application/json, text/event-stream")
             .header("Content-Type", "application/json")
             .header("Authorization", "Bearer " + token)
-            .POST(HttpRequest.BodyPublishers.ofByteArray(Json.bytes(body)));
+            .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)));
         if (origin != null) builder.header("Origin", origin);
         if (protocolVersion != null) {
             builder.header("MCP-Protocol-Version", protocolVersion);
@@ -662,7 +773,7 @@ final class McpHttpServerIntegrationTest {
     }
 
     private static Map<String, Object> result(final HttpResponse<byte[]> response) {
-        final Map<String, Object> envelope = object(Json.parse(response.body()));
+        final Map<String, Object> envelope = object(StrictJson.parse(response.body()));
         assertFalse(envelope.containsKey("error"), () -> new String(
             response.body(), StandardCharsets.UTF_8
         ));
@@ -750,6 +861,47 @@ final class McpHttpServerIntegrationTest {
             0,
             TOKEN,
             120
+        );
+    }
+
+    private PluginContext pluginContext(
+        final PluginLogger logger,
+        final ModelObjectService objects,
+        final FakeReadServices reads,
+        final McpConnectionService connections
+    ) {
+        final PluginPaths paths = new PluginPaths() {
+            @Override public Path dataDir() { return temporaryDirectory; }
+            @Override public Path logsDir() { return temporaryDirectory; }
+            @Override public Path stateDir() { return temporaryDirectory; }
+            @Override public Path cacheDir() { return temporaryDirectory; }
+        };
+        return (PluginContext) java.lang.reflect.Proxy.newProxyInstance(
+            PluginContext.class.getClassLoader(),
+            new Class<?>[] {PluginContext.class},
+            (proxy, method, arguments) -> switch (method.getName()) {
+                case "logger" -> logger;
+                case "paths" -> paths;
+                case "modelObjects" -> objects;
+                case "parameterQuery" -> reads.parameters;
+                case "modelHierarchyQuery" -> reads.hierarchy;
+                case "selectionQuery" -> reads.selection;
+                case "cubismRead" -> reads.read;
+                case "cubismClipMasks" -> reads.clipMasks;
+                case "cubism" -> McpHttpServer.Dependencies.unavailableCubism();
+                case "workspace" -> WorkspaceService.unavailable();
+                case "workspaceLayout" -> WorkspaceLayoutService.unavailable();
+                case "diagnostics" -> McpHttpServer.Dependencies.emptyDiagnostics();
+                case "editorCommands" -> EditorCommandService.unavailable();
+                case "uiScheduler" -> immediateUi();
+                case "mcpConnections" -> connections;
+                case "toString" -> "McpPluginTestContext";
+                case "hashCode" -> System.identityHashCode(proxy);
+                case "equals" -> proxy == (arguments == null ? null : arguments[0]);
+                default -> throw new UnsupportedOperationException(
+                    "unused PluginContext method: " + method.getName()
+                );
+            }
         );
     }
 
@@ -966,6 +1118,33 @@ final class McpHttpServerIntegrationTest {
             lastDelete = target;
             lastDeletePolicy = policy;
             if (values.remove(target) == null) throw new NoSuchElementException(target.id());
+        }
+    }
+
+    private static final class RecordingConnections implements McpConnectionService {
+        private Optional<McpHttpConnection> current = Optional.empty();
+        private boolean failNextPublish;
+        private int revocations;
+
+        @Override public Optional<McpHttpConnection> current() { return current; }
+
+        @Override
+        public Registration publish(final McpHttpConnection connection) {
+            if (failNextPublish) {
+                failNextPublish = false;
+                throw new IllegalStateException("fixture publication failure");
+            }
+            if (current.isPresent()) {
+                throw new IllegalStateException("fixture already has a connection");
+            }
+            current = Optional.of(connection);
+            final java.util.concurrent.atomic.AtomicBoolean closed =
+                new java.util.concurrent.atomic.AtomicBoolean();
+            return () -> {
+                if (!closed.compareAndSet(false, true)) return;
+                current = Optional.empty();
+                revocations++;
+            };
         }
     }
 

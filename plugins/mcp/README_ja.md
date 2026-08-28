@@ -139,6 +139,7 @@ interface: none
 | `turboism.file.write` | `application` | 直接 Editor `SAVE` コマンドを許可します。 |
 | `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
 | `turboism.process.run` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
+| `turboism.mcp.connection.publish` | `application` | 権限が承認された自動化プラグインに、認証済みループバックエンドポイントをプロセス内ランタイム交換経由で公開します。 |
 
 診断拡張によって `host.unsafe`、パフォーマンス、ファイル読み取り、設定、イベント、UI 変更の権限が追加されることはありません。
 

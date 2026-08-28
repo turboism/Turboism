@@ -24,6 +24,11 @@
   "dependencies": [],
   "permissions": [
     {
+      "id": "turboism.mcp.connection.publish",
+      "scope": "application",
+      "reason": "Publishes the active authenticated loopback endpoint to permission-approved automation plugins without exposing MCP private state files."
+    },
+    {
       "id": "turboism.cubism.model.read",
       "scope": "application",
       "reason": "Lists and resolves active Cubism model objects requested through MCP."

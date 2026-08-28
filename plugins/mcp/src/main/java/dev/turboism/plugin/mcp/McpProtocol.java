@@ -178,6 +178,21 @@ final class McpProtocol {
             ? java.util.Optional.of(version) : java.util.Optional.empty();
     }
 
+    static Map<String, Object> unsupportedProtocolVersion(
+        final String requested,
+        final java.util.List<String> supported
+    ) {
+        return error(
+            null,
+            -32022,
+            "Unsupported protocol version",
+            linked(
+                entry("requested", Objects.requireNonNull(requested, "requested")),
+                entry("supported", java.util.List.copyOf(supported))
+            )
+        );
+    }
+
     private Map<String, Object> initialize(final Map<String, Object> params) {
         only(params, "protocolVersion", "capabilities", "clientInfo", "_meta");
         final Object requested = params.get("protocolVersion");

@@ -73,7 +73,7 @@ public final class PluginMetaValidator extends AbstractJsonValidator {
         "turboism.cubism.parameter.read", "turboism.cubism.mesh.read",
         "turboism.cubism.recent-file.read",
         "turboism.file.read", "turboism.file.write", "turboism.network.fetch",
-        "turboism.process.run",
+        "turboism.process.run", "turboism.mcp.connection.read", "turboism.mcp.connection.publish",
         "turboism.action.register", "turboism.ui.menu.contribute",
         "turboism.ui.toolbar.main.contribute", "turboism.ui.toolbar.palette.contribute",
         "turboism.ui.context-menu.contribute", "turboism.ui.context-source.read",

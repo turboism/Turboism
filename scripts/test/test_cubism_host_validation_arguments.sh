@@ -42,11 +42,18 @@ base=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
 
 cubism_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
 "${base[@]}" --home-file "$tmp/home-file.txt:scripts/input.txt" --home-dir "$tmp/home-dir:scripts" \
-  --trigger state/trigger.flag --cubism-java "$cubism_java" \
+  --trigger state/trigger.flag --windows-env 'HOME={HOME}\\fx-home' \
+  --windows-env 'USERPROFILE={HOME}\\fx-home' --cubism-java "$cubism_java" \
   --cubism-java-console-marker 'GraalVM Community' > "$tmp/good.out"
 grep -Fq 'homeFileCount=1' "$tmp/good.out" || fail 'valid home-file was not accepted'
 grep -Fq 'homeDirCount=1' "$tmp/good.out" || fail 'valid home-dir was not accepted'
 grep -Fq 'trigger=state/trigger.flag' "$tmp/good.out" || fail 'valid trigger was not accepted'
+grep -Fq 'windowsEnvironmentCount=2' "$tmp/good.out" \
+  || fail 'valid Windows environment assignments were not accepted'
+grep -Fq 'windowsEnvironment.0=HOME=Z:' "$tmp/good.out" \
+  || fail 'HOME Windows environment placeholder was not expanded'
+grep -Fq 'windowsEnvironment.1=USERPROFILE=Z:' "$tmp/good.out" \
+  || fail 'USERPROFILE Windows environment placeholder was not expanded'
 grep -Fq "cubismJava=$cubism_java" "$tmp/good.out" || fail 'valid Cubism Java override was not accepted'
 grep -Fq 'cubismJavaConsoleMarker=GraalVM Community' "$tmp/good.out" \
   || fail 'Cubism Java console marker was not accepted'
@@ -63,6 +70,20 @@ expect_rejected home-dir-metachar 'home-dir destination must contain only ASCII'
   "${base[@]}" --home-dir "$tmp/home-dir:scripts/\$(touch-pwned)"
 expect_rejected control-character 'result file must contain only ASCII' \
   "${base[@]}" --result-file $'state/result\n.txt'
+expect_rejected ssh-option-prefix 'SSH host must not begin with an option prefix' \
+  "${base[@]}" --ssh-host '-oProxyCommand=touch-pwned'
+expect_rejected windows-env-format 'Windows environment assignment must use NAME=value' \
+  "${base[@]}" --windows-env 'HOME'
+expect_rejected windows-env-duplicate 'duplicate Windows environment name' \
+  "${base[@]}" --windows-env 'HOME=first' --windows-env 'HOME=second'
+expect_rejected windows-env-java 'Windows environment assignment may not override JAVA_TOOL_OPTIONS' \
+  "${base[@]}" --windows-env 'JAVA_TOOL_OPTIONS=-javaagent:pwned.jar'
+expect_rejected windows-env-java-case 'Windows environment assignment may not override _java_options' \
+  "${base[@]}" --windows-env '_java_options=-javaagent:pwned.jar'
+expect_rejected windows-env-duplicate-case 'duplicate Windows environment name' \
+  "${base[@]}" --windows-env 'Path=first' --windows-env 'PATH=second'
+expect_rejected windows-env-command 'Windows environment value contains an unsupported command character' \
+  "${base[@]}" --windows-env 'HOME=C:\\safe&whoami'
 
 # A non-dry run must not interpolate attacker-controlled path text into the SSH
 # command. The validation rejects it before trying either transport stub.
@@ -80,5 +101,58 @@ expect_rejected before-ssh 'trigger path must contain only ASCII' env PATH="$bin
   --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3" --result-file state/result.txt \
   --trigger 'state/trigger;touch-pwned' "${host_args[@]}"
 [ ! -e "$tmp/ssh-used" ] || fail 'rejected path reached SSH transport'
+
+# Cleanup must pass task-scoped paths through the runner's Base64 argument
+# transport. Embedding them in the remote `bash -s -- ...` command causes the
+# process scan to match and kill its own cleanup coordinator.
+python3 - "$runner" <<'PY' || fail 'remote cleanup embeds task paths in its command line'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+match = re.search(
+    r"remote_stop_process_tree\(\) \{\n(?P<body>.*?)\n\}\n\nlatest_runtime_log\(\)",
+    source,
+    re.DOTALL,
+)
+if match is None:
+    raise SystemExit(1)
+body = match.group("body")
+if 'remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner"' not in body:
+    raise SystemExit(1)
+if '"${ssh_cmd[@]}" "$ssh_host" "bash -s --' in body:
+    raise SystemExit(1)
+if "<<'REMOTE' || true" in body:
+    raise SystemExit("process cleanup failure must propagate")
+for marker in ('WINEPREFIX={prefix}', 'Path("/proc").iterdir()', 'prefix.encode() in raw'):
+    if marker not in body:
+        raise SystemExit(marker)
+PY
+
+# Feature hooks receive exact host timing and Proton launch context as positional
+# arguments. This lets task-local native-runtime setup use the same reviewed runner
+# and cloned prefix without reading global environment or wrapper configuration.
+python3 - "$runner" <<'PY' || fail 'remote hooks do not receive host launch context'
+from pathlib import Path
+import re
+import sys
+
+source = Path(sys.argv[1]).read_text(encoding="utf-8")
+match = re.search(
+    r"run_remote_hook\(\) \{\n(?P<body>.*?)\n\}\n\non_exit\(\)",
+    source,
+    re.DOTALL,
+)
+if match is None:
+    raise SystemExit(1)
+body = match.group("body")
+if '"$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display"' not in body:
+    raise SystemExit(1)
+if '"${REMOTE_ARGS[5]}" "${REMOTE_ARGS[6]}"' not in body:
+    raise SystemExit(1)
+if '"${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[10]}"' not in body:
+    raise SystemExit(1)
+PY
 
 echo 'PASS: Cubism host-validation argument hardening'

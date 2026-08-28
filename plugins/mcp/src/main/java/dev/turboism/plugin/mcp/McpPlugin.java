@@ -1,6 +1,8 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.sdk.mcp.McpHttpConnection;
 import dev.turboism.sdk.plugin.PluginContext;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 
 import java.util.Objects;
@@ -10,6 +12,7 @@ public final class McpPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private McpHttpServer server;
+    private Registration connectionPublication;
 
     @Override
     public synchronized void init(final PluginContext context) {
@@ -25,7 +28,18 @@ public final class McpPlugin implements TurboismPlugin {
         if (context == null) {
             throw new IllegalStateException("Turboism MCP plugin was not initialized");
         }
-        server = McpHttpServer.start(context);
+        final McpHttpServer started = McpHttpServer.start(context);
+        try {
+            connectionPublication = context.mcpConnections().publish(new McpHttpConnection(
+                started.endpoint(),
+                McpProtocol.VERSION,
+                started.authorization()
+            ));
+            server = started;
+        } catch (RuntimeException | Error failure) {
+            started.close();
+            throw failure;
+        }
         context.logger().info(
             "MCP connection metadata written to " + server.connectionFile()
         );
@@ -46,9 +60,14 @@ public final class McpPlugin implements TurboismPlugin {
     }
 
     private void stop() {
-        if (server == null) return;
+        final Registration publication = connectionPublication;
+        connectionPublication = null;
         final McpHttpServer current = server;
         server = null;
-        current.close();
+        try {
+            if (publication != null) publication.close();
+        } finally {
+            if (current != null) current.close();
+        }
     }
 }

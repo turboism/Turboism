@@ -74,14 +74,22 @@ class PreviewRuntimeFailureIntegrationTest {
         final RuntimeFailureCollector collector
     ) throws Exception {
         final RuntimePluginConfigRegistry legacyConfig = legacyConfig(home, scheduler, collector);
-        final Registration readScope = legacyConfig.readScope("private/config.properties");
-        assertTrue(legacyConfig.readString("private/config.properties", "private-value").isEmpty());
+        servicesScope.register(legacyConfig);
+        final Path pluginData = home.resolve("plugin-data");
+        final Path unreadableScope = pluginData.resolve("private/read.properties");
+        Files.createDirectories(unreadableScope);
+        final Registration readScope = legacyConfig.readScope("private/read.properties");
+        assertTrue(legacyConfig.readString("private/read.properties", "private-value").isEmpty());
         readScope.close();
-        final Registration writeScope = legacyConfig.writeScope("private/config.properties");
+
+        final Path blockedParent = pluginData.resolve("private/blocker");
+        Files.createDirectories(blockedParent.getParent());
+        Files.writeString(blockedParent, "not-a-directory");
+        final Registration writeScope = legacyConfig.writeScope("private/blocker/config.properties");
         assertThrows(
             dev.turboism.sdk.config.PluginConfigException.class,
             () -> legacyConfig.writeString(
-                "private/config.properties",
+                "private/blocker/config.properties",
                 "private-value",
                 "private-secret-must-not-leak"
             )

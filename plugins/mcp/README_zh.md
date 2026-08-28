@@ -139,6 +139,7 @@ interface: none
 | `turboism.file.write` | `application` | 允许直接 Editor `SAVE` 命令。 |
 | `turboism.network.fetch` | `application` | 允许类型化的外部应用程序设置命令。 |
 | `turboism.process.run` | `application` | 允许类型化的外部应用程序设置命令。 |
+| `turboism.mcp.connection.publish` | `application` | 通过进程内运行时交换，将当前经过身份验证的回环端点发布给已获权限批准的自动化插件。 |
 
 诊断扩展不会新增 `host.unsafe`、性能、文件读取、配置、事件或 UI 变更权限。
 
