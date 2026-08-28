@@ -51,9 +51,11 @@ Download one of the following from the
 [latest GitHub Release](https://github.com/Turboism/Turboism/releases/latest):
 
 - `TurboismInstaller-<version>.exe` — recommended Windows installer;
-- `turboism-<version>-full.zip` — agent plus the exact reviewed first-party plugin bundle; it includes Turboism with fx but no managed native fx runtime on Windows, so that plugin requires an explicit custom executable;
+- `turboism-<version>-full.zip` — agent plus the exact reviewed first-party plugin bundle; it includes Turboism with fx but no managed native fx runtime on Windows;
 - `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs or managed fx bytes;
-- `TurboismInstaller-<version>.jar` — Java 17 installer; Full carries reviewed Linux/macOS managed fx payloads and rejects Windows, while Thin remains available on Windows without native fx bytes.
+- `TurboismInstaller-<version>.jar` — Java 17 installer; Full carries reviewed Linux/macOS managed fx payloads and rejects Windows, while Thin can be installed on Windows without native fx bytes.
+
+Windows Full/Thin may carry the plugin and accept a custom executable path structurally, but functional Turboism with fx operation is currently unavailable there: the required first-party MCP server fails closed until Turboism has a native, handle-bound protected-DACL and reparse-safe bearer-file publication primitive.
 
 Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
