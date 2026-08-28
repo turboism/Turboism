@@ -46,10 +46,14 @@ Thin) -> target directory -> summary -> install -> finish. Full defaults
 every first-party plugin to selected and installs the matching managed fx
 payload only on reviewed Linux/macOS OS/CPU pairs. Windows Full fails before
 config or payload mutation because no reviewed Windows fx executable exists.
-Thin installs the complete plugin roster without native fx bytes and remains
-available on Windows for an explicit custom executable or later verified
-online repair. Lite installs the agent and common files with no plugin JAR or
-fx runtime. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
+Thin installs the complete plugin roster without native fx bytes and can be
+installed on Windows; it also accepts an explicit custom executable path.
+That is structural admission only: functional Turboism with fx operation is
+currently unavailable on Windows because the required first-party MCP server
+fails closed until a native protected-DACL and reparse-safe bearer-file
+publication primitive exists. Verified online repair remains limited to the
+reviewed Linux/macOS platforms. Lite installs the agent and common files with
+no plugin JAR or fx runtime. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
 `~/Library/Application Support/Turboism` (macOS),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
