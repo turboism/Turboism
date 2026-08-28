@@ -29,13 +29,21 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
+import java.nio.file.attribute.AclFileAttributeView;
+import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -483,8 +491,12 @@ final class McpHttpServer implements AutoCloseable {
     }
 
     private void writeConnectionFile() throws IOException {
-        final Path directory = connectionFile.getParent();
-        Files.createDirectories(directory);
+        final Path directory = Objects.requireNonNull(
+            connectionFile.getParent(),
+            "connection-file directory"
+        );
+        requirePrivateDirectory(directory);
+        rejectUnsafeConnectionFile();
         final LinkedHashMap<String, Object> content = new LinkedHashMap<>();
         content.put("transport", "streamable-http");
         content.put("endpoint", endpoint.toString());
@@ -493,10 +505,10 @@ final class McpHttpServer implements AutoCloseable {
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
         final byte[] bytes = StrictJson.bytes(content);
-        final Path temporary = Files.createTempFile(directory, ".mcp-connection-", ".tmp");
+        final Path temporary = createSecuredTemporary(directory);
         try {
             Files.write(temporary, bytes);
-            restrictToOwner(temporary);
+            enforceOwnerOnly(temporary, false);
             try {
                 Files.move(
                     temporary,
@@ -507,22 +519,136 @@ final class McpHttpServer implements AutoCloseable {
             } catch (AtomicMoveNotSupportedException unsupported) {
                 Files.move(temporary, connectionFile, StandardCopyOption.REPLACE_EXISTING);
             }
-            restrictToOwner(connectionFile);
+            if (!Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)
+                || Files.isSymbolicLink(connectionFile)) {
+                throw new IOException("MCP connection file publication was redirected");
+            }
+            enforceOwnerOnly(connectionFile, false);
         } finally {
             Files.deleteIfExists(temporary);
         }
     }
 
-    private static void restrictToOwner(final Path file) {
-        try {
-            Files.setPosixFilePermissions(
-                file,
-                Set.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE)
-            );
-        } catch (UnsupportedOperationException | IOException ignored) {
-            // Windows ACL inheritance is supplied by the plugin state directory.
+    private void rejectUnsafeConnectionFile() throws IOException {
+        if (!Files.exists(connectionFile, LinkOption.NOFOLLOW_LINKS)) return;
+        if (Files.isSymbolicLink(connectionFile)
+            || !Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("MCP connection file path is unsafe");
+        }
+        final Path directory = Objects.requireNonNull(
+            connectionFile.getParent(),
+            "connection-file directory"
+        );
+        if (!Files.getOwner(connectionFile, LinkOption.NOFOLLOW_LINKS).equals(
+            Files.getOwner(directory, LinkOption.NOFOLLOW_LINKS)
+        )) {
+            throw new IOException("MCP connection file ownership is unsafe");
         }
     }
+
+    private static Path createSecuredTemporary(final Path directory) throws IOException {
+        try {
+            return Files.createTempFile(
+                directory,
+                ".mcp-connection-",
+                ".tmp",
+                PosixFilePermissions.asFileAttribute(FILE_OWNER_ONLY)
+            );
+        } catch (UnsupportedOperationException noPosix) {
+            final Path temporary = Files.createTempFile(
+                directory,
+                ".mcp-connection-",
+                ".tmp"
+            );
+            try {
+                enforceOwnerOnly(temporary, false);
+                return temporary;
+            } catch (IOException | RuntimeException failure) {
+                Files.deleteIfExists(temporary);
+                throw failure;
+            }
+        }
+    }
+
+    private static void requirePrivateDirectory(final Path directory) throws IOException {
+        final Path absolute = directory.toAbsolutePath().normalize();
+        Path current = absolute.getRoot();
+        for (Path segment : absolute) {
+            current = current == null ? segment : current.resolve(segment);
+            if (Files.isSymbolicLink(current)) {
+                throw new IOException("MCP state directory contains a symbolic link");
+            }
+        }
+        if (!Files.exists(absolute, LinkOption.NOFOLLOW_LINKS)
+            || !Files.isDirectory(absolute, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("MCP state directory is unsafe");
+        }
+        enforceOwnerOnly(absolute, true);
+    }
+
+    private static void enforceOwnerOnly(final Path path, final boolean directory)
+        throws IOException {
+        final PosixFileAttributeView posix = Files.getFileAttributeView(
+            path,
+            PosixFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (posix != null) {
+            posix.setPermissions(directory ? DIRECTORY_OWNER_ONLY : FILE_OWNER_ONLY);
+            return;
+        }
+        final AclFileAttributeView acl = Files.getFileAttributeView(
+            path,
+            AclFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (acl != null) {
+            acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
+            return;
+        }
+        final java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
+            path,
+            java.nio.file.attribute.DosFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (dos != null) {
+            // The JDK provider exposes no Windows DACL API. Turboism's plugin-state root is
+            // per-user; fail-closed symlink checks plus its inherited DACL are the native boundary.
+            return;
+        }
+        throw new IOException("MCP owner-only permissions are unavailable");
+    }
+
+    private static AclEntry ownerOnlyEntry(
+        final java.nio.file.attribute.UserPrincipal owner,
+        final boolean directory
+    ) {
+        final Set<AclEntryPermission> permissions = EnumSet.noneOf(AclEntryPermission.class);
+        permissions.add(AclEntryPermission.READ_DATA);
+        permissions.add(AclEntryPermission.WRITE_DATA);
+        permissions.add(AclEntryPermission.APPEND_DATA);
+        permissions.add(AclEntryPermission.READ_ATTRIBUTES);
+        permissions.add(AclEntryPermission.WRITE_ATTRIBUTES);
+        permissions.add(AclEntryPermission.READ_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.WRITE_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.READ_ACL);
+        permissions.add(AclEntryPermission.WRITE_ACL);
+        permissions.add(AclEntryPermission.SYNCHRONIZE);
+        if (directory) {
+            permissions.add(AclEntryPermission.EXECUTE);
+            permissions.add(AclEntryPermission.DELETE_CHILD);
+        }
+        return AclEntry.newBuilder()
+            .setType(AclEntryType.ALLOW)
+            .setPrincipal(owner)
+            .setPermissions(permissions)
+            .build();
+    }
+
+    private static final Set<PosixFilePermission> FILE_OWNER_ONLY =
+        PosixFilePermissions.fromString("rw-------");
+    private static final Set<PosixFilePermission> DIRECTORY_OWNER_ONLY =
+        PosixFilePermissions.fromString("rwx------");
 
     private boolean authorized(final String authorization) {
         if (authorization == null || !authorization.startsWith("Bearer ")) return false;
@@ -641,7 +767,12 @@ final class McpHttpServer implements AutoCloseable {
         server.stop(0);
         executor.shutdownNow();
         try {
-            Files.deleteIfExists(connectionFile);
+            if (Files.isRegularFile(connectionFile, LinkOption.NOFOLLOW_LINKS)
+                && !Files.isSymbolicLink(connectionFile)) {
+                Files.deleteIfExists(connectionFile);
+            } else if (Files.exists(connectionFile, LinkOption.NOFOLLOW_LINKS)) {
+                logger.warn("Refused to remove unsafe MCP connection file: " + connectionFile);
+            }
         } catch (IOException failure) {
             logger.warn("Could not remove MCP connection file: " + connectionFile);
         }

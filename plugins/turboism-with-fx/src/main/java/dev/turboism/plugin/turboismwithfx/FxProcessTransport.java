@@ -141,7 +141,7 @@ final class FxProcessTransport implements FxAcpTransport {
                 .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
                 .forEach(ProcessHandle::destroy);
             process.destroy();
-            if (!process.isAlive() || millis == 0L) break;
+            if (!anyAlive(retained) || millis == 0L) break;
             try {
                 process.waitFor(10L, TimeUnit.MILLISECONDS);
             } catch (InterruptedException failure) {
@@ -167,7 +167,21 @@ final class FxProcessTransport implements FxAcpTransport {
     }
 
     private void retainDescendants(final java.util.Map<Long, ProcessHandle> retained) {
-        process.descendants().forEach(handle -> retained.putIfAbsent(handle.pid(), handle));
+        retainDescendants(process.toHandle(), retained);
+        for (ProcessHandle handle : java.util.List.copyOf(retained.values())) {
+            retainDescendants(handle, retained);
+        }
+    }
+
+    private static void retainDescendants(
+        final ProcessHandle root,
+        final java.util.Map<Long, ProcessHandle> retained
+    ) {
+        root.descendants().forEach(handle -> retained.putIfAbsent(handle.pid(), handle));
+    }
+
+    private boolean anyAlive(final java.util.Map<Long, ProcessHandle> retained) {
+        return process.isAlive() || retained.values().stream().anyMatch(ProcessHandle::isAlive);
     }
 
     private static void awaitExit(

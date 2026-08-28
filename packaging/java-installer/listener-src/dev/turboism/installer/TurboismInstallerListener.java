@@ -164,7 +164,7 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
      * extraction instead of leaving incompatible payloads or an unusable selected plugin behind.
      */
     private void requireManagedFxPlatform() throws IOException {
-        if ("lite".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR))) {
+        if (!"full".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR))) {
             return;
         }
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);

@@ -220,6 +220,33 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void rejectsSymlinkedConnectionFileWithoutTouchingItsTarget() throws Exception {
+        final Path outside = temporaryDirectory.resolveSibling(
+            temporaryDirectory.getFileName() + "-mcp-outside"
+        );
+        Files.writeString(outside, "sentinel", StandardCharsets.UTF_8);
+        final Path connectionFile = temporaryDirectory.resolve("mcp-connection.json");
+        try {
+            Files.createSymbolicLink(connectionFile, outside);
+        } catch (UnsupportedOperationException | java.io.IOException unavailable) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links unavailable");
+        }
+
+        final McpHttpServer.McpStartupFailure failure = assertThrows(
+            McpHttpServer.McpStartupFailure.class,
+            () -> McpHttpServer.start(dependencies(
+                new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+            ))
+        );
+
+        assertEquals("connection-file publication", failure.stage());
+        assertTrue(Files.isSymbolicLink(connectionFile));
+        assertEquals("sentinel", Files.readString(outside, StandardCharsets.UTF_8));
+        Files.deleteIfExists(connectionFile);
+        Files.deleteIfExists(outside);
+    }
+
+    @Test
     void enforcesStreamableHttpSessionLifecycle() throws Exception {
         final McpHttpServer server = McpHttpServer.start(dependencies(
             new CapturingLogger(), new MutableObjects(), new FakeReadServices()
