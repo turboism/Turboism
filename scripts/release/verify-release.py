@@ -46,20 +46,59 @@ def manifest_version(agent: bytes) -> str:
     return values.get("Implementation-Version", "")
 
 
-def verify_zip(path: Path, version: str, full: bool) -> None:
+def release_plugin_modules(path: Path) -> set[str]:
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if not lines or any(not line or line.startswith("#") for line in lines):
+        raise ValueError(f"release plugin roster contains blank/comment lines: {path}")
+    if lines != sorted(lines) or len(lines) != len(set(lines)):
+        raise ValueError(f"release plugin roster is not unique ASCII order: {path}")
+    pattern = re.compile(r"^:plugins:([a-z0-9-]+)$")
+    modules = []
+    for line in lines:
+        match = pattern.fullmatch(line)
+        if match is None:
+            raise ValueError(f"invalid release plugin roster entry: {line}")
+        if match.group(1) != "core":
+            modules.append(match.group(1))
+    if not modules:
+        raise ValueError("release plugin roster has no packaged plugins")
+    return set(modules)
+
+
+def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
     with zipfile.ZipFile(path) as archive:
         names = set(archive.namelist())
         agent = archive.read("turboism-agent.jar")
         readme = archive.read("README.txt").decode("utf-8")
-    plugins = {name for name in names if name.startswith("plugins/") and name.endswith(".jar")}
-    if full and not plugins:
-        raise ValueError(f"full archive has no plugins: {path}")
-    if not full and plugins:
+    packaged = {
+        name.removeprefix("plugins/").removesuffix(".jar")
+        for name in names
+        if name.startswith("plugins/") and name.endswith(".jar")
+    }
+    if full and packaged != plugins:
+        raise ValueError(
+            f"full archive plugin roster differs: {path}\n"
+            f"expected: {sorted(plugins)}\nactual: {sorted(packaged)}"
+        )
+    if not full and packaged:
         raise ValueError(f"lite archive contains plugins: {path}")
+    if any(name.startswith("runtimes/fx/") for name in names):
+        raise ValueError(f"Windows archive contains managed fx runtime bytes: {path}")
     if version not in readme:
         raise ValueError(f"README does not contain release version: {path}")
     if manifest_version(agent) != version:
         raise ValueError(f"agent Implementation-Version is not {version}: {path}")
+
+
+def verify_windows_stage(stage: Path) -> None:
+    if not stage.is_dir() or stage.is_symlink():
+        raise ValueError(f"Windows shared stage is unavailable or unsafe: {stage}")
+    fx = stage / "runtimes" / "fx"
+    if fx.exists() or fx.is_symlink():
+        raise ValueError(f"Windows shared stage contains managed fx runtime bytes: {fx}")
+    for path in stage.rglob("*"):
+        if path.is_symlink() or not (path.is_file() or path.is_dir()):
+            raise ValueError(f"Windows shared stage contains unsafe entry: {path}")
 
 
 def release_artifacts(dist: Path, version: str) -> list[Path]:
@@ -74,10 +113,19 @@ def release_artifacts(dist: Path, version: str) -> list[Path]:
     return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
 
 
-def verify(dist: Path, version: str) -> None:
+def verify(
+    dist: Path,
+    version: str,
+    release_plugins: Path | None = None,
+    windows_stage: Path | None = None,
+) -> None:
     expected = release_artifacts(dist, version)
     expected_names = {path.name for path in expected}
-    actual_names = {path.name for path in dist.iterdir() if path.is_file()}
+    entries = list(dist.iterdir())
+    unsafe = [path for path in entries if path.is_symlink() or not path.is_file()]
+    if unsafe:
+        raise ValueError(f"release directory contains non-regular entries: {unsafe}")
+    actual_names = {path.name for path in entries}
     if actual_names != expected_names:
         raise ValueError(
             "release directory contents differ\n"
@@ -85,16 +133,36 @@ def verify(dist: Path, version: str) -> None:
         )
     primary = [path for path in expected if not path.name.endswith(".sha256")]
     for artifact in primary:
-        if not artifact.is_file() or artifact.stat().st_size == 0:
-            raise ValueError(f"missing or empty artifact: {artifact}")
+        if not artifact.is_file() or artifact.is_symlink() or artifact.stat().st_size == 0:
+            raise ValueError(f"missing, unsafe, or empty artifact: {artifact}")
         verify_sidecar(artifact)
-    verify_zip(dist / f"turboism-{version}-lite.zip", version, full=False)
-    verify_zip(dist / f"turboism-{version}-full.zip", version, full=True)
+    if release_plugins is None:
+        raise ValueError("release plugin roster is required")
+    plugins = release_plugin_modules(release_plugins)
+    verify_zip(
+        dist / f"turboism-{version}-lite.zip",
+        version,
+        full=False,
+        plugins=plugins,
+    )
+    verify_zip(
+        dist / f"turboism-{version}-full.zip",
+        version,
+        full=True,
+        plugins=plugins,
+    )
+    if windows_stage is not None:
+        verify_windows_stage(windows_stage)
 
 
-def artifact_manifest(dist: Path, version: str) -> dict:
+def artifact_manifest(
+    dist: Path,
+    version: str,
+    release_plugins: Path | None = None,
+    windows_stage: Path | None = None,
+) -> dict:
     """Return a deterministic manifest without writing into the eight-file dist."""
-    verify(dist, version)
+    verify(dist, version, release_plugins, windows_stage)
     artifacts = []
     for path in release_artifacts(dist, version):
         suffix = ".sha256" if path.name.endswith(".sha256") else path.suffix.lower()
@@ -140,13 +208,20 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
     parser.add_argument("--dist", required=True, type=Path)
+    parser.add_argument("--release-plugins", required=True, type=Path)
+    parser.add_argument("--windows-stage", required=True, type=Path)
     parser.add_argument(
         "--manifest-output", type=Path,
         help="optional output outside dist for a deterministic framework artifact manifest",
     )
     args = parser.parse_args()
     try:
-        document = artifact_manifest(args.dist.resolve(), args.version)
+        document = artifact_manifest(
+            args.dist.resolve(),
+            args.version,
+            args.release_plugins.resolve(),
+            args.windows_stage.resolve(),
+        )
         if args.manifest_output is not None:
             write_manifest(args.manifest_output, document)
     except (OSError, ValueError, zipfile.BadZipFile, KeyError) as failure:

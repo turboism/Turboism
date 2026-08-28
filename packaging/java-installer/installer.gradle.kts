@@ -5,6 +5,9 @@ import java.net.URI
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.HexFormat
 import java.util.Properties
@@ -67,6 +70,41 @@ fun requireInstallerVersion(): String = validateInstallerVersion(
         throw GradleException("installer tasks require -PinstallerVersion=<version>")
     }
 )
+
+fun rejectNonAsciiJsonUnicodeEscapes(bytes: ByteArray, source: String): String {
+    val text = try {
+        StandardCharsets.UTF_8.newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+    } catch (exception: java.nio.charset.CharacterCodingException) {
+        throw GradleException("$source: plugin.json is not valid UTF-8", exception)
+    }
+    var offset = 0
+    while (offset < text.length) {
+        if (text[offset] != '\\') {
+            offset++
+            continue
+        }
+        var slashCount = 1
+        while (offset + slashCount < text.length && text[offset + slashCount] == '\\') {
+            slashCount++
+        }
+        val marker = offset + slashCount
+        if (slashCount % 2 == 1 && marker < text.length && text[marker] == 'u') {
+            if (marker + 4 >= text.length) {
+                throw GradleException("$source: truncated JSON Unicode escape")
+            }
+            val hex = text.substring(marker + 1, marker + 5)
+            if (!Regex("^[0-9A-Fa-f]{4}$").matches(hex)) {
+                throw GradleException("$source: JSON Unicode escape must use ASCII hexadecimal digits")
+            }
+        }
+        offset += slashCount
+    }
+    return text
+}
 
 val payloadDir = layout.buildDirectory.dir("windows-installer/staging")
 val distDir = layout.buildDirectory.dir("windows-installer/dist")
@@ -372,6 +410,37 @@ val stageFxRuntimePayload by tasks.registering {
 // Shared payload staging (also consumed by packaging/windows-installer/)
 // ---------------------------------------------------------------------------
 
+val checkInstallerPluginJsonUnicodeEscapes by tasks.registering {
+    group = "verification"
+    description = "Pins ASCII-only JSON Unicode escapes for installer plugin metadata."
+    doLast {
+        val valid = rejectNonAsciiJsonUnicodeEscapes(
+            "{\"id\":\"dev.turboism.plugin.\\u006dcp\"}".toByteArray(StandardCharsets.UTF_8),
+            "valid fixture"
+        )
+        val parsed = JsonSlurper().parseText(valid) as Map<*, *>
+        if (parsed["id"] != "dev.turboism.plugin.mcp") {
+            throw GradleException("ASCII plugin.json Unicode escape did not parse canonically")
+        }
+        listOf(
+            "{\"id\":\"dev.turboism.plugin.\\u٠٠٦dcp\"}" to "Arabic-Indic",
+            "{\"id\":\"dev.turboism.plugin.\\u００６dcp\"}" to "fullwidth"
+        ).forEach { (fixture, name) ->
+            try {
+                rejectNonAsciiJsonUnicodeEscapes(
+                    fixture.toByteArray(StandardCharsets.UTF_8),
+                    "$name fixture"
+                )
+                throw GradleException("$name plugin.json Unicode escape was accepted")
+            } catch (expected: GradleException) {
+                if (!expected.message.orEmpty().contains("ASCII hexadecimal")) {
+                    throw expected
+                }
+            }
+        }
+    }
+}
+
 val stageInstallerPayload by tasks.registering {
     group = "packaging"
     description = "Stages the shared Turboism payload (agent, plugins, docs, launchers) for NSIS, ZIP and Java installer."
@@ -387,9 +456,7 @@ val stageInstallerPayload by tasks.registering {
         inputs.files(project(":plugins:$module").tasks.named("jar"))
     }
     installerTemplateFiles.forEach { inputs.file(it) }
-    inputs.dir(fxRuntimeStage)
     outputs.dir(payloadDir)
-    dependsOn(stageFxRuntimePayload)
     dependsOn(project(":bootstrap").tasks.named("jar"))
     dependsOn(project(":graal-host").tasks.named("windowsPreviewDist"))
     pluginModuleNames.forEach { module -> dependsOn(project(":plugins:$module").tasks.named("jar")) }
@@ -457,10 +524,10 @@ val stageInstallerPayload by tasks.registering {
                 .replace("__VERSION__", version)
             file("$stage/$target").writeText(text)
         }
-        copy {
-            from(fxRuntimeStage)
-            into(stage.resolve("runtimes/fx/0.0.5"))
-        }
+        // Managed fx runtimes are intentionally absent from this shared Windows stage.
+        // ZIP/NSIS Full carries the complete plugin roster, including Turboism with fx,
+        // but Windows has no reviewed managed fx executable; Thin/custom-executable use
+        // remains available without mispackaging Linux/macOS binaries into Windows assets.
         // OS-appropriate launcher/configuration files
         copy {
             from("packaging/windows-installer/launch-cubism-turboism.bat")
@@ -534,12 +601,35 @@ val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
 // ---------------------------------------------------------------------------
 
 
+val javaInstallerPayloadDir = layout.buildDirectory.dir("java-installer/staging")
+
+val stageJavaInstallerPayload by tasks.registering {
+    group = "packaging"
+    description = "Adds reviewed Linux/macOS managed fx runtimes to the Java installer payload."
+    dependsOn(stageInstallerPayload, stageFxRuntimePayload)
+    inputs.dir(payloadDir)
+    inputs.dir(fxRuntimeStage)
+    outputs.dir(javaInstallerPayloadDir)
+    doLast {
+        val target = javaInstallerPayloadDir.get().asFile
+        delete(target)
+        copy {
+            from(payloadDir)
+            into(target)
+        }
+        copy {
+            from(fxRuntimeStage)
+            into(target.resolve("runtimes/fx/0.0.5"))
+        }
+    }
+}
+
 val generateInstallerXml by tasks.registering {
     group = "packaging"
     description = "Generates installer.xml from the staged plugin JARs' plugin.json metadata."
-    dependsOn(stageInstallerPayload, installerListenerJarTask)
+    dependsOn(stageJavaInstallerPayload, installerListenerJarTask)
     inputs.file("packaging/java-installer/installer.xml.template")
-    inputs.dir(payloadDir)
+    inputs.dir(javaInstallerPayloadDir)
     customLangPackFiles.forEach { inputs.file("packaging/java-installer/$it") }
     outputs.file(izpackBaseDir.map { it.file("installer.xml") })
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml") })
@@ -548,7 +638,7 @@ val generateInstallerXml by tasks.registering {
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_jpn") })
     doLast {
         val version = requireInstallerVersion()
-        val stage = payloadDir.get().asFile
+        val stage = javaInstallerPayloadDir.get().asFile
         val izpackDir = izpackBaseDir.get().asFile
         izpackDir.mkdirs()
 
@@ -569,7 +659,14 @@ val generateInstallerXml by tasks.registering {
                     val entry = zip.getEntry("META-INF/turboism/plugin.json")
                         ?: throw GradleException("${jarFile.name}: missing META-INF/turboism/plugin.json")
                     try {
-                        JsonSlurper().parse(zip.getInputStream(entry)) as Map<*, *>
+                        val bytes = zip.getInputStream(entry).use { it.readBytes() }
+                        val canonical = rejectNonAsciiJsonUnicodeEscapes(
+                            bytes,
+                            "${jarFile.name}: META-INF/turboism/plugin.json"
+                        )
+                        JsonSlurper().parseText(canonical) as Map<*, *>
+                    } catch (e: GradleException) {
+                        throw e
                     } catch (e: Exception) {
                         throw GradleException("${jarFile.name}: malformed META-INF/turboism/plugin.json", e)
                     }
@@ -719,7 +816,7 @@ val generateInstallerXml by tasks.registering {
 tasks.named("izPackCreateInstaller") {
     dependsOn(generateInstallerXml)
     // the generated installer.xml references these by path; changes must rebuild the jar
-    inputs.dir(payloadDir)
+    inputs.dir(javaInstallerPayloadDir)
     inputs.file(installerListenerJarTask.flatMap { it.archiveFile })
     // The JAR and its SHA-256 sidecar are both declared outputs: deleting only
     // the sidecar marks the task out-of-date and recreates it next invocation.
@@ -752,7 +849,11 @@ tasks.named("izPackCreateInstaller") {
 val checkJavaInstaller by tasks.registering(Exec::class) {
     group = "verification"
     description = "Runs the deterministic non-GUI Java installer verification matrix (console mode)."
-    dependsOn(tasks.named("izPackCreateInstaller"), installerRegressionJarTask)
+    dependsOn(
+        tasks.named("izPackCreateInstaller"),
+        installerRegressionJarTask,
+        checkInstallerPluginJsonUnicodeEscapes
+    )
     workingDir(rootDir)
     doFirst {
         commandLine(
@@ -760,7 +861,7 @@ val checkJavaInstaller by tasks.registering(Exec::class) {
             "packaging/java-installer/verify-installer.py",
             "--installer", distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile.absolutePath,
             "--sha256", distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar.sha256").asFile.absolutePath,
-            "--payload", payloadDir.get().asFile.absolutePath,
+            "--payload", javaInstallerPayloadDir.get().asFile.absolutePath,
             "--regression-jar", installerRegressionJarTask.get().archiveFile.get().asFile.absolutePath,
             "--manifest", releasePluginsFile.absolutePath
         )

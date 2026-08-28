@@ -40,7 +40,7 @@ final class FxProcessTransportTest {
     }
 
     @Test
-    void teardownRetainsChildrenAfterTheDirectProcessHasExited() throws Exception {
+    void bestEffortCleanupUsesRetainedChildHandleAfterParentExit() throws Exception {
         Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
         final Path childPid = temporaryDirectory.resolve("late-child.pid");
         final Path grandchildPid = temporaryDirectory.resolve("late-grandchild.pid");
@@ -92,7 +92,7 @@ final class FxProcessTransportTest {
             "retained child survived after direct process exit");
         if (grandchild > 0L) {
             assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
-                "late-spawned grandchild survived process-tree teardown");
+                "observed late-spawned grandchild survived best-effort cleanup");
         }
     }
 
@@ -135,7 +135,7 @@ final class FxProcessTransportTest {
         }
         final long retainedPid = pid;
         assertTrue(awaitGone(retainedPid, Duration.ofSeconds(3)),
-            "retained fixture child survived process-tree teardown");
+            "retained fixture child survived best-effort cleanup");
     }
 
     private static boolean awaitGone(final long pid, final Duration timeout)
