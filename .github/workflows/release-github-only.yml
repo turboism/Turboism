@@ -1,0 +1,130 @@
+# Authorized fallback for publishing a verified framework candidate to GitHub
+# when the independent Updates publication path is unavailable.
+
+name: Publish GitHub release fallback
+run-name: Publish GitHub release ${{ inputs.source_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_run_id:
+        description: Completed Product release candidate workflow run id
+        required: true
+        type: string
+      source_sha:
+        description: Exact candidate source commit SHA
+        required: true
+        type: string
+      confirmation:
+        description: Must be publish-github-only:<source_sha>
+        required: true
+        type: string
+
+permissions:
+  actions: read
+  contents: write
+
+concurrency:
+  group: turboism-production-release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    environment: production-release
+    timeout-minutes: 30
+    steps:
+      - name: Resolve verified candidate identity
+        id: source
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_ID: ${{ inputs.candidate_run_id }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          [[ "$RUN_ID" =~ ^[0-9]{1,20}$ ]]
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$CONFIRMATION" = "publish-github-only:$SOURCE_SHA"
+          RUN_JSON="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID")"
+          test "$(printf '%s' "$RUN_JSON" | jq -r .path)" = .github/workflows/release.yml
+          test "$(printf '%s' "$RUN_JSON" | jq -r .name)" = "Product release candidate"
+          test "$(printf '%s' "$RUN_JSON" | jq -r .event)" = push
+          test "$(printf '%s' "$RUN_JSON" | jq -r .status)" = completed
+          test "$(printf '%s' "$RUN_JSON" | jq -r .conclusion)" = success
+          test "$(printf '%s' "$RUN_JSON" | jq -r .head_sha)" = "$SOURCE_SHA"
+          HEAD_BRANCH="$(printf '%s' "$RUN_JSON" | jq -r .head_branch)"
+          [[ "$HEAD_BRANCH" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          RUN_ATTEMPT="$(printf '%s' "$RUN_JSON" | jq -r .run_attempt)"
+          [[ "$RUN_ATTEMPT" =~ ^[1-9][0-9]*$ ]]
+          echo "artifact_name=turboism-release-candidate-${SOURCE_SHA}-${RUN_ID}-${RUN_ATTEMPT}" >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact candidate source
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ inputs.source_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Check complete public history hygiene
+        run: python3 scripts/check_remote_hygiene.py --all
+
+      - name: Download verified candidate payload
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: ${{ steps.source.outputs.artifact_name }}
+          path: build/github-release-fallback/candidate
+          github-token: ${{ github.token }}
+          run-id: ${{ inputs.candidate_run_id }}
+
+      - name: Verify and publish exactly eight assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+        run: |
+          set -euo pipefail
+          CANDIDATE="$(find build/github-release-fallback/candidate -name candidate.json -type f -print -quit)"
+          DIST="$(dirname "$(find build/github-release-fallback/candidate -name 'turboism-*-full.zip' -type f -print -quit)")"
+          WINDOWS_STAGE="$(dirname "$DIST")/staging"
+          NOTES="$(find build/github-release-fallback/candidate -name release-notes.md -type f -print -quit)"
+          test -n "$CANDIDATE"
+          test -n "$DIST"
+          test -n "$NOTES"
+          VERSION="$(jq -r .framework.version "$CANDIDATE")"
+          TAG="$(jq -r .source.tag "$CANDIDATE")"
+          test "$(jq -r .source.revision "$CANDIDATE")" = "$SOURCE_SHA"
+          test "$TAG" = "v$VERSION"
+          test "$(git rev-parse "$TAG^{commit}")" = "$SOURCE_SHA"
+          python3 scripts/release/verify-release.py \
+            --version "$VERSION" \
+            --dist "$DIST" \
+            --release-plugins packaging/release-plugins.txt \
+            --windows-stage "$WINDOWS_STAGE"
+          EXPECTED="$(jq -c '{framework: .framework} | .framework.artifacts | map({key:.name,value:{size:.size,sha256:.sha256}}) | from_entries' "$CANDIDATE")"
+          REMOTE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,tagName)"
+          test "$(printf '%s' "$REMOTE" | jq -r .tagName)" = "$TAG"
+          test "$(printf '%s' "$REMOTE" | jq -r .isPrerelease)" = false
+          python3 scripts/release/verify-github-assets.py \
+            --expected-json "$EXPECTED" \
+            --release-json "$REMOTE" \
+            --allow-missing \
+            --missing-output build/github-release-fallback/missing-assets.txt
+          if [ "$(printf '%s' "$REMOTE" | jq -r .isDraft)" != true ] && \
+              [ -s build/github-release-fallback/missing-assets.txt ]; then
+            echo "published release $TAG is incomplete"
+            exit 1
+          fi
+          gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --title "Turboism $VERSION" --notes-file "$NOTES"
+          while IFS= read -r name; do
+            test -z "$name" && continue
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" "$DIST/$name"
+          done < build/github-release-fallback/missing-assets.txt
+          REMOTE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,tagName)"
+          python3 scripts/release/verify-github-assets.py \
+            --expected-json "$EXPECTED" \
+            --release-json "$REMOTE"
+          if [ "$(printf '%s' "$REMOTE" | jq -r .isDraft)" = true ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+          fi
+          test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = false
