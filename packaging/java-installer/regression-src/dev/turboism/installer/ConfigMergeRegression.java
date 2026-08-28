@@ -1,6 +1,10 @@
 package dev.turboism.installer;
 
+import com.izforge.izpack.api.data.InstallData;
+import com.izforge.izpack.api.resource.Messages;
+
 import java.io.IOException;
+import java.lang.reflect.Proxy;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +43,8 @@ public final class ConfigMergeRegression {
 
     public static void main(String[] args) throws Exception {
         strictNumbers();
+        unicodeEscapeUsesAsciiHexOnly();
+        managedFxPlatformPolicy();
         canonicalIdentity();
         malformedUtf8();
         sizeBoundary();
@@ -100,6 +106,133 @@ public final class ConfigMergeRegression {
                 BoundedJson.parse("{\"x\":123456789012345678901234567890}"));
         check("large integer round-trips exactly (" + big + ")",
                 big.contains("123456789012345678901234567890"));
+    }
+
+    /** JSON Unicode escapes accept only RFC 8259 ASCII hexadecimal digits. */
+    private static void unicodeEscapeUsesAsciiHexOnly() throws Exception {
+        for (String[] fixture : List.of(
+                new String[] {"Arabic-Indic", "١"},
+                new String[] {"fullwidth", "０"})) {
+            final String label = fixture[0];
+            final String invalid = "{\"value\":\"\\u" + fixture[1] + "000\"}";
+            try {
+                BoundedJson.parse(invalid);
+                check(label + " Unicode escape rejects non-ASCII hex", false);
+            } catch (BoundedJson.JsonException expected) {
+                check(label + " Unicode escape rejects non-ASCII hex", true);
+            }
+
+            final Path home = Files.createTempDirectory("cfg-merge-unicode-");
+            final Path config = home.resolve("config.json");
+            final byte[] source = ("{\"format\":\"turboism.runtime.config\","
+                    + "\"schemaVersion\":1,\"note\":\"\\u" + fixture[1] + "000\"}")
+                    .getBytes(StandardCharsets.UTF_8);
+            try {
+                Files.write(config, source);
+                try {
+                    ConfigMerge.loadExisting(home);
+                    check(label + " Unicode escape fails closed through config merge", false);
+                } catch (ConfigMerge.ConfigException expected) {
+                    check(label + " Unicode escape fails closed through config merge", true);
+                }
+                check(label + " Unicode escape leaves config bytes unchanged",
+                        java.util.Arrays.equals(source, Files.readAllBytes(config)));
+            } finally {
+                deleteTree(home);
+            }
+        }
+    }
+
+    /** The listener must reject unsupported Windows Full before config mutation, not Thin or Lite. */
+    private static void managedFxPlatformPolicy() throws Exception {
+        final String originalOs = System.getProperty("os.name");
+        final String originalArchitecture = System.getProperty("os.arch");
+        System.setProperty("os.name", "Windows 11");
+        System.setProperty("os.arch", "amd64");
+        try {
+            final Path fullHome = Files.createTempDirectory("installer-policy-full-");
+            final Path fullConfig = fullHome.resolve("config.json");
+            final byte[] before = validConfig("full").getBytes(StandardCharsets.UTF_8);
+            try {
+                Files.write(fullConfig, before);
+                try {
+                    listener(fullHome, "full").beforePacks(List.of());
+                    check("Windows Full rejects unsupported managed fx platform", false);
+                } catch (RuntimeException expected) {
+                    check("Windows Full rejects unsupported managed fx platform",
+                            expected.getCause() instanceof IOException
+                                    && expected.getCause().getMessage().contains(
+                                            "no reviewed managed fx runtime"));
+                }
+                check("Windows Full rejection occurs before config mutation",
+                        java.util.Arrays.equals(before, Files.readAllBytes(fullConfig)));
+            } finally {
+                deleteTree(fullHome);
+            }
+
+            for (String mode : List.of("thin", "lite")) {
+                final Path home = Files.createTempDirectory("installer-policy-" + mode + "-");
+                final Path config = home.resolve("config.json");
+                try {
+                    Files.writeString(config, validConfig(mode), StandardCharsets.UTF_8);
+                    listener(home, mode).beforePacks(List.of());
+                    check("Windows " + mode + " proceeds without managed fx platform", true);
+                    check("Windows " + mode + " reaches config merge",
+                            Files.readString(config, StandardCharsets.UTF_8)
+                                    .contains("\"worktreeId\":\"turboism-runtime\""));
+                } finally {
+                    deleteTree(home);
+                }
+            }
+        } finally {
+            restoreSystemProperty("os.name", originalOs);
+            restoreSystemProperty("os.arch", originalArchitecture);
+        }
+    }
+
+    private static TurboismInstallerListener listener(Path home, String mode) {
+        final Map<String, String> variables = new LinkedHashMap<>();
+        variables.put(TurboismInstallerListener.INSTALL_PATH_VAR, home.toString());
+        variables.put(TurboismInstallerListener.INSTALL_GROUP_VAR, mode);
+        variables.put(TurboismInstallerListener.BUNDLED_PLUGINS_VAR,
+                "dev.turboism.plugin.fixture");
+        final Messages messages = (Messages) Proxy.newProxyInstance(
+                ConfigMergeRegression.class.getClassLoader(),
+                new Class<?>[] {Messages.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "get" -> String.valueOf(arguments[0]);
+                    case "getMessages" -> Map.of();
+                    case "newMessages" -> proxy;
+                    case "add" -> null;
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        final InstallData data = (InstallData) Proxy.newProxyInstance(
+                ConfigMergeRegression.class.getClassLoader(),
+                new Class<?>[] {InstallData.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "getVariable" -> variables.get(arguments[0]);
+                    case "setVariable" -> {
+                        variables.put((String) arguments[0], (String) arguments[1]);
+                        yield null;
+                    }
+                    case "getSelectedPacks" -> List.of();
+                    case "getMessages" -> messages;
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+        return new TurboismInstallerListener(data);
+    }
+
+    private static String validConfig(String marker) {
+        return "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                + "\"marker\":\"" + marker + "\"}";
+    }
+
+    private static void restoreSystemProperty(String name, String value) {
+        if (value == null) {
+            System.clearProperty(name);
+        } else {
+            System.setProperty(name, value);
+        }
     }
 
     /** R8.4: canonical runtime-config v1 identity, fail closed, no mutation. */
