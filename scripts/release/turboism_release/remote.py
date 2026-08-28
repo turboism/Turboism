@@ -114,7 +114,11 @@ def _json_url(url: str) -> tuple[dict[str, Any], bytes]:
 def _bytes_url(url: str) -> bytes:
     request = urllib.request.Request(
         url,
-        headers={"Accept": "application/json", "Accept-Encoding": "identity"},
+        headers={
+            "Accept": "application/json",
+            "Accept-Encoding": "identity",
+            "User-Agent": "turboism-release-orchestrator/1",
+        },
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
