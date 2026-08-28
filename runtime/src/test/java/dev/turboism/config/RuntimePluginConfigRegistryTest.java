@@ -276,6 +276,75 @@ class RuntimePluginConfigRegistryTest {
     }
 
     @Test
+    void interruptedWriteCannotPublishAfterRegistryClose(@TempDir Path dataDir) throws Exception {
+        final InterruptibleWriteExecutor io = new InterruptibleWriteExecutor();
+        final RuntimePluginConfigRegistry registry = registry(
+            dataDir,
+            (permissionId, operation) -> { },
+            new RecordingPolicy(),
+            new CopyOnWriteArrayList<>(),
+            new RuntimeFailureCollector(),
+            io
+        );
+        final Registration scope = registry.writeScope("probe/config.properties");
+        final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
+        final Thread writer = new Thread(() -> {
+            try {
+                registry.writeString("probe/config.properties", "name", "Turboism");
+            } catch (Throwable failure) {
+                writeFailure.set(failure);
+            }
+        });
+        writer.start();
+        assertTrue(io.started.await(2, TimeUnit.SECONDS));
+
+        registry.close();
+        io.release.countDown();
+        writer.join(2_000L);
+
+        assertFalse(writer.isAlive());
+        assertTrue(writeFailure.get() instanceof PluginConfigException);
+        assertFalse(Files.exists(dataDir.resolve("probe/config.properties")));
+        scope.close();
+    }
+
+    @Test
+    void closeWinsAgainstWriteAtThePublicationBoundary(@TempDir Path dataDir) throws Exception {
+        final CountDownLatch publicationReached = new CountDownLatch(1);
+        final CountDownLatch publicationRelease = new CountDownLatch(1);
+        final RuntimePluginConfigRegistry registry = registryWithPublicationBarrier(
+            dataDir,
+            publicationReached,
+            publicationRelease
+        );
+        final Registration scope = registry.writeScope("probe/config.properties");
+        final AtomicReference<Throwable> writeFailure = new AtomicReference<>();
+        final Thread writer = new Thread(() -> {
+            try {
+                registry.writeString("probe/config.properties", "name", "Turboism");
+            } catch (Throwable failure) {
+                writeFailure.set(failure);
+            }
+        });
+        writer.start();
+        assertTrue(publicationReached.await(2, TimeUnit.SECONDS));
+
+        final Thread closer = new Thread(registry::close);
+        closer.start();
+        closer.join(2_000L);
+        assertFalse(closer.isAlive());
+        publicationRelease.countDown();
+        writer.join(2_000L);
+        closer.join(2_000L);
+
+        assertFalse(writer.isAlive());
+        assertFalse(closer.isAlive());
+        assertTrue(writeFailure.get() instanceof PluginConfigException);
+        assertFalse(Files.exists(dataDir.resolve("probe/config.properties")));
+        scope.close();
+    }
+
+    @Test
     void writeAfterCloseIsRejectedWithoutCreatingAFile(@TempDir Path dataDir) {
         final RuntimePluginConfigRegistry registry = registry(
             dataDir,
@@ -388,6 +457,37 @@ class RuntimePluginConfigRegistryTest {
             );
     }
 
+    private RuntimePluginConfigRegistry registryWithPublicationBarrier(
+        final Path dataDir,
+        final CountDownLatch reached,
+        final CountDownLatch release
+    ) {
+        final List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
+        scheduler = new RuntimeScheduler(
+            new RecordingPolicy(),
+            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+            availableSidecar(),
+            events::add
+        );
+        return new RuntimePluginConfigRegistry(
+            (permissionId, operation) -> { },
+            scheduler,
+            dataDir,
+            "dev.turboism.plugin.config-test",
+            ignored -> { },
+            new RuntimeFailureCollector(),
+            null,
+            () -> {
+                reached.countDown();
+                try {
+                    release.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        );
+    }
+
 
     private static SidecarDispatcher availableSidecar() {
         return (task, callback) -> {
@@ -412,6 +512,68 @@ class RuntimePluginConfigRegistryTest {
             this.task.set(task);
             dispatched.countDown();
             return WorkBudget.HEAVY;
+        }
+    }
+
+    private static final class InterruptibleWriteExecutor extends AbstractExecutorService {
+
+        private final AtomicBoolean shutdown = new AtomicBoolean();
+        private final CountDownLatch started = new CountDownLatch(1);
+        private final CountDownLatch release = new CountDownLatch(1);
+        private final AtomicReference<Thread> worker = new AtomicReference<>();
+
+        @Override
+        public void shutdown() {
+            shutdown.set(true);
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            shutdown.set(true);
+            final Thread running = worker.get();
+            if (running != null) running.interrupt();
+            return List.of();
+        }
+
+        @Override public boolean isShutdown() { return shutdown.get(); }
+
+        @Override public boolean isTerminated() {
+            final Thread running = worker.get();
+            return shutdown.get() && (running == null || !running.isAlive());
+        }
+
+        @Override
+        public boolean awaitTermination(final long timeout, final TimeUnit unit)
+            throws InterruptedException {
+            final Thread running = worker.get();
+            if (running == null) return shutdown.get();
+            running.join(unit.toMillis(timeout));
+            return !running.isAlive();
+        }
+
+        @Override
+        public void execute(final Runnable command) {
+            if (shutdown.get()) throw new RejectedExecutionException("test executor is closed");
+            final Thread thread = new Thread(() -> {
+                worker.set(Thread.currentThread());
+                started.countDown();
+                boolean interrupted = false;
+                try {
+                    while (release.getCount() > 0) {
+                        try {
+                            release.await();
+                        } catch (InterruptedException expected) {
+                            interrupted = true;
+                            break;
+                        }
+                    }
+                    if (interrupted) Thread.currentThread().interrupt();
+                    command.run();
+                } finally {
+                    worker.compareAndSet(Thread.currentThread(), null);
+                }
+            });
+            thread.start();
         }
     }
 

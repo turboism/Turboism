@@ -57,8 +57,8 @@ the frozen acceptance conditions, including the R2 repairs:
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
   9.  Managed fx packaging fails closed: simulated unsupported Windows rejects
-      Full and Thin before payload mutation; the normal Lite matrix remains
-      platform-independent. A selected platform symlink rejects Full without
+      Full before payload mutation while Thin and Lite remain platform-independent
+      byte-absence modes. A selected platform symlink rejects Full without
       touching its target; a Full upgrade removes pre-existing non-current
       Linux and macOS platform directories. Thin/Lite transitions over an
       existing Full home fail closed before config or payload mutation until
@@ -519,12 +519,6 @@ def assert_thin_install(jar, payload_plugins):
     target = os.path.join(base, "home with spaces")
     clear_task_lock()
     rc, out = run_console(jar, install_answers("thin", target, payload_plugins=payload_plugins))
-    platform = current_fx_platform()
-    if platform is None:
-        check("thin unsupported platform aborts before installation", rc != 0, "rc=%s" % rc)
-        check("thin unsupported platform leaves target unmodified", not os.path.lexists(target))
-        shutil.rmtree(base, ignore_errors=True)
-        return
     check("thin install exit 0", rc == 0, "rc=%s" % rc)
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
     expected_modules = sorted(p["module"] + ".jar" for p in payload_plugins)
@@ -565,27 +559,53 @@ def assert_lite_install(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_unsupported_windows_modes(jar, payload_plugins):
+def assert_full_only_managed_fx_platform_policy(manifest_path):
+    root = os.path.dirname(os.path.dirname(os.path.normpath(manifest_path)))
+    source = os.path.join(
+        root,
+        "packaging",
+        "java-installer",
+        "listener-src",
+        "dev",
+        "turboism",
+        "installer",
+        "TurboismInstallerListener.java",
+    )
+    check("installer listener source exists", os.path.isfile(source), source)
+    text = open(source, encoding="utf-8").read()
+    method = re.search(
+        r"private void requireManagedFxPlatform\(\) throws IOException \{(.*?)\n    \}",
+        text,
+        re.DOTALL,
+    )
+    check("installer managed fx platform policy method is present", method is not None)
+    body = method.group(1)
+    check("managed fx platform rejection is Full-only",
+          '!"full".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR))' in body)
+    check("managed fx platform policy does not name Thin or Lite",
+          '"thin"' not in body.lower() and '"lite"' not in body.lower())
+
+
+def assert_unsupported_windows_full(jar, payload_plugins):
     java_flags = ("-Dos.name=Windows 11", "-Dos.arch=amd64")
-    for mode in ("full", "thin"):
-        base = tempfile.mkdtemp(prefix="turboism-windows-%s " % mode)
-        target = os.path.join(base, "home")
-        clear_task_lock()
-        rc, out = run_console(
-            jar,
-            install_answers(mode, target, payload_plugins=payload_plugins),
-            java_flags=java_flags,
-        )
-        check("unsupported Windows %s rejects" % mode, rc != 0, "rc=%s" % rc)
-        check("unsupported Windows %s leaves config absent" % mode,
-              not os.path.lexists(os.path.join(target, "config.json")))
-        check("unsupported Windows %s leaves agent absent" % mode,
-              not os.path.lexists(os.path.join(target, "turboism-agent.jar")))
-        check("unsupported Windows %s leaves plugins absent" % mode,
-              not os.path.lexists(os.path.join(target, "plugins")))
-        check("unsupported Windows %s leaves fx absent" % mode,
-              not os.path.lexists(os.path.join(target, "runtimes", "fx")))
-        shutil.rmtree(base, ignore_errors=True)
+    base = tempfile.mkdtemp(prefix="turboism-windows-full ")
+    target = os.path.join(base, "home")
+    clear_task_lock()
+    rc, out = run_console(
+        jar,
+        install_answers("full", target, payload_plugins=payload_plugins),
+        java_flags=java_flags,
+    )
+    check("unsupported Windows full rejects", rc != 0, "rc=%s" % rc)
+    check("unsupported Windows full leaves config absent",
+          not os.path.lexists(os.path.join(target, "config.json")))
+    check("unsupported Windows full leaves agent absent",
+          not os.path.lexists(os.path.join(target, "turboism-agent.jar")))
+    check("unsupported Windows full leaves plugins absent",
+          not os.path.lexists(os.path.join(target, "plugins")))
+    check("unsupported Windows full leaves fx absent",
+          not os.path.lexists(os.path.join(target, "runtimes", "fx")))
+    shutil.rmtree(base, ignore_errors=True)
 
 
 
@@ -1627,7 +1647,8 @@ def main():
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_install_home_symlink_rejected(jar)
-        assert_unsupported_windows_modes(jar, payload_plugins)
+        assert_full_only_managed_fx_platform_policy(args.manifest)
+        assert_unsupported_windows_full(jar, payload_plugins)
         assert_thin_install(jar, payload_plugins)
         assert_required_plugin_dependency_selection(jar, payload_plugins)
         supported_fx = current_fx_platform() is not None

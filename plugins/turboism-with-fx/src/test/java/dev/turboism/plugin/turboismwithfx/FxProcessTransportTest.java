@@ -40,6 +40,63 @@ final class FxProcessTransportTest {
     }
 
     @Test
+    void teardownRetainsChildrenAfterTheDirectProcessHasExited() throws Exception {
+        Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
+        final Path childPid = temporaryDirectory.resolve("late-child.pid");
+        final Path grandchildPid = temporaryDirectory.resolve("late-grandchild.pid");
+        final Path childScript = temporaryDirectory.resolve("late-child.sh");
+        Files.writeString(childScript, """
+            #!/bin/sh
+            trap '' TERM
+            sleep 0.2
+            sh -c 'trap "" TERM; while :; do sleep 1; done' &
+            grandchild=$!
+            printf '%s' "$grandchild" > "$1"
+            while :; do sleep 1; done
+            """);
+        childScript.toFile().setExecutable(true, true);
+        final Path executable = temporaryDirectory.resolve("late fixture fx");
+        Files.writeString(executable, """
+            #!/bin/sh
+            "%s" "%s" &
+            printf '%%s' "$!" > "%s"
+            sleep 0.05
+            exit 0
+            """.formatted(childScript, grandchildPid, childPid));
+        executable.toFile().setExecutable(true, true);
+
+        final FxProcessTransport transport = FxProcessTransport.start(new FxLaunchConfiguration(
+            executable.toString(),
+            temporaryDirectory,
+            FxSecurityMode.FX_NATIVE_TOOLS
+        ));
+        long child = -1L;
+        long grandchild = -1L;
+        try {
+            for (int attempt = 0; attempt < 200 && !Files.exists(childPid); attempt++) {
+                Thread.sleep(5L);
+            }
+            assertTrue(Files.exists(childPid), "fixture child pid was not published");
+            child = Long.parseLong(Files.readString(childPid));
+            transport.terminate(Duration.ofMillis(750));
+            for (int attempt = 0; attempt < 200 && !Files.exists(grandchildPid); attempt++) {
+                Thread.sleep(5L);
+            }
+            if (Files.exists(grandchildPid)) {
+                grandchild = Long.parseLong(Files.readString(grandchildPid));
+            }
+        } finally {
+            transport.terminate(Duration.ZERO);
+        }
+        assertTrue(awaitGone(child, Duration.ofSeconds(3)),
+            "retained child survived after direct process exit");
+        if (grandchild > 0L) {
+            assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
+                "late-spawned grandchild survived process-tree teardown");
+        }
+    }
+
+    @Test
     void teardownForceKillsAChildThatIgnoresGracefulTermination() throws Exception {
         Assumptions.assumeTrue(Files.isExecutable(Path.of("/bin/sh")));
         final Path childPid = temporaryDirectory.resolve("child.pid");

@@ -187,7 +187,16 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 FxSecurityMode.FX_NATIVE_TOOLS,
                 available.managedRuntime()
             ), this);
+            if (closed.get()) {
+                connected.close();
+                return;
+            }
             client.set(connected);
+            if (closed.get()) {
+                client.compareAndSet(connected, null);
+                connected.close();
+                return;
+            }
             mcpConnection = connection;
             final FxAcpClient.FxAcpCapabilities capabilities = connected.capabilities();
             if (!capabilities.loadSession() && settings.sessionId() != null) {
@@ -605,10 +614,15 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         synchronized (uiLock) {
             pendingUi.clear();
         }
+        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+            serial.shutdownNow();
+            startAsyncCleanup();
+            return;
+        }
         try {
             serial.execute(this::disconnectNow);
         } catch (java.util.concurrent.RejectedExecutionException ignored) {
-            disconnectNow();
+            startAsyncCleanup();
         }
         serial.shutdown();
         try {
@@ -621,6 +635,15 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             serial.shutdownNow();
             disconnectNow();
         }
+    }
+
+    private void startAsyncCleanup() {
+        final Thread cleanup = new Thread(
+            this::disconnectNow,
+            "turboism-with-fx-controller-close"
+        );
+        cleanup.setDaemon(true);
+        cleanup.start();
     }
 
     private static String validateExecutableOverride(final String value) {

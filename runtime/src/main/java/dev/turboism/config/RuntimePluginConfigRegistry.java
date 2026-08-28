@@ -15,8 +15,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -33,6 +35,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Consumer;
 
 /**
@@ -59,7 +62,9 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
 
     private final PermissionChecker permissionChecker;
     private final ExecutorService io;
+    private final Runnable beforePublication;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final ReentrantLock lifecycleLock = new ReentrantLock(true);
     private final Path pluginDataDir;
     private final Consumer<StartupReport.DiagnosticProblem> diagnosticSink;
     private final RuntimeFailureSink failureSink;
@@ -115,7 +120,8 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
             pluginId,
             diagnosticSink,
             failureSink,
-            null
+            null,
+            () -> { }
         );
     }
 
@@ -128,6 +134,28 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         final RuntimeFailureSink failureSink,
         final ExecutorService io
     ) {
+        this(
+            permissionChecker,
+            scheduler,
+            pluginDataDir,
+            pluginId,
+            diagnosticSink,
+            failureSink,
+            io,
+            () -> { }
+        );
+    }
+
+    RuntimePluginConfigRegistry(
+        final PermissionChecker permissionChecker,
+        final RuntimeScheduler scheduler,
+        final Path pluginDataDir,
+        final String pluginId,
+        final Consumer<StartupReport.DiagnosticProblem> diagnosticSink,
+        final RuntimeFailureSink failureSink,
+        final ExecutorService io,
+        final Runnable beforePublication
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         Objects.requireNonNull(scheduler, "scheduler");
         this.pluginDataDir = Objects.requireNonNull(pluginDataDir, "pluginDataDir")
@@ -137,6 +165,10 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
         this.diagnosticSink = Objects.requireNonNull(diagnosticSink, "diagnosticSink");
         this.failureSink = RuntimeFailureSink.require(failureSink);
         this.io = io == null ? newIoExecutor(this.pluginId) : io;
+        this.beforePublication = Objects.requireNonNull(
+            beforePublication,
+            "beforePublication"
+        );
     }
 
     private static ThreadPoolExecutor newIoExecutor(final String pluginId) {
@@ -266,17 +298,18 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
     }
 
     private PluginConfigException writeProperty(final String scope, final String key, final String value) {
-        if (closed.get() || !writeScopes.contains(scope)) {
-            return new PluginConfigException("Plugin config write scope is no longer active for " + scope);
+        if (writeRevoked(scope)) {
+            return revokedWrite(scope);
         }
         final Properties properties = new Properties();
+        Path temporary = null;
         try {
             final Path path = confinedPath(scope);
             final Path parent = path.getParent();
             if (parent != null) Files.createDirectories(parent);
             final Path confined = confinedPath(scope);
-            if (closed.get() || !writeScopes.contains(scope)) {
-                return new PluginConfigException("Plugin config write scope is no longer active for " + scope);
+            if (writeRevoked(scope)) {
+                return revokedWrite(scope);
             }
             if (Files.exists(confined)) {
                 try (Reader reader = Files.newBufferedReader(confined, StandardCharsets.UTF_8)) {
@@ -284,13 +317,65 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
                 }
             }
             properties.setProperty(key, value);
-            try (Writer writer = Files.newBufferedWriter(confined, StandardCharsets.UTF_8)) {
+            temporary = Files.createTempFile(
+                Objects.requireNonNull(confined.getParent(), "config parent"),
+                ".turboism-config-",
+                ".tmp"
+            );
+            try (Writer writer = Files.newBufferedWriter(temporary, StandardCharsets.UTF_8)) {
                 properties.store(writer, "Turboism plugin config");
             }
-            return null;
+            beforeConfigPublication();
+            lifecycleLock.lockInterruptibly();
+            try {
+                if (writeRevoked(scope)) {
+                    return revokedWrite(scope);
+                }
+                replaceConfig(temporary, confined);
+                temporary = null;
+                return null;
+            } finally {
+                lifecycleLock.unlock();
+            }
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return revokedWrite(scope);
         } catch (IOException exception) {
             emit("CONFIG_WRITE_FAILED", exception.getMessage(), scope);
             return new PluginConfigException("Failed to write plugin config scope " + scope, exception);
+        } finally {
+            if (temporary != null) {
+                try {
+                    Files.deleteIfExists(temporary);
+                } catch (IOException ignored) {
+                    // Best effort: the unpublished temporary file remains confined to plugin data.
+                }
+            }
+        }
+    }
+
+    private boolean writeRevoked(final String scope) {
+        return closed.get() || !writeScopes.contains(scope) || Thread.currentThread().isInterrupted();
+    }
+
+    private PluginConfigException revokedWrite(final String scope) {
+        return new PluginConfigException("Plugin config write scope is no longer active for " + scope);
+    }
+
+    private void beforeConfigPublication() {
+        beforePublication.run();
+    }
+
+    private void replaceConfig(final Path temporary, final Path target) throws IOException {
+        try {
+            Files.move(
+                temporary,
+                target,
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING
+            );
+        } catch (AtomicMoveNotSupportedException unsupported) {
+            Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
         }
     }
 
@@ -334,7 +419,12 @@ public final class RuntimePluginConfigRegistry implements PluginConfigRegistry, 
 
     @Override
     public void close() {
-        if (!closed.compareAndSet(false, true)) return;
+        lifecycleLock.lock();
+        try {
+            if (!closed.compareAndSet(false, true)) return;
+        } finally {
+            lifecycleLock.unlock();
+        }
         final List<Runnable> discarded = io.shutdownNow();
         discarded.forEach(this::cancelDiscarded);
         try {

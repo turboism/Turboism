@@ -141,6 +141,43 @@ final class FxAcpClientTest {
     }
 
     @Test
+    void loadSessionAcceptsNullResultAfterReplayingSessionUpdates() throws Exception {
+        final AtomicReference<String> update = new AtomicReference<>();
+        try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
+            final String method = string(request.get("method"));
+            if ("initialize".equals(method)) {
+                output.response((Long) request.get("id"), initializeResult());
+            } else if ("session/load".equals(method)) {
+                output.notification("session/update", Map.of(
+                    "sessionId", "sess-durable",
+                    "update", Map.of(
+                        "sessionUpdate", "agent_message_chunk",
+                        "content", Map.of("type", "text", "text", "replayed")
+                    )
+                ));
+                output.response((Long) request.get("id"), null);
+            }
+        });
+             FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() {
+                 @Override public void agentText(
+                     final FxAcpClient source,
+                     final String sessionId,
+                     final String text
+                 ) {
+                     update.set(sessionId + ":" + text);
+                 }
+             })) {
+            client.initialize(Duration.ofSeconds(2));
+            final FxAcpSession session = client.loadSession(
+                "sess-durable", Path.of("."), connection(), Duration.ofSeconds(2)
+            );
+            assertEquals("sess-durable", session.sessionId());
+            assertTrue(session.configOptions().isEmpty());
+            assertEquals("sess-durable:replayed", update.get());
+        }
+    }
+
+    @Test
     void preservesOpaqueConfigValuesWhileRedactingDisplayLabels() throws Exception {
         final String secret = "Bearer config-secret";
         final String opaqueValue = "provider-" + secret;
@@ -1201,7 +1238,11 @@ final class FxAcpClientTest {
 
     private record ScriptOutput(BufferedWriter output, BufferedWriter errors) {
         private void response(final long id, final Object result) throws IOException {
-            line(Map.of("jsonrpc", "2.0", "id", id, "result", result));
+            final java.util.LinkedHashMap<String, Object> response = new java.util.LinkedHashMap<>();
+            response.put("jsonrpc", "2.0");
+            response.put("id", id);
+            response.put("result", result);
+            line(response);
         }
 
         private void error(final long id, final String message) throws IOException {
