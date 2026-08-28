@@ -28,6 +28,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
     private static final int MAX_PENDING_UI_UPDATES = 256;
+    static final int MAX_PENDING_LOAD_EVENTS = 64;
+    static final long MAX_PENDING_LOAD_TEXT_BYTES = 1024L * 1024L;
     static final int MAX_PROMPT_CHARS = 1024 * 1024;
     static final String SYSTEM_BOUNDARY =
         "Use only the Turboism MCP tools for Cubism automation. Do not use native filesystem, "
@@ -37,14 +39,19 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private final FxPluginSettings settings;
     private final FxRuntimeResolver runtimeResolver;
     private final FxManagedRuntimeService managedRuntime;
+    private final ClientStarter clientStarter;
     private final View view;
     private final ExecutorService serial;
+    private final Object stateLock = new Object();
     private final Object uiLock = new Object();
     private final ArrayDeque<UiUpdate> pendingUi = new ArrayDeque<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<FxAcpClient> client = new AtomicReference<>();
     private boolean uiDrainScheduled;
     private boolean uiOverflowReported;
+    private LoadTransaction loadTransaction;
+    private long generationCounter;
+    private long sessionGeneration;
     private volatile FxAcpSession session;
     private volatile McpHttpConnection mcpConnection;
     private volatile boolean prompting;
@@ -54,12 +61,22 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final FxPluginSettings settings,
         final View view
     ) {
+        this(context, settings, view, FxAcpClient::start);
+    }
+
+    TurboismWithFxController(
+        final PluginContext context,
+        final FxPluginSettings settings,
+        final View view,
+        final ClientStarter clientStarter
+    ) {
         this.context = Objects.requireNonNull(context, "context");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.runtimeResolver = new FxRuntimeResolver(context.paths());
         this.managedRuntime = new FxManagedRuntimeService(
             context.paths(), this::managedRuntimeDiagnostic
         );
+        this.clientStarter = Objects.requireNonNull(clientStarter, "clientStarter");
         this.view = Objects.requireNonNull(view, "view");
         this.serial = Executors.newSingleThreadExecutor(runnable -> {
             final Thread thread = new Thread(runnable, "turboism-with-fx-controller");
@@ -181,12 +198,15 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             final FxRuntimeResolver.Resolution.Available available =
                 (FxRuntimeResolver.Resolution.Available) resolution;
-            final FxAcpClient connected = FxAcpClient.start(new FxLaunchConfiguration(
-                available.executable(),
-                context.paths().stateDir(),
-                FxSecurityMode.FX_NATIVE_TOOLS,
-                available.managedRuntime()
-            ), this);
+            final FxAcpClient connected = clientStarter.start(
+                new FxLaunchConfiguration(
+                    available.executable(),
+                    context.paths().stateDir(),
+                    FxSecurityMode.FX_NATIVE_TOOLS,
+                    available.managedRuntime()
+                ),
+                this
+            );
             if (closed.get()) {
                 connected.close();
                 return;
@@ -205,28 +225,47 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             final String savedSessionId = capabilities.loadSession()
                 ? settings.sessionId()
                 : null;
-            try {
-                session = savedSessionId == null
-                    ? connected.newSession(context.paths().stateDir(), connection, REQUEST_TIMEOUT)
-                    : connected.loadSession(
+            if (savedSessionId == null) {
+                final FxAcpSession created = connected.newSession(
+                    context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                );
+                activateSession(created);
+                ui(() -> view.showConnected(
+                    created.configOptions(),
+                    created.durableSessionsAvailable()
+                ));
+            } else {
+                final LoadTransaction load = beginLoadTransaction(connected, savedSessionId);
+                try {
+                    final FxAcpSession restored = connected.loadSession(
                         savedSessionId,
                         context.paths().stateDir(),
                         connection,
                         REQUEST_TIMEOUT
                     );
-            } catch (FxAcpException loadFailure) {
-                if (savedSessionId == null) throw loadFailure;
-                context.logger().warn("Stored fx session could not be loaded; creating a new session");
-                session = connected.newSession(
-                    context.paths().stateDir(), connection, REQUEST_TIMEOUT
-                );
+                    if (!completeLoadTransaction(load, restored, () -> view.showConnected(
+                        restored.configOptions(),
+                        restored.durableSessionsAvailable()
+                    ))) {
+                        return;
+                    }
+                } catch (FxAcpException | RuntimeException loadFailure) {
+                    if (!discardCurrentLoadTransaction(load)) return;
+                    context.logger().warn(
+                        "Stored fx session could not be loaded; creating a new session"
+                    );
+                    if (!loadGenerationCurrent(load)) return;
+                    final FxAcpSession created = connected.newSession(
+                        context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                    );
+                    if (!loadGenerationCurrent(load)) return;
+                    activateSession(created);
+                    ui(() -> view.showConnected(
+                        created.configOptions(),
+                        created.durableSessionsAvailable()
+                    ));
+                }
             }
-            activateSession(session);
-            final FxAcpSession ready = session;
-            ui(() -> view.showConnected(
-                ready.configOptions(),
-                ready.durableSessionsAvailable()
-            ));
             refreshSessionsNow();
         } catch (IOException failure) {
             connectionFailed(failure, "status.executable-start-failed");
@@ -277,6 +316,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             || current.sessionId().equals(sessionId)) {
             return;
         }
+        final LoadTransaction load = beginLoadTransaction(active, sessionId);
         try {
             final FxAcpSession loaded = active.loadSession(
                 sessionId,
@@ -284,13 +324,15 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 connection,
                 REQUEST_TIMEOUT
             );
-            activateSession(loaded);
-            ui(() -> {
+            if (!completeLoadTransaction(load, loaded, () -> {
                 view.clearTranscript();
                 view.showConfigOptions(loaded.configOptions());
-            });
+            })) {
+                return;
+            }
             refreshSessionsNow();
-        } catch (FxAcpException failure) {
+        } catch (FxAcpException | RuntimeException failure) {
+            if (!discardCurrentLoadTransaction(load)) return;
             context.logger().error("fx session selection failed", failure);
             ui(() -> view.showSessionFailure("status.session-load-failed"));
         }
@@ -318,9 +360,123 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     }
 
     private void activateSession(final FxAcpSession activeSession) {
-        session = Objects.requireNonNull(activeSession, "activeSession");
-        if (activeSession.capabilities().loadSession()) {
-            settings.writeSessionId(activeSession.sessionId());
+        final FxAcpSession activated = Objects.requireNonNull(activeSession, "activeSession");
+        synchronized (stateLock) {
+            loadTransaction = null;
+            session = activated;
+            sessionGeneration = ++generationCounter;
+        }
+        if (activated.capabilities().loadSession()) {
+            settings.writeSessionId(activated.sessionId());
+        }
+    }
+
+    private LoadTransaction beginLoadTransaction(
+        final FxAcpClient source,
+        final String sessionId
+    ) {
+        synchronized (stateLock) {
+            final LoadTransaction load = new LoadTransaction(
+                source,
+                sessionId,
+                ++generationCounter
+            );
+            loadTransaction = load;
+            return load;
+        }
+    }
+
+    private boolean completeLoadTransaction(
+        final LoadTransaction load,
+        final FxAcpSession loaded,
+        final Runnable reset
+    ) {
+        final List<ReplayEvent> replay;
+        synchronized (stateLock) {
+            if (!currentLoadTransactionLocked(load)
+                || !load.sessionId().equals(loaded.sessionId())) {
+                if (loadTransaction == load) loadTransaction = null;
+                return false;
+            }
+            replay = load.events();
+            final Runnable replayWork = () -> {
+                if (!activeGeneration(load.source(), load.sessionId(), load.generation())) return;
+                reset.run();
+                for (ReplayEvent event : replay) {
+                    if (!activeGeneration(load.source(), load.sessionId(), load.generation())) return;
+                    event.deliver(view);
+                }
+            };
+            if (!enqueueUi(replayWork, false)) {
+                loadTransaction = null;
+                return false;
+            }
+            session = loaded;
+            sessionGeneration = load.generation();
+            loadTransaction = null;
+        }
+        if (loaded.capabilities().loadSession()
+            && activeGeneration(load.source(), load.sessionId(), load.generation())) {
+            settings.writeSessionId(loaded.sessionId());
+        }
+        return true;
+    }
+
+    private boolean currentLoadTransactionLocked(final LoadTransaction load) {
+        return !closed.get()
+            && loadTransaction == load
+            && client.get() == load.source()
+            && load.generation() == generationCounter;
+    }
+
+    private boolean activeGeneration(
+        final FxAcpClient source,
+        final String sessionId,
+        final long generation
+    ) {
+        synchronized (stateLock) {
+            final FxAcpSession current = session;
+            return !closed.get()
+                && client.get() == source
+                && current != null
+                && current.sessionId().equals(sessionId)
+                && sessionGeneration == generation;
+        }
+    }
+
+    private void discardLoadTransaction(final LoadTransaction load) {
+        synchronized (stateLock) {
+            if (loadTransaction == load) loadTransaction = null;
+        }
+    }
+
+    private boolean discardCurrentLoadTransaction(final LoadTransaction load) {
+        synchronized (stateLock) {
+            if (!currentLoadTransactionLocked(load)) return false;
+            loadTransaction = null;
+            return true;
+        }
+    }
+
+    private boolean loadGenerationCurrent(final LoadTransaction load) {
+        synchronized (stateLock) {
+            return !closed.get()
+                && client.get() == load.source()
+                && generationCounter == load.generation();
+        }
+    }
+
+    private void discardLoadTransaction(final FxAcpClient source) {
+        synchronized (stateLock) {
+            if (loadTransaction != null && loadTransaction.source() == source) {
+                loadTransaction = null;
+            }
+        }
+    }
+
+    private void discardLoadTransaction() {
+        synchronized (stateLock) {
+            loadTransaction = null;
         }
     }
 
@@ -415,7 +571,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final String sessionId,
         final String text
     ) {
-        sourceEvent(source, sessionId, () -> view.appendAgent(text));
+        sourceEvent(source, sessionId, new AgentTextEvent(text));
     }
 
     @Override
@@ -424,7 +580,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final String sessionId,
         final String text
     ) {
-        sourceEvent(source, sessionId, () -> view.appendThinking(text));
+        sourceEvent(source, sessionId, new AgentThoughtEvent(text));
     }
 
     @Override
@@ -439,7 +595,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         sourceEvent(
             source,
             sessionId,
-            () -> view.appendTool(toolCallId, title, kind, status)
+            new ToolCallEvent(toolCallId, title, kind, status)
         );
     }
 
@@ -454,7 +610,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         sourceEvent(
             source,
             sessionId,
-            () -> view.updateTool(toolCallId, status, content)
+            new ToolCallUpdateEvent(toolCallId, status, content)
         );
     }
 
@@ -465,9 +621,13 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
 
     @Override
     public void terminated(final FxAcpClient source, final String message) {
+        discardLoadTransaction(source);
         submit(() -> {
             if (!client.compareAndSet(source, null)) return;
-            session = null;
+            discardLoadTransaction(source);
+            synchronized (stateLock) {
+                session = null;
+            }
             mcpConnection = null;
             prompting = false;
             ui(() -> view.showFailure("status.process-terminated"));
@@ -480,19 +640,46 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final String sessionId,
         final PermissionRequest request
     ) {
-        return activeSession(source, sessionId)
-            ? view.requestPermission(request)
+        final long generation;
+        synchronized (stateLock) {
+            if (loadTransaction != null || !activeSession(source, sessionId)) {
+                return PermissionDecision.CANCELLED;
+            }
+            generation = sessionGeneration;
+        }
+        final PermissionDecision decision = view.requestPermission(request);
+        return activeGeneration(source, sessionId, generation)
+            ? decision
             : PermissionDecision.CANCELLED;
     }
 
     private void sourceEvent(
         final FxAcpClient source,
         final String sessionId,
-        final Runnable work
+        final ReplayEvent event
     ) {
-        if (activeSession(source, sessionId)) uiStream(() -> {
-            if (activeSession(source, sessionId)) work.run();
-        });
+        final long generation;
+        synchronized (stateLock) {
+            if (loadTransaction != null) {
+                loadTransaction.add(source, sessionId, event);
+                return;
+            }
+            if (!activeSession(source, sessionId)) return;
+            generation = sessionGeneration;
+            uiStream(guardedDelivery(source, sessionId, generation, event));
+        }
+    }
+
+    private Runnable guardedDelivery(
+        final FxAcpClient source,
+        final String sessionId,
+        final long generation,
+        final ReplayEvent event
+    ) {
+        return () -> {
+            if (!activeGeneration(source, sessionId, generation)) return;
+            event.deliver(view);
+        };
     }
 
     private boolean activeSession(final FxAcpClient source, final String sessionId) {
@@ -502,35 +689,141 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             && current.sessionId().equals(sessionId);
     }
 
-    private void ui(final Runnable work) {
-        enqueueUi(work, false);
+    private sealed interface ReplayEvent permits AgentTextEvent, AgentThoughtEvent,
+        ToolCallEvent, ToolCallUpdateEvent {
+        long textBytes();
+        void deliver(View target);
+    }
+
+    private record AgentTextEvent(String text) implements ReplayEvent {
+        private AgentTextEvent {
+            text = Objects.requireNonNull(text, "text");
+        }
+        @Override public long textBytes() { return utf8Bytes(text); }
+        @Override public void deliver(final View target) { target.appendAgent(text); }
+    }
+
+    private record AgentThoughtEvent(String text) implements ReplayEvent {
+        private AgentThoughtEvent {
+            text = Objects.requireNonNull(text, "text");
+        }
+        @Override public long textBytes() { return utf8Bytes(text); }
+        @Override public void deliver(final View target) { target.appendThinking(text); }
+    }
+
+    private record ToolCallEvent(
+        String toolCallId,
+        String title,
+        String kind,
+        String status
+    ) implements ReplayEvent {
+        private ToolCallEvent {
+            toolCallId = Objects.requireNonNull(toolCallId, "toolCallId");
+            title = Objects.requireNonNull(title, "title");
+            kind = Objects.requireNonNull(kind, "kind");
+            status = Objects.requireNonNull(status, "status");
+        }
+        @Override public long textBytes() {
+            return utf8Bytes(toolCallId) + utf8Bytes(title) + utf8Bytes(kind) + utf8Bytes(status);
+        }
+        @Override public void deliver(final View target) {
+            target.appendTool(toolCallId, title, kind, status);
+        }
+    }
+
+    private record ToolCallUpdateEvent(
+        String toolCallId,
+        String status,
+        String content
+    ) implements ReplayEvent {
+        private ToolCallUpdateEvent {
+            toolCallId = Objects.requireNonNull(toolCallId, "toolCallId");
+            status = Objects.requireNonNull(status, "status");
+            content = Objects.requireNonNull(content, "content");
+        }
+        @Override public long textBytes() {
+            return utf8Bytes(toolCallId) + utf8Bytes(status) + utf8Bytes(content);
+        }
+        @Override public void deliver(final View target) {
+            target.updateTool(toolCallId, status, content);
+        }
+    }
+
+    private final class LoadTransaction {
+        private final FxAcpClient source;
+        private final String sessionId;
+        private final long generation;
+        private final ArrayDeque<ReplayEvent> events = new ArrayDeque<>();
+        private long textBytes;
+        private boolean overflowReported;
+
+        private LoadTransaction(
+            final FxAcpClient source,
+            final String sessionId,
+            final long generation
+        ) {
+            this.source = Objects.requireNonNull(source, "source");
+            this.sessionId = Objects.requireNonNull(sessionId, "sessionId");
+            this.generation = generation;
+        }
+
+        private FxAcpClient source() { return source; }
+        private String sessionId() { return sessionId; }
+        private long generation() { return generation; }
+        private List<ReplayEvent> events() { return List.copyOf(events); }
+        private void add(
+            final FxAcpClient eventSource,
+            final String eventSessionId,
+            final ReplayEvent event
+        ) {
+            if (eventSource != source || !sessionId.equals(eventSessionId)
+                || generation != generationCounter || overflowReported) {
+                return;
+            }
+            final long eventBytes = event.textBytes();
+            if (events.size() >= MAX_PENDING_LOAD_EVENTS
+                || eventBytes > MAX_PENDING_LOAD_TEXT_BYTES - textBytes) {
+                overflowReported = true;
+                context.logger().warn("Turboism with fx dropped excess session-load replay events");
+                return;
+            }
+            events.addLast(event);
+            textBytes += eventBytes;
+        }
+    }
+
+    private static long utf8Bytes(final String value) {
+        return value.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+    }
+
+    private boolean ui(final Runnable work) {
+        return enqueueUi(work, false);
     }
 
     private void uiStream(final Runnable work) {
         enqueueUi(work, true);
     }
 
-    private void enqueueUi(final Runnable work, final boolean droppable) {
-        if (closed.get()) return;
+    private boolean enqueueUi(final Runnable work, final boolean droppable) {
+        if (closed.get()) return false;
         if (javax.swing.SwingUtilities.isEventDispatchThread()) {
             work.run();
-            return;
+            return true;
         }
         boolean schedule = false;
         synchronized (uiLock) {
-            if (closed.get()) return;
-            if (pendingUi.size() == MAX_PENDING_UI_UPDATES) {
+            if (closed.get()) return false;
+            if (pendingUi.size() >= MAX_PENDING_UI_UPDATES) {
                 final UiUpdate dropped = pendingUi.stream()
                     .filter(UiUpdate::droppable)
                     .findFirst()
                     .orElse(null);
-                if (dropped != null) {
-                    pendingUi.remove(dropped);
-                } else if (droppable) {
-                    reportUiOverflow();
-                    return;
+                if (dropped == null) {
+                    if (droppable) reportUiOverflow();
+                    return false;
                 }
-                if (dropped != null) reportUiOverflow();
+                pendingUi.remove(dropped);
+                reportUiOverflow();
             }
             pendingUi.addLast(new UiUpdate(work, droppable));
             if (!uiDrainScheduled) {
@@ -539,6 +832,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
         }
         if (schedule) javax.swing.SwingUtilities.invokeLater(this::drainUi);
+        return true;
     }
 
     private void reportUiOverflow() {
@@ -591,9 +885,13 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     }
 
     private void disconnectNow() {
+        discardLoadTransaction();
         final FxAcpClient active = client.getAndSet(null);
-        final FxAcpSession current = session;
-        session = null;
+        final FxAcpSession current;
+        synchronized (stateLock) {
+            current = session;
+            session = null;
+        }
         mcpConnection = null;
         prompting = false;
         if (active != null) {
@@ -611,6 +909,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
+        discardLoadTransaction();
         synchronized (uiLock) {
             pendingUi.clear();
         }
@@ -707,6 +1006,14 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         return failure instanceof CompletionException || failure instanceof java.util.concurrent.ExecutionException
             ? Objects.requireNonNullElse(failure.getCause(), failure)
             : failure;
+    }
+
+    @FunctionalInterface
+    interface ClientStarter {
+        FxAcpClient start(
+            FxLaunchConfiguration configuration,
+            FxAcpListener listener
+        ) throws IOException, FxAcpException;
     }
 
     /** UI contract kept independent from Swing so controller behavior remains testable. */
