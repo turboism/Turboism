@@ -267,7 +267,8 @@ final class Json {
             if (offset + 4 > input.length()) throw error("incomplete unicode escape");
             int value = 0;
             for (int index = 0; index < 4; index++) {
-                final int digit = Character.digit(input.charAt(offset++), 16);
+                final char character = input.charAt(offset++);
+                final int digit = asciiHexDigit(character);
                 if (digit < 0) throw error("invalid unicode escape");
                 value = value * 16 + digit;
             }
@@ -278,7 +279,7 @@ final class Json {
             final int start = offset;
             if (take('-') && offset >= input.length()) throw error("incomplete JSON number");
             if (take('0')) {
-                if (offset < input.length() && Character.isDigit(input.charAt(offset))) {
+                if (offset < input.length() && asciiDigit(input.charAt(offset))) {
                     throw error("leading zero in JSON number");
                 }
             } else {
@@ -309,8 +310,19 @@ final class Json {
 
         private void digits() {
             final int start = offset;
-            while (offset < input.length() && Character.isDigit(input.charAt(offset))) offset++;
+            while (offset < input.length() && asciiDigit(input.charAt(offset))) offset++;
             if (start == offset) throw error("JSON number requires a digit");
+        }
+
+        private static int asciiHexDigit(final char value) {
+            if (value >= '0' && value <= '9') return value - '0';
+            if (value >= 'a' && value <= 'f') return value - 'a' + 10;
+            if (value >= 'A' && value <= 'F') return value - 'A' + 10;
+            return -1;
+        }
+
+        private static boolean asciiDigit(final char value) {
+            return value >= '0' && value <= '9';
         }
 
         private Object literal(final String expected, final Object value) {
