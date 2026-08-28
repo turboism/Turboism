@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import importlib.util
 import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -407,6 +408,7 @@ class ExecutorTest(unittest.TestCase):
                 repo="turboism/Turboism",
             )
 
+    @mock.patch.dict(os.environ, {"GITHUB_ACTIONS": ""})
     @mock.patch("turboism_release.executor.subprocess.run")
     def test_dispatch_uses_workflow_inputs_only(self, run):
         run.return_value = subprocess.CompletedProcess([], 0, stdout="", stderr="")
@@ -425,6 +427,22 @@ class ExecutorTest(unittest.TestCase):
         self.assertIn(f"source_sha={SOURCE}", command)
         self.assertIn(f"plan_id={plan['planId']}", command)
         self.assertFalse(any(item.startswith("plan_json=") for item in command))
+
+    @mock.patch.dict(os.environ, {"GITHUB_ACTIONS": "true"})
+    @mock.patch("turboism_release.executor.subprocess.run")
+    def test_dispatch_rejects_github_actions(self, run):
+        plan = planner.make_plan(candidate(), github=None, updates=None, catalog=None, channel="stable")
+        with self.assertRaisesRegex(contracts.ReleaseError, "recursively dispatch"):
+            executor.dispatch_production(
+                Path("plan.json"),
+                plan,
+                candidate_run_id="12345",
+                production=True,
+                confirmation=f"publish:{SOURCE}",
+                workflow="release-publisher.yml",
+                repo="turboism/Turboism",
+            )
+        run.assert_not_called()
 
 
 class CliStaticTest(unittest.TestCase):
