@@ -578,15 +578,16 @@ val installerListenerJarTask = tasks.register<Jar>("installerListenerJar") {
     }
 }
 
-// Test-only regression harness for the bounded config merge (R8): compiles
-// the same listener sources plus the regression main into a separate jar that
-// is never embedded in the installer; the Python verifier runs it before the
-// live-install matrix (stdlib-only, deterministic).
+// Test-only regression harness for the bounded config merge and listener
+// policy: compiles the same listener sources plus the regression main into a
+// separate jar that is never embedded in the installer; the Python verifier
+// runs it before the live-install matrix.
 val installerRegressionSourceSet = extensions.getByType(SourceSetContainer::class.java).create("installerRegression") {
     java.srcDir(file("packaging/java-installer/listener-src"))
     java.srcDir(file("packaging/java-installer/regression-src"))
 }
 dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-api:5.2.6")
+dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-tools:5.2.6")
 
 val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     group = "packaging"
@@ -594,6 +595,24 @@ val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     destinationDirectory.set(layout.buildDirectory.dir("java-installer/lib"))
     dependsOn(tasks.named("compileInstallerRegressionJava"))
     from(installerRegressionSourceSet.output)
+    // The behavioral listener regression uses an InstallData proxy, whose full
+    // IzPack API signature includes Platform from izpack-tools. Bundle these
+    // test-only API classes so the verifier remains a one-jar executable.
+    from(installerRegressionSourceSet.compileClasspath.files.map { zipTree(it) })
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    // The behavioral listener regression initializes the same managed-fx
+    // identity table as the shipped listener, so include its exact resources.
+    from(fxRuntimeManifestFile) {
+        into("turboism/fx-runtime")
+    }
+    from(rootProject.file("packaging/fx-runtime")) {
+        include(
+            "LICENSE",
+            "THIRD_PARTY_NOTICES.md",
+            "TURBOISM-DISTRIBUTION-NOTICE.txt"
+        )
+        into("turboism/fx-runtime")
+    }
 }
 
 // ---------------------------------------------------------------------------

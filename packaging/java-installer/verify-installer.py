@@ -559,33 +559,6 @@ def assert_lite_install(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_full_only_managed_fx_platform_policy(manifest_path):
-    root = os.path.dirname(os.path.dirname(os.path.normpath(manifest_path)))
-    source = os.path.join(
-        root,
-        "packaging",
-        "java-installer",
-        "listener-src",
-        "dev",
-        "turboism",
-        "installer",
-        "TurboismInstallerListener.java",
-    )
-    check("installer listener source exists", os.path.isfile(source), source)
-    text = open(source, encoding="utf-8").read()
-    method = re.search(
-        r"private void requireManagedFxPlatform\(\) throws IOException \{(.*?)\n    \}",
-        text,
-        re.DOTALL,
-    )
-    check("installer managed fx platform policy method is present", method is not None)
-    body = method.group(1)
-    check("managed fx platform rejection is Full-only",
-          '!"full".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR))' in body)
-    check("managed fx platform policy does not name Thin or Lite",
-          '"thin"' not in body.lower() and '"lite"' not in body.lower())
-
-
 def assert_unsupported_windows_full(jar, payload_plugins):
     java_flags = ("-Dos.name=Windows 11", "-Dos.arch=amd64")
     base = tempfile.mkdtemp(prefix="turboism-windows-full ")
@@ -1647,7 +1620,6 @@ def main():
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_install_home_symlink_rejected(jar)
-        assert_full_only_managed_fx_platform_policy(args.manifest)
         assert_unsupported_windows_full(jar, payload_plugins)
         assert_thin_install(jar, payload_plugins)
         assert_required_plugin_dependency_selection(jar, payload_plugins)
@@ -1670,8 +1642,18 @@ def main():
         assert_fail_closed(jar, "malformed", malformed_setup)
         assert_fail_closed(jar, "oversized",
                            lambda t: open(os.path.join(t, "config.json"), "wb").write(b" " * (70 * 1024)))
-        assert_fail_closed(jar, "bad-unicode-escape",
-                           lambda t: open(os.path.join(t, "config.json"), "wb").write(b'{"x": "\\uZZZZ"}'))
+        unicode_escapes = {
+            "bad-unicode-escape": b'{"x": "\\uZZZZ"}',
+            "arabic-indic-unicode-escape":
+                '{"x": "\\u١000"}'.encode("utf-8"),
+            "fullwidth-unicode-escape":
+                '{"x": "\\u０000"}'.encode("utf-8"),
+        }
+        for name, source in unicode_escapes.items():
+            assert_fail_closed(jar, name,
+                               lambda t, source=source: open(
+                                   os.path.join(t, "config.json"), "wb"
+                               ).write(source))
         assert_strict_numbers_fail_closed(jar)
         assert_canonical_identity_fail_closed(jar)
         assert_malformed_utf8_fail_closed(jar)
