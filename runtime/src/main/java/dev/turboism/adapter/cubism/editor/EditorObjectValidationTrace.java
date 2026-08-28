@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import javax.swing.SwingUtilities;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -52,32 +53,44 @@ final class EditorObjectValidationTrace {
         final Object modelSource,
         final String detail
     ) {
+        writeArtifact(
+            "editor-object-runtime-trace.txt",
+            "transaction=" + transaction
+                + " phase=" + phase
+                + " kind=" + safe(kind)
+                + " action=" + safe(action)
+                + " sourceId=" + safe(sourceId)
+                + " documentIdentity=" + identity(document)
+                + " modelSourceIdentity=" + identity(modelSource)
+                + " thread=" + safe(Thread.currentThread().getName())
+                + " edt=" + SwingUtilities.isEventDispatchThread()
+                + (detail == null || detail.isBlank() ? "" : " " + detail)
+                + System.lineSeparator(),
+            true
+        );
+    }
+
+    /** Writes a separate opt-in validation evidence artifact under the shared safe trace policy. */
+    static void writeArtifact(final String fileName, final String evidence, final boolean append) {
         if (!Boolean.getBoolean("turboism.editorObjectValidation.trace")) return;
         final String home = System.getProperty("turboism.home");
-        if (home == null || home.isBlank()) return;
-        final Path artifact = Path.of(home, "logs", "editor-object-runtime-trace.txt");
-        final String line = "transaction=" + transaction
-            + " phase=" + phase
-            + " kind=" + safe(kind)
-            + " action=" + safe(action)
-            + " sourceId=" + safe(sourceId)
-            + " documentIdentity=" + identity(document)
-            + " modelSourceIdentity=" + identity(modelSource)
-            + " thread=" + safe(Thread.currentThread().getName())
-            + " edt=" + SwingUtilities.isEventDispatchThread()
-            + (detail == null || detail.isBlank() ? "" : " " + detail)
-            + System.lineSeparator();
+        if (home == null || home.isBlank() || fileName == null || fileName.isBlank()
+            || fileName.indexOf('/') >= 0 || fileName.indexOf('\\') >= 0) {
+            return;
+        }
         try {
+            final Path artifact = Path.of(home, "logs", fileName);
+            final String content = evidence == null ? "" : evidence;
             synchronized (WRITE_LOCK) {
                 Files.createDirectories(artifact.getParent());
                 final long existingBytes = Files.exists(artifact) ? Files.size(artifact) : 0L;
-                final long lineBytes = line.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
-                if (existingBytes + lineBytes > MAX_BYTES) return;
+                final long contentBytes = content.getBytes(StandardCharsets.UTF_8).length;
+                if ((append ? existingBytes : 0L) + contentBytes > MAX_BYTES) return;
                 Files.writeString(
                     artifact,
-                    line,
+                    content,
                     StandardOpenOption.CREATE,
-                    StandardOpenOption.APPEND
+                    append ? StandardOpenOption.APPEND : StandardOpenOption.TRUNCATE_EXISTING
                 );
             }
         } catch (IOException | RuntimeException ignored) {

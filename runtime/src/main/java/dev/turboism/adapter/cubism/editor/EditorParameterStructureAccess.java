@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Supplier;
 
 /** Exact, generation-bound Editor projection for Parameter collection structure writes. */
@@ -111,18 +112,21 @@ final class EditorParameterStructureAccess {
         }
         modelGuard.requireCurrent(identity, model);
         final HashSet<ParameterId> batchIds = new HashSet<>();
-        final List<Object> hostSources = new ArrayList<>(definitions.size());
         for (ParameterDefinition definition : definitions) {
             Objects.requireNonNull(definition, "definition");
             if (!batchIds.add(definition.id())) {
                 throw new IllegalArgumentException(
                     "Cubism parameter ID is duplicated within the batch: " + definition.id().value());
             }
-            if (findSource(source, model, definition.id()) != null) {
+        }
+        final Set<ParameterId> existingIds = existingSourceIds(model);
+        for (ParameterDefinition definition : definitions) {
+            if (existingIds.contains(definition.id())) {
                 throw new IllegalArgumentException(
                     "Cubism parameter ID is already present: " + definition.id().value());
             }
         }
+        final List<Object> hostSources = new ArrayList<>(definitions.size());
         final Object parentGroup = folderId
             .map(id -> requireGroup(source, model, id))
             .orElseGet(() -> rootGroup(source));
@@ -537,6 +541,27 @@ final class EditorParameterStructureAccess {
     }
 
     private Object findSource(final Object source, final Object model, final ParameterId id) {
+        for (Object parameter : parameters(model)) {
+            final Object parameterSource = resolver.invoke("cubism.editor-model.parameter.source", parameter);
+            if (parameterSource != null && sourceId(parameterSource).equals(id)) {
+                return parameterSource;
+            }
+        }
+        return null;
+    }
+
+    private Set<ParameterId> existingSourceIds(final Object model) {
+        final Set<ParameterId> ids = new HashSet<>();
+        for (Object parameter : parameters(model)) {
+            final Object parameterSource = resolver.invoke("cubism.editor-model.parameter.source", parameter);
+            if (parameterSource != null) {
+                ids.add(sourceId(parameterSource));
+            }
+        }
+        return ids;
+    }
+
+    private List<?> parameters(final Object model) {
         final Object raw = resolver.invoke(
             "cubism.editor-model.parameter-set.parameters", requireParameterSet(model));
         if (!(raw instanceof List<?> parameters)) {
@@ -546,12 +571,8 @@ final class EditorParameterStructureAccess {
             if (!resolver.isInstance("cubism.editor-model.parameter.class", parameter)) {
                 throw new IllegalStateException("Editor parameter collection contains an invalid value.");
             }
-            final Object parameterSource = resolver.invoke("cubism.editor-model.parameter.source", parameter);
-            if (parameterSource != null && sourceId(parameterSource).equals(id)) {
-                return parameterSource;
-            }
         }
-        return null;
+        return parameters;
     }
 
     private Object requireSource(final Object source, final Object model, final ParameterId id) {
@@ -635,6 +656,18 @@ final class EditorParameterStructureAccess {
         final Object edit = resolver.invoke("cubism.editor-model.edit-mode.begin", editMode, actionName);
         boolean completed = false;
         try {
+            final Object listener = resolver.createFunctionalProxy(
+                "cubism.editor-model.undo-listener.class",
+                ignored -> {
+                    resolver.invoke("cubism.editor-model.model-source.update-instances", source);
+                    refresh(app);
+                    return null;
+                }
+            );
+            requireListenerAccepted(
+                resolver.invoke("cubism.editor-model.undo.add-listener", edit, listener),
+                actionName
+            );
             for (Supplier<Object> undoSupplier : undoSuppliers) {
                 modelGuard.requireCurrent(identity, model);
                 activeDocumentFor(source, app);
@@ -643,18 +676,6 @@ final class EditorParameterStructureAccess {
                 if (!(accepted instanceof Boolean value) || !value) {
                     throw new IllegalStateException("Cubism rejected the " + actionName + " Undo entry.");
                 }
-                final Object listener = resolver.createFunctionalProxy(
-                    "cubism.editor-model.undo-listener.class",
-                    ignored -> {
-                        resolver.invoke("cubism.editor-model.model-source.update-instances", source);
-                        refresh(app);
-                        return null;
-                    }
-                );
-                requireListenerAccepted(
-                    resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener),
-                    actionName
-                );
             }
             modelGuard.requireCurrent(identity, model);
             activeDocumentFor(source, app);

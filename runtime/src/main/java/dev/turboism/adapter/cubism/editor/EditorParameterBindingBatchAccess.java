@@ -781,23 +781,7 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
         final String evidence,
         final boolean append
     ) {
-        if (!Boolean.getBoolean("turboism.editorObjectValidation.trace")) return;
-        final String home = System.getProperty("turboism.home");
-        if (home == null || home.isBlank()) return;
-        final java.nio.file.Path artifact = java.nio.file.Path.of(home, "logs", fileName);
-        try {
-            java.nio.file.Files.createDirectories(artifact.getParent());
-            java.nio.file.Files.writeString(
-                artifact,
-                evidence,
-                java.nio.file.StandardOpenOption.CREATE,
-                append
-                    ? java.nio.file.StandardOpenOption.APPEND
-                    : java.nio.file.StandardOpenOption.TRUNCATE_EXISTING
-            );
-        } catch (java.io.IOException | RuntimeException ignored) {
-            // Validation tracing must never change host mutation behavior.
-        }
+        EditorObjectValidationTrace.writeArtifact(fileName, evidence, append);
     }
 
     private Object parameterGuid(final ParameterId parameterId) {

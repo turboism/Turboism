@@ -179,8 +179,37 @@ class EditorParameterStructureAccessTest {
         assertTrue(!fixture.editMode.aborted);
         // every child operation registered inside that single envelope
         assertEquals(3, fixture.editMode.edits.size());
+        assertEquals(1, fixture.editMode.lastUndo.listenerCount());
         assertTrue(fixture.document.dirty);
         assertEquals(1, fixture.source.updateCount);
+
+        fixture.editMode.undo();
+        assertEquals(1, fixture.root.children.size());
+        assertEquals(2, fixture.source.updateCount);
+        assertEquals(2, fixture.pack.updateParameterCount);
+        assertEquals(2, fixture.pack.repaintCount);
+
+        fixture.editMode.redo();
+        assertEquals(4, fixture.root.children.size());
+        assertEquals(3, fixture.source.updateCount);
+        assertEquals(3, fixture.pack.updateParameterCount);
+        assertEquals(3, fixture.pack.repaintCount);
+    }
+
+    @Test
+    void createManyIndexesExistingParametersOnlyOnce() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final EditorBackedCubismModelAccess access = new EditorBackedCubismModelAccess(
+            resolver(true), "session-a");
+
+        access.active().parameters().createMany(List.of(
+            new ParameterDefinition(new ParameterId("A"), "A", 0, 0, 1, ParameterType.NORMAL, false),
+            new ParameterDefinition(new ParameterId("B"), "B", 0, 0, 1, ParameterType.NORMAL, false),
+            new ParameterDefinition(new ParameterId("C"), "C", 0, 0, 1, ParameterType.NORMAL, false)
+        ));
+
+        assertEquals(1, fixture.source.model.parameterSet.parameterCollectionReads);
     }
 
     @Test
@@ -541,7 +570,11 @@ class EditorParameterStructureAccessTest {
 
     public static final class ParameterSet {
         final List<RuntimeParameter> parameters = new ArrayList<>();
-        public List<RuntimeParameter> parameters() { return parameters; }
+        int parameterCollectionReads;
+        public List<RuntimeParameter> parameters() {
+            parameterCollectionReads++;
+            return parameters;
+        }
     }
 
     public static final class Id {
@@ -554,27 +587,23 @@ class EditorParameterStructureAccessTest {
 
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
-        private final List<Undo> redoStack = new ArrayList<>();
         boolean aborted;
         int beginCount;
         int endCount;
-        public GroupUndo begin(final String name) { beginCount++; return new GroupUndo(edits); }
-        public void end(final boolean abort, final Object ignored) { endCount++; aborted = abort; }
-        /** Simulates the host native Undo command (menu click): unwinds the last entry. */
-        public void undo() {
-            if (!edits.isEmpty()) {
-                final Undo entry = edits.remove(edits.size() - 1);
-                redoStack.add(entry);
-                entry.undo();
-            }
+        GroupUndo lastUndo;
+        public GroupUndo begin(final String name) {
+            beginCount++;
+            lastUndo = new GroupUndo(edits);
+            return lastUndo;
         }
-        /** Simulates the host native Redo command: re-applies the last undone entry. */
+        public void end(final boolean abort, final Object ignored) { endCount++; aborted = abort; }
+        /** Simulates the host native Undo command (menu click) for the latest edit envelope. */
+        public void undo() {
+            if (lastUndo != null) lastUndo.undo();
+        }
+        /** Simulates the host native Redo command for the latest edit envelope. */
         public void redo() {
-            if (!redoStack.isEmpty()) {
-                final Undo entry = redoStack.remove(redoStack.size() - 1);
-                edits.add(entry);
-                entry.redo();
-            }
+            if (lastUndo != null) lastUndo.redo();
         }
     }
 
@@ -582,12 +611,26 @@ class EditorParameterStructureAccessTest {
         final List<Undo> edits;
         GroupUndo(final List<Undo> edits) { this.edits = edits; }
         public boolean add(final Undo undo, final boolean significant) { edits.add(undo); return true; }
+        @Override public void undo() {
+            for (int index = edits.size() - 1; index >= 0; index--) edits.get(index).undo();
+            changed();
+        }
+        @Override public void redo() {
+            for (Undo edit : edits) edit.redo();
+            changed();
+        }
     }
 
     public static class Undo {
+        private final List<Listener> listeners = new ArrayList<>();
         public Undo() { }
         public Undo(final String name, final Object target, final Object copyParam) { }
-        public boolean addListener(final Listener listener) { return true; }
+        public boolean addListener(final Listener listener) {
+            listeners.add(listener);
+            return true;
+        }
+        public int listenerCount() { return listeners.size(); }
+        void changed() { listeners.forEach(listener -> listener.changed(this)); }
         public void undo() { }
         public void redo() { }
     }
