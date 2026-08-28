@@ -178,8 +178,19 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("Windows x64", readme)
         self.assertIn("5.2.03", readme)
         self.assertIn("5.3.02", readme)
+        self.assertIn("5.3.03", readme)
         self.assertIn("Current capabilities", readme)
         self.assertIn("CHANGELOG.md", readme)
+
+    def test_public_plugin_readmes_state_complete_host_roster(self):
+        readmes = sorted((ROOT / "plugins").glob("*/README*.md"))
+        for path in readmes:
+            text = path.read_text(encoding="utf-8")
+            if "5.2.03" not in text or "5.3.02" not in text:
+                continue
+            self.assertIn("5.3.03", text, path)
+        runtime = (ROOT / "packaging/fx-runtime/README.md").read_text(encoding="utf-8")
+        self.assertIn("5.2.03/5.3.02/5.3.03", runtime)
 
     def test_windows_zip_writer_uses_a_fixed_timestamp(self):
         script = (

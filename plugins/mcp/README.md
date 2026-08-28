@@ -37,7 +37,7 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.2.03` and `5.3.02`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
+- **Cubism:** Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`. A host-facing resource fails closed when its public SDK capability is unavailable; it never fabricates an empty success.
 - **Transport:** MCP Streamable HTTP using protocol `2025-11-25`, with compatibility negotiation for the supported earlier protocol versions.
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
