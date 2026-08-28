@@ -37,12 +37,19 @@ def agent(version: str) -> bytes:
     return output.getvalue()
 
 
-def archive(path: Path, version: str, full: bool) -> None:
+def archive(
+    path: Path,
+    version: str,
+    plugins: tuple[str, ...] = (),
+    extra: tuple[tuple[str, bytes], ...] = (),
+) -> None:
     with zipfile.ZipFile(path, "w") as output:
         output.writestr("turboism-agent.jar", agent(version))
         output.writestr("README.txt", f"Turboism {version}\n")
-        if full:
-            output.writestr("plugins/example.jar", b"plugin")
+        for plugin in plugins:
+            output.writestr(f"plugins/{plugin}.jar", b"plugin")
+        for name, content in extra:
+            output.writestr(name, content)
 
 
 def sidecar(path: Path) -> None:
@@ -159,26 +166,40 @@ class ReleaseWorkflowTest(unittest.TestCase):
 
 
 class ReleaseVerifierTest(unittest.TestCase):
-    def fixture(self, version="0.42.0") -> Path:
-        dist = Path(tempfile.mkdtemp(prefix="release-tooling-"))
+    PLUGINS = ("mcp", "turboism-with-fx")
+
+    def fixture(self, version="0.42.0") -> tuple[Path, Path, Path]:
+        root = Path(tempfile.mkdtemp(prefix="release-tooling-"))
+        dist = root / "dist"
+        stage = root / "stage"
+        dist.mkdir()
+        stage.mkdir()
+        roster = root / "release-plugins.txt"
+        roster.write_text(
+            ":plugins:core\n:plugins:mcp\n:plugins:turboism-with-fx\n",
+            encoding="utf-8",
+        )
         lite = dist / f"turboism-{version}-lite.zip"
         full = dist / f"turboism-{version}-full.zip"
         exe = dist / f"TurboismInstaller-{version}.exe"
         jar = dist / f"TurboismInstaller-{version}.jar"
-        archive(lite, version, False)
-        archive(full, version, True)
+        archive(lite, version)
+        archive(full, version, self.PLUGINS)
         exe.write_bytes(b"exe")
         jar.write_bytes(b"jar")
         for path in (lite, full, exe, jar):
             sidecar(path)
-        return dist
+        return dist, roster, stage
+
+    def verify(self, fixture: tuple[Path, Path, Path], version="0.42.0") -> None:
+        release.verify(fixture[0], version, fixture[1], fixture[2])
 
     def test_accepts_exact_release(self):
-        release.verify(self.fixture(), "0.42.0")
+        self.verify(self.fixture())
 
     def test_emits_manifest_outside_exact_dist_contract(self):
-        dist = self.fixture()
-        manifest = release.artifact_manifest(dist, "0.42.0")
+        dist, roster, stage = self.fixture()
+        manifest = release.artifact_manifest(dist, "0.42.0", roster, stage)
         self.assertEqual(manifest["format"], "turboism.framework-artifacts")
         self.assertEqual(len(manifest["artifacts"]), 8)
         self.assertEqual(
@@ -186,29 +207,126 @@ class ReleaseVerifierTest(unittest.TestCase):
             sorted(item["name"] for item in manifest["artifacts"]),
         )
 
+    def rewrite_archive(
+        self,
+        fixture: tuple[Path, Path, Path],
+        name: str,
+        *,
+        version: str = "0.42.0",
+        plugins: tuple[str, ...] = (),
+        extra: tuple[tuple[str, bytes], ...] = (),
+    ) -> None:
+        artifact = fixture[0] / name
+        archive(artifact, version, plugins, extra)
+        sidecar(artifact)
+
     def test_rejects_snapshot_agent(self):
-        dist = self.fixture()
-        lite = dist / "turboism-0.42.0-lite.zip"
-        archive(lite, "0.42.0-SNAPSHOT", False)
-        sidecar(lite)
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-lite.zip",
+            version="0.42.0-SNAPSHOT",
+        )
         with self.assertRaises(ValueError):
-            release.verify(dist, "0.42.0")
+            self.verify(fixture)
+
+    def test_rejects_full_missing_release_plugin(self):
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-full.zip",
+            plugins=("mcp",),
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_full_unexpected_plugin(self):
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-full.zip",
+            plugins=self.PLUGINS + ("unexpected",),
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_lite_plugin(self):
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-lite.zip",
+            plugins=("turboism-with-fx",),
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_managed_fx_runtime_in_full(self):
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-full.zip",
+            plugins=self.PLUGINS,
+            extra=(("runtimes/fx/0.0.5/linux-x86_64/fx", b"linux"),),
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_managed_fx_runtime_in_lite(self):
+        fixture = self.fixture()
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-lite.zip",
+            extra=(("runtimes/fx/0.0.5/macos-aarch64/fx", b"macos"),),
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_managed_fx_runtime_in_windows_stage(self):
+        fixture = self.fixture()
+        runtime = fixture[2] / "runtimes" / "fx" / "0.0.5" / "linux-x86_64"
+        runtime.mkdir(parents=True)
+        (runtime / "fx").write_bytes(b"linux")
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
 
     def test_rejects_extra_artifact(self):
-        dist = self.fixture()
-        (dist / "unexpected.txt").write_text("x", encoding="utf-8")
+        fixture = self.fixture()
+        (fixture[0] / "unexpected.txt").write_text("x", encoding="utf-8")
         with self.assertRaises(ValueError):
-            release.verify(dist, "0.42.0")
+            self.verify(fixture)
+
+    def test_rejects_directory_in_dist(self):
+        fixture = self.fixture()
+        (fixture[0] / "unexpected").mkdir()
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_symlink_in_dist(self):
+        fixture = self.fixture()
+        (fixture[0] / "unexpected-link").symlink_to(
+            fixture[0] / "TurboismInstaller-0.42.0.exe"
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    @unittest.skipUnless(hasattr(__import__("os"), "mkfifo"), "FIFO unavailable")
+    def test_rejects_special_entry_in_dist(self):
+        import os
+
+        fixture = self.fixture()
+        os.mkfifo(fixture[0] / "unexpected-fifo")
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
 
     def test_rejects_nonportable_sidecar_path(self):
-        dist = self.fixture()
-        artifact = dist / "TurboismInstaller-0.42.0.exe"
+        fixture = self.fixture()
+        artifact = fixture[0] / "TurboismInstaller-0.42.0.exe"
         artifact.with_name(artifact.name + ".sha256").write_text(
             f"{release.sha256(artifact)}  build/windows-installer/dist/{artifact.name}\n",
             encoding="utf-8",
         )
         with self.assertRaises(ValueError):
-            release.verify(dist, "0.42.0")
+            self.verify(fixture)
 
 
 if __name__ == "__main__":

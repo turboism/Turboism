@@ -123,9 +123,10 @@ final class FxProcessTransport implements FxAcpTransport {
     }
 
     /**
-     * Terminates descendants before the parent and repeatedly re-enumerates the tree while the
-     * parent is alive, closing the window in which a child can fork after the first snapshot. The
-     * shutdown is bounded, escalates every retained survivor, and preserves interrupt status.
+     * Performs bounded best-effort cleanup of descendants observable through {@link ProcessHandle}
+     * before terminating the direct process. Retained handles let cleanup continue after the parent
+     * exits, but this is not launch-time containment: a child can fork, exit or reparent between
+     * snapshots. Portable process groups and Windows Job Objects require a native launch helper.
      */
     @Override
     public void terminate(final Duration grace) {
