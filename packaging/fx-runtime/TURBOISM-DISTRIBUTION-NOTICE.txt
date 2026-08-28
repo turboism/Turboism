@@ -1,0 +1,17 @@
+Turboism managed fx runtime distribution notice
+
+Turboism distributes reviewed platform-specific fx version 0.0.5 runtime assets
+for use by the Turboism with fx plugin. The current Linux and macOS payloads are
+unmodified official upstream release assets; no Windows product build is currently
+distributed. fx is an independent project from Vercel, Inc. and is licensed under
+the Apache License, Version 2.0. Vercel does not sponsor or endorse Turboism or
+this integration.
+
+Upstream source commit:
+df7e6245e1992758d4060c97477ceafa27770551
+
+Unmodified official Linux and macOS release assets retain their upstream LICENSE
+and THIRD_PARTY_NOTICES.md files. Any future Turboism-built Windows executable must
+be labeled as a Turboism build of the upstream source, identify every modified
+file, provide reproducible build instructions and corresponding source, and retain
+all required notices. It must not be described as an official Vercel Windows asset.

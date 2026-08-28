@@ -139,6 +139,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command. |
 | `turboism.network.fetch` | `application` | Allows the typed external-application settings command. |
 | `turboism.process.run` | `application` | Allows the typed external-application settings command. |
+| `turboism.mcp.connection.publish` | `application` | Publishes the active authenticated loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
 
 The diagnostic expansion adds no `host.unsafe`, performance, file-read, config, event, or UI-mutation permission.
 

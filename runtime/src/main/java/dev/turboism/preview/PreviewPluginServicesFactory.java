@@ -51,6 +51,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     private final Locale effectiveLocale;
     private final RuntimePerformanceProbeService performanceProbe;
     private final RuntimePerformanceEventPublisher performanceEvents;
+    private final dev.turboism.mcp.McpConnectionRegistry mcpConnections =
+        new dev.turboism.mcp.McpConnectionRegistry();
 
     PreviewPluginServicesFactory(
         final Path home,
@@ -178,6 +180,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     public void close() {
         performanceEvents.close();
         performanceProbe.close();
+        mcpConnections.close();
         eventBroker.observationBaseline(
             dev.turboism.sdk.performance.PerformanceProbeService.class
         ).compareAndSet(performanceProbe, null);
@@ -203,7 +206,19 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             storage(descriptor, paths, permissions, tasks, scope, evidence),
             typedConfig(dependencies, descriptor, paths, permissions, tasks, scope, evidence),
             userFiles(descriptor, permissions, tasks, scope, evidence),
-            hostReads(descriptor, permissions, tasks, scope), evidence
+            hostReads(descriptor, permissions, tasks, scope),
+            new dev.turboism.mcp.RuntimeMcpConnectionService(
+                descriptor.id(),
+                (permissionId, operation) -> {
+                    if (!permissions.contains(permissionId)) {
+                        throw new dev.turboism.sdk.permission.CubismPermissionException(
+                            "Missing required permission " + permissionId + " for " + operation
+                        );
+                    }
+                },
+                mcpConnections
+            ),
+            evidence
         );
     }
 
@@ -322,6 +337,7 @@ record PreviewPluginServices(
     RuntimeTypedPluginConfigRegistry typedConfig,
     RuntimeUserFileAccessService userFiles,
     RuntimeAsyncHostReadService hostReads,
+    dev.turboism.sdk.mcp.McpConnectionService mcpConnections,
     CleanupEvidenceCollector cleanupEvidence
 ) {
 }

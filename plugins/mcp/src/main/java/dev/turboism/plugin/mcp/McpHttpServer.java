@@ -15,6 +15,7 @@ import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
+import dev.turboism.protocol.json.StrictJson;
 import dev.turboism.sdk.ui.UiScheduler;
 import dev.turboism.sdk.ui.workspace.WorkspaceService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
@@ -36,6 +37,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
@@ -51,6 +53,11 @@ final class McpHttpServer implements AutoCloseable {
 
     private static final int MAX_BODY_BYTES = 1024 * 1024;
     private static final Set<String> ACCEPTED_PROTOCOL_VERSIONS = McpProtocol.SUPPORTED_VERSIONS;
+    private static final List<String> PREFERRED_PROTOCOL_VERSIONS = List.of(
+        McpProtocol.VERSION,
+        "2025-06-18",
+        "2025-03-26"
+    );
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -302,6 +309,14 @@ final class McpHttpServer implements AutoCloseable {
         return connectionFile;
     }
 
+    /**
+     * Returns the sensitive bearer value for process-local publication through the runtime MCP
+     * connection service. Callers must never log or persist the returned value.
+     */
+    String authorization() {
+        return "Bearer " + token;
+    }
+
     private void handle(final HttpExchange exchange) throws IOException {
         try (exchange) {
             final Headers responseHeaders = exchange.getResponseHeaders();
@@ -352,9 +367,18 @@ final class McpHttpServer implements AutoCloseable {
             }
             final String protocolVersion = exchange.getRequestHeaders()
                 .getFirst("MCP-Protocol-Version");
-            if (protocolVersion != null && !protocolVersion.isBlank()
-                && !ACCEPTED_PROTOCOL_VERSIONS.contains(protocolVersion)) {
-                sendEmpty(exchange, 400);
+            final String requestedProtocolVersion = protocolVersion == null
+                ? null : protocolVersion.strip();
+            if (requestedProtocolVersion != null && !requestedProtocolVersion.isEmpty()
+                && !ACCEPTED_PROTOCOL_VERSIONS.contains(requestedProtocolVersion)) {
+                sendJson(
+                    exchange,
+                    400,
+                    McpProtocol.unsupportedProtocolVersion(
+                        requestedProtocolVersion,
+                        PREFERRED_PROTOCOL_VERSIONS
+                    )
+                );
                 return;
             }
 
@@ -370,7 +394,7 @@ final class McpHttpServer implements AutoCloseable {
             }
             final Object request;
             try {
-                request = Json.parse(body);
+                request = StrictJson.parse(body);
             } catch (IllegalArgumentException failure) {
                 sendJson(exchange, 200, McpProtocol.parseError(failure.getMessage()));
                 return;
@@ -391,7 +415,7 @@ final class McpHttpServer implements AutoCloseable {
                 }
                 return;
             }
-            if (protocolVersion == null || protocolVersion.isBlank()) {
+            if (requestedProtocolVersion == null || requestedProtocolVersion.isEmpty()) {
                 sendEmpty(exchange, 400);
                 return;
             }
@@ -401,7 +425,7 @@ final class McpHttpServer implements AutoCloseable {
                 sendEmpty(exchange, 404);
                 return;
             }
-            if (!session.protocolVersion().equals(protocolVersion)) {
+            if (!session.protocolVersion().equals(requestedProtocolVersion)) {
                 sendEmpty(exchange, 400);
                 return;
             }
@@ -468,7 +492,7 @@ final class McpHttpServer implements AutoCloseable {
         content.put("authorization", "Bearer " + token);
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
-        final byte[] bytes = Json.bytes(content);
+        final byte[] bytes = StrictJson.bytes(content);
         final Path temporary = Files.createTempFile(directory, ".mcp-connection-", ".tmp");
         try {
             Files.write(temporary, bytes);
@@ -564,7 +588,7 @@ final class McpHttpServer implements AutoCloseable {
         final int status,
         final Object body
     ) throws IOException {
-        final byte[] bytes = Json.bytes(body);
+        final byte[] bytes = StrictJson.bytes(body);
         exchange.getResponseHeaders().set("Content-Type", "application/json; charset=utf-8");
         exchange.sendResponseHeaders(status, bytes.length);
         exchange.getResponseBody().write(bytes);
@@ -742,14 +766,14 @@ final class McpHttpServer implements AutoCloseable {
             );
         }
 
-        private static DiagnosticReport emptyDiagnostics() {
+        static DiagnosticReport emptyDiagnostics() {
             return new DiagnosticReport() {
                 @Override public Instant createdAt() { return Instant.EPOCH; }
                 @Override public java.util.List<Problem> problems() { return java.util.List.of(); }
             };
         }
 
-        private static CubismFacade unavailableCubism() {
+        static CubismFacade unavailableCubism() {
             return new CubismFacade() {
                 @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
                     return null;

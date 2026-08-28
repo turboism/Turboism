@@ -11,9 +11,12 @@ Run the installer with a Java 17+ runtime:
 
     java -jar TurboismInstaller-<version>.jar
 
-Full mode installs the agent and every first-party plugin and lets you
-deselect individual plugins. Lite mode installs only the agent and common
-files. The installer never overwrites an existing config.json blindly: it
+Full mode installs the agent, every first-party plugin, and the matching
+offline managed fx runtime. Thin mode installs the same plugins without native
+fx bytes; Turboism with fx can explicitly download and verify the exact reviewed
+platform runtime later. Both plugin modes let you deselect individual plugins.
+Lite mode installs only the agent and common files. The installer never
+overwrites an existing config.json blindly: it
 preserves unrelated settings and only merges the plugin selection
 (disabledPlugins). Rerun the installer at any time to change the selected
 plugin set.

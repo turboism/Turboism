@@ -1,5 +1,7 @@
 package dev.turboism.plugin.mcp;
 
+import dev.turboism.protocol.json.StrictJson;
+
 import dev.turboism.sdk.cubism.AnimationSnapshot;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
@@ -571,7 +573,7 @@ final class McpTools {
         return linked(
             entry("content", List.of(linked(
                 entry("type", "text"),
-                entry("text", Json.stringify(output))
+                entry("text", StrictJson.stringify(output))
             ))),
             entry("structuredContent", output),
             entry("isError", error)

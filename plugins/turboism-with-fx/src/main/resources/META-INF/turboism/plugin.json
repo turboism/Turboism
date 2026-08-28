@@ -1,0 +1,83 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.turboism-with-fx",
+  "name": "Turboism with fx",
+  "version": "0.1.0",
+  "description": "ACP v1 Agent and Settings windows that connect Turboism's verified managed fx runtime to the authenticated MCP server.",
+  "entrypoints": [
+    "dev.turboism.plugin.turboismwithfx.TurboismWithFxPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": ["icons/"],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [
+    {
+      "id": "dev.turboism.plugin.mcp",
+      "version": "[0.1.0,0.2.0)",
+      "type": "required",
+      "ordering": "after",
+      "reason": "Requires the authenticated Turboism MCP endpoint before creating an fx ACP session."
+    }
+  ],
+  "permissions": [
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the action that opens the fx Agent window."
+    },
+    {
+      "id": "turboism.ui.toolbar.main.contribute",
+      "scope": "application",
+      "reason": "Adds the fx Agent button immediately beside the Turboism Home toolbar entry."
+    },
+    {
+      "id": "turboism.config.plugin.read",
+      "scope": "application",
+      "reason": "Restores the advanced custom executable override, active durable session identifier, compatibility acknowledgement, and user-authored initial instructions."
+    },
+    {
+      "id": "turboism.config.plugin.write",
+      "scope": "application",
+      "reason": "Persists the optional custom executable override and user-authored launch state; provider/model catalogs, credentials, transcript data, and MCP authorization are never stored."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "Starts and supervises the verified managed fx v0.0.5 ACP subprocess or an explicitly selected advanced custom override."
+    },
+    {
+      "id": "turboism.network.fetch",
+      "scope": "application",
+      "reason": "On explicit user request, downloads one exact reviewed fx v0.0.5 release asset for the current supported platform, verifies its pinned size and SHA-256, and atomically installs or repairs the managed runtime."
+    },
+    {
+      "id": "turboism.mcp.connection.read",
+      "scope": "application",
+      "reason": "Reads the current authenticated loopback MCP endpoint through the runtime's non-persistent connection boundary."
+    }
+  ],
+  "capabilities": [
+    "automation.agent.acp",
+    "mcp.client",
+    "ui.window"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  },
+  "tags": [
+    "automation",
+    "fx",
+    "agent"
+  ],
+  "category": "integration"
+}

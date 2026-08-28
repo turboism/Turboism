@@ -64,7 +64,13 @@ final class OfficialPluginCatalogCompleteness {
         "chart.cpu.series",
         "series.cpu",
         "status.cpu.label",
-        "value.none"
+        "value.none",
+        "button.new-session-short",
+        "button.refresh-short",
+        "button.settings-short",
+        "transcript.agent",
+        "transcript.system",
+        "transcript.tool"
     );
 
     private OfficialPluginCatalogCompleteness() {

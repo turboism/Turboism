@@ -96,14 +96,14 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
     private static void assertInitialReport(final Path home) throws Exception {
         final JsonNode payload = report(home).path("payload");
         assertEquals("RUNNING", payload.path("runtimeState").textValue());
-        assertFailures(payload, 1, 2, 2);
+        assertFailures(payload, 1, 2, 1);
         assertSafe(payload);
     }
 
     private static void assertFinalReport(final Path home) throws Exception {
         final JsonNode payload = report(home).path("payload");
         assertEquals("STOPPED", payload.path("runtimeState").textValue());
-        assertFailures(payload, 1, 2, 2);
+        assertFailures(payload, 1, 2, 1);
         assertEquals(2, payload.path("shutdownCounts").path("attempted").longValue());
         assertEquals(2, payload.path("shutdownCounts").path("succeeded").longValue());
         assertSafe(payload);
@@ -130,9 +130,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         assertEquals(1, payload.path("configFailures").findValuesAsText("code").stream()
             .filter("SCHEMA_NOT_REGISTERED"::equals)
             .count());
-        assertEquals(1, payload.path("configFailures").findValuesAsText("code").stream()
-            .filter("CONFIG_READ_REJECTED"::equals)
-            .count());
+        assertFalse(payload.path("configFailures").toString().contains("CONFIG_READ_REJECTED"));
     }
 
     private static void assertFailureArray(final JsonNode failures, final long expectedCount) {
@@ -150,7 +148,7 @@ class LocalPluginRuntimeFailureReportIntegrationTest {
         assertEquals(1, occurrences(report, "TASK_REJECTED_POLICY_REJECTED"));
         assertEquals(2, occurrences(report, "PERMISSION_DENIED"));
         assertEquals(1, occurrences(report, "SCHEMA_NOT_REGISTERED"));
-        assertEquals(1, occurrences(report, "CONFIG_READ_REJECTED"));
+        assertEquals(0, occurrences(report, "CONFIG_READ_REJECTED"));
     }
 
     private static void assertSafeLog(final Path home) throws Exception {

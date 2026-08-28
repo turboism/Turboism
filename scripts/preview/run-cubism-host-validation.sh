@@ -38,6 +38,11 @@ Result modes (choose one):
 Common options:
   --home-file <local-file:relative-home-path>   repeatable
   --home-dir <local-directory:relative-home-path> repeatable
+  --remote-pre-launch <local-script>       runs on the host with task paths and launch context
+  --remote-post-launch <local-script>      runs on the host after Cubism starts
+  --remote-pre-cleanup <local-script>      runs before task process cleanup/evidence collection
+      Hooks receive task, home, evidence, prefix, fixture, run ID, version,
+      result timeout, Proton wrapper, Proton runner, and display as positional arguments.
   --fixture-sha256 <expected source hash>
   --fixture-name <remote filename suffix>
       The copied project is always prefixed with the generated validation run ID.
@@ -50,6 +55,7 @@ Common options:
       Stage and run one task-local client after readiness. The client receives
       <Turboism-home> and <task-id> as argv[1] and argv[2].
   --jvm-option <JVM option>                  repeatable
+  --windows-env <NAME=value>                 repeatable task-local launch environment
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
   --cubism-java-console-marker <exact text>  require this text in Cubism console evidence
   --run-label <label, default r1>
@@ -174,6 +180,9 @@ plugins=()
 aux_agents=()
 home_files=()
 home_dirs=()
+remote_pre_launch=''
+remote_post_launch=''
+remote_pre_cleanup=''
 fixture_remote=''
 fixture_local=''
 fixture_sha256=''
@@ -189,6 +198,7 @@ trigger_path=''
 client_script=''
 client_script_remote_name=''
 jvm_options=()
+windows_environment=()
 cubism_java=''
 cubism_java_console_marker=''
 run_label='r1'
@@ -220,6 +230,9 @@ while [ "$#" -gt 0 ]; do
     --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
     --home-file) require_value "$@"; home_files+=("$2"); shift 2 ;;
     --home-dir) require_value "$@"; home_dirs+=("$2"); shift 2 ;;
+    --remote-pre-launch) require_value "$@"; remote_pre_launch="$2"; shift 2 ;;
+    --remote-post-launch) require_value "$@"; remote_post_launch="$2"; shift 2 ;;
+    --remote-pre-cleanup) require_value "$@"; remote_pre_cleanup="$2"; shift 2 ;;
     --fixture-remote) require_value "$@"; fixture_remote="$2"; shift 2 ;;
     --fixture-local) require_value "$@"; fixture_local="$2"; shift 2 ;;
     --fixture-sha256) require_value "$@"; fixture_sha256="$2"; shift 2 ;;
@@ -234,6 +247,7 @@ while [ "$#" -gt 0 ]; do
     --trigger) require_value "$@"; trigger_path="$2"; shift 2 ;;
     --client-script) require_value "$@"; client_script="$2"; shift 2 ;;
     --jvm-option) require_value "$@"; jvm_options+=("$2"); shift 2 ;;
+    --windows-env) require_value "$@"; windows_environment+=("$2"); shift 2 ;;
     --cubism-java) require_value "$@"; cubism_java="$2"; shift 2 ;;
     --cubism-java-console-marker) require_value "$@"; cubism_java_console_marker="$2"; shift 2 ;;
     --run-label) require_value "$@"; run_label="$2"; shift 2 ;;
@@ -343,6 +357,35 @@ done
 for option in "${jvm_options[@]}"; do
   require_safe_text "$option" "JVM option"
 done
+windows_environment_names=()
+for assignment in "${windows_environment[@]}"; do
+  require_safe_text "$assignment" "Windows environment assignment"
+  [[ "$assignment" =~ ^[A-Za-z_][A-Za-z0-9_]*=.+$ ]] \
+    || fail "Windows environment assignment must use NAME=value: $assignment"
+  environment_name=${assignment%%=*}
+  environment_value=${assignment#*=}
+  environment_name_normalized=${environment_name^^}
+  case "$environment_name_normalized" in
+    JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS)
+      fail "Windows environment assignment may not override $environment_name"
+      ;;
+  esac
+  for existing_name in "${windows_environment_names[@]}"; do
+    [ "$existing_name" != "$environment_name_normalized" ] \
+      || fail "duplicate Windows environment name: $environment_name"
+  done
+  windows_environment_names+=("$environment_name_normalized")
+  for forbidden in '%' '!' '^' '&' '|' '<' '>' '`' '$' ';' '"'; do
+    [[ "$environment_value" != *"$forbidden"* ]] \
+      || fail "Windows environment value contains an unsupported command character: $forbidden"
+  done
+done
+for hook in "$remote_pre_launch" "$remote_post_launch" "$remote_pre_cleanup"; do
+  if [ -n "$hook" ]; then
+    require_safe_text "$hook" "remote hook path"
+    [ -f "$hook" ] || fail "remote hook does not exist: $hook"
+  fi
+done
 if [ -n "$cubism_java" ]; then
   require_safe_text "$cubism_java" "Cubism Java path"
   case "$cubism_java" in
@@ -355,6 +398,8 @@ if [ -n "$cubism_java" ]; then
       || fail "Cubism Java path contains an unsupported command character: $forbidden"
   done
 fi
+require_safe_remote_value "$ssh_host" "SSH host"
+[[ "$ssh_host" != -* ]] || fail "SSH host must not begin with an option prefix"
 for value in "$fixture_remote" "$golden_prefix" "$remote_root" "$display" "$proton_wrapper" "$proton_runner"; do
   [ -z "$value" ] || require_safe_remote_value "$value" "host path or executable"
 done
@@ -492,6 +537,10 @@ if [ "$dry_run" = 1 ]; then
     "auxAgentCount=${#resolved_aux_agents[@]}" \
     "homeFileCount=${#resolved_home_files[@]}" \
     "homeDirCount=${#resolved_home_dirs[@]}" \
+    "remotePreLaunch=$remote_pre_launch" \
+    "remotePostLaunch=$remote_post_launch" \
+    "remotePreCleanup=$remote_pre_cleanup" \
+    "windowsEnvironmentCount=${#windows_environment[@]}" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
     "resultMarker=$result_marker" \
@@ -527,10 +576,18 @@ if [ "$dry_run" = 1 ]; then
     printf 'auxAgent.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
     printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
   done
+  dry_win_home="$(z_path "$home_dir")"
+  dry_win_fixture="$(z_path "$fixture_path")"
+  for index in "${!windows_environment[@]}"; do
+    dry_environment="${windows_environment[$index]}"
+    dry_environment="${dry_environment//\{TASK_ID\}/$task_id}"
+    dry_environment="${dry_environment//\{HOME\}/$dry_win_home}"
+    dry_environment="${dry_environment//\{FIXTURE\}/$dry_win_fixture}"
+    dry_environment="${dry_environment//\{FIXTURE_NAME\}/$fixture_name}"
+    printf 'windowsEnvironment.%s=%s\n' "$index" "$dry_environment"
+  done
   for index in "${!jvm_options[@]}"; do
     dry_option="${jvm_options[$index]}"
-    dry_win_home="$(z_path "$home_dir")"
-    dry_win_fixture="$(z_path "$fixture_path")"
     dry_option="${dry_option//\{TASK_ID\}/$task_id}"
     dry_option="${dry_option//\{HOME\}/$dry_win_home}"
     dry_option="${dry_option//\{FIXTURE\}/$dry_win_fixture}"
@@ -550,6 +607,7 @@ launched=0
 evidence_collected=0
 success=0
 wrapper_cleanup_done=0
+pre_cleanup_hook_done=0
 
 remote_process_alive() {
   remote_args_bash "$evidence_dir/wrapper.exit" "$evidence_dir/wrapper.pid" <<'REMOTE'
@@ -591,28 +649,127 @@ REMOTE
 }
 
 remote_stop_process_tree() {
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$evidence_dir/wrapper.pid' '$prefix_dir/pfx' '$proton_runner'" <<'REMOTE' || true
+  # Keep the task id out of this cleanup shell's process command line. Otherwise
+  # the task-name scan below can discover and terminate its own coordinator
+  # before it records cleanup evidence or reaches the final survivor check.
+  remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner" <<'REMOTE'
 set -euo pipefail
-pid_file="$1"
-wine_prefix="$2"
-proton_runner="$3"
+remote_args
+pid_file="${REMOTE_ARGS[0]}"
+wine_prefix="${REMOTE_ARGS[1]}"
+proton_runner="${REMOTE_ARGS[2]}"
 wineserver="$(dirname "$proton_runner")/files/bin/wineserver"
 [ ! -x "$wineserver" ] || WINEPREFIX="$wine_prefix" "$wineserver" -k 2>/dev/null || true
-[ -s "$pid_file" ] || exit 0
-root="$(cat "$pid_file")"
-kill_tree() {
-  local pid="$1" child
-  while read -r child; do
-    [ -n "$child" ] && kill_tree "$child"
-  done < <(ps -o pid= --ppid "$pid" 2>/dev/null | tr -d ' ' || true)
-  kill -TERM "$pid" 2>/dev/null || true
+processes=()
+if [ -s "$pid_file" ]; then
+  root="$(cat "$pid_file")"
+  [[ "$root" =~ ^[1-9][0-9]*$ ]] || {
+    printf '%s\n' 'invalid wrapper pid' > "$(dirname "$pid_file")/task-process-cleanup.properties"
+    exit 1
+  }
+  processes=("$root")
+fi
+for _ in $(seq 1 64); do
+  added=0
+  for parent in "${processes[@]}"; do
+    while read -r child; do
+      [ -n "$child" ] || continue
+      if [[ " ${processes[*]} " != *" $child "* ]]; then
+        processes+=("$child")
+        added=1
+      fi
+    done < <(ps -o pid= --ppid "$parent" 2>/dev/null | tr -d ' ' || true)
+  done
+  [ "$added" = 1 ] || break
+done
+task_dir="${wine_prefix%/prefix/pfx}"
+task_name="${task_dir##*/}"
+append_task_processes() {
+  local pid
+  while read -r pid; do
+    [ -n "$pid" ] || continue
+    [[ " ${processes[*]} " == *" $pid "* ]] || processes+=("$pid")
+  done < <(
+    python3 - "$task_dir" "$wine_prefix" <<'PY'
+from pathlib import Path
+import sys
+
+task = sys.argv[1]
+prefix = sys.argv[2]
+self_pid = str(Path('/proc/self').resolve().name)
+for proc in Path('/proc').iterdir():
+    if not proc.name.isdigit() or proc.name == self_pid:
+        continue
+    try:
+        raw = (proc / 'cmdline').read_bytes()
+        environ = (proc / 'environ').read_bytes()
+    except (OSError, PermissionError):
+        continue
+    owned = task.encode() in raw or prefix.encode() in raw
+    owned = owned or f'WINEPREFIX={prefix}'.encode() + b'\0' in environ
+    if owned:
+        print(proc.name)
+PY
+  )
 }
-kill_tree "$root"
+append_task_processes
+for ((index=${#processes[@]} - 1; index >= 0; index--)); do
+  kill -TERM "${processes[$index]}" 2>/dev/null || true
+done
 for _ in $(seq 1 10); do
-  kill -0 "$root" 2>/dev/null || exit 0
+  append_task_processes
+  alive=0
+  for pid in "${processes[@]}"; do
+    kill -0 "$pid" 2>/dev/null && alive=1
+  done
+  [ "$alive" = 1 ] || break
   sleep 1
 done
-kill -KILL "$root" 2>/dev/null || true
+append_task_processes
+for ((index=${#processes[@]} - 1; index >= 0; index--)); do
+  kill -KILL "${processes[$index]}" 2>/dev/null || true
+done
+for _ in $(seq 1 10); do
+  alive=0
+  for pid in "${processes[@]}"; do
+    kill -0 "$pid" 2>/dev/null && alive=1
+  done
+  [ "$alive" = 1 ] || break
+  sleep 1
+done
+mapfile -t survivors < <(
+  python3 - "$task_dir" "$wine_prefix" "${processes[@]}" <<'PY'
+from pathlib import Path
+import sys
+
+task = sys.argv[1]
+prefix = sys.argv[2]
+tracked = set(sys.argv[3:])
+for proc in Path("/proc").iterdir():
+    if not proc.name.isdigit():
+        continue
+    try:
+        raw = (proc / "cmdline").read_bytes()
+        cmdline = raw.replace(b"\0", b" ").decode("utf-8", "replace")
+        environ = (proc / "environ").read_bytes()
+    except (OSError, PermissionError):
+        continue
+    owned = proc.name in tracked or task.encode() in raw or prefix.encode() in raw
+    owned = owned or f"WINEPREFIX={prefix}".encode() + b"\0" in environ
+    if owned and proc.name != str(Path('/proc/self').resolve().name):
+        print(f"{proc.name} {cmdline.strip()}")
+PY
+)
+{
+  printf 'taskDir=%s\n' "$task_dir"
+  printf 'trackedProcesses=%s\n' "${#processes[@]}"
+  printf 'survivors=%s\n' "${#survivors[@]}"
+} > "$(dirname "$pid_file")/task-process-cleanup.properties"
+if [ "${#survivors[@]}" -gt 0 ]; then
+  printf '%s\n' "${survivors[@]}" > "$(dirname "$pid_file")/task-process-survivors.txt"
+  return 1
+fi
+rm -f "$(dirname "$pid_file")/task-process-survivors.txt"
 REMOTE
 }
 
@@ -724,21 +881,55 @@ cleanup_prefix() {
   "${ssh_cmd[@]}" "$ssh_host" "rm -rf -- '$prefix_dir'" || true
 }
 
+run_remote_hook() {
+  local hook="$1"
+  [ -n "$hook" ] || return 0
+  if [ "$hook" = "$remote_pre_cleanup" ] && [ "$pre_cleanup_hook_done" = 1 ]; then
+    return 0
+  fi
+  local remote_hook="$task_dir/$(basename "$hook")"
+  "${scp_cmd[@]}" "$hook" "$ssh_host:$remote_hook"
+  remote_args_bash \
+    "$task_dir" "$home_dir" "$evidence_dir" "$prefix_dir" "$fixture_path" "$task_id" \
+    "$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display" \
+    "$remote_hook" <<'REMOTE'
+set -euo pipefail
+remote_args
+hook="${REMOTE_ARGS[11]}"
+chmod 700 "$hook"
+exec "$hook" "${REMOTE_ARGS[0]}" "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[2]}" \
+  "${REMOTE_ARGS[3]}" "${REMOTE_ARGS[4]}" "${REMOTE_ARGS[5]}" "${REMOTE_ARGS[6]}" \
+  "${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[10]}"
+REMOTE
+  if [ "$hook" = "$remote_pre_cleanup" ]; then
+    pre_cleanup_hook_done=1
+  fi
+}
+
 on_exit() {
-  local rc=$?
+  local rc=$? cleanup_rc=0
   set +e
+  if [ "$launched" = 1 ] && [ "$success" = 0 ]; then
+    run_remote_hook "$remote_pre_cleanup" || cleanup_rc=1
+  fi
   if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
-    remote_stop_process_tree
+    remote_stop_process_tree || cleanup_rc=1
   fi
   collect_evidence
   if [ "$success" = 1 ]; then
     cleanup_prefix
   fi
   rm -rf "$local_tmp"
+  if [ "$cleanup_rc" -ne 0 ]; then
+    printf 'host validation: REMOTE CLEANUP FAILED task=%s remote=%s evidence=%s\n' \
+      "$task_id" "$task_dir" "$local_evidence_dir" >&2
+    rc=1
+  fi
   if [ "$rc" -ne 0 ]; then
     printf 'host validation: FAILED task=%s remote=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
   fi
+  return "$rc"
 }
 trap on_exit EXIT
 
@@ -956,13 +1147,21 @@ for option in "${all_jvm_options[@]}"; do
   quoted_option="$(windows_java_tool_option "$option")"
   java_tool_options+="${java_tool_options:+ }$quoted_option"
 done
-require_safe_text "$java_tool_options" "combined JAVA_TOOL_OPTIONS"
+[[ ! "$java_tool_options" =~ [[:cntrl:]] ]] \
+  || fail "combined JAVA_TOOL_OPTIONS contains an unsupported control character"
 
-cat > "$local_tmp/launch.bat" <<BAT
+cat > "$local_tmp/launch.bat" <<'BAT'
 @echo off
 setlocal
-set "JAVA_TOOL_OPTIONS=$java_tool_options"
 BAT
+for assignment in "${windows_environment[@]}"; do
+  assignment="${assignment//\{TASK_ID\}/$task_id}"
+  assignment="${assignment//\{HOME\}/$win_home}"
+  assignment="${assignment//\{FIXTURE\}/$win_fixture}"
+  assignment="${assignment//\{FIXTURE_NAME\}/$fixture_name}"
+  printf 'set "%s"\r\n' "$assignment" >> "$local_tmp/launch.bat"
+done
+printf 'set "JAVA_TOOL_OPTIONS=%s"\r\n' "$java_tool_options" >> "$local_tmp/launch.bat"
 if [ -n "$cubism_java" ]; then
   # The official BAT assigns JAVA_EXE unconditionally, so invoke a task-local
   # text-equivalent copy with only that assignment replaced. The installed and
@@ -980,6 +1179,8 @@ fi
 cat >> "$local_tmp/launch.bat" <<'BAT'
 exit /b %ERRORLEVEL%
 BAT
+run_remote_hook "$remote_pre_launch"
+
 cat > "$local_tmp/launch.sh" <<SH
 #!/bin/sh
 set -u
@@ -997,6 +1198,7 @@ SH
 log "launching exact Cubism $version through official BAT"
 "${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
 launched=1
+run_remote_hook "$remote_post_launch"
 
 log_file=''
 if [ "${#ready_markers[@]}" -gt 0 ]; then
@@ -1123,6 +1325,7 @@ cloned_bat_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$cloned_cubism/Cubis
 [ "$golden_bat_after" = "$golden_bat_before" ] || fail "golden Cubism launcher changed"
 [ "$cloned_bat_after" = "$cloned_bat_before" ] || fail "cloned Cubism launcher changed"
 
+run_remote_hook "$remote_pre_cleanup"
 collect_evidence
 success=1
 cleanup_prefix

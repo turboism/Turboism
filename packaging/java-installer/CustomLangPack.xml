@@ -13,10 +13,13 @@
 
     <str id="InstallationGroupPanel.group.full" txt="Full installation (all plugins)"/>
     <str id="InstallationGroupPanel.description.full" txt="Installs the Turboism agent and every first-party plugin. You can deselect individual plugins on the next page."/>
+    <str id="InstallationGroupPanel.group.thin" txt="Thin installation (plugins, online fx repair)"/>
+    <str id="InstallationGroupPanel.description.thin" txt="Installs every first-party plugin without native fx runtime bytes. Turboism with fx can explicitly install the exact reviewed platform runtime online later."/>
     <str id="InstallationGroupPanel.group.lite" txt="Lite installation (no plugins)"/>
     <str id="InstallationGroupPanel.description.lite" txt="Installs only the Turboism agent and common files. No first-party plugin JAR is copied."/>
     <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
-    <str id="InstallationGroupPanel.sortKey.lite" txt="2"/>
+    <str id="InstallationGroupPanel.sortKey.thin" txt="2"/>
+    <str id="InstallationGroupPanel.sortKey.lite" txt="3"/>
 
     <!-- Required common pack display name (console- and GUI-visible). -->
     <str id="turboism-common" txt="Turboism Core"/>

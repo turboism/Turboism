@@ -31,9 +31,7 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "plugin.refresh.low",
                  "sidecar.complete" -> WorkBudget.LIGHTWEIGHT;
             case "action.handle" -> isHeavyAction(task) ? WorkBudget.HEAVY : WorkBudget.LIGHTWEIGHT;
-            case "config.read",
-                 "config.write",
-                 "transaction.commit",
+            case "transaction.commit",
                  "transaction.rollback" -> WorkBudget.HEAVY;
             case "network",
                  "ai",
