@@ -108,6 +108,8 @@ jobs:
           python3 scripts/release/verify-release.py \
             --version "${{ steps.version.outputs.version }}" \
             --dist build/windows-installer/dist \
+            --release-plugins packaging/release-plugins.txt \
+            --windows-stage build/windows-installer/staging \
             --manifest-output build/release-orchestrator/framework-artifacts.json
 
       - name: Generate deterministic release candidate

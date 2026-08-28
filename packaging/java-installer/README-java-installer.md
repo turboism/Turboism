@@ -24,9 +24,12 @@ A release build retains (all under `build/windows-installer/dist/`):
 The installer.xml is generated at build time from each plugin JAR's
 `META-INF/turboism/plugin.json` (missing, malformed, duplicate, or
 runtime-owned `turboism.core` metadata fails the build; order is stable by
-plugin id). The shared staged payload (`build/windows-installer/staging`)
-is assembled by `stageInstallerPayload` and is the single source for the
-Java installer, the NSIS installer and the ZIPs.
+plugin id). `stageInstallerPayload` assembles the runtime-free shared Windows
+source at `build/windows-installer/staging` for the NSIS installer and ZIPs.
+`stageJavaInstallerPayload` copies that source to
+`build/java-installer/staging` and adds only the reviewed Linux/macOS managed
+fx payloads for the Java installer. No Windows ZIP or NSIS payload contains
+`runtimes/fx/**`.
 
 Pinned toolchain (no dynamic versions): Gradle plugin `org.izpack.gradle`
 3.2.3 and `org.codehaus.izpack:izpack-ant` 5.2.6. Their SHA-256 entries live
@@ -38,10 +41,15 @@ in `gradle/verification-metadata.xml`.
 java -jar TurboismInstaller-<version>.jar
 ```
 
-Flow: Welcome -> License -> Full/Lite -> optional plugins (Full only) ->
-target directory -> summary -> install -> finish. Full defaults every
-first-party plugin to selected; Lite installs the agent and common files
-with no plugin JAR copied. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
+Flow: Welcome -> License -> Full/Thin/Lite -> optional plugins (Full and
+Thin) -> target directory -> summary -> install -> finish. Full defaults
+every first-party plugin to selected and installs the matching managed fx
+payload only on reviewed Linux/macOS OS/CPU pairs. Windows Full fails before
+config or payload mutation because no reviewed Windows fx executable exists.
+Thin installs the complete plugin roster without native fx bytes and remains
+available on Windows for an explicit custom executable or later verified
+online repair. Lite installs the agent and common files with no plugin JAR or
+fx runtime. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
 `~/Library/Application Support/Turboism` (macOS),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
@@ -103,10 +111,12 @@ uninstaller.jar -console`.
 Deterministic, non-GUI (console mode), runnable on Linux/macOS/Windows with
 Java 17. It builds the installer and verifies: JAR layout (en/zh/ja
 langpacks, uninstaller, one required common pack, one optional pack per
-non-core plugin), Lite install into a path containing spaces, Full install
-with deselects, config merge and fail-closed cases (strict numbers,
-canonical v1 identity, malformed UTF-8, size boundary), and both uninstall
-branches with a synthetic third-party plugin file preserved. Every captured
+non-core plugin), Lite and Thin installs, Full install with deselects on a
+reviewed platform, compiled listener policy behavior for Windows Full
+rejection and Windows Thin/Lite admission, config merge and fail-closed cases
+(strict numbers, ASCII-only Unicode escapes, canonical v1 identity, malformed
+UTF-8, size boundary), and both uninstall branches with a synthetic
+third-party plugin file preserved. Every captured
 JVM runs with a task-owned `java.io.tmpdir` and `-Dfile.encoding=UTF-8`;
 all subprocess text is decoded with explicit UTF-8, so the live en/zh/ja
 locale probes are byte-deterministic on any host. The global IzPack lock

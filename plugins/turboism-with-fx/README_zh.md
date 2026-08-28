@@ -16,7 +16,7 @@ interface: swing
 
 > **Turboism 官方插件** · **状态：预览**
 
-Opens separate Agent and Settings windows and connects Turboism's verified, platform-specific managed fx v0.0.5 runtime through Agent Client Protocol (ACP) v1 and authenticated loopback MCP. Release packaging installs fx outside the plugin JAR under `runtimes/fx/0.0.5/<platform>/`; an explicit custom executable remains an advanced override.
+Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent Client Protocol (ACP) v1 and authenticated loopback MCP. The Java Full installer carries reviewed Linux/macOS managed runtimes outside the plugin JAR under `runtimes/fx/0.0.5/<platform>/`. Windows ZIP/NSIS Full carries the plugin but no managed fx executable, so Windows requires an explicit custom executable.
 
 | 详情 | 值 |
 |---|---|
@@ -45,10 +45,10 @@ Opens separate Agent and Settings windows and connects Turboism's verified, plat
 - **Cubism:** Required. Host-facing MCP tools remain subject to Turboism's exact reviewed Cubism support and available typed services.
 - **Interface mode:** `swing`.
 - **Plugin dependency:** Turboism MCP Server `dev.turboism.plugin.mcp` in `[0.1.0,0.2.0)`.
-- **Managed runtime:** The reviewed fx v0.0.5 release (`df7e6245e1992758d4060c97477ceafa27770551`) is installed by Turboism release packaging under `runtimes/fx/0.0.5/<platform>/`. Other ACP agent identities, versions, platform paths, sizes, or executable hashes fail closed until reviewed.
+- **Managed runtime:** The Java Full installer stages the reviewed fx v0.0.5 release (`df7e6245e1992758d4060c97477ceafa27770551`) under `runtimes/fx/0.0.5/<platform>/` on reviewed Linux/macOS pairs. Windows product assets contain no managed fx executable. Other ACP agent identities, versions, platform paths, sizes, or executable hashes fail closed until reviewed.
 - **Authentication:** Authenticate fx with one of fx's supported credential mechanisms. fx ACP v0.0.5 exposes no provider-login protocol to the plugin, so Turboism does not collect or persist provider credentials.
 - **Platform payloads:** Official upstream Linux x86_64, Linux ARM64, macOS x86_64, and macOS ARM64 release assets are pinned for offline product distribution. A Java Full installation is available only on those reviewed OS/CPU pairs and retains only the matching payload; unsupported targets fail before config or payload mutation. A Thin product variant may ship the plugin without the native payload and use the explicit verified repair action. Existing Lite mode remains plugin-free and contains no fx runtime.
-- **Windows distribution:** fx v0.0.5 has no official Windows executable. Windows Full release packaging intentionally fails closed until a reviewed and reproducible Turboism-built Windows-native binary from the exact upstream v0.0.5 source passes security review, ACP validation, and exact Cubism host qualification. A modified build is labeled `sourceMode=reviewed-patch`, never pristine: candidate admission independently verifies the pinned pristine archive, requires separately supplied reviewed patch/tree identities, snapshots and replays the patch, and recomputes the canonical patched source-tree identity. A phase-1 compile-only v0.0.5 backport now reproducibly produces a stock-Zig PE, but it remains validation research rather than a product runtime: durable sessions, ACP MCP servers, native tools, networking, and subprocess execution are deliberately unavailable until their security gates are implemented. Draft PR #412 was explicitly rejected: its stock build and workflow fail, and its investigation-only cross-build required unpinned behavioral standard-library patches while leaving Windows credentials, durable state, containment, networking, and process-tree behavior unqualified. Exact tag v0.4.5 was also rejected: its pristine Windows build fails with 36 errors and no PE, it publishes no Windows artifact, and critical Windows ACL, reparse containment, durability, home-path, and process-tree ownership gaps remain. Older PR #377 and #331 binaries were also rejected. #377's stock-Zig build, Winsock, and physical-path work may be reviewed only as selective source material for a new minimal v0.0.5 backport; its plaintext secrets, absent private DACL/durability, stale merge state, and direct-child cancellation prevent distribution. The validation-only Linux/Java bridge and investigation cross-builds are not product runtimes.
+- **Windows distribution:** fx v0.0.5 has no reviewed Windows executable. Windows ZIP/NSIS Full nevertheless contains the exact full plugin roster, including `turboism-with-fx.jar`, but contains no `runtimes/fx/**`; using the plugin on Windows requires an explicit user-owned custom executable. Java Full rejects Windows before config or payload mutation. Java Thin remains available with the complete plugin roster and no native fx bytes, and Lite remains plugin-free. A phase-1 compile-only v0.0.5 backport and other investigated upstream Windows ports remain validation research, not product runtimes, until their security, durability, ACP, exact-host, and process-tree gates are satisfied.
 
 The reviewed fx release exposes only `--model` and `--log-file` for `fx acp`. Its runner defaults `allow_native_tools` to true, and no supported CLI flag, environment variable, settings field, or ACP option disables those tools.
 
@@ -56,12 +56,12 @@ The reviewed fx release exposes only `--model` and `--log-file` for `fx acp`. It
 
 This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication:
 
-1. Install Turboism through official Full release packaging for the current platform. The installer places the matching reviewed fx runtime and its license/notices under `runtimes/fx/0.0.5/<platform>/`.
+1. On reviewed Linux/macOS pairs, use Java Full to install the matching fx runtime and notices under `runtimes/fx/0.0.5/<platform>/`. On Windows, ZIP/NSIS Full includes the plugin but no managed fx executable; configure an explicit custom executable instead. Java Thin installs the plugin roster without native fx bytes, and Lite does not install this plugin.
 2. Authenticate fx using its supported provider setup or login flow. Credentials and durable provider configuration remain fx-owned and are never included in the runtime payload.
 3. Enable **Turboism MCP Server** and **Turboism with fx** in Plugin Management.
 4. Choose the **fx** icon immediately to the left of **Turboism Home** on Cubism's main toolbar.
 
-For advanced diagnostics or qualification, Settings can override the managed executable with an explicit custom path. Normal use leaves that field blank. A custom override must be an existing absolute regular-file path; Turboism does not search `PATH` as an implicit fallback. If a Thin installation has no managed payload, use **Install or repair online** while disconnected and with the custom override blank; Full installations do not need a first-run download.
+Settings can override the managed executable with an explicit custom path. On reviewed Linux/macOS Java Full installs, normal use leaves that field blank. On Windows the custom path is required because product assets contain no managed fx executable. A custom override must be an existing absolute regular-file path; Turboism does not search `PATH` as an implicit fallback. A Thin installation on a supported Linux/macOS platform may use **Install or repair online** while disconnected and with the custom override blank.
 
 ## 使用方法
 
@@ -133,7 +133,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 |---|---|
 | MCP-only mode refuses to connect | This is intentional for stock fx v0.0.5. Review the warning and explicitly choose compatibility mode only when its native-tool exposure is acceptable. |
 | Connection fails | Open Settings and follow its specific runtime status. Confirm Turboism MCP Server is enabled, the matching managed fx payload is installed and passes integrity verification, and fx authentication succeeds. A Thin installation can use **Install or repair online** while disconnected. |
-| Windows has no fx executable | The reviewed official fx v0.0.5 release provides Linux and macOS assets but no Windows binary. Turboism does not repackage the Linux binary or present the validation bridge as a product runtime. |
+| Windows has no fx executable | This is expected: Windows ZIP/NSIS Full includes the plugin but no managed fx runtime. Configure an explicit absolute custom executable. Java Full rejects Windows; Java Thin remains available without native fx bytes. Turboism does not repackage Linux/macOS binaries or present validation bridges as product runtimes. |
 | fx version is unsupported | Install the reviewed v0.0.5 release. New versions require an ACP and native-tool behavior review before admission. |
 | Provider or Model is empty | Confirm fx completed ACP initialization and returned provider/model `configOptions`. Turboism has no fallback catalog. |
 | A saved session cannot load | The plugin logs the load failure and creates a new fx session, replacing the opaque saved session ID. |
