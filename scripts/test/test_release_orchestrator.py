@@ -26,10 +26,11 @@ def load_package():
     from turboism_release import contracts
     from turboism_release import executor
     from turboism_release import planner
-    return candidate_builder, contracts, executor, planner
+    from turboism_release import remote
+    return candidate_builder, contracts, executor, planner, remote
 
 
-candidate_builder, contracts, executor, planner = load_package()
+candidate_builder, contracts, executor, planner, remote = load_package()
 
 
 HASH_A = "a" * 64
@@ -155,6 +156,32 @@ class ContractTest(unittest.TestCase):
             path.write_text('{"format":"turboism.release-candidate","format":"x","schemaVersion":1}')
             with self.assertRaises(contracts.ReleaseError):
                 contracts.read_document(path, "candidate")
+
+
+class RemoteAdapterTest(unittest.TestCase):
+    @mock.patch("turboism_release.remote.urllib.request.urlopen")
+    def test_remote_requests_identify_the_release_orchestrator(self, urlopen):
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+        urlopen.return_value = response
+
+        remote._bytes_url("https://updates.turboism.dev/example.json")
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("User-agent"), "turboism-release-orchestrator/1")
+        self.assertEqual(request.get_header("Accept-encoding"), "identity")
+
+    @mock.patch("turboism_release.planner.urllib.request.urlopen")
+    def test_plan_observation_requests_identify_the_release_orchestrator(self, urlopen):
+        response = mock.MagicMock()
+        response.__enter__.return_value.read.return_value = b"{}"
+        urlopen.return_value = response
+
+        planner.read_json_source("https://updates.turboism.dev/example.json", "updates", required=True)
+
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.get_header("User-agent"), "turboism-release-orchestrator/1")
+        self.assertEqual(request.get_header("Accept-encoding"), "identity")
 
 
 class DecisionMatrixTest(unittest.TestCase):

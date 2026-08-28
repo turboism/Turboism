@@ -25,7 +25,11 @@ def read_json_source(source: str | None, label: str, *, required: bool) -> dict[
         if re.match(r"^https://", source):
             request = urllib.request.Request(
                 source,
-                headers={"Accept": "application/json", "Accept-Encoding": "identity"},
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Encoding": "identity",
+                    "User-Agent": "turboism-release-orchestrator/1",
+                },
             )
             with urllib.request.urlopen(request, timeout=30) as response:
                 data = response.read(16 * 1024 * 1024 + 1)
