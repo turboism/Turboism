@@ -161,6 +161,29 @@ class EditorHistorySnapshotProviderTest {
     }
 
     @Test
+    void undoAndRedoUseTheBindingAwareMoveAndFailClosedWhenFocusChangesAfterSnapshot() {
+        final Manager firstManager = managerAt(3);
+        final Document firstDocument = new Document(firstManager);
+        Host.document = firstDocument;
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 10
+        );
+
+        assertEquals(HistoryMoveResult.Outcome.MOVED, provider.undo(2).outcome());
+        assertEquals(1, firstManager.position);
+        assertEquals(1, firstManager.moveCalls);
+        assertEquals(HistoryMoveResult.Outcome.MOVED, provider.redo(1).outcome());
+        assertEquals(2, firstManager.position);
+        assertEquals(2, firstManager.moveCalls);
+
+        firstManager.afterCanUndo = () -> Host.document = new Document(new Manager());
+        assertEquals(HistoryMoveResult.Outcome.REJECTED_STALE, provider.undo(1).outcome());
+        assertEquals(2, firstManager.position);
+        assertEquals(2, firstManager.moveCalls);
+    }
+
+    @Test
     void rejectsStaleAndInvalidRequestsBeforeCallingTheHost() {
         final Manager manager = managerAt(3);
         Host.document = new Document(manager);
@@ -284,9 +307,15 @@ class EditorHistorySnapshotProviderTest {
         private final List<Entry> entries = new ArrayList<>();
         private int position;
         private int moveCalls;
+        private Runnable afterCanUndo = () -> { };
         public List<Entry> entries() { return entries; }
         public int position() { return position; }
-        public boolean canUndo() { return position > 0; }
+        public boolean canUndo() {
+            final boolean result = position > 0;
+            afterCanUndo.run();
+            afterCanUndo = () -> { };
+            return result;
+        }
         public boolean canRedo() { return position < entries.size(); }
         public void moveTo(final int target) { moveCalls++; position = target; }
     }

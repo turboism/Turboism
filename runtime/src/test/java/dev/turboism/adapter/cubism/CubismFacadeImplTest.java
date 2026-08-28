@@ -4,6 +4,10 @@ import dev.turboism.diagnostics.CubismFacadeAuditEvent;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
+import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.id.ModelId;
@@ -149,6 +153,77 @@ class CubismFacadeImplTest {
         assertTrue(facade.runtime().document().isEmpty());
         assertTrue(facade.runtime().model().isEmpty());
         assertTrue(auditEvents.isEmpty());
+    }
+
+    @Test
+    void historyWrapperPreservesBindingAwareMovesAndReadGuards() {
+        final HistorySnapshot expected = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            3,
+            4,
+            1,
+            List.of(new HistoryEntry(0, "First", true)),
+            true,
+            false,
+            "document",
+            "manager"
+        );
+        final int[] bindingMoves = {0};
+        final CubismHistory history = new CubismHistory() {
+            @Override
+            public HistorySnapshot snapshot() {
+                return expected;
+            }
+
+            @Override
+            public HistoryMoveResult moveTo(
+                final long expectedGeneration,
+                final long expectedRevision,
+                final int position
+            ) {
+                throw new AssertionError("legacy move must not be used");
+            }
+
+            @Override
+            public HistoryMoveResult moveTo(
+                final HistorySnapshot snapshot,
+                final int position
+            ) {
+                bindingMoves[0]++;
+                assertEquals(expected, snapshot);
+                assertEquals(0, position);
+                return new HistoryMoveResult(HistoryMoveResult.Outcome.MOVED, expected, Optional.empty());
+            }
+
+            @Override
+            public boolean isCurrentBinding(final HistorySnapshot snapshot) {
+                return snapshot.equals(expected);
+            }
+        };
+        final CubismFacadeImpl facade = new CubismFacadeImpl(
+            sampleSource(),
+            new CubismPermissionGate(
+                "plugin.demo",
+                List.of(
+                    permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                    permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+                ),
+                ignored -> { },
+                FIXED_CLOCK
+            ),
+            () -> emptyModel("history-model"),
+            new ParameterLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator(),
+            new dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator(),
+            () -> true,
+            history
+        );
+
+        final CubismHistory wrapped = facade.history();
+
+        assertTrue(wrapped.isCurrentBinding(expected));
+        assertEquals(HistoryMoveResult.Outcome.MOVED, wrapped.moveTo(expected, 0).outcome());
+        assertEquals(1, bindingMoves[0]);
     }
 
     @Test

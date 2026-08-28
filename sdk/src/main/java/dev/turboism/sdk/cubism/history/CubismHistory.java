@@ -14,19 +14,15 @@ public interface CubismHistory {
     HistoryMoveResult moveTo(long expectedGeneration, long expectedRevision, int position);
 
     /**
-     * Moves only if the active native document and Undo manager still match {@code expected}.
-     * Implementations that do not support atomic native-binding checks fail closed.
+     * Moves to {@code position}, using {@code expected}'s generation and revision.
+     * Implementations with native document/Undo-manager binding checks should override this method.
      */
     default HistoryMoveResult moveTo(
         final HistorySnapshot expected,
         final int position
     ) {
         Objects.requireNonNull(expected, "expected");
-        return new HistoryMoveResult(
-            HistoryMoveResult.Outcome.REJECTED_STALE,
-            snapshot(),
-            Optional.of("history.move.binding-unsupported")
-        );
+        return moveTo(expected.generation(), expected.revision(), position);
     }
 
     /**
