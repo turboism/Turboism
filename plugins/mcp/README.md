@@ -45,11 +45,11 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 ## Install and enable
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
-2. Read the generated `mcp-connection.json` from the plugin state directory.
+2. On a POSIX filesystem with enforceable owner-only permissions, read the generated `mcp-connection.json` from the plugin state directory. Windows startup currently fails closed because Java 17 cannot prove a protected DACL or provide handle-relative reparse-safe publication for the bearer file.
 3. Configure the local MCP client with the exact numeric-loopback endpoint and bearer authorization value.
 4. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.
 
-The connection file contains a local secret. Do not log it, copy it into validation evidence, or expose it to an untrusted process.
+The connection file contains a local secret. Do not log it, copy it into validation evidence, or expose it to an untrusted process. Windows support requires a native protected-DACL and reparse-safe publication mechanism before this file may be emitted.
 
 ## How to use
 
