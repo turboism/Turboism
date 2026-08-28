@@ -285,6 +285,734 @@ final class TurboismWithFxControllerTest {
     }
 
     @Test
+    void pendingLoadReplaysTypedEventsAfterSelectionResetInOriginalOrder() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("old-session", List.of()));
+            final Object load = beginPendingLoad(controller, source, "restored-session");
+
+            controller.agentText(source, "restored-session", "restored text");
+            controller.agentThought(source, "restored-session", "restored thought");
+            controller.toolCall(
+                source,
+                "restored-session",
+                "call-1",
+                "Rename",
+                "edit",
+                "pending"
+            );
+            controller.toolCallUpdate(
+                source,
+                "restored-session",
+                "call-1",
+                "complete",
+                "done"
+            );
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("restored-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            flushUi();
+
+            assertEquals(
+                List.of(
+                    "reset",
+                    "agent:restored text",
+                    "thought:restored thought",
+                    "tool:call-1:Rename:edit:pending",
+                    "update:call-1:complete:done"
+                ),
+                fixture.view.timeline
+            );
+        }
+    }
+
+    @Test
+    void postResponseEventAppendsAfterResetAndCapturedReplay() throws Exception {
+        final Fixture fixture = new Fixture();
+        final java.util.concurrent.CountDownLatch edtBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt = new java.util.concurrent.CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "restored-session");
+            controller.agentText(source, "restored-session", "captured");
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("restored-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            controller.agentText(source, "restored-session", "post-response");
+            releaseEdt.countDown();
+            flushUi();
+
+            assertEquals(
+                List.of("reset", "agent:captured", "agent:post-response"),
+                fixture.view.timeline
+            );
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
+    void savedSessionConnectBuffersReplayAndShowsConnectedFirst() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "saved-session");
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final ReplayLoadTransport transport = new ReplayLoadTransport("saved-session");
+        try (TurboismWithFxController controller = fixture.controller(
+            (configuration, listener) -> {
+                final FxAcpClient connected = new FxAcpClient(transport, listener);
+                try {
+                    setCapabilities(
+                        connected,
+                        new FxAcpClient.FxAcpCapabilities(true, false, false)
+                    );
+                } catch (ReflectiveOperationException failure) {
+                    throw new IllegalStateException(failure);
+                }
+                return connected;
+            }
+        )) {
+            controller.connect(temporaryExecutable().toString(), true, "");
+            fixture.view.awaitTimeline("agent:restored");
+
+            assertEquals(List.of("connected", "agent:restored"), fixture.view.timeline);
+            assertEquals("saved-session", fixture.config.value("fxSessionId"));
+        }
+    }
+
+    @Test
+    void selectedSessionPersistsBeforeBlockedEdtReplay() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "old-session");
+        final ReplayLoadTransport transport = new ReplayLoadTransport("selected-session");
+        final java.util.concurrent.CountDownLatch edtBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt = new java.util.concurrent.CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+        try (TurboismWithFxController controller = fixture.controller();
+             FxAcpClient source = new FxAcpClient(transport, controller)) {
+            setCapabilities(
+                source,
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            );
+            set(controller, "client", source);
+            set(controller, "mcpConnection", testMcpConnection());
+            invokeActivateSession(controller, new FxAcpSession(
+                "old-session",
+                List.of(),
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            ));
+
+            selectSessionNow(controller, "selected-session");
+
+            assertEquals("selected-session", fixture.config.value("fxSessionId"));
+            assertTrue(fixture.view.timeline.isEmpty());
+            releaseEdt.countDown();
+            flushUi();
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
+    void selectedSessionLoadBuffersReplayAndResetsFirst() throws Exception {
+        final Fixture fixture = new Fixture();
+        final ReplayLoadTransport transport = new ReplayLoadTransport("selected-session");
+        try (TurboismWithFxController controller = fixture.controller();
+             FxAcpClient source = new FxAcpClient(transport, controller)) {
+            set(controller, "client", source);
+            set(controller, "mcpConnection", testMcpConnection());
+            set(controller, "session", new FxAcpSession(
+                "old-session",
+                List.of(),
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            ));
+
+            selectSessionNow(controller, "selected-session");
+            fixture.view.awaitTimeline("agent:restored");
+            flushUi();
+
+            assertEquals(
+                List.of("clear", "config", "agent:restored"),
+                fixture.view.timeline
+            );
+            assertEquals("selected-session", session(controller).sessionId());
+        }
+    }
+
+    @Test
+    void exactlyFullPrefixStillAllowsPostCommitEventBehindReplay() throws Exception {
+        final Fixture fixture = new Fixture();
+        final java.util.concurrent.CountDownLatch edtBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt = new java.util.concurrent.CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "restored-session");
+            for (int index = 0; index < TurboismWithFxController.MAX_PENDING_LOAD_EVENTS; index++) {
+                controller.agentText(source, "restored-session", "event-" + index);
+            }
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("restored-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            controller.agentText(source, "restored-session", "post-commit");
+            releaseEdt.countDown();
+            flushUi();
+
+            assertEquals(66, fixture.view.timeline.size());
+            assertEquals("agent:event-63", fixture.view.timeline.get(64));
+            assertEquals("agent:post-commit", fixture.view.timeline.get(65));
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
+    void initialRestoreReplayRunsAfterShowConnected() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "saved-session");
+
+            controller.agentText(source, "saved-session", "restored text");
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("saved-session", List.of()),
+                () -> fixture.view.record("connected")
+            ));
+            flushUi();
+
+            assertEquals(List.of("connected", "agent:restored text"), fixture.view.timeline);
+        }
+    }
+
+    @Test
+    void fullNonDroppableUiQueueRejectsLoadCommitWithoutActivationOrPersistence() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "old-session");
+        final java.util.concurrent.CountDownLatch edtBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt = new java.util.concurrent.CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            invokeActivateSession(controller, new FxAcpSession(
+                "old-session",
+                List.of(),
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            ));
+            for (int index = 0; index < 256; index++) {
+                invokeUi(controller, () -> fixture.view.record("queued"));
+            }
+            final Object load = beginPendingLoad(controller, source, "selected-session");
+            controller.agentText(source, "selected-session", "captured");
+
+            assertFalse(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession(
+                    "selected-session",
+                    List.of(),
+                    new FxAcpClient.FxAcpCapabilities(true, false, false)
+                ),
+                () -> fixture.view.record("reset")
+            ));
+
+            assertEquals("old-session", session(controller).sessionId());
+            assertEquals("old-session", fixture.config.value("fxSessionId"));
+            assertTrue(pendingLoad(controller) == null);
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
+    void replayUiFailureCannotLeaveTransactionStuck() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "restored-session");
+            controller.agentText(source, "restored-session", "captured");
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("restored-session", List.of()),
+                () -> { throw new IllegalStateException("view failed"); }
+            ));
+            flushUi();
+
+            assertTrue(pendingLoad(controller) == null);
+            controller.agentText(source, "restored-session", "live");
+            flushUi();
+            assertEquals(List.of("agent:live"), fixture.view.timeline);
+            assertTrue(fixture.logger.warnings.stream()
+                .anyMatch(message -> message.contains("UI update failed safely")));
+        }
+    }
+
+    @Test
+    void replacingSessionObjectWithinGenerationDoesNotDropDelayedReplay() throws Exception {
+        final Fixture fixture = new Fixture();
+        final java.util.concurrent.CountDownLatch edtBlocked = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseEdt = new java.util.concurrent.CountDownLatch(1);
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            edtBlocked.countDown();
+            try {
+                releaseEdt.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        });
+        assertTrue(edtBlocked.await(2, java.util.concurrent.TimeUnit.SECONDS));
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "restored-session");
+            controller.agentText(source, "restored-session", "captured");
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("restored-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            set(controller, "session", new FxAcpSession("restored-session", List.of()));
+            releaseEdt.countDown();
+            flushUi();
+
+            assertEquals(List.of("reset", "agent:captured"), fixture.view.timeline);
+        } finally {
+            releaseEdt.countDown();
+        }
+    }
+
+    @Test
+    void pendingLoadRejectsWrongSessionAndSourceAndSupersedesOlderLoad() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             FxAcpClient wrongSource = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("old-session", List.of()));
+            final Object oldLoad = beginPendingLoad(controller, source, "first-session");
+
+            controller.agentText(source, "old-session", "old active");
+            controller.agentText(source, "wrong-session", "wrong id");
+            controller.agentText(wrongSource, "first-session", "wrong source");
+            controller.agentText(source, "first-session", "superseded");
+            final Object currentLoad = beginPendingLoad(controller, source, "second-session");
+            controller.agentText(source, "first-session", "old pending");
+            controller.agentText(source, "second-session", "current");
+
+            assertFalse(completePendingLoad(
+                controller,
+                oldLoad,
+                new FxAcpSession("first-session", List.of()),
+                () -> fixture.view.record("old-reset")
+            ));
+            assertTrue(completePendingLoad(
+                controller,
+                currentLoad,
+                new FxAcpSession("second-session", List.of()),
+                () -> fixture.view.record("new-reset")
+            ));
+            flushUi();
+
+            assertEquals(
+                List.of("new-reset", "agent:current"),
+                fixture.view.timeline
+            );
+        }
+    }
+
+    @Test
+    void failedAndRuntimeFailedLoadsDiscardReplayWithoutChangingSelection() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("old-session", List.of()));
+
+            final Object acpFailure = beginPendingLoad(controller, source, "failed-session");
+            controller.agentText(source, "failed-session", "discarded acp");
+            discardPendingLoad(controller, acpFailure);
+            final Object runtimeFailure = beginPendingLoad(controller, source, "runtime-session");
+            controller.agentText(source, "runtime-session", "discarded runtime");
+            discardPendingLoad(controller, runtimeFailure);
+
+            assertEquals("old-session", session(controller).sessionId());
+            assertTrue(fixture.view.timeline.isEmpty());
+            assertTrue(pendingLoad(controller) == null);
+        }
+    }
+
+    @Test
+    void closeDuringBlockedSelectionDoesNotActivateOrPersistReplay() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "old-session");
+        final BlockingLoadTransport transport = new BlockingLoadTransport();
+        final FxAcpClient source = new FxAcpClient(transport, new FxAcpListener() { });
+        final TurboismWithFxController controller = fixture.controller();
+        try {
+            setCapabilities(
+                source,
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            );
+            set(controller, "client", source);
+            set(controller, "mcpConnection", testMcpConnection());
+            invokeActivateSession(controller, new FxAcpSession(
+                "old-session",
+                List.of(),
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            ));
+            final java.util.concurrent.CompletableFuture<Void> select =
+                java.util.concurrent.CompletableFuture.runAsync(() -> {
+                    try {
+                        selectSessionNow(controller, "selected-session");
+                    } catch (ReflectiveOperationException failure) {
+                        throw new java.util.concurrent.CompletionException(failure);
+                    }
+                });
+            assertTrue(transport.loadStarted.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            final java.util.concurrent.CompletableFuture<Void> close =
+                java.util.concurrent.CompletableFuture.runAsync(controller::close);
+            source.close();
+            transport.releaseLoad.countDown();
+            select.get(2, java.util.concurrent.TimeUnit.SECONDS);
+            close.get(6, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertEquals("old-session", fixture.config.value("fxSessionId"));
+            assertTrue(session(controller) == null);
+            assertTrue(fixture.view.timeline.isEmpty());
+            assertTrue(pendingLoad(controller) == null);
+        } finally {
+            transport.releaseLoad.countDown();
+            controller.close();
+            source.close();
+        }
+    }
+
+    @Test
+    void closeDuringBlockedInitialRestoreDoesNotFallbackOrPersist() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "saved-session");
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final BlockingLoadTransport transport = new BlockingLoadTransport();
+        final java.util.concurrent.atomic.AtomicReference<FxAcpClient> source =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        final TurboismWithFxController controller = fixture.controller(
+            (configuration, listener) -> {
+                final FxAcpClient connected = new FxAcpClient(transport, listener);
+                source.set(connected);
+                setCapabilitiesUnchecked(
+                    connected,
+                    new FxAcpClient.FxAcpCapabilities(true, false, false)
+                );
+                return connected;
+            }
+        );
+        try {
+            controller.connect(temporaryExecutable().toString(), true, "");
+            assertTrue(transport.loadStarted.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            final java.util.concurrent.CompletableFuture<Void> close =
+                java.util.concurrent.CompletableFuture.runAsync(controller::close);
+            source.get().close();
+            transport.releaseLoad.countDown();
+            close.get(6, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertEquals("saved-session", fixture.config.value("fxSessionId"));
+            assertTrue(session(controller) == null);
+            assertTrue(fixture.view.timeline.isEmpty());
+            assertTrue(pendingLoad(controller) == null);
+        } finally {
+            transport.releaseLoad.countDown();
+            controller.close();
+        }
+    }
+
+    @Test
+    void closeAndMatchingTerminationDiscardPendingReplay() throws Exception {
+        final Fixture closeFixture = new Fixture();
+        final FxAcpClient closeSource = inactiveClient();
+        final TurboismWithFxController closedController = closeFixture.controller();
+        set(closedController, "client", closeSource);
+        beginPendingLoad(closedController, closeSource, "close-session");
+        closedController.agentText(closeSource, "close-session", "closed");
+        closedController.close();
+        assertTrue(pendingLoad(closedController) == null);
+        closeSource.close();
+
+        final Fixture terminalFixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = terminalFixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("old-session", List.of()));
+            beginPendingLoad(controller, source, "terminal-session");
+            controller.agentText(source, "terminal-session", "terminated");
+
+            controller.terminated(source, "terminal");
+            awaitSerial(controller);
+
+            assertTrue(pendingLoad(controller) == null);
+            assertTrue(session(controller) == null);
+            assertTrue(terminalFixture.view.timeline.isEmpty());
+        }
+    }
+
+    @Test
+    void permissionCancellationDuringSelectionLoadFailureLeavesPriorSelectionClean() throws Exception {
+        final Fixture fixture = new Fixture();
+        final PermissionFailingLoadTransport transport = new PermissionFailingLoadTransport();
+        try (FxAcpClient source = new FxAcpClient(transport, new FxAcpListener() { });
+             TurboismWithFxController controller = fixture.controller()) {
+            transport.source = source;
+            transport.listener = controller;
+            set(controller, "client", source);
+            set(controller, "mcpConnection", new dev.turboism.sdk.mcp.McpHttpConnection(
+                java.net.URI.create("http://127.0.0.1:41234/mcp"),
+                "2025-06-18",
+                "Bearer test"
+            ));
+            set(controller, "session", new FxAcpSession(
+                "old-session",
+                List.of(),
+                new FxAcpClient.FxAcpCapabilities(true, false, false)
+            ));
+
+            selectSessionNow(controller, "loading-session");
+            flushUi();
+
+            assertEquals(FxAcpListener.PermissionDecision.CANCELLED, transport.decision.get());
+            assertEquals("old-session", session(controller).sessionId());
+            assertTrue(fixture.view.failures.contains("status.session-load-failed"));
+            assertTrue(fixture.view.timeline.isEmpty());
+            assertTrue(pendingLoad(controller) == null);
+        }
+    }
+
+    @Test
+    void slowPermissionIsCancelledIfClientTerminatesBeforeDecisionReturns() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.view.permissionEntered = new java.util.concurrent.CountDownLatch(1);
+        fixture.view.releasePermission = new java.util.concurrent.CountDownLatch(1);
+        fixture.view.permissionDecision = FxAcpListener.PermissionDecision.ALLOW_ONCE;
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            invokeActivateSession(
+                controller,
+                new FxAcpSession("current-session", List.of())
+            );
+            final java.util.concurrent.CompletableFuture<FxAcpListener.PermissionDecision> decision =
+                java.util.concurrent.CompletableFuture.supplyAsync(() -> controller.permission(
+                    source,
+                    "current-session",
+                    new FxAcpListener.PermissionRequest("Rename", "edit", "call-1", "{}")
+                ));
+            assertTrue(fixture.view.permissionEntered.await(
+                2, java.util.concurrent.TimeUnit.SECONDS
+            ));
+
+            controller.terminated(source, "terminated");
+            awaitSerial(controller);
+            fixture.view.releasePermission.countDown();
+
+            assertEquals(
+                FxAcpListener.PermissionDecision.CANCELLED,
+                decision.get(2, java.util.concurrent.TimeUnit.SECONDS)
+            );
+        } finally {
+            if (fixture.view.releasePermission != null) {
+                fixture.view.releasePermission.countDown();
+            }
+        }
+    }
+
+    @Test
+    void permissionDuringPendingLoadIsCancelledWithoutCallingTheView() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("old-session", List.of()));
+            beginPendingLoad(controller, source, "loading-session");
+
+            final FxAcpListener.PermissionDecision decision = controller.permission(
+                source,
+                "loading-session",
+                new FxAcpListener.PermissionRequest("Rename", "edit", "call-1", "{}")
+            );
+
+            assertEquals(FxAcpListener.PermissionDecision.CANCELLED, decision);
+            assertEquals(0, fixture.view.permissionRequests.get());
+        }
+    }
+
+    @Test
+    void pendingLoadAcceptsExactly64EventsWithoutOverflow() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "bounded-session");
+            for (int index = 0; index < 64; index++) {
+                controller.agentText(source, "bounded-session", "event-" + index);
+            }
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("bounded-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            flushUi();
+
+            assertEquals(65, fixture.view.timeline.size());
+            assertEquals("agent:event-63", fixture.view.timeline.get(64));
+            assertFalse(fixture.logger.warnings.stream()
+                .anyMatch(message -> message.contains("session-load replay events")));
+        }
+    }
+
+    @Test
+    void pendingLoadLatchesAt65thEventAndDropsAllLaterEvents() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "bounded-session");
+            for (int index = 0; index < 70; index++) {
+                controller.agentText(source, "bounded-session", "event-" + index);
+            }
+
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("bounded-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            flushUi();
+
+            assertEquals(65, fixture.view.timeline.size());
+            assertEquals("agent:event-63", fixture.view.timeline.get(64));
+            assertEquals(1L, fixture.logger.warnings.stream()
+                .filter(message -> message.contains("session-load replay events"))
+                .count());
+        }
+    }
+
+    @Test
+    void pendingLoadAcceptsExactlyOneMiBUtf8AcrossAllStringFields() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "bounded-session");
+            final String content = "é".repeat(
+                ((int) TurboismWithFxController.MAX_PENDING_LOAD_TEXT_BYTES - 2) / 2
+            );
+
+            controller.toolCallUpdate(
+                source,
+                "bounded-session",
+                "i",
+                "s",
+                content
+            );
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("bounded-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            flushUi();
+
+            assertEquals(List.of("reset", "update:i:s:" + content), fixture.view.timeline);
+            assertFalse(fixture.logger.warnings.stream()
+                .anyMatch(message -> message.contains("session-load replay events")));
+        }
+    }
+
+    @Test
+    void pendingLoadLatchesOneByteOverTextLimitAndDropsLaterEvents() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", source);
+            final Object load = beginPendingLoad(controller, source, "bounded-session");
+            final String exact = "x".repeat(
+                (int) TurboismWithFxController.MAX_PENDING_LOAD_TEXT_BYTES
+            );
+
+            controller.agentText(source, "bounded-session", exact);
+            controller.agentText(source, "bounded-session", "x");
+            controller.agentText(source, "bounded-session", "later");
+            assertTrue(completePendingLoad(
+                controller,
+                load,
+                new FxAcpSession("bounded-session", List.of()),
+                () -> fixture.view.record("reset")
+            ));
+            flushUi();
+
+            assertEquals(List.of("reset", "agent:" + exact), fixture.view.timeline);
+            assertEquals(1L, fixture.logger.warnings.stream()
+                .filter(message -> message.contains("session-load replay events"))
+                .count());
+        }
+    }
+
+    @Test
     void thinkingAndToolIdentityAreForwardedToTheView() throws Exception {
         final Fixture fixture = new Fixture();
         try (FxAcpClient source = inactiveClient();
@@ -421,6 +1149,81 @@ final class TurboismWithFxControllerTest {
         return new FxAcpClient(new CapturingTransport(), new FxAcpListener() { });
     }
 
+    private static void invokeActivateSession(
+        final TurboismWithFxController controller,
+        final FxAcpSession session
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "activateSession", FxAcpSession.class
+        );
+        method.setAccessible(true);
+        method.invoke(controller, session);
+    }
+
+    private static Object beginPendingLoad(
+        final TurboismWithFxController controller,
+        final FxAcpClient source,
+        final String sessionId
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "beginLoadTransaction", FxAcpClient.class, String.class
+        );
+        method.setAccessible(true);
+        return method.invoke(controller, source, sessionId);
+    }
+
+    private static boolean completePendingLoad(
+        final TurboismWithFxController controller,
+        final Object load,
+        final FxAcpSession session,
+        final Runnable reset
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "completeLoadTransaction", load.getClass(), FxAcpSession.class, Runnable.class
+        );
+        method.setAccessible(true);
+        return (Boolean) method.invoke(controller, load, session, reset);
+    }
+
+    private static void selectSessionNow(
+        final TurboismWithFxController controller,
+        final String sessionId
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "selectSessionNow", String.class
+        );
+        method.setAccessible(true);
+        try {
+            method.invoke(controller, sessionId);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof RuntimeException runtime) throw runtime;
+            throw failure;
+        }
+    }
+
+    private static void discardPendingLoad(
+        final TurboismWithFxController controller,
+        final Object load
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "discardLoadTransaction", load.getClass()
+        );
+        method.setAccessible(true);
+        method.invoke(controller, load);
+    }
+
+    private static Object pendingLoad(final TurboismWithFxController controller)
+        throws ReflectiveOperationException {
+        final java.lang.reflect.Field field = controller.getClass().getDeclaredField("loadTransaction");
+        field.setAccessible(true);
+        return field.get(controller);
+    }
+
+    private static void flushUi() throws Exception {
+        javax.swing.SwingUtilities.invokeAndWait(() -> { });
+    }
+
     private static void set(final Object target, final String fieldName, final Object value)
         throws ReflectiveOperationException {
         final java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
@@ -452,6 +1255,40 @@ final class TurboismWithFxControllerTest {
         );
         method.setAccessible(true);
         method.invoke(controller, work);
+    }
+
+    private Path temporaryExecutable() throws java.io.IOException {
+        final Path executable = temporaryDirectory.resolve("fx-test");
+        java.nio.file.Files.writeString(executable, "test");
+        return executable;
+    }
+
+    private static dev.turboism.sdk.mcp.McpHttpConnection testMcpConnection() {
+        return new dev.turboism.sdk.mcp.McpHttpConnection(
+            java.net.URI.create("http://127.0.0.1:41234/mcp"),
+            "2025-06-18",
+            "Bearer test"
+        );
+    }
+
+    private static void setCapabilities(
+        final FxAcpClient client,
+        final FxAcpClient.FxAcpCapabilities capabilities
+    ) throws ReflectiveOperationException {
+        final java.lang.reflect.Field field = FxAcpClient.class.getDeclaredField("capabilities");
+        field.setAccessible(true);
+        field.set(client, capabilities);
+    }
+
+    private static void setCapabilitiesUnchecked(
+        final FxAcpClient client,
+        final FxAcpClient.FxAcpCapabilities capabilities
+    ) {
+        try {
+            setCapabilities(client, capabilities);
+        } catch (ReflectiveOperationException failure) {
+            throw new IllegalStateException(failure);
+        }
     }
 
     private static boolean booleanField(final Object target, final String fieldName)
@@ -495,10 +1332,17 @@ final class TurboismWithFxControllerTest {
         private final java.util.concurrent.atomic.AtomicInteger uiCalls =
             new java.util.concurrent.atomic.AtomicInteger();
         private boolean uiRejects;
+        private Optional<dev.turboism.sdk.mcp.McpHttpConnection> mcpConnection = Optional.empty();
 
         private TurboismWithFxController controller() {
+            return controller(FxAcpClient::start);
+        }
+
+        private TurboismWithFxController controller(
+            final TurboismWithFxController.ClientStarter clientStarter
+        ) {
             return new TurboismWithFxController(
-                context(), new FxPluginSettings(config, logger), view
+                context(), new FxPluginSettings(config, logger), view, clientStarter
             );
         }
 
@@ -539,7 +1383,14 @@ final class TurboismWithFxControllerTest {
                 (proxy, method, arguments) -> switch (method.getName()) {
                     case "logger" -> logger;
                     case "paths" -> paths;
-                    case "mcpConnections" -> McpConnectionService.unavailable();
+                    case "mcpConnections" -> new McpConnectionService() {
+                        @Override public Optional<dev.turboism.sdk.mcp.McpHttpConnection> current() {
+                            return mcpConnection;
+                        }
+                        @Override public Registration publish(
+                            final dev.turboism.sdk.mcp.McpHttpConnection connection
+                        ) { throw new UnsupportedOperationException("not used"); }
+                    };
                     case "uiScheduler" -> ui;
                     case "toString" -> "TurboismWithFxControllerTestContext";
                     case "hashCode" -> System.identityHashCode(proxy);
@@ -579,13 +1430,24 @@ final class TurboismWithFxControllerTest {
             configFailureOptions = new java.util.concurrent.atomic.AtomicReference<>();
         private final java.util.concurrent.atomic.AtomicBoolean prompting =
             new java.util.concurrent.atomic.AtomicBoolean();
+        private final List<String> timeline = new java.util.concurrent.CopyOnWriteArrayList<>();
+        private final java.util.concurrent.atomic.AtomicInteger permissionRequests =
+            new java.util.concurrent.atomic.AtomicInteger();
+        private volatile java.util.concurrent.CountDownLatch permissionEntered;
+        private volatile java.util.concurrent.CountDownLatch releasePermission;
+        private volatile FxAcpListener.PermissionDecision permissionDecision =
+            FxAcpListener.PermissionDecision.CANCELLED;
+
+        private void record(final String event) { timeline.add(event); }
 
         @Override public void showConnecting(final boolean compatibilityMode) { }
         @Override public void showConnected(
             final List<FxAcpConfigOption> options,
             final boolean durableSessionsAvailable
-        ) { }
-        @Override public void showConfigOptions(final List<FxAcpConfigOption> options) { }
+        ) { record("connected"); }
+        @Override public void showConfigOptions(final List<FxAcpConfigOption> options) {
+            record("config");
+        }
         @Override public void showConfigUpdating(final String optionId) {
             configUpdatingIds.add(optionId);
         }
@@ -601,25 +1463,52 @@ final class TurboismWithFxControllerTest {
             final String activeSessionId,
             final boolean durableSessionsAvailable
         ) { }
-        @Override public void clearTranscript() { }
+        @Override public void clearTranscript() { record("clear"); }
         @Override public void showPrompting() { prompting.set(true); }
         @Override public void showPromptComplete(final String stopReason) { }
         @Override public void showFailure(final String localizationKey) { failures.add(localizationKey); }
         @Override public void showSessionFailure(final String localizationKey) { failures.add(localizationKey); }
         @Override public void showSettingsSaved() { }
         @Override public void appendUser(final String text) { userMessages.add(text); }
-        @Override public void appendAgent(final String text) { agentMessages.add(text); }
-        @Override public void appendThinking(final String text) { thinkingMessages.add(text); }
+        @Override public void appendAgent(final String text) {
+            agentMessages.add(text);
+            record("agent:" + text);
+        }
+        @Override public void appendThinking(final String text) {
+            thinkingMessages.add(text);
+            record("thought:" + text);
+        }
         @Override public void appendTool(
             final String toolCallId,
             final String title,
             final String kind,
             final String status
-        ) { toolCalls.add(List.of(toolCallId, title, kind, status)); }
-        @Override public void updateTool(final String toolCallId, final String status, final String content) { }
+        ) {
+            toolCalls.add(List.of(toolCallId, title, kind, status));
+            record("tool:" + toolCallId + ":" + title + ":" + kind + ":" + status);
+        }
+        @Override public void updateTool(
+            final String toolCallId,
+            final String status,
+            final String content
+        ) { record("update:" + toolCallId + ":" + status + ":" + content); }
         @Override public FxAcpListener.PermissionDecision requestPermission(
             final FxAcpListener.PermissionRequest request
-        ) { return FxAcpListener.PermissionDecision.CANCELLED; }
+        ) {
+            permissionRequests.incrementAndGet();
+            final java.util.concurrent.CountDownLatch entered = permissionEntered;
+            if (entered != null) entered.countDown();
+            final java.util.concurrent.CountDownLatch release = releasePermission;
+            if (release != null) {
+                try {
+                    release.await();
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return FxAcpListener.PermissionDecision.CANCELLED;
+                }
+            }
+            return permissionDecision;
+        }
 
         private void awaitFailure(final String expected) throws InterruptedException {
             for (int attempt = 0; !failures.contains(expected) && attempt < 2000; attempt++) {
@@ -661,6 +1550,13 @@ final class TurboismWithFxControllerTest {
                 Thread.sleep(1L);
             }
             assertTrue(configFailureId.get() != null, "controller did not restore config state");
+        }
+
+        private void awaitTimeline(final String event) throws InterruptedException {
+            for (int attempt = 0; !timeline.contains(event) && attempt < 2000; attempt++) {
+                Thread.sleep(1L);
+            }
+            assertTrue(timeline.contains(event), "controller did not deliver " + event);
         }
     }
 
@@ -719,6 +1615,185 @@ final class TurboismWithFxControllerTest {
             final T value,
             final long expectedRevision
         ) { throw new UnsupportedOperationException("not used"); }
+    }
+
+    private static final class BlockingLoadTransport implements FxAcpTransport {
+        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStdout;
+        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStderr;
+        private final java.util.concurrent.CountDownLatch loadStarted =
+            new java.util.concurrent.CountDownLatch(1);
+        private final java.util.concurrent.CountDownLatch releaseLoad =
+            new java.util.concurrent.CountDownLatch(1);
+        private volatile boolean alive = true;
+
+        private BlockingLoadTransport() throws java.io.IOException {
+            serverStdout = new java.io.PipedOutputStream(clientStdout);
+            serverStderr = new java.io.PipedOutputStream(stderr);
+        }
+
+        @Override public java.io.InputStream stdout() { return clientStdout; }
+        @Override public java.io.InputStream stderr() { return stderr; }
+        @Override public java.io.OutputStream stdin() {
+            return new java.io.OutputStream() {
+                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+                @Override public void write(final int value) throws java.io.IOException {
+                    if (value == '\n') {
+                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
+                        line.reset();
+                    } else {
+                        line.write(value);
+                    }
+                }
+            };
+        }
+        @Override public boolean isAlive() { return alive; }
+        @Override public void terminate(final Duration grace) { close(); }
+        @Override public void close() {
+            alive = false;
+            releaseLoad.countDown();
+            try { serverStdout.close(); } catch (java.io.IOException ignored) { }
+            try { serverStderr.close(); } catch (java.io.IOException ignored) { }
+        }
+
+        private void handle(final String json) throws java.io.IOException {
+            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
+                json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            ));
+            if (!"session/load".equals(request.get("method"))) return;
+            loadStarted.countDown();
+            try {
+                releaseLoad.await();
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    private static final class ReplayLoadTransport implements FxAcpTransport {
+        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStdout;
+        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStderr;
+        private final String sessionId;
+        private volatile boolean alive = true;
+
+        private ReplayLoadTransport(final String sessionId) throws java.io.IOException {
+            this.sessionId = sessionId;
+            serverStdout = new java.io.PipedOutputStream(clientStdout);
+            serverStderr = new java.io.PipedOutputStream(stderr);
+        }
+
+        @Override public java.io.InputStream stdout() { return clientStdout; }
+        @Override public java.io.InputStream stderr() { return stderr; }
+        @Override public java.io.OutputStream stdin() {
+            return new java.io.OutputStream() {
+                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+                @Override public void write(final int value) throws java.io.IOException {
+                    if (value == '\n') {
+                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
+                        line.reset();
+                    } else {
+                        line.write(value);
+                    }
+                }
+            };
+        }
+        @Override public boolean isAlive() { return alive; }
+        @Override public void terminate(final Duration grace) { close(); }
+        @Override public void close() {
+            alive = false;
+            try { serverStdout.close(); } catch (java.io.IOException ignored) { }
+            try { serverStderr.close(); } catch (java.io.IOException ignored) { }
+        }
+
+        private void handle(final String json) throws java.io.IOException {
+            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
+                json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            ));
+            if (!"session/load".equals(request.get("method"))) return;
+            final Map<String, Object> update = new LinkedHashMap<>();
+            update.put("jsonrpc", "2.0");
+            update.put("method", "session/update");
+            update.put("params", Map.of(
+                "sessionId", sessionId,
+                "update", Map.of(
+                    "sessionUpdate", "agent_message_chunk",
+                    "content", Map.of("type", "text", "text", "restored")
+                )
+            ));
+            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(update) + "\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            final Map<String, Object> response = new LinkedHashMap<>();
+            response.put("jsonrpc", "2.0");
+            response.put("id", request.get("id"));
+            response.put("result", Map.of("configOptions", List.of()));
+            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(response) + "\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            serverStdout.flush();
+        }
+    }
+
+    private static final class PermissionFailingLoadTransport implements FxAcpTransport {
+        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStdout;
+        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStderr;
+        private final java.util.concurrent.atomic.AtomicReference<FxAcpListener.PermissionDecision>
+            decision = new java.util.concurrent.atomic.AtomicReference<>();
+        private volatile FxAcpClient source;
+        private volatile FxAcpListener listener;
+        private volatile boolean alive = true;
+
+        private PermissionFailingLoadTransport() throws java.io.IOException {
+            serverStdout = new java.io.PipedOutputStream(clientStdout);
+            serverStderr = new java.io.PipedOutputStream(stderr);
+        }
+
+        @Override public java.io.InputStream stdout() { return clientStdout; }
+        @Override public java.io.InputStream stderr() { return stderr; }
+        @Override public java.io.OutputStream stdin() {
+            return new java.io.OutputStream() {
+                private final java.io.ByteArrayOutputStream line = new java.io.ByteArrayOutputStream();
+                @Override public void write(final int value) throws java.io.IOException {
+                    if (value == '\n') {
+                        handle(line.toString(java.nio.charset.StandardCharsets.UTF_8));
+                        line.reset();
+                    } else {
+                        line.write(value);
+                    }
+                }
+            };
+        }
+        @Override public boolean isAlive() { return alive; }
+        @Override public void terminate(final Duration grace) { close(); }
+        @Override public void close() {
+            alive = false;
+            try { serverStdout.close(); } catch (java.io.IOException ignored) { }
+            try { serverStderr.close(); } catch (java.io.IOException ignored) { }
+        }
+
+        private void handle(final String json) throws java.io.IOException {
+            final Map<String, Object> request = object(dev.turboism.protocol.json.StrictJson.parse(
+                json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+            ));
+            if (!"session/load".equals(request.get("method"))) return;
+            final Map<String, Object> params = object(request.get("params"));
+            final FxAcpListener.PermissionDecision permission = listener.permission(
+                source,
+                (String) params.get("sessionId"),
+                new FxAcpListener.PermissionRequest("Resume", "edit", "call-1", "{}")
+            );
+            decision.set(permission);
+            final Map<String, Object> response = new LinkedHashMap<>();
+            response.put("jsonrpc", "2.0");
+            response.put("id", request.get("id"));
+            response.put("error", Map.of("code", -32000L, "message", "permission cancelled"));
+            serverStdout.write((dev.turboism.protocol.json.StrictJson.stringify(response) + "\n")
+                .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            serverStdout.flush();
+        }
     }
 
     private static final class CapturingTransport implements FxAcpTransport {
