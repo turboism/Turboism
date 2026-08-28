@@ -61,6 +61,9 @@ final class StrictJsonTest {
         assertThrows(IllegalArgumentException.class, () -> parse("1.١"));
         assertThrows(IllegalArgumentException.class, () -> parse("1e١"));
         assertThrows(IllegalArgumentException.class, () -> parse("1١"));
+        assertEquals("A", parse("\"\\u0041\""));
+        assertThrows(IllegalArgumentException.class, () -> parse("\"\\u٠٠٤١\""));
+        assertThrows(IllegalArgumentException.class, () -> parse("\"\\u００ＡＦ\""));
         assertThrows(IllegalArgumentException.class, () -> parse("\"\\ud800\""));
         assertThrows(IllegalArgumentException.class, () -> parse("[".repeat(65) + "0" + "]".repeat(65)));
         assertThrows(IllegalArgumentException.class, () -> StrictJson.stringify("\ud800"));
