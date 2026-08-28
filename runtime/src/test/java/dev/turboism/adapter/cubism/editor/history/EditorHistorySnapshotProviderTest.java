@@ -128,6 +128,36 @@ class EditorHistorySnapshotProviderTest {
     }
 
     @Test
+    void collectedBindingsAreRemovedWithoutChangingLiveBindingIdentity() {
+        final Document firstDocument = new Document(managerAt(1));
+        Host.document = firstDocument;
+        final EditorHistorySnapshotProvider.BindingIdentityTracker documents =
+            new EditorHistorySnapshotProvider.BindingIdentityTracker("history-document-");
+        final EditorHistorySnapshotProvider.BindingIdentityTracker managers =
+            new EditorHistorySnapshotProvider.BindingIdentityTracker("history-manager-");
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 9,
+            documents,
+            managers
+        );
+        provider.snapshot();
+
+        Host.document = new Document(managerAt(1));
+        final HistorySnapshot replacement = provider.snapshot();
+        assertEquals(4, provider.trackedBindingIdentityCount());
+        assertTrue(provider.isCurrentBinding(replacement));
+
+        documents.clearAndEnqueueForTesting(firstDocument);
+        managers.clearAndEnqueueForTesting(firstDocument.manager);
+
+        assertTrue(provider.isCurrentBinding(replacement));
+        assertEquals(replacement.documentBindingId(), provider.snapshot().documentBindingId());
+        assertEquals(replacement.managerBindingId(), provider.snapshot().managerBindingId());
+        assertEquals(2, provider.trackedBindingIdentityCount());
+    }
+
+    @Test
     void boundMoveRejectsDocumentAndManagerFocusDriftBeforeCallingTheHost() {
         final Manager firstManager = managerAt(3);
         final Document firstDocument = new Document(firstManager);

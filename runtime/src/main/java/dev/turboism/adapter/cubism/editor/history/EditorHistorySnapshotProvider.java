@@ -9,8 +9,11 @@ import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 
 import javax.swing.SwingUtilities;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -25,13 +28,8 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private final Supplier<Optional<VerifiedMemberResolver>> resolver;
     private final LongSupplier generation;
     private final Object revisionLock = new Object();
-    private final Object identityLock = new Object();
-    private final java.util.IdentityHashMap<Object, Long> documentIdentities =
-        new java.util.IdentityHashMap<>();
-    private final java.util.IdentityHashMap<Object, Long> managerIdentities =
-        new java.util.IdentityHashMap<>();
-    private long nextDocumentIdentity;
-    private long nextManagerIdentity;
+    private final BindingIdentityTracker documentIdentities;
+    private final BindingIdentityTracker managerIdentities;
     private long revisionGeneration = -1;
     private long revision;
     private String lastFingerprint = "";
@@ -40,8 +38,24 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final Supplier<Optional<VerifiedMemberResolver>> resolver,
         final LongSupplier generation
     ) {
+        this(
+            resolver,
+            generation,
+            new BindingIdentityTracker("history-document-"),
+            new BindingIdentityTracker("history-manager-")
+        );
+    }
+
+    EditorHistorySnapshotProvider(
+        final Supplier<Optional<VerifiedMemberResolver>> resolver,
+        final LongSupplier generation,
+        final BindingIdentityTracker documentIdentities,
+        final BindingIdentityTracker managerIdentities
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.generation = Objects.requireNonNull(generation, "generation");
+        this.documentIdentities = Objects.requireNonNull(documentIdentities, "documentIdentities");
+        this.managerIdentities = Objects.requireNonNull(managerIdentities, "managerIdentities");
     }
 
     @Override
@@ -336,26 +350,77 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     }
 
     private String documentBindingId(final Object document) {
-        synchronized (identityLock) {
-            return "history-document-" + Long.toUnsignedString(
-                documentIdentities.computeIfAbsent(
-                    document,
-                    ignored -> ++nextDocumentIdentity
-                ),
-                36
-            );
-        }
+        return documentIdentities.idFor(document);
     }
 
     private String managerBindingId(final Object manager) {
-        synchronized (identityLock) {
-            return "history-manager-" + Long.toUnsignedString(
-                managerIdentities.computeIfAbsent(
-                    manager,
-                    ignored -> ++nextManagerIdentity
-                ),
-                36
-            );
+        return managerIdentities.idFor(manager);
+    }
+
+    int trackedBindingIdentityCount() {
+        return documentIdentities.size() + managerIdentities.size();
+    }
+
+    /**
+     * Assigns opaque IDs by reference identity without retaining native objects after the host
+     * releases them. A {@link java.util.WeakHashMap} is deliberately not used: host objects may
+     * override {@code equals}/{@code hashCode}, while a binding must identify the exact instance.
+     */
+    static final class BindingIdentityTracker {
+        private final Object lock = new Object();
+        private final ReferenceQueue<Object> collected = new ReferenceQueue<>();
+        private final List<BindingIdentity> identities = new ArrayList<>();
+        private final String prefix;
+        private long nextIdentity;
+
+        BindingIdentityTracker(final String prefix) {
+            this.prefix = Objects.requireNonNull(prefix, "prefix");
+        }
+
+        String idFor(final Object object) {
+            Objects.requireNonNull(object, "object");
+            synchronized (lock) {
+                removeCollectedIdentities();
+                for (BindingIdentity identity : identities) {
+                    if (identity.get() == object) return identity.id();
+                }
+                final String id = prefix + Long.toUnsignedString(++nextIdentity, 36);
+                identities.add(new BindingIdentity(object, collected, id));
+                return id;
+            }
+        }
+
+        int size() {
+            synchronized (lock) {
+                removeCollectedIdentities();
+                return identities.size();
+            }
+        }
+
+        /** Test-only deterministic stand-in for the reference collector enqueueing a dead key. */
+        void clearAndEnqueueForTesting(final Object object) {
+            Objects.requireNonNull(object, "object");
+            synchronized (lock) {
+                for (BindingIdentity identity : identities) {
+                    if (identity.get() == object) {
+                        identity.clear();
+                        identity.enqueue();
+                        return;
+                    }
+                }
+                throw new IllegalArgumentException("binding identity is not tracked");
+            }
+        }
+
+        private void removeCollectedIdentities() {
+            BindingIdentity collectedIdentity;
+            while ((collectedIdentity = (BindingIdentity) collected.poll()) != null) {
+                identities.remove(collectedIdentity);
+            }
+            final Iterator<BindingIdentity> iterator = identities.iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next().get() == null) iterator.remove();
+            }
         }
     }
 
@@ -387,6 +452,23 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         Binding {
             Objects.requireNonNull(document, "document");
             Objects.requireNonNull(manager, "manager");
+        }
+    }
+
+    private static final class BindingIdentity extends WeakReference<Object> {
+        private final String id;
+
+        private BindingIdentity(
+            final Object referent,
+            final ReferenceQueue<Object> queue,
+            final String id
+        ) {
+            super(referent, queue);
+            this.id = id;
+        }
+
+        private String id() {
+            return id;
         }
     }
 
