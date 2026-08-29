@@ -496,11 +496,13 @@ try {
         if ($null -eq $oldTurboismGraalHome) { Remove-Item Env:TURBOISM_GRAALVM_HOME -ErrorAction SilentlyContinue } else { $env:TURBOISM_GRAALVM_HOME = $oldTurboismGraalHome }
         if ($null -eq $oldGraalHome) { Remove-Item Env:GRAALVM_HOME -ErrorAction SilentlyContinue } else { $env:GRAALVM_HOME = $oldGraalHome }
     }
-    $javaOverride = Join-Path $turboismHome "graalvm\bin\java.exe"
+    # Keep the BAT-literal Java path ASCII so this fixture tests launcher
+    # substitution rather than the runner's unrelated legacy ANSI code page.
+    $javaOverride = Join-Path $temp "graalvm\bin\java.exe"
     New-Item -ItemType Directory -Path (Split-Path -Parent $javaOverride) -Force | Out-Null
     [System.IO.File]::WriteAllBytes($javaOverride, [byte[]](11, 12, 13, 14))
     [System.IO.File]::WriteAllText(
-        (Join-Path $turboismHome "graalvm\release"),
+        (Join-Path $temp "graalvm\release"),
         "IMPLEMENTOR=`"GraalVM Community`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
         (New-Object System.Text.UTF8Encoding($false))
     )
