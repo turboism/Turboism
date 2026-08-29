@@ -21,6 +21,8 @@ class CoreWindowsTest {
         @Override public String text(final String key) {
             return switch (key) {
                 case "about.thanks" -> "Thanks to<br>@希娜莉丝 and all contributors";
+                case "about.homepage" -> "Homepage";
+                case "about.support" -> "Support us";
                 default -> key;
             };
         }
@@ -128,6 +130,17 @@ class CoreWindowsTest {
         assertTrue(html.contains("@希娜莉丝"));
         assertTrue(html.contains("<img src=\"file:"));
         assertTrue(html.contains("alt=\"Turboism\""));
+        assertTrue(html.contains("href=\"https://www.turboism.dev\">Homepage</a>"));
+        assertTrue(html.contains("href=\"https://ifdian.net/a/raintrap341\">Support us</a>"));
+    }
+
+    @Test
+    void aboutLinksOnlyAdmitHttpAndHttpsUris() {
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_HOMEPAGE));
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_SUPPORT));
+        assertFalse(CoreWindows.httpLinkAllowed("file:///tmp/turboism"));
+        assertFalse(CoreWindows.httpLinkAllowed("javascript:alert(1)"));
+        assertFalse(CoreWindows.httpLinkAllowed("not a uri"));
     }
 
     @Test
