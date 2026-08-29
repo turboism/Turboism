@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 
 import java.time.Instant;
 import java.util.List;
@@ -167,28 +168,50 @@ public final class RecentPreviewController {
         }
         final RecentFileSummary target = file;
         return screenshots.capture(new ScreenshotCaptureRequest(id, THUMBNAIL_SIZE, THUMBNAIL_SIZE))
-            .whenComplete((ignored, failure) -> inFlight.remove(id, captureGeneration))
-            .thenCompose(result -> {
-                if (!enabled || generation.get() != captureGeneration) {
-                    return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
-                }
-                if (!id.equals(result.id())) {
-                    return CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE);
-                }
-                return cache.store(
-                    target,
-                    result.image(),
-                    () -> enabled && generation.get() == captureGeneration
-                ).thenApply(stored -> {
-                    if (stored == PreviewCacheWriteResult.STORED
-                        && enabled && generation.get() == captureGeneration) {
-                        images.put(id, result.image().png());
-                    }
-                    return generation.get() == captureGeneration
-                        ? stored
-                        : PreviewCacheWriteResult.DISABLED;
-                });
-            });
+            .handle((result, failure) -> targetUnavailable(failure)
+                ? CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE)
+                : failure != null
+                    ? CompletableFuture.<PreviewCacheWriteResult>failedStage(failure)
+                    : captureResult(id, target, captureGeneration, result))
+            .thenCompose(stage -> stage)
+            .whenComplete((ignored, failure) -> inFlight.remove(id, captureGeneration));
+    }
+
+    private CompletionStage<PreviewCacheWriteResult> captureResult(
+        final RecentFileId id,
+        final RecentFileSummary target,
+        final long captureGeneration,
+        final dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult result
+    ) {
+        if (!enabled || generation.get() != captureGeneration) {
+            return CompletableFuture.completedStage(PreviewCacheWriteResult.DISABLED);
+        }
+        if (!id.equals(result.id())) {
+            return CompletableFuture.completedStage(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE);
+        }
+        return cache.store(
+            target,
+            result.image(),
+            () -> enabled && generation.get() == captureGeneration
+        ).thenApply(stored -> {
+            if (stored == PreviewCacheWriteResult.STORED
+                && enabled && generation.get() == captureGeneration) {
+                images.put(id, result.image().png());
+            }
+            return generation.get() == captureGeneration
+                ? stored
+                : PreviewCacheWriteResult.DISABLED;
+        });
+    }
+
+    private static boolean targetUnavailable(final Throwable failure) {
+        Throwable cause = failure;
+        while (cause instanceof java.util.concurrent.CompletionException
+            || cause instanceof java.util.concurrent.ExecutionException) {
+            if (cause.getCause() == null) break;
+            cause = cause.getCause();
+        }
+        return cause instanceof ScreenshotCaptureTargetUnavailableException;
     }
 
     /** The cached PNG bytes for one id, or empty when not cached. */

@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 
 import javax.imageio.ImageIO;
 
@@ -27,7 +28,7 @@ public interface ScreenshotCaptureAdapter {
         Objects.requireNonNull(host, "host");
         return request -> host.capture(Objects.requireNonNull(request, "request")).thenApply(result -> {
             if (!request.id().equals(result.id())) {
-                throw new IllegalStateException("screenshot target changed during capture");
+                throw new ScreenshotCaptureTargetUnavailableException();
             }
             final var image = result.image();
             if (image.width() > request.maxWidth() || image.height() > request.maxHeight()) {

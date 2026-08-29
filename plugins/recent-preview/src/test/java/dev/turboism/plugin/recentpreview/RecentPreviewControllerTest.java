@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.recentfile.RecentFileSummary;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureService;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 final class RecentPreviewControllerTest {
 
@@ -44,7 +46,7 @@ final class RecentPreviewControllerTest {
     }
 
     @Test
-    void rejectsCaptureResultForAStaleProjectId() {
+    void avoidsWritingWhenCaptureReturnsAStaleProjectId() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
         final RecordingCapture captures = new RecordingCapture();
         captures.resultId = new RecentFileId("recent-2");
@@ -60,6 +62,41 @@ final class RecentPreviewControllerTest {
             controller.capture(file.id()).toCompletableFuture().join());
         assertEquals(null, cache.file);
         assertTrue(controller.image(file.id()).isEmpty());
+    }
+
+    @Test
+    void treatsTargetUnavailableCaptureAsAnExpectedNoWrite() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final RecordingCapture captures = new RecordingCapture();
+        captures.failure = new ScreenshotCaptureTargetUnavailableException();
+        final RecordingCache cache = new RecordingCache();
+        final RecentPreviewController controller = new RecentPreviewController(
+            () -> List.of(file), captures, cache
+        );
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        assertEquals(PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE,
+            controller.capture(file.id()).toCompletableFuture().join());
+        assertEquals(null, cache.file);
+        assertTrue(controller.image(file.id()).isEmpty());
+    }
+
+    @Test
+    void preservesGenuineCaptureFailure() {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("recent-1"), "model.cmo3");
+        final RecordingCapture captures = new RecordingCapture();
+        captures.failure = new IllegalStateException("PNG writer is unavailable");
+        final RecentPreviewController controller = new RecentPreviewController(
+            () -> List.of(file), captures, new RecordingCache()
+        );
+
+        controller.enable();
+        controller.refresh().toCompletableFuture().join();
+
+        assertThrows(java.util.concurrent.CompletionException.class,
+            () -> controller.capture(file.id()).toCompletableFuture().join());
     }
 
     @Test
@@ -299,6 +336,7 @@ final class RecentPreviewControllerTest {
         private final List<ScreenshotCaptureRequest> requests = new ArrayList<>();
         private ScreenshotCaptureRequest request;
         private RecentFileId resultId;
+        private RuntimeException failure;
         private CompletableFuture<ScreenshotCaptureResult> pending;
         private final java.util.ArrayDeque<CompletableFuture<ScreenshotCaptureResult>> pendingResults =
             new java.util.ArrayDeque<>();
@@ -309,6 +347,9 @@ final class RecentPreviewControllerTest {
             calls++;
             requests.add(value);
             request = value;
+            if (failure != null) {
+                return CompletableFuture.failedStage(failure);
+            }
             if (!pendingResults.isEmpty()) {
                 return pendingResults.removeFirst();
             }

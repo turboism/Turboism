@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.RecentPreviewHostFixture.ProjectHost;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,8 @@ import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -145,13 +148,17 @@ class ScreenshotCaptureHostOperationsTest {
         PanelHost.setRoot(panelChain(RecentPreviewHostFixture.recentMenu()));
         files.list();
 
+        final List<String> diagnostics = new ArrayList<>();
         final PreviewCaptureHostOperations capture = new PreviewCaptureHostOperations(
-            panelResolver("5.2.03", loader), files, noopSuppression()
+            panelResolver("5.2.03", loader), files, noopSuppression(), diagnostics::add
         );
         final RecentFileId other = new RecentFileId("0".repeat(64));
-        assertThrows(java.util.concurrent.CompletionException.class, () -> capture.capture(
-            new ScreenshotCaptureRequest(other, 150, 150)
-        ).toCompletableFuture().join());
+        final java.util.concurrent.CompletionException failure = assertThrows(
+            java.util.concurrent.CompletionException.class,
+            () -> capture.capture(new ScreenshotCaptureRequest(other, 150, 150)).toCompletableFuture().join()
+        );
+        assertTrue(failure.getCause() instanceof ScreenshotCaptureTargetUnavailableException);
+        assertTrue(diagnostics.stream().noneMatch(value -> value.contains("capture:failed")));
     }
 
     @Test

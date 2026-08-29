@@ -252,6 +252,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             } else if (result == PreviewCacheWriteResult.STORED) {
                 renderer.captureStored(id);
                 refreshPopup();
+            } else if (result == PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE) {
+                renderer.captureFailed(id);
+                refreshPopup();
             } else if (result != PreviewCacheWriteResult.DISABLED) {
                 renderer.captureFailed(id);
                 context.logger().warn("Recent preview poll capture not stored: " + result);
@@ -272,6 +275,9 @@ public final class RecentPreviewPlugin implements CubismPlugin {
             }
             if (result == PreviewCacheWriteResult.STORED) {
                 renderer.captureStored(id);
+                refreshPopup();
+            } else if (result == PreviewCacheWriteResult.RECENT_FILE_UNAVAILABLE) {
+                renderer.captureFailed(id);
                 refreshPopup();
             } else if (result != PreviewCacheWriteResult.DISABLED) {
                 renderer.captureFailed(id);
