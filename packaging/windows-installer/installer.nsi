@@ -68,6 +68,9 @@ SetCompressor /SOLID lzma
 
 !define MUI_FINISHPAGE_TITLE "$(FinishTitleText)"
 !define MUI_FINISHPAGE_TEXT "$(FinishBodyText)"
+!define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
+!define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
 ; ---------- 页面流程：Welcome → License → 模式选择 → Components(仅 Full) → Directory → InstFiles → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
@@ -114,9 +117,12 @@ LangString FinishTitleText ${LANG_ENGLISH} "Installation Complete"
 LangString FinishTitleText ${LANG_SIMPCHINESE} "安装完成"
 LangString FinishTitleText ${LANG_JAPANESE} "インストール完了"
 
-LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nTo launch: double-click launch-cubism-turboism.bat (auto-detects the Cubism installation directory).$\r$\nTo adjust plugins: run configure_turboism.ps1.$\r$\n$\r$\nSee README.txt in the installation directory for details."
-LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n启动方式：双击 launch-cubism-turboism.bat（自动探测 Cubism 安装目录）。$\r$\n调整插件开关：运行 configure_turboism.ps1。$\r$\n$\r$\n详细说明见安装目录中的 README.txt。"
-LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n起動方法：launch-cubism-turboism.bat をダブルクリックします（Cubism のインストール先を自動検出します）。$\r$\nプラグインの切り替え：configure_turboism.ps1 を実行します。$\r$\n$\r$\n詳細はインストール先の README.txt を参照してください。"
+LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nThe configurator offers two launch modes:$\r$\n• Independent shortcuts (recommended): creates new Turboism-owned shortcuts and never changes existing Cubism shortcuts or official BAT files.$\r$\n• Takeover: replaces only existing .lnk shortcuts that point exactly to a selected official Cubism BAT; originals are backed up and restored on cleanup. The official BAT files themselves are never edited.$\r$\n$\r$\nRun configure_turboism.ps1 to change this choice."
+LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n配置器提供两种启动模式：$\r$\n• 独立快捷方式（推荐）：新建由 Turboism 管理的快捷方式，不修改现有 Cubism 快捷方式，也不修改官方 BAT 文件。$\r$\n• 接管：仅替换目标精确指向所选官方 Cubism BAT 的现有 .lnk 快捷方式；原快捷方式会备份并在清理时恢复。官方 BAT 文件本身始终不会被改写。$\r$\n$\r$\n可运行 configure_turboism.ps1 重新选择。"
+LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n設定画面には 2 つの起動モードがあります：$\r$\n• 独立ショートカット（推奨）：Turboism 所有の新しいショートカットだけを作成し、既存の Cubism ショートカットや公式 BAT は変更しません。$\r$\n• 引き継ぎ：選択した公式 Cubism BAT を正確に指す既存 .lnk だけを置換し、元のショートカットをバックアップしてクリーンアップ時に復元します。公式 BAT 自体は編集しません。$\r$\n$\r$\nconfigure_turboism.ps1 で選択を変更できます。"
+LangString FinishOpenFolderText ${LANG_ENGLISH} "Open the Turboism installation folder"
+LangString FinishOpenFolderText ${LANG_SIMPCHINESE} "打开 Turboism 安装目录"
+LangString FinishOpenFolderText ${LANG_JAPANESE} "Turboism インストールフォルダーを開く"
 
 LangString UnConfirmTextTop ${LANG_ENGLISH} "Turboism will be uninstalled from the following folder:$\r$\nClick Yes to remove it:"
 LangString UnConfirmTextTop ${LANG_SIMPCHINESE} "Turboism 将从以下文件夹卸载：$\r$\n点击“是”开始卸载。"
@@ -144,22 +150,22 @@ LangString ManagedGraalLabel ${LANG_JAPANESE} "Turboism 管理の GraalVM をダ
 LangString ManagedGraalHelp ${LANG_ENGLISH} "The pinned archive is downloaded from the official GraalVM GitHub release, then size, SHA-256, release metadata, and the isolated host are verified before private activation. No download occurs unless selected."
 LangString ManagedGraalHelp ${LANG_SIMPCHINESE} "将从 GraalVM 官方 GitHub Release 下载固定版本，并在私有启用前校验大小、SHA-256、发布元数据和隔离宿主。仅在勾选后下载。"
 LangString ManagedGraalHelp ${LANG_JAPANESE} "GraalVM 公式 GitHub Release から固定版をダウンロードし、サイズ、SHA-256、リリース情報、分離ホストを検証してから専用領域で有効化します。選択しない限りダウンロードしません。"
-LangString ManagedGraalInstallError ${LANG_ENGLISH} "The managed GraalVM installation failed. Turboism was not reported as successfully installed. Review the installer log, ensure a supported Cubism Editor or Java 17+ is available, and retry."
-LangString ManagedGraalInstallError ${LANG_SIMPCHINESE} "托管 GraalVM 安装失败，Turboism 不会报告安装成功。请检查安装日志，确认存在受支持的 Cubism Editor 或 Java 17+，然后重试。"
-LangString ManagedGraalInstallError ${LANG_JAPANESE} "管理対象 GraalVM のインストールに失敗したため、Turboism のインストール成功として扱いません。ログを確認し、対応 Cubism Editor または Java 17 以降を用意して再試行してください。"
+LangString ManagedGraalInstallError ${LANG_ENGLISH} "The managed GraalVM installation failed. Review $INSTDIR\logs\installer\managed-graal-install.log, ensure GitHub downloads and a supported Cubism Editor or Java 17+ are available, and retry."
+LangString ManagedGraalInstallError ${LANG_SIMPCHINESE} "托管 GraalVM 安装失败。请检查 $INSTDIR\logs\installer\managed-graal-install.log，确认可以访问 GitHub 下载且存在受支持的 Cubism Editor 或 Java 17+，然后重试。"
+LangString ManagedGraalInstallError ${LANG_JAPANESE} "管理対象 GraalVM のインストールに失敗しました。$INSTDIR\logs\installer\managed-graal-install.log を確認し、GitHub からダウンロード可能で、対応 Cubism Editor または Java 17 以降があることを確認して再試行してください。"
 
 
-LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism Configurator"
-LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism 配置器"
-LangString StartMenuConfigName ${LANG_JAPANESE} "Turboism 設定"
+LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism_Configurator"
+LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism_Configurator"
+LangString StartMenuConfigName ${LANG_JAPANESE} "Turboism_Configurator"
 
-LangString StartMenuUninstallName ${LANG_ENGLISH} "Uninstall Turboism"
-LangString StartMenuUninstallName ${LANG_SIMPCHINESE} "卸载 Turboism"
-LangString StartMenuUninstallName ${LANG_JAPANESE} "Turboism をアンインストール"
+LangString StartMenuUninstallName ${LANG_ENGLISH} "Turboism_Uninstall"
+LangString StartMenuUninstallName ${LANG_SIMPCHINESE} "Turboism_Uninstall"
+LangString StartMenuUninstallName ${LANG_JAPANESE} "Turboism_Uninstall"
 
-LangString StartMenuLaunchName ${LANG_ENGLISH} "Launch Cubism"
-LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "启动 Cubism"
-LangString StartMenuLaunchName ${LANG_JAPANESE} "Cubism を起動"
+LangString StartMenuLaunchName ${LANG_ENGLISH} "Turboism_Launch_Cubism"
+LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "Turboism_Launch_Cubism"
+LangString StartMenuLaunchName ${LANG_JAPANESE} "Turboism_Launch_Cubism"
 
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
@@ -170,6 +176,20 @@ LangString PluginRetireError ${LANG_JAPANESE} "旧版 Turboism プラグイン J
 LangString ShortcutCleanupFailure ${LANG_ENGLISH} "Turboism shortcut restoration/cleanup failed. Nothing else was removed; retry uninstall after resolving the conflict."
 LangString ShortcutCleanupFailure ${LANG_SIMPCHINESE} "Turboism 快捷方式恢复/清理失败。未删除其他内容；解决冲突后请重试卸载。"
 LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカットの復元/クリーンアップに失敗しました。他の項目は削除していません。競合を解決してからアンインストールを再試行してください。"
+
+; 0.43.0 按界面语言生成了含空格的名称。升级和卸载都必须删除所有三种语言的
+; Turboism-owned 旧名称，避免别名清单在两个路径间漂移。
+!macro RemoveLegacyStartMenuShortcuts
+  Delete "$SMPROGRAMS\Turboism\Turboism Configurator.lnk"
+  Delete "$SMPROGRAMS\Turboism\Uninstall Turboism.lnk"
+  Delete "$SMPROGRAMS\Turboism\Launch Cubism.lnk"
+  Delete "$SMPROGRAMS\Turboism\Turboism 配置器.lnk"
+  Delete "$SMPROGRAMS\Turboism\卸载 Turboism.lnk"
+  Delete "$SMPROGRAMS\Turboism\启动 Cubism.lnk"
+  Delete "$SMPROGRAMS\Turboism\Turboism 設定.lnk"
+  Delete "$SMPROGRAMS\Turboism\Turboism をアンインストール.lnk"
+  Delete "$SMPROGRAMS\Turboism\Cubism を起動.lnk"
+!macroend
 
 ; ---------- 变量 ----------
 Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
@@ -225,6 +245,10 @@ FunctionEnd
 ; 安装完成后自动进入托管 Cubism 选择配置；取消不会阻止框架安装。
 Function .onInstSuccess
   ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR"'
+FunctionEnd
+
+Function OpenInstallDirectory
+  Exec '"$WINDIR\explorer.exe" "$INSTDIR"'
 FunctionEnd
 
 ; ---------- 模式选择页（nsDialogs） ----------
@@ -316,6 +340,7 @@ SectionEnd
 
 Section "-托管 GraalVM" SecManagedGraal
   ${If} $installManagedGraal == 1
+    DetailPrint "Installing Turboism-managed GraalVM. Progress is written to $INSTDIR\logs\installer\managed-graal-install.log"
     ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR"' $0
     ${If} $0 != 0
       MessageBox MB_ICONSTOP "$(ManagedGraalInstallError)"
@@ -628,6 +653,7 @@ SectionEnd
 Section -"开始菜单与注册" SecStartMenuReg
   SetOutPath "$INSTDIR"
   CreateDirectory "$SMPROGRAMS\Turboism"
+  !insertmacro RemoveLegacyStartMenuShortcuts
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
   CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
   ; r1: 启动 Cubism 快捷方式（目标 launch-cubism-turboism.bat 由 SecCore 先行写入
@@ -661,6 +687,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk"
+  !insertmacro RemoveLegacyStartMenuShortcuts
   RMDir "$SMPROGRAMS\Turboism"
   ; 安装文件
   Delete "$INSTDIR\turboism-agent.jar"

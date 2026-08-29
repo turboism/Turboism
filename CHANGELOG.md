@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-08-29
+
+### Changed
+
+- Clarified the Windows configurator's independent-shortcut and shortcut-takeover modes, kept official Cubism BAT files unmodified in both modes, generated managed `.lnk` filenames without spaces, and added an install-finish option to open the Turboism directory.
+- Added persistent managed-GraalVM installation progress and diagnostics at `logs/installer/managed-graal-install.log`.
+
+### Fixed
+
+- Fixed Windows PowerShell launch and managed-GraalVM helpers failing when their case-insensitive `$home` variables collided with PowerShell's read-only `$HOME` automatic variable.
+- Fixed managed GraalVM installation rejecting ordinary Windows files and directories because OpenJDK reports a null `BasicFileAttributes.fileKey()` on Windows; Windows now revalidates file type, size, and reparse-point state without requiring the unavailable key.
+
 ## [0.43.0] - 2026-08-28
 
 ### Added
@@ -65,6 +77,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Java installer is available for macOS and Linux, but macOS Cubism host readiness is not claimed and Linux Cubism hosting is unsupported.
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
-[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.0...HEAD
+[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.1...HEAD
+[0.43.1]: https://github.com/Turboism/Turboism/releases/tag/v0.43.1
 [0.43.0]: https://github.com/Turboism/Turboism/releases/tag/v0.43.0
 [0.42.0]: https://github.com/Turboism/Turboism/releases/tag/v0.42.0
