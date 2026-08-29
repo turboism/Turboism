@@ -1,3 +1,6 @@
+about.homepage
+about.open-failed
+about.support
 about.thanks
 common.apply
 common.cancel

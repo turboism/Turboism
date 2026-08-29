@@ -69,6 +69,8 @@ final class CoreWindows implements AutoCloseable {
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
     static final String ABOUT_LOGO_TEXT = "Turboism";
+    static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
+    static final String ABOUT_SUPPORT = "https://ifdian.net/a/raintrap341";
     private static final Object ABOUT_LOGO_LOCK = new Object();
     private static volatile Path aboutLogoPng;
     private PluginTableModel pluginTableModel;
@@ -799,18 +801,12 @@ final class CoreWindows implements AutoCloseable {
     }
 
     private void openExternal(final String value) {
-        try {
-            final URI uri = URI.create(value);
-            final String scheme = uri.getScheme();
-            if (!("http".equalsIgnoreCase(scheme) || "https".equalsIgnoreCase(scheme))) {
-                throw new IOException("unsupported link scheme");
-            }
-            if (!Desktop.isDesktopSupported() || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
-                throw new IOException("desktop browsing is unavailable");
-            }
-            Desktop.getDesktop().browse(uri);
-        } catch (Exception failure) {
-            CoreDialogs.message(pluginDetailsDialog, text("common.turboism"), text("plugins.details.open-failed"));
+        if (!openHttpLink(value)) {
+            CoreDialogs.message(
+                pluginDetailsDialog,
+                text("common.turboism"),
+                text("plugins.details.open-failed")
+            );
         }
     }
 
@@ -823,6 +819,12 @@ final class CoreWindows implements AutoCloseable {
         content.setEditable(false);
         content.setOpaque(true);
         content.setBackground(Color.WHITE);
+        content.addHyperlinkListener(event -> {
+            if (event.getEventType() == javax.swing.event.HyperlinkEvent.EventType.ACTIVATED
+                && event.getURL() != null) {
+                openAboutLink(event.getURL().toString());
+            }
+        });
 
         final JButton close = new JButton(text("common.close"));
         close.addActionListener(ignored -> dialog.setVisible(false));
@@ -863,15 +865,57 @@ final class CoreWindows implements AutoCloseable {
             + "font-family:Inter,\"Segoe UI\",\"Microsoft YaHei\",sans-serif;"
             + "background:#ffffff;color:#1f2937;}"
             + ".subtitle{margin-top:8px;font-size:13px;color:#6b7280;}"
-            + ".thanks{margin-top:18px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
+            + ".links{margin-top:14px;font-size:12px;text-align:center;}"
+            + ".links a{color:#155dfc;text-decoration:none;}"
+            + ".thanks{margin-top:14px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
             + "</style></head><body>"
             + "<table width=\"360\" height=\"220\" cellpadding=\"0\" cellspacing=\"0\">"
             + "<tr><td align=\"center\" valign=\"middle\">"
             + "<div>" + logo + " <span class=\"subtitle\">" + version + "</span></div>"
             + "<div class=\"subtitle\">Live2D Cubism Extension Framework</div>"
+            + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
+            + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
+            + "<a href=\"" + ABOUT_SUPPORT + "\">"
+            + escapeHtml(i18n.text("about.support")) + "</a></div>"
             + "<div class=\"thanks\">" + i18n.text("about.thanks") + "</div>"
             + "</td></tr></table>"
             + "</body></html>";
+    }
+
+    private void openAboutLink(final String value) {
+        if (!ABOUT_HOMEPAGE.equals(value) && !ABOUT_SUPPORT.equals(value)) return;
+        if (!openHttpLink(value)) {
+            CoreDialogs.message(
+                aboutDialog,
+                text("common.turboism"),
+                text("about.open-failed")
+            );
+        }
+    }
+
+    static boolean httpLinkAllowed(final String value) {
+        try {
+            final URI uri = URI.create(value);
+            return ("http".equalsIgnoreCase(uri.getScheme())
+                || "https".equalsIgnoreCase(uri.getScheme()))
+                && uri.getHost() != null;
+        } catch (IllegalArgumentException invalid) {
+            return false;
+        }
+    }
+
+    private static boolean openHttpLink(final String value) {
+        try {
+            if (!httpLinkAllowed(value)
+                || !Desktop.isDesktopSupported()
+                || !Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+                return false;
+            }
+            Desktop.getDesktop().browse(URI.create(value));
+            return true;
+        } catch (IOException | RuntimeException failure) {
+            return false;
+        }
     }
 
     private static String logoImageTag() {
