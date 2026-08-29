@@ -36,6 +36,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Owns the complete Turboism 0.1 runtime inside one Cubism process. */
 public final class PreviewRuntime implements AutoCloseable {
 
+    private static final StartupBanner STARTUP_BANNER = new StartupBanner();
+
     private final Path home;
     private final PreviewLog log;
     private final RuntimeScheduler scheduler;
@@ -456,6 +458,7 @@ public final class PreviewRuntime implements AutoCloseable {
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
+            runtime.publishStartupBanner();
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
@@ -546,6 +549,42 @@ public final class PreviewRuntime implements AutoCloseable {
      */
     public void error(final String component, final String message, final Throwable failure) {
         log.error(component, message, failure);
+    }
+
+    private void publishStartupBanner() {
+        final LocalPluginRuntime.StartupEnvironment environment =
+            pluginRuntime.startupEnvironment();
+        final dev.turboism.graal.GraalHostConfiguration graal =
+            environment.graalConfiguration();
+        final String graalVm = graal.enabled()
+            ? dev.turboism.graal.ManagedGraalRuntimeService.GRAAL_VERSION
+                + " (" + sourceLabel(graal.source()) + ")"
+            : "unavailable (standard JVM)";
+        final String graalJs = environment.discoveredScriptCount()
+            + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
+        STARTUP_BANNER.publish(
+            log::banner,
+            new StartupBanner.Details(
+                StartupBanner.frameworkVersion(),
+                System.getProperty("java.version", "unavailable"),
+                graalVm,
+                hostAccess().cubismEditorVersion().orElse("unavailable"),
+                loadReport.loaded().size(),
+                graalJs
+            )
+        );
+    }
+
+    private static String sourceLabel(
+        final dev.turboism.graal.GraalHostConfiguration.Source source
+    ) {
+        return switch (source) {
+            case MANAGED -> "managed";
+            case LEGACY_PACKAGED -> "legacy packaged";
+            case EXTERNAL -> "external";
+            case EXPLICIT -> "explicit";
+            case DISABLED -> "disabled";
+        };
     }
 
     /**

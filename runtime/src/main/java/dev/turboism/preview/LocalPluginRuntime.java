@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Minimal real plugin loading and lifecycle path for Turboism 0.1. */
 public final class LocalPluginRuntime implements AutoCloseable {
 
+    private final Path home;
     private final SharedAsyncHostReadLane hostReadLane;
     private final RuntimeFailureCollector failureCollector;
     private final PreviewPluginLoadCoordinator loadCoordinator;
@@ -220,6 +221,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
         final Locale effectiveLocale
     ) {
+        this.home = Objects.requireNonNull(home, "home").toAbsolutePath().normalize();
         final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService resolvedFileChooserHistory =
             fileChooserHistory != null
                 ? fileChooserHistory
@@ -320,6 +322,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
         return loaded.stream().map(PreviewPluginSummaryFactory::active).toList();
     }
 
+    StartupEnvironment startupEnvironment() {
+        return new StartupEnvironment(
+            contextFactory.graalConfiguration(),
+            dev.turboism.script.RuntimeScriptService.discoveredScriptCount(home)
+        );
+    }
 
     /** Immutable point-in-time report evidence for one preview report write. */
     synchronized LocalPluginRuntimeReportSnapshot reportSnapshot() {
@@ -385,6 +393,22 @@ public final class LocalPluginRuntime implements AutoCloseable {
             hostReadLane.close();
         } catch (Throwable failure) {
             shutdown.tryLogStableFailure("runtime", "HOST_READ_LANE_CLOSE_FAILED");
+        }
+    }
+
+    record StartupEnvironment(
+        dev.turboism.graal.GraalHostConfiguration graalConfiguration,
+        int discoveredScriptCount
+    ) {
+        StartupEnvironment {
+            graalConfiguration = Objects.requireNonNull(
+                graalConfiguration, "graalConfiguration"
+            );
+            if (discoveredScriptCount < 0) {
+                throw new IllegalArgumentException(
+                    "discoveredScriptCount must not be negative"
+                );
+            }
         }
     }
 

@@ -235,6 +235,26 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         write(Level.FATAL, component, message, failure);
     }
 
+    /** Publishes one intentional multiline startup record without console duplication. */
+    synchronized void banner(final String message) {
+        final String safeMessage = safeMultiline(message);
+        try {
+            sink.write(Level.INFO, "startup", safeMessage, null);
+        } catch (RuntimeException exception) {
+            System.err.println("Turboism host log write failed safely");
+        }
+        try {
+            for (String line : safeMessage.split("\\n", -1)) {
+                remember(line);
+                writer.write(line);
+                writer.newLine();
+            }
+            writer.flush();
+        } catch (IOException exception) {
+            System.err.println("Turboism runtime log write failed safely");
+        }
+    }
+
     private synchronized void write(
         final Level level,
         final String component,
@@ -249,9 +269,8 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
         try {
             sink.write(level, safeComponent, safeMessage, failure);
         } catch (RuntimeException exception) {
-            System.out.println("Turboism preview host log write failed: " + exception.getMessage());
+            System.err.println("Turboism host log write failed safely");
         }
-        System.out.println(line);
         try {
             writer.write(line);
             writer.newLine();
@@ -264,7 +283,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
                 pruneOldSessions();
             }
         } catch (IOException exception) {
-            System.out.println("Turboism preview log write failed: " + exception.getMessage());
+            System.err.println("Turboism runtime log write failed safely");
         }
     }
 
@@ -349,6 +368,10 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     private static String safe(final String value) {
         return value == null ? "" : value.replace('\r', ' ').replace('\n', ' ');
+    }
+
+    private static String safeMultiline(final String value) {
+        return value == null ? "" : value.replace("\r\n", "\n").replace('\r', '\n');
     }
 
     @Override
