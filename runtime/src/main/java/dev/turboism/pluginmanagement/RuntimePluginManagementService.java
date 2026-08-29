@@ -327,7 +327,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                     result.add(new PluginInfo(value.id(), value.name(), value.version(), value.description(),
                         PluginLifecycleState.DISCOVERED.name(), "ENABLED", false, Optional.empty(),
                         PluginCategoryRegistry.presentation(value.id(), value.category(), metadataDiagnostics),
-                        value.tags()));
+                        value.tags(), value.authors()));
                 }
             }
         } catch (Exception ignored) { return List.of(); }
@@ -357,14 +357,14 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final String desired = plugin.core() || !disabled.contains(plugin.id()) ? "ENABLED" : "DISABLED";
         return new PluginInfo(plugin.id(), plugin.name(), plugin.version(), plugin.description(),
             plugin.effectiveState(), desired, plugin.core(), Optional.ofNullable(pendingOperation),
-            plugin.category(), plugin.tags());
+            plugin.category(), plugin.tags(), plugin.authors());
     }
 
     private static PluginInfo withCoreFlag(final PluginInfo plugin) {
         return new PluginInfo(
             plugin.id(), plugin.name(), plugin.version(), plugin.description(),
             plugin.effectiveState(), plugin.desiredState(), true, plugin.pendingOperation(),
-            plugin.category(), plugin.tags()
+            plugin.category(), plugin.tags(), plugin.authors()
         );
     }
 
@@ -372,7 +372,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         return new PluginInfo(CORE_PLUGIN_ID, "Turboism Core", "0.1.0",
             "Built-in menu, toolbar, settings, tab, and plugin management.",
             PluginLifecycleState.ENABLED.name(), "ENABLED", true, Optional.empty(),
-            "system", List.of());
+            "system", List.of(), List.of(new Author("Turboism Contributors", Optional.empty())));
     }
 
     private static PluginDetails details(
