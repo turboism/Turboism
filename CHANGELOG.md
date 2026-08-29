@@ -6,6 +6,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.2] - 2026-08-29
+
+### Fixed
+
+- Fixed Turboism runtime startup aborting before Core plugin UI registration when Cubism's bundled JVM does not expose the optional `java.net.http` module; managed GraalVM controls now fail closed without disabling menus, toolbar entries, or panels.
+- Extended the managed GraalVM whole-download deadline from 20 minutes to 4 hours so slow but continuously progressing Windows downloads are not terminated prematurely.
+
 ## [0.43.1] - 2026-08-29
 
 ### Changed
@@ -77,7 +84,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Java installer is available for macOS and Linux, but macOS Cubism host readiness is not claimed and Linux Cubism hosting is unsupported.
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
-[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.1...HEAD
+[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.2...HEAD
+[0.43.2]: https://github.com/Turboism/Turboism/releases/tag/v0.43.2
 [0.43.1]: https://github.com/Turboism/Turboism/releases/tag/v0.43.1
 [0.43.0]: https://github.com/Turboism/Turboism/releases/tag/v0.43.0
 [0.42.0]: https://github.com/Turboism/Turboism/releases/tag/v0.42.0
