@@ -69,7 +69,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
     private static final int MAX_REDIRECTS = 5;
     private static final int BUFFER_SIZE = 64 * 1024;
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(20);
-    private static final Duration REQUEST_TIMEOUT = Duration.ofMinutes(20);
+    private static final Duration REQUEST_TIMEOUT = Duration.ofHours(4);
     private static final Duration PROBE_TIMEOUT = Duration.ofSeconds(30);
     private static final String ACTIVATION_MARKER_NAME = ".runtime-activation";
     private static final String PREVIOUS_RUNTIME_NAME = ".runtime-previous";

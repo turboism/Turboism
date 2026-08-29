@@ -46,11 +46,7 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
             config,
             turboismHome,
             environment,
-            turboismHome == null
-                ? null
-                : new dev.turboism.graal.ManagedGraalRuntimeService(
-                    turboismHome, ignored -> { }
-                )
+            path -> new dev.turboism.graal.ManagedGraalRuntimeService(path, ignored -> { })
         );
     }
 
@@ -58,14 +54,29 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         final RuntimeConfigRepository config,
         final Path turboismHome,
         final Map<String, String> environment,
-        final dev.turboism.graal.ManagedGraalRuntimeService managedRuntime
+        final ManagedRuntimeFactory managedRuntimeFactory
     ) {
         this.config = Objects.requireNonNull(config, "config");
         this.turboismHome = turboismHome == null
             ? null
             : turboismHome.toAbsolutePath().normalize();
         this.environment = Map.copyOf(Objects.requireNonNull(environment, "environment"));
-        this.managedRuntime = managedRuntime;
+        this.managedRuntime = createManagedRuntime(
+            this.turboismHome,
+            Objects.requireNonNull(managedRuntimeFactory, "managedRuntimeFactory")
+        );
+    }
+
+    private static dev.turboism.graal.ManagedGraalRuntimeService createManagedRuntime(
+        final Path turboismHome,
+        final ManagedRuntimeFactory factory
+    ) {
+        if (turboismHome == null) return null;
+        try {
+            return factory.create(turboismHome);
+        } catch (NoClassDefFoundError unavailable) {
+            return null;
+        }
     }
 
     @Override
@@ -191,6 +202,11 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     @Override
     public void close() {
         if (managedRuntime != null) managedRuntime.close();
+    }
+
+    @FunctionalInterface
+    interface ManagedRuntimeFactory {
+        dev.turboism.graal.ManagedGraalRuntimeService create(Path turboismHome);
     }
 
     private static ManagedRuntimeStatus managedStatus(
