@@ -36,6 +36,9 @@ Unicode true
 !ifndef LICENSE_FILE
   !define LICENSE_FILE "../../LICENSE"
 !endif
+!ifndef EULA_DIR
+  !define EULA_DIR "../eula"
+!endif
 
 ; ---------- 基本属性 ----------
 Name "Turboism"
@@ -72,9 +75,15 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → License → 模式选择 → Components(仅 Full) → Directory → InstFiles → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA → 模式选择 → Components(仅 Full) → Directory → InstFiles → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_LICENSEPAGE_CHECKBOX
+!define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
+!define MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"
+!define MUI_LICENSEPAGE_CHECKBOX
+!define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(EulaAcceptText)"
+!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
 Page custom ModeCreate ModeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
 !insertmacro MUI_PAGE_COMPONENTS
@@ -96,6 +105,10 @@ Page custom ModeCreate ModeLeave
 !insertmacro MUI_LANGUAGE "SimpChinese"
 !insertmacro MUI_LANGUAGE "Japanese"
 
+LicenseLangString EulaFile ${LANG_ENGLISH} "${EULA_DIR}/EULA.en.txt"
+LicenseLangString EulaFile ${LANG_SIMPCHINESE} "${EULA_DIR}/EULA.zh-Hans.txt"
+LicenseLangString EulaFile ${LANG_JAPANESE} "${EULA_DIR}/EULA.ja.txt"
+
 ; ---------- 自定义文案 LangString（en/zh/ja） ----------
 LangString TurboismWelcomeTitle ${LANG_ENGLISH} "Welcome to Turboism Setup"
 LangString TurboismWelcomeTitle ${LANG_SIMPCHINESE} "欢迎安装 Turboism"
@@ -105,9 +118,19 @@ LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard will install Turbois
 LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式，不会修改 Cubism 安装目录。$\r$\n$\r$\n安装完成后，请通过安装目录中的 launch-cubism-turboism.bat 启动 Cubism 编辑器。$\r$\n$\r$\n点击“下一步”继续。"
 LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism エディター用の拡張ランタイム「Turboism」をインストールします。$\r$\n$\r$\nインストールは管理者権限不要で、Cubism のインストール先ディレクトリは変更しません。$\r$\n$\r$\nインストール後、インストール先ディレクトリの launch-cubism-turboism.bat から Cubism エディターを起動してください。$\r$\n$\r$\n「次へ」をクリックして続行します。"
 
-LangString LicenseTopText ${LANG_ENGLISH} "Please review the license terms before installing Turboism. Scroll down to see the full text:"
-LangString LicenseTopText ${LANG_SIMPCHINESE} "请阅读以下许可协议。滚动查看全文："
-LangString LicenseTopText ${LANG_JAPANESE} "インストール前に以下の使用許諾契約をお読みください。全文を表示するには下へスクロールしてください："
+LangString LicenseTopText ${LANG_ENGLISH} "Please review the MIT License before installing Turboism. Scroll down to see the full text:"
+LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 MIT License。滚动查看全文："
+LangString LicenseTopText ${LANG_JAPANESE} "Turboism をインストールする前に MIT License をお読みください。全文を表示するには下へスクロールしてください："
+LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the MIT License"
+LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我接受 MIT License"
+LangString LicenseAcceptText ${LANG_JAPANESE} "MIT License に同意します"
+
+LangString EulaTopText ${LANG_ENGLISH} "Please review and accept the separate Turboism Minimal Runtime Agreement. It does not limit rights granted by the MIT License:"
+LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读并接受独立的 Turboism 最小运行最终用户协议。该协议不限制 MIT License 授予的权利："
+LangString EulaTopText ${LANG_JAPANESE} "独立した Turboism 最小ランタイム・エンドユーザー契約を確認して同意してください。この契約は MIT License の権利を制限しません："
+LangString EulaAcceptText ${LANG_ENGLISH} "I accept the Turboism Minimal Runtime Agreement"
+LangString EulaAcceptText ${LANG_SIMPCHINESE} "我接受 Turboism 最小运行最终用户协议"
+LangString EulaAcceptText ${LANG_JAPANESE} "Turboism 最小ランタイム・エンドユーザー契約に同意します"
 
 LangString DirectoryTopText ${LANG_ENGLISH} "Turboism will be installed to the following directory (Turboism home):"
 LangString DirectoryTopText ${LANG_SIMPCHINESE} "Turboism 将安装到以下目录（Turboism home）："
@@ -336,6 +359,9 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/README.zh.txt"
   File "${STAGING_DIR}/README.ja.txt"
   File "${LICENSE_FILE}"
+  File "${STAGING_DIR}/EULA.en.txt"
+  File "${STAGING_DIR}/EULA.zh-Hans.txt"
+  File "${STAGING_DIR}/EULA.ja.txt"
 SectionEnd
 
 Section "-托管 GraalVM" SecManagedGraal
@@ -699,6 +725,9 @@ Section "Uninstall"
   ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
   Delete "$INSTDIR\LICENSE"
+  Delete "$INSTDIR\EULA.en.txt"
+  Delete "$INSTDIR\EULA.zh-Hans.txt"
+  Delete "$INSTDIR\EULA.ja.txt"
   Delete "$INSTDIR\uninstall.exe"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"

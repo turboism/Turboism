@@ -280,6 +280,7 @@ else
     -DSTAGING_DIR="$stage"
     -DOUT_DIR="$dist"
     -DLICENSE_FILE="$repo_root/LICENSE"
+    -DEULA_DIR="$repo_root/packaging/eula"
   )
   if [[ -n "$ver_numeric" ]]; then
     nsis_args+=(-DVER_NUMERIC="$ver_numeric")
