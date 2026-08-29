@@ -942,7 +942,6 @@ public final class TurboismAgent {
             );
             if (!FPS_HOOK.compareAndSet(null, installer)) installer.close();
             PerformanceFpsHookRegistry.publish(installer);
-            System.err.println("Turboism FPS counting hook published");
         } catch (Throwable failure) {
             if (installer != null) {
                 try {

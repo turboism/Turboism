@@ -31,7 +31,7 @@ public final class NativeMeshMirrorBridge {
     private static final AtomicBoolean CONTROL_ATTACHED = new AtomicBoolean();
     /** Movement success is high-frequency; report presence once per bridge installation. */
     private static final AtomicBoolean MOVE_APPLIED_REPORTED = new AtomicBoolean();
-    private static final Consumer<String> DEFAULT_DIAGNOSTIC = System.err::println;
+    private static final Consumer<String> DEFAULT_DIAGNOSTIC = ignored -> { };
     private static final AtomicReference<Consumer<String>> DIAGNOSTIC =
         new AtomicReference<>(DEFAULT_DIAGNOSTIC);
 

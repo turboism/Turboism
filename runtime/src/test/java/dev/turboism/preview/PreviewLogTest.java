@@ -12,6 +12,8 @@ import java.time.ZoneOffset;
 import java.nio.file.attribute.FileTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -137,6 +139,40 @@ class PreviewLogTest {
             assertTrue(log.snapshot().lines().get(0).endsWith(" 1"));
             assertTrue(log.snapshot().lines().get(4_999).endsWith(" 5000"));
         }
+    }
+
+    @Test
+    void ordinaryRecordsAreNotDuplicatedToStandardOutput() throws Exception {
+        final PrintStream original = System.out;
+        final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        System.setOut(new PrintStream(output));
+        try (PreviewLog log = new PreviewLog(
+            temporary.resolve("quiet.log"),
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            (level, component, message, failure) -> { }
+        )) {
+            log.info("runtime", "normal startup record");
+        } finally {
+            System.setOut(original);
+        }
+
+        assertEquals("", output.toString());
+    }
+
+    @Test
+    void multilineBannerIsOneHostRecordAndKeepsItsFileLayout() throws Exception {
+        final List<String> hostRecords = new ArrayList<>();
+        final Path path = temporary.resolve("banner.log");
+        try (PreviewLog log = new PreviewLog(
+            path,
+            Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
+            (level, component, message, failure) -> hostRecords.add(message)
+        )) {
+            log.banner("line one\nline two");
+        }
+
+        assertEquals(List.of("line one\nline two"), hostRecords);
+        assertEquals("line one\nline two\n", Files.readString(path));
     }
 
     @Test
