@@ -45,6 +45,10 @@
 
     <resources>
         <res id="LicencePanel.licence" src="__STAGE_REL__/LICENSE.txt"/>
+        <res id="LicencePanel.eula" src="__STAGE_REL__/EULA.en.txt"/>
+        <res id="LicencePanel.eula_eng" src="__STAGE_REL__/EULA.en.txt"/>
+        <res id="LicencePanel.eula_chn" src="__STAGE_REL__/EULA.zh-Hans.txt"/>
+        <res id="LicencePanel.eula_jpn" src="__STAGE_REL__/EULA.ja.txt"/>
         <!-- IzPack locale-suffixed CustomLangPack convention: the runtime
              resolves CustomLangPack.xml_<iso3> per selected locale and falls
              back to the base CustomLangPack.xml. -->
@@ -64,6 +68,7 @@
     <panels>
         <panel classname="HelloPanel"/>
         <panel classname="LicencePanel"/>
+        <panel classname="LicencePanel" id="eula"/>
         <panel classname="InstallationGroupPanel"/>
         <panel classname="PacksPanel"/>
         <panel classname="TargetPanel"/>
@@ -80,6 +85,9 @@
                 <include name="*.jar"/>
             </fileset>
             <file src="__STAGE_REL__/LICENSE.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/EULA.en.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/EULA.zh-Hans.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/EULA.ja.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.zh.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.ja.txt" targetdir="$INSTALL_PATH" override="true"/>

@@ -24,4 +24,6 @@
     <str id="turboism-managed-graal" txt="Install managed GraalVM (optional)"/>
     <str id="turboism-managed-graal.description" txt="Downloads, verifies, and installs Turboism's pinned private GraalVM Community runtime. No download occurs unless selected."/>
 
+    <str id="LicencePanel.eula.info" txt="Turboism Minimal Runtime Agreement"/>
+
 </izpack:langpack>

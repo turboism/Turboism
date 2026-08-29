@@ -1,0 +1,27 @@
+TURBOISM MINIMAL RUNTIME END USER AGREEMENT
+Version 1.0 — 2026-08-29
+
+IMPORTANT: This operational agreement is separate from the MIT License distributed with Turboism. Nothing in this agreement limits, revokes, or narrows any right to use, copy, modify, merge, publish, distribute, sublicense, or sell Turboism that the MIT License grants. If this agreement conflicts with the MIT License about those rights, the MIT License controls.
+
+By accepting this agreement and continuing installation, you acknowledge and agree to the following operational terms:
+
+1. OPTIONAL CUBISM INTEGRATION
+Turboism may, only when you select the corresponding installer option, modify a selected Live2D Cubism startup BAT file or selected shortcuts so that Cubism starts with Turboism. Turboism will not perform that optional integration when you do not select it.
+
+2. BACKUPS, RESTORATION, AND CONFLICTS
+Before Turboism changes a selected startup BAT file or managed shortcut, it creates a Turboism-owned backup or records the state required for restoration. Turboism may refuse to replace or restore a file when the current file no longer matches the version Turboism owns. This conflict behavior is intended to preserve later user or third-party changes. You remain responsible for keeping an independent backup of files and projects important to you.
+
+3. OPTIONAL THIRD-PARTY GRAALVM DOWNLOAD
+If you choose immediate GraalVM installation, Turboism downloads a pinned GraalVM Community archive from the declared third-party release source, verifies the expected metadata, size, and digest, and installs it in Turboism's private runtime directory. You may decline or cancel this optional download. GraalVM and its bundled components remain subject to their own notices and license terms.
+
+4. NO AFFILIATION OR ENDORSEMENT
+Turboism is an independent project. It is not affiliated with, sponsored by, or endorsed by Live2D Inc., Oracle, GraalVM, or their respective contributors or vendors. Live2D, Cubism, GraalVM, Oracle, and other names are the property of their respective owners.
+
+5. HOST UPDATES AND COMPATIBILITY
+Cubism, Java, operating-system, or third-party runtime updates may change compatibility or require Turboism to be updated, reconfigured, repaired, or disabled. You are responsible for reviewing backups and compatibility before relying on Turboism in production work.
+
+6. OPERATIONAL DISCLAIMER
+To the maximum extent permitted by applicable law, the optional integration, backup, restoration, download, verification, and launch features described above are provided "AS IS", without warranties of uninterrupted operation, compatibility, or successful restoration. This operational disclaimer supplements, and does not replace or restrict, the warranty and liability disclaimer in the MIT License.
+
+LANGUAGE
+The English text of this agreement is authoritative. Simplified Chinese and Japanese texts are convenience translations only. If a translation differs from the English text, the English text controls.

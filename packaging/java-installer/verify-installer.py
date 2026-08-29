@@ -110,6 +110,11 @@ LOCALIZED_HEADLINE = {
     "chn": "欢迎",
     "jpn": "ようこそ",
 }
+LOCALIZED_EULA_MARKER = {
+    "eng": "English text of this agreement is authoritative",
+    "chn": "本协议以英文文本为权威文本",
+    "jpn": "本契約は英語文を正文とします",
+}
 # Turboism-owned InstallationGroupPanel strings (CustomLangPack): the
 # install-side listener emits the localized mode name and description for
 # both modes on every run, and the probes must observe them live.
@@ -430,7 +435,7 @@ def load_plugin_metadata(manifest_path, modules):
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
                     install_graal=False):
-    answers = [str(lang_index), "1", "1"]  # language, welcome, license
+    answers = [str(lang_index), "1", "1", "1"]  # language, welcome, MIT license, EULA
     # IzPack sorts groups by id in console mode: full, lite, then thin.
     if mode == "full":
         answers += ["y"]
@@ -493,6 +498,9 @@ def assert_locale_probe(jar, payload_plugins, lang_index, iso3):
     check("locale %s built-in headline" % iso3,
           LOCALIZED_HEADLINE[iso3] in out,
           "output did not contain the localized wizard headline")
+    check("locale %s EULA text" % iso3,
+          LOCALIZED_EULA_MARKER[iso3] in out,
+          "output did not contain the localized EULA")
     for mode in ("full", "thin", "lite"):
         name, description = LOCALIZED_MODE[iso3][mode]
         check("locale %s %s mode name" % (iso3, mode), name in out,
@@ -1378,6 +1386,17 @@ def assert_jar_layout(jar, payload):
         check("jar install listener",
               "dev/turboism/installer/TurboismInstallerListener.class" in names)
         check("jar config template resource", "turboism/config.template.json" in names)
+        eula_resources = {
+            "resources/LicencePanel.eula": "EULA.en.txt",
+            "resources/LicencePanel.eula_eng": "EULA.en.txt",
+            "resources/LicencePanel.eula_chn": "EULA.zh-Hans.txt",
+            "resources/LicencePanel.eula_jpn": "EULA.ja.txt",
+        }
+        for resource, staged_name in eula_resources.items():
+            check("jar EULA resource %s" % resource, resource in names)
+            expected = open(os.path.join(payload, staged_name), "rb").read()
+            check("jar EULA resource %s byte-identical" % resource,
+                  z.read(resource) == expected)
         agent_path = os.path.join(payload, "turboism-agent.jar")
         with zipfile.ZipFile(agent_path) as agent:
             check("staged agent contains managed Graal CLI",

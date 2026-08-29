@@ -155,6 +155,9 @@ val pluginModuleNames: List<String> = allowedPluginModules
 
 val installerTemplateFiles = listOf(
     "LICENSE",
+    "packaging/eula/EULA.en.txt",
+    "packaging/eula/EULA.zh-Hans.txt",
+    "packaging/eula/EULA.ja.txt",
     "packaging/windows-installer/config.template.json",
     "packaging/windows-installer/README.en.txt.template",
     "packaging/windows-installer/README.zh.txt.template",
@@ -516,6 +519,12 @@ val stageInstallerPayload by tasks.registering {
             from("LICENSE")
             into(stage)
             rename { "LICENSE.txt" }
+        }
+        copy {
+            from("packaging/eula/EULA.en.txt")
+            from("packaging/eula/EULA.zh-Hans.txt")
+            from("packaging/eula/EULA.ja.txt")
+            into(stage)
         }
         listOf(
             "README.en.txt.template" to "README.txt",
