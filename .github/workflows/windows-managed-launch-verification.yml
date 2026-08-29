@@ -51,10 +51,17 @@ jobs:
           $turboismHome = Join-Path $env:RUNNER_TEMP "Turboism bridge home"
           New-Item -ItemType Directory -Path $turboismHome -Force | Out-Null
           $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-          $output = & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-            -File ".\packaging\windows-installer\install-managed-graal.ps1" `
-            -Home $turboismHome 2>&1 | Out-String
-          $exitCode = $LASTEXITCODE
+          $previousErrorPreference = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = "Continue"
+            $output = & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
+              -File ".\packaging\windows-installer\install-managed-graal.ps1" `
+              -Home $turboismHome 2>&1 | Out-String
+            $exitCode = $LASTEXITCODE
+          }
+          finally {
+            $ErrorActionPreference = $previousErrorPreference
+          }
           if ($exitCode -eq 0) { throw "missing-agent bridge fixture unexpectedly succeeded" }
           if ($output -match '(?i)cannot overwrite variable home|variable home.*read.only') {
             throw "managed Graal bridge still collides with PowerShell HOME: $output"
