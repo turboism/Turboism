@@ -28,6 +28,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TextureAtlasPluginTest {
 
     @Test
+    void initRegistersTheProductionTextureAtlasSchema() {
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        final ShellPluginContext context = new ShellPluginContext();
+
+        plugin.init(context);
+
+        assertEquals(TextureAtlasSettingsBinding.CONFIG_ID, context.config.lastSchema().configId());
+        assertEquals(TextureAtlasSettingsBinding.CONFIG_PATH, context.config.lastSchema().relativePath());
+        plugin.shutdown();
+    }
+
+    @Test
     void lifecycleComposesAutomaticLayoutServiceAndRevokesCapturedAccessWhenDisabled() {
         TextureAtlasPlugin plugin = new TextureAtlasPlugin();
 
@@ -143,8 +155,10 @@ class TextureAtlasPluginTest {
 
         @Override public PluginDescriptor descriptor() { throw unused(); }
         @Override public PluginLogger logger() { return logger; }
+        private final DefaultPluginConfigRegistry config = new DefaultPluginConfigRegistry();
+
         @Override public PluginPaths paths() { throw unused(); }
-        @Override public PluginConfigRegistry config() { return new DefaultPluginConfigRegistry(); }
+        @Override public PluginConfigRegistry config() { return config; }
         @Override public CubismFacade cubism() {
             return new CubismFacade() {
                 @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() { throw unused(); }

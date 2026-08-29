@@ -16,7 +16,13 @@ import java.util.concurrent.CompletionStage;
 
 public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
     private final java.util.Map<ConfigKey<?>, Object> values = new java.util.HashMap<>();
+    private ConfigSchema schema;
     private long revision;
+
+    public ConfigSchema lastSchema() {
+        return schema;
+    }
+
     @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
         final java.util.regex.Pattern identifier = java.util.regex.Pattern.compile("[a-z0-9][a-z0-9._-]{0,127}");
         for (ConfigKey<?> key : schema.keys()) {
@@ -26,6 +32,7 @@ public final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
                 );
             }
         }
+        this.schema = schema;
         return CompletableFuture.completedFuture(null);
     }
     @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) {

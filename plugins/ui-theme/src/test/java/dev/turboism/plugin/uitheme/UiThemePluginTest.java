@@ -88,6 +88,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class UiThemePluginTest {
 
     @Test
+    void initRegistersTheProductionThemeSelectionSchema() {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+
+        assertEquals("ui-theme.selection", context.config.schema.configId());
+        assertEquals("ui-theme/selection.cfg", context.config.schema.relativePath());
+        plugin.shutdown();
+    }
+
+    @Test
     void registersThemeContextMenuContributionsAndActions_whenEnabled() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         UiThemePlugin plugin = new UiThemePlugin();
@@ -491,7 +503,12 @@ class UiThemePluginTest {
     }
 
     private static final class DefaultPluginConfigRegistry implements PluginConfigRegistry {
-        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) { return CompletableFuture.completedFuture(null); }
+        private ConfigSchema schema;
+
+        @Override public CompletionStage<Void> registerSchema(ConfigSchema schema, List<dev.turboism.sdk.config.ConfigMigration> migrations) {
+            this.schema = schema;
+            return CompletableFuture.completedFuture(null);
+        }
         @Override public <T> CompletionStage<ConfigReadResult<T>> read(ConfigKey<T> key) { return CompletableFuture.completedFuture(new ConfigReadResult<>(new ConfigValue<>(key.defaultValue(), ConfigValueSource.DEFAULT_MISSING, 0), Optional.empty())); }
         @Override public <T> CompletionStage<ConfigWriteResult> write(ConfigKey<T> key, T value, long expectedRevision) { return CompletableFuture.completedFuture(new ConfigWriteResult(true, expectedRevision + 1, Optional.empty())); }
         @Override public Registration readScope(String relativePath) { return () -> { }; }
