@@ -939,6 +939,9 @@ try {
         Assert-ManagedLaunch ((-not (Test-Path -LiteralPath $r12ShortcutRoot)) -and (-not (Test-Path -LiteralPath $r12Home))) "R12 fixture and override cleanup is deterministic"
     }
 
+    # Expected native child failures above are asserted explicitly; do not let
+    # their retained process status fail the completed PowerShell test script.
+    $global:LASTEXITCODE = 0
     Write-Host "MANAGED_LAUNCH_TEST=PASS"
 }
 finally {
