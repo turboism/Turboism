@@ -27,6 +27,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HistoryPanelPluginTest {
 
     @Test
+    void unavailableHistoryApiOmitsTheToolStripWithoutFailingPluginEnable() {
+        final RecordingContext context = new RecordingContext(true);
+        final HistoryPanelPlugin plugin = new HistoryPanelPlugin();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertTrue(context.uiHost().verticalToolbars().isEmpty());
+        assertTrue(context.actions().actions.isEmpty());
+    }
+
+    @Test
     void enableRegistersVerticalToolStripAndToggleShowsAndHidesPanel() {
         final RecordingContext context = new RecordingContext();
         final HistoryPanelPlugin plugin = new HistoryPanelPlugin();
@@ -59,6 +71,15 @@ class HistoryPanelPluginTest {
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final DisposableScope scope = new DisposableScope();
         private final RecordingActionRegistry actionRegistry = new RecordingActionRegistry();
+        private final boolean unavailableHistory;
+
+        RecordingContext() {
+            this(false);
+        }
+
+        RecordingContext(final boolean unavailableHistory) {
+            this.unavailableHistory = unavailableHistory;
+        }
 
         @Override
         public RecordingUiHost uiHost() {
@@ -100,6 +121,13 @@ class HistoryPanelPluginTest {
 
                 @Override
                 public CubismHistory history() {
+                    if (unavailableHistory) {
+                        throw new dev.turboism.sdk.cubism.CubismEditorApiUnavailableException(
+                            "dev.turboism.sdk.cubism.CubismFacade#history()",
+                            Optional.of("5.2.03"),
+                            List.of("5.3.02", "5.3.03")
+                        );
+                    }
                     return new CubismHistory() {
                         @Override
                         public HistorySnapshot snapshot() {
