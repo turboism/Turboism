@@ -62,6 +62,7 @@ jobs:
           finally {
             $ErrorActionPreference = $previousErrorPreference
           }
+          $global:LASTEXITCODE = 0
           if ($exitCode -eq 0) { throw "missing-agent bridge fixture unexpectedly succeeded" }
           if ($output -match '(?i)cannot overwrite variable home|variable home.*read.only') {
             throw "managed Graal bridge still collides with PowerShell HOME: $output"
