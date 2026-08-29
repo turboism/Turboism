@@ -191,7 +191,9 @@ final class EditorParameterBindingBatchAccess implements ParameterBindingBatchOp
             requireDistinct(before);
             final ArrayList<Float> mapped = new ArrayList<>(before.size());
             for (float value : before) {
-                final float requested = plan.invertAfterTransfer() ? -value + 0.0F : value;
+                final float requested = plan.invertAfterTransfer()
+                    ? sourceRange.minimum() + sourceRange.maximum() - value + 0.0F
+                    : value;
                 final float mappedValue;
                 if (remaps) {
                     // Linear remap from the source range into the destination range, then clamp.

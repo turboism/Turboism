@@ -21,7 +21,8 @@ public interface ParameterBindingBatchOperations {
      * Atomically transfers bindings while remapping every source keyform value linearly from the
      * source parameter range into the destination range and clamping it to that range; a source
      * range with zero span is left unremapped. When {@code plan.invertAfterTransfer()} is true,
-     * each value is negated first and then remapped; the keyform association is retained. The
+     * each value is reflected across the source range first and then remapped; the keyform
+     * association is retained. The
      * default is fail-closed for binary compatibility.
      */
     default void transferClamped(final ParameterBindingTransferPlan plan) {

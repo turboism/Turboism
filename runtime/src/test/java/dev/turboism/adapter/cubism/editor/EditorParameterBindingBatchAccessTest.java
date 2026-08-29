@@ -76,6 +76,21 @@ class EditorParameterBindingBatchAccessTest {
     }
 
     @Test
+    void invertedTransferReflectsOrdinaryZeroBasedParameterRange() {
+        final Fixture fixture = fixture(-1.0F, 1.0F, 0.0F, 0.5F, 1.0F);
+        fixture.parameters.put("from", new Source("from", 0.0F, 1.0F));
+
+        access(fixture).transferClamped(plan(true, TARGET_A));
+
+        assertEquals(List.of(-1.0F, 0.0F, 1.0F), fixture.owner(TARGET_A).grid.keys("to"));
+        assertEquals(List.of(1.0F, 0.0F, -1.0F), fixture.owner(TARGET_A).grid.rearrangeAfter);
+        assertEquals(
+            List.of("keyform-2", "keyform-1", "keyform-0"),
+            fixture.owner(TARGET_A).grid.keyformData()
+        );
+    }
+
+    @Test
     void degenerateSourceRangeKeepsValuesUnremapped() {
         final Fixture fixture = fixture(-70.0F, 50.0F, -30.0F, 0.0F, 30.0F);
         fixture.parameters.put("from", new Source("from", 5.0F, 5.0F));
