@@ -28,6 +28,43 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @Test
+    void cubismHistoryApiIsAvailableOnReviewed5203Host() {
+        final AtomicInteger calls = new AtomicInteger();
+        final dev.turboism.sdk.cubism.CubismFacade delegate =
+            new dev.turboism.sdk.cubism.CubismFacade() {
+                @Override public dev.turboism.sdk.cubism.CubismRuntimeSnapshot runtime() {
+                    return null;
+                }
+                @Override public Optional<dev.turboism.sdk.cubism.ProjectSnapshot> activeProject() {
+                    return Optional.empty();
+                }
+                @Override public Optional<dev.turboism.sdk.cubism.DocumentSnapshot> activeDocument() {
+                    return Optional.empty();
+                }
+                @Override public Optional<dev.turboism.sdk.cubism.ModelSnapshot> activeModel() {
+                    return Optional.empty();
+                }
+                @Override public boolean isHostPresent() { return true; }
+                @Override public dev.turboism.sdk.cubism.history.CubismHistory history() {
+                    calls.incrementAndGet();
+                    return dev.turboism.sdk.cubism.history.CubismHistory.unavailable();
+                }
+                @Override public dev.turboism.sdk.cubism.transaction.TransactionManager transactionManager() {
+                    return null;
+                }
+            };
+        final dev.turboism.sdk.cubism.CubismFacade proxy = proxy(
+            delegate,
+            dev.turboism.sdk.cubism.CubismFacade.class,
+            Optional.of("5.2.03")
+        );
+
+        proxy.history();
+
+        assertEquals(1, calls.get());
+    }
+
+    @Test
     void rejectsNarrowMethodBeforeDelegateOnUnsupportedHost() {
         final AtomicInteger calls = new AtomicInteger();
         final Example delegate = new ExampleImpl(calls);
