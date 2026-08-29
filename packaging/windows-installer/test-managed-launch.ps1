@@ -17,13 +17,17 @@ function Assert-ManagedLaunch {
 function Test-CubismJdk17Runnable {
     param([string]$Java)
     if ([string]::IsNullOrWhiteSpace($Java)) { return $false }
+    $previousErrorPreference = $ErrorActionPreference
     try {
+        $ErrorActionPreference = "Continue"
         $output = & $Java -version 2>&1
-        if ($LASTEXITCODE -ne 0) { return $false }
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) { return $false }
         $text = ($output | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
         return $text -match 'version "17\.'
     }
     catch { return $false }
+    finally { $ErrorActionPreference = $previousErrorPreference }
 }
 
 function Find-CubismRunnableJdk17 {
