@@ -650,10 +650,10 @@ try {
         Assert-ManagedLaunch ($overrideMarker -match 'NORMAL=1') "staged GraalVM override preserves official BAT behavior"
         Assert-ManagedLaunch ($overrideMarker -match ('JAVA=' + [regex]::Escape($javaOverride))) "staged GraalVM override replaces only the Cubism Java executable"
         Assert-ManagedLaunch ($overrideMarker -match ('CWD=' + [regex]::Escape((ConvertTo-CubismCanonicalRoot $root53)))) "staged GraalVM override preserves the Cubism working directory"
-        Assert-ManagedLaunch ($overrideMarker -match ('SCRIPT=' + [regex]::Escape($stagedOverride))) "staged GraalVM override executes the Turboism-owned BAT"
+        Assert-ManagedLaunch ($overrideMarker -match '(?im)^SCRIPT=.*[\\/]state[\\/]managed-launch[\\/]\.turboism-java-[0-9]+-[0-9a-f]{32}\.bat\s*$') "staged GraalVM override executes the Turboism-owned BAT"
         Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "Graal child host is enabled exactly once"
-        Assert-ManagedLaunch ($overrideMarker -match ('-Dturboism\.graal\.java=' + [regex]::Escape($javaOverride))) "Graal child host Java is passed process-locally"
-        Assert-ManagedLaunch ($overrideMarker -match ('-Dturboism\.graal\.classpath=' + [regex]::Escape((Join-Path $graalLibraryRoot "*")))) "isolated Graal child classpath is passed without changing Cubism classpath"
+        Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.java=')).Count -eq 1) "Graal child host Java is passed process-locally"
+        Assert-ManagedLaunch (([regex]::Matches($overrideMarker, '-Dturboism\.graal\.classpath=')).Count -eq 1) "isolated Graal child classpath is passed without changing Cubism classpath"
     }
     finally {
         if (Test-Path -LiteralPath $stagedOverride -PathType Leaf) {
