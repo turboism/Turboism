@@ -14,7 +14,9 @@ plugins {
 val defaultWorktreeId = providers.exec {
     commandLine("bash", "scripts/dev/worktree-id.sh")
     workingDir(rootProject.layout.projectDirectory)
-}.standardOutput.asText.get().trim().ifBlank { rootProject.layout.projectDirectory.asFile.name }
+}.standardOutput.asText.map { output ->
+    output.trim().ifBlank { rootProject.layout.projectDirectory.asFile.name }
+}
 
 rootProject.extra["turboismResolvedWorktreeId"] = providers.gradleProperty("turboismWorktreeId")
     .orElse(providers.environmentVariable("TURBOISM_WORKTREE_ID"))
