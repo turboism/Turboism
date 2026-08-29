@@ -664,7 +664,7 @@ try {
     $rootEntriesAfterOverride = @(
         Get-ChildItem -LiteralPath $root53 -Force | ForEach-Object { $_.Name } | Sort-Object
     )
-    Assert-ManagedLaunch ((Compare-Object $rootEntriesBeforeOverride $rootEntriesAfterOverride).Count -eq 0) "GraalVM override creates no Cubism-root entries"
+    Assert-ManagedLaunch (@(Compare-Object $rootEntriesBeforeOverride $rootEntriesAfterOverride).Count -eq 0) "GraalVM override creates no Cubism-root entries"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $bat -Algorithm SHA256).Hash -eq $beforeBat) "GraalVM override leaves the official BAT byte-identical"
 
     $ps = $currentPowerShell
