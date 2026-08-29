@@ -279,7 +279,7 @@ final class TypedConfigDocumentStore {
         );
     }
 
-    private static AclEntry ownerOnlyEntry(
+    static AclEntry ownerOnlyEntry(
         final java.nio.file.attribute.UserPrincipal owner,
         final boolean directory
     ) {
@@ -291,6 +291,7 @@ final class TypedConfigDocumentStore {
         permissions.add(AclEntryPermission.WRITE_ATTRIBUTES);
         permissions.add(AclEntryPermission.READ_NAMED_ATTRS);
         permissions.add(AclEntryPermission.WRITE_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.SYNCHRONIZE);
         if (directory) {
             permissions.add(AclEntryPermission.EXECUTE);
             permissions.add(AclEntryPermission.DELETE_CHILD);
