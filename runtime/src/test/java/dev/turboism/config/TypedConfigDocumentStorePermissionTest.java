@@ -9,6 +9,7 @@ import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.attribute.AclEntryPermission;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
@@ -144,6 +145,13 @@ class TypedConfigDocumentStorePermissionTest {
     }
 
 
+
+    @Test
+    void aclOwnerEntryRetainsTheWindowsSynchronizePermission() {
+        assertTrue(TypedConfigDocumentStore.ownerOnlyEntry(
+            () -> "owner", false
+        ).permissions().contains(AclEntryPermission.SYNCHRONIZE));
+    }
 
     @Test
     void unsupportedFileSystemFailsClosedAndWritesNothingInsecurely() throws Exception {
