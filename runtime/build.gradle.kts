@@ -118,6 +118,34 @@ sourceSets.named("main") {
     java.srcDir(generatedCoreCatalogRoot)
 }
 
+val frameworkVersionResource = layout.buildDirectory.file(
+    "generated/resources/turboism-framework-version/framework-version.properties"
+)
+
+val generateFrameworkVersionResource by tasks.registering {
+    group = "build"
+    description = "Generates the framework version resource packaged into the runtime."
+    inputs.property(
+        "turboismFrameworkVersion",
+        rootProject.extra["turboismFrameworkVersion"] as String
+    )
+    outputs.file(frameworkVersionResource)
+    doLast {
+        val file = frameworkVersionResource.get().asFile
+        file.parentFile.mkdirs()
+        file.writeText(
+            "version=${rootProject.extra["turboismFrameworkVersion"] as String}\n"
+        )
+    }
+}
+
+tasks.named<ProcessResources>("processResources") {
+    dependsOn(generateFrameworkVersionResource)
+    from(frameworkVersionResource) {
+        into("META-INF/turboism")
+    }
+}
+
 tasks.named("compileJava") {
     dependsOn(
         generateCorePublicApiCatalog,

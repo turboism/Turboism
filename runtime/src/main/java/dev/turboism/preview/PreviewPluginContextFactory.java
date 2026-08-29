@@ -25,6 +25,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
     private final Path home;
     private final PreviewPluginServicesFactory servicesFactory;
     private final PreviewLog log;
+    private final GraalHostConfiguration graalConfiguration;
     private final GraalHostManager graalHost;
     private final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
 
@@ -77,8 +78,9 @@ final class PreviewPluginContextFactory implements AutoCloseable {
         this.home = Objects.requireNonNull(home, "home");
         this.log = Objects.requireNonNull(log, "log");
         this.fileChooserHistory = Objects.requireNonNull(fileChooserHistory, "fileChooserHistory");
+        this.graalConfiguration = GraalHostConfiguration.resolve(home);
         this.graalHost = new GraalHostManager(
-            GraalHostConfiguration.resolve(home),
+            graalConfiguration,
             diagnostic -> log.warn("graal", diagnostic)
         );
         this.servicesFactory = new PreviewPluginServicesFactory(
@@ -100,6 +102,10 @@ final class PreviewPluginContextFactory implements AutoCloseable {
 
     Object hostAccessIdentity() {
         return hostAccess;
+    }
+
+    GraalHostConfiguration graalConfiguration() {
+        return graalConfiguration;
     }
 
     PluginContextBundle create(

@@ -15,8 +15,36 @@ public record GraalHostConfiguration(
     String javaBinary,
     String classpath,
     String mainClass,
-    long startupTimeoutMillis
+    long startupTimeoutMillis,
+    Source source
 ) {
+
+    /** Authoritative origin of the Java executable selected for GraalJS. */
+    public enum Source {
+        DISABLED,
+        MANAGED,
+        LEGACY_PACKAGED,
+        EXTERNAL,
+        EXPLICIT
+    }
+
+    /** Compatibility constructor retained for focused manager tests. */
+    public GraalHostConfiguration(
+        final boolean enabled,
+        final String javaBinary,
+        final String classpath,
+        final String mainClass,
+        final long startupTimeoutMillis
+    ) {
+        this(
+            enabled,
+            javaBinary,
+            classpath,
+            mainClass,
+            startupTimeoutMillis,
+            enabled ? Source.EXPLICIT : Source.DISABLED
+        );
+    }
 
     public static final String DEFAULT_MAIN_CLASS = "dev.turboism.graalhost.GraalHostMain";
 
@@ -24,6 +52,13 @@ public record GraalHostConfiguration(
         javaBinary = Objects.requireNonNullElse(javaBinary, "").trim();
         classpath = Objects.requireNonNullElse(classpath, "").trim();
         mainClass = Objects.requireNonNullElse(mainClass, DEFAULT_MAIN_CLASS).trim();
+        source = Objects.requireNonNull(source, "source");
+        if (enabled && source == Source.DISABLED) {
+            throw new IllegalArgumentException("Enabled Graal host requires an enabled source");
+        }
+        if (!enabled && source != Source.DISABLED) {
+            throw new IllegalArgumentException("Disabled Graal host requires the disabled source");
+        }
         if (enabled && javaBinary.isEmpty()) {
             throw new IllegalArgumentException("Enabled Graal host requires a Java binary");
         }
@@ -59,15 +94,24 @@ public record GraalHostConfiguration(
             System.getenv("TURBOISM_GRAALVM_HOME"),
             System.getenv("GRAALVM_HOME")
         );
-        final String javaBinary = !explicitJava.isBlank()
-            ? validatedExplicitJava(explicitJava).orElse("")
-            : managedJava(home)
-                .or(() -> javaFromHome(home.resolve("graalvm").toString()))
-                .or(() -> javaFromHome(externalGraalHome))
-                .orElse("");
-        if (javaBinary.isBlank()) {
+        final Selection selection;
+        if (!explicitJava.isBlank()) {
+            selection = validatedExplicitJava(explicitJava)
+                .map(java -> new Selection(java, Source.EXPLICIT))
+                .orElse(null);
+        } else {
+            selection = managedJava(home)
+                .map(java -> new Selection(java, Source.MANAGED))
+                .or(() -> javaFromHome(home.resolve("graalvm").toString())
+                    .map(java -> new Selection(java, Source.LEGACY_PACKAGED)))
+                .or(() -> javaFromHome(externalGraalHome)
+                    .map(java -> new Selection(java, Source.EXTERNAL)))
+                .orElse(null);
+        }
+        if (selection == null) {
             return disabled();
         }
+        final String javaBinary = selection.javaBinary();
 
         final String explicitClasspath = firstNonBlank(
             System.getProperty("turboism.graal.classpath", ""),
@@ -80,12 +124,16 @@ public record GraalHostConfiguration(
             "turboism.graal.mainClass", DEFAULT_MAIN_CLASS
         );
         final long timeout = Long.getLong("turboism.graal.startupTimeoutMillis", 10_000L);
-        return new GraalHostConfiguration(true, javaBinary, classpath, mainClass, timeout);
+        return new GraalHostConfiguration(
+            true, javaBinary, classpath, mainClass, timeout, selection.source()
+        );
     }
 
     /** @return a configuration that keeps the external Graal host disabled */
     public static GraalHostConfiguration disabled() {
-        return new GraalHostConfiguration(false, "", "", DEFAULT_MAIN_CLASS, 10_000L);
+        return new GraalHostConfiguration(
+            false, "", "", DEFAULT_MAIN_CLASS, 10_000L, Source.DISABLED
+        );
     }
 
     private static Optional<String> managedJava(final Path turboismHome) {
@@ -157,6 +205,13 @@ public record GraalHostConfiguration(
                 ? value.substring(1, value.length() - 1)
                 : value)
             .findFirst();
+    }
+
+    private record Selection(String javaBinary, Source source) {
+        private Selection {
+            javaBinary = Objects.requireNonNull(javaBinary, "javaBinary");
+            source = Objects.requireNonNull(source, "source");
+        }
     }
 
     private static String firstNonBlank(final String... values) {

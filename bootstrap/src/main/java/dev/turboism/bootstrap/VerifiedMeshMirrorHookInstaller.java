@@ -33,7 +33,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final ClassLoader hostClassLoader,
         final MeshMirrorHostProfile profile
     ) {
-        this(instrumentation, hostClassLoader, null, null, null, profile, System.err::println);
+        this(instrumentation, hostClassLoader, null, null, null, profile, ignored -> { });
     }
 
     VerifiedMeshMirrorHookInstaller(
@@ -54,7 +54,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final RuntimeMeshEditUiService ui,
         final MeshMirrorHostProfile profile
     ) {
-        this(instrumentation, hostClassLoader, null, axis, ui, profile, System.err::println);
+        this(instrumentation, hostClassLoader, null, axis, ui, profile, ignored -> { });
     }
 
     VerifiedMeshMirrorHookInstaller(
@@ -63,7 +63,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final Path hostArtifact,
         final MeshMirrorHostProfile profile
     ) {
-        this(instrumentation, hostClassLoader, hostArtifact, null, null, profile, System.err::println);
+        this(instrumentation, hostClassLoader, hostArtifact, null, null, profile, ignored -> { });
     }
 
     VerifiedMeshMirrorHookInstaller(
@@ -74,7 +74,7 @@ final class VerifiedMeshMirrorHookInstaller implements AutoCloseable {
         final RuntimeMeshEditUiService ui,
         final MeshMirrorHostProfile profile
     ) {
-        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, System.err::println);
+        this(instrumentation, hostClassLoader, hostArtifact, axis, ui, profile, ignored -> { });
     }
 
     VerifiedMeshMirrorHookInstaller(

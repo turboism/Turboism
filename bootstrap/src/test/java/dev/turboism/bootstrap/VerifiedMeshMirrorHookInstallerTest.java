@@ -102,6 +102,26 @@ final class VerifiedMeshMirrorHookInstallerTest {
     }
 
     @Test
+    void defaultProductionDiagnosticSinkKeepsNormalMeshStagesOffStderr() throws Exception {
+        final java.io.PrintStream original = System.err;
+        final java.io.ByteArrayOutputStream output = new java.io.ByteArrayOutputStream();
+        System.setErr(new java.io.PrintStream(output));
+        try {
+            final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(
+                instrumentation(new ArrayList<>()), getClass().getClassLoader(), profile()
+            );
+            installer.install();
+            installer.close();
+        } finally {
+            System.setErr(original);
+        }
+
+        final String stderr = output.toString();
+        assertFalse(stderr.contains("MESH_MIRROR_TARGET_TRANSFORMED"));
+        assertFalse(stderr.contains("MESH_MIRROR_DIAG"));
+    }
+
+    @Test
     void registrationDoesNotClaimTargetTransformationReadiness() throws Exception {
         final List<String> calls = new ArrayList<>();
         final VerifiedMeshMirrorHookInstaller installer = new VerifiedMeshMirrorHookInstaller(

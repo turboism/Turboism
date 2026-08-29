@@ -26,6 +26,14 @@ import java.util.function.Consumer;
 /** Plugin-scoped view of the global user script registry and shared Graal host. */
 public final class RuntimeScriptService implements ScriptService {
 
+    /** Returns the current bounded count of valid installed scripts without starting GraalJS. */
+    public static int discoveredScriptCount(final Path turboismHome) {
+        return new ScriptRegistry(
+            Objects.requireNonNull(turboismHome, "turboismHome"),
+            ignored -> { }
+        ).discover().size();
+    }
+
     private final ScriptRegistry registry;
     private final PluginContext context;
     private final DisposableScope scope;

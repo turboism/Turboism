@@ -58,6 +58,7 @@ final class GraalHostConfigurationTest {
             final GraalHostConfiguration configuration = GraalHostConfiguration.resolve(home);
 
             assertEquals("C:\\Turboism\\graal\\lib\\*", configuration.classpath());
+            assertEquals(GraalHostConfiguration.Source.EXPLICIT, configuration.source());
         } finally {
             restore("turboism.graal.java", originalJava);
             restore("turboism.graal.classpath", originalClasspath);
@@ -128,6 +129,7 @@ final class GraalHostConfigurationTest {
             final GraalHostConfiguration configuration = GraalHostConfiguration.resolve(home);
 
             assertTrue(configuration.enabled());
+            assertEquals(GraalHostConfiguration.Source.LEGACY_PACKAGED, configuration.source());
             assertEquals(legacy.toAbsolutePath().normalize().toString(), configuration.javaBinary());
         } finally {
             try (var paths = java.nio.file.Files.walk(home)) {
@@ -155,6 +157,7 @@ final class GraalHostConfigurationTest {
             final GraalHostConfiguration configuration = GraalHostConfiguration.resolve(home);
 
             assertTrue(configuration.enabled());
+            assertEquals(GraalHostConfiguration.Source.MANAGED, configuration.source());
             assertEquals(executable.toAbsolutePath().normalize().toString(), configuration.javaBinary());
         } finally {
             try (var paths = java.nio.file.Files.walk(home)) {
