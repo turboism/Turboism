@@ -27,7 +27,8 @@ public interface CorePluginManagement extends AutoCloseable {
         String effectiveState, String desiredState, boolean core,
         Optional<String> pendingOperation,
         String category,
-        List<String> tags
+        List<String> tags,
+        List<Author> authors
     ) {
         public PluginInfo {
             if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
@@ -39,6 +40,25 @@ public interface CorePluginManagement extends AutoCloseable {
             pendingOperation = pendingOperation == null ? Optional.empty() : pendingOperation;
             category = category == null || category.isBlank() ? "other" : category;
             tags = tags == null ? List.of() : List.copyOf(tags);
+            authors = authors == null ? List.of() : List.copyOf(authors);
+        }
+
+        public PluginInfo(
+            final String id,
+            final String name,
+            final String version,
+            final String description,
+            final String effectiveState,
+            final String desiredState,
+            final boolean core,
+            final Optional<String> pendingOperation,
+            final String category,
+            final List<String> tags
+        ) {
+            this(
+                id, name, version, description, effectiveState, desiredState, core,
+                pendingOperation, category, tags, List.of()
+            );
         }
     }
 

@@ -18,6 +18,7 @@ class PluginTableModelTest {
         @Override public Locale locale() { return Locale.ENGLISH; }
         @Override public String text(final String key) {
             return switch (key) {
+                case "plugins.column.author" -> "Author";
                 case "plugins.column.category" -> "Category";
                 case "plugins.column.tags" -> "Tags";
                 case "plugin.category.modeling" -> "Modeling";
@@ -41,19 +42,27 @@ class PluginTableModelTest {
         final boolean core
     ) {
         return new CorePluginManagement.PluginInfo(
-            id, name, "1.0.0", "", "ENABLED", "ENABLED", core, Optional.empty(), category, tags
+            id, name, "1.0.0", "", "ENABLED", "ENABLED", core, Optional.empty(), category, tags,
+            List.of(
+                new CorePluginManagement.Author("First Author", Optional.empty()),
+                new CorePluginManagement.Author("Second Author", Optional.of("second@example.test"))
+            )
         );
     }
 
     @Test
-    void tableHasCategoryAndTagsColumnsWithLocalizedHeaders() {
+    void tableShowsDisplayNameAlongsideIdentifierAndAuthors() {
         final CoreWindows.PluginTableModel model = new CoreWindows.PluginTableModel(I18N);
-        model.setPlugins(List.of(row("a.plugin", "A", "modeling", List.of("parameter"), false)));
+        model.setPlugins(List.of(row("a.plugin", "Localized A", "modeling", List.of("parameter"), false)));
 
-        assertEquals(8, model.getColumnCount());
-        assertEquals("Category", model.getColumnName(6));
-        assertEquals("Tags", model.getColumnName(7));
-        assertEquals("ID", model.getColumnName(5));
+        assertEquals(9, model.getColumnCount());
+        assertEquals("ID", model.getColumnName(1));
+        assertEquals("Author", model.getColumnName(2));
+        assertEquals("Category", model.getColumnName(7));
+        assertEquals("Tags", model.getColumnName(8));
+        assertEquals("Localized A", model.getValueAt(0, 0));
+        assertEquals("a.plugin", model.getValueAt(0, 1));
+        assertEquals("First Author, Second Author", model.getValueAt(0, 2));
     }
 
     @Test
@@ -65,12 +74,12 @@ class PluginTableModelTest {
             row("c.plugin", "C", "other", List.of(), false)
         ));
 
-        assertEquals("Modeling", model.getValueAt(0, 6));
-        assertEquals("Workflow", model.getValueAt(1, 6));
-        assertEquals("Other", model.getValueAt(2, 6));
-        assertEquals("parameter", model.getValueAt(0, 7));
-        assertEquals("backup", model.getValueAt(1, 7));
-        assertEquals("", model.getValueAt(2, 7));
+        assertEquals("Modeling", model.getValueAt(0, 7));
+        assertEquals("Workflow", model.getValueAt(1, 7));
+        assertEquals("Other", model.getValueAt(2, 7));
+        assertEquals("parameter", model.getValueAt(0, 8));
+        assertEquals("backup", model.getValueAt(1, 8));
+        assertEquals("", model.getValueAt(2, 8));
     }
 
     @Test
