@@ -22,7 +22,7 @@ RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入�
 由运行时默认值补全（见 installer.nsi 注释；configure_turboism.ps1 完整保留）。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-15 项目 / 7 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+16 项目 / 7 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -37,7 +37,7 @@ from pathlib import Path
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 
-# 冻结的 15 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:backup",
@@ -53,6 +53,7 @@ EXPECTED_PATHS = [
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
+    ":plugins:turboism-with-fx",
     ":plugins:ui-theme",
 ]
 # 七个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
@@ -69,7 +70,7 @@ def check(name, cond, detail=""):
 
 def load_manifest():
     """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
-    重复/未排序/偏离冻结 15 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
+    重复/未排序/偏离冻结 16 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
     不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
@@ -80,7 +81,7 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 15 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    check("清单与冻结 16 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
@@ -287,6 +288,64 @@ def check_managed_graal_installer_contract():
     check("GI7 bridge strips inherited Java options",
           "JAVA_TOOL_OPTIONS" in bridge and "_JAVA_OPTIONS" in bridge
           and "JDK_JAVA_OPTIONS" in bridge)
+    check("GI8 bridge avoids PowerShell's read-only HOME variable",
+          not re.search(r"(?i)\$home\b", bridge))
+    check("GI9 bridge persists managed Graal diagnostics",
+          "Start-Transcript" in bridge
+          and "managed-graal-install.log" in bridge
+          and 'Join-Path $turboismHome "logs"' in bridge
+          and 'Join-Path $logRoot "installer"' in bridge)
+
+
+def check_launcher_and_shortcut_contract():
+    """Windows launch scripts avoid $HOME and publish no-space shortcut names."""
+    common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    launcher = (INSTALLER_NSI.parent / "launch-cubism-turboism.ps1").read_text(encoding="utf-8")
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    check("L1 production launcher avoids PowerShell's read-only HOME variable",
+          not re.search(r"(?i)\$home\b", launcher + common))
+    check("L2 generated managed shortcut names contain no spaces",
+          'return "Turboism_Cubism_' in common and '"-D3D"' in common)
+    check("L3 legacy managed shortcut names remain admitted for cleanup",
+          "Turboism Cubism 5\\." in common)
+    check("L4 installer Start Menu shortcut names contain no spaces",
+          '"Turboism_Configurator"' in text
+          and '"Turboism_Uninstall"' in text
+          and '"Turboism_Launch_Cubism"' in text)
+    legacy_start_menu = [
+        "Turboism Configurator.lnk",
+        "Uninstall Turboism.lnk",
+        "Launch Cubism.lnk",
+        "Turboism 配置器.lnk",
+        "卸载 Turboism.lnk",
+        "启动 Cubism.lnk",
+        "Turboism 設定.lnk",
+        "Turboism をアンインストール.lnk",
+        "Cubism を起動.lnk",
+    ]
+    macro_start = text.index("!macro RemoveLegacyStartMenuShortcuts")
+    macro_end = text.index("!macroend", macro_start)
+    legacy_macro = text[macro_start:macro_end]
+    start_menu = text[text.index('Section -"开始菜单与注册"'):
+                      text.index("SectionEnd", text.index('Section -"开始菜单与注册"'))]
+    uninstall = text[text.index('Section "Uninstall"'):
+                     text.index("SectionEnd", text.index('Section "Uninstall"'))]
+    check("L5 upgrades and uninstall share all 0.43.0 Start Menu names",
+          all(('Delete "$SMPROGRAMS\\Turboism\\' + name + '"') in legacy_macro
+              for name in legacy_start_menu)
+          and "!insertmacro RemoveLegacyStartMenuShortcuts" in start_menu
+          and "!insertmacro RemoveLegacyStartMenuShortcuts" in uninstall)
+    check("L6 installer and configurator explain independent versus takeover",
+          "official BAT files themselves are never edited" in text
+          and "官方 BAT 文件本身始终不会被改写" in text
+          and "IndependentHelp" in configure and "TakeoverHelp" in configure)
+    check("L7 finish page can open the installation directory",
+          "MUI_FINISHPAGE_RUN" in text
+          and "FinishOpenFolderText" in text
+          and 'explorer.exe' in text)
+
+
 
 
 def check_graal_fallback_contract():
@@ -498,6 +557,7 @@ def main():
 
     check_nsis_retirement_contract()
     check_managed_graal_installer_contract()
+    check_launcher_and_shortcut_contract()
     check_graal_fallback_contract()
     check_uninstall_postcondition()
     print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")

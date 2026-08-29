@@ -87,16 +87,42 @@ function Find-TurboismInstallerJava {
     return ""
 }
 
+$transcriptStarted = $false
+$logPath = ""
+$result = 1
 try {
-    $home = [System.IO.Path]::GetFullPath($HomePath).TrimEnd('\', '/')
-    if (-not (Test-CubismNormalDirectory $home)) {
-        throw "Turboism home is not an existing ordinary directory: $home"
+    $turboismHome = [System.IO.Path]::GetFullPath($HomePath).TrimEnd('\', '/')
+    if (-not (Test-CubismNormalDirectory $turboismHome)) {
+        throw "Turboism home is not an existing ordinary directory: $turboismHome"
     }
-    $agent = Join-Path $home "turboism-agent.jar"
+    $logRoot = Join-Path $turboismHome "logs"
+    $logs = Join-Path $logRoot "installer"
+    foreach ($directory in @($logRoot, $logs)) {
+        if (-not (Test-Path -LiteralPath $directory)) {
+            New-Item -ItemType Directory -Path $directory | Out-Null
+        }
+        if (-not (Test-CubismNormalDirectory $directory)) {
+            throw "Installer log path is not an ordinary directory: $directory"
+        }
+    }
+    $logPath = Join-Path $logs "managed-graal-install.log"
+    if ((Test-Path -LiteralPath $logPath) -and -not (Test-CubismNormalFile $logPath)) {
+        throw "Installer log is not an ordinary file: $logPath"
+    }
+    try {
+        Start-Transcript -LiteralPath $logPath -Force | Out-Null
+        $transcriptStarted = $true
+    }
+    catch {
+        Write-Warning "Could not start managed GraalVM transcript: $($_.Exception.Message)"
+    }
+    Write-Host "Managed GraalVM installer log: $logPath"
+
+    $agent = Join-Path $turboismHome "turboism-agent.jar"
     if (-not (Test-CubismNormalFile $agent)) {
         throw "Turboism agent is missing: $agent"
     }
-    $javaExe = Find-TurboismInstallerJava -ExplicitJava $Java -TurboismHome $home
+    $javaExe = Find-TurboismInstallerJava -ExplicitJava $Java -TurboismHome $turboismHome
     if ([string]::IsNullOrWhiteSpace($javaExe)) {
         throw "No trusted Java 17 or newer runtime is available. Install a supported Cubism Editor or Java 17+, then retry."
     }
@@ -108,8 +134,8 @@ try {
         [Environment]::SetEnvironmentVariable($name, $null, "Process")
     }
     try {
-        & $javaExe -cp $agent dev.turboism.graal.ManagedGraalRuntimeCli install $home
-        exit $LASTEXITCODE
+        & $javaExe -cp $agent dev.turboism.graal.ManagedGraalRuntimeCli install $turboismHome
+        $result = $LASTEXITCODE
     }
     finally {
         foreach ($name in $savedOptions.Keys) {
@@ -119,5 +145,14 @@ try {
 }
 catch {
     Write-Error $_.Exception.Message
-    exit 1
+    $result = 1
 }
+finally {
+    if ($transcriptStarted) {
+        try { Stop-Transcript | Out-Null } catch { }
+    }
+    if ($result -ne 0 -and -not [string]::IsNullOrWhiteSpace($logPath)) {
+        Write-Host "Managed GraalVM installation failed. Diagnostic log: $logPath"
+    }
+}
+exit $result

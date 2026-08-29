@@ -387,7 +387,9 @@ try {
     if (-not [string]::IsNullOrWhiteSpace($programsDirectory)) {
         Assert-ManagedLaunch ((Get-CubismShortcutDirectory) -eq [System.IO.Path]::GetFullPath((Join-Path $programsDirectory "Turboism")).TrimEnd('\', '/')) "default shortcut directory is current-user Programs/Turboism"
     }
-    $managedShortcut = Join-Path $shortcutDir (Get-CubismShortcutName $candidates[0])
+    $managedShortcutName = Get-CubismShortcutName $candidates[0]
+    $managedShortcut = Join-Path $shortcutDir $managedShortcutName
+    Assert-ManagedLaunch ($managedShortcutName -notmatch '\s') "managed shortcut filenames contain no whitespace"
     Assert-ManagedLaunch ((Get-CubismShortcutName $candidates[1]) -ne (Get-CubismShortcutName $candidates[2])) "duplicate installations get distinct shortcut identities"
     $unrelatedShortcut = Join-Path $shortcutDir "Turboism Configurator.lnk"
     $outsideShortcut = Join-Path $temp "outside.lnk"

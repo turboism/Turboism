@@ -313,7 +313,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes attributes = Files.readAttributes(
             marker, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
         );
-        if (attributes.fileKey() == null || !attributes.isRegularFile()
+        if (!hasUsableIdentity(attributes) || !attributes.isRegularFile()
             || attributes.isSymbolicLink() || attributes.isOther()
             || isWindowsReparsePoint(marker) || attributes.size() > 128L) {
             throw new IOException("managed runtime activation marker is unsafe");
@@ -735,7 +735,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
                 final BasicFileAttributes extractedFile = Files.readAttributes(
                     target, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
                 );
-                if (!extractedFile.isRegularFile() || extractedFile.fileKey() == null
+                if (!extractedFile.isRegularFile() || !hasUsableIdentity(extractedFile)
                     || extractedFile.isSymbolicLink() || extractedFile.isOther()
                     || isWindowsReparsePoint(target)) {
                     throw failure(
@@ -899,7 +899,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes attributes = Files.readAttributes(
             path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
         );
-        if (attributes.fileKey() == null || !attributes.isRegularFile()
+        if (!hasUsableIdentity(attributes) || !attributes.isRegularFile()
             || attributes.isSymbolicLink() || attributes.isOther()
             || isWindowsReparsePoint(path)) {
             throw failure(
@@ -915,7 +915,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes expected
     ) throws IOException, InstallFailure {
         final BasicFileAttributes current = requireOrdinaryRegularFile(path);
-        if (!Objects.equals(expected.fileKey(), current.fileKey())
+        if (!sameIdentity(expected, current)
             || expected.size() != current.size()) {
             throw failure(
                 "GRAAL_RUNTIME_INVALID",
@@ -1036,13 +1036,51 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes expected
     ) throws IOException, InstallFailure {
         final BasicFileAttributes current = requireOrdinaryDirectory(path);
-        if (expected.fileKey() == null || current.fileKey() == null
-            || !Objects.equals(expected.fileKey(), current.fileKey())) {
+        if (!sameIdentity(expected, current)) {
             throw failure(
                 "GRAAL_RUNTIME_PATH_REJECTED",
                 "Managed runtime directory changed during filesystem mutation."
             );
         }
+    }
+
+    private static boolean hasUsableIdentity(final BasicFileAttributes attributes) {
+        return hasUsableIdentity(attributes, isWindows());
+    }
+
+    static boolean hasUsableIdentity(
+        final BasicFileAttributes attributes,
+        final boolean windows
+    ) {
+        return attributes.fileKey() != null || windows;
+    }
+
+    private static boolean sameIdentity(
+        final BasicFileAttributes expected,
+        final BasicFileAttributes current
+    ) {
+        return sameIdentity(expected, current, isWindows());
+    }
+
+    static boolean sameIdentity(
+        final BasicFileAttributes expected,
+        final BasicFileAttributes current,
+        final boolean windows
+    ) {
+        if (expected.isRegularFile() != current.isRegularFile()
+            || expected.isDirectory() != current.isDirectory()
+            || expected.isSymbolicLink() != current.isSymbolicLink()
+            || expected.isOther() != current.isOther()) return false;
+        final Object expectedKey = expected.fileKey();
+        final Object currentKey = current.fileKey();
+        if (expectedKey != null || currentKey != null) {
+            return expectedKey != null && currentKey != null
+                && Objects.equals(expectedKey, currentKey);
+        }
+        return windows
+            && expected.size() == current.size()
+            && expected.creationTime().equals(current.creationTime())
+            && expected.lastModifiedTime().equals(current.lastModifiedTime());
     }
 
     private static boolean isWindowsReparsePoint(final Path path) throws IOException {
@@ -1105,7 +1143,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes attributes = Files.readAttributes(
             path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
         );
-        if (attributes.fileKey() == null
+        if (!hasUsableIdentity(attributes)
             || attributes.isSymbolicLink()
             || attributes.isOther()
             || isWindowsReparsePoint(path)
@@ -1120,9 +1158,7 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
         final BasicFileAttributes expected
     ) throws IOException {
         final BasicFileAttributes current = safeAttributesForDeletion(path);
-        if (!Objects.equals(expected.fileKey(), current.fileKey())
-            || expected.isDirectory() != current.isDirectory()
-            || expected.isRegularFile() != current.isRegularFile()) {
+        if (!sameIdentity(expected, current)) {
             throw new IOException("managed runtime entry changed during removal");
         }
     }

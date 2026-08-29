@@ -64,9 +64,9 @@ function Resolve-JavaExecutable {
 }
 
 function Read-CubismJvmPreference {
-    param([string]$Home)
+    param([string]$TurboismHome)
 
-    $config = Join-Path $Home "config.json"
+    $config = Join-Path $TurboismHome "config.json"
     if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
         return "graalvm"
     }
@@ -97,8 +97,8 @@ function Test-CompatibleGraalJava {
     }
     try {
         $bin = Split-Path -Parent (Resolve-Path -LiteralPath $JavaPath).Path
-        $home = Split-Path -Parent $bin
-        $release = Join-Path $home "release"
+        $graalHome = Split-Path -Parent $bin
+        $release = Join-Path $graalHome "release"
         if (-not (Test-Path -LiteralPath $release -PathType Leaf)
             -or (Get-Item -LiteralPath $release).Length -gt 65536) {
             return $false
@@ -193,7 +193,7 @@ function Test-GraalLibraryClosure {
 
 $cubism = Resolve-CubismRoot -Requested $CubismRoot
 $defaultCubismJava = Join-Path $cubism "app\jre\bin\java.exe"
-$cubismJvm = Read-CubismJvmPreference -Home $previewRoot
+$cubismJvm = Read-CubismJvmPreference -TurboismHome $previewRoot
 $requestedCubismJava = if (-not [string]::IsNullOrWhiteSpace($CubismJava)) {
     $CubismJava
 }
