@@ -1510,7 +1510,7 @@ function New-CubismJavaOverrideBat {
     $rootPattern = '(?im)^cd\s+/d\s+"%~dp0"\s*(?:\r?\n)'
     $rootMatches = [regex]::Matches($text, $rootPattern)
     if ($rootMatches.Count -ne 1) { throw "official Cubism BAT must contain exactly one root-relative working-directory assignment" }
-    $javaPattern = '(?im)^set(?: ")?JAVA_EXE=.*(?:\r?\n)'
+    $javaPattern = '(?im)^set[ \t]+"?JAVA_EXE=[^\r\n]*(?:\r?\n|$)'
     $javaMatches = [regex]::Matches($text, $javaPattern)
     if ($javaMatches.Count -ne 1) { throw "official Cubism BAT must contain exactly one JAVA_EXE assignment" }
     $workingDirectory = 'cd /d "' + $root + '"' + "`r`n"
