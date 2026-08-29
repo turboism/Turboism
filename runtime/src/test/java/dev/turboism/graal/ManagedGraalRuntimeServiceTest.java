@@ -54,13 +54,18 @@ final class ManagedGraalRuntimeServiceTest {
         final BasicFileAttributes ordinary = attributes(null, true, false, 12L, 0L, 0L);
         final BasicFileAttributes same = attributes(null, true, false, 12L, 0L, 0L);
         final BasicFileAttributes changedShape = attributes(null, false, true, 12L, 0L, 0L);
-        final BasicFileAttributes changedTime = attributes(null, true, false, 12L, 1L, 0L);
+        final BasicFileAttributes changedCreation = attributes(null, true, false, 12L, 1L, 0L);
+        final BasicFileAttributes changedModified = attributes(null, true, false, 12L, 0L, 1L);
+        final BasicFileAttributes directory = attributes(null, false, true, 0L, 0L, 0L);
+        final BasicFileAttributes changedDirectoryModified = attributes(null, false, true, 4096L, 0L, 1L);
 
         assertTrue(ManagedGraalRuntimeService.hasUsableIdentity(ordinary, true));
         assertFalse(ManagedGraalRuntimeService.hasUsableIdentity(ordinary, false));
         assertTrue(ManagedGraalRuntimeService.sameIdentity(ordinary, same, true));
         assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedShape, true));
-        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedTime, true));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedCreation, true));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedModified, true));
+        assertTrue(ManagedGraalRuntimeService.sameIdentity(directory, changedDirectoryModified, true));
         assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, same, false));
     }
 

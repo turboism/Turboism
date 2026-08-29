@@ -1077,22 +1077,22 @@ public final class ManagedGraalRuntimeService implements AutoCloseable {
             return expectedKey != null && currentKey != null
                 && Objects.equals(expectedKey, currentKey);
         }
-        return windows
-            && expected.size() == current.size()
-            && expected.creationTime().equals(current.creationTime())
-            && expected.lastModifiedTime().equals(current.lastModifiedTime());
+        if (!windows || !expected.creationTime().equals(current.creationTime())) return false;
+        return expected.isDirectory()
+            || expected.size() == current.size()
+                && expected.lastModifiedTime().equals(current.lastModifiedTime());
     }
 
     private static boolean isWindowsReparsePoint(final Path path) throws IOException {
         if (!isWindows()) return false;
         try {
-            final Object raw = Files.getAttribute(
-                path, "dos:attributes", LinkOption.NOFOLLOW_LINKS
-            );
-            if (!(raw instanceof Integer attributes)) {
-                throw new IOException("Windows file attributes were unavailable");
-            }
-            return (attributes & 0x400) != 0;
+            // OpenJDK's Windows provider exposes non-symlink reparse points (including
+            // junctions) as BasicFileAttributes.isOther() under NOFOLLOW_LINKS. The DOS
+            // attribute view has no portable raw "attributes" field and rejects it on
+            // ordinary Windows paths.
+            return Files.readAttributes(
+                path, BasicFileAttributes.class, LinkOption.NOFOLLOW_LINKS
+            ).isOther();
         } catch (UnsupportedOperationException | IllegalArgumentException unavailable) {
             throw new IOException("Windows reparse-point inspection was unavailable", unavailable);
         }
