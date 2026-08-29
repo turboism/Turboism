@@ -36,6 +36,7 @@ from pathlib import Path
 
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
+EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 
 # 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -348,6 +349,55 @@ def check_launcher_and_shortcut_contract():
 
 
 
+def check_eula_contract():
+    """MIT acceptance remains first; a separate localized EULA is mandatory and packaged."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    eula_files = {
+        "en": EULA_DIR / "EULA.en.txt",
+        "zh": EULA_DIR / "EULA.zh-Hans.txt",
+        "ja": EULA_DIR / "EULA.ja.txt",
+    }
+    for locale, path in eula_files.items():
+        check("EULA %s exists and is non-empty" % locale,
+              path.is_file() and path.stat().st_size > 500, str(path))
+    en = eula_files["en"].read_text(encoding="utf-8")
+    zh = eula_files["zh"].read_text(encoding="utf-8")
+    ja = eula_files["ja"].read_text(encoding="utf-8")
+    check("EULA preserves MIT-granted rights",
+          "Nothing in this agreement limits, revokes, or narrows" in en
+          and "MIT License controls" in en)
+    forbidden = (
+        "reverse engineering", "commercial use", "telemetry", "user account",
+        "acceptable use", "prohibited use",
+    )
+    check("EULA adds no broad use restrictions",
+          not any(term in en.lower() for term in forbidden))
+    check("EULA English is authoritative with translated notices",
+          "English text of this agreement is authoritative" in en
+          and "本协议以英文文本为权威文本" in zh
+          and "本契約は英語文を正文とします" in ja)
+    first = text.index('!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"')
+    second = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
+    check("EULA is a separate page after MIT License", first < second)
+    check("EULA page requires explicit acceptance",
+          'MUI_LICENSEPAGE_CHECKBOX_TEXT "$(EulaAcceptText)"' in text
+          and "LicenseAcceptText" in text and "EulaAcceptText" in text)
+    check("NSIS EULA files are localized",
+          all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
+    core_start = text.index('Section "-核心文件"')
+    core_end = text.index("SectionEnd", core_start)
+    core = text[core_start:core_end]
+    uninstall_start = text.index('Section "Uninstall"')
+    uninstall_end = text.index("SectionEnd", uninstall_start)
+    uninstall = text[uninstall_start:uninstall_end]
+    for name in ("EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt"):
+        check("NSIS packages %s" % name,
+              ('File "${STAGING_DIR}/%s"' % name) in core)
+        check("NSIS uninstalls %s" % name,
+              ('Delete "$INSTDIR\\%s"' % name) in uninstall)
+
+
 def check_graal_fallback_contract():
     """Managed launch must recover from a missing saved/default GraalVM choice.
 
@@ -558,6 +608,7 @@ def main():
     check_nsis_retirement_contract()
     check_managed_graal_installer_contract()
     check_launcher_and_shortcut_contract()
+    check_eula_contract()
     check_graal_fallback_contract()
     check_uninstall_postcondition()
     print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")

@@ -24,4 +24,6 @@
     <str id="turboism-managed-graal" txt="安装托管 GraalVM（可选）"/>
     <str id="turboism-managed-graal.description" txt="下载、校验并安装由 Turboism 固定版本的私有 GraalVM Community 运行时。仅在勾选后下载。"/>
 
+    <str id="LicencePanel.eula.info" txt="Turboism 最小运行最终用户协议"/>
+
 </izpack:langpack>

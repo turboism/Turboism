@@ -24,4 +24,6 @@
     <str id="turboism-managed-graal" txt="管理対象 GraalVM をインストール（任意）"/>
     <str id="turboism-managed-graal.description" txt="Turboism が固定した専用 GraalVM Community ランタイムをダウンロード、検証してインストールします。選択しない限りダウンロードしません。"/>
 
+    <str id="LicencePanel.eula.info" txt="Turboism 最小ランタイム・エンドユーザー契約"/>
+
 </izpack:langpack>
