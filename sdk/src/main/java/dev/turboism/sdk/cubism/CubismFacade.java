@@ -70,7 +70,7 @@ public interface CubismFacade {
     }
 
     /** Returns active-document native Undo history access when installed by Runtime. */
-    @dev.turboism.sdk.CubismEditor({"5.3.02", "5.3.03"})
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     default CubismHistory history() {
         return CubismHistory.unavailable();
     }
