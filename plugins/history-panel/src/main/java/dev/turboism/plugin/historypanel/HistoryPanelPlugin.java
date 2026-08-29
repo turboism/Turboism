@@ -49,6 +49,12 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
     @Override
     public void enable() {
         try {
+            context.cubism().history();
+        } catch (dev.turboism.sdk.cubism.CubismEditorApiUnavailableException unavailable) {
+            logger.warn("History panel is unavailable on this Cubism Editor version");
+            return;
+        }
+        try {
             context.disposableScope().register(registerAction(TOGGLE_ACTION_ID, "History", ignored -> toggle()));
             context.disposableScope().register(context.uiHost().contributeVerticalToolbar(
                 new VerticalToolbarContribution(
