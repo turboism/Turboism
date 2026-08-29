@@ -206,7 +206,12 @@ try {
     }
     catch { Write-Host "ok: reparse-point fixture unavailable on this Windows host" }
     finally {
-        if ($reparseCreated) { Remove-Item -LiteralPath $reparseScanRoot -Force -ErrorAction SilentlyContinue }
+        if ($reparseCreated) {
+            try {
+                [System.IO.Directory]::Delete($reparseScanRoot)
+            }
+            catch { Write-Host "ok: reparse-point fixture cleanup deferred to temporary-root cleanup" }
+        }
     }
 
     # Keep the fixture hermetic: candidate inventory receives only synthetic roots.
