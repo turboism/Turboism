@@ -66,7 +66,7 @@ jobs:
           if ($output -match '(?i)cannot overwrite variable home|variable home.*read.only') {
             throw "managed Graal bridge still collides with PowerShell HOME: $output"
           }
-          if ($output -notmatch 'Turboism agent is missing') {
+          if ($output -notmatch 'Turboism agent is\s+missing') {
             throw "managed Graal bridge did not reach the expected fixture boundary: $output"
           }
           $log = Join-Path $turboismHome "logs\installer\managed-graal-install.log"
