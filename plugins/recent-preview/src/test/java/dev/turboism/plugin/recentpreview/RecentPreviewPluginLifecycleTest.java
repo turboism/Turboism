@@ -197,6 +197,52 @@ final class RecentPreviewPluginLifecycleTest {
     }
 
     @Test
+    void unavailableHookCaptureRefreshesWithoutWarning() throws Exception {
+        final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final AtomicInteger refreshes = new AtomicInteger();
+        final List<String> warnings = new ArrayList<>();
+        final ScreenshotCaptureService screenshots = request -> CompletableFuture.failedStage(
+            new dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException()
+        );
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+
+        plugin.init(context(
+            List.of(file), renderers, screenshots, refreshes, warnings, new RecordingTaskScheduler()
+        ));
+        plugin.enable();
+        plugin.onModelOpened(new ProjectContentSnapshot(
+            "content-1", "One", ProjectContentKind.MODEL, Optional.empty(), List.of()
+        ));
+
+        awaitCondition(() -> refreshes.get() >= 1);
+        assertTrue(warnings.isEmpty());
+    }
+
+    @Test
+    void unavailablePollCaptureRefreshesWithoutWarning() throws Exception {
+        final RecentFileSummary file = new RecentFileSummary(
+            new RecentFileId("one"), "One.cmo3",
+            Optional.of(Instant.parse("2026-08-05T12:00:00Z")), Optional.empty()
+        );
+        final List<RecentPreviewRenderer> renderers = new ArrayList<>();
+        final AtomicInteger refreshes = new AtomicInteger();
+        final List<String> warnings = new ArrayList<>();
+        final RecordingTaskScheduler tasks = new RecordingTaskScheduler();
+        final ScreenshotCaptureService screenshots = request -> CompletableFuture.failedStage(
+            new dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException()
+        );
+        final RecentPreviewPlugin plugin = new RecentPreviewPlugin();
+
+        plugin.init(context(List.of(file), renderers, screenshots, refreshes, warnings, tasks));
+        plugin.enable();
+        tasks.fixedDelay.get(0).action().run(noopToken());
+
+        awaitCondition(() -> refreshes.get() >= 1);
+        assertTrue(warnings.isEmpty());
+    }
+
+    @Test
     void disableStopsFurtherHookCaptures() {
         final RecentFileSummary file = new RecentFileSummary(new RecentFileId("one"), "One.cmo3");
         final List<RecentPreviewRenderer> renderers = new ArrayList<>();

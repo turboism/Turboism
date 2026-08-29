@@ -6,6 +6,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.recentfile.RecentFileId;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
+import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureTargetUnavailableException;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 
 import javax.imageio.ImageIO;
@@ -135,6 +136,21 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
         }
     }
 
+    private ScreenshotCaptureTargetUnavailableException targetUnavailable(
+        final ScreenshotCaptureRequest request
+    ) {
+        final Path current = RecentMenuChain.currentProjectPath(files.projectResolver());
+        final Path expected = files.pathFor(request.id());
+        if (current == null
+            || (expected != null && !samePath(expected, current))
+            || (expected == null && !VerifiedRecentFileListHostOperations.idFor(current).equals(request.id()))) {
+            diagnose("captureNow:target-guard current-null=" + (current == null)
+                + " expected-null=" + (expected == null));
+            return new ScreenshotCaptureTargetUnavailableException();
+        }
+        return null;
+    }
+
     private static String className(final Object value) {
         return value == null ? "null" : value.getClass().getName();
     }
@@ -147,7 +163,9 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             try {
                 captureNow(request, result);
             } catch (Throwable failure) {
-                diagnose("capture:failed " + failure.getClass().getName());
+                if (!(failure instanceof ScreenshotCaptureTargetUnavailableException)) {
+                    diagnose("capture:failed " + failure.getClass().getName());
+                }
                 result.completeExceptionally(failure);
             }
         };
@@ -163,15 +181,8 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
      * semantics as the legacy synchronous pipeline.
      */
     private void captureNow(final ScreenshotCaptureRequest request, final CompletableFuture<ScreenshotCaptureResult> result) throws Exception {
-        final Path current = RecentMenuChain.currentProjectPath(files.projectResolver());
-        final Path expected = files.pathFor(request.id());
-        if (current == null
-            || (expected != null && !samePath(expected, current))
-            || (expected == null && !VerifiedRecentFileListHostOperations.idFor(current).equals(request.id()))) {
-            diagnose("captureNow:target-guard current-null=" + (current == null)
-                + " expected-null=" + (expected == null));
-            throw new IllegalStateException("screenshot target changed during capture");
-        }
+        final ScreenshotCaptureTargetUnavailableException unavailable = targetUnavailable(request);
+        if (unavailable != null) throw unavailable;
         final ScreenshotImage cached = debounced(request);
         if (cached != null) {
             result.complete(new ScreenshotCaptureResult(request.id(), cached));
@@ -212,6 +223,11 @@ public final class PreviewCaptureHostOperations implements ScreenshotCaptureAdap
             final IllegalStateException failure = new IllegalStateException("Cubism preview capture surface is unavailable");
             diagnose("capture:failed " + failure.getClass().getName());
             result.completeExceptionally(failure);
+            return;
+        }
+        final ScreenshotCaptureTargetUnavailableException unavailable = targetUnavailable(request);
+        if (unavailable != null) {
+            result.completeExceptionally(unavailable);
             return;
         }
         postProcess(request, result, root, target, captured.image(), captured.tier());
