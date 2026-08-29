@@ -2,6 +2,7 @@ package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
+import dev.turboism.plugin.core.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -69,6 +70,22 @@ class RuntimeSettingsServiceTest {
             JSON.readTree(home.resolve("config.json").toFile())
                 .path("launcher").path("cubismJvm").asText()
         );
+    }
+
+    @Test
+    void missingHttpClientModuleDoesNotAbortRuntimeSettingsConstruction() {
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
+            new RuntimeConfigRepository(home, ignored -> { }),
+            home,
+            java.util.Map.of(),
+            ignored -> {
+                throw new NoClassDefFoundError("java/net/http/HttpClient");
+            }
+        );
+
+        assertEquals(CubismJvm.GRAALVM, service.read());
+        assertEquals(ManagedRuntimeState.UNSUPPORTED, service.managedRuntimeStatus().state());
+        assertFalse(service.graalVmAvailable());
     }
 
     @Test

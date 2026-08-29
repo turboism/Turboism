@@ -10,7 +10,7 @@ follow [SPDX](https://spdx.org/licenses/).
 
 | Component | Embedded coordinates | Version | SPDX license | License URL | Embedded in `turboism-agent.jar` |
 | --- | --- | --- | --- | --- | --- |
-| Turboism | `dev.turboism:bootstrap`, `:runtime`, `:sdk` | 0.43.1 | MIT | https://spdx.org/licenses/MIT.html | yes |
+| Turboism | `dev.turboism:bootstrap`, `:runtime`, `:sdk` | 0.43.2 | MIT | https://spdx.org/licenses/MIT.html | yes |
 | Jackson | `com.fasterxml.jackson.core:jackson-{annotations,core,databind}` | 2.18.9 | Apache-2.0 | https://spdx.org/licenses/Apache-2.0.html | yes |
 | ASM | `org.ow2.asm:asm` | 9.7.1 | BSD-3-Clause | https://spdx.org/licenses/BSD-3-Clause.html | yes |
 | SLF4J | `org.slf4j:slf4j-api` | 1.7.30 | MIT | https://spdx.org/licenses/MIT.html | yes |
