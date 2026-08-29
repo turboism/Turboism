@@ -18,6 +18,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.security.cert.Certificate;
 import java.time.Duration;
@@ -46,6 +48,32 @@ final class ManagedGraalRuntimeServiceTest {
 
     @TempDir
     Path home;
+
+    @Test
+    void windowsAcceptsNullFileKeysAndRevalidatesTheirShape() {
+        final BasicFileAttributes ordinary = attributes(null, true, false, 12L, 0L, 0L);
+        final BasicFileAttributes same = attributes(null, true, false, 12L, 0L, 0L);
+        final BasicFileAttributes changedShape = attributes(null, false, true, 12L, 0L, 0L);
+        final BasicFileAttributes changedTime = attributes(null, true, false, 12L, 1L, 0L);
+
+        assertTrue(ManagedGraalRuntimeService.hasUsableIdentity(ordinary, true));
+        assertFalse(ManagedGraalRuntimeService.hasUsableIdentity(ordinary, false));
+        assertTrue(ManagedGraalRuntimeService.sameIdentity(ordinary, same, true));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedShape, true));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, changedTime, true));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(ordinary, same, false));
+    }
+
+    @Test
+    void nonWindowsRequiresStableNonNullFileKeys() {
+        final BasicFileAttributes first = attributes("file-key", true, false, 12L, 0L, 0L);
+        final BasicFileAttributes same = attributes("file-key", true, false, 12L, 0L, 0L);
+        final BasicFileAttributes different = attributes("other-key", true, false, 12L, 0L, 0L);
+
+        assertTrue(ManagedGraalRuntimeService.hasUsableIdentity(first, false));
+        assertTrue(ManagedGraalRuntimeService.sameIdentity(first, same, false));
+        assertFalse(ManagedGraalRuntimeService.sameIdentity(first, different, false));
+    }
 
     @Test
     void installsPinnedArchiveIntoManagedRuntimeAndPreservesLegalFiles() throws Exception {
@@ -393,6 +421,27 @@ final class ManagedGraalRuntimeServiceTest {
             assertFalse(Files.exists(home.resolve("graal/runtime")));
             assertTrue(Files.isRegularFile(home.resolve("graal/lib/polyglot.jar")));
         }
+    }
+
+    private static BasicFileAttributes attributes(
+        final Object fileKey,
+        final boolean regularFile,
+        final boolean directory,
+        final long size,
+        final long creationMillis,
+        final long modifiedMillis
+    ) {
+        return new BasicFileAttributes() {
+            @Override public FileTime lastModifiedTime() { return FileTime.fromMillis(modifiedMillis); }
+            @Override public FileTime lastAccessTime() { return FileTime.fromMillis(0L); }
+            @Override public FileTime creationTime() { return FileTime.fromMillis(creationMillis); }
+            @Override public boolean isRegularFile() { return regularFile; }
+            @Override public boolean isDirectory() { return directory; }
+            @Override public boolean isSymbolicLink() { return false; }
+            @Override public boolean isOther() { return false; }
+            @Override public long size() { return size; }
+            @Override public Object fileKey() { return fileKey; }
+        };
     }
 
     private ManagedGraalRuntimeService service(

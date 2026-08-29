@@ -23,7 +23,7 @@ unsigned; verify the accompanying `.sha256` files after downloading.
 
 ## Current capabilities
 
-The 0.43.0 release includes:
+The 0.43.1 release includes:
 
 - a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
   configuration, localization, tasks, events, actions, menus, toolbars,
@@ -61,13 +61,15 @@ Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
 
 ```bash
-sha256sum -c TurboismInstaller-0.43.0.exe.sha256
+sha256sum -c TurboismInstaller-0.43.1.exe.sha256
 ```
 
 Run `configure_turboism.ps1` after installation to discover or select Cubism
-Editor 5.2.03 / 5.3.02 / 5.3.03 installations and create Turboism-owned launch
-shortcuts. The launcher invokes the official `CubismEditor5.bat`; it does not
-modify the Cubism installation.
+Editor 5.2.03 / 5.3.02 / 5.3.03 installations. Independent mode creates new
+Turboism-owned `.lnk` shortcuts without changing existing shortcuts. Takeover
+mode replaces only existing `.lnk` files that target an exact selected official
+Cubism BAT, with backup and cleanup restoration. Neither mode edits the official
+`CubismEditor5.bat` files or other Cubism installation files.
 
 ## Architecture
 

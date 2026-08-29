@@ -425,7 +425,8 @@ function Test-CubismManagedShortcutPath {
         $full = [System.IO.Path]::GetFullPath($Path)
         $prefix = $directoryPath + [System.IO.Path]::DirectorySeparatorChar
         $name = [System.IO.Path]::GetFileName($full)
-        $nameOk = $name -match '(?i)^Turboism Cubism 5\.[23](?:\.\d+)? \[[\p{L}\p{Nd}._ \-]{1,48}-[0-9A-F]{12}\](?: - D3D)?\.lnk$'
+        $nameOk = $name -match '(?i)^Turboism_Cubism_5\.[23](?:\.\d+)?_[\p{L}\p{Nd}._-]{1,48}-[0-9A-F]{12}(?:-D3D)?\.lnk$' -or
+            $name -match '(?i)^Turboism Cubism 5\.[23](?:\.\d+)? \[[\p{L}\p{Nd}._ \-]{1,48}-[0-9A-F]{12}\](?: - D3D)?\.lnk$'
         return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase) -and
             [System.IO.Path]::GetDirectoryName($full).TrimEnd('\', '/') -ieq $directoryPath -and $nameOk
     }
@@ -798,9 +799,9 @@ function Test-CubismConfinedBackupPath {
         if ($parts.Count -ne 3) { return $false }
         if ($parts[0] -ine "installer" -or $parts[1] -ine "shortcut-backups") { return $false }
         if ($parts[2] -notmatch '^[0-9A-Fa-f]{64}\.lnk$') { return $false }
-        $homeFull = [System.IO.Path]::GetFullPath($TurboismHome).TrimEnd('\', '/')
-        $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($homeFull, $parts[0], $parts[1], $parts[2]))
-        $prefix = $homeFull + [System.IO.Path]::DirectorySeparatorChar
+        $canonicalHomeFull = [System.IO.Path]::GetFullPath($TurboismHome).TrimEnd('\', '/')
+        $full = [System.IO.Path]::GetFullPath([System.IO.Path]::Combine($canonicalHomeFull, $parts[0], $parts[1], $parts[2]))
+        $prefix = $canonicalHomeFull + [System.IO.Path]::DirectorySeparatorChar
         return $full.StartsWith($prefix, [System.StringComparison]::OrdinalIgnoreCase)
     }
     catch { return $false }
@@ -811,11 +812,11 @@ function Test-CubismBackupChain {
     # R12: the real Home -> installer -> shortcut-backups directory chain must be
     # normal non-reparse directories immediately before any backup use.
     try {
-        $homeFull = [System.IO.Path]::GetFullPath($TurboismHome)
+        $canonicalHomeFull = [System.IO.Path]::GetFullPath($TurboismHome)
         foreach ($path in @(
-            $homeFull,
-            [System.IO.Path]::Combine($homeFull, "installer"),
-            [System.IO.Path]::Combine($homeFull, "installer", "shortcut-backups")
+            $canonicalHomeFull,
+            [System.IO.Path]::Combine($canonicalHomeFull, "installer"),
+            [System.IO.Path]::Combine($canonicalHomeFull, "installer", "shortcut-backups")
         )) {
             if (-not (Test-CubismNormalDirectory $path)) { return $false }
         }
@@ -830,9 +831,9 @@ function Get-CubismResolvedBackupPath {
     # are revalidated immediately before a backup read/restore/delete.
     if (-not (Test-CubismConfinedBackupPath -TurboismHome $TurboismHome -RelativePath $RelativePath)) { throw "shortcut backup path is outside the confined backup directory: $RelativePath" }
     if (-not (Test-CubismBackupChain $TurboismHome)) { throw "shortcut backup directory chain is not a normal directory chain: $TurboismHome" }
-    $homeFull = [System.IO.Path]::GetFullPath($TurboismHome)
+    $canonicalHomeFull = [System.IO.Path]::GetFullPath($TurboismHome)
     $parts = $RelativePath.Replace('/', '\').Split([char]'\')
-    return [System.IO.Path]::Combine($homeFull, $parts[0], $parts[1], $parts[2])
+    return [System.IO.Path]::Combine($canonicalHomeFull, $parts[0], $parts[1], $parts[2])
 }
 
 function Get-CubismBackupDirectory {
@@ -912,10 +913,11 @@ function Publish-CubismStagedShortcut {
 function Get-CubismShortcutName {
     param([object]$Candidate, [string]$Variant = "normal")
     $hash = (Get-CubismTextSha256 $Candidate.CanonicalRoot.ToUpperInvariant()).Substring(0, 12)
-    $identity = $Candidate.CanonicalRoot -replace '[:\\/]+', '_' -replace '[^\p{L}\p{Nd}._ -]', '_' -replace '\s+', '_'
-    if ($identity.Length -gt 48) { $identity = $identity.Substring($identity.Length - 48) }
-    $suffix = if ($Variant -eq "d3d") { " - D3D" } else { "" }
-    return "Turboism Cubism $($Candidate.Version) [$identity-$hash]$suffix.lnk"
+    $identity = $Candidate.CanonicalRoot -replace '[:\\/]+', '_' -replace '[^\p{L}\p{Nd}._-]', '_' -replace '_+', '_'
+    $identity = $identity.Trim('_', '-')
+    if ($identity.Length -gt 48) { $identity = $identity.Substring($identity.Length - 48).TrimStart('_', '-') }
+    $suffix = if ($Variant -eq "d3d") { "-D3D" } else { "" }
+    return "Turboism_Cubism_$($Candidate.Version)_$identity-$hash$suffix.lnk"
 }
 
 function Get-CubismShortcutPath {
@@ -1362,8 +1364,8 @@ function Test-CubismCompatibleGraalJava {
     if (-not (Test-CubismNormalFile $JavaPath)) { return $false }
     try {
         $bin = Split-Path -Parent ([System.IO.Path]::GetFullPath($JavaPath))
-        $home = Split-Path -Parent $bin
-        $release = Join-Path $home "release"
+        $graalHome = Split-Path -Parent $bin
+        $release = Join-Path $graalHome "release"
         if (-not (Test-CubismNormalFile $release)) { return $false }
         $item = Get-Item -LiteralPath $release -Force -ErrorAction Stop
         if ($item.Length -gt 65536) { return $false }
@@ -1542,15 +1544,15 @@ function Invoke-CubismOfficialBat {
     if (@($Arguments).Count -gt $script:CubismMaxLaunchArguments -or @($Arguments | Where-Object { $_.Length -gt $script:CubismMaxStateFieldLength }).Count -gt 0) { throw "launch arguments exceed bound" }
     $root = ConvertTo-CubismCanonicalRoot $CubismRoot
     $official = $null
-    $home = ConvertTo-CubismCanonicalRoot $TurboismHome
-    if ($null -eq $home -or -not (Test-CubismNormalDirectory $home) -or -not (Test-CubismNormalFile $Agent)) {
+    $canonicalHome = ConvertTo-CubismCanonicalRoot $TurboismHome
+    if ($null -eq $canonicalHome -or -not (Test-CubismNormalDirectory $canonicalHome) -or -not (Test-CubismNormalFile $Agent)) {
         throw "Turboism launch home or agent is invalid"
     }
     try { $official = [System.IO.Path]::GetFullPath($OfficialBat) } catch { }
     if ($null -ne $GraalHost) {
         $graalJava = if ($null -eq $GraalHost.Java) { "" } else { [string]$GraalHost.Java }
         $graalClassPath = if ($null -eq $GraalHost.ClassPath) { "" } else { [string]$GraalHost.ClassPath }
-        $expectedClassPath = Join-Path (Join-Path $home "graal") "lib\*"
+        $expectedClassPath = Join-Path (Join-Path $canonicalHome "graal") "lib\*"
         $graalJavaLength = if ($null -eq $graalJava) { 0 } else { $graalJava.Length }
         $graalClassPathLength = if ($null -eq $graalClassPath) { 0 } else { $graalClassPath.Length }
         if ($graalJavaLength -gt $script:CubismMaxStateFieldLength -or
@@ -1564,8 +1566,8 @@ function Invoke-CubismOfficialBat {
     $officialName = if ($null -eq $official) { "" } else { [System.IO.Path]::GetFileName($official) }
     $rootEntry = $officialDirectory -ieq $root -and $officialName -match '(?i)^CubismEditor5(?:[-_]?D3D)?\.bat$'
     $stagedEntry = $false
-    if ($null -ne $home -and $officialName -match '(?i)^\.turboism-java-[0-9]+-[0-9a-f]{32}\.bat$') {
-        $stage = Join-Path (Join-Path $home "state") "managed-launch"
+    if ($null -ne $canonicalHome -and $officialName -match '(?i)^\.turboism-java-[0-9]+-[0-9a-f]{32}\.bat$') {
+        $stage = Join-Path (Join-Path $canonicalHome "state") "managed-launch"
         $stagedEntry = $officialDirectory -ieq $stage.TrimEnd('\', '/')
     }
     if ($null -eq $root -or $null -eq $official -or (-not $rootEntry -and -not $stagedEntry) -or
