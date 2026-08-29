@@ -33,6 +33,7 @@ plugin.category.system
 plugin.category.workflow
 plugin.description
 plugin.name
+plugins.column.author
 plugins.column.category
 plugins.column.desired
 plugins.column.id

@@ -998,9 +998,9 @@ final class CoreWindows implements AutoCloseable {
         PluginTableModel(final PluginLocalization i18n) {
             this.i18n = i18n;
             columns = new String[]{
-                i18n.text("plugins.column.name"), i18n.text("plugins.column.version"), i18n.text("plugins.column.state"),
-                i18n.text("plugins.column.desired"), i18n.text("plugins.column.pending"), i18n.text("plugins.column.id"),
-                i18n.text("plugins.column.category"), i18n.text("plugins.column.tags")
+                i18n.text("plugins.column.name"), i18n.text("plugins.column.id"), i18n.text("plugins.column.author"),
+                i18n.text("plugins.column.version"), i18n.text("plugins.column.state"), i18n.text("plugins.column.desired"),
+                i18n.text("plugins.column.pending"), i18n.text("plugins.column.category"), i18n.text("plugins.column.tags")
             };
         }
         void setPlugins(final List<CorePluginManagement.PluginInfo> values) { rows = List.copyOf(values); fireTableDataChanged(); }
@@ -1012,12 +1012,15 @@ final class CoreWindows implements AutoCloseable {
             final CorePluginManagement.PluginInfo plugin = rows.get(row);
             return switch (column) {
                 case 0 -> plugin.name() + (plugin.core() ? " (" + i18n.text("plugins.core") + ")" : "");
-                case 1 -> plugin.version();
-                case 2 -> plugin.effectiveState();
-                case 3 -> plugin.desiredState();
-                case 4 -> plugin.pendingOperation().orElse("");
-                case 5 -> plugin.id();
-                case 6 -> i18n.text("plugin.category." + plugin.category());
+                case 1 -> plugin.id();
+                case 2 -> plugin.authors().stream()
+                    .map(CorePluginManagement.Author::name)
+                    .collect(java.util.stream.Collectors.joining(", "));
+                case 3 -> plugin.version();
+                case 4 -> plugin.effectiveState();
+                case 5 -> plugin.desiredState();
+                case 6 -> plugin.pendingOperation().orElse("");
+                case 7 -> i18n.text("plugin.category." + plugin.category());
                 default -> String.join(", ", plugin.tags());
             };
         }

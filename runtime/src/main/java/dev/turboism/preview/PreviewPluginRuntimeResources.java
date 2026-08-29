@@ -136,7 +136,12 @@ record PreviewPluginRuntimeResources(
                             diagnostic -> log.warn("plugin-management",
                                 diagnostic.code() + ": " + diagnostic.message())
                         ),
-                        java.util.List.copyOf(descriptor.tags())
+                        java.util.List.copyOf(descriptor.tags()),
+                        descriptor.authors().stream()
+                            .map(author -> new dev.turboism.plugin.core.CorePluginManagement.Author(
+                                author.name(), author.email()
+                            ))
+                            .toList()
                     );
                 })
                 .toList(),
