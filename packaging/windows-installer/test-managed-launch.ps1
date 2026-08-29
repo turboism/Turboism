@@ -58,11 +58,13 @@ function Invoke-CubismJdkParserRegression {
     $malformed = '--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     $valid = @(Get-CubismManagedJdkExportTokens) -join ' '
     $previous = $env:JDK_JAVA_OPTIONS
+    $previousErrorPreference = $ErrorActionPreference
     $malformedExit = -1
     $validExit = -1
     $malformedRun = @()
     $validRun = @()
     try {
+        $ErrorActionPreference = "Continue"
         $env:JDK_JAVA_OPTIONS = $malformed
         $malformedRun = @(& $Java -version 2>&1)
         $malformedExit = $LASTEXITCODE
@@ -71,6 +73,7 @@ function Invoke-CubismJdkParserRegression {
         $validExit = $LASTEXITCODE
     }
     finally {
+        $ErrorActionPreference = $previousErrorPreference
         if ($null -eq $previous) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue }
         else { $env:JDK_JAVA_OPTIONS = $previous }
     }
