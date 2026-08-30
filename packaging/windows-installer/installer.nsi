@@ -87,7 +87,7 @@ SetFont "MS Shell Dlg" 12
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → 启动选项 → 安装 → 配置器 → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → 启动选项 → 安装 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
@@ -153,12 +153,12 @@ LangString EulaAck1 ${LANG_JAPANESE} "Turboism は独立した第三者プロジ
 LangString EulaAck2 ${LANG_ENGLISH} "I confirm that Cubism still requires valid legal authorization; Turboism does not provide, replace, or bypass Cubism license verification."
 LangString EulaAck2 ${LANG_SIMPCHINESE} "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。"
 LangString EulaAck2 ${LANG_JAPANESE} "Cubism の使用には引き続き合法かつ有効な許諾が必要であり、Turboism は Cubism のライセンス確認を提供、代替、回避しないことを確認します。"
-LangString EulaAck3 ${LANG_ENGLISH} "I understand that plugin, script, MCP, API, and automation operations that I start or authorize may modify, overwrite, or delete project content, and I will keep an independent backup."
-LangString EulaAck3 ${LANG_SIMPCHINESE} "我理解由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。"
-LangString EulaAck3 ${LANG_JAPANESE} "自分が開始または許可したプラグイン、スクリプト、MCP、API、自動化の操作がプロジェクト内容を変更、上書き、削除する可能性を理解し、独立したバックアップを保持します。"
-LangString EulaAck4 ${LANG_ENGLISH} "I understand that Turboism is an open-source project provided as is, with no guarantee of continued compatibility, freedom from errors, or successful recovery."
-LangString EulaAck4 ${LANG_SIMPCHINESE} "我理解 Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。"
-LangString EulaAck4 ${LANG_JAPANESE} "Turboism は現状有姿で提供されるオープンソースプロジェクトであり、継続的な互換性、無エラー、復元の成功は保証されないことを理解します。"
+LangString EulaAck3 ${LANG_ENGLISH} "I confirm that I understand: plugin, script, MCP, API, and automation operations that I start or authorize may modify, overwrite, or delete project content, and I will keep an independent backup."
+LangString EulaAck3 ${LANG_SIMPCHINESE} "我确认我已理解：由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。"
+LangString EulaAck3 ${LANG_JAPANESE} "自分が開始または許可したプラグイン、スクリプト、MCP、API、自動化の操作がプロジェクト内容を変更、上書き、削除する可能性を理解し、独立したバックアップを保持することを確認します。"
+LangString EulaAck4 ${LANG_ENGLISH} "I confirm that I understand: Turboism is an open-source project provided as is, with no guarantee of continued compatibility, freedom from errors, or successful recovery."
+LangString EulaAck4 ${LANG_SIMPCHINESE} "我确认我已理解：Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。"
+LangString EulaAck4 ${LANG_JAPANESE} "Turboism は現状有姿で提供されるオープンソースプロジェクトであり、継続的な互換性、無エラー、復元の成功は保証されないことを理解したことを確認します。"
 LangString EulaRequired ${LANG_ENGLISH} "Check all four acknowledgements before continuing."
 LangString EulaRequired ${LANG_SIMPCHINESE} "继续安装前必须勾选全部四项确认。"
 LangString EulaRequired ${LANG_JAPANESE} "続行する前に4項目すべてを選択してください。"
@@ -467,15 +467,15 @@ Function GraalCreate
   ${If} $GraalDialog == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 30u "$(GraalPageTitle)"
+  ${NSD_CreateLabel} 0 0 100% 24u "$(GraalPageTitle)"
   Pop $0
-  ${NSD_CreateLabel} 0 30u 100% 48u "$(GraalPageDescription)"
+  ${NSD_CreateLabel} 0 24u 100% 42u "$(GraalPageDescription)"
   Pop $managedGraalHelp
-  ${NSD_CreateRadioButton} 0 88u 100% 16u "$(GraalNowChoice)"
+  ${NSD_CreateRadioButton} 0 67u 100% 16u "$(GraalNowChoice)"
   Pop $GraalNowRadio
-  ${NSD_CreateRadioButton} 0 110u 100% 16u "$(GraalLaterChoice)"
+  ${NSD_CreateRadioButton} 0 84u 100% 16u "$(GraalLaterChoice)"
   Pop $GraalLaterRadio
-  ${NSD_CreateLabel} 12u 138u 96% 42u "$(GraalProgressHint)"
+  ${NSD_CreateLabel} 12u 101u 96% 42u "$(GraalProgressHint)"
   Pop $0
   ${If} $installManagedGraal == 1
     ${NSD_Check} $GraalNowRadio
@@ -525,19 +525,6 @@ Function LaunchOptionsLeave
     MessageBox MB_ICONEXCLAMATION|MB_YESNO|MB_DEFBUTTON2 "$(NoLaunchWarning)" IDYES ContinueWithoutLaunch
     Abort
   ContinueWithoutLaunch:
-  ${EndIf}
-FunctionEnd
-
-Function .onInstSuccess
-  ${If} $createStartMenu == 1
-  ${AndIf} $integrateCubismBat == 1
-    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialShortcuts -InitialBat'
-  ${ElseIf} $createStartMenu == 1
-    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialShortcuts'
-  ${ElseIf} $integrateCubismBat == 1
-    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialBat'
-  ${Else}
-    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR"'
   ${EndIf}
 FunctionEnd
 

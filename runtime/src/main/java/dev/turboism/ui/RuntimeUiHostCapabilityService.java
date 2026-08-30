@@ -840,6 +840,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
      */
     private void logStatus(final StatusNotification notification) {
         final String message = "Status: " + notification.message();
+        if (notification.presentation() == StatusNotification.Presentation.COMPACT_METRIC) {
+            logger.debug(message);
+            return;
+        }
         switch (notification.severity()) {
             case "WARNING" -> logger.warn(message);
             case "ERROR" -> logger.error(message);
