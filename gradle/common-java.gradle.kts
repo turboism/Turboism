@@ -7,7 +7,7 @@ import org.gradle.language.jvm.tasks.ProcessResources
 val resolvedWorktreeId = rootProject.extra["turboismResolvedWorktreeId"] as String
 
 // Single source of truth for the externally published Turboism framework version.
-rootProject.extra["turboismFrameworkVersion"] = "0.43.2"
+rootProject.extra["turboismFrameworkVersion"] = "0.43.3"
 val turboismFrameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
 val turboismReleaseBuild = providers.gradleProperty("turboismRelease")
     .map { value ->

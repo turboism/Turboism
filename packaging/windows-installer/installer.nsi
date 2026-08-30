@@ -153,9 +153,9 @@ LangString UnConfirmTextTop ${LANG_ENGLISH} "Turboism will be uninstalled from t
 LangString UnConfirmTextTop ${LANG_SIMPCHINESE} "Turboism 将从以下文件夹卸载：$\r$\n点击“是”开始卸载。"
 LangString UnConfirmTextTop ${LANG_JAPANESE} "Turboism は次のフォルダーからアンインストールされます：$\r$\n「はい」をクリックすると削除します："
 
-LangString UnDeleteConfigLabel ${LANG_ENGLISH} "Also delete config.json (user configuration)"
-LangString UnDeleteConfigLabel ${LANG_SIMPCHINESE} "同时删除 config.json（用户配置）"
-LangString UnDeleteConfigLabel ${LANG_JAPANESE} "config.json（ユーザー設定）も削除する"
+LangString UnKeepConfigLabel ${LANG_ENGLISH} "Keep config.json (user configuration)"
+LangString UnKeepConfigLabel ${LANG_SIMPCHINESE} "保留 config.json（用户配置）"
+LangString UnKeepConfigLabel ${LANG_JAPANESE} "config.json（ユーザー設定）を保持する"
 
 LangString ModePageTitle ${LANG_ENGLISH} "Select the installation mode:"
 LangString ModePageTitle ${LANG_SIMPCHINESE} "请选择安装模式："
@@ -302,7 +302,7 @@ Var ch
 Var len
 Var line
 Var next
-Var unDeleteConfig      ; 卸载时是否删除 config.json（1 = 删除，默认勾选）
+Var unKeepConfig        ; 卸载时是否保留 config.json（1 = 保留，默认勾选）
 Var unCfgCheckbox       ; 卸载确认页复选框句柄
 Var unCfgStyle          ; 复选框控件样式
 
@@ -879,33 +879,35 @@ Section "Uninstall"
   RMDir /r "$INSTDIR\logs"
   RMDir /r "$INSTDIR\state"
   RMDir /r "$INSTDIR\cache"
-  ; config.json：按卸载确认页复选框决定（默认勾选 = 删除）
-  ${If} $unDeleteConfig == 1
+  ; config.json：按卸载确认页复选框决定（默认勾选 = 保留）
+  ${If} $unKeepConfig == 0
     Delete "$INSTDIR\config.json"
+  ${Else}
+    ; 保留配置时目录必须继续存在，恢复 config/data 目录以便下次升级沿用。
+    CreateDirectory "$INSTDIR\config"
+    CreateDirectory "$INSTDIR\data"
   ${EndIf}
   ; 清理空目录（失败无害：文件被占用/非空时忽略）
   RMDir "$INSTDIR"
 SectionEnd
 
-; 卸载确认页 SHOW：创建「同时删除 config.json」复选框（默认勾选）
+; 卸载确认页 SHOW：创建「保留 config.json」复选框（默认勾选）。MUI 的确认页是
+; $HWNDPARENT 下的子对话框；控件必须属于该页，否则鼠标输入会落到错误窗口并造成卡顿。
 Function un.ConfirmShow
-  StrCpy $unDeleteConfig 1
+  StrCpy $unKeepConfig 1
   StrCpy $unCfgCheckbox 0
   IntOp $unCfgStyle ${WS_CHILD} | ${WS_VISIBLE}
   IntOp $unCfgStyle $unCfgStyle | ${WS_TABSTOP}
   IntOp $unCfgStyle $unCfgStyle | 0x0003        ; BS_AUTOCHECKBOX
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(UnDeleteConfigLabel)", i $unCfgStyle, i 24, i 96, i 330, i 28, i $HWNDPARENT, i 2000, i 0, i 0) i .r$unCfgCheckbox'
-  SendMessage $unCfgCheckbox ${BM_SETCHECK} 1 0
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(UnKeepConfigLabel)", i $unCfgStyle, i 24, i 96, i 330, i 28, i $mui.UnConfirmPage, i 2000, i 0, i 0) i .r$unCfgCheckbox'
+  ${If} $unCfgCheckbox != 0
+    SendMessage $unCfgCheckbox ${BM_SETCHECK} 1 0
+  ${EndIf}
 FunctionEnd
 
-; 卸载确认页 LEAVE：读取复选框状态到 $unDeleteConfig
+; 卸载确认页 LEAVE：读取复选框状态到 $unKeepConfig
 Function un.ConfirmLeave
   ${If} $unCfgCheckbox != 0
-    SendMessage $unCfgCheckbox ${BM_GETCHECK} 0 0 $0
-    ${If} $0 == 1
-      StrCpy $unDeleteConfig 1
-    ${Else}
-      StrCpy $unDeleteConfig 0
-    ${EndIf}
+    SendMessage $unCfgCheckbox ${BM_GETCHECK} 0 0 $unKeepConfig
   ${EndIf}
 FunctionEnd

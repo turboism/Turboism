@@ -36,3 +36,7 @@ tasks.processResources {
         into("META-INF/turboism")
     }
 }
+
+tasks.test {
+    systemProperty("turboism.expectedFrameworkVersion", turboismFrameworkVersion)
+}

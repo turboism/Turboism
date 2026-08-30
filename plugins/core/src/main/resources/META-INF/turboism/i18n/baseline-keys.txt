@@ -1,3 +1,4 @@
+about.bouquet
 about.homepage
 about.open-failed
 about.support
