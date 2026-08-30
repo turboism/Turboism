@@ -381,13 +381,15 @@ Function EulaAcknowledgementsCreate
   ${EndIf}
   !insertmacro MUI_HEADER_TEXT "$(EulaAcknowledgementsTitle)" "$(EulaAcknowledgementsSubtitle)"
 
-  ${NSD_CreateCheckbox} 0 2u 100% 30u "$(EulaAck1)"
+  ; Stack the multiline rows contiguously. At 12pt, extra dialog-unit gaps
+  ; scale aggressively on Windows and can push the fourth row below the page.
+  ${NSD_CreateCheckbox} 0 0 100% 28u "$(EulaAck1)"
   Pop $EulaAck1Checkbox
-  ${NSD_CreateCheckbox} 0 38u 100% 40u "$(EulaAck2)"
+  ${NSD_CreateCheckbox} 0 29u 100% 36u "$(EulaAck2)"
   Pop $EulaAck2Checkbox
-  ${NSD_CreateCheckbox} 0 84u 100% 48u "$(EulaAck3)"
+  ${NSD_CreateCheckbox} 0 66u 100% 44u "$(EulaAck3)"
   Pop $EulaAck3Checkbox
-  ${NSD_CreateCheckbox} 0 138u 100% 40u "$(EulaAck4)"
+  ${NSD_CreateCheckbox} 0 111u 100% 36u "$(EulaAck4)"
   Pop $EulaAck4Checkbox
 
   ${NSD_SetState} $EulaAck1Checkbox $EulaAck1State
