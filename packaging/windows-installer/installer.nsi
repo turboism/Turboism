@@ -87,17 +87,14 @@ SetFont "MS Shell Dlg" 12
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → MIT License → EULA → 模式 → Components → Graal → Directory → 启动选项 → 安装 → 配置器 → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → 启动选项 → 安装 → 配置器 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
 !define MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"
-!define MUI_LICENSEPAGE_CHECKBOX
-!define MUI_LICENSEPAGE_CHECKBOX_TEXT ""
-!define MUI_PAGE_CUSTOMFUNCTION_SHOW EulaShow
-!define MUI_PAGE_CUSTOMFUNCTION_LEAVE EulaLeave
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
+Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
 Page custom ModeCreate ModeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
 !insertmacro MUI_PAGE_COMPONENTS
@@ -141,9 +138,15 @@ LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the MIT License"
 LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我接受 MIT License"
 LangString LicenseAcceptText ${LANG_JAPANESE} "MIT License に同意します"
 
-LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. All four acknowledgements are required to continue:"
-LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。继续安装前必须分别确认以下四项："
-LangString EulaTopText ${LANG_JAPANESE} "以下の Turboism エンドユーザー運用声明および免責事項の全文を確認してください。続行するには4項目すべての個別確認が必要です："
+LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. The four required acknowledgements are on the next page:"
+LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。四项必选确认位于下一页："
+LangString EulaTopText ${LANG_JAPANESE} "以下の Turboism エンドユーザー運用声明および免責事項の全文を確認してください。必須の4項目の確認は次のページにあります："
+LangString EulaAcknowledgementsTitle ${LANG_ENGLISH} "Required acknowledgements"
+LangString EulaAcknowledgementsTitle ${LANG_SIMPCHINESE} "必选确认"
+LangString EulaAcknowledgementsTitle ${LANG_JAPANESE} "必須の確認"
+LangString EulaAcknowledgementsSubtitle ${LANG_ENGLISH} "Check all four independent acknowledgements to continue."
+LangString EulaAcknowledgementsSubtitle ${LANG_SIMPCHINESE} "继续安装前，请分别勾选全部四项确认。"
+LangString EulaAcknowledgementsSubtitle ${LANG_JAPANESE} "続行するには、4項目すべてを個別に選択してください。"
 LangString EulaAck1 ${LANG_ENGLISH} "I confirm that Turboism is an independent third-party project and not an official Live2D product."
 LangString EulaAck1 ${LANG_SIMPCHINESE} "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。"
 LangString EulaAck1 ${LANG_JAPANESE} "Turboism は独立した第三者プロジェクトであり、Live2D の公式製品ではないことを確認します。"
@@ -291,39 +294,16 @@ LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカ�
   Delete "$SMPROGRAMS\Turboism\Cubism を起動.lnk"
 !macroend
 
-; Measure one localized acknowledgement with the active wizard font, then place
-; it below the preceding row. This keeps all four multiline controls visible at
-; every supported DPI instead of relying on coordinates tuned for the old 8pt UI.
-!macro CreateEulaAcknowledgement HANDLE ID TEXT
-  System::Alloc 16
-  Pop $0
-  IntOp $3 $R8 - $R4
-  System::Call '*$0(i 0, i 0, i r3, i 0)'
-  System::Call 'user32::GetDC(p $mui.LicensePage) p .r1'
-  System::Call 'gdi32::SelectObject(p r1, p $R0) p .r2'
-  System::Call 'user32::DrawTextW(p r1, t "${TEXT}", i -1, p r0, i 0x0C10) i .r3'
-  System::Call 'gdi32::SelectObject(p r1, p r2)'
-  System::Call 'user32::ReleaseDC(p $mui.LicensePage, p r1)'
-  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
-  System::Free $0
-  IntOp $4 $4 + 6
-  System::Call 'user32::GetSystemMetrics(i 72) i .r3'
-  IntOp $3 $3 + 6
-  ${If} $4 < $3
-    StrCpy $4 $3
-  ${EndIf}
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "${TEXT}", i $R5, i $R6, i $R7, i $R8, i $4, i $mui.LicensePage, i ${ID}, i 0, i 0) i .r${HANDLE}'
-  SendMessage ${HANDLE} ${WM_SETFONT} $R0 1
-  IntOp $R7 $R7 + $4
-  IntOp $R7 $R7 + 2
-!macroend
-
 ; ---------- 变量 ----------
+Var EulaAcknowledgementsDialog
 Var EulaAck1Checkbox
 Var EulaAck2Checkbox
 Var EulaAck3Checkbox
 Var EulaAck4Checkbox
-Var EulaNativeAccept
+Var EulaAck1State
+Var EulaAck2State
+Var EulaAck3State
+Var EulaAck4State
 Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
 Var ModeDialog
 Var LiteRadio
@@ -377,10 +357,10 @@ Var unCfgStyle          ; 复选框控件样式
 
 ; ---------- 初始化 ----------
 Function .onInit
-  StrCpy $EulaAck1Checkbox 0
-  StrCpy $EulaAck2Checkbox 0
-  StrCpy $EulaAck3Checkbox 0
-  StrCpy $EulaAck4Checkbox 0
+  StrCpy $EulaAck1State 0
+  StrCpy $EulaAck2State 0
+  StrCpy $EulaAck3State 0
+  StrCpy $EulaAck4State 0
   StrCpy $Mode 1
   StrCpy $installManagedGraal 0
   StrCpy $createStartMenu 1
@@ -392,81 +372,49 @@ Function OpenInstallDirectory
   Exec '"$WINDIR\explorer.exe" "$INSTDIR"'
 FunctionEnd
 
-; ---------- 最终用户运行声明：完整正文保持可滚动，四项确认独立勾选 ----------
-Function EulaShow
-  ; MUI 自带的单一同意框仅作为内部页面门闩使用：隐藏并置为已选。
-  ; 用户可见且真正控制“下一步”的是下面四个独立复选框。
-  GetDlgItem $EulaNativeAccept $mui.LicensePage 1034
-  ShowWindow $EulaNativeAccept ${SW_HIDE}
-  SendMessage $EulaNativeAccept ${BM_SETCHECK} ${BST_CHECKED} 0
-  ShowWindow $mui.LicensePage.TopText ${SW_HIDE}
-  ShowWindow $mui.LicensePage.Text ${SW_HIDE}
-
-  ; Measure the localized multiline labels with the actual 12pt page font.
-  ; The accumulated bottom edge becomes the scrollable statement's top edge.
-  System::Alloc 16
-  Pop $0
-  System::Call 'user32::GetClientRect(p $mui.LicensePage, p r0)'
-  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
-  System::Free $0
-  StrCpy $R9 $3
-
-  System::Alloc 16
-  Pop $0
-  System::Call '*$0(i 4, i 0, i 4, i 0)'
-  System::Call 'user32::MapDialogRect(p $mui.LicensePage, p r0)'
-  System::Call '*$0(i .r$R6, i .r$R7, i .r$R4, i .r$R8)'
-  System::Free $0
-  IntOp $R8 $R9 - $R6
-  SendMessage $mui.LicensePage.LicenseText ${WM_GETFONT} 0 0 $R0
-
-  IntOp $R5 ${WS_CHILD} | ${WS_VISIBLE}
-  IntOp $R5 $R5 | ${WS_TABSTOP}
-  IntOp $R5 $R5 | ${BS_AUTOCHECKBOX}
-  IntOp $R5 $R5 | ${BS_MULTILINE}
-  !insertmacro CreateEulaAcknowledgement $EulaAck1Checkbox 2101 "$(EulaAck1)"
-  !insertmacro CreateEulaAcknowledgement $EulaAck2Checkbox 2102 "$(EulaAck2)"
-  !insertmacro CreateEulaAcknowledgement $EulaAck3Checkbox 2103 "$(EulaAck3)"
-  !insertmacro CreateEulaAcknowledgement $EulaAck4Checkbox 2104 "$(EulaAck4)"
-
-  IntOp $R7 $R7 + 4
-  IntOp $R8 $R9 - $R6
-  IntOp $4 $4 - $R7
-  System::Call 'user32::SetWindowPos(p $mui.LicensePage.LicenseText, p 0, i $R6, i $R7, i $R8, i $4, i 0)'
-  ${NSD_OnClick} $EulaAck1Checkbox EulaUpdateNext
-  ${NSD_OnClick} $EulaAck2Checkbox EulaUpdateNext
-  ${NSD_OnClick} $EulaAck3Checkbox EulaUpdateNext
-  ${NSD_OnClick} $EulaAck4Checkbox EulaUpdateNext
-  Push 0
-  Call EulaUpdateNext
-FunctionEnd
-
-Function EulaUpdateNext
-  Pop $4
-  SendMessage $EulaAck1Checkbox ${BM_GETCHECK} 0 0 $0
-  SendMessage $EulaAck2Checkbox ${BM_GETCHECK} 0 0 $1
-  SendMessage $EulaAck3Checkbox ${BM_GETCHECK} 0 0 $2
-  SendMessage $EulaAck4Checkbox ${BM_GETCHECK} 0 0 $3
-  GetDlgItem $4 $HWNDPARENT 1
-  ${If} $0 == ${BST_CHECKED}
-  ${AndIf} $1 == ${BST_CHECKED}
-  ${AndIf} $2 == ${BST_CHECKED}
-  ${AndIf} $3 == ${BST_CHECKED}
-    EnableWindow $4 1
-  ${Else}
-    EnableWindow $4 0
+; ---------- 最终用户运行声明：完整正文页后，单独进行四项确认 ----------
+Function EulaAcknowledgementsCreate
+  nsDialogs::Create 1018
+  Pop $EulaAcknowledgementsDialog
+  ${If} $EulaAcknowledgementsDialog == error
+    Abort
   ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(EulaAcknowledgementsTitle)" "$(EulaAcknowledgementsSubtitle)"
+
+  ${NSD_CreateCheckbox} 0 2u 100% 30u "$(EulaAck1)"
+  Pop $EulaAck1Checkbox
+  ${NSD_CreateCheckbox} 0 38u 100% 40u "$(EulaAck2)"
+  Pop $EulaAck2Checkbox
+  ${NSD_CreateCheckbox} 0 84u 100% 48u "$(EulaAck3)"
+  Pop $EulaAck3Checkbox
+  ${NSD_CreateCheckbox} 0 138u 100% 40u "$(EulaAck4)"
+  Pop $EulaAck4Checkbox
+
+  ${NSD_SetState} $EulaAck1Checkbox $EulaAck1State
+  ${NSD_SetState} $EulaAck2Checkbox $EulaAck2State
+  ${NSD_SetState} $EulaAck3Checkbox $EulaAck3State
+  ${NSD_SetState} $EulaAck4Checkbox $EulaAck4State
+  ${NSD_OnBack} EulaAcknowledgementsSave
+  nsDialogs::Show
 FunctionEnd
 
-Function EulaLeave
-  SendMessage $EulaAck1Checkbox ${BM_GETCHECK} 0 0 $0
-  SendMessage $EulaAck2Checkbox ${BM_GETCHECK} 0 0 $1
-  SendMessage $EulaAck3Checkbox ${BM_GETCHECK} 0 0 $2
-  SendMessage $EulaAck4Checkbox ${BM_GETCHECK} 0 0 $3
-  ${If} $0 != ${BST_CHECKED}
-  ${OrIf} $1 != ${BST_CHECKED}
-  ${OrIf} $2 != ${BST_CHECKED}
-  ${OrIf} $3 != ${BST_CHECKED}
+Function EulaAcknowledgementsSave
+  Pop $0
+  ${NSD_GetState} $EulaAck1Checkbox $EulaAck1State
+  ${NSD_GetState} $EulaAck2Checkbox $EulaAck2State
+  ${NSD_GetState} $EulaAck3Checkbox $EulaAck3State
+  ${NSD_GetState} $EulaAck4Checkbox $EulaAck4State
+FunctionEnd
+
+Function EulaAcknowledgementsLeave
+  ${NSD_GetState} $EulaAck1Checkbox $EulaAck1State
+  ${NSD_GetState} $EulaAck2Checkbox $EulaAck2State
+  ${NSD_GetState} $EulaAck3Checkbox $EulaAck3State
+  ${NSD_GetState} $EulaAck4Checkbox $EulaAck4State
+  ${If} $EulaAck1State != ${BST_CHECKED}
+  ${OrIf} $EulaAck2State != ${BST_CHECKED}
+  ${OrIf} $EulaAck3State != ${BST_CHECKED}
+  ${OrIf} $EulaAck4State != ${BST_CHECKED}
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(EulaRequired)"
     Abort
   ${EndIf}
