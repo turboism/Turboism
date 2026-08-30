@@ -3,6 +3,7 @@ package dev.turboism.graal;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -61,6 +62,24 @@ final class ManagedGraalRuntimeCliTest {
                 state.name()
             );
         }
+    }
+
+    @Test
+    void progressProtocolCarriesExactByteCountsForInstallerSpeedCalculation() {
+        final ManagedGraalRuntimeService.Status status = new ManagedGraalRuntimeService.Status(
+            ManagedGraalRuntimeService.State.DOWNLOADING,
+            ManagedGraalRuntimeService.GRAAL_VERSION,
+            ManagedGraalRuntimeService.JAVA_VERSION,
+            Optional.empty(),
+            20L * 1024L * 1024L,
+            341_299_924L,
+            "",
+            "Downloading."
+        );
+
+        assertTrue(ManagedGraalRuntimeCli.progress(status).contains(
+            "20971520/341299924"
+        ));
     }
 
     @Test

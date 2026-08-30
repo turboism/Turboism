@@ -4,11 +4,16 @@ param(
     [Alias("Home")]
     [string]$HomePath = "",
     [switch]$Cleanup,
-    [switch]$RetirePlugins
+    [switch]$RetirePlugins,
+    [switch]$IntegrateBat,
+    [switch]$DisableBat,
+    [switch]$EnableShortcuts,
+    [switch]$DisableShortcuts
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
-# and the explicit independent/takeover launch policy. It never edits Cubism.
+# and explicit shortcut/BAT launch integration. Official BAT files are edited
+# only through the separately selected, hash-guarded integration mode.
 $ErrorActionPreference = "Stop"
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
@@ -21,8 +26,8 @@ $statePath = Join-Path $turboismHome "cubism-installations.json"
 $configPath = Join-Path $turboismHome "config.json"
 $pluginDir = Join-Path $turboismHome "plugins"
 
-if ($Cleanup -and $RetirePlugins) {
-    Write-Error "Cleanup and RetirePlugins are mutually exclusive"
+if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts) | Where-Object { $_ }).Count -gt 1) {
+    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, and DisableShortcuts are mutually exclusive"
     exit 1
 }
 if ($Cleanup) {
@@ -43,6 +48,45 @@ if ($Cleanup) {
 if ($RetirePlugins) {
     try {
         Remove-TurboismRetiredPlugins -TurboismHome $turboismHome
+        exit 0
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        exit 1
+    }
+}
+if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
+    try {
+        $state = Read-CubismInstallationState -StatePath $statePath
+        if (-not $state.Valid) { throw "Managed installation state is invalid: $($state.Error)" }
+        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root }))) -SavedInstallations $state.Installations)
+        if ($IntegrateBat) {
+            $selectedBatKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+                foreach ($path in @($candidate.OfficialBat, $candidate.D3DBat)) {
+                    if (-not [string]::IsNullOrWhiteSpace($path)) { [void]$selectedBatKeys.Add([System.IO.Path]::GetFullPath($path)) }
+                }
+            }
+            $retainedRecords = @($state.BatIntegrations | Where-Object { $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
+            $removedRecords = @($state.BatIntegrations | Where-Object { -not $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
+            if ($removedRecords.Count -gt 0) { Restore-CubismBatIntegrations -Records $removedRecords }
+            $records = Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $records -LaunchMode $state.LaunchMode
+            Write-Host "TURBOISM_BAT_INTEGRATION applied=$($records.Count) restored=$($removedRecords.Count)"
+        }
+        elseif ($DisableBat) {
+            if ($state.BatIntegrations.Count -gt 0) { Restore-CubismBatIntegrations -Records $state.BatIntegrations }
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -LaunchMode $state.LaunchMode
+            Write-Host "TURBOISM_BAT_INTEGRATION restored=$($state.BatIntegrations.Count)"
+        }
+        elseif ($EnableShortcuts) {
+            $launch = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode "independent" -ExistingState $state
+            Write-Host "TURBOISM_SHORTCUT_INTEGRATION enabled=$($launch.ManagedShortcuts.Count)"
+        }
+        else {
+            Disable-CubismShortcutIntegration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -ExistingState $state
+            Write-Host "TURBOISM_SHORTCUT_INTEGRATION disabled"
+        }
         exit 0
     }
     catch {

@@ -103,6 +103,24 @@ for module in modules:
             meta = json.loads(z.read("META-INF/turboism/plugin.json"))
         except KeyError:
             sys.exit(f"error: {jar}: missing META-INF/turboism/plugin.json")
+        localized = {}
+        for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja")):
+            resource = f"META-INF/turboism/i18n/messages_{suffix}.properties"
+            try:
+                text = z.read(resource).decode("utf-8")
+            except KeyError:
+                sys.exit(f"error: {jar}: missing installer localization {resource}")
+            values = {}
+            for raw_line in text.splitlines():
+                if not raw_line or raw_line.startswith(("#", "!")) or "=" not in raw_line:
+                    continue
+                key, value = raw_line.split("=", 1)
+                values[key.strip()] = value.strip()
+            name = values.get("plugin.name", "")
+            description = values.get("plugin.description", "")
+            if not name or not description:
+                sys.exit(f"error: {jar}: {resource} must define plugin.name and plugin.description")
+            localized[locale] = {"name": name, "description": description}
     pid = meta["id"]
     if pid == "turboism.core":
         sys.exit(f"error: {jar}: runtime-owned core ID must not be packaged")
@@ -112,6 +130,7 @@ for module in modules:
         "name": meta.get("name", pid),
         "version": meta.get("version", ""),
         "description": meta.get("description", ""),
+        "localized": localized,
     })
 plugins.sort(key=lambda p: p["id"])
 
@@ -135,19 +154,27 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
-# 可见插件 Section：仅保留勾选元数据（组件页），不携带 File 指令。
+# 可见插件 Section：三语言显示名/描述均来自插件自身 i18n 资源。
 for p in plugins:
-    sec = "SEC_" + sanitize(p["id"])
-    title = p["name"] + (" " + p["version"] if p["version"] else "")
-    lines.append(f'Section "{nsis_escape(title)}" {sec}')
+    key = sanitize(p["id"])
+    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE")):
+        title = p["localized"][locale]["name"] + (" " + p["version"] if p["version"] else "")
+        description = p["localized"][locale]["description"]
+        lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
+        lines.append(f'LangString PLUGIN_DESC_{key} ${{{nsis_lang}}} "{nsis_escape(description)}"')
+for p in plugins:
+    key = sanitize(p["id"])
+    sec = "SEC_" + key
+    lines.append(f'Section "$(PLUGIN_NAME_{key})" {sec}')
     lines.append("SectionEnd")
     lines.append("")
 
 lines.append("; 组件页悬停描述")
 lines.append("!insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN")
 for p in plugins:
-    sec = "SEC_" + sanitize(p["id"])
-    lines.append(f'  !insertmacro MUI_DESCRIPTION_TEXT ${{{sec}}} "{nsis_escape(p["description"])}"')
+    key = sanitize(p["id"])
+    sec = "SEC_" + key
+    lines.append(f'  !insertmacro MUI_DESCRIPTION_TEXT ${{{sec}}} "$(PLUGIN_DESC_{key})"')
 lines.append("!insertmacro MUI_FUNCTION_DESCRIPTION_END")
 lines.append("")
 

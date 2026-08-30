@@ -23,68 +23,158 @@ Section "-插件载荷" SecPluginPayload
   ${EndIf}
 SectionEnd
 
-Section "WebDAV Auto-Backup Sync Plugin 0.1.0" SEC_dev_turboism_plugin_backup
+LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_ENGLISH} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
+LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_SIMPCHINESE} "WebDAV 自动备份同步插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_SIMPCHINESE} "Turboism的WebDAV 自动备份同步插件。"
+LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_JAPANESE} "WebDAV 自動バックアップ同期プラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_JAPANESE} "TurboismのWebDAV 自動バックアップ同期プラグイン。"
+LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Clip Mask Viewer 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
+LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_SIMPCHINESE} "剪裁蒙版查看器 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_SIMPCHINESE} "Turboism 的剪裁蒙版查看器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_JAPANESE} "クリップマスクビューアー 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_JAPANESE} "Turboism のクリップマスクビューアー。"
+LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_ENGLISH} "Cubism Tab Filter 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_ENGLISH} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
+LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_SIMPCHINESE} "Cubism 标签筛选器 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_SIMPCHINESE} "Turboism 的Cubism 标签筛选器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "Cubism タブフィルター 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "Turboism のCubism タブフィルター。"
+LangString PLUGIN_NAME_dev_turboism_plugin_mcp ${LANG_ENGLISH} "Turboism MCP Server 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mcp ${LANG_ENGLISH} "Loopback MCP server for typed Cubism inspection, editing, history, and Editor-command workflows."
+LangString PLUGIN_NAME_dev_turboism_plugin_mcp ${LANG_SIMPCHINESE} "Turboism MCP 服务器 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mcp ${LANG_SIMPCHINESE} "通过类型化 MCP 工作流公开模型、参数、历史记录和编辑器命令的环回服务器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_mcp ${LANG_JAPANESE} "Turboism MCP サーバー 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mcp ${LANG_JAPANESE} "モデル、パラメータ、履歴、エディターコマンドを型付き MCP ワークフローとして公開するループバックサーバー。"
+LangString PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_ENGLISH} "Mesh Inspector and Mirror-Axis Tools 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_ENGLISH} "Inspects mesh/deformer state and contributes the bounded mirror-axis rotation control for verified Cubism hosts."
+LangString PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_SIMPCHINESE} "网格检查与镜像轴工具 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_SIMPCHINESE} "Turboism 的网格检查与镜像轴工具。"
+LangString PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_JAPANESE} "メッシュ検査とミラー軸ツール 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance ${LANG_JAPANESE} "Turboism のメッシュ検査とミラー軸ツール。"
+LangString PLUGIN_NAME_dev_turboism_plugin_palette_label_style ${LANG_ENGLISH} "Palette Label Style Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_palette_label_style ${LANG_ENGLISH} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
+LangString PLUGIN_NAME_dev_turboism_plugin_palette_label_style ${LANG_SIMPCHINESE} "调色板标签样式插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_palette_label_style ${LANG_SIMPCHINESE} "Turboism的调色板标签样式插件。"
+LangString PLUGIN_NAME_dev_turboism_plugin_palette_label_style ${LANG_JAPANESE} "パレットラベルスタイルプラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_palette_label_style ${LANG_JAPANESE} "Turboismのパレットラベルスタイルプラグイン。"
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_batch_transfer ${LANG_ENGLISH} "Parameter Batch Transfer 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer ${LANG_ENGLISH} "Batch-transfer parameter bindings of one ArtMesh or Deformer to other parameters, with optional inversion, through a modal dialog."
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_batch_transfer ${LANG_SIMPCHINESE} "参数批量传输 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer ${LANG_SIMPCHINESE} "Turboism 的参数批量传输。"
+LangString PLUGIN_NAME_dev_turboism_plugin_parameter_batch_transfer ${LANG_JAPANESE} "パラメータ一括転送 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer ${LANG_JAPANESE} "Turboism のパラメータ一括転送。"
+LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Performance Statistics 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_ENGLISH} "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window."
+LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_SIMPCHINESE} "性能统计 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_SIMPCHINESE} "Turboism 的性能统计。"
+LangString PLUGIN_NAME_dev_turboism_plugin_perf_stats ${LANG_JAPANESE} "パフォーマンス統計 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_perf_stats ${LANG_JAPANESE} "Turboism のパフォーマンス統計。"
+LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_ENGLISH} "Physics Editor 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_ENGLISH} "Adds Physics Settings group select-all and reopen retention."
+LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_SIMPCHINESE} "物理编辑器 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_SIMPCHINESE} "Turboism 的物理编辑器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "物理演算エディター 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "Turboism の物理演算エディター。"
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_ENGLISH} "Recent Preview 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_ENGLISH} "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup."
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_SIMPCHINESE} "最近预览 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_SIMPCHINESE} "Turboism 的最近预览。"
+LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_JAPANESE} "最近のプレビュー 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_JAPANESE} "Turboism の最近のプレビュー。"
+LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_ENGLISH} "Scene Palette Enhancer 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_ENGLISH} "Sorts and manually reorders items in the Cubism Scene palette."
+LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_SIMPCHINESE} "场景调色板增强器 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_SIMPCHINESE} "Turboism 的场景调色板增强器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer ${LANG_JAPANESE} "シーンパレット拡張 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer ${LANG_JAPANESE} "Turboism のシーンパレット拡張。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_ENGLISH} "MaxRects-BSSF Layout Algorithm 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_ENGLISH} "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_SIMPCHINESE} "MaxRects-BSSF 布局算法 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_SIMPCHINESE} "Turboism 的MaxRects-BSSF 布局算法。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas ${LANG_JAPANESE} "MaxRects-BSSF レイアウトアルゴリズム 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas ${LANG_JAPANESE} "Turboism のMaxRects-BSSF レイアウトアルゴリズム。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Texture Atlas Statistics 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_ENGLISH} "Shows the total and current-texture model-image counts in the native texture-atlas editor window."
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINESE} "纹理图集统计 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINESE} "Turboism 的纹理图集统计。"
+LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "テクスチャアトラス統計 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "Turboism のテクスチャアトラス統計。"
+LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "Turboism with fx 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting the verified managed fx runtime to the authenticated MCP server."
+LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "Turboism with fx 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "通过 ACP v1 代理与设置窗口，将经过验证的托管 fx 运行时连接到已认证的 MCP 服务器。"
+LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "Turboism with fx 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "ACP v1 エージェントと設定画面により、検証済み管理対象 fx ランタイムを認証済み MCP サーバーへ接続します。"
+LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "UI Theme Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
+LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_SIMPCHINESE} "UI 主题插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_SIMPCHINESE} "Turboism的UI 主题插件。"
+LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "UI テーマプラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "TurboismのUI テーマプラグイン。"
+Section "$(PLUGIN_NAME_dev_turboism_plugin_backup)" SEC_dev_turboism_plugin_backup
 SectionEnd
 
-Section "Clip Mask Viewer 0.1.0" SEC_dev_turboism_plugin_clipmask_viewer
+Section "$(PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer)" SEC_dev_turboism_plugin_clipmask_viewer
 SectionEnd
 
-Section "Cubism Tab Filter 0.1.0" SEC_dev_turboism_plugin_cubism_tab_filter
+Section "$(PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter)" SEC_dev_turboism_plugin_cubism_tab_filter
 SectionEnd
 
-Section "Turboism MCP Server 0.1.0" SEC_dev_turboism_plugin_mcp
+Section "$(PLUGIN_NAME_dev_turboism_plugin_mcp)" SEC_dev_turboism_plugin_mcp
 SectionEnd
 
-Section "Mesh Edit Mirror Axis Enhance 0.1.0" SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance
+Section "$(PLUGIN_NAME_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)" SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance
 SectionEnd
 
-Section "Palette Label Style Plugin 0.1.0" SEC_dev_turboism_plugin_palette_label_style
+Section "$(PLUGIN_NAME_dev_turboism_plugin_palette_label_style)" SEC_dev_turboism_plugin_palette_label_style
 SectionEnd
 
-Section "Parameter Batch Transfer 0.1.0" SEC_dev_turboism_plugin_parameter_batch_transfer
+Section "$(PLUGIN_NAME_dev_turboism_plugin_parameter_batch_transfer)" SEC_dev_turboism_plugin_parameter_batch_transfer
 SectionEnd
 
-Section "Performance Statistics 0.1.0" SEC_dev_turboism_plugin_perf_stats
+Section "$(PLUGIN_NAME_dev_turboism_plugin_perf_stats)" SEC_dev_turboism_plugin_perf_stats
 SectionEnd
 
-Section "Physics Editor 0.1.0" SEC_dev_turboism_plugin_physics_editor
+Section "$(PLUGIN_NAME_dev_turboism_plugin_physics_editor)" SEC_dev_turboism_plugin_physics_editor
 SectionEnd
 
-Section "Recent Preview Plugin 0.1.0" SEC_dev_turboism_plugin_recent_preview
+Section "$(PLUGIN_NAME_dev_turboism_plugin_recent_preview)" SEC_dev_turboism_plugin_recent_preview
 SectionEnd
 
-Section "Scene Palette Enhancer 0.1.0" SEC_dev_turboism_plugin_scene_palette_enhancer
+Section "$(PLUGIN_NAME_dev_turboism_plugin_scene_palette_enhancer)" SEC_dev_turboism_plugin_scene_palette_enhancer
 SectionEnd
 
-Section "MaxRects-BSSF Layout Algorithm 0.1.0" SEC_dev_turboism_plugin_texture_atlas
+Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas)" SEC_dev_turboism_plugin_texture_atlas
 SectionEnd
 
-Section "Texture Atlas Statistics 0.1.0" SEC_dev_turboism_plugin_texture_atlas_stats
+Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats)" SEC_dev_turboism_plugin_texture_atlas_stats
 SectionEnd
 
-Section "Turboism with fx 0.1.0" SEC_dev_turboism_plugin_turboism_with_fx
+Section "$(PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx)" SEC_dev_turboism_plugin_turboism_with_fx
 SectionEnd
 
-Section "UI Theme Plugin 0.1.0" SEC_dev_turboism_plugin_uitheme
+Section "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)" SEC_dev_turboism_plugin_uitheme
 SectionEnd
 
 ; 组件页悬停描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "Adds keyword filter boxes to the Parameter, Deformer, Scene and Log palette tabs."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "Loopback Model Context Protocol server exposing typed Cubism inspection, editing, history, and Editor-command workflows."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "Enhances Cubism mesh editing with mirror-axis rotation and exact-host mirror-tool parity."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "Label text and background colors for Deformer, Part, and Parameter palette entries via context menus."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "Batch-transfer parameter bindings of one ArtMesh or Deformer to other parameters, with optional inversion, through a modal dialog."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "Real-time Cubism process performance charts: CPU, FPS, and JVM memory as an embedded panel and a standalone window."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "Adds Physics Settings group select-all and reopen retention."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "Sorts and manually reorders items in the Cubism Scene palette."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "Registers the MaxRects-BSSF texture-atlas packing algorithm with parallel search."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "Shows the total and current-texture model-image counts in the native texture-atlas editor window."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_turboism_with_fx} "ACP v1 Agent and Settings windows that connect Turboism's verified managed fx runtime to the authenticated MCP server."
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "$(PLUGIN_DESC_dev_turboism_plugin_backup)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "$(PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "$(PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "$(PLUGIN_DESC_dev_turboism_plugin_mcp)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "$(PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "$(PLUGIN_DESC_dev_turboism_plugin_palette_label_style)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "$(PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "$(PLUGIN_DESC_dev_turboism_plugin_perf_stats)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "$(PLUGIN_DESC_dev_turboism_plugin_physics_editor)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "$(PLUGIN_DESC_dev_turboism_plugin_recent_preview)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_turboism_with_fx} "$(PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）

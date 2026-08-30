@@ -270,12 +270,12 @@ def check_managed_graal_installer_contract():
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     bridge_path = INSTALLER_NSI.parent / "install-managed-graal.ps1"
     bridge = bridge_path.read_text(encoding="utf-8")
-    check("GI1 managed Graal option defaults unchecked",
+    check("GI1 managed Graal option defaults to later",
           "StrCpy $installManagedGraal 0" in text
-          and "${NSD_Uncheck} $managedGraalCheckbox" in text)
+          and "${NSD_Check} $GraalLaterRadio" in text)
     check("GI2 managed Graal choice is independent of Full/Lite",
-          "${NSD_CreateCheckbox}" in text and "$(ManagedGraalLabel)" in text
-          and "Function ModeLeave" in text)
+          "${NSD_CreateRadioButton}" in text and "$(GraalNowChoice)" in text
+          and "$(GraalLaterChoice)" in text and "Function ModeLeave" in text)
     check("GI3 no install occurs unless selected",
           "${If} $installManagedGraal == 1" in text
           and "install-managed-graal.ps1" in text)
@@ -292,10 +292,9 @@ def check_managed_graal_installer_contract():
     check("GI8 bridge avoids PowerShell's read-only HOME variable",
           not re.search(r"(?i)\$home\b", bridge))
     check("GI9 bridge persists managed Graal diagnostics",
-          "Start-Transcript" in bridge
-          and "managed-graal-install.log" in bridge
-          and 'Join-Path $turboismHome "logs"' in bridge
-          and 'Join-Path $logRoot "installer"' in bridge)
+          "managed-graal-install.log" in bridge
+          and 'Join-Path $turboismHome "logs\\installer"' in bridge
+          and "Add-Content -LiteralPath $LogPath" in bridge)
 
 
 def check_launcher_and_shortcut_contract():
@@ -337,10 +336,17 @@ def check_launcher_and_shortcut_contract():
               for name in legacy_start_menu)
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in start_menu
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in uninstall)
-    check("L6 installer and configurator explain independent versus takeover",
-          "official BAT files themselves are never edited" in text
-          and "官方 BAT 文件本身始终不会被改写" in text
-          and "IndependentHelp" in configure and "TakeoverHelp" in configure)
+    check("L6 installer discloses explicit hash-guarded BAT integration",
+          "only if explicitly selected" in text
+          and "仅在明确勾选时" in text
+          and "BatIntegrationHelp" in text
+          and "-IntegrateBat" in text
+          and "-DisableBat" in text)
+    check("L6b Start-menu and BAT controls are independent and reversible",
+          "-EnableShortcuts" in text
+          and "-DisableShortcuts" in text
+          and "Disable-CubismShortcutIntegration" in common
+          and "Restore-CubismBatIntegrations" in common)
     check("L7 finish page can open the installation directory",
           "MUI_FINISHPAGE_RUN" in text
           and "FinishOpenFolderText" in text

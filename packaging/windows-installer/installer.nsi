@@ -75,7 +75,7 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → MIT License → EULA → 模式选择 → Components(仅 Full) → Directory → InstFiles → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA → 模式 → Components → Graal → Directory → 安装 → 启动选项 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
@@ -87,8 +87,10 @@ SetCompressor /SOLID lzma
 Page custom ModeCreate ModeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
 !insertmacro MUI_PAGE_COMPONENTS
+Page custom GraalCreate GraalLeave
 !insertmacro MUI_PAGE_DIRECTORY
 !insertmacro MUI_PAGE_INSTFILES
+Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_PAGE_FINISH
 
 ; ---------- 卸载页：Confirm（含 config.json 复选框）→ InstFiles → Finish（必须在 MUI_LANGUAGE 之前插入） ----------
@@ -114,9 +116,9 @@ LangString TurboismWelcomeTitle ${LANG_ENGLISH} "Welcome to Turboism Setup"
 LangString TurboismWelcomeTitle ${LANG_SIMPCHINESE} "欢迎安装 Turboism"
 LangString TurboismWelcomeTitle ${LANG_JAPANESE} "Turboism セットアップへようこそ"
 
-LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard will install Turboism, an enhanced runtime for the Live2D Cubism editor.$\r$\n$\r$\nInstallation is per-user and does not modify the Cubism installation directory.$\r$\n$\r$\nAfter installation, start the Cubism editor with launch-cubism-turboism.bat in the installation directory.$\r$\n$\r$\nClick Next to continue."
-LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式，不会修改 Cubism 安装目录。$\r$\n$\r$\n安装完成后，请通过安装目录中的 launch-cubism-turboism.bat 启动 Cubism 编辑器。$\r$\n$\r$\n点击“下一步”继续。"
-LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism エディター用の拡張ランタイム「Turboism」をインストールします。$\r$\n$\r$\nインストールは管理者権限不要で、Cubism のインストール先ディレクトリは変更しません。$\r$\n$\r$\nインストール後、インストール先ディレクトリの launch-cubism-turboism.bat から Cubism エディターを起動してください。$\r$\n$\r$\n「次へ」をクリックして続行します。"
+LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard installs Turboism, an enhanced runtime for Live2D Cubism Editor.$\r$\n$\r$\nInstallation is per-user. On the final options page you may create Turboism shortcuts and, only if explicitly selected, back up and modify official Cubism startup BAT files.$\r$\n$\r$\nClick Next to continue."
+LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式。在最后的选项页面中，您可以创建 Turboism 快捷方式；仅在明确勾选时，安装器才会备份并修改 Cubism 官方启动 BAT。$\r$\n$\r$\n点击“下一步”继续。"
+LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、明示的に選択した場合のみ Cubism 公式起動 BAT をバックアップして変更します。$\r$\n$\r$\n「次へ」をクリックして続行します。"
 
 LangString LicenseTopText ${LANG_ENGLISH} "Please review the MIT License before installing Turboism. Scroll down to see the full text:"
 LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 MIT License。滚动查看全文："
@@ -140,9 +142,9 @@ LangString FinishTitleText ${LANG_ENGLISH} "Installation Complete"
 LangString FinishTitleText ${LANG_SIMPCHINESE} "安装完成"
 LangString FinishTitleText ${LANG_JAPANESE} "インストール完了"
 
-LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nThe configurator offers two launch modes:$\r$\n• Independent shortcuts (recommended): creates new Turboism-owned shortcuts and never changes existing Cubism shortcuts or official BAT files.$\r$\n• Takeover: replaces only existing .lnk shortcuts that point exactly to a selected official Cubism BAT; originals are backed up and restored on cleanup. The official BAT files themselves are never edited.$\r$\n$\r$\nRun configure_turboism.ps1 to change this choice."
-LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n配置器提供两种启动模式：$\r$\n• 独立快捷方式（推荐）：新建由 Turboism 管理的快捷方式，不修改现有 Cubism 快捷方式，也不修改官方 BAT 文件。$\r$\n• 接管：仅替换目标精确指向所选官方 Cubism BAT 的现有 .lnk 快捷方式；原快捷方式会备份并在清理时恢复。官方 BAT 文件本身始终不会被改写。$\r$\n$\r$\n可运行 configure_turboism.ps1 重新选择。"
-LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n設定画面には 2 つの起動モードがあります：$\r$\n• 独立ショートカット（推奨）：Turboism 所有の新しいショートカットだけを作成し、既存の Cubism ショートカットや公式 BAT は変更しません。$\r$\n• 引き継ぎ：選択した公式 Cubism BAT を正確に指す既存 .lnk だけを置換し、元のショートカットをバックアップしてクリーンアップ時に復元します。公式 BAT 自体は編集しません。$\r$\n$\r$\nconfigure_turboism.ps1 で選択を変更できます。"
+LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nYour selected activation paths have been applied. Start-menu shortcuts are independent from official-BAT integration. BAT integration uses verified backups and can be restored during uninstall.$\r$\n$\r$\nRun configure_turboism.ps1 to manage Cubism installations and plugin settings."
+LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n已应用您选择的激活路径。开始菜单快捷方式与官方 BAT 集成彼此独立；BAT 集成使用经过校验的备份，并可在卸载时恢复。$\r$\n$\r$\n可运行 configure_turboism.ps1 管理 Cubism 安装与插件设置。"
+LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n選択した有効化経路を適用しました。スタートメニューのショートカットと公式 BAT の統合は独立しています。BAT 統合は検証済みバックアップを使用し、アンインストール時に復元できます。$\r$\n$\r$\nconfigure_turboism.ps1 で Cubism インストールとプラグイン設定を管理できます。"
 LangString FinishOpenFolderText ${LANG_ENGLISH} "Open the Turboism installation folder"
 LangString FinishOpenFolderText ${LANG_SIMPCHINESE} "打开 Turboism 安装目录"
 LangString FinishOpenFolderText ${LANG_JAPANESE} "Turboism インストールフォルダーを開く"
@@ -176,7 +178,56 @@ LangString ManagedGraalHelp ${LANG_JAPANESE} "GraalVM 公式 GitHub Release か�
 LangString ManagedGraalInstallError ${LANG_ENGLISH} "The managed GraalVM installation failed. Review $INSTDIR\logs\installer\managed-graal-install.log, ensure GitHub downloads and a supported Cubism Editor or Java 17+ are available, and retry."
 LangString ManagedGraalInstallError ${LANG_SIMPCHINESE} "托管 GraalVM 安装失败。请检查 $INSTDIR\logs\installer\managed-graal-install.log，确认可以访问 GitHub 下载且存在受支持的 Cubism Editor 或 Java 17+，然后重试。"
 LangString ManagedGraalInstallError ${LANG_JAPANESE} "管理対象 GraalVM のインストールに失敗しました。$INSTDIR\logs\installer\managed-graal-install.log を確認し、GitHub からダウンロード可能で、対応 Cubism Editor または Java 17 以降があることを確認して再試行してください。"
+LangString ManagedGraalStarting ${LANG_ENGLISH} "Installing Turboism-managed GraalVM. Progress is also saved to $INSTDIR\logs\installer\managed-graal-install.log."
+LangString ManagedGraalStarting ${LANG_SIMPCHINESE} "正在安装 Turboism 托管的 GraalVM。进度也会保存到 $INSTDIR\logs\installer\managed-graal-install.log。"
+LangString ManagedGraalStarting ${LANG_JAPANESE} "Turboism 管理の GraalVM をインストールしています。進捗は $INSTDIR\logs\installer\managed-graal-install.log にも保存されます。"
 
+LangString GraalPageTitle ${LANG_ENGLISH} "Improve performance with GraalVM"
+LangString GraalPageTitle ${LANG_SIMPCHINESE} "使用 GraalVM 提升性能"
+LangString GraalPageTitle ${LANG_JAPANESE} "GraalVM でパフォーマンスを向上"
+LangString GraalPageDescription ${LANG_ENGLISH} "Turboism can use a pinned private GraalVM runtime to improve script and plugin performance. You can install it now or download it later from the Turboism configurator."
+LangString GraalPageDescription ${LANG_SIMPCHINESE} "Turboism 可使用固定版本的私有 GraalVM 运行时提升脚本与插件性能。您可以立即安装，也可以稍后在 Turboism 配置器中下载。"
+LangString GraalPageDescription ${LANG_JAPANESE} "Turboism は固定された専用 GraalVM ランタイムでスクリプトとプラグインの性能を向上できます。今すぐインストールするか、Turboism 設定から後でダウンロードできます。"
+LangString GraalNowChoice ${LANG_ENGLISH} "Download and install now (recommended)"
+LangString GraalNowChoice ${LANG_SIMPCHINESE} "立即下载并安装（推荐）"
+LangString GraalNowChoice ${LANG_JAPANESE} "今すぐダウンロードしてインストール（推奨）"
+LangString GraalLaterChoice ${LANG_ENGLISH} "Install later"
+LangString GraalLaterChoice ${LANG_SIMPCHINESE} "稍后安装"
+LangString GraalLaterChoice ${LANG_JAPANESE} "後でインストール"
+LangString GraalProgressHint ${LANG_ENGLISH} "When downloading, a separate progress window shows downloaded/total bytes, transfer rate, and a Cancel button."
+LangString GraalProgressHint ${LANG_SIMPCHINESE} "下载时将显示独立进度窗口，包括已下载/总字节数、传输速度和“取消”按钮。"
+LangString GraalProgressHint ${LANG_JAPANESE} "ダウンロード中は別の進捗画面に、ダウンロード済み/合計バイト数、転送速度、キャンセルボタンが表示されます。"
+
+LangString LaunchOptionsTitle ${LANG_ENGLISH} "Choose normal launch integration"
+LangString LaunchOptionsTitle ${LANG_SIMPCHINESE} "选择常规启动集成"
+LangString LaunchOptionsTitle ${LANG_JAPANESE} "通常起動の統合を選択"
+LangString StartMenuOption ${LANG_ENGLISH} "Create Turboism Start-menu shortcuts (recommended)"
+LangString StartMenuOption ${LANG_SIMPCHINESE} "创建 Turboism 开始菜单快捷方式（推荐）"
+LangString StartMenuOption ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを作成（推奨）"
+LangString BatIntegrationOption ${LANG_ENGLISH} "Modify the selected official Cubism startup BAT files so existing Cubism shortcuts load Turboism"
+LangString BatIntegrationOption ${LANG_SIMPCHINESE} "修改所选 Cubism 官方启动 BAT，使现有 Cubism 快捷方式加载 Turboism"
+LangString BatIntegrationOption ${LANG_JAPANESE} "選択した Cubism 公式起動 BAT を変更し、既存の Cubism ショートカットで Turboism を読み込む"
+LangString BatIntegrationHelp ${LANG_ENGLISH} "Turboism backs up each original BAT, upgrades recognized legacy Turboism blocks, skips already-current integrations, and restores owned unchanged integrations during uninstall. Unknown edits stop safely."
+LangString BatIntegrationHelp ${LANG_SIMPCHINESE} "Turboism 会备份每个原始 BAT、升级可识别的旧 Turboism 区块、跳过已是当前版本的集成，并在卸载时恢复仍由 Turboism 管理且未被改动的 BAT。遇到未知改动会安全停止。"
+LangString BatIntegrationHelp ${LANG_JAPANESE} "Turboism は各元 BAT をバックアップし、認識できる旧 Turboism ブロックを更新し、最新の統合は書き換えず、アンインストール時に所有中で未変更の BAT を復元します。不明な編集がある場合は安全に停止します。"
+LangString NoLaunchWarning ${LANG_ENGLISH} "Both normal launch paths are disabled. Turboism will not activate from Start-menu or existing Cubism shortcuts. Choose No to go back, or Yes to deliberately continue."
+LangString NoLaunchWarning ${LANG_SIMPCHINESE} "两个常规启动路径均已关闭。Turboism 不会通过开始菜单或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
+LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路が両方無効です。Turboism はスタートメニューまたは既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
+LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration failed. Existing BAT files and backups were preserved. Review the installer details and retry."
+LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成失败。现有 BAT 与备份已保留。请查看安装详情后重试。"
+LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合に失敗しました。既存 BAT とバックアップは保持されています。インストール詳細を確認して再試行してください。"
+LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
+LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
+LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
+LangString StartMenuResultSkipped ${LANG_ENGLISH} "Turboism Start-menu shortcuts are disabled; existing managed shortcuts were removed."
+LangString StartMenuResultSkipped ${LANG_SIMPCHINESE} "已关闭 Turboism 开始菜单快捷方式，并移除现有托管快捷方式。"
+LangString StartMenuResultSkipped ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを無効にし、既存の管理対象ショートカットを削除しました。"
+LangString BatResultApplied ${LANG_ENGLISH} "Official Cubism BAT integration was applied or already current. Originals are backed up."
+LangString BatResultApplied ${LANG_SIMPCHINESE} "已应用 Cubism 官方 BAT 集成，或其已是当前形式；原文件已备份。"
+LangString BatResultApplied ${LANG_JAPANESE} "Cubism 公式 BAT の統合を適用しました（既に最新の場合は変更なし）。元ファイルはバックアップ済みです。"
+LangString BatResultRestored ${LANG_ENGLISH} "Official Cubism BAT integration is disabled; owned unchanged BAT files were restored."
+LangString BatResultRestored ${LANG_SIMPCHINESE} "已关闭 Cubism 官方 BAT 集成，并恢复仍由 Turboism 管理且未被改动的 BAT。"
+LangString BatResultRestored ${LANG_JAPANESE} "Cubism 公式 BAT の統合を無効にし、Turboism 管理下で未変更の BAT を復元しました。"
 
 LangString StartMenuConfigName ${LANG_ENGLISH} "Turboism_Configurator"
 LangString StartMenuConfigName ${LANG_SIMPCHINESE} "Turboism_Configurator"
@@ -220,8 +271,16 @@ Var ModeDialog
 Var LiteRadio
 Var FullRadio
 Var installManagedGraal  ; 1 = 用户选择下载并安装托管 GraalVM（默认 0）
-Var managedGraalCheckbox
+Var GraalDialog
+Var GraalNowRadio
+Var GraalLaterRadio
 Var managedGraalHelp
+Var LaunchOptionsDialog
+Var createStartMenu
+Var integrateCubismBat
+Var StartMenuCheckbox
+Var IntegrateBatCheckbox
+Var LaunchOptionsHelp
 Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
 Var existingDisabled     ; 既有 config.json 的 disabledPlugins，';' 分隔
 Var disabledFinal        ; 合并排序后的列表，';' 分隔
@@ -262,13 +321,11 @@ Var unCfgStyle          ; 复选框控件样式
 Function .onInit
   StrCpy $Mode 1
   StrCpy $installManagedGraal 0
+  StrCpy $createStartMenu 1
+  StrCpy $integrateCubismBat 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
 FunctionEnd
 
-; 安装完成后自动进入托管 Cubism 选择配置；取消不会阻止框架安装。
-Function .onInstSuccess
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR"'
-FunctionEnd
 
 Function OpenInstallDirectory
   Exec '"$WINDIR\explorer.exe" "$INSTDIR"'
@@ -287,19 +344,10 @@ Function ModeCreate
   Pop $FullRadio
   ${NSD_CreateRadioButton} 0 52u 100% 14u "$(ModeLiteLabel)"
   Pop $LiteRadio
-  ${NSD_CreateCheckbox} 0 78u 100% 14u "$(ManagedGraalLabel)"
-  Pop $managedGraalCheckbox
-  ${NSD_CreateLabel} 12u 98u 96% 48u "$(ManagedGraalHelp)"
-  Pop $managedGraalHelp
   ${If} $Mode == 1
     ${NSD_Check} $FullRadio
   ${Else}
     ${NSD_Check} $LiteRadio
-  ${EndIf}
-  ${If} $installManagedGraal == 1
-    ${NSD_Check} $managedGraalCheckbox
-  ${Else}
-    ${NSD_Uncheck} $managedGraalCheckbox
   ${EndIf}
   nsDialogs::Show
 FunctionEnd
@@ -311,12 +359,6 @@ Function ModeLeave
   ${Else}
     StrCpy $Mode 0
   ${EndIf}
-  ${NSD_GetState} $managedGraalCheckbox $0
-  ${If} $0 == 1
-    StrCpy $installManagedGraal 1
-  ${Else}
-    StrCpy $installManagedGraal 0
-  ${EndIf}
   ; Lite：取消全部插件 Section（其代码将不执行）；Full：恢复全选
   StrCpy $0 $Mode
   Call SetPluginSectionsSelected
@@ -325,6 +367,103 @@ FunctionEnd
 Function ComponentsPre
   ${If} $Mode == 0
     Abort        ; Lite 模式跳过组件选择页
+  ${EndIf}
+FunctionEnd
+
+Function GraalCreate
+  nsDialogs::Create 1018
+  Pop $GraalDialog
+  ${If} $GraalDialog == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 0 100% 30u "$(GraalPageTitle)"
+  Pop $0
+  ${NSD_CreateLabel} 0 30u 100% 48u "$(GraalPageDescription)"
+  Pop $managedGraalHelp
+  ${NSD_CreateRadioButton} 0 88u 100% 16u "$(GraalNowChoice)"
+  Pop $GraalNowRadio
+  ${NSD_CreateRadioButton} 0 110u 100% 16u "$(GraalLaterChoice)"
+  Pop $GraalLaterRadio
+  ${NSD_CreateLabel} 12u 138u 96% 42u "$(GraalProgressHint)"
+  Pop $0
+  ${If} $installManagedGraal == 1
+    ${NSD_Check} $GraalNowRadio
+  ${Else}
+    ${NSD_Check} $GraalLaterRadio
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function GraalLeave
+  ${NSD_GetState} $GraalNowRadio $0
+  ${If} $0 == 1
+    StrCpy $installManagedGraal 1
+  ${Else}
+    StrCpy $installManagedGraal 0
+  ${EndIf}
+FunctionEnd
+
+Function LaunchOptionsCreate
+  nsDialogs::Create 1018
+  Pop $LaunchOptionsDialog
+  ${If} $LaunchOptionsDialog == error
+    Abort
+  ${EndIf}
+  ${NSD_CreateLabel} 0 0 100% 28u "$(LaunchOptionsTitle)"
+  Pop $0
+  ${NSD_CreateCheckbox} 0 38u 100% 18u "$(StartMenuOption)"
+  Pop $StartMenuCheckbox
+  ${NSD_CreateCheckbox} 0 68u 100% 32u "$(BatIntegrationOption)"
+  Pop $IntegrateBatCheckbox
+  ${NSD_CreateLabel} 12u 106u 96% 72u "$(BatIntegrationHelp)"
+  Pop $LaunchOptionsHelp
+  ${If} $createStartMenu == 1
+    ${NSD_Check} $StartMenuCheckbox
+  ${EndIf}
+  ${If} $integrateCubismBat == 1
+    ${NSD_Check} $IntegrateBatCheckbox
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function LaunchOptionsLeave
+  ${NSD_GetState} $StartMenuCheckbox $createStartMenu
+  ${NSD_GetState} $IntegrateBatCheckbox $integrateCubismBat
+  ${If} $createStartMenu == 0
+  ${AndIf} $integrateCubismBat == 0
+    MessageBox MB_ICONEXCLAMATION|MB_YESNO|MB_DEFBUTTON2 "$(NoLaunchWarning)" IDYES ContinueWithoutLaunch
+    Abort
+  ContinueWithoutLaunch:
+  ${EndIf}
+  ${If} $createStartMenu == 1
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(ShortcutCleanupFailure)"
+      Abort
+    ${EndIf}
+    DetailPrint "$(StartMenuResultCreated)"
+  ${Else}
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(ShortcutCleanupFailure)"
+      Abort
+    ${EndIf}
+    DetailPrint "$(StartMenuResultSkipped)"
+  ${EndIf}
+  ${If} $integrateCubismBat == 1
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(BatIntegrationError)"
+      Abort
+    ${EndIf}
+    DetailPrint "$(BatResultApplied)"
+  ${Else}
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(BatIntegrationError)"
+      Abort
+    ${EndIf}
+    DetailPrint "$(BatResultRestored)"
   ${EndIf}
 FunctionEnd
 
@@ -366,8 +505,8 @@ SectionEnd
 
 Section "-托管 GraalVM" SecManagedGraal
   ${If} $installManagedGraal == 1
-    DetailPrint "Installing Turboism-managed GraalVM. Progress is written to $INSTDIR\logs\installer\managed-graal-install.log"
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR"' $0
+    DetailPrint "$(ManagedGraalStarting)"
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR" -Gui' $0
     ${If} $0 != 0
       MessageBox MB_ICONSTOP "$(ManagedGraalInstallError)"
       Abort
@@ -678,13 +817,18 @@ SectionEnd
 ; 快捷方式名按当前语言（$LANGUAGE）经 LangString 解析；注册项为 per-user（HKCU，免管理员），不写 HKLM。
 Section -"开始菜单与注册" SecStartMenuReg
   SetOutPath "$INSTDIR"
-  CreateDirectory "$SMPROGRAMS\Turboism"
   !insertmacro RemoveLegacyStartMenuShortcuts
-  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
-  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
-  ; r1: 启动 Cubism 快捷方式（目标 launch-cubism-turboism.bat 由 SecCore 先行写入
-  ; $INSTDIR；Start In 取创建时 $OUTDIR，上面已 SetOutPath "$INSTDIR"）
-  CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\launch-cubism-turboism.bat" 0 SW_SHOWNORMAL "" "$INSTDIR"
+  ${If} $createStartMenu == 1
+    CreateDirectory "$SMPROGRAMS\Turboism"
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\launch-cubism-turboism.bat" 0 SW_SHOWNORMAL "" "$INSTDIR"
+  ${Else}
+    Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
+    Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
+    Delete "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk"
+    RMDir "$SMPROGRAMS\Turboism"
+  ${EndIf}
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayName" "Turboism"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayVersion" "${VER}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "Publisher" "Turboism"
