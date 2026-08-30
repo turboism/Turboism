@@ -4,7 +4,7 @@
   "id": "dev.turboism.plugin.historypanel",
   "name": "History Panel Plugin",
   "version": "0.1.0",
-  "description": "Read-only Photoshop-style history pane: projects the active document's native Undo history into an embedded dock tab. Move-to stays fail-closed in production.",
+  "description": "Photoshop-style history pane projecting the active document's native Undo history with snapshot-bound Undo/Redo navigation.",
   "entrypoints": [
     "dev.turboism.plugin.historypanel.HistoryPanelPlugin"
   ],

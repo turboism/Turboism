@@ -22,8 +22,8 @@ import java.util.function.Consumer;
  *
  * <p>Enable attaches a vertical History icon button to the Cubism main frame.
  * Clicking it toggles a small history pane beside the strip (embedded dock
- * panel); clicking again closes it. The pane is read-only; production move-to
- * is a fail-closed boundary.</p>
+ * panel); clicking again closes it. Entry actions use snapshot-bound Undo/Redo
+ * operations and remain unavailable when the reviewed host history service is absent.</p>
  */
 public final class HistoryPanelPlugin implements TurboismPlugin {
 

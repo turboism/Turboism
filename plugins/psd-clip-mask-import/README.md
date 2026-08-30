@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.psd-clip-mask-import
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: psd, import, clip-mask
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: embedded
 
 # PSD Clip Mask Import Plugin
 
-> **Official Turboism development module** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
 Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments after an explicit preview and overwrite confirmation.
 
@@ -39,13 +39,13 @@ Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments af
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Requires the active-model PSD relationship, clip-mask read, ordered replacement, transaction/Undo, embedded-panel, dialog, and status-notification services. This is a development-only module, not a released compatibility commitment.
+- **Cubism:** Requires the active-model PSD relationship, clip-mask read, ordered replacement, transaction/Undo, embedded-panel, dialog, and status-notification services exposed by a supported exact Cubism version.
 - **Interface mode:** `embedded`.
 - **Plugin dependencies:** None declared.
 
 ## Install and enable
 
-This is a **development-only** module. It is not a marketplace listing, release plugin, or supported end-user installation. Use it only from a development build deliberately configured with the required Cubism services. Enable it through the development runtime's plugin controls; its action and panel section are registered in the runtime disposable scope.
+This plugin is included in Turboism Full releases. Install a Full package and enable it through **Plugin Management**. Its action and panel section are registered in the runtime disposable scope, and writes remain unavailable unless the active exact-version host exposes every required reviewed service.
 
 ## How to use
 
@@ -96,7 +96,7 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview release plugin.
 - This imports clipping relationships only; it does not import PSD image files or textures, create ArtMeshes, repair layer bindings, expand the canvas, or provide general PSD reimport.
 - Confirmation is required for every replacement. A current nonempty list or inverted state is shown as an overwrite conflict; replacement sets the planned result to non-inverted.
 - Relationships with unresolved targets, missing base/mask ArtMeshes, no usable masks, self-only masks, duplicate identities, cross-document ambiguity, or an already matching desired state are skipped or fail closed rather than written.
@@ -107,7 +107,7 @@ Lifecycle and safe-failure records can appear in Turboism's session log and Cubi
 
 | Symptom | What to check |
 |---|---|
-| Import section or button is missing | Confirm the development module is enabled and the embedded-panel/action services are available. |
+| Import section or button is missing | Confirm the plugin is enabled and the embedded-panel/action services are available for the active supported Cubism version. |
 | Preview has only skipped rows | Confirm the active PSD clipping bases, masks, and targets all resolve to unique ArtMeshes in the active model. |
 | Confirmation makes no change | Review the preview for already-matching rows, cancellation, ambiguity, or a document/model/plan change that caused a safe failure. |
 | Import fails safely | Check the localized status summary and the plugin log; confirm the required PSD, clip-mask, dialog, write/Undo, and status services are present. |
