@@ -13,6 +13,9 @@ val sdkV3ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV4ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v4-exact.json")
 val sdkV4ExactCommit = "22774994bb3f13fdf027138c1afd7819642113a3"
 val sdkV4ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v4-exact-reference.jar")
+val sdkV5ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v5-exact.json")
+val sdkV5ExactCommit = "7b6a1fa890794396d00b56ab5fa55d88f4399f08"
+val sdkV5ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v5-exact-reference.jar")
 val sdkHistoryGradleUserHome = providers.gradleProperty("turboismSdkHistoryGradleUserHome")
     .map { file(it).canonicalFile }
     .orElse(provider { gradle.gradleUserHomeDir.canonicalFile })
@@ -94,6 +97,25 @@ val prepareSdkV4ExactReference by tasks.registering(Exec::class) {
     )
 }
 
+val prepareSdkV5ExactReference by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Reconstructs the reviewed v5 SDK Gradle JAR from its pinned Git commit in an isolated archive."
+    workingDir(rootDir)
+    inputs.file(sdkV2ExactReferenceBuilder)
+    inputs.property("historicalCommit", sdkV5ExactCommit)
+    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
+    outputs.file(sdkV5ExactReferenceArtifact)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
+        "--root", rootDir.absolutePath,
+        "--commit", sdkV5ExactCommit,
+        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
+        "--output", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
+        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
+    )
+}
+
 val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
     group = "historical verification"
     description = "Audits the reviewed v2 baseline's historical artifact and canonical binding."
@@ -145,11 +167,36 @@ val checkSdkV4ExactApiCompatibility by tasks.registering(Exec::class) {
     )
 }
 
+val checkSdkV5ExactApiCompatibility by tasks.registering(Exec::class) {
+    group = "release verification"
+    description = "Verifies the live SDK remains byte-exact to the reviewed v5 release anchor."
+    dependsOn(":sdk:jar", prepareSdkV5ExactReference)
+    inputs.files(
+        sdkApiHelperFiles,
+        sdkV5ExactBaseline,
+        sdkV2ExactReferenceBuilder,
+        sdkV5ExactReferenceArtifact,
+        sdkJarArtifact
+    )
+    inputs.property("expectedCommit", sdkV5ExactCommit)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+        "--input", sdkJarArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV5ExactReferenceArtifact.get().asFile.absolutePath,
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV5ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV5ExactCommit
+    )
+}
+
 val generateSdkApiReport by tasks.registering(Exec::class) {
     group = "verification"
     description = "Generates the current pre-release public SDK surface for review without changing a baseline."
     dependsOn(":sdk:jar")
     val output = layout.buildDirectory.file("reports/sdk-api/current.txt")
+    inputs.file(sdkJarArtifact)
+    inputs.files(sdkApiHelperFiles)
     outputs.file(output)
     doFirst {
         commandLine(
