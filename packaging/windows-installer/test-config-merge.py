@@ -505,6 +505,11 @@ def check_eula_contract():
           all(value in text for value in acknowledgements)
           and create.count("${NSD_CreateCheckbox}") == 4
           and all("EulaAck%dCheckbox" % index in create for index in range(1, 5)))
+    check("NSIS acknowledgement rows use only one-unit gaps and keep row four visible",
+          '${NSD_CreateCheckbox} 0 0 100% 28u "$(EulaAck1)"' in create
+          and '${NSD_CreateCheckbox} 0 29u 100% 36u "$(EulaAck2)"' in create
+          and '${NSD_CreateCheckbox} 0 66u 100% 44u "$(EulaAck3)"' in create
+          and '${NSD_CreateCheckbox} 0 111u 100% 36u "$(EulaAck4)"' in create)
     check("NSIS reads and requires all four acknowledgement states",
           leave.count("${NSD_GetState}") == 4
           and all("$EulaAck%dState" % index in leave for index in range(1, 5))
