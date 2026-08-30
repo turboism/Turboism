@@ -34,6 +34,8 @@ permission.allow-session
 permission.message
 permission.reject
 permission.title
+plugin.description
+plugin.name
 section.configuration
 section.runtime
 section.security-instructions

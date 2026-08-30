@@ -4,4 +4,5 @@ history.panel.count
 history.panel.title
 history.panel.unavailable
 history.panel.unavailable.detail
+plugin.description
 plugin.name

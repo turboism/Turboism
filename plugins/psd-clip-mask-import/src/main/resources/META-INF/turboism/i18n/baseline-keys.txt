@@ -1,3 +1,5 @@
+plugin.description
+plugin.name
 psd.clip-mask-import.button.import
 psd.clip-mask-import.cancelled
 psd.clip-mask-import.counts
