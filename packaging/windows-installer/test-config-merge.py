@@ -493,8 +493,13 @@ def check_eula_contract():
           and "EnableWindow $4 0" in text
           and "Function EulaLeave" in text
           and "Call EulaUpdateNext" in text)
-    check("NSIS keeps the full declaration scrollable below acknowledgements",
+    check("NSIS measures all four acknowledgements before the scrollable declaration",
           "$mui.LicensePage.LicenseText" in text
+          and "CreateEulaAcknowledgement" in text
+          and text.count("!insertmacro CreateEulaAcknowledgement $EulaAck") == 4
+          and "DrawTextW" in text
+          and "DT_CALCRECT" not in text
+          and "MapDialogRect" in text
           and "SetWindowPos" in text
           and "EulaAck4Checkbox" in text)
     check("NSIS does not expose a single agree checkbox",
