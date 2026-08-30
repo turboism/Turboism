@@ -41,8 +41,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     private void run() {
-        final Path artifact = context.paths().logsDir().resolve("history-seed.txt");
-        final Path checkpoints = context.paths().logsDir().resolve("history-seed-checkpoints.txt");
+        final Path artifact = context.paths().dataDir().resolve("history-seed.txt");
+        final Path checkpoints = context.paths().dataDir().resolve("history-seed-checkpoints.txt");
         try {
             Files.createDirectories(artifact.getParent());
             if (Files.exists(artifact)) throw new IllegalStateException("History seed evidence already exists");

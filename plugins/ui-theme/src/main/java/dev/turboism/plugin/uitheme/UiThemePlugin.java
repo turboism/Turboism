@@ -56,7 +56,8 @@ public final class UiThemePlugin implements TurboismPlugin {
         this.builtinThemeAppearanceService = new BuiltinThemeAppearanceService(
             getClass().getClassLoader(),
             this.context.appearance(),
-            this.context.uiHost()
+            this.context.uiHost(),
+            this.context.localization()
         );
         final ThemeSelectionConfig selectionConfig = new ThemeSelectionConfig(this.context.config());
         selectionConfig.initialize().toCompletableFuture().join();

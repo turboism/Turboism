@@ -314,11 +314,6 @@ class WindowsWorkspaceValidationProbeLifecycleTest {
                 }
 
                 @Override
-                public Path logsDir() {
-                    return stateDir.resolve("logs");
-                }
-
-                @Override
                 public Path stateDir() {
                     return stateDir;
                 }

@@ -10,6 +10,7 @@ import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.DialogRequest;
 import dev.turboism.sdk.ui.ChoiceDialogRequest;
@@ -68,10 +69,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final UiHostStateSource stateSource;
     private final DisposableScope disposableScope;
     private static final int MAX_TRANSIENT_ENTRIES = 64;
+    private static final PluginLogger NOOP_LOGGER = new PluginLogger() {
+        @Override public void debug(final String message) { }
+        @Override public void info(final String message) { }
+        @Override public void warn(final String message) { }
+        @Override public void error(final String message) { }
+        @Override public void error(final String message, final Throwable throwable) { }
+    };
 
     private final StatusToolbarAdapter statusToolbarAdapter;
     private final UiSurfaceAdapter uiSurfaceAdapter;
     private final PluginLocalization localization;
+    private final PluginLogger logger;
     private final EditorUiContributionAuthority contributionAuthority;
     private final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator;
     private final CallbackDispatcher callbackDispatcher;
@@ -200,6 +209,33 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
             localization,
             settingsContributions,
             new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle())
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+        final PluginLogger logger
+    ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            settingsContributions,
+            new EditorUiContributionAuthority(new RuntimeEditorUiHostLifecycle()),
+            new RuntimeEmbeddedPanelActivationCoordinator(),
+            CallbackDispatcher.direct(),
+            logger
         );
     }
 
@@ -343,6 +379,36 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
         final CallbackDispatcher callbackDispatcher
     ) {
+        this(
+            permissionChecker,
+            pluginId,
+            stateSource,
+            disposableScope,
+            statusToolbarAdapter,
+            uiSurfaceAdapter,
+            localization,
+            settingsContributions,
+            contributionAuthority,
+            panelActivationCoordinator,
+            callbackDispatcher,
+            NOOP_LOGGER
+        );
+    }
+
+    public RuntimeUiHostCapabilityService(
+        final PermissionChecker permissionChecker,
+        final String pluginId,
+        final UiHostStateSource stateSource,
+        final DisposableScope disposableScope,
+        final StatusToolbarAdapter statusToolbarAdapter,
+        final UiSurfaceAdapter uiSurfaceAdapter,
+        final PluginLocalization localization,
+        final dev.turboism.ui.settings.SettingsContributionStore settingsContributions,
+        final EditorUiContributionAuthority contributionAuthority,
+        final RuntimeEmbeddedPanelActivationCoordinator panelActivationCoordinator,
+        final CallbackDispatcher callbackDispatcher,
+        final PluginLogger logger
+    ) {
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
         this.pluginId = requireText(pluginId, "pluginId");
         this.stateSource = Objects.requireNonNull(stateSource, "stateSource");
@@ -350,6 +416,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         this.statusToolbarAdapter = Objects.requireNonNull(statusToolbarAdapter, "statusToolbarAdapter");
         this.uiSurfaceAdapter = Objects.requireNonNull(uiSurfaceAdapter, "uiSurfaceAdapter");
         this.localization = localization;
+        this.logger = Objects.requireNonNull(logger, "logger");
         this.settingsRegistry = new dev.turboism.ui.settings.RuntimeSettingsRegistry(
             Objects.requireNonNull(settingsContributions, "settingsContributions"),
             this.pluginId,
@@ -494,17 +561,6 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
-    public boolean refreshOffCanvasAppearance() {
-        final Object value = javax.swing.UIManager.get("CubismCommon.gl.viewArea.background");
-        if (!(value instanceof java.awt.Color color)) {
-            return false;
-        }
-        final String hex = String.format("#%02X%02X%02X",
-            color.getRed(), color.getGreen(), color.getBlue());
-        return new dev.turboism.ui.appearance.OffCanvasAppearanceRefresher().refresh(hex);
-    }
-
-    @Override
     public void openDirectory(final dev.turboism.sdk.storage.StoragePath directory) {
         Objects.requireNonNull(directory, "directory");
         permissionChecker.check(UI_DIALOG_CONTRIBUTE, "ui.dialog.contribute");
@@ -569,6 +625,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public Registration notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_STATUS_NOTIFY, "ui.status.notify");
+        logStatus(notification);
         final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
             statusToolbarAdapter.notifyStatus(scopedForAdapter(notification));
         if (adapterResult.isAvailable()) {
@@ -781,6 +838,15 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
      * encoding, so two plugins cannot collide on the host even when their local IDs
      * share prefixes or contain separators. Message and severity are unchanged.
      */
+    private void logStatus(final StatusNotification notification) {
+        final String message = "Status: " + notification.message();
+        switch (notification.severity()) {
+            case "WARNING" -> logger.warn(message);
+            case "ERROR" -> logger.error(message);
+            default -> logger.info(message);
+        }
+    }
+
     private StatusNotification scopedForAdapter(final StatusNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
         return new StatusNotification(

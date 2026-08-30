@@ -215,8 +215,13 @@ final class McpHttpServerIntegrationTest {
             server.close();
         }
         assertFalse(Files.exists(connectionFile));
-        assertTrue(logger.info.stream().anyMatch(value -> value.contains("listening")));
-        assertTrue(logger.info.stream().anyMatch(value -> value.contains("stopped")));
+        assertTrue(logger.messages.stream().anyMatch(value -> value.contains("started")));
+        assertTrue(logger.messages.stream().anyMatch(value -> value.contains("stopped")));
+        assertFalse(logger.messages.stream().anyMatch(value -> value.contains(TOKEN)));
+        assertFalse(logger.messages.stream().anyMatch(value -> value.contains(server.endpoint().toString())));
+        assertFalse(logger.messages.stream().anyMatch(
+            value -> value.contains(connectionFile.toAbsolutePath().toString())
+        ));
     }
 
     @Test
@@ -412,8 +417,9 @@ final class McpHttpServerIntegrationTest {
     @Test
     void pluginLifecyclePublishesAndRevokesTheAuthenticatedConnection() throws Exception {
         final RecordingConnections connections = new RecordingConnections();
+        final CapturingLogger logger = new CapturingLogger();
         final PluginContext context = pluginContext(
-            new CapturingLogger(), new MutableObjects(), new FakeReadServices(), connections
+            logger, new MutableObjects(), new FakeReadServices(), connections
         );
         final McpPlugin plugin = new McpPlugin();
         plugin.init(context);
@@ -437,6 +443,13 @@ final class McpHttpServerIntegrationTest {
         plugin.shutdown();
         assertTrue(connections.current.isEmpty());
         assertEquals(2, connections.revocations);
+        assertFalse(logger.messages.stream().anyMatch(value -> value.contains(TOKEN)));
+        assertFalse(logger.messages.stream().anyMatch(
+            value -> value.contains(published.endpoint().toString())
+        ));
+        assertFalse(logger.messages.stream().anyMatch(
+            value -> value.contains(connectionFile.toAbsolutePath().toString())
+        ));
     }
 
     @Test
@@ -1176,12 +1189,14 @@ final class McpHttpServerIntegrationTest {
     }
 
     private static final class CapturingLogger implements PluginLogger {
-        private final List<String> info = new ArrayList<>();
+        private final List<String> messages = new ArrayList<>();
 
-        @Override public void debug(final String message) { }
-        @Override public void info(final String message) { info.add(message); }
-        @Override public void warn(final String message) { }
-        @Override public void error(final String message) { }
-        @Override public void error(final String message, final Throwable throwable) { }
+        @Override public void debug(final String message) { messages.add(message); }
+        @Override public void info(final String message) { messages.add(message); }
+        @Override public void warn(final String message) { messages.add(message); }
+        @Override public void error(final String message) { messages.add(message); }
+        @Override public void error(final String message, final Throwable throwable) {
+            messages.add(message);
+        }
     }
 }

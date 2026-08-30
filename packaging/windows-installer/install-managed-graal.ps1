@@ -104,17 +104,21 @@ function Invoke-ManagedGraalGui {
     param([System.Diagnostics.Process]$Process, [string]$LogPath)
     Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing
     [System.Windows.Forms.Application]::EnableVisualStyles()
+    $script:managedGraalExit = 1
+    $script:managedGraalErrors = [System.Collections.Concurrent.ConcurrentQueue[string]]::new()
+    $Process.add_ErrorDataReceived({ param($sender, $event) if ($null -ne $event.Data) { $script:managedGraalErrors.Enqueue($event.Data) } })
+    $Process.BeginErrorReadLine()
     $form = New-Object System.Windows.Forms.Form; $form.Text = $S.Title; $form.Size = New-Object System.Drawing.Size(560, 220); $form.StartPosition = "CenterScreen"; $form.ControlBox = $false
     $status = New-Object System.Windows.Forms.Label; $status.Text = $S.Preparing; $status.Location = New-Object System.Drawing.Point(20, 20); $status.Size = New-Object System.Drawing.Size(510, 26); $form.Controls.Add($status)
     $progress = New-Object System.Windows.Forms.ProgressBar; $progress.Location = New-Object System.Drawing.Point(20, 58); $progress.Size = New-Object System.Drawing.Size(510, 24); $form.Controls.Add($progress)
     $detail = New-Object System.Windows.Forms.Label; $detail.Location = New-Object System.Drawing.Point(20, 92); $detail.Size = New-Object System.Drawing.Size(510, 24); $form.Controls.Add($detail)
     $cancel = New-Object System.Windows.Forms.Button; $cancel.Text = $S.Cancel; $cancel.Location = New-Object System.Drawing.Point(390, 130); $cancel.Size = New-Object System.Drawing.Size(140, 30); $form.Controls.Add($cancel)
-    $started = [DateTime]::UtcNow; $lastTime = $started; $lastBytes = 0L; $result = 1
-    $cancel.Add_Click({ $cancel.Enabled = $false; $status.Text = $S.Cancelling; try { $Process.StandardInput.WriteLine("cancel"); $Process.StandardInput.Flush() } catch { } })
+    $started = [DateTime]::UtcNow; $lastTime = $started; $lastBytes = 0L
+    $cancel.Add_Click({ $cancel.Enabled = $false; $status.Text = $S.Cancelling; Add-Content -LiteralPath $LogPath -Value "GRAAL_INSTALL_CANCEL_REQUESTED" -Encoding UTF8; try { $Process.StandardInput.WriteLine("cancel"); $Process.StandardInput.Flush() } catch { } })
     $timer = New-Object System.Windows.Forms.Timer; $timer.Interval = 150
     $timer.Add_Tick({
         while ($Process.StandardOutput.Peek() -ge 0) {
-            $line = $Process.StandardOutput.ReadLine(); Add-Content -LiteralPath $LogPath -Value $line -Encoding UTF8
+            $line = $Process.StandardOutput.ReadLine(); Add-Content -LiteralPath $LogPath -Value ("STDOUT " + $line) -Encoding UTF8
             $match = [regex]::Match($line, '^GRAAL_RUNTIME_PROGRESS\s+(?<state>\S+)\s+(?<done>[0-9]+)/(?<total>[0-9]+)\s*(?<message>.*)$')
             if (-not $match.Success) { continue }
             $state = $match.Groups['state'].Value; $done = [long]$match.Groups['done'].Value; $total = [long]$match.Groups['total'].Value
@@ -123,7 +127,9 @@ function Invoke-ManagedGraalGui {
             $detail.Text = $S.Progress -f (Format-ByteCount $done), (Format-ByteCount $total), (Format-ByteCount $rate)
             if ($state -eq 'DOWNLOADING') { $status.Text = $S.Downloading } elseif ($state -eq 'EXTRACTING') { $status.Text = $S.Extracting } elseif ($state -eq 'VERIFYING') { $status.Text = $S.Verifying } elseif ($state -eq 'READY') { $status.Text = $S.Ready } elseif ($state -eq 'CANCELLED') { $status.Text = $S.Cancelled }
         }
-        if ($Process.HasExited) { $script:managedGraalExit = $Process.ExitCode; $timer.Stop(); $form.Close() }
+        $errorLine = $null
+        while ($script:managedGraalErrors.TryDequeue([ref]$errorLine)) { Add-Content -LiteralPath $LogPath -Value ("STDERR " + $errorLine) -Encoding UTF8 }
+        if ($Process.HasExited) { $script:managedGraalExit = $Process.ExitCode; Add-Content -LiteralPath $LogPath -Value ("GRAAL_INSTALL_EXIT code=" + $script:managedGraalExit) -Encoding UTF8; $timer.Stop(); $form.Close() }
     })
     $timer.Start(); [void]$form.ShowDialog(); $timer.Dispose(); return $script:managedGraalExit
 }
@@ -140,11 +146,19 @@ try {
     $process = Start-ManagedGraalProcess -JavaExe $javaExe -Agent $agent -TurboismHome $turboismHome
     if ($Gui) { $result = Invoke-ManagedGraalGui -Process $process -LogPath $logPath }
     else {
-        $process.StandardOutput.BaseStream.CopyTo([Console]::OpenStandardOutput()); $process.WaitForExit(); $result = $process.ExitCode
-        Add-Content -LiteralPath $logPath -Value $process.StandardError.ReadToEnd() -Encoding UTF8
+        $stdoutTask = $process.StandardOutput.ReadToEndAsync()
+        $stderrTask = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit(); $result = $process.ExitCode
+        $stdout = $stdoutTask.Result; $stderr = $stderrTask.Result
+        if (-not [string]::IsNullOrEmpty($stdout)) { [Console]::Out.Write($stdout); Add-Content -LiteralPath $logPath -Value ("STDOUT " + $stdout) -Encoding UTF8 }
+        if (-not [string]::IsNullOrEmpty($stderr)) { [Console]::Error.Write($stderr); Add-Content -LiteralPath $logPath -Value ("STDERR " + $stderr) -Encoding UTF8 }
+        Add-Content -LiteralPath $logPath -Value ("GRAAL_INSTALL_EXIT code=" + $result) -Encoding UTF8
     }
     if ($result -ne 0 -and $Gui) { [System.Windows.Forms.MessageBox]::Show(($S.Error -f $logPath), $S.Title, 'OK', 'Error') | Out-Null }
 }
-catch { Write-Error $_.Exception.Message; $result = 1 }
+catch {
+    if (-not [string]::IsNullOrWhiteSpace($logPath)) { try { Add-Content -LiteralPath $logPath -Value ("GRAAL_INSTALL_EXCEPTION " + $_.Exception.Message) -Encoding UTF8 } catch { } }
+    Write-Error $_.Exception.Message; $result = 1
+}
 finally { if ($null -ne $process) { if (-not $process.HasExited) { try { $process.Kill() } catch { } }; $process.Dispose() } }
 exit $result

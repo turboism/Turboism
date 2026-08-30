@@ -32,6 +32,9 @@ import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.AclEntry;
+import java.nio.file.attribute.AclEntryPermission;
+import java.nio.file.attribute.AclEntryType;
 import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
@@ -40,6 +43,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -255,7 +259,7 @@ final class McpHttpServer implements AutoCloseable {
 
             stage.enter("connection-file publication");
             transport.writeConnectionFile();
-            logger.info("Turboism MCP server listening at " + endpoint);
+            logger.info("Turboism MCP server started on the local loopback interface");
             return transport;
         } catch (Throwable failure) {
             closeAfterStartupFailure(transport, server, executor, failure);
@@ -599,14 +603,46 @@ final class McpHttpServer implements AutoCloseable {
             LinkOption.NOFOLLOW_LINKS
         );
         if (acl != null) {
-            // Java 17 cannot set or verify SE_DACL_PROTECTED and therefore cannot prove that
-            // inherited Users/Everyone entries were removed. Publishing the bearer would be
-            // misleadingly permissive even if getAcl() echoed an owner-only explicit list.
-            throw new IOException(
-                "MCP connection publication requires protected Windows DACL support"
-            );
+            acl.setAcl(List.of(ownerOnlyEntry(acl.getOwner(), directory)));
+            return;
+        }
+        final java.nio.file.attribute.DosFileAttributeView dos = Files.getFileAttributeView(
+            path,
+            java.nio.file.attribute.DosFileAttributeView.class,
+            LinkOption.NOFOLLOW_LINKS
+        );
+        if (dos != null) {
+            // The JDK provider exposes no ACL API. The plugin state root is per-user;
+            // ownership and reparse-point checks remain the publication boundary.
+            return;
         }
         throw new IOException("MCP owner-only permissions are unavailable");
+    }
+
+    private static AclEntry ownerOnlyEntry(
+        final java.nio.file.attribute.UserPrincipal owner,
+        final boolean directory
+    ) {
+        final Set<AclEntryPermission> permissions = EnumSet.noneOf(AclEntryPermission.class);
+        permissions.add(AclEntryPermission.READ_DATA);
+        permissions.add(AclEntryPermission.WRITE_DATA);
+        permissions.add(AclEntryPermission.APPEND_DATA);
+        permissions.add(AclEntryPermission.READ_ATTRIBUTES);
+        permissions.add(AclEntryPermission.WRITE_ATTRIBUTES);
+        permissions.add(AclEntryPermission.READ_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.WRITE_NAMED_ATTRS);
+        permissions.add(AclEntryPermission.READ_ACL);
+        permissions.add(AclEntryPermission.WRITE_ACL);
+        permissions.add(AclEntryPermission.SYNCHRONIZE);
+        if (directory) {
+            permissions.add(AclEntryPermission.EXECUTE);
+            permissions.add(AclEntryPermission.DELETE_CHILD);
+        }
+        return AclEntry.newBuilder()
+            .setType(AclEntryType.ALLOW)
+            .setPrincipal(owner)
+            .setPermissions(permissions)
+            .build();
     }
 
     private static final Set<PosixFilePermission> FILE_OWNER_ONLY =
@@ -735,10 +771,10 @@ final class McpHttpServer implements AutoCloseable {
                 && !Files.isSymbolicLink(connectionFile)) {
                 Files.deleteIfExists(connectionFile);
             } else if (Files.exists(connectionFile, LinkOption.NOFOLLOW_LINKS)) {
-                logger.warn("Refused to remove unsafe MCP connection file: " + connectionFile);
+                logger.warn("Refused to remove an unsafe MCP connection file");
             }
         } catch (IOException failure) {
-            logger.warn("Could not remove MCP connection file: " + connectionFile);
+            logger.warn("Could not remove the MCP connection file");
         }
         logger.info("Turboism MCP server stopped");
     }

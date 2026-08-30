@@ -51,10 +51,12 @@ function Test-CubismFixedDrive {
 
 function Get-CubismVersionFromPath {
     param([string]$Root)
-    # This is a family hint only. It is never an exact patch-version claim.
     $leaf = Split-Path -Leaf ($Root.TrimEnd('\', '/'))
-    $match = [regex]::Match($leaf, '(?i)^(?:Live2D\s+)?Cubism(?:\s+Editor)?\s+5\.(2|3)(?:\.[0-9]+)?(?:\s+.*)?$')
-    if ($match.Success) { return "5.$($match.Groups[1].Value)" }
+    $match = [regex]::Match(
+        $leaf,
+        '(?i)^(?:Live2D\s+)?Cubism(?:\s+Editor)?\s+(?<version>5\.(?:2\.03|3\.(?:02|03)))(?:\s+.*)?$'
+    )
+    if ($match.Success) { return $match.Groups['version'].Value }
     return $null
 }
 
@@ -113,10 +115,10 @@ function New-CubismInstallationCandidate {
         }
     }
 
-    $version = Get-CubismVersionFromPath $canonical
     $officialBat = Join-Path $canonical "CubismEditor5.bat"
     $java = Join-Path $canonical "app\jre\bin\java.exe"
     $applicationJar = Join-Path $canonical "app\lib\Live2D_Cubism.jar"
+    $version = Get-CubismVersionFromPath $canonical
     $missing = @()
     if (-not (Test-CubismFixedDrive $canonical)) { $missing += "fixed local drive" }
     if (-not (Test-Path -LiteralPath $canonical -PathType Container)) { $missing += "root directory" }
@@ -135,7 +137,7 @@ function New-CubismInstallationCandidate {
 
     if ($null -eq $version) {
         $status = "Unsupported"
-        $reason = "Only Cubism 5.2 and 5.3 family candidates are selectable; exact patch admission remains host-owned."
+        $reason = "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03 installations are selectable."
     }
     elseif ($missing.Count -gt 0) {
         $status = "Invalid"
@@ -143,7 +145,7 @@ function New-CubismInstallationCandidate {
     }
     else {
         $status = "Ready"
-        $reason = "Family candidate only; runtime exact-version admission is separate."
+        $reason = "Requested exact installation identity; runtime artifact admission remains authoritative."
     }
 
     return [pscustomobject]@{
@@ -280,8 +282,9 @@ function Get-CubismDiscoveryRoots {
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     foreach ($base in $knownBases) {
         foreach ($relative in @(
-            "Live2D Cubism 5.2", "Live2D Cubism 5.3", "Live2D\Cubism 5.2",
-            "Live2D\Cubism 5.3", "Cubism 5.2", "Cubism 5.3"
+            "Live2D Cubism 5.2.03", "Live2D Cubism 5.3.02", "Live2D Cubism 5.3.03",
+            "Live2D\Cubism 5.2.03", "Live2D\Cubism 5.3.02", "Live2D\Cubism 5.3.03",
+            "Cubism 5.2.03", "Cubism 5.3.02", "Cubism 5.3.03"
         )) { & $add (Join-Path $base $relative) $false }
         foreach ($child in Get-CubismDirectories $base) {
             & $add $child.FullName $false
@@ -935,6 +938,8 @@ function New-CubismManagedShortcutStaged {
         $shortcut = $shell.CreateShortcut($temporary)
         $shortcut.TargetPath = $powershell; $shortcut.Arguments = $arguments; $shortcut.WorkingDirectory = $TurboismHome
         $shortcut.Description = "Turboism managed Cubism $($Candidate.Version) launch"
+        $iconPath = Join-Path $TurboismHome "turboism.ico"
+        if (Test-CubismNormalFile $iconPath) { $shortcut.IconLocation = "$iconPath,0" }
         $shortcut.Save()
         if (-not (Test-CubismNormalFile $temporary)) { throw "managed shortcut publication did not create a regular file" }
         return [pscustomobject]@{ Temporary = $temporary; Hash = (Get-CubismSha256 $temporary) }

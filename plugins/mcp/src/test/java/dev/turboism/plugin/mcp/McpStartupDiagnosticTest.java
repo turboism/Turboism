@@ -271,7 +271,7 @@ final class McpStartupDiagnosticTest {
 
         private void record(final String message) {
             messages.add(message);
-            if (!throwOnEveryMessage && !message.contains("listening")) {
+            if (!throwOnEveryMessage && !message.contains("started")) {
                 return;
             }
             if (injected != null) {

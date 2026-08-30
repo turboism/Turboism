@@ -9,11 +9,11 @@ The bundle must be launched only by a host-side task wrapper that enforces exact
 
 ## Evidence
 
-Plugin-owned evidence:
+Plugin-owned validation evidence (created lazily on first probe write):
 
 ```text
-logs/dev.turboism.validation.history-manager/history-probe.jsonl
-logs/dev.turboism.validation.history-seed/history-seed.txt
+data/dev.turboism.validation.history-manager/history-probe.jsonl
+data/dev.turboism.validation.history-seed/history-seed.txt
 ```
 
 The history probe records active document/EditMode identities, `DOCUMENT`, `CURRENT`, `MAIN`, and `LINKED` manager identities, positions, labels, entry counts, ClassLoader, and EDT identity. It refuses existing evidence and caps output at 2 MiB.

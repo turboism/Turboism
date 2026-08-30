@@ -45,11 +45,11 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 ## Install and enable
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
-2. On a POSIX filesystem with enforceable owner-only permissions, read the generated `mcp-connection.json` from the plugin state directory. Windows startup currently fails closed because Java 17 cannot prove a protected DACL or provide handle-relative reparse-safe publication for the bearer file.
+2. Read the generated `mcp-connection.json` from the per-user plugin state directory. Turboism applies owner-only permissions where the Java filesystem provider exposes POSIX or ACL controls; on Windows DOS providers it retains the per-user directory, owner, regular-file, and reparse-point checks.
 3. Configure the local MCP client with the exact numeric-loopback endpoint and bearer authorization value.
 4. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.
 
-The connection file contains a local secret. Do not log it, copy it into validation evidence, or expose it to an untrusted process. Windows support requires a runtime-owned native private state-hierarchy and publication service that creates and retains protected directory/file handles from the start, applies a protected DACL, verifies reparse points and file identity, writes and flushes through the handle, and publishes atomically. Tightening a directory after `Files.createDirectories` inherited its ACL cannot revoke access retained through an already-open handle, so a plugin-local one-shot script or later ACL rewrite is insufficient.
+The connection file contains a local secret. Do not log it, copy it into validation evidence, or expose it to an untrusted process. Turboism binds the transport to loopback, rejects unsafe connection-file paths, verifies owner and file type, avoids following symbolic links, and uses owner-only permissions where the platform exposes them.
 
 ## How to use
 

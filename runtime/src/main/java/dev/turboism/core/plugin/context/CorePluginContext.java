@@ -710,7 +710,8 @@ public final class CorePluginContext implements PluginContext {
                 adapters.statusToolbar(),
                 adapters.uiSurface(),
                 localization,
-                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
+                dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess),
+                this.dependencies.logger()
             )
             : new RuntimeUiHostCapabilityService(
                 uiPermissionChecker,
@@ -731,7 +732,8 @@ public final class CorePluginContext implements PluginContext {
                         "none"
                     ),
                     callback
-                )
+                ),
+                this.dependencies.logger()
             );
         if (hostAccess != null) {
             UiContributionContextBinder.bind(

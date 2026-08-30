@@ -31,7 +31,7 @@ args=(--name history-baseline --version 5302
   --fixture-sha256 57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4
   --require-fixture-unchanged
   --ready-marker "Plugin load complete"
-  --result-file logs/dev.turboism.validation.history-float/history-float.txt
+  --result-file data/dev.turboism.validation.history-float/history-float.txt
   --run-label "$run_label"
   --local-evidence-dir "$local_evidence"
   --result-timeout 420

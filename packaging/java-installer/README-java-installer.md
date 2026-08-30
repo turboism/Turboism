@@ -41,22 +41,23 @@ in `gradle/verification-metadata.xml`.
 java -jar TurboismInstaller-<version>.jar
 ```
 
-Flow: Welcome -> License -> Full/Thin/Lite -> optional plugins (Full and
-Thin) -> target directory -> summary -> install -> finish. Full defaults
+Flow: Welcome -> MIT License -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
 every first-party plugin to selected and installs the matching managed fx
 payload only on reviewed Linux/macOS OS/CPU pairs. Windows Full fails before
 config or payload mutation because no reviewed Windows fx executable exists.
 Thin installs the complete plugin roster without native fx bytes and can be
-installed on Windows; it also accepts an explicit custom executable path.
-That is structural admission only: functional Turboism with fx operation is
-currently unavailable on Windows because the required first-party MCP server
-fails closed until a native protected-DACL and reparse-safe bearer-file
-publication primitive exists. Verified online repair remains limited to the
-reviewed Linux/macOS platforms. Lite installs the agent and common files with
+installed on Windows; it also accepts an explicit custom executable path. The
+first-party loopback MCP server is available on supported Windows hosts with
+bearer authentication and per-user, owner/file-type, reparse-point,
+secure-temporary-file, and post-move publication checks. Verified online fx
+repair and managed native fx payloads remain limited to the reviewed
+Linux/macOS platforms. Lite installs the agent and common files with
 no plugin JAR or fx runtime. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
 `~/Library/Application Support/Turboism` (macOS),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
+
+The declaration gate is the same contract in GUI, console, and automated modes: all four acknowledgements must be explicit before the full localized declaration is accepted. The acknowledgements cover Turboism's independent third-party identity, lawful Cubism authorization, independent backups before authorized content-changing automation, and open-source as-is operation without compatibility or recovery guarantees.
 
 `config.json` is never overwritten blindly: an existing valid config is
 parsed with a bounded JSON parser, unrelated fields are preserved, and only
@@ -76,7 +77,7 @@ or third-party plugin files are never deleted.
 
 Rerun the installer to change the selected plugin set.
 
-On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. The configurator defaults to independent Turboism-owned shortcuts; the explicit takeover mode replaces only shortcuts whose COM target exactly matches a selected official Cubism BAT, records a same-directory byte backup, and uses a deterministic managed launcher with explicit `-Home`, `-CubismRoot`, and `-Variant`. Unmatched variants get independent fallback shortcuts. Cleanup restores only hash-matching managed entries; user edits or malformed state are conflicts and preserve state/backups for retry. It discovers supported Cubism 5.2 and 5.3 family candidates; it does not establish exact patch identity or host readiness, preserves separate installation state, and never edits a Cubism installation.
+On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. After installation the configurator opens automatically, lists only exact supported Cubism Editor 5.2.03, 5.3.02, and 5.3.03 installations, and presents independent controls for Turboism-owned shortcuts and official Cubism BAT integration. BAT integration runs only for exact installations selected by the user, records a hash-guarded backup, and cleanup restores only hash-matching managed files; user edits or malformed state are conflicts and preserve state/backups for retry. The configurator writes actionable diagnostics under `logs/installer/`.
 
 ## Uninstall
 

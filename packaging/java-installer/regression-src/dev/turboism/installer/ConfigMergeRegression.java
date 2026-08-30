@@ -1,6 +1,9 @@
 package dev.turboism.installer;
 
+import com.izforge.izpack.api.adaptator.IXMLElement;
+import com.izforge.izpack.api.adaptator.impl.XMLElementImpl;
 import com.izforge.izpack.api.data.InstallData;
+import com.izforge.izpack.api.exception.InstallerException;
 import com.izforge.izpack.api.resource.Messages;
 
 import java.io.IOException;
@@ -50,6 +53,7 @@ public final class ConfigMergeRegression {
         sizeBoundary();
         concurrentGrowth();
         atomicReplacement();
+        eulaAcknowledgements();
         managedStateCleanup();
         managedStateBackupConfinement();
         windowsProgramsKnownFolder();
@@ -483,6 +487,82 @@ public final class ConfigMergeRegression {
         } finally {
             deleteTree(dir);
         }
+    }
+
+    /** Every GUI, console, and automated installation records four unambiguous acknowledgements. */
+    private static void eulaAcknowledgements() throws Exception {
+        final Map<String, String> variables = new LinkedHashMap<>();
+        final InstallData data = installData(variables);
+        final EulaAcknowledgementPanelAutomationHelper automation =
+                new EulaAcknowledgementPanelAutomationHelper();
+        final IXMLElement accepted = acknowledgementRecord(true);
+
+        automation.runAutomated(data, accepted);
+        check("complete automated EULA record is accepted",
+                EulaAcknowledgements.allAccepted(data));
+
+        final IXMLElement omitted = acknowledgementRecord(true);
+        omitted.removeChild(omitted.getChildren().get(0));
+        check("missing automated EULA acknowledgement fails closed",
+                automatedEulaRejected(automation, installData(new LinkedHashMap<>()), omitted));
+
+        final IXMLElement denied = acknowledgementRecord(true);
+        denied.getChildren().get(0).setAttribute("accepted", "false");
+        check("false automated EULA acknowledgement fails closed",
+                automatedEulaRejected(automation, installData(new LinkedHashMap<>()), denied));
+
+        final IXMLElement duplicate = acknowledgementRecord(true);
+        IXMLElement repeated = new XMLElementImpl("acknowledgement", duplicate);
+        repeated.setAttribute("id", EulaAcknowledgements.KEYS[0]);
+        repeated.setAttribute("accepted", "true");
+        duplicate.addChild(repeated);
+        check("duplicate automated EULA acknowledgement fails closed",
+                automatedEulaRejected(automation, installData(new LinkedHashMap<>()), duplicate));
+
+        final IXMLElement unknown = acknowledgementRecord(true);
+        unknown.getChildren().get(0).setAttribute("id", "unknown");
+        check("unknown automated EULA acknowledgement fails closed",
+                automatedEulaRejected(automation, installData(new LinkedHashMap<>()), unknown));
+
+        final IXMLElement consoleRecord = new XMLElementImpl("panel");
+        EulaAcknowledgements.writeRecord(true, consoleRecord);
+        check("console installation record contains four accepted acknowledgements",
+                consoleRecord.getChildrenNamed("acknowledgement").size()
+                        == EulaAcknowledgements.KEYS.length
+                        && consoleRecord.getChildrenNamed("acknowledgement").stream().allMatch(
+                                entry -> "true".equals(entry.getAttribute("accepted"))));
+    }
+
+    private static IXMLElement acknowledgementRecord(boolean accepted) {
+        final IXMLElement root = new XMLElementImpl("panel");
+        EulaAcknowledgements.writeRecord(accepted, root);
+        return root;
+    }
+
+    private static boolean automatedEulaRejected(
+            EulaAcknowledgementPanelAutomationHelper automation,
+            InstallData data,
+            IXMLElement root) {
+        try {
+            automation.runAutomated(data, root);
+            return false;
+        } catch (InstallerException expected) {
+            return true;
+        }
+    }
+
+    private static InstallData installData(Map<String, String> variables) {
+        return (InstallData) Proxy.newProxyInstance(
+                ConfigMergeRegression.class.getClassLoader(),
+                new Class<?>[] {InstallData.class},
+                (proxy, method, arguments) -> switch (method.getName()) {
+                    case "getVariable" -> variables.get(arguments[0]);
+                    case "setVariable" -> {
+                        variables.put((String) arguments[0], (String) arguments[1]);
+                        yield null;
+                    }
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
     }
 
     /** R5.4: dual-mode cleanup, exact takeover restoration, and conflict preservation. */

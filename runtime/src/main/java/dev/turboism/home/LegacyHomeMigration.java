@@ -20,8 +20,9 @@ public final class LegacyHomeMigration {
     }
 
     /**
-     * Moves each legacy per-plugin directory into the plugin's config, data, cache, state and
-     * logs directories under the current layout.
+     * Moves each legacy per-plugin directory into the plugin's config, data, cache, and state
+     * directories under the current layout. Legacy plugin logs have no private runtime location
+     * and remain in the legacy tree for user inspection.
      *
      * <p>A no-op when no {@code plugin-data} directory exists. A legacy directory whose name is
      * not a valid plugin id is skipped rather than migrated, so a crafted directory name cannot
@@ -53,7 +54,6 @@ public final class LegacyHomeMigration {
                 moveDataTree(plugin.resolve("data"), target.dataDir());
                 moveTree(plugin.resolve("cache"), target.cacheDir());
                 moveTree(plugin.resolve("state"), target.stateDir());
-                moveTree(plugin.resolve("logs"), target.logsDir());
                 deleteEmptyTree(plugin);
             }
         }

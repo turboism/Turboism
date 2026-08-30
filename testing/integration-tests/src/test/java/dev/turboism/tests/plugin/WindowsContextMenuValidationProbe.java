@@ -21,7 +21,7 @@ public final class WindowsContextMenuValidationProbe implements TurboismPlugin {
     @Override
     public void init(final PluginContext context) throws IOException {
         this.context = context;
-        evidence = context.paths().logsDir().resolve("context-menu-validation.log");
+        evidence = context.paths().dataDir().resolve("context-menu-validation.log");
         record("INITIALIZED");
     }
 

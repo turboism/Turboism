@@ -39,10 +39,15 @@ Unicode true
 !ifndef EULA_DIR
   !define EULA_DIR "../eula"
 !endif
+!ifndef ICON_FILE
+  !define ICON_FILE "assets/turboism.ico"
+!endif
 
 ; ---------- 基本属性 ----------
 Name "Turboism"
 OutFile "${OUT_DIR}/TurboismInstaller-${VER}.exe"
+Icon "${ICON_FILE}"
+UninstallIcon "${ICON_FILE}"
 InstallDir "$LOCALAPPDATA\Turboism"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
@@ -61,6 +66,9 @@ SetCompressor /SOLID lzma
 ; MUI_ABORTWARNING 的提示文本由 MUI 语言文件按语言提供（已本地化）
 !define MUI_ABORTWARNING
 !define MUI_COMPONENTSPAGE_SMALLDESC
+!define MUI_ICON "${ICON_FILE}"
+!define MUI_UNICON "${ICON_FILE}"
+!define MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow
 
 !define MUI_WELCOMEPAGE_TITLE "$(TurboismWelcomeTitle)"
 !define MUI_WELCOMEPAGE_TEXT "$(TurboismWelcomeText)"
@@ -75,22 +83,24 @@ SetCompressor /SOLID lzma
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → MIT License → EULA → 模式 → Components → Graal → Directory → 安装 → 启动选项 → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA → 模式 → Components → Graal → Directory → 启动选项 → 安装 → 配置器 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
 !define MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"
 !define MUI_LICENSEPAGE_CHECKBOX
-!define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(EulaAcceptText)"
+!define MUI_LICENSEPAGE_CHECKBOX_TEXT ""
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW EulaShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE EulaLeave
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
 Page custom ModeCreate ModeLeave
 !define MUI_PAGE_CUSTOMFUNCTION_PRE ComponentsPre
 !insertmacro MUI_PAGE_COMPONENTS
 Page custom GraalCreate GraalLeave
 !insertmacro MUI_PAGE_DIRECTORY
-!insertmacro MUI_PAGE_INSTFILES
 Page custom LaunchOptionsCreate LaunchOptionsLeave
+!insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
 
 ; ---------- 卸载页：Confirm（含 config.json 复选框）→ InstFiles → Finish（必须在 MUI_LANGUAGE 之前插入） ----------
@@ -127,12 +137,24 @@ LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the MIT License"
 LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我接受 MIT License"
 LangString LicenseAcceptText ${LANG_JAPANESE} "MIT License に同意します"
 
-LangString EulaTopText ${LANG_ENGLISH} "Please review and accept the separate Turboism Minimal Runtime Agreement. It does not limit rights granted by the MIT License:"
-LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读并接受独立的 Turboism 最小运行最终用户协议。该协议不限制 MIT License 授予的权利："
-LangString EulaTopText ${LANG_JAPANESE} "独立した Turboism 最小ランタイム・エンドユーザー契約を確認して同意してください。この契約は MIT License の権利を制限しません："
-LangString EulaAcceptText ${LANG_ENGLISH} "I accept the Turboism Minimal Runtime Agreement"
-LangString EulaAcceptText ${LANG_SIMPCHINESE} "我接受 Turboism 最小运行最终用户协议"
-LangString EulaAcceptText ${LANG_JAPANESE} "Turboism 最小ランタイム・エンドユーザー契約に同意します"
+LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. All four acknowledgements are required to continue:"
+LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。继续安装前必须分别确认以下四项："
+LangString EulaTopText ${LANG_JAPANESE} "以下の Turboism エンドユーザー運用声明および免責事項の全文を確認してください。続行するには4項目すべての個別確認が必要です："
+LangString EulaAck1 ${LANG_ENGLISH} "I confirm that Turboism is an independent third-party project and not an official Live2D product."
+LangString EulaAck1 ${LANG_SIMPCHINESE} "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。"
+LangString EulaAck1 ${LANG_JAPANESE} "Turboism は独立した第三者プロジェクトであり、Live2D の公式製品ではないことを確認します。"
+LangString EulaAck2 ${LANG_ENGLISH} "I confirm that Cubism still requires valid legal authorization; Turboism does not provide, replace, or bypass Cubism license verification."
+LangString EulaAck2 ${LANG_SIMPCHINESE} "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。"
+LangString EulaAck2 ${LANG_JAPANESE} "Cubism の使用には引き続き合法かつ有効な許諾が必要であり、Turboism は Cubism のライセンス確認を提供、代替、回避しないことを確認します。"
+LangString EulaAck3 ${LANG_ENGLISH} "I understand that plugin, script, MCP, API, and automation operations that I start or authorize may modify, overwrite, or delete project content, and I will keep an independent backup."
+LangString EulaAck3 ${LANG_SIMPCHINESE} "我理解由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。"
+LangString EulaAck3 ${LANG_JAPANESE} "自分が開始または許可したプラグイン、スクリプト、MCP、API、自動化の操作がプロジェクト内容を変更、上書き、削除する可能性を理解し、独立したバックアップを保持します。"
+LangString EulaAck4 ${LANG_ENGLISH} "I understand that Turboism is an open-source project provided as is, with no guarantee of continued compatibility, freedom from errors, or successful recovery."
+LangString EulaAck4 ${LANG_SIMPCHINESE} "我理解 Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。"
+LangString EulaAck4 ${LANG_JAPANESE} "Turboism は現状有姿で提供されるオープンソースプロジェクトであり、継続的な互換性、無エラー、復元の成功は保証されないことを理解します。"
+LangString EulaRequired ${LANG_ENGLISH} "Check all four acknowledgements before continuing."
+LangString EulaRequired ${LANG_SIMPCHINESE} "继续安装前必须勾选全部四项确认。"
+LangString EulaRequired ${LANG_JAPANESE} "続行する前に4項目すべてを選択してください。"
 
 LangString DirectoryTopText ${LANG_ENGLISH} "Turboism will be installed to the following directory (Turboism home):"
 LangString DirectoryTopText ${LANG_SIMPCHINESE} "Turboism 将安装到以下目录（Turboism home）："
@@ -266,6 +288,11 @@ LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカ�
 !macroend
 
 ; ---------- 变量 ----------
+Var EulaAck1Checkbox
+Var EulaAck2Checkbox
+Var EulaAck3Checkbox
+Var EulaAck4Checkbox
+Var EulaNativeAccept
 Var Mode                 ; 0 = Lite, 1 = Full（默认 Full）
 Var ModeDialog
 Var LiteRadio
@@ -319,6 +346,10 @@ Var unCfgStyle          ; 复选框控件样式
 
 ; ---------- 初始化 ----------
 Function .onInit
+  StrCpy $EulaAck1Checkbox 0
+  StrCpy $EulaAck2Checkbox 0
+  StrCpy $EulaAck3Checkbox 0
+  StrCpy $EulaAck4Checkbox 0
   StrCpy $Mode 1
   StrCpy $installManagedGraal 0
   StrCpy $createStartMenu 1
@@ -327,8 +358,110 @@ Function .onInit
 FunctionEnd
 
 
+Function ResizeInstallerWindow
+  ; Enlarge the stock MUI wizard without rewriting each native page. Windows
+  ; keeps the child dialogs centred within the larger top-level client area;
+  ; custom nsDialogs pages already use percentage widths.
+  System::Call 'user32::GetWindowRect(i $HWNDPARENT, @r0)'
+  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
+  IntOp $3 $3 - $1
+  IntOp $4 $4 - $2
+  IntOp $3 $3 * 3
+  IntOp $3 $3 / 2
+  IntOp $4 $4 * 3
+  IntOp $4 $4 / 2
+  System::Call 'user32::GetSystemMetrics(i 0) i .r5'
+  System::Call 'user32::GetSystemMetrics(i 1) i .r6'
+  ${If} $3 > $5
+    IntOp $3 $5 * 9
+    IntOp $3 $3 / 10
+  ${EndIf}
+  ${If} $4 > $6
+    IntOp $4 $6 * 9
+    IntOp $4 $4 / 10
+  ${EndIf}
+  IntOp $1 $5 - $3
+  IntOp $1 $1 / 2
+  IntOp $2 $6 - $4
+  IntOp $2 $2 / 2
+  System::Call 'user32::SetWindowPos(i $HWNDPARENT, i 0, i $1, i $2, i $3, i $4, i 0x0040)'
+FunctionEnd
+
 Function OpenInstallDirectory
   Exec '"$WINDIR\explorer.exe" "$INSTDIR"'
+FunctionEnd
+
+; ---------- 最终用户运行声明：完整正文保持可滚动，四项确认独立勾选 ----------
+Function EulaShow
+  ; MUI 自带的单一同意框仅作为内部页面门闩使用：隐藏并置为已选。
+  ; 用户可见且真正控制“下一步”的是下面四个独立复选框。
+  GetDlgItem $EulaNativeAccept $mui.LicensePage 1034
+  ShowWindow $EulaNativeAccept ${SW_HIDE}
+  SendMessage $EulaNativeAccept ${BM_SETCHECK} ${BST_CHECKED} 0
+  ShowWindow $mui.LicensePage.TopText ${SW_HIDE}
+  ShowWindow $mui.LicensePage.Text ${SW_HIDE}
+
+  ; 依据实际 MUI 内页宽高放置控件；正文位于四项确认下方并保持可滚动。
+  System::Alloc 16
+  Pop $0
+  System::Call 'user32::GetClientRect(p $mui.LicensePage, p r0)'
+  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
+  System::Free $0
+  IntOp $3 $3 - 8
+  IntOp $4 $4 - 108
+  System::Call 'user32::SetWindowPos(p $mui.LicensePage.LicenseText, p 0, i 4, i 108, i $3, i $4, i 0)'
+
+  IntOp $0 ${WS_CHILD} | ${WS_VISIBLE}
+  IntOp $0 $0 | ${WS_TABSTOP}
+  IntOp $0 $0 | ${BS_AUTOCHECKBOX}
+  IntOp $0 $0 | ${BS_MULTILINE}
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck1)", i $0, i 4, i 0, i $3, i 22, i $mui.LicensePage, i 2101, i 0, i 0) i .r$EulaAck1Checkbox'
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck2)", i $0, i 4, i 22, i $3, i 28, i $mui.LicensePage, i 2102, i 0, i 0) i .r$EulaAck2Checkbox'
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck3)", i $0, i 4, i 50, i $3, i 30, i $mui.LicensePage, i 2103, i 0, i 0) i .r$EulaAck3Checkbox'
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck4)", i $0, i 4, i 80, i $3, i 24, i $mui.LicensePage, i 2104, i 0, i 0) i .r$EulaAck4Checkbox'
+
+  SendMessage $mui.LicensePage.LicenseText ${WM_GETFONT} 0 0 $0
+  SendMessage $EulaAck1Checkbox ${WM_SETFONT} $0 1
+  SendMessage $EulaAck2Checkbox ${WM_SETFONT} $0 1
+  SendMessage $EulaAck3Checkbox ${WM_SETFONT} $0 1
+  SendMessage $EulaAck4Checkbox ${WM_SETFONT} $0 1
+  ${NSD_OnClick} $EulaAck1Checkbox EulaUpdateNext
+  ${NSD_OnClick} $EulaAck2Checkbox EulaUpdateNext
+  ${NSD_OnClick} $EulaAck3Checkbox EulaUpdateNext
+  ${NSD_OnClick} $EulaAck4Checkbox EulaUpdateNext
+  Push 0
+  Call EulaUpdateNext
+FunctionEnd
+
+Function EulaUpdateNext
+  Pop $4
+  SendMessage $EulaAck1Checkbox ${BM_GETCHECK} 0 0 $0
+  SendMessage $EulaAck2Checkbox ${BM_GETCHECK} 0 0 $1
+  SendMessage $EulaAck3Checkbox ${BM_GETCHECK} 0 0 $2
+  SendMessage $EulaAck4Checkbox ${BM_GETCHECK} 0 0 $3
+  GetDlgItem $4 $HWNDPARENT 1
+  ${If} $0 == ${BST_CHECKED}
+  ${AndIf} $1 == ${BST_CHECKED}
+  ${AndIf} $2 == ${BST_CHECKED}
+  ${AndIf} $3 == ${BST_CHECKED}
+    EnableWindow $4 1
+  ${Else}
+    EnableWindow $4 0
+  ${EndIf}
+FunctionEnd
+
+Function EulaLeave
+  SendMessage $EulaAck1Checkbox ${BM_GETCHECK} 0 0 $0
+  SendMessage $EulaAck2Checkbox ${BM_GETCHECK} 0 0 $1
+  SendMessage $EulaAck3Checkbox ${BM_GETCHECK} 0 0 $2
+  SendMessage $EulaAck4Checkbox ${BM_GETCHECK} 0 0 $3
+  ${If} $0 != ${BST_CHECKED}
+  ${OrIf} $1 != ${BST_CHECKED}
+  ${OrIf} $2 != ${BST_CHECKED}
+  ${OrIf} $3 != ${BST_CHECKED}
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(EulaRequired)"
+    Abort
+  ${EndIf}
 FunctionEnd
 
 ; ---------- 模式选择页（nsDialogs） ----------
@@ -435,35 +568,18 @@ Function LaunchOptionsLeave
     Abort
   ContinueWithoutLaunch:
   ${EndIf}
+FunctionEnd
+
+Function .onInstSuccess
   ${If} $createStartMenu == 1
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts' $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(ShortcutCleanupFailure)"
-      Abort
-    ${EndIf}
-    DetailPrint "$(StartMenuResultCreated)"
+  ${AndIf} $integrateCubismBat == 1
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialShortcuts -InitialBat'
+  ${ElseIf} $createStartMenu == 1
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialShortcuts'
+  ${ElseIf} $integrateCubismBat == 1
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitialBat'
   ${Else}
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts' $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(ShortcutCleanupFailure)"
-      Abort
-    ${EndIf}
-    DetailPrint "$(StartMenuResultSkipped)"
-  ${EndIf}
-  ${If} $integrateCubismBat == 1
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat' $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(BatIntegrationError)"
-      Abort
-    ${EndIf}
-    DetailPrint "$(BatResultApplied)"
-  ${Else}
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat' $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(BatIntegrationError)"
-      Abort
-    ${EndIf}
-    DetailPrint "$(BatResultRestored)"
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR"'
   ${EndIf}
 FunctionEnd
 
@@ -494,6 +610,8 @@ Section "-核心文件" SecCore
   File "${STAGING_DIR}/configure_turboism.ps1"
   File "${STAGING_DIR}/cubism-launch-common.ps1"
   File "${STAGING_DIR}/install-managed-graal.ps1"
+  File "${STAGING_DIR}/turboism.ico"
+  File "${STAGING_DIR}/turboism.png"
   File "${STAGING_DIR}/README.txt"
   File "${STAGING_DIR}/README.zh.txt"
   File "${STAGING_DIR}/README.ja.txt"
@@ -508,8 +626,8 @@ Section "-托管 GraalVM" SecManagedGraal
     DetailPrint "$(ManagedGraalStarting)"
     ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR" -Gui' $0
     ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(ManagedGraalInstallError)"
-      Abort
+      DetailPrint "$(ManagedGraalInstallError)"
+      MessageBox MB_ICONEXCLAMATION|MB_OK "$(ManagedGraalInstallError)"
     ${EndIf}
   ${EndIf}
 SectionEnd
@@ -820,9 +938,9 @@ Section -"开始菜单与注册" SecStartMenuReg
   !insertmacro RemoveLegacyStartMenuShortcuts
   ${If} $createStartMenu == 1
     CreateDirectory "$SMPROGRAMS\Turboism"
-    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\""
-    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe"
-    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\launch-cubism-turboism.bat" 0 SW_SHOWNORMAL "" "$INSTDIR"
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk" "$WINDIR\System32\WindowsPowerShell\v1.0\powershell.exe" "-NoProfile -ExecutionPolicy Bypass -File $\"$INSTDIR\configure_turboism.ps1$\"" "$INSTDIR\turboism.ico" 0
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk" "$INSTDIR\uninstall.exe" "" "$INSTDIR\turboism.ico" 0
+    CreateShortCut "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\turboism.ico" 0 SW_SHOWNORMAL "" "$INSTDIR"
   ${Else}
     Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
     Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
@@ -866,6 +984,8 @@ Section "Uninstall"
   Delete "$INSTDIR\cubism-launch-common.ps1"
   Delete "$INSTDIR\configure_turboism.ps1"
   Delete "$INSTDIR\install-managed-graal.ps1"
+  Delete "$INSTDIR\turboism.ico"
+  Delete "$INSTDIR\turboism.png"
   ; The configurator removes managed state only after validated shortcut cleanup.
   Delete "$INSTDIR\README*.txt"
   Delete "$INSTDIR\LICENSE"

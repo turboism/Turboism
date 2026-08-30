@@ -37,6 +37,7 @@ from pathlib import Path
 MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
+ICON_DIR = Path(__file__).resolve().parent / "assets"
 
 # 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -281,8 +282,16 @@ def check_managed_graal_installer_contract():
     check("GI3 no install occurs unless selected",
           "${If} $installManagedGraal == 1" in text
           and "install-managed-graal.ps1" in text)
-    check("GI4 selected failure aborts installer",
-          "ManagedGraalInstallError" in text and "Abort" in text)
+    graal_start = text.index('Section "-托管 GraalVM"')
+    graal_end = text.index("SectionEnd", graal_start)
+    graal_section = text[graal_start:graal_end]
+    check("GI4 selected failure warns and continues installer",
+          "ManagedGraalInstallError" in graal_section
+          and "DetailPrint" in graal_section
+          and "MB_ICONEXCLAMATION" in graal_section
+          and "Abort" not in graal_section)
+    check("GI4b remaining configuration follows optional Graal section",
+          graal_end < text.index('Section "-写入配置"'))
     check("GI5 bridge invokes only the managed runtime CLI",
           "dev.turboism.graal.ManagedGraalRuntimeCli install" in bridge
           and "https://" not in bridge and "sha256" not in bridge.lower())
@@ -297,6 +306,83 @@ def check_managed_graal_installer_contract():
           "managed-graal-install.log" in bridge
           and 'Join-Path $turboismHome "logs\\installer"' in bridge
           and "Add-Content -LiteralPath $LogPath" in bridge)
+    check("GI10 bridge drains and labels both output streams",
+          "BeginErrorReadLine" in bridge
+          and '"STDOUT "' in bridge
+          and '"STDERR "' in bridge
+          and "GRAAL_INSTALL_EXIT code=" in bridge
+          and "GRAAL_INSTALL_EXCEPTION" in bridge)
+
+
+def check_configurator_flow_contract():
+    """Configurator is post-install, exact-versioned, resizable, logged and selection-bound."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    check("CF1 launch choices precede payload installation",
+          text.index("Page custom LaunchOptionsCreate LaunchOptionsLeave")
+          < text.index("MUI_PAGE_INSTFILES"))
+    check("CF2 successful installation launches interactive configurator",
+          "Function .onInstSuccess" in text
+          and "configure_turboism.ps1" in text[text.index("Function .onInstSuccess"):])
+    check("CF3 main installer is enlarged by the MUI GUI-init hook",
+          "MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow" in text
+          and "Function ResizeInstallerWindow" in text
+          and "* 3" in text and "/ 2" in text)
+    check("CF4 configurator is large, resizable and maximizable",
+          "ClientSize = New-Object System.Drawing.Size(1080, 900)" in configure
+          and "MinimumSize = New-Object System.Drawing.Size(900, 720)" in configure
+          and "$form.MaximizeBox = $true" in configure
+          and "Anchor = 'Top, Bottom, Left, Right'" in configure)
+    check("CF5 candidate selection preserves exact supported patch versions",
+          "5\\.(?:2\\.03|3\\.(?:02|03))" in common
+          and "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03" in common)
+    check("CF6 BAT integration is selected in the configurator after candidates",
+          "$batCheck" in configure
+          and "Invoke-CubismBatIntegration" in configure
+          and "SELECTION_SAVE" in configure)
+    check("CF7 configurator writes actionable installer diagnostics",
+          "configure-turboism.log" in configure
+          and "CONFIGURATION_FAILED" in configure
+          and "BAT_INTEGRATION_OK" in configure
+          and 'Log: " + $installerLogPath' in configure)
+
+
+
+
+def check_icon_contract():
+    """The exact host-provided icon is staged into executables, shortcuts, and the form."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    common = (INSTALLER_NSI.parent / "cubism-launch-common.ps1").read_text(encoding="utf-8")
+    ico = ICON_DIR / "turboism.ico"
+    png = ICON_DIR / "turboism.png"
+    check("I1 exact ICO asset exists", ico.is_file() and ico.stat().st_size == 251547)
+    check("I1 exact PNG asset exists", png.is_file() and png.stat().st_size == 3503132)
+    import hashlib
+    check("I2 exact ICO hash is pinned",
+          hashlib.sha256(ico.read_bytes()).hexdigest()
+          == "77c70e14edf3a88ba38dd43d6e0b0720f2e4aa8d527b03fba0493e33509d0899")
+    check("I2 exact PNG hash is pinned",
+          hashlib.sha256(png.read_bytes()).hexdigest()
+          == "92cb49349cc27e6f96d33a37ff6ab4d0c00ccc738eb55b3165973d47c38eafd2")
+    assemble = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
+    check("I3 installer and uninstaller use the icon",
+          'Icon "${ICON_FILE}"' in text and 'UninstallIcon "${ICON_FILE}"' in text
+          and 'MUI_ICON "${ICON_FILE}"' in text and 'MUI_UNICON "${ICON_FILE}"' in text
+          and '-DICON_FILE="$repo_root/packaging/windows-installer/assets/turboism.ico"' in assemble)
+    check("I4 installed icon assets are staged and removed",
+          'File "${STAGING_DIR}/turboism.ico"' in text
+          and 'File "${STAGING_DIR}/turboism.png"' in text
+          and 'Delete "$INSTDIR\\turboism.ico"' in text
+          and 'Delete "$INSTDIR\\turboism.png"' in text)
+    check("I5 Start-menu shortcuts use the installed ICO", text.count('$INSTDIR\\turboism.ico') >= 4)
+    check("I6 managed Cubism shortcuts use the installed ICO",
+          '$shortcut.IconLocation = "$iconPath,0"' in common)
+    check("I7 configurator uses and disposes the installed ICO",
+          '$form.Icon = $formIcon' in configure
+          and '$formIcon.Dispose()' in configure
+          and '$form.Dispose()' in configure)
 
 
 def check_launcher_and_shortcut_contract():
@@ -342,11 +428,11 @@ def check_launcher_and_shortcut_contract():
           "only if explicitly selected" in text
           and "仅在明确勾选时" in text
           and "BatIntegrationHelp" in text
-          and "-IntegrateBat" in text
-          and "-DisableBat" in text)
+          and "-InitialBat" in text
+          and "$batCheck" in configure)
     check("L6b Start-menu and BAT controls are independent and reversible",
-          "-EnableShortcuts" in text
-          and "-DisableShortcuts" in text
+          "-InitialShortcuts" in text
+          and "-InitialBat" in text
           and "Disable-CubismShortcutIntegration" in common
           and "Restore-CubismBatIntegrations" in common)
     check("L7 finish page can open the installation directory",
@@ -371,25 +457,49 @@ def check_eula_contract():
     en = eula_files["en"].read_text(encoding="utf-8")
     zh = eula_files["zh"].read_text(encoding="utf-8")
     ja = eula_files["ja"].read_text(encoding="utf-8")
-    check("EULA preserves MIT-granted rights",
-          "Nothing in this agreement limits, revokes, or narrows" in en
-          and "MIT License controls" in en)
-    forbidden = (
-        "reverse engineering", "commercial use", "telemetry", "user account",
-        "acceptable use", "prohibited use",
-    )
-    check("EULA adds no broad use restrictions",
-          not any(term in en.lower() for term in forbidden))
-    check("EULA English is authoritative with translated notices",
-          "English text of this agreement is authoritative" in en
-          and "本协议以英文文本为权威文本" in zh
-          and "本契約は英語文を正文とします" in ja)
+    root_eula = (EULA_DIR.parent.parent / "EULA.md").read_text(encoding="utf-8")
+    derived_root = re.sub(r"^#{1,6}\s+", "", root_eula, flags=re.MULTILINE)
+    derived_root = derived_root.replace("**", "").replace("  \n", "\n")
+    check("root EULA is authoritative and packaging copy is derived exactly",
+          derived_root == zh)
+    check("EULA is version 2.0 and final",
+          "版本：2.0" in root_eula
+          and "发布日期：2026-08-30" in root_eula
+          and "草案" not in root_eula)
+    check("EULA preserves the complete user-supplied declaration",
+          "TURBOISM 最终用户运行声明与免责声明" in root_eula
+          and "## 1. 独立项目与非官方性质" in root_eula
+          and "## 16. 语言" in root_eula
+          and "本版本以简体中文文本为正式文本" in root_eula)
+    check("localized notices identify Simplified Chinese as authoritative",
+          "The Simplified Chinese text is authoritative" in en
+          and "本版本以简体中文文本为正式文本" in zh
+          and "簡体字中国語文を正文とします" in ja)
     first = text.index('!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"')
     second = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
     check("EULA is a separate page after MIT License", first < second)
-    check("EULA page requires explicit acceptance",
-          'MUI_LICENSEPAGE_CHECKBOX_TEXT "$(EulaAcceptText)"' in text
-          and "LicenseAcceptText" in text and "EulaAcceptText" in text)
+    acknowledgements = (
+        "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。",
+        "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。",
+        "我理解由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。",
+        "我理解 Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。",
+    )
+    check("NSIS shows all four required acknowledgements",
+          all(value in text for value in acknowledgements)
+          and all("EulaAck%dCheckbox" % index in text for index in range(1, 5)))
+    check("NSIS requires all four acknowledgements before Next",
+          text.count("${BM_GETCHECK}") >= 8
+          and "Function EulaUpdateNext" in text
+          and "EnableWindow $4 0" in text
+          and "Function EulaLeave" in text
+          and "Call EulaUpdateNext" in text)
+    check("NSIS keeps the full declaration scrollable below acknowledgements",
+          "$mui.LicensePage.LicenseText" in text
+          and "SetWindowPos" in text
+          and "EulaAck4Checkbox" in text)
+    check("NSIS does not expose a single agree checkbox",
+          'MUI_LICENSEPAGE_CHECKBOX_TEXT ""' in text
+          and "EulaAcceptText" not in text)
     check("NSIS EULA files are localized",
           all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
               for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
@@ -650,6 +760,8 @@ def main():
 
     check_nsis_retirement_contract()
     check_managed_graal_installer_contract()
+    check_configurator_flow_contract()
+    check_icon_contract()
     check_launcher_and_shortcut_contract()
     check_eula_contract()
     check_graal_fallback_contract()

@@ -205,6 +205,20 @@ class UiThemePluginTest {
         return host.notifications();
     }
 
+    private static dev.turboism.sdk.ui.FormDialogRequest awaitFormRequest(
+        final RecordingUiHost host,
+        final int seconds
+    ) throws Exception {
+        final long deadline = System.nanoTime() + seconds * 1_000_000_000L;
+        while (System.nanoTime() < deadline) {
+            if (host.lastFormRequest() != null) {
+                return host.lastFormRequest();
+            }
+            Thread.sleep(50);
+        }
+        return host.lastFormRequest();
+    }
+
     @Test
     void managerWindowApplyWithBlankActionAppliesSelectedTheme() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
@@ -301,6 +315,100 @@ class UiThemePluginTest {
             "ui-theme.appearance.apply.unavailable",
             context.uiHost().notifications().get(0).id()
         );
+        assertEquals("Theme apply failed: {0}", context.uiHost().notifications().get(0).message());
+    }
+
+    @Test
+    void managerApplyReportsThatCubismEditorMustRestartAfterSuccessfulThemeApply() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        context.appearanceService().applyOutcome(AppearanceApplyResult.Outcome.APPLIED);
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+
+        final ChoiceDialogRequest request = context.uiHost().lastChoiceRequest();
+        final String themeId = request.options().stream()
+            .filter(option -> !"__native__".equals(option.id()))
+            .findFirst()
+            .orElseThrow()
+            .id();
+        context.uiHost().lastChoiceListener().onResult(themeId, "");
+
+        final List<StatusNotification> notifications = awaitNotifications(context.uiHost(), 5);
+        assertEquals("ui-theme.selection.selected", notifications.get(0).id());
+        assertEquals("INFO", notifications.get(0).severity());
+        assertEquals(
+            "Theme applied: " + request.options().stream()
+                .filter(option -> option.id().equals(themeId))
+                .findFirst()
+                .orElseThrow()
+                .label()
+                + ". Restart Cubism Editor to ensure the theme is applied correctly.",
+            notifications.get(0).message()
+        );
+    }
+
+    @Test
+    void builtinAppearanceActionReportsThatCubismEditorMustRestartAfterSuccessfulThemeApply()
+        throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        context.appearanceService().applyOutcome(AppearanceApplyResult.Outcome.NO_CHANGE);
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.appearance.apply-builtin");
+
+        assertEquals(
+            List.of(new StatusNotification(
+                "ui-theme.appearance.apply.no_change",
+                "INFO",
+                "Theme applied: Nord. Restart Cubism Editor to ensure the theme is applied correctly."
+            )),
+            context.uiHost().notifications()
+        );
+    }
+
+    @Test
+    void themeEditorReportsThatCubismEditorMustRestartAfterSaveAndApply() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        context.appearanceService().applyOutcome(AppearanceApplyResult.Outcome.APPLIED);
+        UiThemePlugin plugin = new UiThemePlugin();
+
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute("ui-theme.manager.open");
+        final ChoiceDialogRequest manager = context.uiHost().lastChoiceRequest();
+        final String themeId = manager.options().stream()
+            .filter(option -> !"__native__".equals(option.id()))
+            .findFirst()
+            .orElseThrow()
+            .id();
+        context.uiHost().lastChoiceListener().onResult(themeId, "edit-theme");
+
+        final dev.turboism.sdk.ui.FormDialogRequest request = awaitFormRequest(context.uiHost(), 5);
+        assertNotNull(request);
+        context.uiHost().lastFormListener().onResult(true, null, editorValues(request));
+
+        final List<StatusNotification> notifications = awaitNotifications(context.uiHost(), 5);
+        assertEquals("ui-theme.editor.saved-applied", notifications.get(0).id());
+        assertEquals(
+            "Theme applied: Fresh Theme. Restart Cubism Editor to ensure the theme is applied correctly.",
+            notifications.get(0).message()
+        );
+    }
+
+    private static Map<String, String> editorValues(
+        final dev.turboism.sdk.ui.FormDialogRequest request
+    ) {
+        final Map<String, String> values = new java.util.LinkedHashMap<>();
+        request.fields().forEach(field -> values.put(field.id(), field.value()));
+        values.put("slug", "fresh-theme");
+        values.put("name", "Fresh Theme");
+        values.put("author", "Test Author");
+        return Map.copyOf(values);
     }
 
     @Test
@@ -373,8 +481,20 @@ class UiThemePluginTest {
         public dev.turboism.sdk.i18n.PluginLocalization localization() {
             return new dev.turboism.sdk.i18n.PluginLocalization() {
                 @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
-                @Override public String text(final String key) { return key; }
-                @Override public String format(final String key, final Object... arguments) { return key; }
+                @Override public String text(final String key) {
+                    return switch (key) {
+                        case "theme.selection.failed" -> "Theme apply failed: {0}";
+                        default -> key;
+                    };
+                }
+                @Override public String format(final String key, final Object... arguments) {
+                    return switch (key) {
+                        case "theme.selection.applied" -> "Theme applied: " + arguments[0]
+                            + ". Restart Cubism Editor to ensure the theme is applied correctly.";
+                        case "theme.selection.failed" -> "Theme apply failed: {0}";
+                        default -> key;
+                    };
+                }
                 @Override public boolean contains(final String key) { return true; }
             };
         }
@@ -572,6 +692,8 @@ class UiThemePluginTest {
 
         private ChoiceDialogRequest lastChoiceRequest;
         private dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener;
+        private dev.turboism.sdk.ui.FormDialogRequest lastFormRequest;
+        private dev.turboism.sdk.ui.FormDialogResultListener lastFormListener;
 
         @Override
         public void openChoiceDialog(
@@ -588,6 +710,14 @@ class UiThemePluginTest {
 
         dev.turboism.sdk.ui.ChoiceDialogResultListener lastChoiceListener() {
             return lastChoiceListener;
+        }
+
+        dev.turboism.sdk.ui.FormDialogRequest lastFormRequest() {
+            return lastFormRequest;
+        }
+
+        dev.turboism.sdk.ui.FormDialogResultListener lastFormListener() {
+            return lastFormListener;
         }
 
         List<DialogRequest> dialogs() {
@@ -632,6 +762,15 @@ class UiThemePluginTest {
         @Override
         public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) {
             throw new UnsupportedOperationException("embedded panels are not used by this plugin test");
+        }
+
+        @Override
+        public void openFormDialog(
+            final dev.turboism.sdk.ui.FormDialogRequest request,
+            final dev.turboism.sdk.ui.FormDialogResultListener listener
+        ) {
+            this.lastFormRequest = request;
+            this.lastFormListener = listener;
         }
 
         @Override
@@ -682,6 +821,7 @@ class UiThemePluginTest {
     private static final class RecordingAppearanceService implements AppearanceService {
         private AppearanceRequest lastRequest;
         private AppearanceRestoreResult lastRestore;
+        private AppearanceApplyResult.Outcome applyOutcome = AppearanceApplyResult.Outcome.UNAVAILABLE;
         private final AppearanceStatus status = new AppearanceStatus(
             AppearanceStatus.Availability.UNAVAILABLE,
             AppearanceStatus.Source.NATIVE,
@@ -699,6 +839,10 @@ class UiThemePluginTest {
             return lastRestore;
         }
 
+        void applyOutcome(final AppearanceApplyResult.Outcome outcome) {
+            this.applyOutcome = outcome;
+        }
+
         @Override
         public java.util.concurrent.CompletionStage<AppearanceStatus> current() {
             return java.util.concurrent.CompletableFuture.completedFuture(status);
@@ -711,9 +855,11 @@ class UiThemePluginTest {
             lastRequest = request;
             return java.util.concurrent.CompletableFuture.completedFuture(
                 new AppearanceApplyResult(
-                    AppearanceApplyResult.Outcome.UNAVAILABLE,
+                    applyOutcome,
                     status,
-                    Optional.of("appearance.unavailable")
+                    applyOutcome == AppearanceApplyResult.Outcome.UNAVAILABLE
+                        ? Optional.of("appearance.unavailable")
+                        : Optional.empty()
                 )
             );
         }

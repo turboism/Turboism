@@ -167,6 +167,8 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/configure_turboism.ps1",
     "packaging/windows-installer/cubism-launch-common.ps1",
     "packaging/windows-installer/install-managed-graal.ps1",
+    "packaging/windows-installer/assets/turboism.ico",
+    "packaging/windows-installer/assets/turboism.png",
     "packaging/java-installer/uninstall.command",
     "packaging/java-installer/README.java-installer.txt"
 )
@@ -546,6 +548,8 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/windows-installer/configure_turboism.ps1")
             from("packaging/windows-installer/cubism-launch-common.ps1")
             from("packaging/windows-installer/install-managed-graal.ps1")
+            from("packaging/windows-installer/assets/turboism.ico")
+            from("packaging/windows-installer/assets/turboism.png")
             from("packaging/java-installer/uninstall.command")
             from("packaging/java-installer/README.java-installer.txt")
             into(stage)
@@ -562,6 +566,19 @@ val installerListenerSourceSet = extensions.getByType(SourceSetContainer::class.
     java.srcDir(file("packaging/java-installer/listener-src"))
 }
 dependencies.add("installerListenerCompileOnly", "org.codehaus.izpack:izpack-api:5.2.6")
+// Custom GUI/console/automation panel siblings are compiled against the
+// installer and console APIs already embedded by the IzPack installer runtime.
+// Keep both compile-only edges non-transitive: izpack-api is declared above,
+// and no implementation dependency belongs in the listener compile classpath.
+dependencies.add(
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-installer:5.2.6"
+) { isTransitive = false }
+dependencies.add(
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-gui:5.2.6"
+) { isTransitive = false }
+dependencies.add(
+    "installerListenerCompileOnly", "org.codehaus.izpack:izpack-util:5.2.6"
+) { isTransitive = false }
 // Pinned IzPack toolchain (frozen spec: org.izpack.gradle:3.2.3 + izpack-ant:5.2.6)
 dependencies.add("izpack", "org.codehaus.izpack:izpack-ant:5.2.6")
 
@@ -598,6 +615,15 @@ val installerRegressionSourceSet = extensions.getByType(SourceSetContainer::clas
     java.srcDir(file("packaging/java-installer/regression-src"))
 }
 dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-api:5.2.6")
+dependencies.add(
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-installer:5.2.6"
+) { isTransitive = false }
+dependencies.add(
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-gui:5.2.6"
+) { isTransitive = false }
+dependencies.add(
+    "installerRegressionCompileOnly", "org.codehaus.izpack:izpack-util:5.2.6"
+) { isTransitive = false }
 dependencies.add("installerRegressionCompileOnly", "org.codehaus.izpack:izpack-tools:5.2.6")
 
 val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
@@ -914,7 +940,8 @@ val checkJavaInstaller by tasks.registering(Exec::class) {
             "--sha256", distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar.sha256").asFile.absolutePath,
             "--payload", javaInstallerPayloadDir.get().asFile.absolutePath,
             "--regression-jar", installerRegressionJarTask.get().archiveFile.get().asFile.absolutePath,
-            "--manifest", releasePluginsFile.absolutePath
+            "--manifest", releasePluginsFile.absolutePath,
+            "--installer-xml", izpackBaseDir.get().file("installer.xml").asFile.absolutePath
         )
     }
 }

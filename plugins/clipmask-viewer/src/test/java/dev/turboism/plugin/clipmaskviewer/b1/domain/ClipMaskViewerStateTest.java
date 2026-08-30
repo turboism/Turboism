@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ClipMaskViewerStateTest {
@@ -57,6 +58,32 @@ class ClipMaskViewerStateTest {
         assertEquals(0, state.countUniqueMasks());
         assertEquals(0, state.countOrderConflicts());
         assertTrue(state.filterRelated().isEmpty());
+    }
+
+    @Test
+    void analyzesLargeDetachedRelationshipSetIntoCachedLinearViews() {
+        final java.util.ArrayList<ClipMaskRecord> records = new java.util.ArrayList<>();
+        for (int index = 0; index < 5_000; index++) {
+            records.add(record(
+                "user-" + index,
+                "ArtMesh" + index,
+                false,
+                "mask-" + (index % 250),
+                "mask-" + ((index + 1) % 250)
+            ));
+        }
+
+        final ClipMaskViewerState.Snapshot snapshot = ClipMaskViewerState.analyze(records);
+
+        assertEquals(5_000, snapshot.records().size());
+        assertEquals(250, snapshot.maskUsers().size());
+        assertEquals(5_000, snapshot.relatedRecords().size());
+        assertEquals(5_000, snapshot.countWithMasks());
+        assertEquals(250, snapshot.countUniqueMasks());
+        assertTrue(snapshot.records() != records);
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.records().add(
+            record("extra", "extra", false)
+        ));
     }
 
     @Test

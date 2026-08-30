@@ -24,6 +24,14 @@
     <str id="turboism-managed-graal" txt="使用 GraalVM 提升性能（可选）"/>
     <str id="turboism-managed-graal.description" txt="立即下载并校验 Turboism 固定版本的私有 GraalVM；若不勾选，可稍后在 Turboism 设置中安装。"/>
 
-    <str id="LicencePanel.eula.info" txt="Turboism 最小运行最终用户协议"/>
+    <str id="LicencePanel.eula.info" txt="Turboism 最终用户许可协议"/>
+
+    <str id="EulaAcknowledgementPanel.title" txt="必须确认的运行事项"/>
+    <str id="EulaAcknowledgementPanel.introduction" txt="在阅读并接受下列最终用户许可协议前，请确认以下各项。必须全部确认才能继续。"/>
+    <str id="EulaAcknowledgementPanel.independent" txt="我知悉 Turboism 是独立的第三方项目，并非 Live2D 的官方产品。"/>
+    <str id="EulaAcknowledgementPanel.license" txt="我知悉 Cubism 仍需要合法授权；Turboism 不提供、不替代也不绕过许可证验证。"/>
+    <str id="EulaAcknowledgementPanel.backup" txt="我知悉经用户授权的插件、脚本、MCP、API 或自动化操作可能修改、覆盖或删除项目内容，我将保留独立备份。"/>
+    <str id="EulaAcknowledgementPanel.asIs" txt="我知悉 Turboism 是开源软件，按现状提供，不保证持续兼容、无错误或能够成功恢复。"/>
+    <str id="EulaAcknowledgementPanel.rejected" txt="必须接受全部所需确认，安装才能继续。"/>
 
 </izpack:langpack>

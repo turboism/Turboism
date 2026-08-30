@@ -68,6 +68,7 @@
     <panels>
         <panel classname="HelloPanel"/>
         <panel classname="LicencePanel"/>
+        <panel classname="dev.turboism.installer.EulaAcknowledgementPanel" id="eulaAcknowledgements"/>
         <panel classname="LicencePanel" id="eula"/>
         <panel classname="InstallationGroupPanel"/>
         <panel classname="PacksPanel"/>

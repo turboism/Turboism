@@ -60,7 +60,7 @@ final class FxProcessTransportTest {
             #!/bin/sh
             "%s" "%s" &
             printf '%%s' "$!" > "%s"
-            sleep 0.05
+            sleep 0.25
             exit 0
             """.formatted(childScript, grandchildPid, childPid));
         executable.toFile().setExecutable(true, true);
@@ -78,6 +78,10 @@ final class FxProcessTransportTest {
             }
             assertTrue(Files.exists(childPid), "fixture child pid was not published");
             child = Long.parseLong(Files.readString(childPid));
+            for (int attempt = 0; attempt < 200 && transport.isAlive(); attempt++) {
+                Thread.sleep(5L);
+            }
+            assertTrue(!transport.isAlive(), "fixture parent did not exit");
             transport.terminate(Duration.ofMillis(750));
             for (int attempt = 0; attempt < 200 && !Files.exists(grandchildPid); attempt++) {
                 Thread.sleep(5L);
@@ -85,14 +89,16 @@ final class FxProcessTransportTest {
             if (Files.exists(grandchildPid)) {
                 grandchild = Long.parseLong(Files.readString(grandchildPid));
             }
+            assertTrue(awaitGone(child, Duration.ofSeconds(3)),
+                "retained child survived after direct process exit");
+            if (grandchild > 0L) {
+                assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
+                    "observed late-spawned grandchild survived best-effort cleanup");
+            }
         } finally {
+            killFixtureProcess(child);
+            killFixtureProcess(grandchild);
             transport.terminate(Duration.ZERO);
-        }
-        assertTrue(awaitGone(child, Duration.ofSeconds(3)),
-            "retained child survived after direct process exit");
-        if (grandchild > 0L) {
-            assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
-                "observed late-spawned grandchild survived best-effort cleanup");
         }
     }
 
@@ -136,6 +142,12 @@ final class FxProcessTransportTest {
         final long retainedPid = pid;
         assertTrue(awaitGone(retainedPid, Duration.ofSeconds(3)),
             "retained fixture child survived best-effort cleanup");
+    }
+
+    private static void killFixtureProcess(final long pid) {
+        if (pid <= 0L) return;
+        ProcessHandle.of(pid).filter(ProcessHandle::isAlive)
+            .ifPresent(ProcessHandle::destroyForcibly);
     }
 
     private static boolean awaitGone(final long pid, final Duration timeout)

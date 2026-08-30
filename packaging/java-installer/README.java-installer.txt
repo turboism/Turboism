@@ -17,20 +17,23 @@ Windows before changing config or payload files. Thin mode installs the same
 plugins without native fx bytes; on reviewed macOS/Linux pairs, Turboism with fx
 can explicitly download and verify the exact reviewed platform runtime later.
 On Windows, Thin installation and an explicit custom executable path are
-structurally accepted, but Turboism with fx cannot operate because the
-first-party MCP server fails closed until a native protected-DACL,
-reparse-safe bearer-publication service exists. Both plugin modes let you
-deselect individual plugins. Lite mode installs only the agent and common
+structurally accepted. The first-party loopback MCP server is available with
+bearer authentication and per-user, owner/file-type, reparse-point,
+secure-temporary-file, and post-move publication checks, but no managed native
+fx runtime is shipped for Windows. Both plugin modes let you deselect
+individual plugins. Lite mode installs only the agent and common
 files. The installer never overwrites an existing config.json blindly: it
 preserves unrelated settings and only merges the plugin selection
 (disabledPlugins). Rerun the installer at any time to change the selected
 plugin set.
 
-On Windows, run the packaged configure_turboism.ps1 later whenever you need to
-change Cubism installations or managed launch entries. It keeps installation
-state separate from config.json and calls selected roots only through their
-official Cubism BAT. Canceling setup leaves a valid framework-only install;
-Cubism files are never changed.
+On Windows, configure_turboism.ps1 opens after installation and can be run
+again later. It lists only exact supported Cubism Editor 5.2.03, 5.3.02, and
+5.3.03 installations and exposes separate controls for Turboism-owned
+shortcuts and official Cubism BAT integration. BAT integration runs only for
+selected installations, preserves a hash-guarded backup, and writes actionable
+diagnostics under logs/installer/. Canceling setup leaves a valid
+framework-only install.
 
 Default install location (change it in the installer):
   macOS:  ~/Library/Application Support/Turboism

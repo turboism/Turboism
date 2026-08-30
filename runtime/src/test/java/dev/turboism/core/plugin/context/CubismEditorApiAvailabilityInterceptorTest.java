@@ -11,6 +11,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
@@ -28,7 +29,7 @@ class CubismEditorApiAvailabilityInterceptorTest {
     }
 
     @Test
-    void cubismHistoryApiIsAvailableOnReviewed5203Host() {
+    void cubismHistoryFacadeAndReturnedApiAreAvailableOnReviewed5203Host() {
         final AtomicInteger calls = new AtomicInteger();
         final dev.turboism.sdk.cubism.CubismFacade delegate =
             new dev.turboism.sdk.cubism.CubismFacade() {
@@ -59,8 +60,10 @@ class CubismEditorApiAvailabilityInterceptorTest {
             Optional.of("5.2.03")
         );
 
-        proxy.history();
+        final dev.turboism.sdk.cubism.history.HistorySnapshot snapshot =
+            assertDoesNotThrow(() -> proxy.history().snapshot());
 
+        assertEquals(dev.turboism.sdk.cubism.history.HistorySnapshot.unavailable(), snapshot);
         assertEquals(1, calls.get());
     }
 

@@ -10,10 +10,10 @@ import java.util.regex.Pattern;
 /**
  * The on-disk directory layout of a Turboism home.
  *
- * <p>All plugin-visible storage is confined under one home root, and per-plugin directories are
- * keyed by a validated plugin id so one plugin cannot reach another's storage through a crafted
- * id. Directories are created eagerly when they are handed out, so callers never have to guess
- * whether a path exists.</p>
+ * <p>All plugin-visible storage is confined under one home root, and per-plugin paths are keyed
+ * by a validated plugin id so one plugin cannot reach another's storage through a crafted id.
+ * Plugin config, data, and cache directories are materialised only by their respective filesystem
+ * operations.</p>
  */
 public final class TurboismHomeLayout {
 
@@ -83,30 +83,29 @@ public final class TurboismHomeLayout {
     }
 
     /**
-     * Returns the confined directory set for one plugin, creating it if needed.
+     * Returns the confined path set for one plugin.
+     *
+     * <p>Config, data, and cache paths are not materialised here. State retains its runtime-owned
+     * lifecycle and is created before it is handed out. Plugin logs flow through the shared runtime
+     * logger rather than a plugin-visible filesystem path.
      *
      * @param pluginId the plugin's declared id
-     * @return the plugin's config, data, cache, state and log directories
+     * @return the plugin's config, data, cache and state paths
      * @throws IllegalArgumentException when the id is null or does not match the accepted shape;
      *     this is the check that keeps one plugin's storage out of another's
-     * @throws IOException when a directory cannot be created
+     * @throws IOException when the state directory cannot be created
      */
     public PluginHomePaths plugin(final String pluginId) throws IOException {
         if (pluginId == null || !PLUGIN_ID.matcher(pluginId).matches()) {
             throw new IllegalArgumentException("pluginId is invalid");
         }
         final PluginHomePaths paths = new PluginHomePaths(
-            home.resolve("config").resolve(pluginId),
-            home.resolve("data").resolve(pluginId),
-            home.resolve("cache").resolve(pluginId),
-            home.resolve("state").resolve(pluginId),
-            home.resolve("logs").resolve(pluginId)
+            AnchoredDirectoryTree.anchor(home.resolve("config").resolve(pluginId)),
+            AnchoredDirectoryTree.anchor(home.resolve("data").resolve(pluginId)),
+            AnchoredDirectoryTree.anchor(home.resolve("cache").resolve(pluginId)),
+            home.resolve("state").resolve(pluginId)
         );
-        for (Path path : List.of(
-            paths.configDir(), paths.dataDir(), paths.cacheDir(), paths.stateDir(), paths.logsDir()
-        )) {
-            Files.createDirectories(path);
-        }
+        Files.createDirectories(paths.stateDir());
         return paths;
     }
 }

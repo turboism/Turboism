@@ -240,7 +240,6 @@ public final class ThemeEditorService {
         ).toCompletableFuture().join();
         if (applied.outcome() == AppearanceApplyResult.Outcome.APPLIED
             || applied.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE) {
-            refreshOffCanvas();
             notify(
                 "ui-theme.editor.saved-applied",
                 "INFO",
@@ -260,14 +259,6 @@ public final class ThemeEditorService {
 
     private FormDialogField field(final String id, final String labelKey, final String value) {
         return new FormDialogField(id, localization.text(labelKey), value, FormFieldKind.TEXT);
-    }
-
-    private void refreshOffCanvas() {
-        try {
-            uiHost.refreshOffCanvasAppearance();
-        } catch (RuntimeException ignored) {
-            // Off-canvas refresh is best-effort.
-        }
     }
 
     private void notify(final String id, final String level, final String message) {

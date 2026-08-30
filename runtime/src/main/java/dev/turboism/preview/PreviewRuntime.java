@@ -272,6 +272,7 @@ public final class PreviewRuntime implements AutoCloseable {
         RuntimeScheduler scheduler = null;
         HostRuntimeIngress ingress = null;
         LocalPluginRuntime plugins = null;
+        final StartupPhaseTimer startupTimer = new StartupPhaseTimer(System::nanoTime);
         try {
             final var runtimeConfig = new dev.turboism.config.RuntimeConfigRepository(
                 home,
@@ -293,6 +294,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 log.warn("runtime", "Cubism logger bridge unavailable; using stderr: " + hostLogFailure);
             }
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
+            startupTimer.completed("configuration", message -> log.info("startup", message));
             // Inject the persisted theme before the Cubism GL scene initializes so
             // the off-canvas background color (cached in a singleton Lazy) takes
             // effect on restart, matching the legacy hook agent's startup timing.
@@ -313,6 +315,7 @@ public final class PreviewRuntime implements AutoCloseable {
             scheduler = createScheduler(log);
             RecentPreviewDiagnostics.install(message -> log.warn("recent-preview", message));
             ingress = new HostRuntimeIngress(effectiveLocale);
+            startupTimer.completed("appearance-and-services", message -> log.info("startup", message));
 
             final Path normalizedVerificationRecord = Objects.requireNonNull(
                 verificationRecord,
@@ -414,6 +417,7 @@ public final class PreviewRuntime implements AutoCloseable {
             if (hostState != HostSession.State.ACTIVE) {
                 throw new IllegalStateException("Cubism host admission failed before plugin loading");
             }
+            startupTimer.completed("host-adapters", message -> log.info("startup", message));
 
             final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
                 createFileChooserHistoryService(home, log);
@@ -427,6 +431,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 effectiveLocale
             );
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
+            startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
                 dev.turboism.mapping.verification.EditorModelVerificationManifest
                     .resourceProfileForArtifact(
@@ -459,6 +464,7 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner();
+            startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
             return runtime;
         } catch (RuntimeException | Error failure) {
             closeAfterFailedStart(plugins, ingress, scheduler, log, failure);
