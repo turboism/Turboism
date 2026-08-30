@@ -1,5 +1,8 @@
 package dev.turboism.graal;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -26,7 +29,7 @@ public final class ManagedGraalRuntimeCli {
      * @param args {@code install <existing-turboism-home>}
      */
     public static void main(final String[] args) {
-        System.exit(run(args, System.out, System.err));
+        System.exit(run(args, System.in, System.out, System.err));
     }
 
     static int run(
@@ -34,7 +37,17 @@ public final class ManagedGraalRuntimeCli {
         final PrintStream output,
         final PrintStream error
     ) {
+        return run(args, InputStream.nullInputStream(), output, error);
+    }
+
+    static int run(
+        final String[] args,
+        final InputStream input,
+        final PrintStream output,
+        final PrintStream error
+    ) {
         Objects.requireNonNull(args, "args");
+        Objects.requireNonNull(input, "input");
         Objects.requireNonNull(output, "output");
         Objects.requireNonNull(error, "error");
         if (args.length != 2 || !INSTALL.equals(args[0])) {
@@ -60,6 +73,8 @@ public final class ManagedGraalRuntimeCli {
             code -> error.println("DIAGNOSTIC " + bounded(code))
         )) {
             final ManagedGraalRuntimeService.Operation operation = service.install();
+            final Thread cancelReader = cancelReader(input, operation);
+            cancelReader.start();
             ManagedGraalRuntimeService.Status last = null;
             while (!operation.completion().toCompletableFuture().isDone()) {
                 final ManagedGraalRuntimeService.Status current = operation.status();
@@ -97,6 +112,29 @@ public final class ManagedGraalRuntimeCli {
         }
     }
 
+    private static Thread cancelReader(
+        final InputStream input,
+        final ManagedGraalRuntimeService.Operation operation
+    ) {
+        final Thread reader = new Thread(() -> {
+            try {
+                final BufferedReader commands = new BufferedReader(
+                    new InputStreamReader(input, java.nio.charset.StandardCharsets.UTF_8)
+                );
+                for (String command; (command = commands.readLine()) != null;) {
+                    if ("cancel".equalsIgnoreCase(command.trim())) {
+                        operation.cancel();
+                        return;
+                    }
+                }
+            } catch (java.io.IOException ignored) {
+                // Cancellation input is optional; install progress remains authoritative.
+            }
+        }, "turboism-graal-runtime-cancel-reader");
+        reader.setDaemon(true);
+        return reader;
+    }
+
     static int terminalExitCode(final ManagedGraalRuntimeService.Status status) {
         return status.state() == ManagedGraalRuntimeService.State.READY ? 0 : 1;
     }
@@ -111,7 +149,7 @@ public final class ManagedGraalRuntimeCli {
             && left.totalBytes() == right.totalBytes();
     }
 
-    private static String progress(final ManagedGraalRuntimeService.Status status) {
+    static String progress(final ManagedGraalRuntimeService.Status status) {
         return "GRAAL_RUNTIME_PROGRESS " + status.state()
             + " " + status.completedBytes() + "/" + status.totalBytes()
             + " " + bounded(status.message());

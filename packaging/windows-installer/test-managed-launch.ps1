@@ -939,6 +939,39 @@ try {
         Assert-ManagedLaunch ((-not (Test-Path -LiteralPath $r12ShortcutRoot)) -and (-not (Test-Path -LiteralPath $r12Home))) "R12 fixture and override cleanup is deterministic"
     }
 
+    # Official-BAT integration: exact backup, owned marker, idempotent update,
+    # legacy marker upgrade, conflict guard, and cleanup restoration.
+    $batHome = Join-Path $temp "bat integration home"
+    New-Item -ItemType Directory -Path $batHome -Force | Out-Null
+    [System.IO.File]::WriteAllBytes((Join-Path $batHome "turboism-agent.jar"), [byte[]](1, 2, 3))
+    $batRoot = New-SyntheticCubism -Name "BAT" -Version "5.3.03" -D3D $false
+    $batCandidate = New-CubismInstallationCandidate -Root $batRoot -Source "manual"
+    $batCandidate.Selected = $true
+    $batOriginal = [System.IO.File]::ReadAllBytes($batCandidate.OfficialBat)
+    $batRecords = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate))
+    Assert-ManagedLaunch ($batRecords.Count -eq 1) "official BAT integration records one selected BAT"
+    Assert-ManagedLaunch (Test-Path -LiteralPath ($batCandidate.OfficialBat + ".turboism-original.bak")) "official BAT backup is created"
+    $batManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
+    Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match '-javaagent:.*turboism-agent\.jar') "official BAT receives current owned Turboism arguments"
+    $batHash = Get-CubismSha256 $batCandidate.OfficialBat
+    $batRecords2 = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate) -ExistingRecords $batRecords)
+    Assert-ManagedLaunch ((Get-CubismSha256 $batCandidate.OfficialBat) -eq $batHash -and $batRecords2[0].ManagedSha256 -eq $batHash) "current update skips unnecessary BAT rewrite"
+    Add-Content -LiteralPath $batCandidate.OfficialBat -Encoding ASCII -Value "rem user edit"
+    $batConflict = $false
+    try { [void](Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate) -ExistingRecords $batRecords2) } catch { $batConflict = $true }
+    Assert-ManagedLaunch $batConflict "post-integration unknown BAT edits fail closed"
+    [System.IO.File]::WriteAllText($batCandidate.OfficialBat, $batManaged, [System.Text.Encoding]::Default)
+    Restore-CubismBatIntegrations -Records $batRecords2
+    Assert-ManagedLaunch ([System.Linq.Enumerable]::SequenceEqual([byte[]]$batOriginal, [byte[]][System.IO.File]::ReadAllBytes($batCandidate.OfficialBat))) "cleanup restores exact original BAT bytes"
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath ($batCandidate.OfficialBat + ".turboism-original.bak"))) "cleanup removes owned BAT backup"
+
+    $legacyText = "rem TURBOISM BEGIN`r`nset JDK_JAVA_OPTIONS=-javaagent:old\turboism-agent.jar`r`nrem TURBOISM END`r`n" + [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
+    [System.IO.File]::WriteAllText($batCandidate.OfficialBat, $legacyText, [System.Text.Encoding]::Default)
+    $legacyRecords = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate))
+    $legacyManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
+    Assert-ManagedLaunch ($legacyManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $legacyManaged -notmatch 'old\\turboism-agent') "recognized legacy BAT integration upgrades to current form"
+    Restore-CubismBatIntegrations -Records $legacyRecords
+
     # Expected native child failures above are asserted explicitly; do not let
     # their retained process status fail the completed PowerShell test script.
     $global:LASTEXITCODE = 0
