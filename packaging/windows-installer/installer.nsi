@@ -291,6 +291,33 @@ LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカ�
   Delete "$SMPROGRAMS\Turboism\Cubism を起動.lnk"
 !macroend
 
+; Measure one localized acknowledgement with the active wizard font, then place
+; it below the preceding row. This keeps all four multiline controls visible at
+; every supported DPI instead of relying on coordinates tuned for the old 8pt UI.
+!macro CreateEulaAcknowledgement HANDLE ID TEXT
+  System::Alloc 16
+  Pop $0
+  IntOp $3 $R8 - $R4
+  System::Call '*$0(i 0, i 0, i r3, i 0)'
+  System::Call 'user32::GetDC(p $mui.LicensePage) p .r1'
+  System::Call 'gdi32::SelectObject(p r1, p $R0) p .r2'
+  System::Call 'user32::DrawTextW(p r1, t "${TEXT}", i -1, p r0, i 0x0C10) i .r3'
+  System::Call 'gdi32::SelectObject(p r1, p r2)'
+  System::Call 'user32::ReleaseDC(p $mui.LicensePage, p r1)'
+  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
+  System::Free $0
+  IntOp $4 $4 + 6
+  System::Call 'user32::GetSystemMetrics(i 72) i .r3'
+  IntOp $3 $3 + 6
+  ${If} $4 < $3
+    StrCpy $4 $3
+  ${EndIf}
+  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "${TEXT}", i $R5, i $R6, i $R7, i $R8, i $4, i $mui.LicensePage, i ${ID}, i 0, i 0) i .r${HANDLE}'
+  SendMessage ${HANDLE} ${WM_SETFONT} $R0 1
+  IntOp $R7 $R7 + $4
+  IntOp $R7 $R7 + 2
+!macroend
+
 ; ---------- 变量 ----------
 Var EulaAck1Checkbox
 Var EulaAck2Checkbox
@@ -375,30 +402,37 @@ Function EulaShow
   ShowWindow $mui.LicensePage.TopText ${SW_HIDE}
   ShowWindow $mui.LicensePage.Text ${SW_HIDE}
 
-  ; 依据实际 MUI 内页宽高放置控件；正文位于四项确认下方并保持可滚动。
+  ; Measure the localized multiline labels with the actual 12pt page font.
+  ; The accumulated bottom edge becomes the scrollable statement's top edge.
   System::Alloc 16
   Pop $0
   System::Call 'user32::GetClientRect(p $mui.LicensePage, p r0)'
   System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
   System::Free $0
-  IntOp $3 $3 - 8
-  IntOp $4 $4 - 108
-  System::Call 'user32::SetWindowPos(p $mui.LicensePage.LicenseText, p 0, i 4, i 108, i $3, i $4, i 0)'
+  StrCpy $R9 $3
 
-  IntOp $0 ${WS_CHILD} | ${WS_VISIBLE}
-  IntOp $0 $0 | ${WS_TABSTOP}
-  IntOp $0 $0 | ${BS_AUTOCHECKBOX}
-  IntOp $0 $0 | ${BS_MULTILINE}
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck1)", i $0, i 4, i 0, i $3, i 22, i $mui.LicensePage, i 2101, i 0, i 0) i .r$EulaAck1Checkbox'
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck2)", i $0, i 4, i 22, i $3, i 28, i $mui.LicensePage, i 2102, i 0, i 0) i .r$EulaAck2Checkbox'
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck3)", i $0, i 4, i 50, i $3, i 30, i $mui.LicensePage, i 2103, i 0, i 0) i .r$EulaAck3Checkbox'
-  System::Call 'user32::CreateWindowEx(i 0, t "BUTTON", t "$(EulaAck4)", i $0, i 4, i 80, i $3, i 24, i $mui.LicensePage, i 2104, i 0, i 0) i .r$EulaAck4Checkbox'
+  System::Alloc 16
+  Pop $0
+  System::Call '*$0(i 4, i 0, i 4, i 0)'
+  System::Call 'user32::MapDialogRect(p $mui.LicensePage, p r0)'
+  System::Call '*$0(i .r$R6, i .r$R7, i .r$R4, i .r$R8)'
+  System::Free $0
+  IntOp $R8 $R9 - $R6
+  SendMessage $mui.LicensePage.LicenseText ${WM_GETFONT} 0 0 $R0
 
-  SendMessage $mui.LicensePage.LicenseText ${WM_GETFONT} 0 0 $0
-  SendMessage $EulaAck1Checkbox ${WM_SETFONT} $0 1
-  SendMessage $EulaAck2Checkbox ${WM_SETFONT} $0 1
-  SendMessage $EulaAck3Checkbox ${WM_SETFONT} $0 1
-  SendMessage $EulaAck4Checkbox ${WM_SETFONT} $0 1
+  IntOp $R5 ${WS_CHILD} | ${WS_VISIBLE}
+  IntOp $R5 $R5 | ${WS_TABSTOP}
+  IntOp $R5 $R5 | ${BS_AUTOCHECKBOX}
+  IntOp $R5 $R5 | ${BS_MULTILINE}
+  !insertmacro CreateEulaAcknowledgement $EulaAck1Checkbox 2101 "$(EulaAck1)"
+  !insertmacro CreateEulaAcknowledgement $EulaAck2Checkbox 2102 "$(EulaAck2)"
+  !insertmacro CreateEulaAcknowledgement $EulaAck3Checkbox 2103 "$(EulaAck3)"
+  !insertmacro CreateEulaAcknowledgement $EulaAck4Checkbox 2104 "$(EulaAck4)"
+
+  IntOp $R7 $R7 + 4
+  IntOp $R8 $R9 - $R6
+  IntOp $4 $4 - $R7
+  System::Call 'user32::SetWindowPos(p $mui.LicensePage.LicenseText, p 0, i $R6, i $R7, i $R8, i $4, i 0)'
   ${NSD_OnClick} $EulaAck1Checkbox EulaUpdateNext
   ${NSD_OnClick} $EulaAck2Checkbox EulaUpdateNext
   ${NSD_OnClick} $EulaAck3Checkbox EulaUpdateNext
