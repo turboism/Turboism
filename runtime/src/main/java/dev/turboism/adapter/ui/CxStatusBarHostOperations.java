@@ -30,6 +30,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
 
     /** Bounds the CX tree walk; identity-deduped nodes beyond this fail closed. */
     private static final int MAX_TRAVERSAL_BUDGET = 4096;
+    private static final String LATEST_NOTIFICATION_SLOT = "notification:latest";
 
     private final String hostVersion;
     private final CxStatusBarHostAccess access;
@@ -60,22 +61,51 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     }
 
     private Registration install(final StatusNotification notification) {
-        final String id = notification.id();
-        final Entry current = entries.get(id);
+        final String slot = slot(notification);
+        final Entry current = entries.get(slot);
+        final Entry sameIdentity = entries.values().stream()
+            .filter(entry -> entry.notificationId().equals(notification.id()))
+            .findFirst()
+            .orElse(null);
         if (current == null) {
-            return installNew(notification);
+            if (sameIdentity != null) {
+                access.remove(sameIdentity.parent(), sameIdentity.widget());
+                entries.remove(sameIdentity.slot(), sameIdentity);
+            }
+            return installNew(slot, notification);
         }
+        if (sameIdentity != null && sameIdentity != current) {
+            access.remove(sameIdentity.parent(), sameIdentity.widget());
+            entries.remove(sameIdentity.slot(), sameIdentity);
+        }
+        return update(slot, current, notification);
+    }
+
+    private Registration update(
+        final String slot,
+        final Entry current,
+        final StatusNotification notification
+    ) {
         // Every install/update creates a fresh Entry instance; registrations
         // capture that instance so a stale close can never match a later one.
-        final Entry entry = new Entry(id, current.parent(), current.widget());
+        final Entry entry = new Entry(
+            slot,
+            notification.id(),
+            current.parent(),
+            current.widget()
+        );
+        access.setName(current.widget(), notification.id());
         access.setText(current.widget(), notification.message());
         applySeverityAppearance(notification, current.widget());
         access.refresh(current.parent());
-        entries.put(id, entry);
+        entries.put(slot, entry);
         return closeRegistration(entry);
     }
 
-    private Registration installNew(final StatusNotification notification) {
+    private Registration installNew(
+        final String slot,
+        final StatusNotification notification
+    ) {
         final Object root = access.contentRoot();
         if (root == null) {
             throw new IllegalStateException("CX status-region content root is not ready");
@@ -106,9 +136,15 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
             }
             throw failure;
         }
-        final Entry entry = new Entry(notification.id(), anchor.parent(), widget);
-        entries.put(notification.id(), entry);
+        final Entry entry = new Entry(slot, notification.id(), anchor.parent(), widget);
+        entries.put(slot, entry);
         return closeRegistration(entry);
+    }
+
+    private static String slot(final StatusNotification notification) {
+        return notification.presentation() == StatusNotification.Presentation.COMPACT_METRIC
+            ? notification.id()
+            : LATEST_NOTIFICATION_SLOT;
     }
 
     /**
@@ -125,7 +161,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
                 return null;
             }
             if (!removed.get()) {
-                if (entries.get(entry.id()) != entry) {
+                if (entries.get(entry.slot()) != entry) {
                     closed.set(true);
                     return null;
                 }
@@ -133,7 +169,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
                 // so a later notify of the same ID reuses the existing widget
                 // instead of silently leaking it and adding a duplicate.
                 access.remove(entry.parent(), entry.widget());
-                entries.remove(entry.id(), entry);
+                entries.remove(entry.slot(), entry);
                 removed.set(true);
             }
             // A failed refresh is retried without repeating native removal.
@@ -303,6 +339,6 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
         }
     }
 
-    private record Entry(String id, Object parent, Object widget) {
+    private record Entry(String slot, String notificationId, Object parent, Object widget) {
     }
 }

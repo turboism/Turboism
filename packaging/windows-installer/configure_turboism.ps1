@@ -8,7 +8,9 @@ param(
     [switch]$IntegrateBat,
     [switch]$DisableBat,
     [switch]$EnableShortcuts,
-    [switch]$DisableShortcuts
+    [switch]$DisableShortcuts,
+    [switch]$InitialShortcuts,
+    [switch]$InitialBat
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
@@ -25,6 +27,18 @@ if (-not (Test-CubismNormalDirectory $turboismHome)) { throw "Turboism home does
 $statePath = Join-Path $turboismHome "cubism-installations.json"
 $configPath = Join-Path $turboismHome "config.json"
 $pluginDir = Join-Path $turboismHome "plugins"
+$installerLogDir = Join-Path $turboismHome "logs\installer"
+$installerLogPath = Join-Path $installerLogDir "configure-turboism.log"
+try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
+function Write-InstallerLog {
+    param([string]$Event, [string]$Message = "")
+    try {
+        $safe = ($Message -replace '[\r\n]+', ' ').Trim()
+        Add-Content -LiteralPath $installerLogPath -Encoding UTF8 -Value ("{0:o} {1} {2}" -f [DateTime]::UtcNow, $Event, $safe)
+    }
+    catch { }
+}
+Write-InstallerLog "CONFIGURATOR_START"
 
 if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts) | Where-Object { $_ }).Count -gt 1) {
     Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, and DisableShortcuts are mutually exclusive"
@@ -109,6 +123,9 @@ $uiStrings = @{
         Ready = "Ready"; Invalid = "Invalid"; Unsupported = "Unsupported"; Selected = "selected"
         Rescan = "Rescan"; Add = "Add folder"; Remove = "Remove"; Save = "Save"; Cancel = "Cancel"
         LaunchMode = "Launch mode"; Independent = "Independent shortcuts (recommended)"; Takeover = "Take over existing Cubism shortcuts"
+        ShortcutIntegration = "Create or update Turboism launch shortcuts for selected Cubism installations"
+        BatIntegration = "Modify selected official Cubism BAT files (backed up and reversible)"
+        NoActivation = "No activation path is selected. Turboism will not load from shortcuts or official BAT files. Continue?"
         IndependentHelp = "Creates new Turboism-owned .lnk shortcuts. Existing Cubism shortcuts and official BAT files remain byte-identical."
         TakeoverHelp = "Replaces only existing .lnk shortcuts whose target exactly matches a selected official Cubism BAT. Originals are backed up and restored on cleanup; the official BAT files themselves are never edited."
         StatusNoPlugins = "No valid plugin jars found under plugins/."; StatusSaved = "Saved configuration ({0} Cubism installation(s))."
@@ -127,6 +144,9 @@ $uiStrings = @{
         Ready = "就绪"; Invalid = "无效"; Unsupported = "不支持"; Selected = "已选择"
         Rescan = "重新扫描"; Add = "添加文件夹"; Remove = "移除"; Save = "保存"; Cancel = "取消"
         LaunchMode = "启动模式"; Independent = "独立快捷方式（推荐）"; Takeover = "接管现有 Cubism 快捷方式"
+        ShortcutIntegration = "为所选 Cubism 安装创建或更新 Turboism 启动快捷方式"
+        BatIntegration = "修改所选 Cubism 官方 BAT（自动备份且可恢复）"
+        NoActivation = "没有选择任何激活路径。Turboism 将无法通过快捷方式或官方 BAT 加载。仍要继续吗？"
         IndependentHelp = "新建由 Turboism 管理的 .lnk 快捷方式；现有 Cubism 快捷方式和官方 BAT 文件保持字节不变。"
         TakeoverHelp = "仅替换目标精确匹配所选官方 Cubism BAT 的现有 .lnk 快捷方式；原快捷方式会备份并在清理时恢复，官方 BAT 文件本身始终不会被改写。"
         StatusNoPlugins = "plugins/ 下没有有效插件 jar。"; StatusSaved = "配置已保存（{0} 个 Cubism 安装）。"
@@ -143,6 +163,9 @@ $uiStrings = @{
         Ready = "準備完了"; Invalid = "不正"; Unsupported = "未対応"; Selected = "選択済み"
         Rescan = "再スキャン"; Add = "フォルダーを追加"; Remove = "削除"; Save = "保存"; Cancel = "キャンセル"
         LaunchMode = "起動モード"; Independent = "独立ショートカット（推奨）"; Takeover = "既存 Cubism ショートカットを引き継ぐ"
+        ShortcutIntegration = "選択した Cubism 用の Turboism 起動ショートカットを作成または更新"
+        BatIntegration = "選択した Cubism 公式 BAT を変更（バックアップして復元可能）"
+        NoActivation = "有効化経路が選択されていません。ショートカットまたは公式 BAT から Turboism は読み込まれません。続行しますか？"
         IndependentHelp = "Turboism 所有の新しい .lnk だけを作成し、既存 Cubism ショートカットと公式 BAT のバイト列は変更しません。"
         TakeoverHelp = "選択した公式 Cubism BAT を正確に指す既存 .lnk だけを置換し、元のショートカットをバックアップして復元します。公式 BAT 自体は編集しません。"
         StatusNoPlugins = "plugins/ に有効な plugin jar がありません。"; StatusSaved = "設定を保存しました（Cubism {0} 件）。"
@@ -200,11 +223,26 @@ $candidates = Refresh-CubismCandidates
 
 [System.Windows.Forms.Application]::EnableVisualStyles()
 $form = New-Object System.Windows.Forms.Form
+$formIcon = $null
 $form.Text = $S.FormTitle -f $turboismHome
-$form.Size = New-Object System.Drawing.Size(720, 640)
-$form.StartPosition = "CenterScreen"; $form.MinimizeBox = $false; $form.MaximizeBox = $false
+$form.ClientSize = New-Object System.Drawing.Size(1080, 900)
+$form.MinimumSize = New-Object System.Drawing.Size(900, 720)
+$form.StartPosition = "CenterScreen"; $form.MinimizeBox = $true; $form.MaximizeBox = $true
+$iconPath = Join-Path $turboismHome "turboism.ico"
+if (Test-CubismNormalFile $iconPath) {
+    try {
+        $iconStream = [System.IO.File]::Open($iconPath, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read, [System.IO.FileShare]::Read)
+        try {
+            $loadedIcon = New-Object System.Drawing.Icon($iconStream)
+            try { $formIcon = $loadedIcon.Clone(); $form.Icon = $formIcon }
+            finally { $loadedIcon.Dispose() }
+        }
+        finally { $iconStream.Dispose() }
+    }
+    catch { Write-InstallerLog "CONFIGURATOR_ICON_FAILED" $_.Exception.Message }
+}
 $tabs = New-Object System.Windows.Forms.TabControl
-$tabs.Location = New-Object System.Drawing.Point(8, 8); $tabs.Size = New-Object System.Drawing.Size(688, 520)
+$tabs.Location = New-Object System.Drawing.Point(8, 8); $tabs.Size = New-Object System.Drawing.Size(1064, 800); $tabs.Anchor = 'Top, Bottom, Left, Right'
 $pluginPage = New-Object System.Windows.Forms.TabPage; $pluginPage.Text = $S.PluginsTab
 $cubismPage = New-Object System.Windows.Forms.TabPage; $cubismPage.Text = $S.CubismTab
 [void]$tabs.TabPages.Add($pluginPage); [void]$tabs.TabPages.Add($cubismPage); $form.Controls.Add($tabs)
@@ -212,7 +250,7 @@ $cubismPage = New-Object System.Windows.Forms.TabPage; $cubismPage.Text = $S.Cub
 $pluginLabel = New-Object System.Windows.Forms.Label; $pluginLabel.Text = $S.PluginPrompt
 $pluginLabel.Location = New-Object System.Drawing.Point(12, 12); $pluginLabel.AutoSize = $true; $pluginPage.Controls.Add($pluginLabel)
 $pluginList = New-Object System.Windows.Forms.CheckedListBox
-$pluginList.Location = New-Object System.Drawing.Point(12, 38); $pluginList.Size = New-Object System.Drawing.Size(650, 420); $pluginList.CheckOnClick = $true
+$pluginList.Location = New-Object System.Drawing.Point(12, 38); $pluginList.Size = New-Object System.Drawing.Size(1025, 700); $pluginList.CheckOnClick = $true; $pluginList.Anchor = 'Top, Bottom, Left, Right'
 foreach ($plugin in $plugins) {
     $text = "{0}  [{1}]  v{2}" -f $plugin.Name, $plugin.Id, $plugin.Version
     [void]$pluginList.Items.Add($text, ($existingDisabled -notcontains $plugin.Id))
@@ -222,19 +260,21 @@ $pluginPage.Controls.Add($pluginList)
 $cubismLabel = New-Object System.Windows.Forms.Label; $cubismLabel.Text = $S.CubismPrompt
 $cubismLabel.Location = New-Object System.Drawing.Point(12, 12); $cubismLabel.AutoSize = $true; $cubismPage.Controls.Add($cubismLabel)
 $cubismList = New-Object System.Windows.Forms.CheckedListBox
-$cubismList.Location = New-Object System.Drawing.Point(12, 38); $cubismList.Size = New-Object System.Drawing.Size(650, 285); $cubismList.CheckOnClick = $true; $cubismList.HorizontalScrollbar = $true
+$cubismList.Location = New-Object System.Drawing.Point(12, 38); $cubismList.Size = New-Object System.Drawing.Size(1025, 555); $cubismList.CheckOnClick = $true; $cubismList.HorizontalScrollbar = $true; $cubismList.Anchor = 'Top, Bottom, Left, Right'
 $cubismPage.Controls.Add($cubismList)
-$modeLabel = New-Object System.Windows.Forms.Label; $modeLabel.Text = $S.LaunchMode; $modeLabel.Location = New-Object System.Drawing.Point(12, 335); $modeLabel.AutoSize = $true; $cubismPage.Controls.Add($modeLabel)
-$modeBox = New-Object System.Windows.Forms.ComboBox; $modeBox.DropDownStyle = "DropDownList"; $modeBox.Location = New-Object System.Drawing.Point(115, 331); $modeBox.Size = New-Object System.Drawing.Size(535, 24)
+$shortcutCheck = New-Object System.Windows.Forms.CheckBox; $shortcutCheck.Text = $S.ShortcutIntegration; $shortcutCheck.Location = New-Object System.Drawing.Point(12, 600); $shortcutCheck.Size = New-Object System.Drawing.Size(1025, 24); $shortcutCheck.Anchor = 'Bottom, Left, Right'; $shortcutCheck.Checked = [bool]$InitialShortcuts -or @($state.ManagedShortcuts).Count -gt 0 -or @($state.ShortcutTakeovers).Count -gt 0; $cubismPage.Controls.Add($shortcutCheck)
+$modeLabel = New-Object System.Windows.Forms.Label; $modeLabel.Text = $S.LaunchMode; $modeLabel.Location = New-Object System.Drawing.Point(32, 632); $modeLabel.AutoSize = $true; $modeLabel.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($modeLabel)
+$modeBox = New-Object System.Windows.Forms.ComboBox; $modeBox.DropDownStyle = "DropDownList"; $modeBox.Location = New-Object System.Drawing.Point(135, 628); $modeBox.Size = New-Object System.Drawing.Size(902, 24); $modeBox.Anchor = 'Bottom, Left, Right'
 [void]$modeBox.Items.Add($S.Independent); [void]$modeBox.Items.Add($S.Takeover); $modeBox.SelectedIndex = if ($state.LaunchMode -eq "takeover") { 1 } else { 0 }; $cubismPage.Controls.Add($modeBox)
-$modeHelp = New-Object System.Windows.Forms.Label; $modeHelp.Location = New-Object System.Drawing.Point(12, 360); $modeHelp.Size = New-Object System.Drawing.Size(650, 36); $cubismPage.Controls.Add($modeHelp)
-$cubismStatus = New-Object System.Windows.Forms.Label; $cubismStatus.Location = New-Object System.Drawing.Point(12, 402); $cubismStatus.AutoSize = $true; $cubismPage.Controls.Add($cubismStatus)
-$rescanButton = New-Object System.Windows.Forms.Button; $rescanButton.Text = $S.Rescan; $rescanButton.Location = New-Object System.Drawing.Point(12, 440); $rescanButton.Size = New-Object System.Drawing.Size(90, 30); $cubismPage.Controls.Add($rescanButton)
-$addButton = New-Object System.Windows.Forms.Button; $addButton.Text = $S.Add; $addButton.Location = New-Object System.Drawing.Point(110, 440); $addButton.Size = New-Object System.Drawing.Size(110, 30); $cubismPage.Controls.Add($addButton)
-$removeButton = New-Object System.Windows.Forms.Button; $removeButton.Text = $S.Remove; $removeButton.Location = New-Object System.Drawing.Point(228, 440); $removeButton.Size = New-Object System.Drawing.Size(90, 30); $cubismPage.Controls.Add($removeButton)
-$statusLabel = New-Object System.Windows.Forms.Label; $statusLabel.Location = New-Object System.Drawing.Point(12, 548); $statusLabel.AutoSize = $true; $form.Controls.Add($statusLabel)
-$saveButton = New-Object System.Windows.Forms.Button; $saveButton.Text = $S.Save; $saveButton.Location = New-Object System.Drawing.Point(500, 560); $saveButton.Size = New-Object System.Drawing.Size(90, 30); $form.Controls.Add($saveButton)
-$cancelButton = New-Object System.Windows.Forms.Button; $cancelButton.Text = $S.Cancel; $cancelButton.Location = New-Object System.Drawing.Point(600, 560); $cancelButton.Size = New-Object System.Drawing.Size(90, 30); $cancelButton.Add_Click({ $form.Close() }); $form.Controls.Add($cancelButton)
+$modeHelp = New-Object System.Windows.Forms.Label; $modeHelp.Location = New-Object System.Drawing.Point(32, 658); $modeHelp.Size = New-Object System.Drawing.Size(1005, 42); $modeHelp.Anchor = 'Bottom, Left, Right'; $cubismPage.Controls.Add($modeHelp)
+$batCheck = New-Object System.Windows.Forms.CheckBox; $batCheck.Text = $S.BatIntegration; $batCheck.Location = New-Object System.Drawing.Point(12, 704); $batCheck.Size = New-Object System.Drawing.Size(1025, 24); $batCheck.Anchor = 'Bottom, Left, Right'; $batCheck.Checked = [bool]$InitialBat -or @($state.BatIntegrations).Count -gt 0; $cubismPage.Controls.Add($batCheck)
+$cubismStatus = New-Object System.Windows.Forms.Label; $cubismStatus.Location = New-Object System.Drawing.Point(12, 730); $cubismStatus.AutoSize = $true; $cubismStatus.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($cubismStatus)
+$rescanButton = New-Object System.Windows.Forms.Button; $rescanButton.Text = $S.Rescan; $rescanButton.Location = New-Object System.Drawing.Point(12, 752); $rescanButton.Size = New-Object System.Drawing.Size(90, 30); $rescanButton.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($rescanButton)
+$addButton = New-Object System.Windows.Forms.Button; $addButton.Text = $S.Add; $addButton.Location = New-Object System.Drawing.Point(110, 752); $addButton.Size = New-Object System.Drawing.Size(110, 30); $addButton.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($addButton)
+$removeButton = New-Object System.Windows.Forms.Button; $removeButton.Text = $S.Remove; $removeButton.Location = New-Object System.Drawing.Point(228, 752); $removeButton.Size = New-Object System.Drawing.Size(90, 30); $removeButton.Anchor = 'Bottom, Left'; $cubismPage.Controls.Add($removeButton)
+$statusLabel = New-Object System.Windows.Forms.Label; $statusLabel.Location = New-Object System.Drawing.Point(12, 830); $statusLabel.AutoSize = $true; $statusLabel.Anchor = 'Bottom, Left'; $form.Controls.Add($statusLabel)
+$saveButton = New-Object System.Windows.Forms.Button; $saveButton.Text = $S.Save; $saveButton.Location = New-Object System.Drawing.Point(880, 850); $saveButton.Size = New-Object System.Drawing.Size(90, 30); $saveButton.Anchor = 'Bottom, Right'; $form.Controls.Add($saveButton)
+$cancelButton = New-Object System.Windows.Forms.Button; $cancelButton.Text = $S.Cancel; $cancelButton.Location = New-Object System.Drawing.Point(980, 850); $cancelButton.Size = New-Object System.Drawing.Size(90, 30); $cancelButton.Anchor = 'Bottom, Right'; $cancelButton.Add_Click({ $form.Close() }); $form.Controls.Add($cancelButton)
 
 function Update-LaunchModeSummary {
     if ($modeBox.SelectedIndex -eq 0) { $modeHelp.Text = $S.IndependentHelp; $cubismStatus.Text = $S.IndependentSummary; return }
@@ -260,6 +300,12 @@ function Render-CubismCandidates {
 Render-CubismCandidates
 if (-not $state.Valid) { $statusLabel.Text = $S.StateWarning -f $state.Error }
 if ($plugins.Count -eq 0) { $statusLabel.Text = $S.StatusNoPlugins }
+$modeBox.Enabled = [bool]$shortcutCheck.Checked
+$modeHelp.Enabled = [bool]$shortcutCheck.Checked
+$shortcutCheck.Add_CheckedChanged({
+    $modeBox.Enabled = [bool]$shortcutCheck.Checked
+    $modeHelp.Enabled = [bool]$shortcutCheck.Checked
+})
 $modeBox.Add_SelectedIndexChanged({ Update-LaunchModeSummary })
 $rescanButton.Add_Click({
     for ($i = 0; $i -lt $candidates.Count; $i++) { $candidates[$i].Selected = $cubismList.GetItemChecked($i) }
@@ -294,7 +340,40 @@ $saveButton.Add_Click({
         foreach ($id in $existingDisabled) { if (($known -notcontains $id) -and ($unchecked -notcontains $id)) { $unchecked += $id } }
         $unchecked = @($unchecked | Sort-Object -Unique)
         $mode = if ($modeBox.SelectedIndex -eq 1) { "takeover" } else { "independent" }
-        $launch = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode $mode -ExistingState $state
+        $selectedCount = @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
+        if (-not $shortcutCheck.Checked -and -not $batCheck.Checked) {
+            $choice = [System.Windows.Forms.MessageBox]::Show($S.NoActivation, $form.Text, [System.Windows.Forms.MessageBoxButtons]::YesNo, [System.Windows.Forms.MessageBoxIcon]::Warning)
+            if ($choice -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+        }
+        Write-InstallerLog "SELECTION_SAVE" ("selected={0} shortcuts={1} mode={2} bat={3}" -f $selectedCount, [bool]$shortcutCheck.Checked, $mode, [bool]$batCheck.Checked)
+        if ($shortcutCheck.Checked) {
+            $launch = Invoke-CubismLaunchConfiguration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -LaunchMode $mode -ExistingState $state
+        }
+        else {
+            Disable-CubismShortcutIntegration -TurboismHome $turboismHome -StatePath $statePath -Candidates $candidates -ExistingState $state
+            $launch = [pscustomobject]@{ Eligible = @(); Unmatched = @(); Conflicted = @() }
+        }
+        $postLaunchState = Read-CubismInstallationState -StatePath $statePath
+        if (-not $postLaunchState.Valid) { throw "Managed installation state is invalid after shortcut configuration: $($postLaunchState.Error)" }
+        if ($batCheck.Checked) {
+            $selectedBatKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
+            foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+                foreach ($path in @($candidate.OfficialBat, $candidate.D3DBat)) {
+                    if (-not [string]::IsNullOrWhiteSpace($path)) { [void]$selectedBatKeys.Add([System.IO.Path]::GetFullPath($path)) }
+                }
+            }
+            $retainedRecords = @($postLaunchState.BatIntegrations | Where-Object { $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
+            $removedRecords = @($postLaunchState.BatIntegrations | Where-Object { -not $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
+            if ($removedRecords.Count -gt 0) { Restore-CubismBatIntegrations -Records $removedRecords }
+            $batRecords = Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $postLaunchState.ManagedShortcuts -ManagedShortcutHashes $postLaunchState.ManagedShortcutHashes -ShortcutTakeovers $postLaunchState.ShortcutTakeovers -BatIntegrations $batRecords -LaunchMode $postLaunchState.LaunchMode
+            Write-InstallerLog "BAT_INTEGRATION_OK" ("records={0} restored={1}" -f $batRecords.Count, $removedRecords.Count)
+        }
+        elseif ($postLaunchState.BatIntegrations.Count -gt 0) {
+            Restore-CubismBatIntegrations -Records $postLaunchState.BatIntegrations
+            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $postLaunchState.ManagedShortcuts -ManagedShortcutHashes $postLaunchState.ManagedShortcutHashes -ShortcutTakeovers $postLaunchState.ShortcutTakeovers -LaunchMode $postLaunchState.LaunchMode
+            Write-InstallerLog "BAT_INTEGRATION_RESTORED" ("records={0}" -f $postLaunchState.BatIntegrations.Count)
+        }
 
         $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }
         if ($null -ne $existingConfig) {
@@ -309,7 +388,7 @@ $saveButton.Add_Click({
         # 导致 Java 安装器 BoundedJson.parse 拒绝 config.json）。UTF8Encoding(false) 为 PS 5.1 兼容。
         [System.IO.File]::WriteAllText($configPath, $json, [System.Text.UTF8Encoding]::new($false))
         $state = Read-CubismInstallationState -StatePath $statePath
-        $selectedCount = @($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count
+        Write-InstallerLog "CONFIGURATION_SAVED" ("selected={0} shortcuts={1} mode={2} bat={3}" -f $selectedCount, [bool]$shortcutCheck.Checked, $mode, [bool]$batCheck.Checked)
         if ($mode -eq "takeover") {
             $statusLabel.Text = $S.StatusSaved -f $selectedCount
             $cubismStatus.Text = $S.TakeoverSummary -f $launch.Eligible.Count, $launch.Unmatched.Count, $launch.Conflicted.Count
@@ -319,7 +398,13 @@ $saveButton.Add_Click({
         $form.Close()
     }
     catch {
-        [System.Windows.Forms.MessageBox]::Show(($S.SaveError -f $_.Exception.Message), $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
+        Write-InstallerLog "CONFIGURATION_FAILED" $_.Exception.Message
+        $message = (($S.SaveError -f $_.Exception.Message) + "`r`n`r`nLog: " + $installerLogPath)
+        [System.Windows.Forms.MessageBox]::Show($message, $form.Text, [System.Windows.Forms.MessageBoxButtons]::OK, [System.Windows.Forms.MessageBoxIcon]::Error) | Out-Null
     }
 })
-[void]$form.ShowDialog()
+try { [void]$form.ShowDialog() }
+finally {
+    if ($null -ne $formIcon) { $formIcon.Dispose() }
+    $form.Dispose()
+}

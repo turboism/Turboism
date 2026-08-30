@@ -30,7 +30,7 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     @Override
     public void init(final PluginContext context) {
         this.context = context;
-        this.evidence = context.paths().logsDir().resolve("history-probe.jsonl");
+        this.evidence = context.paths().dataDir().resolve("history-probe.jsonl");
         context.logger().info("Read-only history manager validation probe initialized");
     }
 

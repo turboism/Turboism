@@ -317,7 +317,6 @@ public final class ThemeManagerService {
 
     private void restoreNative() {
         final ThemeSelectionService.SelectionResult result = selection.restoreNative();
-        refreshOffCanvas();
         notify(
             "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
             result.outcome() == ThemeSelectionService.SelectionOutcome.RESTORED_NATIVE ? "INFO" : "WARNING",
@@ -329,7 +328,6 @@ public final class ThemeManagerService {
 
     private void apply(final ThemePackageData theme) {
         final ThemeSelectionService.SelectionResult result = selection.select(theme);
-        refreshOffCanvas();
         notify(
             "ui-theme.selection." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
             result.outcome() == ThemeSelectionService.SelectionOutcome.SELECTED ? "INFO" : "WARNING",
@@ -337,14 +335,6 @@ public final class ThemeManagerService {
                 ? localization.format("theme.selection.applied", theme.metadata().name())
                 : localization.text("theme.selection.failed")
         );
-    }
-
-    private void refreshOffCanvas() {
-        try {
-            uiHost.refreshOffCanvasAppearance();
-        } catch (RuntimeException ignored) {
-            // Off-canvas refresh is best-effort.
-        }
     }
 
     /** Opens the plugin theme storage directory in the host file manager. */

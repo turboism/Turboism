@@ -111,9 +111,9 @@ LOCALIZED_HEADLINE = {
     "jpn": "ようこそ",
 }
 LOCALIZED_EULA_MARKER = {
-    "eng": "English text of this agreement is authoritative",
-    "chn": "本协议以英文文本为权威文本",
-    "jpn": "本契約は英語文を正文とします",
+    "eng": "The Simplified Chinese text is authoritative",
+    "chn": "本版本以简体中文文本为正式文本",
+    "jpn": "簡体字中国語文を正文とします",
 }
 # Turboism-owned InstallationGroupPanel strings (CustomLangPack): the
 # install-side listener emits the localized mode name and description for
@@ -145,6 +145,71 @@ LOCALIZED_MODE = {
     },
 }
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
+EULA_ACKNOWLEDGEMENT_KEYS = ("independent", "license", "backup", "asIs")
+EULA_ACKNOWLEDGEMENT_TEXT = {
+    "eng": (
+        "Turboism is an independent third-party project, not an official Live2D product.",
+        "Cubism still requires lawful authorization; Turboism does not provide, replace, or bypass license verification.",
+        "user-authorized plugins, scripts, MCP, API, or automation can modify, overwrite, or delete project content",
+        "Turboism is open source and provided as-is, without guarantees of continued compatibility, no errors, or successful recovery.",
+    ),
+    "chn": (
+        "Turboism 是独立的第三方项目，并非 Live2D 的官方产品。",
+        "Cubism 仍需要合法授权；Turboism 不提供、不替代也不绕过许可证验证。",
+        "经用户授权的插件、脚本、MCP、API 或自动化操作可能修改、覆盖或删除项目内容",
+        "Turboism 是开源软件，按现状提供，不保证持续兼容、无错误或能够成功恢复。",
+    ),
+    "jpn": (
+        "Turboism は独立した第三者プロジェクトであり、Live2D の公式製品ではないことを理解します。",
+        "Cubism には引き続き適法な許諾が必要であり、Turboism はライセンス検証を提供、代替、または回避しないことを理解します。",
+        "ユーザーが許可したプラグイン、スクリプト、MCP、API、または自動化によりプロジェクト内容が変更、上書き、削除される場合があり",
+        "Turboism はオープンソースであり現状有姿で提供され、継続的な互換性、無エラー、または復旧の成功は保証されないことを理解します。",
+    ),
+}
+
+
+def eula_acknowledgement_record():
+    return "".join(
+        '<acknowledgement id="%s" accepted="true"/>\n' % key
+        for key in EULA_ACKNOWLEDGEMENT_KEYS
+    )
+
+
+def assert_eula_acknowledgement_rejection(jar, payload_plugins):
+    base = tempfile.mkdtemp(prefix="turboism-eula-reject ")
+    target = os.path.join(base, "home")
+    answers = install_answers("lite", target, payload_plugins=payload_plugins)
+    answers[3] = "2"  # reject the first required acknowledgement
+    clear_task_lock()
+    rc, out = run_console(jar, answers)
+    check("EULA acknowledgement rejection aborts console install", rc != 0, "rc=%s" % rc)
+    check("EULA acknowledgement rejection leaves payload absent",
+          not os.path.lexists(os.path.join(target, "turboism-agent.jar")))
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_automated_eula_gate(jar):
+    base = tempfile.mkdtemp(prefix="turboism-eula-auto ")
+    rejected = os.path.join(base, "rejected.xml")
+    common = '<AutomatedInstallation langpack="eng">\n<panel id="eulaAcknowledgements">\n%s</panel>\n</AutomatedInstallation>\n'
+    open(rejected, "w", encoding="utf-8").write(
+        common % '<acknowledgement id="independent" accepted="true"/>\n'
+    )
+    # The compiled Java regression exercises accepted, omitted, false,
+    # duplicate, and unknown records directly against the exact automation
+    # helper. This live IzPack probe additionally proves sibling helper binding:
+    # an incomplete record reaches the custom gate before payload extraction.
+    clear_task_lock()
+    proc = subprocess.run(
+        java_cmd() + ["-jar", jar, "-auto", rejected], input="", stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT, text=True, encoding="utf-8", env=PROC_ENV, timeout=TIMEOUT
+    )
+    check("automated EULA incomplete record rejects", proc.returncode != 0,
+          "rc=%s output=%s" % (proc.returncode, proc.stdout[-500:]))
+    check("automated EULA rejection names acknowledgement contract",
+          "acknowledgement" in proc.stdout.lower(), proc.stdout[-500:])
+    shutil.rmtree(base, ignore_errors=True)
+
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
 # This exact 18-project list plus the seven excluded public module names is the regression
@@ -437,7 +502,9 @@ def load_plugin_metadata(manifest_path, modules):
 
 def install_answers(mode, target, lang_index=0, deselect=(), payload_plugins=None,
                     install_graal=False):
-    answers = [str(lang_index), "1", "1", "1"]  # language, welcome, MIT license, EULA
+    answers = [str(lang_index), "1", "1"]  # language, welcome, MIT license
+    answers += ["1"] * len(EULA_ACKNOWLEDGEMENT_KEYS)  # all required custom acknowledgements
+    answers += ["1"]  # stock EULA
     # IzPack sorts groups by id in console mode: full, lite, then thin.
     if mode == "full":
         answers += ["y"]
@@ -503,6 +570,9 @@ def assert_locale_probe(jar, payload_plugins, lang_index, iso3):
     check("locale %s EULA text" % iso3,
           LOCALIZED_EULA_MARKER[iso3] in out,
           "output did not contain the localized EULA")
+    for acknowledgement in EULA_ACKNOWLEDGEMENT_TEXT[iso3]:
+        check("locale %s EULA acknowledgement" % iso3, acknowledgement in out,
+              "output did not contain the localized acknowledgement")
     for mode in ("full", "thin", "lite"):
         name, description = LOCALIZED_MODE[iso3][mode]
         check("locale %s %s mode name" % (iso3, mode), name in out,
@@ -1374,7 +1444,7 @@ def assert_malformed_identity_safety(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_jar_layout(jar, payload):
+def assert_jar_layout(jar, payload, installer_xml_path):
     with zipfile.ZipFile(jar) as z:
         names = set(z.namelist())
         for lang in ("eng", "chn", "jpn"):
@@ -1382,11 +1452,29 @@ def assert_jar_layout(jar, payload):
         for variant in ("", "_eng", "_chn", "_jpn"):
             check("jar custom langpack %s" % (variant or "base"),
                   "resources/CustomLangPack.xml%s" % variant in names)
+        for iso3, suffix in (("eng", "_eng"), ("chn", "_chn"), ("jpn", "_jpn")):
+            text = z.read("resources/CustomLangPack.xml" + suffix).decode("utf-8")
+            for key in EULA_ACKNOWLEDGEMENT_KEYS:
+                check("jar %s localized EULA acknowledgement %s" % (iso3, key),
+                      'id="EulaAcknowledgementPanel.%s"' % key in text)
+        check("generated installer.xml exists", os.path.isfile(installer_xml_path),
+              installer_xml_path)
+        installer_xml = open(installer_xml_path, encoding="utf-8").read()
+        acknowledgement_panel = 'classname="dev.turboism.installer.EulaAcknowledgementPanel" id="eulaAcknowledgements"'
+        stock_eula_panel = 'classname="LicencePanel" id="eula"'
+        check("custom EULA acknowledgement panel precedes stock EULA",
+              acknowledgement_panel in installer_xml and stock_eula_panel in installer_xml
+              and installer_xml.index(acknowledgement_panel) < installer_xml.index(stock_eula_panel))
         check("jar uninstaller classes", "com/izforge/izpack/uninstaller/Uninstaller.class" in names)
         check("jar uninstall listener",
               "dev/turboism/installer/TurboismUninstallerListener.class" in names)
         check("jar install listener",
               "dev/turboism/installer/TurboismInstallerListener.class" in names)
+        for class_name in (
+                "EulaAcknowledgements", "EulaAcknowledgementPanel",
+                "EulaAcknowledgementConsolePanel", "EulaAcknowledgementPanelAutomationHelper"):
+            check("jar EULA acknowledgement class " + class_name,
+                  "dev/turboism/installer/%s.class" % class_name in names)
         check("jar config template resource", "turboism/config.template.json" in names)
         eula_resources = {
             "resources/LicencePanel.eula": "EULA.en.txt",
@@ -1579,6 +1667,8 @@ def main():
                         help="path to the config-merge regression jar")
     parser.add_argument("--manifest", required=True,
                         help="path to packaging/release-plugins.txt")
+    parser.add_argument("--installer-xml", required=True,
+                        help="path to the generated IzPack installer.xml")
     args = parser.parse_args()
 
     jar = os.path.abspath(args.installer)
@@ -1632,12 +1722,14 @@ def main():
         run_java_regression(args.regression_jar)
 
         assert_sidecar(jar, args.sha256)
-        assert_jar_layout(jar, args.payload)
+        assert_jar_layout(jar, args.payload, args.installer_xml)
 
         lang_indices = discover_language_indices(jar)
         for iso3 in LOCALES:
             assert_locale_probe(jar, payload_plugins, lang_indices[iso3], iso3)
 
+        assert_eula_acknowledgement_rejection(jar, payload_plugins)
+        assert_automated_eula_gate(jar)
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_install_home_symlink_rejected(jar)

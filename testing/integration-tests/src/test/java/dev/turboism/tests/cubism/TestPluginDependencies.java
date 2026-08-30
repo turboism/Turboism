@@ -76,7 +76,6 @@ final class TestPluginDependencies {
     static PluginPaths paths() {
         return new PluginPaths() {
             @Override public Path dataDir() { return Path.of("build", "query-tests", "data"); }
-            @Override public Path logsDir() { return Path.of("build", "query-tests", "logs"); }
             @Override public Path stateDir() { return Path.of("build", "query-tests", "state"); }
             @Override public Path cacheDir() { return Path.of("build", "query-tests", "cache"); }
         };

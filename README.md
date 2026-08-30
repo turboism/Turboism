@@ -56,7 +56,7 @@ Download one of the following from the
 - `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs or managed fx bytes;
 - `TurboismInstaller-<version>.jar` — Java 17 installer; Full carries reviewed Linux/macOS managed fx payloads and rejects Windows, while Thin can be installed on Windows without native fx bytes.
 
-Windows Full/Thin may carry the plugin and accept a custom executable path structurally, but functional Turboism with fx operation is currently unavailable there: the required first-party MCP server fails closed until Turboism has a native, handle-bound protected-DACL and reparse-safe bearer-file publication primitive.
+Windows Full/Thin may carry Turboism with fx and accept a custom executable path structurally. The first-party loopback MCP server is available on supported Windows hosts with bearer authentication and per-user, owner/file-type, reparse-point, secure-temporary-file, and post-move publication checks. A managed native fx runtime for Windows is still unavailable, so Turboism with fx requires a separately configured compatible executable there.
 
 Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
@@ -65,12 +65,7 @@ verify from their directory, for example:
 sha256sum -c TurboismInstaller-0.43.3.exe.sha256
 ```
 
-Run `configure_turboism.ps1` after installation to discover or select Cubism
-Editor 5.2.03 / 5.3.02 / 5.3.03 installations. Independent mode creates new
-Turboism-owned `.lnk` shortcuts without changing existing shortcuts. Takeover
-mode replaces only existing `.lnk` files that target an exact selected official
-Cubism BAT, with backup and cleanup restoration. Neither mode edits the official
-`CubismEditor5.bat` files or other Cubism installation files.
+After a successful Windows installation, `configure_turboism.ps1` opens automatically and lists only exact supported Cubism Editor 5.2.03 / 5.3.02 / 5.3.03 installations. Turboism-owned shortcuts and official Cubism BAT integration are separate controls. BAT integration is attempted only for exact installations selected by the user, preserves a hash-guarded backup for restoration, and writes actionable diagnostics under `logs/installer/`.
 
 ## Architecture
 

@@ -40,7 +40,8 @@ final class LegacyHomeMigrationTest {
         assertEquals("business-data", Files.readString(home.resolve("data/dev.example.plugin/imports/work.json")));
         assertEquals("cache", Files.readString(home.resolve("cache/dev.example.plugin/index.bin")));
         assertEquals("state", Files.readString(home.resolve("state/dev.example.plugin/session.json")));
-        assertEquals("log", Files.readString(home.resolve("logs/dev.example.plugin/plugin.log")));
+        assertEquals("log", Files.readString(legacy.resolve("logs/plugin.log")));
+        assertFalse(Files.exists(home.resolve("logs/dev.example.plugin")));
         assertFalse(Files.exists(legacy.resolve("data/imports/work.json")));
     }
 }

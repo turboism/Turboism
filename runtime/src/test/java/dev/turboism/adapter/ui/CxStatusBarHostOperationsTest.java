@@ -131,6 +131,36 @@ class CxStatusBarHostOperationsTest {
     }
 
     @Test
+    void differentNotificationIdsReplaceTheSingleLatestMessageWidget() throws Exception {
+        FakeTree tree = new FakeTree().ready();
+        FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"),
+            new FakeLabel("coordinates"));
+        CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", tree);
+
+        Registration first = host.notifyStatus(
+            new StatusNotification("save.started", "INFO", "Saving")
+        );
+        FakeLabel widget = tree.labels.get("save.started");
+        Registration second = host.notifyStatus(
+            new StatusNotification("save.finished", "INFO", "Saved")
+        );
+
+        assertEquals(1, tree.addCalls.size(), "ordinary messages share one latest-message slot");
+        assertSame(widget, tree.labels.get("save.started"));
+        assertEquals("save.finished", widget.name);
+        assertEquals("Saved", widget.text);
+        assertEquals(1, statusBar.children.stream()
+            .filter(child -> child == widget)
+            .count());
+
+        first.close();
+        assertTrue(statusBar.children.contains(widget),
+            "a stale registration must not dismiss the latest message");
+        second.close();
+        assertFalse(statusBar.children.contains(widget));
+    }
+
+    @Test
     void fallsBackToMemoryViewerPositionWhenNoCLabelExists() throws Exception {
         FakeTree tree = new FakeTree().ready();
         FakeWidget statusBar = tree.statusBar(new FakeMemoryViewer("memoryViewer"), new FakeWidget("spacer"));

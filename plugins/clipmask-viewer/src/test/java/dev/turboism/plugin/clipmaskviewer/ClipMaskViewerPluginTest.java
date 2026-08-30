@@ -1,6 +1,8 @@
 package dev.turboism.plugin.clipmaskviewer;
 
+import dev.turboism.plugin.clipmaskviewer.b1.domain.ClipMaskViewerState;
 import dev.turboism.sdk.action.ActionRegistry;
+import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.permission.PluginPermission;
@@ -23,6 +25,18 @@ import dev.turboism.sdk.ui.ViewportSnapshot;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.task.PluginTaskRequest;
+import dev.turboism.sdk.task.PluginTaskScheduler;
+import dev.turboism.sdk.task.TaskFailure;
+import dev.turboism.sdk.task.TaskHandle;
+import dev.turboism.sdk.task.TaskId;
+import dev.turboism.sdk.task.TaskOutcome;
+import dev.turboism.sdk.task.TaskOutcomeStatus;
+import dev.turboism.sdk.task.TaskProgress;
+import dev.turboism.sdk.task.TaskRunOutcome;
+import dev.turboism.sdk.task.TaskRunOutcomeStatus;
+import dev.turboism.sdk.task.TaskSubmission;
+import dev.turboism.sdk.task.TaskSubmissionStatus;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationTargetException;
@@ -31,7 +45,9 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -85,11 +101,41 @@ class ClipMaskViewerPluginTest {
             .handler()
             .accept(new ActionRegistry.ActionContext() { });
         fixture.ui.runNext();
-        fixture.ui.runNext();
 
         assertEquals(1, fixture.ui.createCount);
         assertEquals(1, fixture.ui.view.showCount);
-        assertEquals(1, fixture.ui.view.refreshCount);
+        assertEquals(1, fixture.ui.view.loadingCount);
+        assertEquals(0, fixture.clipMasks.readCount);
+
+        fixture.ui.runNext();
+
+        assertEquals(1, fixture.clipMasks.readCount);
+        assertEquals(1, fixture.tasks.pendingCount());
+        assertEquals(0, fixture.ui.view.snapshotCount);
+
+        fixture.tasks.runNext();
+        fixture.ui.runNext();
+
+        assertEquals(1, fixture.ui.view.snapshotCount);
+        assertEquals(1, fixture.ui.view.snapshot.records().size());
+    }
+
+    @Test
+    void staleAnalysisDoesNotReplaceAClosedOrNewerWindow() {
+        final Fixture fixture = new Fixture();
+        fixture.plugin.init(fixture.context);
+        fixture.plugin.enable();
+        fixture.actions.byId(ClipMaskViewerPlugin.OPEN_VIEWER_ACTION_ID)
+            .handler().accept(new ActionRegistry.ActionContext() { });
+        fixture.ui.runNext();
+        fixture.ui.runNext();
+        final FakeWindowView first = fixture.ui.view;
+
+        first.simulateClose();
+        fixture.tasks.runNext();
+        fixture.ui.runNext();
+
+        assertEquals(0, first.snapshotCount);
     }
 
     @Test
@@ -159,6 +205,8 @@ class ClipMaskViewerPluginTest {
         private final RecordingMenuRegistry menus = new RecordingMenuRegistry();
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final RecordingLogger logger = new RecordingLogger();
+        private final FakeTaskScheduler tasks = new FakeTaskScheduler();
+        private final FakeClipMasks clipMasks = new FakeClipMasks();
         private final DisposableScope scope = new DisposableScope();
         private final PluginLocalization localization = new FakeLocalization();
         private final PluginContext context = (PluginContext) Proxy.newProxyInstance(
@@ -171,6 +219,8 @@ class ClipMaskViewerPluginTest {
                 case "actions" -> actions;
                 case "menus" -> menus;
                 case "uiHost" -> uiHost;
+                case "tasks" -> tasks;
+                case "cubismClipMasks" -> clipMasks;
                 case "permissions" -> List.<PluginPermission>of();
                 case "toString" -> "FakePluginContext";
                 default -> throw new UnsupportedOperationException(method.getName());
@@ -183,6 +233,8 @@ class ClipMaskViewerPluginTest {
                 .handler()
                 .accept(new ActionRegistry.ActionContext() { });
             ui.runNext();
+            ui.runNext();
+            tasks.runNext();
             ui.runNext();
         }
     }
@@ -215,9 +267,11 @@ class ClipMaskViewerPluginTest {
         public ClipMaskViewerPlugin.WindowView create(
             final PluginLocalization localization,
             final PluginContext context,
+            final Runnable refreshAction,
             final Runnable onClosed
         ) {
             createCount++;
+            view.refreshAction = refreshAction;
             view.onClosed = onClosed;
             return view;
         }
@@ -235,10 +289,14 @@ class ClipMaskViewerPluginTest {
     }
 
     private static final class FakeWindowView implements ClipMaskViewerPlugin.WindowView {
+        private Runnable refreshAction;
         private Runnable onClosed;
         private boolean disposed;
         private int showCount;
-        private int refreshCount;
+        private int loadingCount;
+        private int snapshotCount;
+        private int unavailableCount;
+        private ClipMaskViewerState.Snapshot snapshot;
 
         @Override
         public void showAndFront() {
@@ -246,8 +304,19 @@ class ClipMaskViewerPluginTest {
         }
 
         @Override
-        public void refresh() {
-            refreshCount++;
+        public void showLoading() {
+            loadingCount++;
+        }
+
+        @Override
+        public void showSnapshot(final ClipMaskViewerState.Snapshot snapshot) {
+            snapshotCount++;
+            this.snapshot = snapshot;
+        }
+
+        @Override
+        public void showUnavailable() {
+            unavailableCount++;
         }
 
         @Override
@@ -263,6 +332,107 @@ class ClipMaskViewerPluginTest {
 
         private void simulateClose() {
             onClosed.run();
+        }
+    }
+
+    private static final class FakeClipMasks implements CubismClipMaskService {
+        private int readCount;
+
+        @Override
+        public List<ClipMaskRecord> collectClipMaskRecords() {
+            readCount++;
+            return List.of(new ClipMaskRecord("user-1", "ArtMesh1", "User 1", false,
+                List.of("mask-1")));
+        }
+    }
+
+    private static final class FakeTaskScheduler implements PluginTaskScheduler {
+        private final Queue<FakeTaskHandle> pending = new ArrayDeque<>();
+
+        @Override
+        public TaskSubmission submit(final PluginTaskRequest request) {
+            final FakeTaskHandle handle = new FakeTaskHandle(request);
+            pending.add(handle);
+            return new TaskSubmission(TaskSubmissionStatus.ACCEPTED, handle, Optional.empty());
+        }
+
+        @Override
+        public TaskSubmission scheduleWithFixedDelay(
+            final dev.turboism.sdk.task.FixedDelayTaskRequest request
+        ) {
+            throw new UnsupportedOperationException("unused");
+        }
+
+        int pendingCount() {
+            return pending.size();
+        }
+
+        void runNext() {
+            final FakeTaskHandle handle = pending.poll();
+            if (handle != null) {
+                handle.run();
+            }
+        }
+    }
+
+    private static final class FakeTaskHandle implements TaskHandle {
+        private final PluginTaskRequest request;
+        private final CompletableFuture<TaskOutcome> completion = new CompletableFuture<>();
+        private boolean canceled;
+
+        FakeTaskHandle(final PluginTaskRequest request) {
+            this.request = request;
+        }
+
+        void run() {
+            if (canceled) {
+                completion.complete(canceled());
+                return;
+            }
+            try {
+                request.action().run(new dev.turboism.sdk.plugin.CancellationToken() {
+                    @Override public boolean isCancellationRequested() { return canceled; }
+                    @Override public void checkCanceled() {
+                        if (canceled) throw new dev.turboism.sdk.plugin.TaskCanceledException();
+                    }
+                });
+                completion.complete(success());
+            } catch (dev.turboism.sdk.plugin.TaskCanceledException canceledFailure) {
+                completion.complete(canceled());
+            } catch (Exception failure) {
+                completion.complete(failed(failure));
+            }
+        }
+
+        @Override public TaskId id() { return request.id(); }
+        @Override public TaskProgress progress() { return new TaskProgress(0, Optional.empty()); }
+        @Override public boolean cancel() {
+            if (completion.isDone()) return false;
+            canceled = true;
+            completion.complete(canceled());
+            return true;
+        }
+        @Override public java.util.concurrent.CompletionStage<TaskOutcome> completion() {
+            return completion;
+        }
+        @Override public void close() { cancel(); }
+
+        private TaskOutcome success() {
+            return new TaskOutcome(id(), TaskOutcomeStatus.SUCCEEDED, 1,
+                Optional.of(new TaskRunOutcome(1, TaskRunOutcomeStatus.SUCCEEDED, Optional.empty())),
+                Optional.empty());
+        }
+
+        private TaskOutcome canceled() {
+            return new TaskOutcome(id(), TaskOutcomeStatus.CANCELED, 0, Optional.empty(), Optional.empty());
+        }
+
+        private TaskOutcome failed(final Exception failure) {
+            final String message = failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
+            final TaskFailure detail = new TaskFailure("TEST_FAILURE", message);
+            return new TaskOutcome(id(), TaskOutcomeStatus.FAILED, 1,
+                Optional.of(new TaskRunOutcome(1, TaskRunOutcomeStatus.FAILED, Optional.of(detail))),
+                Optional.of(detail));
         }
     }
 

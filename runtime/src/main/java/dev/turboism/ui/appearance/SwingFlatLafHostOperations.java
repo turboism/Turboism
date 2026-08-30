@@ -201,35 +201,12 @@ public final class SwingFlatLafHostOperations implements FlatLafAppearanceHostPr
                 flatLaf.getMethod("registerCustomDefaultsSource", java.io.File.class)
                     .invoke(null, ThemeRuntimeProperties.path().toFile());
                 flatLaf.getMethod("updateUI").invoke(null);
-                repaintGlViewports();
                 return null;
             } catch (ReflectiveOperationException exception) {
                 throw new IllegalStateException("FlatLaf updateUI is unavailable", exception);
             }
         });
     }
-
-    /** Best-effort repaint of JOGL viewports so off-canvas colors are re-read. */
-    private static void repaintGlViewports() {
-        try {
-            for (java.awt.Window window : java.awt.Window.getWindows()) {
-                repaintGlChildren(window);
-            }
-        } catch (RuntimeException ignored) {
-            // Repaint is best-effort and must never fail the appearance apply.
-        }
-    }
-
-    private static void repaintGlChildren(final java.awt.Container container) {
-        for (java.awt.Component component : container.getComponents()) {
-            if (component.getClass().getName().startsWith("com.jogamp.opengl.awt.GLJPanel")) {
-                component.repaint();
-            } else if (component instanceof java.awt.Container child) {
-                repaintGlChildren(child);
-            }
-        }
-    }
-
 
     private static Object uiValue(final String value) {
         if (value.matches("#[0-9A-Fa-f]{6}")) {

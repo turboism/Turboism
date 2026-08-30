@@ -20,6 +20,8 @@ import java.util.Set;
 import java.util.TreeMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -57,14 +59,42 @@ class TypedConfigDocumentStorePermissionTest {
 
 
     @Test
-    void newStoreOwnerOnlyAndWrittenDocumentsAre0600With0700Parents() throws Exception {
+    void absentRootReadStillRejectsTraversalWithoutMaterializingAnything() throws Exception {
+        final Path root = temporary.resolve("config");
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
+
+        assertThrows(java.io.IOException.class, () -> store.read("../outside.cfg"));
+        assertFalse(Files.exists(root));
+        assertFalse(Files.exists(temporary.resolve("outside.cfg")));
+    }
+
+    @Test
+    void firstWriteRejectsSymlinkSubstitutedForConfigParent() throws Exception {
+        final Path config = Files.createDirectories(temporary.resolve("config"));
+        final Path root = config.resolve("plugin");
+        final Path outside = Files.createDirectories(temporary.resolve("outside"));
+        Files.createDirectories(outside.resolve("plugin"));
+        final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
+        Files.move(config, temporary.resolve("original-config"));
+        Files.createSymbolicLink(config, outside);
+
+        assertThrows(
+            java.io.IOException.class,
+            () -> store.writeAtomic("settings.cfg", document("line=value"))
+        );
+        assertFalse(Files.exists(outside.resolve("settings.cfg")));
+    }
+
+    @Test
+    void firstWriteCreatesOwnerOnlyRootAndWrittenDocumentsAre0600With0700Parents() throws Exception {
         assumePosixAvailable(temporary);
         final Path root = temporary.resolve("config");
         final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
 
-        assertEquals(DIR_OWNER_ONLY, Files.getPosixFilePermissions(root));
-
+        assertTrue(Files.notExists(root));
         store.writeAtomic("plugin/webdav.cfg", document("line=value"));
+
+        assertEquals(DIR_OWNER_ONLY, Files.getPosixFilePermissions(root));
 
         final Path file = root.resolve("plugin/webdav.cfg");
         final Path parent = file.getParent();
@@ -154,18 +184,20 @@ class TypedConfigDocumentStorePermissionTest {
     }
 
     @Test
-    void unsupportedFileSystemFailsClosedAndWritesNothingInsecurely() throws Exception {
+    void unsupportedFileSystemFailsClosedAtFirstWriteWithoutCreatingInsecureData() throws Exception {
         final Path archive = temporary.resolve("unsupported-model.zip");
         try (FileSystem zip = FileSystems.newFileSystem(archive, Map.of("create", "true"))) {
             final Path root = zip.getPath("/config");
+            final TypedConfigDocumentStore store = new TypedConfigDocumentStore(root);
             boolean failed = false;
             try {
-                new TypedConfigDocumentStore(root);
+                store.writeAtomic("plugin/webdav.cfg", document("line=value"));
             } catch (java.io.IOException expected) {
                 failed = true;
             }
             assertTrue(failed,
                 "a file system exposing neither POSIX nor ACL controls must fail closed");
+            assertTrue(Files.notExists(root.resolve("plugin/webdav.cfg")));
         }
     }
 

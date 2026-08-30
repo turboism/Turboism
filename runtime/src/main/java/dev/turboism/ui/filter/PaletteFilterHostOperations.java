@@ -262,33 +262,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 allAttached = false;
             }
         }
-        writeAttachStatus();
         return allAttached;
     }
-
-    /** Appends the latest per-palette attach outcomes as machine-readable evidence. */
-    private void writeAttachStatus() {
-        final StringBuilder lines = new StringBuilder();
-        for (PaletteKind kind : PaletteKind.values()) {
-            lines.append("palette=").append(kind.name())
-                .append(" status=").append(lastAttachStatus.getOrDefault(kind, "not-attempted"))
-                .append("\n");
-        }
-        try {
-            final String home = System.getProperty("turboism.home", "");
-            if (!home.isEmpty()) {
-                final java.nio.file.Path output = java.nio.file.Path.of(home, "logs", "runtime", "palette-filter-attach.tsv");
-                java.nio.file.Files.writeString(
-                    output,
-                    lines.toString(),
-                    java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.TRUNCATE_EXISTING, java.nio.file.StandardOpenOption.WRITE
-                );
-            }
-        } catch (Exception ignored) {
-            // Evidence best-effort only; never fail host attachment for a write problem.
-        }
-    }
-
 
     private PaletteFilterRegistry.PaletteFilterContribution highestOrderContribution(final PaletteKind kind) {
         return contributionsByPlugin.values().stream()

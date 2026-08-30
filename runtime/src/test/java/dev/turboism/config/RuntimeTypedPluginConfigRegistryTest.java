@@ -64,6 +64,23 @@ class RuntimeTypedPluginConfigRegistryTest {
     }
 
     @Test
+    void constructionLeavesTypedConfigRootAbsentUntilSchemaRegistrationWrites() throws Exception {
+        final RuntimeTypedPluginConfigRegistry registry = registry(allPermissions());
+        final Path root = temporary.resolve("typed-config");
+
+        assertFalse(Files.exists(root));
+
+        registry.registerSchema(
+            new ConfigSchema("main", "settings/main.cfg", 1, List.of(new ConfigKey<>(
+                "main", "enabled", true, ConfigCodecs.booleanValue()
+            ))),
+            List.of()
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(Files.isRegularFile(root.resolve("settings/main.cfg")));
+    }
+
+    @Test
     void registersMaterializesDefaultsPersistsCasWritesAndSurvivesRestart() throws Exception {
         final ConfigKey<Boolean> enabled = new ConfigKey<>(
             "main",

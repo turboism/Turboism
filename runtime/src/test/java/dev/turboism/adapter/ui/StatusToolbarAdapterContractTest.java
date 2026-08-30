@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
@@ -75,6 +76,32 @@ class StatusToolbarAdapterContractTest {
         assertEquals(1, host.closeCount);
         assertTrue(service.notifications().isEmpty());
         assertTrue(service.uiDiagnostics().isEmpty());
+    }
+
+    @Test
+    void runtimeUiServiceLogsEveryStatusInvocationAtItsDeclaredSeverity() {
+        RecordingLogger logger = new RecordingLogger();
+        RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
+            PermissionChecker.allowAll(),
+            "plugin.demo",
+            dev.turboism.ui.UiHostStateSource.DEFAULT,
+            new DisposableScope(),
+            StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
+            dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
+            null,
+            new dev.turboism.ui.settings.SettingsContributionStore(),
+            logger
+        );
+
+        service.notifyStatus(new StatusNotification("one", "INFO", "Ready"));
+        service.notifyStatus(new StatusNotification("two", "WARNING", "Slow"));
+        service.notifyStatus(new StatusNotification("three", "ERROR", "Failed"));
+
+        assertEquals(java.util.List.of(
+            "INFO:Status: Ready",
+            "WARNING:Status: Slow",
+            "ERROR:Status: Failed"
+        ), logger.records);
     }
 
     @Test
@@ -190,6 +217,18 @@ class StatusToolbarAdapterContractTest {
 
         @Override public Registration notifyStatus(final StatusNotification notification) {
             return () -> closeCount++;
+        }
+    }
+
+    private static final class RecordingLogger implements PluginLogger {
+        private final java.util.List<String> records = new java.util.ArrayList<>();
+
+        @Override public void debug(final String message) { records.add("DEBUG:" + message); }
+        @Override public void info(final String message) { records.add("INFO:" + message); }
+        @Override public void warn(final String message) { records.add("WARNING:" + message); }
+        @Override public void error(final String message) { records.add("ERROR:" + message); }
+        @Override public void error(final String message, final Throwable throwable) {
+            records.add("ERROR:" + message);
         }
     }
 

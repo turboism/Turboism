@@ -11,15 +11,26 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
 /** Native process transport for a verified managed or explicitly selected fx executable. */
 final class FxProcessTransport implements FxAcpTransport {
 
+    private static final long DESCENDANT_SAMPLE_MILLIS = 10L;
+
     private final Process process;
+    private final java.util.Map<Long, ProcessHandle> retained = new ConcurrentHashMap<>();
+    private final Thread descendantSampler;
 
     private FxProcessTransport(final Process process) {
         this.process = Objects.requireNonNull(process, "process");
+        descendantSampler = new Thread(
+            this::sampleDescendantsWhileParentLives,
+            "turboism-fx-descendant-sampler-" + process.pid()
+        );
+        descendantSampler.setDaemon(true);
+        descendantSampler.start();
     }
 
     /**
@@ -123,26 +134,25 @@ final class FxProcessTransport implements FxAcpTransport {
     }
 
     /**
-     * Performs bounded best-effort cleanup of descendants observable through {@link ProcessHandle}
-     * before terminating the direct process. Retained handles let cleanup continue after the parent
-     * exits, but this is not launch-time containment: a child can fork, exit or reparent between
-     * snapshots. Portable process groups and Windows Job Objects require a native launch helper.
+     * Performs bounded best-effort cleanup of descendants sampled throughout the direct process
+     * lifetime. Retained handles let cleanup continue after the parent exits, but this is not
+     * launch-time containment: a child can fork, exit or reparent between snapshots. Portable
+     * process groups and Windows Job Objects require a native launch helper.
      */
     @Override
     public void terminate(final Duration grace) {
         final long millis = Math.max(0L, Objects.requireNonNull(grace, "grace").toMillis());
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
-        final java.util.Map<Long, ProcessHandle> retained = new java.util.LinkedHashMap<>();
-        retainDescendants(retained);
+        retainDescendants();
         boolean interrupted = false;
         do {
-            retainDescendants(retained);
+            retainDescendants();
             retained.values().stream()
                 .filter(ProcessHandle::isAlive)
                 .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
                 .forEach(ProcessHandle::destroy);
             process.destroy();
-            if (!anyAlive(retained) || millis == 0L) break;
+            if (!anyAlive() || millis == 0L) break;
             try {
                 process.waitFor(10L, TimeUnit.MILLISECONDS);
             } catch (InterruptedException failure) {
@@ -151,7 +161,10 @@ final class FxProcessTransport implements FxAcpTransport {
             }
         } while (System.nanoTime() < deadline);
 
-        retainDescendants(retained);
+        retainDescendants();
+        descendantSampler.interrupt();
+        if (joinSamplerInterrupted()) interrupted = true;
+        retainDescendants();
         final java.util.List<ProcessHandle> survivors = retained.values().stream()
             .filter(ProcessHandle::isAlive)
             .sorted(Comparator.comparingLong(ProcessHandle::pid).reversed())
@@ -167,21 +180,41 @@ final class FxProcessTransport implements FxAcpTransport {
         if (interrupted) Thread.currentThread().interrupt();
     }
 
-    private void retainDescendants(final java.util.Map<Long, ProcessHandle> retained) {
-        retainDescendants(process.toHandle(), retained);
-        for (ProcessHandle handle : java.util.List.copyOf(retained.values())) {
-            retainDescendants(handle, retained);
+    private void sampleDescendantsWhileParentLives() {
+        while (process.isAlive()) {
+            retainDescendants();
+            try {
+                Thread.sleep(DESCENDANT_SAMPLE_MILLIS);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        retainDescendants();
+    }
+
+    private boolean joinSamplerInterrupted() {
+        try {
+            descendantSampler.join();
+            return false;
+        } catch (InterruptedException failure) {
+            return true;
         }
     }
 
-    private static void retainDescendants(
-        final ProcessHandle root,
-        final java.util.Map<Long, ProcessHandle> retained
-    ) {
+    private void retainDescendants() {
+        retained.values().removeIf(handle -> !handle.isAlive());
+        retainDescendants(process.toHandle());
+        for (ProcessHandle handle : java.util.List.copyOf(retained.values())) {
+            retainDescendants(handle);
+        }
+    }
+
+    private void retainDescendants(final ProcessHandle root) {
         root.descendants().forEach(handle -> retained.putIfAbsent(handle.pid(), handle));
     }
 
-    private boolean anyAlive(final java.util.Map<Long, ProcessHandle> retained) {
+    private boolean anyAlive() {
         return process.isAlive() || retained.values().stream().anyMatch(ProcessHandle::isAlive);
     }
 

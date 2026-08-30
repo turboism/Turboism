@@ -36,7 +36,7 @@ public final class WindowsHistoryFloatProbe implements CubismPlugin {
 
     @Override
     public void enable() {
-        final Path evidence = context.paths().logsDir().resolve("history-float.txt");
+        final Path evidence = context.paths().dataDir().resolve("history-float.txt");
         try {
             Files.createDirectories(evidence.getParent());
             if (Files.exists(evidence)) {

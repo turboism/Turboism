@@ -26,6 +26,14 @@
     <str id="turboism-managed-graal" txt="Improve performance with GraalVM (optional)"/>
     <str id="turboism-managed-graal.description" txt="Download and verify Turboism's pinned private GraalVM runtime now, or leave it unchecked and install it later from Turboism settings."/>
 
-    <str id="LicencePanel.eula.info" txt="Turboism Minimal Runtime Agreement"/>
+    <str id="LicencePanel.eula.info" txt="Turboism End User License Agreement"/>
+
+    <str id="EulaAcknowledgementPanel.title" txt="Required operational acknowledgements"/>
+    <str id="EulaAcknowledgementPanel.introduction" txt="Before reading and accepting the following EULA, confirm each acknowledgement below. All four are required to continue."/>
+    <str id="EulaAcknowledgementPanel.independent" txt="I understand that Turboism is an independent third-party project, not an official Live2D product."/>
+    <str id="EulaAcknowledgementPanel.license" txt="I understand that Cubism still requires lawful authorization; Turboism does not provide, replace, or bypass license verification."/>
+    <str id="EulaAcknowledgementPanel.backup" txt="I understand that user-authorized plugins, scripts, MCP, API, or automation can modify, overwrite, or delete project content, and I will retain an independent backup."/>
+    <str id="EulaAcknowledgementPanel.asIs" txt="I understand that Turboism is open source and provided as-is, without guarantees of continued compatibility, no errors, or successful recovery."/>
+    <str id="EulaAcknowledgementPanel.rejected" txt="Installation cannot continue until every required acknowledgement is accepted."/>
 
 </izpack:langpack>
