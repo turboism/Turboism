@@ -52,6 +52,11 @@ InstallDir "$LOCALAPPDATA\Turboism"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
 
+; NSIS dialog units derive their pixel size from this font. Raising the stock
+; 8-point wizard font to 12 points scales both the main window and every native
+; or nsDialogs page together, instead of enlarging only the outer frame.
+SetFont "MS Shell Dlg" 12
+
 !ifdef VER_NUMERIC
   VIProductVersion "${VER_NUMERIC}"
   VIAddVersionKey "ProductName" "Turboism"
@@ -68,7 +73,6 @@ SetCompressor /SOLID lzma
 !define MUI_COMPONENTSPAGE_SMALLDESC
 !define MUI_ICON "${ICON_FILE}"
 !define MUI_UNICON "${ICON_FILE}"
-!define MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow
 
 !define MUI_WELCOMEPAGE_TITLE "$(TurboismWelcomeTitle)"
 !define MUI_WELCOMEPAGE_TEXT "$(TurboismWelcomeText)"
@@ -355,36 +359,6 @@ Function .onInit
   StrCpy $createStartMenu 1
   StrCpy $integrateCubismBat 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
-FunctionEnd
-
-
-Function ResizeInstallerWindow
-  ; Enlarge the stock MUI wizard without rewriting each native page. Windows
-  ; keeps the child dialogs centred within the larger top-level client area;
-  ; custom nsDialogs pages already use percentage widths.
-  System::Call 'user32::GetWindowRect(i $HWNDPARENT, @r0)'
-  System::Call '*$0(i .r1, i .r2, i .r3, i .r4)'
-  IntOp $3 $3 - $1
-  IntOp $4 $4 - $2
-  IntOp $3 $3 * 3
-  IntOp $3 $3 / 2
-  IntOp $4 $4 * 3
-  IntOp $4 $4 / 2
-  System::Call 'user32::GetSystemMetrics(i 0) i .r5'
-  System::Call 'user32::GetSystemMetrics(i 1) i .r6'
-  ${If} $3 > $5
-    IntOp $3 $5 * 9
-    IntOp $3 $3 / 10
-  ${EndIf}
-  ${If} $4 > $6
-    IntOp $4 $6 * 9
-    IntOp $4 $4 / 10
-  ${EndIf}
-  IntOp $1 $5 - $3
-  IntOp $1 $1 / 2
-  IntOp $2 $6 - $4
-  IntOp $2 $2 / 2
-  System::Call 'user32::SetWindowPos(i $HWNDPARENT, i 0, i $1, i $2, i $3, i $4, i 0x0040)'
 FunctionEnd
 
 Function OpenInstallDirectory
