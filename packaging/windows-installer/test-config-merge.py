@@ -476,35 +476,50 @@ def check_eula_contract():
           and "本版本以简体中文文本为正式文本" in zh
           and "簡体字中国語文を正文とします" in ja)
     first = text.index('!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"')
-    second = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
-    check("EULA is a separate page after MIT License", first < second)
+    statement = text.index('!insertmacro MUI_PAGE_LICENSE "$(EulaFile)"')
+    acknowledgements_page = text.index(
+        "Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave")
+    mode_page = text.index("Page custom ModeCreate ModeLeave")
+    check("EULA statement and acknowledgements are separate pages after MIT License",
+          first < statement < acknowledgements_page < mode_page)
+    statement_declaration = text[first + len(
+        '!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"'):statement]
+    check("EULA statement page keeps the complete localized scrollable body",
+          'MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"' in statement_declaration
+          and "MUI_LICENSEPAGE_CHECKBOX" not in statement_declaration
+          and "MUI_PAGE_CUSTOMFUNCTION_SHOW" not in statement_declaration
+          and "MUI_PAGE_CUSTOMFUNCTION_LEAVE" not in statement_declaration)
     acknowledgements = (
         "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。",
         "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。",
         "我理解由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。",
         "我理解 Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。",
     )
-    check("NSIS shows all four required acknowledgements",
+    create_start = text.index("Function EulaAcknowledgementsCreate")
+    create_end = text.index("FunctionEnd", create_start)
+    create = text[create_start:create_end]
+    leave_start = text.index("Function EulaAcknowledgementsLeave")
+    leave_end = text.index("FunctionEnd", leave_start)
+    leave = text[leave_start:leave_end]
+    check("NSIS acknowledgement page shows four standard independent checkboxes",
           all(value in text for value in acknowledgements)
-          and all("EulaAck%dCheckbox" % index in text for index in range(1, 5)))
-    check("NSIS requires all four acknowledgements before Next",
-          text.count("${BM_GETCHECK}") >= 8
-          and "Function EulaUpdateNext" in text
-          and "EnableWindow $4 0" in text
-          and "Function EulaLeave" in text
-          and "Call EulaUpdateNext" in text)
-    check("NSIS measures all four acknowledgements before the scrollable declaration",
-          "$mui.LicensePage.LicenseText" in text
-          and "CreateEulaAcknowledgement" in text
-          and text.count("!insertmacro CreateEulaAcknowledgement $EulaAck") == 4
-          and "DrawTextW" in text
-          and "DT_CALCRECT" not in text
-          and "MapDialogRect" in text
-          and "SetWindowPos" in text
-          and "EulaAck4Checkbox" in text)
-    check("NSIS does not expose a single agree checkbox",
-          'MUI_LICENSEPAGE_CHECKBOX_TEXT ""' in text
-          and "EulaAcceptText" not in text)
+          and create.count("${NSD_CreateCheckbox}") == 4
+          and all("EulaAck%dCheckbox" % index in create for index in range(1, 5)))
+    check("NSIS reads and requires all four acknowledgement states",
+          leave.count("${NSD_GetState}") == 4
+          and all("$EulaAck%dState" % index in leave for index in range(1, 5))
+          and "$(EulaRequired)" in leave
+          and "Abort" in leave)
+    check("NSIS preserves acknowledgement choices across Back navigation",
+          "${NSD_OnBack} EulaAcknowledgementsSave" in create
+          and "Function EulaAcknowledgementsSave" in text
+          and all("$EulaAck%dState" % index in create for index in range(1, 5)))
+    check("NSIS does not attach acknowledgement controls to the MUI License page",
+          "CreateEulaAcknowledgement" not in text
+          and "EulaUpdateNext" not in text
+          and "Function EulaShow" not in text
+          and "Function EulaLeave" not in text
+          and "EulaNativeAccept" not in text)
     check("NSIS EULA files are localized",
           all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
               for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
