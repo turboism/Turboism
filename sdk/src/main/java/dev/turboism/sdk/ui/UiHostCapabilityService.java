@@ -175,19 +175,26 @@ public interface UiHostCapabilityService {
     }
 
     /**
-     * Framework capability: pushes the current off-canvas (GL viewport)
-     * background color (read from UIManager by the runtime) onto the host's
-     * background mesh so theme changes take effect immediately instead of only
-     * after a restart. The runtime owns the host navigation; plugins must not
-     * touch host objects directly.
-     *
-     * @return {@code true} when the host scene was refreshed, {@code false}
-     *     when the host structure is unavailable (fail closed).
+     * @deprecated Applying a theme requires restarting Cubism Editor; immediate
+     *     off-canvas repaint is not a supported capability.
+     * @return no refresh; this compatibility method always fails closed
+     * @throws UnsupportedOperationException on every call
      */
+    @Deprecated(forRemoval = true)
     default boolean refreshOffCanvasAppearance() {
-        throw new UnsupportedOperationException("off-canvas refresh is not available");
+        throw new UnsupportedOperationException(
+            "off-canvas refresh is unavailable; restart Cubism Editor after applying a theme"
+        );
     }
 
+    /**
+     * Replaces the current ordinary bottom-status message and records the same
+     * message through the calling plugin's framework logger. Compact resident
+     * metrics retain their own keyed slots.
+     *
+     * @param notification validated status message and severity
+     * @return a handle that dismisses this message only while it remains current
+     */
     Registration notifyStatus(StatusNotification notification);
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);

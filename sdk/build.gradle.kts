@@ -1,9 +1,17 @@
+import org.gradle.language.jvm.tasks.ProcessResources
+
 plugins {
     `java-library`
 }
 
 dependencies {
     // SDK has no implementation dependencies
+}
+
+tasks.named<ProcessResources>("processResources") {
+    filePermissions {
+        unix("rw-r--r--")
+    }
 }
 
 val asyncHostReadContractTest by tasks.registering(Test::class) {
