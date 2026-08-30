@@ -6,7 +6,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /** Active-document access to Cubism's native Undo history. */
-@CubismEditor({"5.3.02", "5.3.03"})
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface CubismHistory {
 
     HistorySnapshot snapshot();
