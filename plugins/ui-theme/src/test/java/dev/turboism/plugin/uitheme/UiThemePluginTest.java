@@ -77,6 +77,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
@@ -86,6 +87,33 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class UiThemePluginTest {
+
+    @Test
+    void localizedThemeNoticeRequiresCubismEditorRestartAfterSwitchingTheme() throws Exception {
+        final Map<String, String> expected = Map.of(
+            "messages.properties", "Restart Cubism Editor after switching themes.",
+            "messages_en.properties", "Restart Cubism Editor after switching themes.",
+            "messages_zh_Hans.properties", "切换主题后请重新启动 Cubism Editor。",
+            "messages_zh_Hant.properties", "切換主題後請重新啟動 Cubism Editor。",
+            "messages_ja.properties", "テーマを切り替えた後は Cubism Editor を再起動してください。",
+            "messages_ko.properties", "테마를 전환한 뒤 Cubism Editor를 다시 시작하세요."
+        );
+
+        for (Map.Entry<String, String> entry : expected.entrySet()) {
+            final String resource = "/META-INF/turboism/i18n/" + entry.getKey();
+            final Properties properties = new Properties();
+            try (java.io.Reader reader = new java.io.InputStreamReader(
+                java.util.Objects.requireNonNull(getClass().getResourceAsStream(resource), resource),
+                java.nio.charset.StandardCharsets.UTF_8
+            )) {
+                properties.load(reader);
+            }
+            final String notice = properties.getProperty("theme.notice");
+            assertTrue(notice.contains(entry.getValue()), entry.getKey());
+            assertTrue(!notice.contains("reopen this window"), entry.getKey());
+            assertTrue(!notice.contains("重新打开此窗口"), entry.getKey());
+        }
+    }
 
     @Test
     void initRegistersTheProductionThemeSelectionSchema() {
