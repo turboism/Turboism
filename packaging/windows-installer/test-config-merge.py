@@ -325,10 +325,10 @@ def check_configurator_flow_contract():
     check("CF2 successful installation launches interactive configurator",
           "Function .onInstSuccess" in text
           and "configure_turboism.ps1" in text[text.index("Function .onInstSuccess"):])
-    check("CF3 main installer is enlarged by the MUI GUI-init hook",
-          "MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow" in text
-          and "Function ResizeInstallerWindow" in text
-          and "* 3" in text and "/ 2" in text)
+    check("CF3 main installer scales the frame and page content together",
+          'SetFont "MS Shell Dlg" 12' in text
+          and "MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow" not in text
+          and "Function ResizeInstallerWindow" not in text)
     check("CF4 configurator is large, resizable and maximizable",
           "ClientSize = New-Object System.Drawing.Size(1080, 900)" in configure
           and "MinimumSize = New-Object System.Drawing.Size(900, 720)" in configure
