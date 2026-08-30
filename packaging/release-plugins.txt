@@ -3,12 +3,14 @@
 :plugins:clipmask-viewer
 :plugins:core
 :plugins:cubism-tab-filter
+:plugins:history-panel
 :plugins:mcp
 :plugins:mesh-edit-mirror-axis-enhance
 :plugins:palette-label-style
 :plugins:parameter-batch-transfer
 :plugins:perf-stats
 :plugins:physics-editor
+:plugins:psd-clip-mask-import
 :plugins:recent-preview
 :plugins:scene-palette-enhancer
 :plugins:texture-atlas-stats

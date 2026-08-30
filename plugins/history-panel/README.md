@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.historypanel
 version: 0.1.0
 kind: feature
-status: development
-delivery: development-only
+status: preview
+delivery: store-candidate
 category: workflow
 tags: history, navigation, floating-window
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,9 +14,9 @@ interface: embedded
 
 # History Panel Plugin
 
-> **Official Turboism plugin** · **Status: Development**
+> **Official Turboism plugin** · **Status: Preview**
 
-Projects the active document's native Undo history into a floating embedded History panel with a vertical tool-strip toggle.
+Projects the active document's native Undo history into a floating embedded History panel with a vertical tool-strip toggle and snapshot-bound Undo/Redo navigation.
 
 | Detail | Value |
 |---|---|
@@ -44,11 +44,11 @@ Projects the active document's native Undo history into a floating embedded Hist
 
 ## Install and enable
 
-This is a **development-only** module, not a published store listing or release-delivery plugin. Load it through the repository's development runtime and enable it in **Plugin Management** when exercising the reviewed history-panel integration.
+This plugin is included in Turboism Full releases. Install a Full package, then enable or disable it in **Plugin Management**. Its native history actions remain subject to the exact Cubism version and active-document availability shown by the panel.
 
 ## How to use
 
-1. Enable the plugin in a development runtime.
+1. Install a Turboism Full package and enable the plugin in **Plugin Management**.
 2. Click the History button on the right-side vertical tool strip to open the floating pane.
 3. Review the current native Undo history. Toggle an applied entry to undo back to it, or an undone entry to redo forward past it.
 4. Click the History button again to close the pane.
@@ -91,7 +91,7 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 
 ## Status and limitations
 
-- **Status:** Development.
+- **Status:** Preview release plugin.
 - The panel shows a localized unavailable state when native history is unavailable.
 - Polling is optional: if task scheduling is unavailable, the pane remains usable with its initial refresh only.
 - A failed panel refresh is logged and retried on the next poll; a failed close is handled safely from the toggle state.

@@ -26,12 +26,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Read-only Photoshop-style history pane projected into an embedded dock panel.
+ * Photoshop-style history pane projected into an embedded dock panel.
  *
  * <p>The pane polls the active document's verified Undo history and re-contributes
- * the panel only when the projected state changes. Move-to remains a production
- * fail-closed boundary; the pane reports the live availability instead of mutating
- * the document through an unverified path.</p>
+ * the panel only when the projected state changes. Entry actions are registered by
+ * the owner against the same snapshot and use the typed Undo/Redo service; the pane
+ * reports unavailable state instead of using an unverified mutation path.</p>
  */
 public final class HistoryPanelService {
 

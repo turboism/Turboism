@@ -20,6 +20,7 @@ class CoreWindowsTest {
         @Override public Locale locale() { return Locale.ENGLISH; }
         @Override public String text(final String key) {
             return switch (key) {
+                case "about.bouquet" -> "For you, a bouquet";
                 case "about.thanks" -> "Thanks to<br>@希娜莉丝 and all contributors";
                 case "about.homepage" -> "Homepage";
                 case "about.support" -> "Support us";
@@ -127,6 +128,8 @@ class CoreWindowsTest {
         final String html = CoreWindows.aboutHtml(I18N, "0.42.0");
         assertTrue(html.contains("0.42.0"));
         assertTrue(html.contains("Live2D Cubism Extension Framework"));
+        assertTrue(html.contains("For you, a bouquet"));
+        assertTrue(html.indexOf("For you, a bouquet") < html.indexOf("@希娜莉丝"));
         assertTrue(html.contains("@希娜莉丝"));
         assertTrue(html.contains("<img src=\"file:"));
         assertTrue(html.contains("alt=\"Turboism\""));
@@ -155,6 +158,6 @@ class CoreWindowsTest {
     void frameworkVersion_readsPackagedResource() {
         final String version = CoreWindows.frameworkVersion();
         assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), "framework version: " + version);
-        assertEquals("0.43.2", version);
+        assertEquals(System.getProperty("turboism.expectedFrameworkVersion"), version);
     }
 }

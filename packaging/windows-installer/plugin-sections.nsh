@@ -8,12 +8,14 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
     File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+    File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
     File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
     File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
     File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
     File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
     File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
     File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+    File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
     File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
     File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
     File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
@@ -41,6 +43,12 @@ LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_SIMPCHINESE}
 LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_SIMPCHINESE} "Turboism 的Cubism 标签筛选器。"
 LangString PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "Cubism タブフィルター 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter ${LANG_JAPANESE} "Turboism のCubism タブフィルター。"
+LangString PLUGIN_NAME_dev_turboism_plugin_historypanel ${LANG_ENGLISH} "History Panel Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_historypanel ${LANG_ENGLISH} "Photoshop-style history pane with native Undo history and snapshot-bound Undo/Redo navigation."
+LangString PLUGIN_NAME_dev_turboism_plugin_historypanel ${LANG_SIMPCHINESE} "历史记录面板插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_historypanel ${LANG_SIMPCHINESE} "Photoshop 风格历史面板，显示原生撤销历史并提供绑定快照的撤销/重做导航。"
+LangString PLUGIN_NAME_dev_turboism_plugin_historypanel ${LANG_JAPANESE} "履歴パネルプラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_historypanel ${LANG_JAPANESE} "ネイティブ Undo 履歴とスナップショットに束縛された Undo/Redo ナビゲーションを提供する Photoshop 風履歴パネルです。"
 LangString PLUGIN_NAME_dev_turboism_plugin_mcp ${LANG_ENGLISH} "Turboism MCP Server 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_mcp ${LANG_ENGLISH} "Loopback MCP server for typed Cubism inspection, editing, history, and Editor-command workflows."
 LangString PLUGIN_NAME_dev_turboism_plugin_mcp ${LANG_SIMPCHINESE} "Turboism MCP 服务器 0.1.0"
@@ -77,6 +85,12 @@ LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_SIMPCHINESE} "�
 LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_SIMPCHINESE} "Turboism 的物理编辑器。"
 LangString PLUGIN_NAME_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "物理演算エディター 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_physics_editor ${LANG_JAPANESE} "Turboism の物理演算エディター。"
+LangString PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import ${LANG_ENGLISH} "PSD Clip Mask Import Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import ${LANG_ENGLISH} "Imports ordered PSD clipping relationships into ArtMesh clip-mask assignments with an explicit overwrite policy."
+LangString PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import ${LANG_SIMPCHINESE} "PSD 剪贴蒙版导入插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import ${LANG_SIMPCHINESE} "按顺序将 PSD 剪贴关系导入 ArtMesh 剪贴蒙版分配，并提供明确的覆盖策略。"
+LangString PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import ${LANG_JAPANESE} "PSD クリッピングマスクインポートプラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import ${LANG_JAPANESE} "PSD のクリッピング関係を順序どおり ArtMesh のクリッピングマスク割り当てへ取り込み、明示的な上書き方針を提供します。"
 LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_ENGLISH} "Recent Preview 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_recent_preview ${LANG_ENGLISH} "Captures bounded preview thumbnails for recent project files and contributes them to the Recent Files hover popup."
 LangString PLUGIN_NAME_dev_turboism_plugin_recent_preview ${LANG_SIMPCHINESE} "最近预览 0.1.0"
@@ -103,9 +117,9 @@ LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} 
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "Turboism のテクスチャアトラス統計。"
 LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "Turboism with fx 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting the verified managed fx runtime to the authenticated MCP server."
-LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "Turboism with fx 0.1.0"
+LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "Turboism 与 fx 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "通过 ACP v1 代理与设置窗口，将经过验证的托管 fx 运行时连接到已认证的 MCP 服务器。"
-LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "Turboism with fx 0.1.0"
+LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "Turboism と fx 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "ACP v1 エージェントと設定画面により、検証済み管理対象 fx ランタイムを認証済み MCP サーバーへ接続します。"
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "UI Theme Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
@@ -120,6 +134,9 @@ Section "$(PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer)" SEC_dev_turboism_pl
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_cubism_tab_filter)" SEC_dev_turboism_plugin_cubism_tab_filter
+SectionEnd
+
+Section "$(PLUGIN_NAME_dev_turboism_plugin_historypanel)" SEC_dev_turboism_plugin_historypanel
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_mcp)" SEC_dev_turboism_plugin_mcp
@@ -138,6 +155,9 @@ Section "$(PLUGIN_NAME_dev_turboism_plugin_perf_stats)" SEC_dev_turboism_plugin_
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_physics_editor)" SEC_dev_turboism_plugin_physics_editor
+SectionEnd
+
+Section "$(PLUGIN_NAME_dev_turboism_plugin_psd_clip_mask_import)" SEC_dev_turboism_plugin_psd_clip_mask_import
 SectionEnd
 
 Section "$(PLUGIN_NAME_dev_turboism_plugin_recent_preview)" SEC_dev_turboism_plugin_recent_preview
@@ -163,12 +183,14 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "$(PLUGIN_DESC_dev_turboism_plugin_backup)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "$(PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "$(PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_historypanel} "$(PLUGIN_DESC_dev_turboism_plugin_historypanel)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mcp} "$(PLUGIN_DESC_dev_turboism_plugin_mcp)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance} "$(PLUGIN_DESC_dev_turboism_plugin_mesh_edit_mirror_axis_enhance)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_palette_label_style} "$(PLUGIN_DESC_dev_turboism_plugin_palette_label_style)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_parameter_batch_transfer} "$(PLUGIN_DESC_dev_turboism_plugin_parameter_batch_transfer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_perf_stats} "$(PLUGIN_DESC_dev_turboism_plugin_perf_stats)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_physics_editor} "$(PLUGIN_DESC_dev_turboism_plugin_physics_editor)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_psd_clip_mask_import} "$(PLUGIN_DESC_dev_turboism_plugin_psd_clip_mask_import)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_recent_preview} "$(PLUGIN_DESC_dev_turboism_plugin_recent_preview)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
@@ -197,6 +219,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_cubism_tab_filter} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_historypanel} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -233,6 +261,12 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_physics_editor} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -300,6 +334,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.cubism-tab-filter"
     ${EndIf}
   ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_historypanel} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.historypanel"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.historypanel"
+    ${EndIf}
+  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_mcp} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -352,6 +395,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.physics-editor"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.physics-editor"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_psd_clip_mask_import} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.psd-clip-mask-import"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.psd-clip-mask-import"
     ${EndIf}
   ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_recent_preview} $1
@@ -426,6 +478,10 @@ Function RemoveBundledFromExistingDisabled
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.historypanel"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.mcp"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
@@ -447,6 +503,10 @@ Function RemoveBundledFromExistingDisabled
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.physics-editor"
+  Call RemoveItemFromList
+  StrCpy $existingDisabled "$0"
+  StrCpy $0 "$existingDisabled"
+  StrCpy $1 "dev.turboism.plugin.psd-clip-mask-import"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"

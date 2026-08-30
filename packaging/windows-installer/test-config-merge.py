@@ -22,7 +22,7 @@ RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入�
 由运行时默认值补全（见 installer.nsi 注释；configure_turboism.ps1 完整保留）。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-16 项目 / 7 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+18 项目 / 7 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -38,19 +38,21 @@ MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 
-# 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:backup",
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
+    ":plugins:history-panel",
     ":plugins:mcp",
     ":plugins:mesh-edit-mirror-axis-enhance",
     ":plugins:palette-label-style",
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
+    ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
@@ -71,7 +73,7 @@ def check(name, cond, detail=""):
 
 def load_manifest():
     """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
-    重复/未排序/偏离冻结 16 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
+    重复/未排序/偏离冻结 18 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
     不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
@@ -82,7 +84,7 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 16 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    check("清单与冻结 18 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
@@ -432,6 +434,41 @@ def check_graal_fallback_contract():
           "https://www.graalvm.org/downloads/" in launcher)
 
 
+def check_uninstall_config_option():
+    """卸载确认页的配置保留选项必须属于 MUI 内页且默认保留。"""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    show_start = text.index("Function un.ConfirmShow")
+    show_end = text.index("FunctionEnd", show_start)
+    show = text[show_start:show_end]
+    leave_start = text.index("Function un.ConfirmLeave")
+    leave_end = text.index("FunctionEnd", leave_start)
+    leave = text[leave_start:leave_end]
+    uninstall_start = text.index('Section "Uninstall"')
+    uninstall_end = text.index("SectionEnd", uninstall_start)
+    uninstall = text[uninstall_start:uninstall_end]
+
+    check("UC1 checkbox belongs to the MUI uninstall page",
+          'i $mui.UnConfirmPage, i 2000' in show)
+    check("UC1 checkbox is not attached to the wizard parent",
+          'i $HWNDPARENT, i 2000' not in show)
+    check("UC2 keep-config option defaults checked",
+          "StrCpy $unKeepConfig 1" in show
+          and '${BM_SETCHECK} 1 0' in show)
+    check("UC3 leave callback reads checkbox state directly",
+          '${BM_GETCHECK} 0 0 $unKeepConfig' in leave)
+    check("UC4 config is deleted only when keep is unchecked",
+          '${If} $unKeepConfig == 0' in uninstall
+          and 'Delete "$INSTDIR\\config.json"' in uninstall)
+    check("UC4b keep restores user config/data directories after runtime cleanup",
+          'CreateDirectory "$INSTDIR\\config"' in uninstall
+          and 'CreateDirectory "$INSTDIR\\data"' in uninstall)
+    check("UC5 localized label describes retention",
+          all(('LangString UnKeepConfigLabel ${LANG_%s}' % lang) in text
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+          and "UnDeleteConfigLabel" not in text
+          and "$unDeleteConfig" not in text)
+
+
 def check_uninstall_postcondition():
     """卸载失败关闭顺序回归：清理调用/$0 非零守卫 -> 状态文件仍存在则失败关闭
     -> 之后才允许 DeleteRegKey 与载荷删除（Wine 内置 PowerShell 返回 0 而未执行
@@ -616,6 +653,7 @@ def main():
     check_launcher_and_shortcut_contract()
     check_eula_contract()
     check_graal_fallback_contract()
+    check_uninstall_config_option()
     check_uninstall_postcondition()
     print("config merge + payload 模拟 + uninstall 后置验证通过：全部用例 ok")
 

@@ -6,6 +6,22 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.3] - 2026-08-30
+
+### Added
+
+- Added the localized “For you, a bouquet” dedication to the Core About window beneath the Turboism title.
+
+### Changed
+
+- Made the Core About window display the framework version generated from the authoritative Gradle release version.
+- Corrected the release-plugin allowlist to publish the History Panel and PSD Clip Mask Import business plugins while keeping development shells, demos, and legacy placeholders out of public installers and archives.
+
+### Fixed
+
+- Fixed the Windows uninstaller configuration-retention checkbox being attached to the outer wizard window, which prevented reliable interaction and could make the confirmation page sluggish.
+- Changed the uninstall option to the unambiguous, default-enabled “Keep config.json” behavior; configuration is deleted only when the user clears it.
+
 ## [0.43.2] - 2026-08-29
 
 ### Fixed
@@ -84,7 +100,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The Java installer is available for macOS and Linux, but macOS Cubism host readiness is not claimed and Linux Cubism hosting is unsupported.
 - Published binaries are not code-signed or notarized in this release; verify the accompanying SHA-256 sidecars before installation.
 
-[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.2...HEAD
+[Unreleased]: https://github.com/Turboism/Turboism/compare/v0.43.3...HEAD
+[0.43.3]: https://github.com/Turboism/Turboism/releases/tag/v0.43.3
 [0.43.2]: https://github.com/Turboism/Turboism/releases/tag/v0.43.2
 [0.43.1]: https://github.com/Turboism/Turboism/releases/tag/v0.43.1
 [0.43.0]: https://github.com/Turboism/Turboism/releases/tag/v0.43.0

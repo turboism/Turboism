@@ -23,7 +23,7 @@ unsigned; verify the accompanying `.sha256` files after downloading.
 
 ## Current capabilities
 
-The 0.43.2 release includes:
+The 0.43.3 release includes:
 
 - a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
   configuration, localization, tasks, events, actions, menus, toolbars,
@@ -33,6 +33,7 @@ The 0.43.2 release includes:
   inspection, and Plugin Directory integration;
 - parameter batch transfer with optional inversion;
 - mesh-edit mirror-axis enhancements;
+- a native Undo/Redo History panel and confirmed PSD clip-mask relationship import;
 - Recent Files hover thumbnails;
 - clip-mask inspection, Cubism palette filtering, palette label styling,
   scene-palette ordering, texture-atlas statistics and MaxRects-BSSF layout;
@@ -61,7 +62,7 @@ Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
 
 ```bash
-sha256sum -c TurboismInstaller-0.43.2.exe.sha256
+sha256sum -c TurboismInstaller-0.43.3.exe.sha256
 ```
 
 Run `configure_turboism.ps1` after installation to discover or select Cubism

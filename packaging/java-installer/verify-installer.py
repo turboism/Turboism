@@ -52,7 +52,7 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 16 approved
+      `packaging/release-plugins.txt` exactly (the frozen 18 approved
       projects; runtime-owned core is never a payload plugin), and the seven
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
@@ -147,7 +147,7 @@ LOCALIZED_MODE = {
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 16-project list plus the seven excluded public module names is the regression
+# This exact 18-project list plus the seven excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
@@ -157,12 +157,14 @@ MANIFEST_EXPECTED = [
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
+    ":plugins:history-panel",
     ":plugins:mcp",
     ":plugins:mesh-edit-mirror-axis-enhance",
     ":plugins:palette-label-style",
     ":plugins:parameter-batch-transfer",
     ":plugins:perf-stats",
     ":plugins:physics-editor",
+    ":plugins:psd-clip-mask-import",
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
@@ -371,7 +373,7 @@ def assert_managed_fx_payload(payload):
 def load_release_manifest(path):
     """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
     fail-closed: blank/comment lines, malformed or non-plugin entries,
-    duplicates, unsorted order, or drift from the frozen 16-project allowlist
+    duplicates, unsorted order, or drift from the frozen 18-project allowlist
     are fatal. Returns the allowlisted plugin module names (manifest entries
     minus the runtime-owned core)."""
     check("release manifest exists", os.path.isfile(path), path)
@@ -386,7 +388,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 16-project allowlist",
+    check("release manifest matches the frozen 18-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
