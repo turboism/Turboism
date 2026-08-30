@@ -182,13 +182,13 @@ try {
         ($defaultConfig | ConvertTo-Json -Depth 4 -Compress),
         (New-Object System.Text.UTF8Encoding($false))
     )
-    $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2"
-    $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3" -D3D $true
+    $root52 = New-SyntheticCubism -Name "Live2D" -Version "5.2.03"
+    $root53 = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -D3D $true
     $root53DuplicateVersion = New-SyntheticCubism -Name "Live2D" -Version "5.3.02"
     $hyphenD3DRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.03" -D3D $true
     Move-Item -LiteralPath (Join-Path $hyphenD3DRoot "CubismEditor5_D3D.bat") `
         -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")
-    $newSupported = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
+    $unsupportedPatch = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
     $unsupported = New-SyntheticCubism -Name "fixture unsupported" -Version "5.4.00"
 
     $scanDrive = Join-Path $temp "D-shaped-drive"
@@ -197,13 +197,13 @@ try {
     foreach ($index in 1..96) {
         New-Item -ItemType Directory -Path (Join-Path $scanProgramFiles ("unrelated-{0:D3}" -f $index)) -Force | Out-Null
     }
-    $directScanRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3" -Parent $scanProgramFiles
-    $nestedScanRoot = New-SyntheticCubism -Name "placeholder" -Version "5.2" -Parent (Join-Path $scanProgramFiles "Live2D") -LeafName "Cubism 5.2"
+    $directScanRoot = New-SyntheticCubism -Name "Live2D" -Version "5.3.02" -Parent $scanProgramFiles
+    $nestedScanRoot = New-SyntheticCubism -Name "placeholder" -Version "5.2.03" -Parent (Join-Path $scanProgramFiles "Live2D") -LeafName "Cubism 5.2.03"
     $shallowRoots = @(Get-CubismShallowDiscoveryRoots -DriveRoots @($scanDrive))
     Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $directScanRoot) }).Count -eq 1) "fixed-drive traversal finds direct Live2D Cubism 5.3 in a synthetic drive-shaped tree"
-    Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $nestedScanRoot) }).Count -eq 1) "fixed-drive traversal finds nested Live2D/Cubism 5.2"
+    Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -ieq (ConvertTo-CubismCanonicalRoot $nestedScanRoot) }).Count -eq 1) "fixed-drive traversal finds nested Live2D/Cubism 5.2.03"
     Assert-ManagedLaunch (@($shallowRoots | Where-Object { $_ -match '(?i)unrelated-' }).Count -eq 0) "unrelated directory names do not consume candidate results"
-    $reparseScanRoot = Join-Path $scanProgramFiles "Live2D Cubism 5.2"
+    $reparseScanRoot = Join-Path $scanProgramFiles "Live2D Cubism 5.2.03"
     $reparseCreated = $false
     try {
         New-Item -ItemType SymbolicLink -Path $reparseScanRoot -Target $nestedScanRoot -ErrorAction Stop | Out-Null
@@ -224,9 +224,9 @@ try {
     # Keep the fixture hermetic: candidate inventory receives only synthetic roots.
     $roots = @($root53, $root52, $root53.ToUpperInvariant(), $root53DuplicateVersion)
     $candidates = Get-CubismInstallations -Roots $roots
-    Assert-ManagedLaunch (@($candidates).Count -eq 3) "case-insensitive root dedupe keeps two 5.3 family installs"
-    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "synthetic unsuffixed 5.2 and 5.3 family roots pass file-shape checks"
-    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2" -and $candidates[1].Version -eq "5.3") "inventory order is family version then canonical path"
+    Assert-ManagedLaunch (@($candidates).Count -eq 3) "case-insensitive root dedupe keeps two exact 5.3.02 installs"
+    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "exact 5.2.03 and 5.3.02 roots pass file-shape checks"
+    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2.03" -and $candidates[1].Version -eq "5.3.02") "inventory order retains exact version then canonical path"
     Assert-ManagedLaunch (@($candidates | Where-Object { $_.D3DBat }).Count -eq 1) "D3D BAT is an optional separately named entry"
     $hyphenD3DCandidate = New-CubismInstallationCandidate -Root $hyphenD3DRoot
     Assert-ManagedLaunch ($hyphenD3DCandidate.D3DBat -like '*CubismEditor5-D3D.bat') "hyphenated official D3D BAT is discovered"
@@ -257,7 +257,7 @@ try {
     Write-CubismInstallationState -StatePath $statePath -Candidates $initial
     $beforeWriteCap = (Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash
     $writeCapCandidates = @(0..255 | ForEach-Object {
-        [pscustomobject]@{ CanonicalRoot = "C:\Turboism-write-cap-$($_)-$('x' * 220)"; Version = "5.3"; Selected = $true }
+        [pscustomobject]@{ CanonicalRoot = "C:\Turboism-write-cap-$($_)-$('x' * 220)"; Version = "5.3.02"; Selected = $true }
     })
     $writeCapThrew = $false
     try { Write-CubismInstallationState -StatePath $statePath -Candidates $writeCapCandidates } catch { $writeCapThrew = $true }
@@ -265,13 +265,16 @@ try {
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $statePath -Algorithm SHA256).Hash -eq $beforeWriteCap) "failed state write preserves prior ownership state"
     $saved = Read-CubismInstallationState -StatePath $statePath
     $savedRoots = @($saved.Installations | ForEach-Object { $_.Root })
-    $withNewRoots = @($savedRoots + $root52 + $root53 + $root53DuplicateVersion + $newSupported + $unsupported)
+    $withNewRoots = @($savedRoots + $root52 + $root53 + $root53DuplicateVersion + $hyphenD3DRoot + $unsupportedPatch + $unsupported)
     $withNew = Get-CubismInstallations -Roots $withNewRoots
     $merged = Merge-CubismSelection -Candidates $withNew -SavedInstallations $saved.Installations
     Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $root53) -and $_.Selected }).Count -eq 0) "saved deselection is preserved"
-    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $newSupported) -and $_.Selected }).Count -eq 1) "truly new supported candidate defaults selected"
-    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $unsupported) -and $_.Selected }).Count -eq 0) "unsupported candidate is never selected"
+    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $hyphenD3DRoot) -and $_.Selected }).Count -eq 1) "truly new exact supported candidate defaults selected"
+    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $unsupportedPatch) -and $_.Selected }).Count -eq 0) "unsupported 5.3.01 patch is never selected"
+    Assert-ManagedLaunch (@($merged | Where-Object { $_.CanonicalRoot -eq (ConvertTo-CubismCanonicalRoot $unsupported) -and $_.Selected }).Count -eq 0) "unsupported family candidate is never selected"
 
+    $badPatchCandidate = New-CubismInstallationCandidate -Root $unsupportedPatch
+    Assert-ManagedLaunch (-not $badPatchCandidate.Selectable -and $badPatchCandidate.Status -eq "Unsupported") "unsupported patch candidate fails closed"
     $badCandidate = New-CubismInstallationCandidate -Root $unsupported
     Assert-ManagedLaunch (-not $badCandidate.Selectable -and $badCandidate.Status -eq "Unsupported") "unsupported family candidate fails closed"
     $currentPowerShell = (Get-Process -Id $PID).Path
@@ -340,7 +343,7 @@ try {
         format = "turboism.cubism.installation-state"
         schemaVersion = 1
         installations = @(
-            [ordered]@{ root = $root53; version = "5.3"; selected = $true }
+            [ordered]@{ root = $root53; version = "5.3.02"; selected = $true }
             [ordered]@{ root = $unsupported; version = "5.4"; selected = $true }
         )
         managedShortcuts = @()
@@ -370,19 +373,19 @@ try {
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath $marker)) "malformed state fails before official BAT invocation"
     Write-CubismInstallationState -StatePath $statePath -Candidates $initial
 
-    $manualPolicyRoot = Join-Path $temp "saved-only Live2D Cubism 5.2"
-    $autoPolicyRoot = Join-Path $temp "automatic Live2D Cubism 5.3"
+    $manualPolicyRoot = Join-Path $temp "saved-only Live2D Cubism 5.2.03"
+    $autoPolicyRoot = Join-Path $temp "automatic Live2D Cubism 5.3.02"
     $manualPolicy = [pscustomobject]@{
         Root = $manualPolicyRoot; CanonicalRoot = (ConvertTo-CubismCanonicalRoot $manualPolicyRoot); Key = (Get-CubismRootKey $manualPolicyRoot)
-        Version = "5.2"; Selectable = $true; Selected = $true
+        Version = "5.2.03"; Selectable = $true; Selected = $true
     }
     $autoPolicy = [pscustomobject]@{
         Root = $autoPolicyRoot; CanonicalRoot = (ConvertTo-CubismCanonicalRoot $autoPolicyRoot); Key = (Get-CubismRootKey $autoPolicyRoot)
-        Version = "5.3"; Selectable = $true; Selected = $true
+        Version = "5.3.02"; Selectable = $true; Selected = $true
     }
     $policyState = @(
-        [pscustomobject]@{ Root = $manualPolicyRoot; Version = "5.2"; Selected = $true }
-        [pscustomobject]@{ Root = $autoPolicyRoot; Version = "5.3"; Selected = $true }
+        [pscustomobject]@{ Root = $manualPolicyRoot; Version = "5.2.03"; Selected = $true }
+        [pscustomobject]@{ Root = $autoPolicyRoot; Version = "5.3.02"; Selected = $true }
     )
     $policyResult = Remove-CubismCandidateEntries -Candidates @($manualPolicy, $autoPolicy) `
         -RemoveKeys @($manualPolicy.Key, $autoPolicy.Key) -StateInstallations $policyState `

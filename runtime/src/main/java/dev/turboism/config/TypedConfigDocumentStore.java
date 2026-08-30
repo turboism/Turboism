@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.home.AnchoredDirectoryTree;
 import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 
@@ -42,12 +43,10 @@ final class TypedConfigDocumentStore {
     private final Path root;
 
     TypedConfigDocumentStore(final Path root) throws IOException {
-        this.root = root.toAbsolutePath().normalize();
-        Files.createDirectories(this.root);
-        if (Files.isSymbolicLink(this.root)) {
-            throw new IOException("typed config root must not be a symbolic link");
+        this.root = AnchoredDirectoryTree.anchor(root);
+        if (Files.exists(this.root, LinkOption.NOFOLLOW_LINKS)) {
+            verifyExistingRoot();
         }
-        enforceOwnerOnly(this.root, true);
     }
 
     Optional<StoredDocument> read(final String relativePath) throws IOException {
@@ -131,6 +130,13 @@ final class TypedConfigDocumentStore {
         } catch (RuntimeException exception) {
             throw new IOException("typed config path is invalid", exception);
         }
+        if (createParents) {
+            ensureRoot();
+        } else if (!Files.exists(root, LinkOption.NOFOLLOW_LINKS)) {
+            return root.resolve(validated.relativePath());
+        } else {
+            verifyExistingRoot();
+        }
         final Path rootReal = root.toRealPath();
         Path current = root;
         final String[] segments = validated.relativePath().split("/");
@@ -156,6 +162,18 @@ final class TypedConfigDocumentStore {
         }
         verifyParent(current);
         return current;
+    }
+
+    private void ensureRoot() throws IOException {
+        AnchoredDirectoryTree.materialize(root);
+        verifyExistingRoot();
+    }
+
+    private void verifyExistingRoot() throws IOException {
+        if (Files.isSymbolicLink(root) || !Files.isDirectory(root, LinkOption.NOFOLLOW_LINKS)) {
+            throw new IOException("typed config root must be a directory and not a symbolic link");
+        }
+        enforceOwnerOnly(root, true);
     }
 
     private void verifyParent(final Path target) throws IOException {

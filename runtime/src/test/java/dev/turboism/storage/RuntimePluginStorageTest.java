@@ -51,6 +51,84 @@ class RuntimePluginStorageTest {
     }
 
     @Test
+    void constructionLeavesMissingRootsAbsentUntilFirstWrite() throws Exception {
+        createStorageWithoutRoots(Set.of(PermissionIds.TURBOISM_FILE_WRITE));
+
+        assertFalse(Files.exists(temporary.resolve("data")));
+        assertFalse(Files.exists(temporary.resolve("state")));
+        assertFalse(Files.exists(temporary.resolve("cache")));
+
+        final StorageWriteResult written = storage.writeUtf8Atomic(
+            new StoragePath(StorageRoot.DATA, "nested/message.txt"),
+            "hello"
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(written.written());
+        assertEquals("hello", Files.readString(temporary.resolve("data/nested/message.txt")));
+        assertFalse(Files.exists(temporary.resolve("state")));
+        assertFalse(Files.exists(temporary.resolve("cache")));
+    }
+
+    @Test
+    void firstWriteCreatesMissingStorageRootsLazily() throws Exception {
+        final Path nestedHome = Files.createDirectories(temporary.resolve("home"));
+        createStorageAt(
+            nestedHome,
+            Set.of(PermissionIds.TURBOISM_FILE_WRITE),
+            new RuntimeFailureCollector()
+        );
+
+        final StorageWriteResult written = storage.writeUtf8Atomic(
+            new StoragePath(StorageRoot.DATA, "nested/message.txt"),
+            "hello"
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(written.written());
+        assertEquals("hello", Files.readString(nestedHome.resolve("data/nested/message.txt")));
+        assertFalse(Files.exists(nestedHome.resolve("state")));
+        assertFalse(Files.exists(nestedHome.resolve("cache")));
+    }
+
+    @Test
+    void crossRootCopyCreatesOnlyThePreviouslyAbsentTargetRoot() throws Exception {
+        createStorageWithoutRoots(Set.of(
+            PermissionIds.TURBOISM_FILE_READ,
+            PermissionIds.TURBOISM_FILE_WRITE
+        ));
+        Files.createDirectories(temporary.resolve("data/source"));
+        Files.writeString(temporary.resolve("data/source/value.txt"), "value");
+
+        final var result = storage.copy(
+            new StoragePath(StorageRoot.DATA, "source/value.txt"),
+            new StoragePath(StorageRoot.CACHE, "copied/value.txt"),
+            false
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertTrue(result.changed());
+        assertEquals("value", Files.readString(temporary.resolve("cache/copied/value.txt")));
+        assertFalse(Files.exists(temporary.resolve("state")));
+    }
+
+    @Test
+    void missingCopySourceDoesNotCreateAnyStorageRoot() throws Exception {
+        createStorageWithoutRoots(Set.of(
+            PermissionIds.TURBOISM_FILE_READ,
+            PermissionIds.TURBOISM_FILE_WRITE
+        ));
+
+        final var result = storage.copy(
+            new StoragePath(StorageRoot.DATA, "missing.txt"),
+            new StoragePath(StorageRoot.CACHE, "copied/value.txt"),
+            false
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        assertEquals(StorageErrorCode.NOT_FOUND, result.error().orElseThrow().code());
+        assertFalse(Files.exists(temporary.resolve("data")));
+        assertFalse(Files.exists(temporary.resolve("state")));
+        assertFalse(Files.exists(temporary.resolve("cache")));
+    }
+
+    @Test
     void atomicWriteAndBoundedReadCompleteOnPluginExecutor() throws Exception {
         createStorage(Set.of(PermissionIds.TURBOISM_FILE_READ, PermissionIds.TURBOISM_FILE_WRITE));
         final StoragePath path = new StoragePath(StorageRoot.DATA, "nested/message.txt");
@@ -335,6 +413,25 @@ class RuntimePluginStorageTest {
         Files.createDirectories(temporary.resolve("data"));
         Files.createDirectories(temporary.resolve("state"));
         Files.createDirectories(temporary.resolve("cache"));
+        createStorageWithoutRoots(permissions, failures);
+    }
+
+    private void createStorageWithoutRoots(final Set<String> permissions) throws Exception {
+        createStorageWithoutRoots(permissions, new RuntimeFailureCollector());
+    }
+
+    private void createStorageWithoutRoots(
+        final Set<String> permissions,
+        final RuntimeFailureCollector failures
+    ) throws Exception {
+        createStorageAt(temporary, permissions, failures);
+    }
+
+    private void createStorageAt(
+        final Path home,
+        final Set<String> permissions,
+        final RuntimeFailureCollector failures
+    ) throws Exception {
         scope = new DisposableScope();
         runtimeScheduler = new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
@@ -355,9 +452,9 @@ class RuntimePluginStorageTest {
         storage = new RuntimePluginStorage(
             PLUGIN_ID,
             Map.of(
-                StorageRoot.DATA, temporary.resolve("data"),
-                StorageRoot.STATE, temporary.resolve("state"),
-                StorageRoot.CACHE, temporary.resolve("cache")
+                StorageRoot.DATA, home.resolve("data"),
+                StorageRoot.STATE, home.resolve("state"),
+                StorageRoot.CACHE, home.resolve("cache")
             ),
             permissions,
             taskScheduler,

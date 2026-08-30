@@ -104,10 +104,9 @@ public final class ClipMaskAnalyzer {
             if (bucket.size() < 2) {
                 continue;
             }
-            final String first = String.join(";", bucket.get(0).orderedMaskGuids());
+            final List<String> first = bucket.get(0).orderedMaskGuids();
             for (int i = 1; i < bucket.size(); i++) {
-                final String current = String.join(";", bucket.get(i).orderedMaskGuids());
-                if (!current.equals(first)) {
+                if (!bucket.get(i).orderedMaskGuids().equals(first)) {
                     count++;
                 }
             }

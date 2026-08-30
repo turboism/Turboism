@@ -11,16 +11,28 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 ### Added
 
 - Added the localized “For you, a bouquet” dedication to the Core About window beneath the Turboism title.
+- Added the complete Simplified-Chinese-authoritative Turboism End User Runtime Declaration v2.0 at the repository root and in public installers, with four separate required acknowledgements for project identity, lawful Cubism authorization, user-content backups, and as-is operation.
+- Added concise startup phase-duration diagnostics for configuration, services, host adapters, plugin loading, and final reporting.
 
 ### Changed
 
 - Made the Core About window display the framework version generated from the authoritative Gradle release version.
 - Corrected the release-plugin allowlist to publish the History Panel and PSD Clip Mask Import business plugins while keeping development shells, demos, and legacy placeholders out of public installers and archives.
+- Enlarged the Windows installer and made the post-install configurator resizable and maximizable; the configurator now opens automatically, lists only exact supported Cubism Editor installations (5.2.03, 5.3.02, and 5.3.03), and exposes independent Turboism-shortcut and hash-guarded official-BAT integration controls.
+- Made optional managed GraalVM installation failures or cancellation visible and logged without aborting the remaining Turboism installation.
+- Defined ordinary bottom-status notifications as a latest-message slot and recorded every status invocation through the calling plugin's scoped Turboism logger; compact resident metrics retain independent keyed slots.
+- Clarified in every official UI Theme locale that Cubism Editor should be restarted after applying a theme to ensure it is rendered correctly.
+- Made Clip Mask Viewer show a localized loading state immediately and move detached relationship indexing, counts, analysis, and graph projection off the Cubism host thread, with cancellation and stale-result guards.
 
 ### Fixed
 
 - Fixed the Windows uninstaller configuration-retention checkbox being attached to the outer wizard window, which prevented reliable interaction and could make the confirmation page sluggish.
 - Changed the uninstall option to the unambiguous, default-enabled “Keep config.json” behavior; configuration is deleted only when the user clears it.
+- Restored History snapshot availability on Cubism Editor 5.2.03 while preserving exact-version SDK admission.
+- Restored Windows MCP startup when Java exposes a usable ACL view or the existing per-user Windows path and reparse checks, without logging bearer values, endpoints, or private connection-file paths.
+- Added persistent configurator and managed-GraalVM subprocess diagnostics, including concurrent labelled stdout and stderr draining, so failed BAT integration and optional runtime setup are actionable.
+- Stopped plugin activation from creating empty per-plugin config, data, and cache directories; storage now creates only the directory needed by the first real operation, plugin logs use the shared runtime log, and the obsolete `palette-filter-attach.tsv` diagnostic is no longer produced.
+- Removed the unsupported reflective outside-canvas repaint attempt; theme changes now use the reliable restart-required behavior confirmed on Cubism Editor 5.2.03 and 5.3.02.
 
 ## [0.43.2] - 2026-08-29
 

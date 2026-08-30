@@ -21,6 +21,8 @@ section.title
 stats.order.conflicts
 stats.summary
 status.copied
+status.loading
+status.unavailable
 table.count
 table.id
 table.mask.column

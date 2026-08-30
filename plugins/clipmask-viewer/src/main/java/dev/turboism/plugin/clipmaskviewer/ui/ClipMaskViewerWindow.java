@@ -64,11 +64,14 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     private final PluginLocalization localization;
     private final PluginContext context;
     private final PluginLogger logger;
+    private final Runnable refreshAction;
     private final Runnable onClosed;
     private final ClipMaskViewerState state = new ClipMaskViewerState();
+    private boolean released;
 
     private final JLabel countLabel;
     private final JLabel orderConflictLabel;
+    private final JLabel loadingLabel;
     private final GraphPanel graphPanel;
     private final ClipMaskTableModels.MaskPrimaryTableModel maskModel;
     private final ClipMaskTableModels.UserPrimaryTableModel userModel;
@@ -82,6 +85,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     public ClipMaskViewerWindow(
         final PluginLocalization localization,
         final PluginContext context,
+        final Runnable refreshAction,
         final Runnable onClosed
     ) {
         super((java.awt.Frame) null, localization.text("window.title"), false);
@@ -89,6 +93,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         this.localization = Objects.requireNonNull(localization, "localization");
         this.context = Objects.requireNonNull(context, "context");
         this.logger = context.logger();
+        this.refreshAction = Objects.requireNonNull(refreshAction, "refreshAction");
         this.onClosed = Objects.requireNonNull(onClosed, "onClosed");
         setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
 
@@ -136,7 +141,12 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
         maskTable = buildTable(maskModel);
         userTable = buildTable(userModel);
 
-        center.add(new JScrollPane(graphPanel), MODE_GRAPH);
+        final JPanel graphCard = new JPanel(new BorderLayout());
+        loadingLabel = new JLabel(localization.text("status.loading"), JLabel.CENTER);
+        loadingLabel.setFont(loadingLabel.getFont().deriveFont(Font.BOLD, 14f));
+        graphCard.add(loadingLabel, BorderLayout.NORTH);
+        graphCard.add(new JScrollPane(graphPanel), BorderLayout.CENTER);
+        center.add(graphCard, MODE_GRAPH);
         center.add(new JScrollPane(maskTable), MODE_TABLE_MASK);
         center.add(new JScrollPane(userTable), MODE_TABLE_USER);
         root.add(center, BorderLayout.CENTER);
@@ -200,7 +210,7 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
             cards.show(center, MODE_TABLE_USER);
             zoomBar.setVisible(false);
         });
-        refreshButton.addActionListener(ignored -> refresh());
+        refreshButton.addActionListener(ignored -> refreshAction.run());
         showUnrelated.addActionListener(ignored -> {
             graphPanel.setShowUnrelated(showUnrelated.isSelected());
             graphPanel.rebuild();
@@ -227,13 +237,27 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
     }
 
     @Override
-    public void refresh() {
-        try {
-            state.refreshData(context.cubismClipMasks());
-        } catch (RuntimeException failure) {
-            logger.warn("Clip Mask Viewer refresh failed safely: " + failure.getMessage());
-            state.clear();
-        }
+    public void showLoading() {
+        loadingLabel.setText(localization.text("status.loading"));
+        loadingLabel.setVisible(true);
+    }
+
+    @Override
+    public void showSnapshot(final ClipMaskViewerState.Snapshot snapshot) {
+        state.apply(snapshot);
+        loadingLabel.setVisible(false);
+        refreshViews();
+    }
+
+    @Override
+    public void showUnavailable() {
+        state.clear();
+        loadingLabel.setText(localization.text("status.unavailable"));
+        loadingLabel.setVisible(true);
+        refreshViews();
+    }
+
+    private void refreshViews() {
         updateTopInfo();
         graphPanel.rebuild();
         graphPanel.repaint();
@@ -244,12 +268,19 @@ public final class ClipMaskViewerWindow extends JDialog implements WindowView {
 
     @Override
     public void dispose() {
+        if (released) {
+            return;
+        }
         super.dispose();
         release();
         onClosed.run();
     }
 
     private void release() {
+        if (released) {
+            return;
+        }
+        released = true;
         for (Registration status : statusRegistrations) {
             status.close();
         }

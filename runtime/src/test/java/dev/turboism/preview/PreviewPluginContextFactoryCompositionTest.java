@@ -28,12 +28,15 @@ import dev.turboism.sdk.plugin.PluginDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -77,6 +80,16 @@ class PreviewPluginContextFactoryCompositionTest {
                         PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
                         scope
                     ).context();
+
+                    final Path pluginRoot = home.resolve("data/").resolve(descriptor().id());
+                    assertFalse(Files.exists(home.resolve("config/").resolve(descriptor().id())));
+                    assertFalse(Files.exists(pluginRoot));
+                    assertFalse(Files.exists(home.resolve("cache/").resolve(descriptor().id())));
+                    assertThrows(
+                        UnsupportedOperationException.class,
+                        context.paths()::logsDir
+                    );
+                    assertFalse(Files.exists(home.resolve("logs/").resolve(descriptor().id())));
 
                     assertTrue(context.cubism().activeProject().isEmpty());
                     assertTrue(context.cubismRead().activeProject().isEmpty());

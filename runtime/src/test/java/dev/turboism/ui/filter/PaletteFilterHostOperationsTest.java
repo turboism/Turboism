@@ -22,6 +22,8 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.lang.reflect.InvocationTargetException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -133,6 +135,25 @@ class PaletteFilterHostOperationsTest {
     }
 
     // ---------------------------------------------------------- log attach
+
+    @Test
+    void reconciliationDoesNotWritePaletteAttachmentEvidenceFile() throws Exception {
+        final Path home = Files.createTempDirectory("turboism-palette-filter-");
+        final String originalHome = System.getProperty("turboism.home");
+        System.setProperty("turboism.home", home.toString());
+        try {
+            final PaletteFilterHostOperations host = new PaletteFilterHostOperations(kind -> null);
+            host.onPaletteFilterVisibilityChanged("probe", List.of(contribution("log", "LOG")));
+            SwingUtilities.invokeAndWait(() -> { });
+            assertFalse(Files.exists(home.resolve("logs/runtime/palette-filter-attach.tsv")));
+        } finally {
+            if (originalHome == null) {
+                System.clearProperty("turboism.home");
+            } else {
+                System.setProperty("turboism.home", originalHome);
+            }
+        }
+    }
 
     @Test
     void logPaletteAttachWrapsScrollPaneAndFiltersLines() throws Exception {

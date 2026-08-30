@@ -1,9 +1,13 @@
 package dev.turboism.storage;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
@@ -30,8 +34,9 @@ final class StorageMutationLocks {
         Objects.requireNonNull(canonicalRoots, "canonicalRoots");
         final Set<Integer> indexes = new HashSet<>();
         for (Path root : canonicalRoots) {
-            final Path canonical = Objects.requireNonNull(root, "canonical root")
-                .toRealPath();
+            final Path canonical = canonicalLockPath(
+                Objects.requireNonNull(root, "canonical root")
+            );
             indexes.add(Math.floorMod(canonical.toString().hashCode(), STRIPE_COUNT));
         }
         final List<Integer> ordered = new ArrayList<>(indexes);
@@ -48,6 +53,24 @@ final class StorageMutationLocks {
             unlockReverse(acquired);
             throw failure;
         }
+    }
+
+    private static Path canonicalLockPath(final Path root) throws IOException {
+        Path existing = root;
+        final Deque<Path> missingSegments = new ArrayDeque<>();
+        while (!Files.exists(existing, LinkOption.NOFOLLOW_LINKS)) {
+            final Path name = existing.getFileName();
+            existing = existing.getParent();
+            if (name == null || existing == null) {
+                throw new IOException("Plugin storage root has no existing ancestor");
+            }
+            missingSegments.addFirst(name);
+        }
+        Path canonical = existing.toRealPath();
+        for (Path segment : missingSegments) {
+            canonical = canonical.resolve(segment);
+        }
+        return canonical.normalize();
     }
 
     private static void unlockReverse(final List<ReentrantLock> locks) {

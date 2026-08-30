@@ -52,20 +52,24 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
 
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", loader));
-        popup.contribute(renderer("popup-renderer", PNG));
+        final Registration first = popup.contribute(renderer("popup-renderer", PNG));
+        final Registration second = popup.contribute(renderer("popup-renderer-2", PNG));
+        try {
+            SwingUtilities.invokeAndWait(() -> { });
+            assertEquals(1, menu.getMenuListeners().length, "the Recent menu must carry one MenuListener");
+            final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
+            assertTrue(item.getMouseListeners().length >= 1, "items must track mouse hover");
+            assertTrue(item.getChangeListeners().length >= 1, "items must track selection state");
+            assertTrue(item.getActionListeners().length >= 1, "items must hide the popup on click");
 
-        SwingUtilities.invokeAndWait(() -> { });
-        assertEquals(1, menu.getMenuListeners().length, "the Recent menu must carry one MenuListener");
-        final JMenuItem item = (JMenuItem) menu.getMenuComponents()[0];
-        assertTrue(item.getMouseListeners().length >= 1, "items must track mouse hover");
-        assertTrue(item.getChangeListeners().length >= 1, "items must track selection state");
-        assertTrue(item.getActionListeners().length >= 1, "items must hide the popup on click");
-
-        // A second contribution must not install a second listener chain.
-        popup.contribute(renderer("popup-renderer-2", PNG));
-        SwingUtilities.invokeAndWait(() -> { });
-        assertEquals(1, menu.getMenuListeners().length);
-        assertEquals(2, popup.rendererCountForTest());
+            // A second contribution must not install a second listener chain.
+            assertEquals(1, menu.getMenuListeners().length);
+            assertEquals(2, popup.rendererCountForTest());
+        } finally {
+            second.close();
+            first.close();
+            SwingUtilities.invokeAndWait(() -> { });
+        }
     }
 
     @Test
@@ -266,7 +270,7 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
         final AtomicBoolean rendered = new AtomicBoolean(false);
         final VerifiedRecentPreviewPopupHostOperations popup =
             new VerifiedRecentPreviewPopupHostOperations(panelResolver("5.3.02", loader));
-        popup.contribute(summary -> {
+        final Registration registration = popup.contribute(summary -> {
             rendered.set(true);
             return Optional.of(new RecentPreviewContent(
                 summary.id(), PanelView.column(PanelView.image(PNG, "thumb"), PanelView.text(summary.displayName()))
@@ -304,6 +308,7 @@ class VerifiedRecentPreviewPopupHostOperationsTest {
             SwingUtilities.invokeAndWait(() -> { });
             assertNull(popup.activePopupForTest(), "refresh without an active popup must be a no-op");
         } finally {
+            registration.close();
             SwingUtilities.invokeAndWait(frame::dispose);
         }
     }

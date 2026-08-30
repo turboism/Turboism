@@ -8,6 +8,8 @@ import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class TurboismHomeLayoutTest {
@@ -16,7 +18,7 @@ final class TurboismHomeLayoutTest {
     Path home;
 
     @Test
-    void createsCanonicalPluginDirectoriesUnderTurboismHome() throws Exception {
+    void pluginPathsLeaveConfigDataAndCacheAbsentAndUseSharedRuntimeLogs() throws Exception {
         final PluginHomePaths paths = TurboismHomeLayout.create(home).plugin("dev.example.plugin");
 
         assertAll(
@@ -24,12 +26,12 @@ final class TurboismHomeLayoutTest {
             () -> assertEquals(home.resolve("data/dev.example.plugin"), paths.dataDir()),
             () -> assertEquals(home.resolve("cache/dev.example.plugin"), paths.cacheDir()),
             () -> assertEquals(home.resolve("state/dev.example.plugin"), paths.stateDir()),
-            () -> assertEquals(home.resolve("logs/dev.example.plugin"), paths.logsDir()),
-            () -> assertTrue(Files.isDirectory(paths.configDir())),
-            () -> assertTrue(Files.isDirectory(paths.dataDir())),
-            () -> assertTrue(Files.isDirectory(paths.cacheDir())),
+            () -> assertFalse(Files.exists(paths.configDir())),
+            () -> assertFalse(Files.exists(paths.dataDir())),
+            () -> assertFalse(Files.exists(paths.cacheDir())),
             () -> assertTrue(Files.isDirectory(paths.stateDir())),
-            () -> assertTrue(Files.isDirectory(paths.logsDir()))
+            () -> assertThrows(UnsupportedOperationException.class, paths::logsDir),
+            () -> assertFalse(Files.exists(home.resolve("logs/dev.example.plugin")))
         );
     }
 }

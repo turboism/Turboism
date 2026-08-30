@@ -7,6 +7,7 @@ import dev.turboism.plugin.uitheme.b1.domain.ThemePackageData;
 import dev.turboism.plugin.uitheme.b1.domain.ThemePackageEntry;
 import dev.turboism.sdk.appearance.AppearanceApplyResult;
 import dev.turboism.sdk.appearance.AppearanceService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 
@@ -23,15 +24,18 @@ public final class BuiltinThemeAppearanceService {
     private final ClassLoader classLoader;
     private final AppearanceService appearance;
     private final UiHostCapabilityService uiHost;
+    private final PluginLocalization localization;
 
     public BuiltinThemeAppearanceService(
         final ClassLoader classLoader,
         final AppearanceService appearance,
-        final UiHostCapabilityService uiHost
+        final UiHostCapabilityService uiHost,
+        final PluginLocalization localization
     ) {
         this.classLoader = Objects.requireNonNull(classLoader, "classLoader");
         this.appearance = Objects.requireNonNull(appearance, "appearance");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
+        this.localization = Objects.requireNonNull(localization, "localization");
     }
 
     /**
@@ -46,18 +50,19 @@ public final class BuiltinThemeAppearanceService {
      * @throws IllegalStateException if the built-in default package is missing or does not decode
      */
     public void applyDefault() {
+        final ThemePackageData theme = load(DEFAULT_THEME_ID);
         final long revision = appearance.current().toCompletableFuture().join().revision();
         final AppearanceApplyResult result = appearance.apply(
-            LegacyThemePaletteResolver.resolve(load(DEFAULT_THEME_ID), revision)
+            LegacyThemePaletteResolver.resolve(theme, revision)
         ).toCompletableFuture().join();
-        final String level = switch (result.outcome()) {
-            case APPLIED, NO_CHANGE -> "INFO";
-            default -> "WARNING";
-        };
+        final boolean applied = result.outcome() == AppearanceApplyResult.Outcome.APPLIED
+            || result.outcome() == AppearanceApplyResult.Outcome.NO_CHANGE;
         uiHost.notifyStatus(new StatusNotification(
             "ui-theme.appearance.apply." + result.outcome().name().toLowerCase(java.util.Locale.ROOT),
-            level,
-            "Theme appearance result: " + result.outcome()
+            applied ? "INFO" : "WARNING",
+            applied
+                ? localization.format("theme.selection.applied", theme.metadata().name())
+                : localization.text("theme.selection.failed")
         ));
     }
 

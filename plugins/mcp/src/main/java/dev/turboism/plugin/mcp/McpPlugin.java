@@ -40,9 +40,7 @@ public final class McpPlugin implements TurboismPlugin {
             started.close();
             throw failure;
         }
-        context.logger().info(
-            "MCP connection metadata written to " + server.connectionFile()
-        );
+        context.logger().info("MCP connection metadata published");
     }
 
     @Override
