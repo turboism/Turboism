@@ -105,6 +105,31 @@ class StatusToolbarAdapterContractTest {
     }
 
     @Test
+    void runtimeUiServiceLogsCompactMetricsAtDebug() {
+        RecordingLogger logger = new RecordingLogger();
+        RuntimeUiHostCapabilityService service = new RuntimeUiHostCapabilityService(
+            PermissionChecker.allowAll(),
+            "plugin.cpu",
+            dev.turboism.ui.UiHostStateSource.DEFAULT,
+            new DisposableScope(),
+            StatusToolbarAdapterImpl.connected(new RecordingHost("5.3.02")),
+            dev.turboism.adapter.ui.UiSurfaceAdapterImpl.safeMode(),
+            null,
+            new dev.turboism.ui.settings.SettingsContributionStore(),
+            logger
+        );
+
+        service.notifyStatus(new StatusNotification(
+            "perf.cpu",
+            "INFO",
+            "CPU 12.3%",
+            StatusNotification.Presentation.COMPACT_METRIC
+        ));
+
+        assertEquals(java.util.List.of("DEBUG:Status: CPU 12.3%"), logger.records);
+    }
+
+    @Test
     void runtimeUiServiceScopesAdapterVisibleStatusIdByPluginId() throws Exception {
         RecordingHost first = new RecordingHost("5.3.02");
         RecordingHost second = new RecordingHost("5.3.02");

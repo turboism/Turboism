@@ -312,6 +312,14 @@ def check_managed_graal_installer_contract():
           and '"STDERR "' in bridge
           and "GRAAL_INSTALL_EXIT code=" in bridge
           and "GRAAL_INSTALL_EXCEPTION" in bridge)
+    graal_create = text[text.index("Function GraalCreate"):
+                        text.index("FunctionEnd", text.index("Function GraalCreate"))]
+    check("GI11 Graal page rows are contiguous at 12pt",
+          '${NSD_CreateLabel} 0 0 100% 24u "$(GraalPageTitle)"' in graal_create
+          and '${NSD_CreateLabel} 0 24u 100% 42u "$(GraalPageDescription)"' in graal_create
+          and '${NSD_CreateRadioButton} 0 67u 100% 16u "$(GraalNowChoice)"' in graal_create
+          and '${NSD_CreateRadioButton} 0 84u 100% 16u "$(GraalLaterChoice)"' in graal_create
+          and '${NSD_CreateLabel} 12u 101u 96% 42u "$(GraalProgressHint)"' in graal_create)
 
 
 def check_configurator_flow_contract():
@@ -322,9 +330,10 @@ def check_configurator_flow_contract():
     check("CF1 launch choices precede payload installation",
           text.index("Page custom LaunchOptionsCreate LaunchOptionsLeave")
           < text.index("MUI_PAGE_INSTFILES"))
-    check("CF2 successful installation launches interactive configurator",
-          "Function .onInstSuccess" in text
-          and "configure_turboism.ps1" in text[text.index("Function .onInstSuccess"):])
+    check("CF2 successful installation does not launch the interactive configurator",
+          "Function .onInstSuccess" not in text
+          and "-InitialShortcuts" not in text
+          and "-InitialBat" not in text)
     check("CF3 main installer scales the frame and page content together",
           'SetFont "MS Shell Dlg" 12' in text
           and "MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow" not in text
@@ -428,11 +437,11 @@ def check_launcher_and_shortcut_contract():
           "only if explicitly selected" in text
           and "仅在明确勾选时" in text
           and "BatIntegrationHelp" in text
-          and "-InitialBat" in text
+          and "$integrateCubismBat" in text
           and "$batCheck" in configure)
     check("L6b Start-menu and BAT controls are independent and reversible",
-          "-InitialShortcuts" in text
-          and "-InitialBat" in text
+          "$createStartMenu" in text
+          and "$integrateCubismBat" in text
           and "Disable-CubismShortcutIntegration" in common
           and "Restore-CubismBatIntegrations" in common)
     check("L7 finish page can open the installation directory",
@@ -492,8 +501,8 @@ def check_eula_contract():
     acknowledgements = (
         "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。",
         "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。",
-        "我理解由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。",
-        "我理解 Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。",
+        "我确认我已理解：由我启动或授权的插件、脚本、MCP、API 和自动化操作可能修改、覆盖或删除工程内容，并将自行保留独立备份。",
+        "我确认我已理解：Turboism 是按现状提供的开源项目，不保证持续兼容、无错误或成功恢复。",
     )
     create_start = text.index("Function EulaAcknowledgementsCreate")
     create_end = text.index("FunctionEnd", create_start)
