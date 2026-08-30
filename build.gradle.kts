@@ -29,6 +29,12 @@ allprojects {
     }
 }
 
+tasks.register<Exec>("checkInstallerLocalization") {
+    group = "verification"
+    description = "Checks installer and plugin metadata localization parity."
+    commandLine("python3", "packaging/windows-installer/test-installer-localization.py")
+}
+
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
     description = "Runs the production-backed strict ZIP mutation matrix."

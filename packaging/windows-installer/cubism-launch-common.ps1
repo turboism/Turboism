@@ -1,6 +1,7 @@
 ﻿# -*- coding: utf-8 -*-
 # Shared, synthetic-testable Windows Cubism inventory and managed-launch helpers.
-# This file never writes inside a Cubism root.
+# Cubism roots are read-only unless the user explicitly enables the separately
+# tracked, hash-guarded official-BAT integration.
 
 $script:CubismStateFormat = "turboism.cubism.installation-state"
 $script:CubismStateSchemaVersion = 1
@@ -437,7 +438,8 @@ function Read-CubismInstallationState {
     param([string]$StatePath)
     $empty = [pscustomobject]@{
         Exists = $false; Valid = $true; Installations = @(); ManagedShortcuts = @()
-        ManagedShortcutHashes = @(); ShortcutTakeovers = @(); LaunchMode = "independent"; Error = ""
+        ManagedShortcutHashes = @(); ShortcutTakeovers = @(); BatIntegrations = @()
+        LaunchMode = "independent"; Error = ""
     }
     try { $item = Get-Item -LiteralPath $StatePath -Force -ErrorAction Stop }
     catch [System.Management.Automation.ItemNotFoundException] { return $empty }
@@ -452,7 +454,7 @@ function Read-CubismInstallationState {
         if ($null -eq $doc) { throw "state JSON is empty" }
         $stateKeys = @($doc.PSObject.Properties.Name)
         $requiredKeys = @("format", "schemaVersion", "installations", "managedShortcuts")
-        $allowedKeys = @($requiredKeys + "launchMode" + "shortcutTakeovers" + "managedShortcutHashes")
+        $allowedKeys = @($requiredKeys + "launchMode" + "shortcutTakeovers" + "managedShortcutHashes" + "batIntegrations")
         if (@($requiredKeys | Where-Object { $stateKeys -notcontains $_ }).Count -gt 0 -or
             @($stateKeys | Where-Object { $allowedKeys -notcontains $_ }).Count -gt 0) {
             throw "unknown or missing state fields"
@@ -548,13 +550,38 @@ function Read-CubismInstallationState {
                 }
             }
         }
+        $batIntegrations = @()
+        if ($stateKeys -contains "batIntegrations") {
+            if ($null -eq $doc.batIntegrations -or @($doc.batIntegrations).Count -gt $script:CubismMaxStateEntries) { throw "invalid BAT integrations" }
+            foreach ($record in @($doc.batIntegrations)) {
+                $keys = if ($null -eq $record) { @() } else { @($record.PSObject.Properties.Name) }
+                $expected = @("path", "backupPath", "originalSha256", "managedSha256")
+                if ($null -eq $record -or $keys.Count -ne $expected.Count -or
+                    @($expected | Where-Object { $keys -notcontains $_ }).Count -gt 0 -or
+                    $record.path -isnot [string] -or $record.backupPath -isnot [string] -or
+                    $record.originalSha256 -isnot [string] -or $record.managedSha256 -isnot [string] -or
+                    $record.originalSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or
+                    $record.managedSha256 -notmatch '^[0-9A-Fa-f]{64}$') { throw "invalid BAT integration record" }
+                $path = [System.IO.Path]::GetFullPath($record.path)
+                $backup = [System.IO.Path]::GetFullPath($record.backupPath)
+                if ([System.IO.Path]::GetFileName($path) -notmatch '(?i)^CubismEditor5(?:[-_]?D3D)?\.bat$' -or
+                    $backup -ine ($path + ".turboism-original.bak")) { throw "BAT integration path is invalid" }
+                $batIntegrations += [pscustomobject]@{
+                    Path = $path; BackupPath = $backup
+                    OriginalSha256 = $record.originalSha256.ToUpperInvariant()
+                    ManagedSha256 = $record.managedSha256.ToUpperInvariant()
+                }
+            }
+        }
         $empty.Installations = @($installations); $empty.ManagedShortcuts = @($shortcuts)
-        $empty.ManagedShortcutHashes = @($hashes); $empty.ShortcutTakeovers = @($takeovers); $empty.LaunchMode = $mode
+        $empty.ManagedShortcutHashes = @($hashes); $empty.ShortcutTakeovers = @($takeovers)
+        $empty.BatIntegrations = @($batIntegrations); $empty.LaunchMode = $mode
         return $empty
     }
     catch {
         $empty.Valid = $false; $empty.Installations = @(); $empty.ManagedShortcuts = @()
-        $empty.ManagedShortcutHashes = @(); $empty.ShortcutTakeovers = @(); $empty.Error = $_.Exception.Message
+        $empty.ManagedShortcutHashes = @(); $empty.ShortcutTakeovers = @(); $empty.BatIntegrations = @()
+        $empty.Error = $_.Exception.Message
         return $empty
     }
 }
@@ -566,6 +593,7 @@ function Write-CubismInstallationState {
         [string[]]$ManagedShortcuts = @(),
         [object[]]$ManagedShortcutHashes = @(),
         [object[]]$ShortcutTakeovers = @(),
+        [object[]]$BatIntegrations = @(),
         [string]$LaunchMode = "independent"
     )
     if (@("independent", "takeover") -notcontains $LaunchMode) { throw "invalid launch mode" }
@@ -616,12 +644,31 @@ function Write-CubismInstallationState {
             managedSha256 = $record.ManagedSha256.ToUpperInvariant(); root = $record.Root; variant = $record.Variant; status = $record.Status
         }
     }
+    $batEntries = @()
+    foreach ($record in @($BatIntegrations)) {
+        if ($null -eq $record -or $record.Path -isnot [string] -or $record.BackupPath -isnot [string] -or
+            $record.OriginalSha256 -isnot [string] -or $record.ManagedSha256 -isnot [string] -or
+            $record.OriginalSha256 -notmatch '^[0-9A-Fa-f]{64}$' -or $record.ManagedSha256 -notmatch '^[0-9A-Fa-f]{64}$') {
+            throw "invalid BAT integration record"
+        }
+        $path = [System.IO.Path]::GetFullPath($record.Path)
+        $backup = [System.IO.Path]::GetFullPath($record.BackupPath)
+        if ([System.IO.Path]::GetFileName($path) -notmatch '(?i)^CubismEditor5(?:[-_]?D3D)?\.bat$' -or
+            $backup -ine ($path + ".turboism-original.bak")) { throw "invalid BAT integration path" }
+        $batEntries += [ordered]@{
+            path = $path; backupPath = $backup
+            originalSha256 = $record.OriginalSha256.ToUpperInvariant()
+            managedSha256 = $record.ManagedSha256.ToUpperInvariant()
+        }
+    }
+    if ($batEntries.Count -gt $script:CubismMaxStateEntries) { throw "too many BAT integrations" }
     $doc = [ordered]@{
         format = $script:CubismStateFormat; schemaVersion = $script:CubismStateSchemaVersion
         installations = $entries; managedShortcuts = @($owned); launchMode = $LaunchMode
     }
     if ($takeoverEntries.Count -gt 0) { $doc.shortcutTakeovers = $takeoverEntries }
     if ($hashEntries.Count -gt 0) { $doc.managedShortcutHashes = $hashEntries }
+    if ($batEntries.Count -gt 0) { $doc.batIntegrations = $batEntries }
     $text = $doc | ConvertTo-Json -Depth 8 -Compress
     $encoding = New-Object System.Text.UTF8Encoding($false)
     if ($encoding.GetByteCount($text) -gt $script:CubismMaxStateBytes) { throw "state JSON exceeds $($script:CubismMaxStateBytes) bytes" }
@@ -1085,6 +1132,22 @@ function Remove-CubismTakeoverBackups {
     Remove-CubismEmptyBackupDirectories -TurboismHome $TurboismHome
 }
 
+function Disable-CubismShortcutIntegration {
+    param(
+        [string]$TurboismHome, [string]$StatePath, [object[]]$Candidates,
+        [object]$ExistingState = $null, [string]$ShortcutDirectory = ""
+    )
+    if ($null -eq $ExistingState) { $ExistingState = Read-CubismInstallationState $StatePath }
+    if ($ExistingState.Exists -and -not $ExistingState.Valid) { throw "managed Cubism state is invalid: $($ExistingState.Error)" }
+    if ($ExistingState.ShortcutTakeovers.Count -gt 0) {
+        [void](Restore-CubismTakeoverRecords -TurboismHome $TurboismHome -Records $ExistingState.ShortcutTakeovers)
+        Remove-CubismTakeoverBackups -TurboismHome $TurboismHome -Records $ExistingState.ShortcutTakeovers
+    }
+    $failed = @(Remove-CubismManagedShortcuts -Paths $ExistingState.ManagedShortcuts -Directory $ShortcutDirectory -HashRecords $ExistingState.ManagedShortcutHashes)
+    if ($failed.Count -gt 0) { throw "managed shortcut cleanup is incomplete: $($failed -join ', ')" }
+    Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -BatIntegrations $ExistingState.BatIntegrations -LaunchMode "independent"
+}
+
 function Invoke-CubismLaunchConfiguration {
     param(
         [string]$TurboismHome, [string]$StatePath, [object[]]$Candidates, [string]$LaunchMode = "independent",
@@ -1096,10 +1159,12 @@ function Invoke-CubismLaunchConfiguration {
     $oldRecords = @()
     $oldShortcuts = @()
     $oldHashes = @()
+    $oldBatIntegrations = @()
     if ($ExistingState.Valid) {
         $oldRecords = @($ExistingState.ShortcutTakeovers)
         $oldShortcuts = @($ExistingState.ManagedShortcuts)
         $oldHashes = @($ExistingState.ManagedShortcutHashes)
+        $oldBatIntegrations = @($ExistingState.BatIntegrations)
     }
     $selected = @($Candidates | Where-Object { $_.Selected -and $_.Selectable })
     $newShortcuts = New-Object System.Collections.Generic.List[string]
@@ -1123,7 +1188,7 @@ function Invoke-CubismLaunchConfiguration {
                     [void]$newHashes.Add([pscustomobject]@{ Path = $createdPath; Sha256 = Get-CubismSha256 $createdPath })
                 }
             }
-            Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -LaunchMode "independent"
+            Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -BatIntegrations $oldBatIntegrations -LaunchMode "independent"
             return [pscustomobject]@{ ManagedShortcuts = @($newShortcuts); ManagedShortcutHashes = @($newHashes); ShortcutTakeovers = @(); Eligible = @(); Unmatched = @(); Conflicted = @() }
         }
 
@@ -1168,13 +1233,13 @@ function Invoke-CubismLaunchConfiguration {
                 $staged = New-CubismManagedShortcutStaged -TurboismHome $TurboismHome -Candidate $match.Candidate -Variant $match.Variant -Path $original
                 $pending = [pscustomobject]@{ ShortcutPath = $original; BackupPath = $backupInfo.Relative; OriginalSha256 = $originalHash; ManagedSha256 = $staged.Hash; Root = $match.Candidate.CanonicalRoot; Variant = $match.Variant; Status = "pending" }
                 [void]$records.Add($pending)
-                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -BatIntegrations $oldBatIntegrations -LaunchMode "takeover"
                 $pendingPublished = $true
                 try { [void](Publish-CubismStagedShortcut -Temporary $staged.Temporary -Path $original) }
                 finally { if (Test-Path -LiteralPath $staged.Temporary -PathType Leaf) { Remove-Item -LiteralPath $staged.Temporary -Force -ErrorAction SilentlyContinue } }
                 $pending.Status = "active"
                 $pending.ManagedSha256 = Get-CubismSha256 $original
-                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+                Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -BatIntegrations $oldBatIntegrations -LaunchMode "takeover"
             }
             catch {
                 # A newly-created backup is removable only before the pending
@@ -1196,7 +1261,7 @@ function Invoke-CubismLaunchConfiguration {
             [void]$newShortcuts.Add($path); [void]$created.Add($path)
             [void]$newHashes.Add([pscustomobject]@{ Path = $path; Sha256 = Get-CubismSha256 $path })
         }
-        Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -LaunchMode "takeover"
+        Write-CubismInstallationState -StatePath $StatePath -Candidates $Candidates -ManagedShortcuts @($newShortcuts) -ManagedShortcutHashes @($newHashes) -ShortcutTakeovers @($records) -BatIntegrations $oldBatIntegrations -LaunchMode "takeover"
         $preview = Get-CubismTakeoverPreview -Candidates $Candidates
         return [pscustomobject]@{ ManagedShortcuts = @($newShortcuts); ManagedShortcutHashes = @($newHashes); ShortcutTakeovers = @($records); Eligible = @($matches); Unmatched = @($preview.Unmatched); Conflicted = @() }
     }
@@ -1206,11 +1271,92 @@ function Invoke-CubismLaunchConfiguration {
     }
 }
 
+function Get-CubismBatIntegrationText {
+    param([string]$OriginalText, [string]$TurboismHome)
+    if ($TurboismHome -match '[\r\n&|<>^%!`"]') { throw "Turboism home contains unsupported BAT characters" }
+    $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
+    $clean = [regex]::Replace($OriginalText, $legacy, '')
+    $agent = Join-Path $TurboismHome "turboism-agent.jar"
+    $options = @(
+        (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome"),
+        (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
+    ) + @(Get-CubismManagedJdkExportTokens)
+    $managed = @(
+        'rem TURBOISM MANAGED BEGIN',
+        'set "TURBOISM_HOME=' + $TurboismHome + '"',
+        'set "JDK_JAVA_OPTIONS=' + (($options -join ' ') + ' %JDK_JAVA_OPTIONS%') + '"',
+        'rem TURBOISM MANAGED END',
+        ''
+    ) -join "`r`n"
+    return $managed + $clean.TrimStart("`r", "`n")
+}
+
+function Invoke-CubismBatIntegration {
+    param([string]$TurboismHome, [object[]]$Candidates, [object[]]$ExistingRecords = @())
+    $existing = @{}
+    foreach ($record in @($ExistingRecords)) { $existing[[System.IO.Path]::GetFullPath($record.Path).ToUpperInvariant()] = $record }
+    $records = [System.Collections.Generic.List[object]]::new()
+    foreach ($candidate in @($Candidates | Where-Object { $_.Selected -and $_.Selectable })) {
+        foreach ($path in @($candidate.OfficialBat, $candidate.D3DBat)) {
+            if ([string]::IsNullOrWhiteSpace($path)) { continue }
+            $bat = [System.IO.Path]::GetFullPath($path); $key = $bat.ToUpperInvariant(); $backup = $bat + ".turboism-original.bak"
+            if (-not (Test-CubismNormalFile $bat)) { throw "Cubism BAT is not a normal file: $bat" }
+            $currentHash = Get-CubismSha256 $bat; $record = if ($existing.ContainsKey($key)) { $existing[$key] } else { $null }
+            if ($null -ne $record) {
+                if (-not (Test-CubismNormalFile $backup) -or (Get-CubismSha256 $backup) -ine $record.OriginalSha256) { throw "Cubism BAT backup conflict: $backup" }
+                if ($currentHash -ine $record.ManagedSha256) { throw "Cubism BAT was edited after Turboism integration: $bat" }
+                $originalText = [System.IO.File]::ReadAllText($backup, [System.Text.Encoding]::Default)
+            }
+            else {
+                $text = [System.IO.File]::ReadAllText($bat, [System.Text.Encoding]::Default)
+                if ($text -match '(?im)^rem\s+TURBOISM' -or $text -match '(?i)-javaagent:.*turboism-agent\.jar') {
+                    # Historical Turboism injection is admitted only when its
+                    # managed marker pair is complete; unknown edits fail closed.
+                    if ($text -notmatch '(?im)^rem\s+TURBOISM(?:\s+BEGIN)?\s*$' -or $text -notmatch '(?im)^rem\s+TURBOISM(?:\s+END)?\s*$') { throw "unrecognized legacy Turboism BAT injection: $bat" }
+                    $originalText = [regex]::Replace($text, '(?ims)^rem\s+TURBOISM(?:\s+BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+END)?\s*$\r?\n?', '')
+                }
+                else { $originalText = $text }
+                if (Test-Path -LiteralPath $backup) { throw "Cubism BAT backup already exists without managed state: $backup" }
+                [System.IO.File]::WriteAllText($backup, $originalText, [System.Text.Encoding]::Default)
+            }
+            $originalHash = Get-CubismSha256 $backup
+            $managedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome
+            $temporary = $bat + ".$PID.$([guid]::NewGuid().ToString('N')).tmp"
+            try {
+                [System.IO.File]::WriteAllText($temporary, $managedText, [System.Text.Encoding]::Default)
+                if ($null -ne $record -and (Get-CubismSha256 $temporary) -eq $record.ManagedSha256) {
+                    Remove-Item -LiteralPath $temporary -Force
+                    [void]$records.Add($record); continue
+                }
+                Invoke-CubismAtomicFileReplace -Source $temporary -Destination $bat
+            }
+            finally { if (Test-Path -LiteralPath $temporary -PathType Leaf) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue } }
+            [void]$records.Add([pscustomobject]@{ Path = $bat; BackupPath = $backup; OriginalSha256 = $originalHash; ManagedSha256 = (Get-CubismSha256 $bat) })
+        }
+    }
+    return @($records)
+}
+
+function Restore-CubismBatIntegrations {
+    param([object[]]$Records = @())
+    foreach ($record in @($Records)) {
+        if (-not (Test-CubismNormalFile $record.Path) -or (Get-CubismSha256 $record.Path) -ine $record.ManagedSha256) { throw "Cubism BAT integration conflict: $($record.Path)" }
+        if (-not (Test-CubismNormalFile $record.BackupPath) -or (Get-CubismSha256 $record.BackupPath) -ine $record.OriginalSha256) { throw "Cubism BAT backup conflict: $($record.BackupPath)" }
+    }
+    foreach ($record in @($Records)) {
+        $temporary = $record.Path + ".$PID.$([guid]::NewGuid().ToString('N')).restore"
+        try { [System.IO.File]::Copy($record.BackupPath, $temporary, $false); Invoke-CubismAtomicFileReplace -Source $temporary -Destination $record.Path }
+        finally { if (Test-Path -LiteralPath $temporary -PathType Leaf) { Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue } }
+        Remove-Item -LiteralPath $record.BackupPath -Force -ErrorAction Stop
+    }
+}
+
 function Invoke-CubismManagedCleanup {
     param([string]$TurboismHome, [string]$StatePath, [string]$ShortcutDirectory = "")
     $state = Read-CubismInstallationState -StatePath $StatePath
     if (-not $state.Valid) { throw "Refusing shortcut cleanup because managed state is invalid: $($state.Error)" }
     $records = @($state.ShortcutTakeovers); $hashes = @($state.ManagedShortcutHashes)
+    if ($state.BatIntegrations.Count -gt 0) { Restore-CubismBatIntegrations -Records $state.BatIntegrations }
     if ($records.Count -gt 0) { [void](Restore-CubismTakeoverRecords -TurboismHome $TurboismHome -Records $records) }
     $failed = @(Remove-CubismManagedShortcuts -Paths $state.ManagedShortcuts -Directory $ShortcutDirectory -HashRecords $hashes)
     if ($failed.Count -gt 0) { throw "Managed shortcut cleanup is incomplete; state was preserved for retry." }

@@ -1,8 +1,10 @@
 ﻿Turboism __VERSION__ Windows Package - User Guide
 =================================================
 
-Turboism is a Java agent runtime for the Live2D Cubism editor. This package
-never modifies, copies, or replaces files inside a Cubism installation.
+Turboism is a Java agent runtime for the Live2D Cubism editor. By default it
+uses Turboism-owned shortcuts. The NSIS installer can optionally back up and
+modify selected official Cubism startup BAT files so existing shortcuts load
+Turboism; this is explicit, hash-guarded, idempotent, and restored on uninstall.
 
 1. Directory layout
 -------------------
@@ -59,8 +61,8 @@ never modifies, copies, or replaces files inside a Cubism installation.
   recorded managed shortcuts/state and owned payload files. The confirmation
   page has a check box "Also delete config.json (user configuration)" - checked
   by default; uncheck it to keep config.json.
-- ZIP manual installs have no uninstaller: close Cubism and delete the Turboism
-  folder. No Cubism installation file is changed.
+- ZIP manual installs have no uninstaller and do not enable official-BAT
+  integration: close Cubism and delete the Turboism folder.
 
 5. FAQ
 ------

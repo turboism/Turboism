@@ -1,8 +1,9 @@
 ﻿Turboism __VERSION__ Windows 安装包使用说明
 =============================================
 
-Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行时。本安装包
-不会修改、复制或替换 Cubism 安装目录中的任何文件。
+Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行时。默认使用
+Turboism 自有快捷方式；NSIS 安装器可在用户明确选择后备份并修改所选 Cubism 官方
+启动 BAT，使现有快捷方式加载 Turboism。该操作有哈希保护、可幂等升级并在卸载时恢复。
 
 一、目录结构
 ------------
@@ -51,7 +52,7 @@ Turboism 是为 Live2D Cubism 编辑器提供增强能力的 Java agent 运行�
   目录中的 uninstall.exe。它只清理 Turboism 记录的托管快捷方式/状态与自有
   文件。卸载确认页含「同时删除 config.json（用户配置）」复选框，默认勾选；
   取消勾选可保留 config.json。
-- ZIP 手动安装包无卸载器：关闭 Cubism 后删除 Turboism 目录，不会修改 Cubism。
+- ZIP 手动安装包无卸载器，也不会启用官方 BAT 集成：关闭 Cubism 后删除 Turboism 目录。
 
 五、常见问题
 ------------

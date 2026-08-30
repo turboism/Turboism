@@ -677,7 +677,8 @@ val generateInstallerXml by tasks.registering {
             val module: String,
             val name: String,
             val version: String,
-            val description: String
+            val description: String,
+            val localized: Map<String, Pair<String, String>>
         )
 
         val seen = mutableSetOf<String>()
@@ -685,10 +686,11 @@ val generateInstallerXml by tasks.registering {
         stage.resolve("plugins").listFiles { f -> f.name.endsWith(".jar") }
             ?.sortedBy { it.name }
             ?.forEach { jarFile ->
+                val localized = linkedMapOf<String, Pair<String, String>>()
                 val meta = ZipFile(jarFile).use { zip ->
                     val entry = zip.getEntry("META-INF/turboism/plugin.json")
                         ?: throw GradleException("${jarFile.name}: missing META-INF/turboism/plugin.json")
-                    try {
+                    val parsed = try {
                         val bytes = zip.getInputStream(entry).use { it.readBytes() }
                         val canonical = rejectNonAsciiJsonUnicodeEscapes(
                             bytes,
@@ -700,6 +702,21 @@ val generateInstallerXml by tasks.registering {
                     } catch (e: Exception) {
                         throw GradleException("${jarFile.name}: malformed META-INF/turboism/plugin.json", e)
                     }
+                    listOf("eng" to "en", "chn" to "zh_Hans", "jpn" to "ja").forEach { (locale, suffix) ->
+                        val resource = "META-INF/turboism/i18n/messages_${suffix}.properties"
+                        val localizedEntry = zip.getEntry(resource)
+                            ?: throw GradleException("${jarFile.name}: missing installer localization $resource")
+                        val properties = Properties().apply {
+                            zip.getInputStream(localizedEntry).reader(StandardCharsets.UTF_8).use(::load)
+                        }
+                        val name = properties.getProperty("plugin.name", "").trim()
+                        val description = properties.getProperty("plugin.description", "").trim()
+                        if (name.isEmpty() || description.isEmpty()) {
+                            throw GradleException("${jarFile.name}: $resource must define plugin.name and plugin.description")
+                        }
+                        localized[locale] = name to description
+                    }
+                    parsed
                 }
                 val id = meta["id"]?.toString()?.trim()
                 if (id.isNullOrEmpty()) {
@@ -717,7 +734,8 @@ val generateInstallerXml by tasks.registering {
                         module = jarFile.name.removeSuffix(".jar"),
                         name = meta["name"]?.toString()?.takeIf { it.isNotBlank() } ?: id,
                         version = meta["version"]?.toString() ?: "",
-                        description = meta["description"]?.toString() ?: ""
+                        description = meta["description"]?.toString() ?: "",
+                        localized = localized.toMap()
                     )
                 )
             }
@@ -823,15 +841,18 @@ val generateInstallerXml by tasks.registering {
         // （<pack id> 即 langPackId），缺失时才回退 installer.xml 内联 <description>。
         // 仅在生成的副本上追加，仓库内的 CustomLangPack 源文件保持原样。
         listOf(
-            "CustomLangPack.xml" to noteEn,
-            "CustomLangPack.xml_eng" to noteEn,
-            "CustomLangPack.xml_chn" to noteZh,
-            "CustomLangPack.xml_jpn" to noteJa
-        ).forEach { (file, localeNote) ->
+            Triple("CustomLangPack.xml", "eng", noteEn),
+            Triple("CustomLangPack.xml_eng", "eng", noteEn),
+            Triple("CustomLangPack.xml_chn", "chn", noteZh),
+            Triple("CustomLangPack.xml_jpn", "jpn", noteJa)
+        ).forEach { (file, locale, localeNote) ->
             val target = izpackDir.resolve(file)
             val entries = plugins.joinToString("\n") { p ->
-                "    <str id=\"" + xmlEscape(p.id) + ".description\" txt=\"" +
-                    xmlEscape(p.description + " — " + localeNote) + "\"/>"
+                val localized = p.localized.getValue(locale)
+                val title = localized.first + if (p.version.isBlank()) "" else " " + p.version
+                "    <str id=\"" + xmlEscape(p.id) + "\" txt=\"" + xmlEscape(title) + "\"/>\n" +
+                    "    <str id=\"" + xmlEscape(p.id) + ".description\" txt=\"" +
+                    xmlEscape(localized.second + " — " + localeNote) + "\"/>"
             }
             target.writeText(target.readText().replace("</izpack:langpack>", entries + "\n</izpack:langpack>"))
         }
