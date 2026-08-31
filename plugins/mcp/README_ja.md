@@ -200,6 +200,8 @@ bearer_token_env_var = "TURBOISM_MCP_TOKEN"
 | `turboism.network.fetch` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
 | `turboism.process.run` | `application` | 型付きの外部アプリケーション設定コマンドを許可します。 |
 | `turboism.mcp.connection.publish` | `application` | 権限が承認された自動化プラグインに、認証済みループバックエンドポイントをプロセス内ランタイム交換経由で公開します。 |
+| `turboism.action.register` | `application` | ローカルの MCP 接続ウィンドウを開くアクションを登録します。 |
+| `turboism.ui.menu.contribute` | `application` | Turboism メニューに **MCP 接続** を追加します。 |
 
 診断拡張によって `host.unsafe`、パフォーマンス、ファイル読み取り、設定、イベント、UI 変更の権限が追加されることはありません。
 
