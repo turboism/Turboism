@@ -145,14 +145,24 @@ function New-SyntheticCubism {
     Set-Content -LiteralPath (Join-Path $root "CubismEditor5.bat") -Encoding ASCII -Value @(
         "@echo off",
         'cd /d "%~dp0"',
-        'set JAVA_EXE=app\jre\bin\java.exe',
+        'set JAVA_EXE=app\jre\bin\java.cmd',
         '>>"%TURBOISM_TEST_OUTPUT%" echo NORMAL=1',
         '>>"%TURBOISM_TEST_OUTPUT%" echo SCRIPT=%~f0',
         '>>"%TURBOISM_TEST_OUTPUT%" echo CWD=%CD%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo JAVA=%JAVA_EXE%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo JDK=%JDK_JAVA_OPTIONS%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo TOOL=%JAVA_TOOL_OPTIONS%',
+        '>>"%TURBOISM_TEST_OUTPUT%" echo LEGACY=%_JAVA_OPTIONS%',
         '>>"%TURBOISM_TEST_OUTPUT%" echo ARG1=%~1',
+        '%JAVA_EXE% ^',
+        '  -showversion ^',
+        '  com.live2d.cubism.CECubismEditorApp ^',
+        '  "%~f1"',
+        'exit /b %ERRORLEVEL%'
+    )
+    Set-Content -LiteralPath (Join-Path $root "app\jre\bin\java.cmd") -Encoding ASCII -Value @(
+        "@echo off",
+        '>>"%TURBOISM_TEST_OUTPUT%" echo JAVA_ARGS=%*',
         'exit /b 23'
     )
     [System.IO.File]::WriteAllBytes((Join-Path $root "app\jre\bin\java.exe"), [byte[]](1, 2, 3, 4))
@@ -580,6 +590,7 @@ try {
     $env:TURBOISM_TEST_OUTPUT = $marker
     $oldJdk = $env:JDK_JAVA_OPTIONS
     $oldTool = $env:JAVA_TOOL_OPTIONS
+    $oldLegacy = $env:_JAVA_OPTIONS
     $tokenizerOutput = @(Get-JdkOptionTokens 'alpha beta')
     Assert-ManagedLaunch ($tokenizerOutput.Count -eq 2 -and @($tokenizerOutput | Where-Object { $_ -isnot [string] }).Count -eq 0 -and $tokenizerOutput[0] -eq 'alpha' -and $tokenizerOutput[1] -eq 'beta') "tokenizer emits exactly two string tokens and no non-string pipeline object"
     $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath -Xmx256m -Dcustom=1'
@@ -601,6 +612,7 @@ try {
     }
     $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:_JAVA_OPTIONS = '-Dlegacy.parent.option=true'
     try {
         $exitCode = Invoke-CubismOfficialBat `
             -OfficialBat $bat `
@@ -612,10 +624,12 @@ try {
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'NORMAL=1') "normal launch invokes the official BAT"
         $markerText = Get-Content -LiteralPath $marker -Raw
-        Assert-ManagedLaunch ($markerText -match '(?m)^JDK=\s*$') "official BAT receives an empty JDK_JAVA_OPTIONS expansion"
+        Assert-ManagedLaunch ($markerText -match '(?m)^JDK=\s*$') "official BAT receives no inherited JDK_JAVA_OPTIONS"
+        Assert-ManagedLaunch ($markerText -match '(?m)^TOOL=\s*$') "official BAT receives no inherited JAVA_TOOL_OPTIONS"
+        Assert-ManagedLaunch ($markerText -match '(?m)^LEGACY=\s*$') "official BAT receives no inherited _JAVA_OPTIONS"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-javaagent:')).Count -eq 1) "Turboism agent is attached exactly once"
-        Assert-ManagedLaunch ($markerText -match 'TOOL=.*-javaagent:.*turboism-agent\.jar') "current Turboism agent is supplied through JAVA_TOOL_OPTIONS"
-        Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar') "stale Turboism agent is removed"
+        Assert-ManagedLaunch ($markerText -match 'JAVA_ARGS=.*-javaagent:.*turboism-agent\.jar') "current Turboism agent is a direct quoted BAT argument"
+        Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar|legacy\.parent\.option') "inherited Java options do not enter the managed child"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm\.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base\.jdk\.internal\.org\.objectweb\.asm')).Count -eq 0) "legacy malformed dot-form exports are never emitted"
@@ -623,21 +637,21 @@ try {
         Assert-ManagedLaunch ($markerText -notmatch 'old-java|old-classpath') "stale Graal child-host options are removed"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "packaged Graal child host is enabled exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.java=')).Count -eq 1) "packaged Graal child Java replaces stale inherited values"
-        Assert-ManagedLaunch ($markerText -match 'TOOL=.*-Xmx192m') "unrelated JAVA_TOOL_OPTIONS JVM option is preserved"
-        Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8' -and $markerText -notmatch 'TOOL=.*old-turboism-agent') "unrelated tool JVM option is preserved and stale attachment is removed"
+        Assert-ManagedLaunch ($markerText -match [regex]::Escape("-Dturboism.home=$turboismHome")) "space-containing Turboism home remains one direct JVM argument"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
         $env:JAVA_TOOL_OPTIONS = '-Xmx1 "unmatched'
-        $malformedThrew = $false
-        try { [void](Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent) } catch { $malformedThrew = $true }
-        Assert-ManagedLaunch $malformedThrew "unsupported JVM quoting fails closed"
-        Assert-ManagedLaunch ($env:JAVA_TOOL_OPTIONS -eq '-Xmx1 "unmatched') "failed launch restores malformed parent options"
+        $malformedExit = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent
+        Assert-ManagedLaunch ($malformedExit -eq 23) "malformed inherited JVM options cannot break the managed child"
+        Assert-ManagedLaunch ($env:JAVA_TOOL_OPTIONS -eq '-Xmx1 "unmatched') "managed launch restores malformed parent options verbatim"
     }
     finally {
         if ($null -eq $oldJdk) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue } else { $env:JDK_JAVA_OPTIONS = $oldJdk }
         if ($null -eq $oldTool) { Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue } else { $env:JAVA_TOOL_OPTIONS = $oldTool }
+        if ($null -eq $oldLegacy) { Remove-Item Env:_JAVA_OPTIONS -ErrorAction SilentlyContinue } else { $env:_JAVA_OPTIONS = $oldLegacy }
     }
     Assert-ManagedLaunch ((($null -eq $oldJdk) -and -not (Test-Path Env:JDK_JAVA_OPTIONS)) -or (($null -ne $oldJdk) -and $env:JDK_JAVA_OPTIONS -eq $oldJdk)) "parent JDK options are restored"
     Assert-ManagedLaunch ((($null -eq $oldTool) -and -not (Test-Path Env:JAVA_TOOL_OPTIONS)) -or (($null -ne $oldTool) -and $env:JAVA_TOOL_OPTIONS -eq $oldTool)) "parent tool options are restored"
+    Assert-ManagedLaunch ((($null -eq $oldLegacy) -and -not (Test-Path Env:_JAVA_OPTIONS)) -or (($null -ne $oldLegacy) -and $env:_JAVA_OPTIONS -eq $oldLegacy)) "parent legacy Java options are restored"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $bat -Algorithm SHA256).Hash -eq $beforeBat) "normal official BAT is unchanged"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $d3dBat -Algorithm SHA256).Hash -eq $beforeD3D) "D3D official BAT is unchanged"
     Assert-ManagedLaunch ((Get-FileHash -LiteralPath $agent -Algorithm SHA256).Hash -eq $beforeAgent) "Turboism agent is unchanged"
