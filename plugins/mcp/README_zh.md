@@ -9,7 +9,7 @@ category: integration
 tags: mcp, automation, external-tools
 turboismApi: "[0.1.0,0.2.0)"
 requiresCubism: true
-interface: none
+interface: swing
 ---
 
 # Turboism MCP 服务器
@@ -25,7 +25,7 @@ interface: none
 | 公开目录 | 5 个工具 · 13 个资源 · 2 个模板 · 8 个提示词 |
 | Turboism API | `[0.1.0,0.2.0)` |
 | 需要 Cubism | 是 |
-| 接口 | `none` |
+| 接口 | `swing` |
 
 ## 功能概述
 
@@ -39,19 +39,79 @@ interface: none
 - **Turboism API：** `[0.1.0,0.2.0)`。
 - **Cubism：** Turboism 当前仅接受经过审查的精确 Editor 构件 `5.2.03`、`5.3.02` 和 `5.3.03`。面向宿主的资源在其公开 SDK 能力不可用时会以关闭状态失败；它绝不会伪造空的成功结果。
 - **传输：** 使用协议 `2025-11-25` 的 MCP Streamable HTTP，并为受支持的较早协议版本进行兼容性协商。
-- **接口模式：** `none`。
+- **接口模式：** `swing`，提供本地 MCP 连接信息窗口。
 - **插件依赖项：** 未声明。
 
 ## 安装与启用
 
 1. 通过 Turboism 的官方发布包和**插件管理**安装并启用插件。
-2. 从每用户插件状态目录读取生成的 `mcp-connection.json`。当 Java 文件系统提供程序支持 POSIX 或 ACL 控制时，Turboism 会应用仅所有者权限；在 Windows DOS 提供程序上，则保留每用户目录、所有者、普通文件和重解析点检查。
-3. 使用精确的数字回环端点和 Bearer 授权值配置本地 MCP 客户端。
-4. 完成 `initialize`，保留 `MCP-Session-Id`，发送 `notifications/initialized`，并在后续请求中包含协商后的协议版本。
+2. 打开 **Turboism → MCP 连接**。该窗口集中显示当前本地地址、Bearer 令牌，以及有界的进程内连接/请求历史。
+3. 使用显式复制按钮配置可信的本地编码智能体。默认地址为 `http://127.0.0.1:43123/mcp`。
+4. 排查连接时可保持窗口打开，并点击**刷新**读取最新历史记录。
+5. 程序化本地使用者仍可读取每用户插件状态目录中受所有者权限保护的 `mcp-connection.json`。
+6. 完成 `initialize`，保留 `MCP-Session-Id`，发送 `notifications/initialized`，并在后续请求中包含协商后的协议版本。
 
-连接文件包含本地密钥。请勿记录它、将其复制到验证证据中，或将其暴露给不受信任的进程。Turboism 将传输绑定到回环地址，拒绝不安全的连接文件路径，验证所有者和文件类型，不跟随符号链接，并在平台提供相应能力时应用仅所有者权限。
+窗口和连接文件都包含本地密钥。仅将令牌复制给可信的本地客户端；不要记录它或把它加入验证证据。可见历史不会包含 Bearer 令牌或 MCP 会话 ID，并会在进程退出时丢弃。
 
 ## 使用方法
+
+使用 **Turboism → MCP 连接** 中显示的地址和令牌连接可信本地客户端。
+
+### 常见编码智能体
+
+将 `<token>` 替换为从 MCP 连接窗口复制的值。
+
+**Claude Code**
+
+```bash
+claude mcp add --transport http turboism \
+  http://127.0.0.1:43123/mcp \
+  --header "Authorization: Bearer <token>"
+```
+
+等价的 Claude Code JSON 配置：
+
+```json
+{
+  "mcpServers": {
+    "turboism": {
+      "type": "http",
+      "url": "http://127.0.0.1:43123/mcp",
+      "headers": {
+        "Authorization": "Bearer <token>"
+      }
+    }
+  }
+}
+```
+
+**Visual Studio Code**
+
+```json
+{
+  "servers": {
+    "turboism": {
+      "type": "http",
+      "url": "http://127.0.0.1:43123/mcp",
+      "headers": {
+        "Authorization": "Bearer ${input:turboism-token}"
+      }
+    }
+  }
+}
+```
+
+请在同一份 VS Code MCP 配置中将 `turboism-token` 定义为密码输入提示。
+
+**Codex CLI**
+
+先在启动 Codex 的环境中设置 `TURBOISM_MCP_TOKEN`，然后添加：
+
+```toml
+[mcp_servers.turboism]
+url = "http://127.0.0.1:43123/mcp"
+bearer_token_env_var = "TURBOISM_MCP_TOKEN"
+```
 
 ### 公开 MCP 目录
 
@@ -162,7 +222,7 @@ interface: none
 ## 状态与限制
 
 - **状态：** 预览。
-- 默认端口 `0` 会选择一个临时端口。`turboism.mcp.port`、`turboism.mcp.token` 和 `turboism.mcp.requestsPerMinute` 是高级系统属性覆盖项。
+- 稳定默认端口为 `43123`。仅在显式设置 `turboism.mcp.port=0` 时选择临时端口。`turboism.mcp.token` 和 `turboism.mcp.requestsPerMinute` 是高级系统属性覆盖项。
 - 未实现 GET SSE、资源订阅、列表变更通知、进度通知和 MCP Tasks。
 - 工作区切换和默认布局变更被有意设为不可用，因为运行时当前以 `turboism.host.unsafe` 对它们进行门控。
 - 在 MCP 会话无需接受原始路径即可获得真实 `UserFileHandle` 授权之前，`EditorFileCommandRequest`、导入/导出、另存为、备份和其他基于句柄的文件工作流始终不可用。
@@ -174,8 +234,8 @@ interface: none
 
 | 症状 | 检查事项 |
 |---|---|
-| MCP 客户端无法连接 | 读取当前连接文件，确认进程正在运行，并使用其中完全一致的回环端点。 |
-| 请求未经授权 | 使用当前会话连接文件中的 Bearer 授权值。 |
+| MCP 客户端无法连接 | 打开 **Turboism → MCP 连接**，确认进程正在运行，并使用窗口显示的精确回环地址。如果端口 `43123` 被占用，请停止冲突进程或设置显式高级端口覆盖项。 |
+| 请求未经授权 | 从 **Turboism → MCP 连接** 重新复制当前 Bearer 令牌。除非显式配置，否则 MCP 服务器重启时令牌会变化。 |
 | 请求在分派前被拒绝 | 检查方法、来源、会话、MCP 协议版本、正文大小、内容类型和速率限制。 |
 | 资源返回 `UNAVAILABLE` | 检查活动文档/模型状态和精确宿主能力准入；不要将其视为空的成功值。 |
 | 资源返回权限被拒绝 | 检查插件描述符授权以及上文命名的特定运行时权限。 |

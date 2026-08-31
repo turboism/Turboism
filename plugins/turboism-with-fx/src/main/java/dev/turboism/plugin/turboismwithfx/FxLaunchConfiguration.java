@@ -9,14 +9,24 @@ record FxLaunchConfiguration(
     String executable,
     Path workingDirectory,
     FxSecurityMode securityMode,
-    ManagedRuntimeIdentity managedRuntime
+    ManagedRuntimeIdentity managedRuntime,
+    java.util.Map<String, String> environment
 ) {
     FxLaunchConfiguration(
         final String executable,
         final Path workingDirectory,
         final FxSecurityMode securityMode
     ) {
-        this(executable, workingDirectory, securityMode, null);
+        this(executable, workingDirectory, securityMode, null, java.util.Map.of());
+    }
+
+    FxLaunchConfiguration(
+        final String executable,
+        final Path workingDirectory,
+        final FxSecurityMode securityMode,
+        final ManagedRuntimeIdentity managedRuntime
+    ) {
+        this(executable, workingDirectory, securityMode, managedRuntime, java.util.Map.of());
     }
 
     FxLaunchConfiguration {
@@ -27,6 +37,18 @@ record FxLaunchConfiguration(
         if (managedRuntime != null) {
             managedRuntime = Objects.requireNonNull(managedRuntime, "managedRuntime");
         }
+        final java.util.LinkedHashMap<String, String> checkedEnvironment =
+            new java.util.LinkedHashMap<>();
+        Objects.requireNonNull(environment, "environment").forEach((name, value) -> {
+            final String key = Objects.requireNonNull(name, "environment name");
+            final String text = Objects.requireNonNull(value, "environment value");
+            if (!key.matches("[A-Za-z_][A-Za-z0-9_]{0,127}")
+                || text.indexOf('\0') >= 0) {
+                throw new IllegalArgumentException("process environment is invalid");
+            }
+            checkedEnvironment.put(key, text);
+        });
+        environment = java.util.Map.copyOf(checkedEnvironment);
     }
 
     /**

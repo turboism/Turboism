@@ -84,7 +84,7 @@ function Find-TurboismInstallerJava {
     if (Test-CubismNormalFile $statePath) {
         try { $state = Read-CubismInstallationState -StatePath $statePath; if ($state.Valid) { foreach ($entry in @($state.Installations | Where-Object { $_.Selected })) { & $add (Join-Path $entry.Root "app\jre\bin\java.exe") } } } catch { }
     }
-    try { foreach ($candidate in Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots)) { if ($candidate.Selectable) { & $add $candidate.Java } } } catch { }
+    try { foreach ($candidate in Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots) -TurboismHome $TurboismHome) { if ($candidate.Selectable) { & $add $candidate.Java } } } catch { }
     foreach ($candidate in $candidates) { if (Test-TurboismJava17 $candidate) { return $candidate } }
     return ""
 }

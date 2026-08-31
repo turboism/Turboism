@@ -8,16 +8,29 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class FxRuntimeManifestTest {
 
     @Test
-    void pinsOnlyReviewedUpstreamReleasePlatforms() {
+    void pinsDownloadableUnixArchivesAndTheWindowsProductPayload() {
         assertEquals(
-            Set.of("linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"),
+            Set.of(
+                "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64",
+                "windows-x86_64"
+            ),
             FxRuntimeManifest.allEntries().keySet()
         );
-        assertFalse(FxRuntimeManifest.allEntries().containsKey("windows-x86_64"));
+        final FxRuntimeManifest.Entry windows = FxRuntimeManifest.allEntries().get(
+            "windows-x86_64"
+        );
+        assertEquals(FxRuntimeManifest.Delivery.PRODUCT_PAYLOAD, windows.delivery());
+        assertTrue(windows.sourceUri().isEmpty());
+        assertEquals(11_174_912L, windows.executableSize());
+        assertEquals(
+            "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541",
+            windows.executableSha256()
+        );
         assertEquals("0.0.5", FxRuntimeManifest.VERSION);
         assertEquals(
             "df7e6245e1992758d4060c97477ceafa27770551",
@@ -59,10 +72,25 @@ final class FxRuntimeManifestTest {
         );
         for (FxRuntimeManifest.Entry entry : FxRuntimeManifest.allEntries().values()) {
             final String prefix = entry.platformId() + ".";
-            assertEquals(entry.archiveName(), packaged.getProperty(prefix + "archive"));
-            assertEquals(entry.archiveSha256(), packaged.getProperty(prefix + "archiveSha256"));
-            assertEquals(entry.archiveSize(), Long.parseLong(packaged.getProperty(prefix + "archiveSize")));
-            assertEquals(entry.releaseAssetPath(), packaged.getProperty(prefix + "releaseAssetPath"));
+            assertEquals(entry.delivery().manifestValue(), packaged.getProperty(prefix + "delivery"));
+            if (entry.delivery() == FxRuntimeManifest.Delivery.UPSTREAM_ARCHIVE) {
+                assertEquals(entry.archiveName(), packaged.getProperty(prefix + "archive"));
+                assertEquals(entry.archiveSha256(), packaged.getProperty(prefix + "archiveSha256"));
+                assertEquals(
+                    entry.archiveSize(),
+                    Long.parseLong(packaged.getProperty(prefix + "archiveSize"))
+                );
+                assertEquals(
+                    entry.releaseAssetPath(), packaged.getProperty(prefix + "releaseAssetPath")
+                );
+                assertTrue(entry.sourceUri().isPresent());
+            } else {
+                assertFalse(packaged.containsKey(prefix + "archive"));
+                assertFalse(packaged.containsKey(prefix + "archiveSha256"));
+                assertFalse(packaged.containsKey(prefix + "archiveSize"));
+                assertFalse(packaged.containsKey(prefix + "releaseAssetPath"));
+                assertTrue(entry.sourceUri().isEmpty());
+            }
             assertEquals(entry.executableSha256(), packaged.getProperty(prefix + "executableSha256"));
             assertEquals(entry.executableSize(), Long.parseLong(packaged.getProperty(prefix + "executableSize")));
             assertEquals(entry.provenance(), packaged.getProperty(prefix + "provenance"));

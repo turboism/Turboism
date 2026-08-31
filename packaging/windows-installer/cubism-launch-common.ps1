@@ -15,6 +15,7 @@ $script:CubismMaxJdkOptionTokens = 256
 $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
 $script:CubismScriptRoot = $PSScriptRoot
+$script:CubismArtifactVersionResolver = $null
 $script:CubismMaxScanResults = 256
 $script:CubismMaxScanEntries = 4096
 $script:CubismMaxScanDrives = 26
@@ -49,20 +50,47 @@ function Test-CubismFixedDrive {
     catch { return $false }
 }
 
-function Get-CubismVersionFromPath {
-    param([string]$Root)
-    $leaf = Split-Path -Leaf ($Root.TrimEnd('\', '/'))
-    $match = [regex]::Match(
-        $leaf,
-        '(?i)^(?:Live2D\s+)?Cubism(?:\s+Editor)?\s+(?<version>5\.(?:2\.03|3\.(?:02|03)))(?:\s+.*)?$'
+function Get-CubismVersionFromArtifact {
+    param(
+        [string]$Java,
+        [string]$ApplicationJar,
+        [string]$TurboismHome = ""
     )
-    if ($match.Success) { return $match.Groups['version'].Value }
-    return $null
+    if ($null -ne $script:CubismArtifactVersionResolver) {
+        return & $script:CubismArtifactVersionResolver $Java $ApplicationJar $TurboismHome
+    }
+    if ([string]::IsNullOrWhiteSpace($Java) -or
+        [string]::IsNullOrWhiteSpace($ApplicationJar)) { return $null }
+    $effectiveHome = if ([string]::IsNullOrWhiteSpace($TurboismHome)) { $script:CubismScriptRoot } else { $TurboismHome }
+    $agent = Join-Path $effectiveHome "turboism-agent.jar"
+    if (-not (Test-CubismNormalFile $Java) -or
+        -not (Test-CubismNormalFile $ApplicationJar) -or
+        -not (Test-CubismNormalFile $agent)) { return $null }
+    $previousErrorPreference = $ErrorActionPreference
+    $savedEnvironment = @{}
+    foreach ($name in @("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")) {
+        $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+        [Environment]::SetEnvironmentVariable($name, $null, "Process")
+    }
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = @(& $Java -cp $agent dev.turboism.mapping.verification.ReviewedHostArtifactCli $ApplicationJar 2>$null)
+        if ($LASTEXITCODE -ne 0) { return $null }
+        $version = ($output | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^5\.(?:2\.03|3\.(?:02|03))$' } | Select-Object -First 1)
+        return $(if ([string]::IsNullOrWhiteSpace($version)) { $null } else { $version })
+    }
+    catch { return $null }
+    finally {
+        $ErrorActionPreference = $previousErrorPreference
+        foreach ($name in $savedEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], "Process")
+        }
+    }
 }
 
 function Test-CubismPlausiblePath {
     param([string]$Root)
-    return $null -ne (Get-CubismVersionFromPath $Root) -or (Test-CubismRequiredFileLayout $Root)
+    return Test-CubismRequiredFileLayout $Root
 }
 
 function Test-CubismRequiredFileLayout {
@@ -103,7 +131,8 @@ function Get-CubismD3DBat {
 function New-CubismInstallationCandidate {
     param(
         [string]$Root,
-        [string]$Source = "discovery"
+        [string]$Source = "discovery",
+        [string]$TurboismHome = ""
     )
 
     $canonical = ConvertTo-CubismCanonicalRoot $Root
@@ -118,7 +147,7 @@ function New-CubismInstallationCandidate {
     $officialBat = Join-Path $canonical "CubismEditor5.bat"
     $java = Join-Path $canonical "app\jre\bin\java.exe"
     $applicationJar = Join-Path $canonical "app\lib\Live2D_Cubism.jar"
-    $version = Get-CubismVersionFromPath $canonical
+    $version = $null
     $missing = @()
     if (-not (Test-CubismFixedDrive $canonical)) { $missing += "fixed local drive" }
     if (-not (Test-Path -LiteralPath $canonical -PathType Container)) { $missing += "root directory" }
@@ -134,14 +163,17 @@ function New-CubismInstallationCandidate {
     if (-not (Test-Path -LiteralPath $officialBat -PathType Leaf)) { $missing += "CubismEditor5.bat" }
     if (-not (Test-Path -LiteralPath $java -PathType Leaf)) { $missing += "bundled Java launcher" }
     if (-not (Test-Path -LiteralPath $applicationJar -PathType Leaf)) { $missing += "Cubism application JAR" }
-
-    if ($null -eq $version) {
-        $status = "Unsupported"
-        $reason = "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03 installations are selectable."
+    if ($missing.Count -eq 0) {
+        $version = Get-CubismVersionFromArtifact -Java $java -ApplicationJar $applicationJar -TurboismHome $TurboismHome
     }
-    elseif ($missing.Count -gt 0) {
+
+    if ($missing.Count -gt 0) {
         $status = "Invalid"
         $reason = "Missing: " + ($missing -join ", ") + "."
+    }
+    elseif ($null -eq $version) {
+        $status = "Unsupported"
+        $reason = "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03 application artifacts are selectable."
     }
     else {
         $status = "Ready"
@@ -281,11 +313,6 @@ function Get-CubismDiscoveryRoots {
     $knownBases = @($env:ProgramFiles, ${env:ProgramFiles(x86)}, $env:ProgramW6432, $env:LOCALAPPDATA) |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | Sort-Object -Unique
     foreach ($base in $knownBases) {
-        foreach ($relative in @(
-            "Live2D Cubism 5.2.03", "Live2D Cubism 5.3.02", "Live2D Cubism 5.3.03",
-            "Live2D\Cubism 5.2.03", "Live2D\Cubism 5.3.02", "Live2D\Cubism 5.3.03",
-            "Cubism 5.2.03", "Cubism 5.3.02", "Cubism 5.3.03"
-        )) { & $add (Join-Path $base $relative) $false }
         foreach ($child in Get-CubismDirectories $base) {
             & $add $child.FullName $false
             foreach ($grandchild in Get-CubismDirectories $child.FullName) {
@@ -317,11 +344,14 @@ function Get-CubismDiscoveryRoots {
 }
 
 function Get-CubismInstallations {
-    param([string[]]$Roots = @())
+    param(
+        [string[]]$Roots = @(),
+        [string]$TurboismHome = ""
+    )
     $seen = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
     $items = @()
     foreach ($root in @($Roots | Select-Object -First $script:CubismMaxRoots)) {
-        $candidate = New-CubismInstallationCandidate -Root $root
+        $candidate = New-CubismInstallationCandidate -Root $root -TurboismHome $TurboismHome
         if ($null -ne $candidate.Key -and $seen.Add($candidate.Key)) { $items += $candidate }
     }
     return @($items | Sort-Object @{Expression={ if ($_.Version) { [version]$_.Version } else { [version]"0.0.0" } }}, @{Expression={ $_.CanonicalRoot.ToUpperInvariant() }})
@@ -1289,7 +1319,10 @@ function Get-CubismBatIntegrationText {
     $managed = @(
         'rem TURBOISM MANAGED BEGIN',
         'set "TURBOISM_HOME=' + $TurboismHome + '"',
-        'set "JDK_JAVA_OPTIONS=' + (($options -join ' ') + ' %JDK_JAVA_OPTIONS%') + '"',
+        # The JVM parses JAVA_TOOL_OPTIONS directly. Putting quoted paths into
+        # JDK_JAVA_OPTIONS is unsafe for Cubism's BAT because it expands that
+        # variable through cmd.exe before Java receives it.
+        'set "JAVA_TOOL_OPTIONS=' + (($options -join ' ') + ' %JAVA_TOOL_OPTIONS%') + '"',
         'rem TURBOISM MANAGED END',
         ''
     ) -join "`r`n"
@@ -1319,10 +1352,22 @@ function Invoke-CubismBatIntegration {
                     # managed marker pair is complete; unknown edits fail closed.
                     if ($text -notmatch '(?im)^rem\s+TURBOISM(?:\s+BEGIN)?\s*$' -or $text -notmatch '(?im)^rem\s+TURBOISM(?:\s+END)?\s*$') { throw "unrecognized legacy Turboism BAT injection: $bat" }
                     $originalText = [regex]::Replace($text, '(?ims)^rem\s+TURBOISM(?:\s+BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+END)?\s*$\r?\n?', '')
+                    if (Test-Path -LiteralPath $backup) { throw "Cubism BAT backup already exists without managed state: $backup" }
+                    [System.IO.File]::WriteAllText($backup, $originalText, [System.Text.Encoding]::Default)
                 }
-                else { $originalText = $text }
-                if (Test-Path -LiteralPath $backup) { throw "Cubism BAT backup already exists without managed state: $backup" }
-                [System.IO.File]::WriteAllText($backup, $originalText, [System.Text.Encoding]::Default)
+                else {
+                    $originalText = $text
+                    if (Test-Path -LiteralPath $backup) { throw "Cubism BAT backup already exists without managed state: $backup" }
+                    $originalLength = [int64](Get-Item -LiteralPath $bat -Force -ErrorAction Stop).Length
+                    $originalHash = Get-CubismSha256 $bat
+                    [System.IO.File]::Copy($bat, $backup, $false)
+                    $backupFile = Get-Item -LiteralPath $backup -Force -ErrorAction Stop
+                    if (-not (Test-CubismNormalFile $backup) -or
+                        [int64]$backupFile.Length -ne $originalLength -or
+                        (Get-CubismSha256 $backup) -ine $originalHash) {
+                        throw "Cubism BAT backup verification failed: $backup"
+                    }
+                }
             }
             $originalHash = Get-CubismSha256 $backup
             $managedText = Get-CubismBatIntegrationText -OriginalText $originalText -TurboismHome $TurboismHome
@@ -1742,9 +1787,15 @@ function Invoke-CubismOfficialBat {
         else { $managedOptions += "-Dturboism.graal.enabled=false" }
         $managed = @($managedOptions + @(Get-CubismManagedJdkExportTokens)) |
             ForEach-Object { ConvertTo-JdkOptionToken $_ }
-        $unrelatedJdk = Remove-TurboismJdkOptions $oldJdk
-        $env:JDK_JAVA_OPTIONS = ((@($unrelatedJdk) + $managed) | Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
-        if ($null -ne $oldTool) { $env:JAVA_TOOL_OPTIONS = Remove-TurboismJdkOptions $oldTool }
+        $unrelatedTool = Remove-TurboismJdkOptions $oldTool
+        # CubismEditor5.bat uses an unquoted `%JDK_JAVA_OPTIONS%` command-line
+        # expansion. Quoted path-bearing values in that variable are reparsed by
+        # cmd.exe and can become standalone commands. JAVA_TOOL_OPTIONS is read
+        # directly by the JVM instead, so keep the process-local Turboism options
+        # there and clear JDK_JAVA_OPTIONS for the official BAT invocation.
+        $env:JDK_JAVA_OPTIONS = ""
+        $env:JAVA_TOOL_OPTIONS = ((@($unrelatedTool) + $managed) |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
         Push-Location -LiteralPath $root
         try {
             & $official @Arguments

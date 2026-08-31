@@ -54,6 +54,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private long sessionGeneration;
     private volatile FxAcpSession session;
     private volatile McpHttpConnection mcpConnection;
+    private volatile FxOpenAiAdapter customEndpointAdapter;
     private volatile boolean prompting;
 
     TurboismWithFxController(
@@ -90,8 +91,40 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final boolean compatibilityMode,
         final String initialPrompt
     ) {
+        connect(executable, compatibilityMode, initialPrompt, settings.customEndpoint());
+    }
+
+    void connect(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxCustomEndpointSettings customEndpoint
+    ) {
         submit(() -> {
-            if (!saveSettingsNow(executable, compatibilityMode, initialPrompt)) return;
+            if (!saveSettingsNow(
+                executable,
+                compatibilityMode,
+                initialPrompt,
+                customEndpoint
+            )) return;
+            ui(() -> view.showConnecting(compatibilityMode));
+            connectNow(executable, compatibilityMode);
+        });
+    }
+
+    void connect(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxProviderConfiguration providerConfiguration
+    ) {
+        submit(() -> {
+            if (!saveSettingsNow(
+                executable,
+                compatibilityMode,
+                initialPrompt,
+                providerConfiguration
+            )) return;
             ui(() -> view.showConnecting(compatibilityMode));
             connectNow(executable, compatibilityMode);
         });
@@ -102,8 +135,40 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final boolean compatibilityMode,
         final String initialPrompt
     ) {
+        saveSettings(executable, compatibilityMode, initialPrompt, settings.customEndpoint());
+    }
+
+    void saveSettings(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxCustomEndpointSettings customEndpoint
+    ) {
         submit(() -> {
-            if (saveSettingsNow(executable, compatibilityMode, initialPrompt)) {
+            if (saveSettingsNow(
+                executable,
+                compatibilityMode,
+                initialPrompt,
+                customEndpoint
+            )) {
+                ui(view::showSettingsSaved);
+            }
+        });
+    }
+
+    void saveSettings(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxProviderConfiguration providerConfiguration
+    ) {
+        submit(() -> {
+            if (saveSettingsNow(
+                executable,
+                compatibilityMode,
+                initialPrompt,
+                providerConfiguration
+            )) {
                 ui(view::showSettingsSaved);
             }
         });
@@ -123,10 +188,53 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             final FxManagedRuntimeService.Result result = managedRuntime.installOrRepair();
             final String key = switch (result) {
                 case INSTALLED -> "status.managed-repair-complete";
+                case PRODUCT_PAYLOAD_ONLY -> "status.managed-repair-reinstall";
                 case PLATFORM_UNSUPPORTED -> "status.managed-platform-unsupported";
                 case FAILED -> "status.managed-repair-failed";
             };
             ui(() -> view.showManagedRuntimeResult(key));
+        });
+    }
+
+    void openInteractiveFx(final String executable, final FxInteractiveAction action) {
+        submit(() -> {
+            final FxRuntimeResolver.Resolution resolution = runtimeResolver.resolve(executable);
+            if (resolution instanceof FxRuntimeResolver.Resolution.Unavailable unavailable) {
+                ui(() -> view.showShellResult(runtimeFailureKey(unavailable.problem())));
+                return;
+            }
+            try {
+                FxShellLauncher.open(
+                    (FxRuntimeResolver.Resolution.Available) resolution,
+                    context.paths().stateDir(),
+                    Objects.requireNonNull(action, "action")
+                );
+                ui(() -> view.showShellResult("status.fx-shell-opened"));
+            } catch (IOException | RuntimeException failure) {
+                context.logger().error("Turboism with fx could not open an interactive shell", failure);
+                ui(() -> view.showShellResult("status.fx-shell-failed"));
+            }
+        });
+    }
+
+    void discoverProviderModels(
+        final FxProviderProfile profile,
+        final String sessionApiKey
+    ) {
+        final FxProviderProfile selected = Objects.requireNonNull(profile, "profile");
+        if (selected.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE) {
+            ui(view::showProviderModelDiscoveryFailure);
+            return;
+        }
+        submit(() -> {
+            try {
+                final FxCustomEndpointSettings endpoint = selected.customEndpoint(sessionApiKey);
+                final List<String> models = FxOpenAiAdapter.discoverModels(endpoint);
+                ui(() -> view.showDiscoveredProviderModels(selected.id(), models));
+            } catch (IOException | IllegalArgumentException failure) {
+                context.logger().warn("Turboism with fx could not discover custom provider models");
+                ui(view::showProviderModelDiscoveryFailure);
+            }
         });
     }
 
@@ -160,16 +268,58 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private boolean saveSettingsNow(
         final String executable,
         final boolean compatibilityMode,
-        final String initialPrompt
+        final String initialPrompt,
+        final FxCustomEndpointSettings customEndpoint
+    ) {
+        return saveSettingsNow(
+            executable,
+            compatibilityMode,
+            initialPrompt,
+            settings.providerConfiguration(),
+            customEndpoint
+        );
+    }
+
+    private boolean saveSettingsNow(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxProviderConfiguration providerConfiguration
+    ) {
+        return saveSettingsNow(
+            executable,
+            compatibilityMode,
+            initialPrompt,
+            providerConfiguration,
+            null
+        );
+    }
+
+    private boolean saveSettingsNow(
+        final String executable,
+        final boolean compatibilityMode,
+        final String initialPrompt,
+        final FxProviderConfiguration providerConfiguration,
+        final FxCustomEndpointSettings legacyCustomEndpoint
     ) {
         try {
             final String executableOverride = validateExecutableOverride(executable);
             final String instructions = validateInitialPrompt(initialPrompt);
-            settings.writeUserSettings(
-                executableOverride,
-                compatibilityMode,
-                instructions
-            );
+            if (legacyCustomEndpoint == null) {
+                settings.writeUserSettings(
+                    executableOverride,
+                    compatibilityMode,
+                    instructions,
+                    Objects.requireNonNull(providerConfiguration, "providerConfiguration")
+                );
+            } else {
+                settings.writeUserSettings(
+                    executableOverride,
+                    compatibilityMode,
+                    instructions,
+                    legacyCustomEndpoint
+                );
+            }
             return true;
         } catch (IllegalArgumentException failure) {
             context.logger().warn("Turboism with fx settings were invalid");
@@ -198,15 +348,36 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             final FxRuntimeResolver.Resolution.Available available =
                 (FxRuntimeResolver.Resolution.Available) resolution;
-            final FxAcpClient connected = clientStarter.start(
-                new FxLaunchConfiguration(
-                    available.executable(),
-                    context.paths().stateDir(),
-                    FxSecurityMode.FX_NATIVE_TOOLS,
-                    available.managedRuntime()
-                ),
-                this
-            );
+            final FxCustomEndpointSettings customEndpoint = settings.customEndpoint();
+            final FxOpenAiAdapter adapter;
+            final java.util.Map<String, String> environment;
+            if (customEndpoint.enabled()) {
+                adapter = FxOpenAiAdapter.start(customEndpoint);
+                customEndpointAdapter = adapter;
+                environment = adapter.fxEnvironment();
+            } else {
+                adapter = null;
+                environment = java.util.Map.of();
+            }
+            final FxAcpClient connected;
+            try {
+                connected = clientStarter.start(
+                    new FxLaunchConfiguration(
+                        available.executable(),
+                        context.paths().stateDir(),
+                        FxSecurityMode.FX_NATIVE_TOOLS,
+                        available.managedRuntime(),
+                        environment
+                    ),
+                    this
+                );
+            } catch (IOException | FxAcpException | RuntimeException failure) {
+                if (adapter != null) {
+                    customEndpointAdapter = null;
+                    adapter.close();
+                }
+                throw failure;
+            }
             if (closed.get()) {
                 connected.close();
                 return;
@@ -893,6 +1064,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             session = null;
         }
         mcpConnection = null;
+        final FxOpenAiAdapter adapter = customEndpointAdapter;
+        customEndpointAdapter = null;
         prompting = false;
         if (active != null) {
             if (current != null && current.capabilities().closeSession()) {
@@ -904,6 +1077,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             active.close();
         }
+        if (adapter != null) adapter.close();
     }
 
     @Override
@@ -1048,6 +1222,16 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         }
         default void showManagedRuntimeResult(final String localizationKey) {
             showFailure(localizationKey);
+        }
+        default void showShellResult(final String localizationKey) {
+            showFailure(localizationKey);
+        }
+        default void showDiscoveredProviderModels(
+            final String profileId,
+            final List<String> models
+        ) {
+        }
+        default void showProviderModelDiscoveryFailure() {
         }
         void appendUser(String text);
         void appendAgent(String text);

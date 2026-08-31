@@ -86,7 +86,7 @@ function Resolve-SelectedCandidate {
     if (-not [string]::IsNullOrWhiteSpace($CubismRoot)) {
         $requested = $CubismRoot.Trim()
         if ([System.IO.Path]::GetExtension($requested) -ieq ".bat") { $requested = Split-Path -Parent $requested }
-        $candidate = New-CubismInstallationCandidate -Root $requested -Source "explicit"
+        $candidate = New-CubismInstallationCandidate -Root $requested -Source "explicit" -TurboismHome $turboismHome
         if (-not $candidate.Selectable) { throw ($M.RootInvalid -f $requested) }
         return $candidate
     }
@@ -97,7 +97,7 @@ function Resolve-SelectedCandidate {
     if ($selectedEntries.Count -eq 0) { throw $M.StateMissing }
     $selected = @()
     foreach ($entry in $selectedEntries) {
-        $candidate = New-CubismInstallationCandidate -Root $entry.Root -Source "managed"
+        $candidate = New-CubismInstallationCandidate -Root $entry.Root -Source "managed" -TurboismHome $turboismHome
         if (-not $candidate.Selectable) {
             throw ($M.RootInvalid -f "$($entry.Root): $($candidate.Reason)")
         }
