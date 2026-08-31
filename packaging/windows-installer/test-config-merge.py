@@ -38,6 +38,8 @@ MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
+FX_RUNTIME_DIR = (Path(__file__).resolve().parent.parent / "fx-runtime" /
+                  "windows-x86_64")
 
 # 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -330,10 +332,35 @@ def check_configurator_flow_contract():
     check("CF1 launch choices precede payload installation",
           text.index("Page custom LaunchOptionsCreate LaunchOptionsLeave")
           < text.index("MUI_PAGE_INSTFILES"))
-    check("CF2 successful installation does not launch the interactive configurator",
-          "Function .onInstSuccess" not in text
-          and "-InitialShortcuts" not in text
-          and "-InitialBat" not in text)
+    success = text[text.index("Function .onInstSuccess"):
+                   text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
+    check("CF2 successful installation performs headless initial configuration",
+          "ExecWait" in success
+          and "-NonInteractive" in success
+          and "-InitializeSelection" in success
+          and "-EnableShortcuts" in success
+          and "-DisableShortcuts" in success
+          and "-IntegrateBat" in success
+          and "-DisableBat" in success
+          and "Exec '" not in success)
+    check("CF2b BAT integration elevates only the selected helper operation",
+          "RequestExecutionLevel user" in text
+          and "Start-Process" in configure
+          and "-Verb RunAs" in configure
+          and "-Wait" in configure
+          and "-PassThru" in configure
+          and "[switch]$Elevated" in configure)
+    disable_guard_start = configure.index("if ($DisableBat -and -not $Elevated)")
+    integrate_guard_start = configure.index(
+        "if ($IntegrateBat -and -not $Elevated)", disable_guard_start)
+    disable_guard = configure[disable_guard_start:integrate_guard_start]
+    check("CF2c fresh unchecked BAT choice exits without requesting UAC",
+          "Read-CubismInstallationState" in disable_guard
+          and "$disableBatState.BatIntegrations.Count -eq 0" in disable_guard
+          and "exit 0" in disable_guard
+          and disable_guard.index("exit 0")
+          < disable_guard.index("Invoke-ElevatedConfiguratorMode")
+          and "($IntegrateBat -or $DisableBat)" not in configure)
     check("CF3 main installer scales the frame and page content together",
           'SetFont "MS Shell Dlg" 12' in text
           and "MUI_CUSTOMFUNCTION_GUIINIT ResizeInstallerWindow" not in text
@@ -343,9 +370,12 @@ def check_configurator_flow_contract():
           and "MinimumSize = New-Object System.Drawing.Size(900, 720)" in configure
           and "$form.MaximizeBox = $true" in configure
           and "Anchor = 'Top, Bottom, Left, Right'" in configure)
-    check("CF5 candidate selection preserves exact supported patch versions",
-          "5\\.(?:2\\.03|3\\.(?:02|03))" in common
-          and "Only exact Cubism 5.2.03, 5.3.02, and 5.3.03" in common)
+    check("CF5 candidate selection resolves exact versions from application artifacts",
+          "Get-CubismVersionFromArtifact" in common
+          and "ReviewedHostArtifactCli" in common
+          and "HostArtifactDigest.from" in (INSTALLER_NSI.parent.parent.parent / "runtime/src/main/java/dev/turboism/mapping/verification/ReviewedHostArtifactCli.java").read_text(encoding="utf-8")
+          and "Get-CubismVersionFromPath" not in common
+          and "application artifacts are selectable" in common)
     check("CF6 BAT integration is selected in the configurator after candidates",
           "$batCheck" in configure
           and "Invoke-CubismBatIntegration" in configure
@@ -355,8 +385,46 @@ def check_configurator_flow_contract():
           and "CONFIGURATION_FAILED" in configure
           and "BAT_INTEGRATION_OK" in configure
           and 'Log: " + $installerLogPath' in configure)
+    check("CF8 managed launch avoids cmd reparsing quoted JDK options",
+          '$env:JDK_JAVA_OPTIONS = ""' in common
+          and '$env:JAVA_TOOL_OPTIONS = ((@($unrelatedTool) + $managed)' in common
+          and "CubismEditor5.bat uses an unquoted `%JDK_JAVA_OPTIONS%`" in common
+          and "'set \"JAVA_TOOL_OPTIONS=' + (($options -join ' ')" in common
+          and "'set \"JDK_JAVA_OPTIONS=' + (($options -join ' ')" not in common)
 
 
+
+
+def check_managed_fx_contract():
+    """Full installs the exact Windows fx payload; Lite and uninstall leave none behind."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    fx = FX_RUNTIME_DIR / "fx.exe"
+    import hashlib
+    check("FX1 exact Windows executable exists",
+          fx.is_file() and fx.stat().st_size == 11174912)
+    check("FX1 exact Windows executable hash is pinned",
+          hashlib.sha256(fx.read_bytes()).hexdigest()
+          == "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541")
+    section_start = text.index('Section "-托管 fx 运行时"')
+    section_end = text.index("SectionEnd", section_start)
+    section = text[section_start:section_end]
+    check("FX2 NSIS installs managed fx only in Full mode",
+          "${If} $Mode == 1" in section
+          and '$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64' in section)
+    expected = (
+        "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
+        "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"
+    )
+    check("FX3 NSIS carries the exact Windows managed runtime inventory",
+          all(('File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/'
+               + name + '"') in section for name in expected)
+          and section.count('File "${STAGING_DIR}/runtimes/fx/') == len(expected))
+    uninstall = text[text.index('Section "Uninstall"'):
+                     text.index("SectionEnd", text.index('Section "Uninstall"'))]
+    check("FX4 uninstall removes only the installer-owned Windows runtime files",
+          all(('Delete "$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64\\'
+               + name + '"') in uninstall for name in expected)
+          and 'RMDir /r "$INSTDIR\\runtimes"' not in uninstall)
 
 
 def check_icon_contract():
@@ -444,6 +512,11 @@ def check_launcher_and_shortcut_contract():
           and "$integrateCubismBat" in text
           and "Disable-CubismShortcutIntegration" in common
           and "Restore-CubismBatIntegrations" in common)
+    check("L6c fresh official BAT backups preserve exact source bytes",
+          "[System.IO.File]::Copy($bat, $backup, $false)" in common
+          and "Cubism BAT backup verification failed" in common
+          and "[int64]$backupFile.Length -ne $originalLength" in common
+          and "(Get-CubismSha256 $backup) -ine $originalHash" in common)
     check("L7 finish page can open the installation directory",
           "MUI_FINISHPAGE_RUN" in text
           and "FinishOpenFolderText" in text
@@ -795,6 +868,7 @@ def main():
     check_nsis_retirement_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
+    check_managed_fx_contract()
     check_icon_contract()
     check_launcher_and_shortcut_contract()
     check_eula_contract()

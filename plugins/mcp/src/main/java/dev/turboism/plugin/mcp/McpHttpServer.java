@@ -66,6 +66,7 @@ final class McpHttpServer implements AutoCloseable {
         "2025-06-18",
         "2025-03-26"
     );
+    static final int DEFAULT_PORT = 43123;
 
     private final HttpServer server;
     private final ExecutorService executor;
@@ -76,6 +77,7 @@ final class McpHttpServer implements AutoCloseable {
     private final URI endpoint;
     private final WindowRateLimiter rateLimiter;
     private final McpSessionRegistry sessions;
+    private final McpConnectionHistory history;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private McpHttpServer(
@@ -87,7 +89,8 @@ final class McpHttpServer implements AutoCloseable {
         final Path connectionFile,
         final URI endpoint,
         final WindowRateLimiter rateLimiter,
-        final McpSessionRegistry sessions
+        final McpSessionRegistry sessions,
+        final McpConnectionHistory history
     ) {
         this.server = server;
         this.executor = executor;
@@ -98,6 +101,7 @@ final class McpHttpServer implements AutoCloseable {
         this.endpoint = endpoint;
         this.rateLimiter = rateLimiter;
         this.sessions = Objects.requireNonNull(sessions, "sessions");
+        this.history = Objects.requireNonNull(history, "history");
     }
 
     static McpHttpServer start(final PluginContext context) throws IOException {
@@ -135,7 +139,9 @@ final class McpHttpServer implements AutoCloseable {
             stage.enter("context.paths().stateDir()");
             final Path stateDir = context.paths().stateDir();
             stage.enter("port property");
-            final int port = integerProperty("turboism.mcp.port", 0, 0, 65535);
+            final int port = integerProperty(
+                "turboism.mcp.port", DEFAULT_PORT, 0, 65535
+            );
             stage.enter("configured token");
             final String token = configuredToken();
             stage.enter("requests-per-minute property");
@@ -228,6 +234,7 @@ final class McpHttpServer implements AutoCloseable {
                 checked.diagnostics(),
                 execution
             );
+            final McpConnectionHistory history = new McpConnectionHistory();
             transport = new McpHttpServer(
                 server,
                 executor,
@@ -250,7 +257,14 @@ final class McpHttpServer implements AutoCloseable {
                 connectionFile,
                 endpoint,
                 new WindowRateLimiter(checked.requestsPerMinute()),
-                new McpSessionRegistry()
+                new McpSessionRegistry(
+                    java.time.Duration.ofMinutes(30),
+                    java.time.Clock.systemUTC(),
+                    ignored -> history.record(
+                        McpConnectionHistory.Event.SESSION_EXPIRED, "", "idle timeout"
+                    )
+                ),
+                history
             );
             server.createContext("/mcp", transport::handle);
 
@@ -325,6 +339,10 @@ final class McpHttpServer implements AutoCloseable {
         return "Bearer " + token;
     }
 
+    List<McpConnectionHistory.Entry> connectionHistory() {
+        return history.snapshot();
+    }
+
     private void handle(final HttpExchange exchange) throws IOException {
         try (exchange) {
             final Headers responseHeaders = exchange.getResponseHeaders();
@@ -356,6 +374,11 @@ final class McpHttpServer implements AutoCloseable {
                 if (sessionId == null || !sessions.remove(sessionId)) {
                     sendEmpty(exchange, 404);
                 } else {
+                    history.record(
+                        McpConnectionHistory.Event.SESSION_CLOSED,
+                        "",
+                        "client requested session close"
+                    );
                     sendEmpty(exchange, 200);
                 }
                 return;
@@ -418,6 +441,11 @@ final class McpHttpServer implements AutoCloseable {
                     McpProtocol.negotiatedVersion(outcome).ifPresent(version -> {
                         final McpSessionRegistry.Session session = sessions.create(version);
                         responseHeaders.set("MCP-Session-Id", session.id());
+                        history.record(
+                            McpConnectionHistory.Event.SESSION_CREATED,
+                            clientName(request),
+                            "protocol " + version
+                        );
                     });
                     sendJson(exchange, outcome.status(), outcome.body());
                 }
@@ -439,6 +467,11 @@ final class McpHttpServer implements AutoCloseable {
             }
             if (initializedNotification) {
                 sessions.initialize(session.id());
+                history.record(
+                    McpConnectionHistory.Event.SESSION_INITIALIZED,
+                    "",
+                    "client completed initialization"
+                );
                 sendEmpty(exchange, 202);
                 return;
             }
@@ -446,6 +479,11 @@ final class McpHttpServer implements AutoCloseable {
                 sendEmpty(exchange, 400);
                 return;
             }
+            history.record(
+                McpConnectionHistory.Event.REQUEST,
+                "",
+                requestMethod(request)
+            );
             final McpProtocol.Outcome outcome = protocol.handle(request, session.id());
             if (outcome.body() == null) {
                 sendEmpty(exchange, outcome.status());
@@ -707,6 +745,22 @@ final class McpHttpServer implements AutoCloseable {
     private static boolean methodIs(final Object request, final String method) {
         if (!(request instanceof Map<?, ?> values)) return false;
         return method.equals(values.get("method"));
+    }
+
+    private static String requestMethod(final Object request) {
+        if (!(request instanceof Map<?, ?> values)) return "unknown request";
+        final Object method = values.get("method");
+        return method instanceof String text && !text.isBlank() ? text : "unknown request";
+    }
+
+    private static String clientName(final Object request) {
+        if (!(request instanceof Map<?, ?> values)) return "unknown client";
+        final Object params = values.get("params");
+        if (!(params instanceof Map<?, ?> paramValues)) return "unknown client";
+        final Object clientInfo = paramValues.get("clientInfo");
+        if (!(clientInfo instanceof Map<?, ?> clientValues)) return "unknown client";
+        final Object name = clientValues.get("name");
+        return name instanceof String text && !text.isBlank() ? text : "unknown client";
     }
 
     private static void sendJson(

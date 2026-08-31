@@ -267,10 +267,11 @@ RETIRED_PLUGIN_IDS = [
 FX_VERSION = "0.0.5"
 FX_SOURCE_COMMIT = "df7e6245e1992758d4060c97477ceafa27770551"
 FX_PLATFORM = {
-    "linux-x86_64": (11870712, "27a5e9474fd749d6ca2503ab93765176a93ffbd0f0e7173e8f2e3e4c6b51876f"),
-    "linux-aarch64": (10133856, "35e972dc8be31b736a0d7fd733157f9d77a6a46dee33e0172ee51cd27915577d"),
-    "macos-x86_64": (12307081, "3170e25c2238b73971d992936b482d058282cb19d7beb34098e808d71c244428"),
-    "macos-aarch64": (6431792, "caad628680cd2af24d79063f109965b71c24f69c7b06318b50178c76cc40d0c9"),
+    "linux-x86_64": (11870712, "27a5e9474fd749d6ca2503ab93765176a93ffbd0f0e7173e8f2e3e4c6b51876f", "fx"),
+    "linux-aarch64": (10133856, "35e972dc8be31b736a0d7fd733157f9d77a6a46dee33e0172ee51cd27915577d", "fx"),
+    "macos-x86_64": (12307081, "3170e25c2238b73971d992936b482d058282cb19d7beb34098e808d71c244428", "fx"),
+    "macos-aarch64": (6431792, "caad628680cd2af24d79063f109965b71c24f69c7b06318b50178c76cc40d0c9", "fx"),
+    "windows-x86_64": (11174912, "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541", "fx.exe"),
 }
 
 
@@ -406,16 +407,16 @@ def assert_managed_fx_payload(payload):
     check("staged managed fx platforms are exact",
           sorted(os.listdir(root)) == sorted(FX_PLATFORM),
           "actual=%s" % sorted(os.listdir(root)))
-    for platform, (expected_size, expected_hash) in FX_PLATFORM.items():
+    for platform, (expected_size, expected_hash, executable_name) in FX_PLATFORM.items():
         directory = os.path.join(root, platform)
         expected_files = {
-            "fx", "LICENSE", "THIRD_PARTY_NOTICES.md",
+            executable_name, "LICENSE", "THIRD_PARTY_NOTICES.md",
             "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties",
         }
         check("managed fx %s file inventory" % platform,
               set(os.listdir(directory)) == expected_files,
               "actual=%s" % sorted(os.listdir(directory)))
-        executable = os.path.join(directory, "fx")
+        executable = os.path.join(directory, executable_name)
         check("managed fx %s executable is regular" % platform,
               os.path.isfile(executable) and not os.path.islink(executable), executable)
         check("managed fx %s executable size" % platform,
@@ -701,6 +702,8 @@ def current_fx_platform():
         os_id = "linux"
     elif sys.platform == "darwin":
         os_id = "macos"
+    elif sys.platform == "win32":
+        os_id = "windows"
     else:
         return None
     machine = __import__("platform").machine().lower()
@@ -709,6 +712,8 @@ def current_fx_platform():
     elif machine in ("aarch64", "arm64"):
         architecture = "aarch64"
     else:
+        return None
+    if os_id == "windows" and architecture != "x86_64":
         return None
     return os_id + "-" + architecture
 
@@ -771,16 +776,17 @@ def assert_nonfull_transitions_from_full_rejected(jar, payload_plugins):
 
 
 def assert_installed_fx_runtime(target, platform):
-    expected_size, expected_hash = FX_PLATFORM[platform]
+    expected_size, expected_hash, executable_name = FX_PLATFORM[platform]
     directory = os.path.join(target, "runtimes", "fx", FX_VERSION, platform)
-    executable = os.path.join(directory, "fx")
+    executable = os.path.join(directory, executable_name)
     check("full installs current managed fx runtime %s" % platform,
           os.path.isfile(executable) and not os.path.islink(executable), executable)
     check("installed managed fx executable size",
           os.path.getsize(executable) == expected_size, str(os.path.getsize(executable)))
     digest = hashlib.sha256(open(executable, "rb").read()).hexdigest()
     check("installed managed fx executable hash", digest == expected_hash, digest)
-    check("installed managed fx executable is runnable", os.access(executable, os.X_OK))
+    if not platform.startswith("windows-"):
+        check("installed managed fx executable is runnable", os.access(executable, os.X_OK))
     for notice in ("LICENSE", "THIRD_PARTY_NOTICES.md",
                    "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"):
         check("installed managed fx notice %s" % notice,

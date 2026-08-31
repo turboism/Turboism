@@ -35,6 +35,11 @@
       "reason": "Registers the action that opens the fx Agent window."
     },
     {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds a direct fx Settings entry to the Turboism menu so runtime setup is available before an ACP connection."
+    },
+    {
       "id": "turboism.ui.toolbar.main.contribute",
       "scope": "application",
       "reason": "Adds the fx Agent button immediately beside the Turboism Home toolbar entry."
@@ -42,22 +47,32 @@
     {
       "id": "turboism.config.plugin.read",
       "scope": "application",
-      "reason": "Restores the advanced custom executable override, active durable session identifier, compatibility acknowledgement, and user-authored initial instructions."
+      "reason": "Restores the advanced custom executable override, active durable session identifier, compatibility acknowledgement, user-authored initial instructions, and non-secret custom provider-profile metadata."
     },
     {
       "id": "turboism.config.plugin.write",
       "scope": "application",
-      "reason": "Persists the optional custom executable override and user-authored launch state; provider/model catalogs, credentials, transcript data, and MCP authorization are never stored."
+      "reason": "Persists the optional custom executable override, user-authored launch state, and non-secret custom provider-profile metadata; fx-owned provider/model catalogs, transcript data, and MCP authorization are never stored."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Reads saved custom-provider API keys from this plugin's own configuration directory so they survive a restart."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Writes saved custom-provider API keys into this plugin's own configuration directory, protected by Windows DPAPI when available and otherwise stored in auth.json."
     },
     {
       "id": "turboism.process.run",
       "scope": "application",
-      "reason": "Starts and supervises the verified managed fx v0.0.5 ACP subprocess or an explicitly selected advanced custom override."
+      "reason": "Starts and supervises the verified managed fx v0.0.5 ACP subprocess and explicitly requested fx-owned interactive shell/login commands, or uses an advanced custom override."
     },
     {
       "id": "turboism.network.fetch",
       "scope": "application",
-      "reason": "On explicit user request, downloads one exact reviewed fx v0.0.5 release asset for the current supported platform, verifies its pinned size and SHA-256, and atomically installs or repairs the managed runtime."
+      "reason": "On explicit user request, downloads one exact reviewed fx v0.0.5 release asset for the current supported platform, verifies its pinned size and SHA-256, and atomically installs or repairs the managed runtime. The same permission covers requests to a user-configured OpenAI-compatible provider endpoint when a custom provider profile is selected."
     },
     {
       "id": "turboism.mcp.connection.read",

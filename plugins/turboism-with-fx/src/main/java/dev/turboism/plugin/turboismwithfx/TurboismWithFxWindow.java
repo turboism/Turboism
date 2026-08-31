@@ -5,6 +5,7 @@ import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.AbstractAction;
 import javax.swing.BorderFactory;
+import javax.swing.DefaultListCellRenderer;
 import javax.swing.DefaultListModel;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
@@ -16,6 +17,8 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JMenu;
+import javax.swing.JOptionPane;
+import javax.swing.JPasswordField;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
@@ -39,6 +42,7 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
+import java.awt.Frame;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
@@ -90,10 +94,28 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     private final JButton connect = new JButton();
     private final JComboBox<FxAcpConfigOption.Choice> providers = new JComboBox<>();
     private final JComboBox<FxAcpConfigOption.Choice> models = new JComboBox<>();
+    private final DefaultListModel<FxProviderProfile> providerProfiles = new DefaultListModel<>();
+    private final JList<FxProviderProfile> providerProfileList = new JList<>(providerProfiles);
+    private final DefaultListModel<String> profileModels = new DefaultListModel<>();
+    private final JList<String> profileModelList = new JList<>(profileModels);
+    private final JButton addProvider = new JButton();
+    private final JButton editProvider = new JButton();
+    private final JButton removeProvider = new JButton();
+    private final JButton useProvider = new JButton();
+    private final JButton authenticateProvider = new JButton();
+    private final JButton refreshProviderModels = new JButton();
+    private final JButton addProviderModel = new JButton();
+    private final JLabel providerProfileStatus = new JLabel();
+    private final Map<String, List<String>> discoveredProviderModels = new LinkedHashMap<>();
+    private FxProviderConfiguration providerConfiguration = new FxProviderConfiguration();
     private final JLabel configAvailability = new JLabel();
     private final JTextArea initialPrompt = new JTextArea(6, 42);
     private final JButton saveSettings = new JButton();
     private final JButton repairRuntime = new JButton();
+    private final JComboBox<FxInteractiveAction> shellAction = new JComboBox<>(
+        FxInteractiveAction.values()
+    );
+    private final JButton openFxShell = new JButton();
     private final JLabel runtimeStatus = new JLabel();
     private final DefaultListModel<SessionItem> sessions = new DefaultListModel<>();
     private final JList<SessionItem> sessionList = new JList<>(sessions);
@@ -127,6 +149,9 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     private Consumer<String> onSelectSession = ignored -> { };
     private Runnable onRefreshSessions = () -> { };
     private Runnable onRepairRuntime = () -> { };
+    private Consumer<FxInteractiveAction> onOpenFxShell = ignored -> { };
+    private BiConsumer<FxProviderProfile, String> onDiscoverProviderModels =
+        (ignored, ignoredKey) -> { };
     private Runnable onSaveSettings = () -> { };
 
     TurboismWithFxWindow(
@@ -135,7 +160,24 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         final boolean initialCompatibility,
         final String savedInitialPrompt
     ) {
+        this(
+            localization,
+            initialExecutable,
+            initialCompatibility,
+            savedInitialPrompt,
+            new FxProviderConfiguration()
+        );
+    }
+
+    TurboismWithFxWindow(
+        final PluginLocalization localization,
+        final String initialExecutable,
+        final boolean initialCompatibility,
+        final String savedInitialPrompt,
+        final FxProviderConfiguration savedProviders
+    ) {
         this.localization = Objects.requireNonNull(localization, "localization");
+        providerConfiguration = Objects.requireNonNull(savedProviders, "savedProviders");
         agentFrame = frame("window.agent-title");
         settingsFrame = frame("window.settings-title");
         configureComponents(initialExecutable, initialCompatibility, savedInitialPrompt);
@@ -153,6 +195,8 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         final Consumer<String> selectSessionAction,
         final Runnable refreshSessionsAction,
         final Runnable repairRuntimeAction,
+        final Consumer<FxInteractiveAction> openFxShellAction,
+        final BiConsumer<FxProviderProfile, String> discoverProviderModelsAction,
         final Runnable saveSettingsAction
     ) {
         onConnect = Objects.requireNonNull(connectAction, "connectAction");
@@ -163,6 +207,11 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         onSelectSession = Objects.requireNonNull(selectSessionAction, "selectSessionAction");
         onRefreshSessions = Objects.requireNonNull(refreshSessionsAction, "refreshSessionsAction");
         onRepairRuntime = Objects.requireNonNull(repairRuntimeAction, "repairRuntimeAction");
+        onOpenFxShell = Objects.requireNonNull(openFxShellAction, "openFxShellAction");
+        onDiscoverProviderModels = Objects.requireNonNull(
+            discoverProviderModelsAction,
+            "discoverProviderModelsAction"
+        );
         onSaveSettings = Objects.requireNonNull(saveSettingsAction, "saveSettingsAction");
     }
 
@@ -178,13 +227,16 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         return initialPrompt.getText();
     }
 
+    FxProviderConfiguration providerConfiguration() {
+        return providerConfiguration;
+    }
+
     void showAgentAndFront() {
-        showAndFront(agentFrame);
-        prompt.requestFocusInWindow();
+        showAndFront(agentFrame, prompt);
     }
 
     void showSettingsAndFront() {
-        showAndFront(settingsFrame);
+        showAndFront(settingsFrame, null);
     }
 
     void dispose() {
@@ -203,6 +255,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         connect.setEnabled(false);
         setConversationControls(false, false);
         compatibility.setSelected(compatibilityMode);
+        transcript.requestFocusInWindow();
     }
 
     @Override
@@ -363,6 +416,13 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     }
 
     @Override
+    public void showShellResult(final String localizationKey) {
+        if (!acceptingEvents.get()) return;
+        openFxShell.setEnabled(true);
+        runtimeStatus.setText(localization.text(localizationKey));
+    }
+
+    @Override
     public void appendUser(final String text) {
         appendEntry(Sender.USER, null, null, null, text, false);
     }
@@ -470,9 +530,20 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         connect.setName("turboism-with-fx.connect");
         providers.setName("turboism-with-fx.provider");
         models.setName("turboism-with-fx.model");
+        providerProfileList.setName("turboism-with-fx.provider-profiles");
+        profileModelList.setName("turboism-with-fx.provider-models");
+        addProvider.setName("turboism-with-fx.add-provider");
+        editProvider.setName("turboism-with-fx.edit-provider");
+        removeProvider.setName("turboism-with-fx.remove-provider");
+        useProvider.setName("turboism-with-fx.use-provider");
+        authenticateProvider.setName("turboism-with-fx.authenticate-provider");
+        refreshProviderModels.setName("turboism-with-fx.refresh-provider-models");
+        addProviderModel.setName("turboism-with-fx.add-provider-model");
         initialPrompt.setName("turboism-with-fx.initial-prompt");
         saveSettings.setName("turboism-with-fx.save-settings");
         repairRuntime.setName("turboism-with-fx.repair-runtime");
+        shellAction.setName("turboism-with-fx.shell-action");
+        openFxShell.setName("turboism-with-fx.open-shell");
         runtimeStatus.setName("turboism-with-fx.runtime-status");
         sessionList.setName("turboism-with-fx.sessions");
         newSession.setName("turboism-with-fx.new-session");
@@ -500,8 +571,40 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
             localization.text("button.settings")
         );
         saveSettings.setText(localization.text("button.save-settings"));
+        addProvider.setText(localization.text("button.add-provider"));
+        editProvider.setText(localization.text("button.edit-provider"));
+        removeProvider.setText(localization.text("button.remove-provider"));
+        useProvider.setText(localization.text("button.use-provider"));
+        authenticateProvider.setText(localization.text("button.authenticate-provider"));
+        refreshProviderModels.setText(localization.text("button.refresh-provider-models"));
+        addProviderModel.setText(localization.text("button.add-provider-model"));
+        providerProfileList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        profileModelList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        refreshProviderProfileLists();
         repairRuntime.setText(localization.text("button.repair-runtime"));
         repairRuntime.setToolTipText(localization.text("label.managed-repair-detail"));
+        openFxShell.setText(localization.text("button.open-fx-shell"));
+        shellAction.setRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(
+                final JList<?> list,
+                final Object value,
+                final int index,
+                final boolean isSelected,
+                final boolean cellHasFocus
+            ) {
+                super.getListCellRendererComponent(
+                    list, value, index, isSelected, cellHasFocus
+                );
+                if (value instanceof FxInteractiveAction action) {
+                    setText(localization.text(action.localizationKey()));
+                }
+                return this;
+            }
+        });
+        shellAction.setSelectedItem(FxInteractiveAction.SHELL);
+        shellAction.setToolTipText(localization.text("label.fx-shell-detail"));
+        openFxShell.setToolTipText(localization.text("label.fx-shell-detail"));
         showThinking.setText(localization.text("button.show-thinking"));
         initialPrompt.setText(savedInitialPrompt);
         installDisconnectedPlaceholder(providers, "label.provider-unavailable");
@@ -509,7 +612,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         final Dimension optionSize = new Dimension(300, 28);
         providers.setPreferredSize(optionSize);
         providers.setMinimumSize(new Dimension(180, 28));
-        providers.setEditable(true);
+        providers.setEditable(false);
         providers.setToolTipText(localization.text("label.provider-entry-detail"));
         models.setPreferredSize(optionSize);
         models.setMinimumSize(new Dimension(180, 28));
@@ -553,6 +656,23 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         connect.addActionListener(ignored -> onConnect.run());
         saveSettings.addActionListener(ignored -> onSaveSettings.run());
         repairRuntime.addActionListener(ignored -> onRepairRuntime.run());
+        openFxShell.addActionListener(ignored -> {
+            final FxInteractiveAction selected = (FxInteractiveAction) shellAction.getSelectedItem();
+            if (selected == null) return;
+            openFxShell.setEnabled(false);
+            runtimeStatus.setText(localization.text("status.fx-shell-opening"));
+            onOpenFxShell.accept(selected);
+        });
+        addProvider.addActionListener(ignored -> addProviderProfile());
+        editProvider.addActionListener(ignored -> editProviderProfile());
+        removeProvider.addActionListener(ignored -> removeProviderProfile());
+        useProvider.addActionListener(ignored -> useProviderProfile());
+        authenticateProvider.addActionListener(ignored -> authenticateProviderProfile());
+        addProviderModel.addActionListener(ignored -> addManualModel());
+        refreshProviderModels.addActionListener(ignored -> discoverProviderModels());
+        providerProfileList.addListSelectionListener(ignored -> {
+            if (!ignored.getValueIsAdjusting()) refreshProfileModels();
+        });
         send.addActionListener(ignored -> submitPrompt());
         cancel.addActionListener(ignored -> onCancel.run());
         newSession.addActionListener(ignored -> onNewSession.run());
@@ -678,12 +798,46 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         panel.add(new JLabel(
             "<html>" + localization.text("label.managed-repair-detail") + "</html>"
         ), constraints);
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 1;
+        constraints.weightx = 0;
+        panel.add(new JLabel(localization.text("label.fx-shell-action")), constraints);
+        constraints.gridx = 1;
+        constraints.weightx = 1;
+        panel.add(shellAction, constraints);
+        constraints.gridx = 2;
+        constraints.weightx = 0;
+        panel.add(openFxShell, constraints);
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 3;
+        constraints.weightx = 1;
+        panel.add(new JLabel(
+            "<html>" + localization.text("label.fx-shell-detail") + "</html>"
+        ), constraints);
         return panel;
     }
 
     private JPanel configSection() {
         final JPanel panel = section("section.configuration");
         final GridBagConstraints constraints = formConstraints();
+        constraints.gridx = 0;
+        constraints.gridwidth = 3;
+        constraints.weightx = 1;
+        panel.add(new JLabel(localization.text("label.saved-providers")), constraints);
+        constraints.gridy++;
+        constraints.fill = GridBagConstraints.BOTH;
+        constraints.weighty = 1;
+        panel.add(providerProfileManager(), constraints);
+        constraints.gridy++;
+        constraints.weighty = 0;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        panel.add(providerProfileStatus, constraints);
+        constraints.gridy++;
+        panel.add(new JLabel(localization.text("label.active-fx-configuration")), constraints);
+        constraints.gridy++;
+        constraints.gridwidth = 1;
         add(panel, constraints, localization.text("label.provider"), providers);
         constraints.gridy++;
         add(panel, constraints, localization.text("label.model"), models);
@@ -698,6 +852,338 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         );
         panel.add(ownership, constraints);
         return panel;
+    }
+
+    private JPanel providerProfileManager() {
+        final JPanel profiles = new JPanel(new BorderLayout(4, 4));
+        final JScrollPane providerScroll = new JScrollPane(providerProfileList);
+        providerScroll.setPreferredSize(new Dimension(250, 170));
+        final JPanel providerButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        providerButtons.add(addProvider);
+        providerButtons.add(editProvider);
+        providerButtons.add(removeProvider);
+        providerButtons.add(useProvider);
+        providerButtons.add(authenticateProvider);
+        profiles.add(providerScroll, BorderLayout.CENTER);
+        profiles.add(providerButtons, BorderLayout.SOUTH);
+
+        final JPanel modelPanel = new JPanel(new BorderLayout(4, 4));
+        final JScrollPane modelScroll = new JScrollPane(profileModelList);
+        modelScroll.setPreferredSize(new Dimension(250, 170));
+        final JPanel modelButtons = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        modelButtons.add(refreshProviderModels);
+        modelButtons.add(addProviderModel);
+        modelPanel.add(modelScroll, BorderLayout.CENTER);
+        modelPanel.add(modelButtons, BorderLayout.SOUTH);
+
+        final JSplitPane split = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, profiles, modelPanel);
+        split.setResizeWeight(0.5);
+        split.setDividerLocation(330);
+        final JPanel result = new JPanel(new BorderLayout());
+        result.add(split, BorderLayout.CENTER);
+        return result;
+    }
+
+    private void refreshProviderProfileLists() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        final String selectedId = selected == null
+            ? providerConfiguration.activeProfileId()
+            : selected.id();
+        providerProfiles.clear();
+        FxProviderProfile nextSelection = null;
+        for (FxProviderProfile profile : providerConfiguration.profiles()) {
+            providerProfiles.addElement(profile);
+            if (profile.id().equals(selectedId)) nextSelection = profile;
+        }
+        if (nextSelection == null) nextSelection = providerConfiguration.activeProfile();
+        providerProfileList.setSelectedValue(nextSelection, true);
+        refreshProfileModels();
+    }
+
+    private void refreshProfileModels() {
+        profileModels.clear();
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null) {
+            editProvider.setEnabled(false);
+            removeProvider.setEnabled(false);
+            useProvider.setEnabled(false);
+            authenticateProvider.setEnabled(false);
+            refreshProviderModels.setEnabled(false);
+            addProviderModel.setEnabled(false);
+            providerProfileStatus.setText(localization.text("status.provider-profile-unavailable"));
+            return;
+        }
+        final List<String> discovered = selected.kind() == FxProviderProfile.Kind.FX_NATIVE
+            ? activeFxModels(selected)
+            : discoveredProviderModels.getOrDefault(selected.id(), List.of());
+        for (String model : selected.models(discovered)) profileModels.addElement(model);
+        final boolean custom = selected.kind() == FxProviderProfile.Kind.OPENAI_COMPATIBLE;
+        editProvider.setEnabled(custom);
+        removeProvider.setEnabled(custom);
+        useProvider.setEnabled(!selected.id().equals(providerConfiguration.activeProfileId()));
+        authenticateProvider.setEnabled(selected.kind() == FxProviderProfile.Kind.FX_NATIVE);
+        refreshProviderModels.setEnabled(custom);
+        addProviderModel.setEnabled(custom);
+        providerProfileStatus.setText(localization.format(
+            selected.id().equals(providerConfiguration.activeProfileId())
+                ? "status.provider-profile-active"
+                : "status.provider-profile-selected",
+            selected.name()
+        ));
+    }
+
+    private List<String> activeFxModels(final FxProviderProfile profile) {
+        if (!connected || !profile.id().equals(providerConfiguration.activeProfileId())) {
+            return List.of();
+        }
+        final ArrayList<String> values = new ArrayList<>();
+        for (int index = 0; index < models.getItemCount(); index++) {
+            final FxAcpConfigOption.Choice choice = models.getItemAt(index);
+            if (!"unavailable".equals(choice.value())) values.add(choice.value());
+        }
+        return List.copyOf(values);
+    }
+
+    private void addProviderProfile() {
+        final ProviderDialogValue value = providerDialog(null);
+        if (value == null) return;
+        final String id = "openai-compatible-" + java.util.UUID.randomUUID();
+        replaceCustomProfile(value.profile(id, List.of()), value.sessionApiKey());
+    }
+
+    private void editProviderProfile() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null || selected.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE) return;
+        final ProviderDialogValue value = providerDialog(selected);
+        if (value == null) return;
+        replaceCustomProfile(
+            value.profile(selected.id(), selected.manualModels()),
+            value.sessionApiKey()
+        );
+    }
+
+    private ProviderDialogValue providerDialog(final FxProviderProfile existing) {
+        final JTextField name = new JTextField(existing == null ? "" : existing.name(), 32);
+        final JTextField endpoint = new JTextField(existing == null ? "" : existing.endpoint(), 32);
+        final JTextField environment = new JTextField(
+            existing == null ? "" : existing.apiKeyEnvironment(), 32
+        );
+        final JTextField model = new JTextField(existing == null ? "" : existing.defaultModel(), 32);
+        final JPasswordField sessionKey = new JPasswordField(32);
+        if (existing != null) {
+            sessionKey.setText(providerConfiguration.sessionApiKeys().getOrDefault(
+                existing.id(), ""
+            ));
+        }
+        final JPanel fields = new JPanel(new GridBagLayout());
+        final GridBagConstraints constraints = formConstraints();
+        add(fields, constraints, localization.text("label.provider-name"), name);
+        constraints.gridy++;
+        add(fields, constraints, localization.text("label.provider-endpoint"), endpoint);
+        constraints.gridy++;
+        add(fields, constraints, localization.text("label.api-key-environment"), environment);
+        constraints.gridy++;
+        add(fields, constraints, localization.text("label.default-model"), model);
+        constraints.gridy++;
+        add(fields, constraints, localization.text("label.session-api-key"), sessionKey);
+        constraints.gridy++;
+        constraints.gridx = 0;
+        constraints.gridwidth = 3;
+        constraints.weightx = 1;
+        fields.add(new JLabel(
+            "<html>" + localization.text("label.provider-secret-detail") + "</html>"
+        ), constraints);
+        while (true) {
+            final int result = JOptionPane.showConfirmDialog(
+                settingsFrame,
+                fields,
+                localization.text(existing == null
+                    ? "dialog.add-provider-title"
+                    : "dialog.edit-provider-title"),
+                JOptionPane.OK_CANCEL_OPTION,
+                JOptionPane.PLAIN_MESSAGE
+            );
+            if (result != JOptionPane.OK_OPTION) return null;
+            try {
+                final ProviderDialogValue value = new ProviderDialogValue(
+                    name.getText(),
+                    endpoint.getText(),
+                    environment.getText(),
+                    model.getText(),
+                    new String(sessionKey.getPassword())
+                );
+                value.profile(existing == null ? "pending" : existing.id(), List.of());
+                return value;
+            } catch (IllegalArgumentException failure) {
+                JOptionPane.showMessageDialog(
+                    settingsFrame,
+                    localization.text("dialog.provider-invalid"),
+                    localization.text("dialog.provider-invalid-title"),
+                    JOptionPane.ERROR_MESSAGE
+                );
+            }
+        }
+    }
+
+    private void replaceCustomProfile(
+        final FxProviderProfile replacement,
+        final String sessionApiKey
+    ) {
+        final ArrayList<FxProviderProfile> custom = new ArrayList<>(
+            providerConfiguration.customProfiles()
+        );
+        custom.removeIf(profile -> profile.id().equals(replacement.id()));
+        custom.add(replacement);
+        providerConfiguration = new FxProviderConfiguration(
+            providerConfiguration.activeProfileId(),
+            custom,
+            providerConfiguration.sessionApiKeys()
+        ).withSessionApiKey(replacement.id(), sessionApiKey);
+        refreshProviderProfileLists();
+        providerProfileList.setSelectedValue(replacement, true);
+    }
+
+    private void removeProviderProfile() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null || selected.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE) return;
+        final int result = JOptionPane.showConfirmDialog(
+            settingsFrame,
+            localization.format("dialog.remove-provider-message", selected.name()),
+            localization.text("dialog.remove-provider-title"),
+            JOptionPane.OK_CANCEL_OPTION,
+            JOptionPane.WARNING_MESSAGE
+        );
+        if (result != JOptionPane.OK_OPTION) return;
+        final ArrayList<FxProviderProfile> custom = new ArrayList<>(
+            providerConfiguration.customProfiles()
+        );
+        custom.removeIf(profile -> profile.id().equals(selected.id()));
+        providerConfiguration = new FxProviderConfiguration(
+            providerConfiguration.activeProfileId(),
+            custom,
+            providerConfiguration.sessionApiKeys()
+        );
+        discoveredProviderModels.remove(selected.id());
+        refreshProviderProfileLists();
+    }
+
+    private void useProviderProfile() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null) return;
+        providerConfiguration = new FxProviderConfiguration(
+            selected.id(),
+            providerConfiguration.customProfiles(),
+            providerConfiguration.sessionApiKeys()
+        );
+        refreshProviderProfileLists();
+    }
+
+    private void authenticateProviderProfile() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null || selected.kind() != FxProviderProfile.Kind.FX_NATIVE) return;
+        final FxInteractiveAction action = switch (selected.id()) {
+            case FxProviderProfile.VERCEL_ID -> FxInteractiveAction.LOGIN_VERCEL;
+            case FxProviderProfile.CODEX_ID -> FxInteractiveAction.LOGIN_CODEX;
+            case FxProviderProfile.GROK_ID -> FxInteractiveAction.LOGIN_GROK;
+            default -> null;
+        };
+        if (action == null) return;
+        openFxShell.setEnabled(false);
+        runtimeStatus.setText(localization.text("status.fx-shell-opening"));
+        onOpenFxShell.accept(action);
+    }
+
+    private void addManualModel() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null || selected.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE) return;
+        final String value = JOptionPane.showInputDialog(
+            settingsFrame,
+            localization.text("dialog.add-model-message"),
+            localization.text("dialog.add-model-title"),
+            JOptionPane.PLAIN_MESSAGE
+        );
+        if (value == null) return;
+        try {
+            final ArrayList<String> models = new ArrayList<>(selected.manualModels());
+            models.add(value);
+            replaceCustomProfile(new FxProviderProfile(
+                selected.id(),
+                selected.name(),
+                selected.kind(),
+                selected.nativeProvider(),
+                selected.endpoint(),
+                selected.apiKeyEnvironment(),
+                selected.defaultModel(),
+                models
+            ), providerConfiguration.sessionApiKeys().getOrDefault(selected.id(), ""));
+        } catch (IllegalArgumentException failure) {
+            JOptionPane.showMessageDialog(
+                settingsFrame,
+                localization.text("dialog.model-invalid"),
+                localization.text("dialog.model-invalid-title"),
+                JOptionPane.ERROR_MESSAGE
+            );
+        }
+    }
+
+    private void discoverProviderModels() {
+        final FxProviderProfile selected = providerProfileList.getSelectedValue();
+        if (selected == null || selected.kind() != FxProviderProfile.Kind.OPENAI_COMPATIBLE) return;
+        providerProfileStatus.setText(localization.text("status.provider-models-refreshing"));
+        refreshProviderModels.setEnabled(false);
+        onDiscoverProviderModels.accept(
+            selected,
+            providerConfiguration.sessionApiKeys().getOrDefault(selected.id(), "")
+        );
+    }
+
+    @Override public void showDiscoveredProviderModels(
+        final String profileId,
+        final List<String> models
+    ) {
+        if (!acceptingEvents.get()) return;
+        discoveredProviderModels.put(profileId, List.copyOf(models));
+        refreshProviderModels.setEnabled(true);
+        refreshProfileModels();
+        providerProfileStatus.setText(localization.format(
+            "status.provider-models-refreshed", models.size()
+        ));
+    }
+
+    @Override public void showProviderModelDiscoveryFailure() {
+        if (!acceptingEvents.get()) return;
+        refreshProviderModels.setEnabled(true);
+        refreshProfileModels();
+        providerProfileStatus.setText(localization.text("status.provider-models-failed"));
+    }
+
+    private record ProviderDialogValue(
+        String name,
+        String endpoint,
+        String apiKeyEnvironment,
+        String defaultModel,
+        String sessionApiKey
+    ) {
+        private ProviderDialogValue {
+            name = Objects.requireNonNullElse(name, "").strip();
+            endpoint = Objects.requireNonNullElse(endpoint, "").strip();
+            apiKeyEnvironment = Objects.requireNonNullElse(apiKeyEnvironment, "").strip();
+            defaultModel = Objects.requireNonNullElse(defaultModel, "").strip();
+            sessionApiKey = Objects.requireNonNullElse(sessionApiKey, "");
+        }
+
+        private FxProviderProfile profile(final String id, final List<String> manualModels) {
+            return new FxProviderProfile(
+                id,
+                name,
+                FxProviderProfile.Kind.OPENAI_COMPATIBLE,
+                "",
+                endpoint,
+                apiKeyEnvironment,
+                defaultModel,
+                manualModels
+            );
+        }
     }
 
     private JPanel instructionsSection() {
@@ -1236,10 +1722,20 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         return new ImageIcon(resource);
     }
 
-    private static void showAndFront(final JFrame frame) {
+    private static void showAndFront(
+        final JFrame frame,
+        final Component preferredFocus
+    ) {
+        frame.setExtendedState(frame.getExtendedState() & ~Frame.ICONIFIED);
         frame.setVisible(true);
         frame.toFront();
         frame.requestFocus();
+        SwingUtilities.invokeLater(() -> {
+            if (!frame.isVisible()) return;
+            frame.toFront();
+            frame.requestFocus();
+            if (preferredFocus != null) preferredFocus.requestFocusInWindow();
+        });
     }
 
     private static GridBagConstraints formConstraints() {

@@ -13,6 +13,16 @@ from pathlib import Path
 
 
 STRICT_VERSION = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+FX_RUNTIME_ROOT = "runtimes/fx/0.0.5/windows-x86_64/"
+FX_RUNTIME_FILES = {
+    FX_RUNTIME_ROOT + "fx.exe",
+    FX_RUNTIME_ROOT + "LICENSE",
+    FX_RUNTIME_ROOT + "THIRD_PARTY_NOTICES.md",
+    FX_RUNTIME_ROOT + "TURBOISM-DISTRIBUTION-NOTICE.txt",
+    FX_RUNTIME_ROOT + "manifest.properties",
+}
+FX_RUNTIME_SIZE = 11_174_912
+FX_RUNTIME_SHA256 = "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541"
 
 
 def sha256(path: Path) -> str:
@@ -82,8 +92,20 @@ def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
         )
     if not full and packaged:
         raise ValueError(f"lite archive contains plugins: {path}")
-    if any(name.startswith("runtimes/fx/") for name in names):
-        raise ValueError(f"Windows archive contains managed fx runtime bytes: {path}")
+    fx_names = {name for name in names if name.startswith("runtimes/fx/")}
+    if full:
+        if fx_names != FX_RUNTIME_FILES:
+            raise ValueError(
+                f"full archive managed fx inventory differs: {path}\n"
+                f"expected: {sorted(FX_RUNTIME_FILES)}\nactual: {sorted(fx_names)}"
+            )
+        with zipfile.ZipFile(path) as archive:
+            executable = archive.read(FX_RUNTIME_ROOT + "fx.exe")
+        if (len(executable) != FX_RUNTIME_SIZE
+                or hashlib.sha256(executable).hexdigest() != FX_RUNTIME_SHA256):
+            raise ValueError(f"full archive managed fx identity differs: {path}")
+    elif fx_names:
+        raise ValueError(f"lite archive contains managed fx runtime bytes: {path}")
     if version not in readme:
         raise ValueError(f"README does not contain release version: {path}")
     if manifest_version(agent) != version:
@@ -93,12 +115,23 @@ def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
 def verify_windows_stage(stage: Path) -> None:
     if not stage.is_dir() or stage.is_symlink():
         raise ValueError(f"Windows shared stage is unavailable or unsafe: {stage}")
-    fx = stage / "runtimes" / "fx"
-    if fx.exists() or fx.is_symlink():
-        raise ValueError(f"Windows shared stage contains managed fx runtime bytes: {fx}")
     for path in stage.rglob("*"):
         if path.is_symlink() or not (path.is_file() or path.is_dir()):
             raise ValueError(f"Windows shared stage contains unsafe entry: {path}")
+    fx_root = stage / "runtimes" / "fx"
+    actual_fx = {
+        path.relative_to(stage).as_posix()
+        for path in fx_root.rglob("*")
+        if path.is_file()
+    } if fx_root.is_dir() and not fx_root.is_symlink() else set()
+    if actual_fx != FX_RUNTIME_FILES:
+        raise ValueError(
+            "Windows shared stage managed fx inventory differs\n"
+            f"expected: {sorted(FX_RUNTIME_FILES)}\nactual: {sorted(actual_fx)}"
+        )
+    executable = stage / FX_RUNTIME_ROOT / "fx.exe"
+    if executable.stat().st_size != FX_RUNTIME_SIZE or sha256(executable) != FX_RUNTIME_SHA256:
+        raise ValueError(f"Windows shared stage managed fx identity differs: {executable}")
 
 
 def release_artifacts(dist: Path, version: str) -> list[Path]:

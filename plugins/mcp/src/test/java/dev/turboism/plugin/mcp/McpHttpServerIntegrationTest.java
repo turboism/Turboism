@@ -2,6 +2,7 @@ package dev.turboism.plugin.mcp;
 
 import dev.turboism.protocol.json.StrictJson;
 
+import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -44,8 +45,11 @@ import dev.turboism.sdk.cubism.service.query.ParameterSummary;
 import dev.turboism.sdk.cubism.service.query.SelectionQueryService;
 import dev.turboism.sdk.cubism.service.query.SelectionSummary;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.mcp.McpConnectionService;
 import dev.turboism.sdk.mcp.McpHttpConnection;
+import dev.turboism.sdk.menu.MenuRegistry;
+import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.PluginPaths;
@@ -89,6 +93,19 @@ final class McpHttpServerIntegrationTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void exposesStableDefaultPortAndSupportsExplicitEphemeralBinding() throws Exception {
+        assertEquals(43123, McpHttpServer.DEFAULT_PORT);
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            assertTrue(server.endpoint().getPort() > 0);
+        } finally {
+            server.close();
+        }
+    }
 
     @Test
     void servesLifecycleAndObjectToolsOverAuthenticatedLoopbackHttp() throws Exception {
@@ -308,6 +325,20 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 4, "method", "ping")
             ).statusCode());
+            final List<McpConnectionHistory.Entry> history = server.connectionHistory();
+            assertEquals(List.of(
+                McpConnectionHistory.Event.SESSION_CREATED,
+                McpConnectionHistory.Event.SESSION_INITIALIZED,
+                McpConnectionHistory.Event.REQUEST,
+                McpConnectionHistory.Event.SESSION_CLOSED
+            ), history.stream().map(McpConnectionHistory.Entry::event).toList());
+            assertEquals("session-test", history.get(0).client());
+            assertEquals("tools/list", history.get(2).detail());
+            final String visible = history.stream()
+                .map(entry -> entry.client() + " " + entry.detail())
+                .collect(java.util.stream.Collectors.joining("\n"));
+            assertFalse(visible.contains(TOKEN));
+            assertFalse(visible.contains(sessionId));
         } finally {
             server.close();
         }
@@ -417,9 +448,10 @@ final class McpHttpServerIntegrationTest {
     @Test
     void pluginLifecyclePublishesAndRevokesTheAuthenticatedConnection() throws Exception {
         final RecordingConnections connections = new RecordingConnections();
+        final RecordingUi ui = new RecordingUi();
         final CapturingLogger logger = new CapturingLogger();
         final PluginContext context = pluginContext(
-            logger, new MutableObjects(), new FakeReadServices(), connections
+            logger, new MutableObjects(), new FakeReadServices(), connections, ui
         );
         final McpPlugin plugin = new McpPlugin();
         plugin.init(context);
@@ -432,17 +464,31 @@ final class McpHttpServerIntegrationTest {
         assertEquals(plugin.serverForTests().authorization(), published.authorization());
         assertTrue(published.authorization().startsWith("Bearer "));
         assertTrue(Files.isRegularFile(connectionFile));
+        assertEquals(List.of(McpPlugin.CONNECTION_ACTION_ID), ui.actions.keySet().stream().toList());
+        assertEquals(List.of("Turboism/MCP Connection"), ui.menus.stream()
+            .map(MenuRegistry.MenuContribution::menuPath)
+            .toList());
 
         plugin.disable();
         assertTrue(connections.current.isEmpty());
+        assertTrue(ui.actions.isEmpty());
+        assertTrue(ui.menus.isEmpty());
         assertFalse(Files.exists(connectionFile));
         assertEquals(1, connections.revocations);
+        assertEquals(1, ui.actionRevocations);
+        assertEquals(1, ui.menuRevocations);
 
         plugin.enable();
         assertTrue(connections.current.isPresent());
+        assertTrue(ui.actions.containsKey(McpPlugin.CONNECTION_ACTION_ID));
+        assertEquals(1, ui.menus.size());
         plugin.shutdown();
         assertTrue(connections.current.isEmpty());
+        assertTrue(ui.actions.isEmpty());
+        assertTrue(ui.menus.isEmpty());
         assertEquals(2, connections.revocations);
+        assertEquals(2, ui.actionRevocations);
+        assertEquals(2, ui.menuRevocations);
         assertFalse(logger.messages.stream().anyMatch(value -> value.contains(TOKEN)));
         assertFalse(logger.messages.stream().anyMatch(
             value -> value.contains(published.endpoint().toString())
@@ -910,6 +956,16 @@ final class McpHttpServerIntegrationTest {
         final FakeReadServices reads,
         final McpConnectionService connections
     ) {
+        return pluginContext(logger, objects, reads, connections, new RecordingUi());
+    }
+
+    private PluginContext pluginContext(
+        final PluginLogger logger,
+        final ModelObjectService objects,
+        final FakeReadServices reads,
+        final McpConnectionService connections,
+        final RecordingUi ui
+    ) {
         final PluginPaths paths = new PluginPaths() {
             @Override public Path dataDir() { return temporaryDirectory; }
             @Override public Path logsDir() { return temporaryDirectory; }
@@ -935,6 +991,10 @@ final class McpHttpServerIntegrationTest {
                 case "editorCommands" -> EditorCommandService.unavailable();
                 case "uiScheduler" -> immediateUi();
                 case "mcpConnections" -> connections;
+                case "actions" -> ui;
+                case "menus" -> ui;
+                case "localization" -> ui.localization;
+                case "disposableScope" -> ui.scope;
                 case "toString" -> "McpPluginTestContext";
                 case "hashCode" -> System.identityHashCode(proxy);
                 case "equals" -> proxy == (arguments == null ? null : arguments[0]);
@@ -1158,6 +1218,51 @@ final class McpHttpServerIntegrationTest {
             lastDelete = target;
             lastDeletePolicy = policy;
             if (values.remove(target) == null) throw new NoSuchElementException(target.id());
+        }
+    }
+
+    private static final class RecordingUi implements ActionRegistry, MenuRegistry {
+        private final LinkedHashMap<String, Action> actions = new LinkedHashMap<>();
+        private final ArrayList<MenuContribution> menus = new ArrayList<>();
+        private final DisposableScope scope = new DisposableScope();
+        private final PluginLocalization localization = new PluginLocalization() {
+            @Override public java.util.Locale locale() { return java.util.Locale.ENGLISH; }
+            @Override public String text(final String key) {
+                return "menu.connection".equals(key) ? "MCP Connection" : key;
+            }
+            @Override public String format(final String key, final Object... arguments) {
+                return text(key);
+            }
+            @Override public boolean contains(final String key) {
+                return "menu.connection".equals(key);
+            }
+        };
+        private int actionRevocations;
+        private int menuRevocations;
+
+        @Override public Registration register(final String id, final Action action) {
+            if (!id.equals(action.id())) throw new IllegalArgumentException("action id mismatch");
+            if (actions.putIfAbsent(id, action) != null) {
+                throw new IllegalStateException("fixture action already registered");
+            }
+            final java.util.concurrent.atomic.AtomicBoolean closed =
+                new java.util.concurrent.atomic.AtomicBoolean();
+            return () -> {
+                if (!closed.compareAndSet(false, true)) return;
+                actions.remove(id, action);
+                actionRevocations++;
+            };
+        }
+
+        @Override public Registration contribute(final MenuContribution contribution) {
+            menus.add(contribution);
+            final java.util.concurrent.atomic.AtomicBoolean closed =
+                new java.util.concurrent.atomic.AtomicBoolean();
+            return () -> {
+                if (!closed.compareAndSet(false, true)) return;
+                menus.remove(contribution);
+                menuRevocations++;
+            };
         }
     }
 

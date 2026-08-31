@@ -169,13 +169,17 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         }
         String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
         String architecture = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
-        if ((os.equals("linux") || os.startsWith("linux ")
-                || os.contains("mac") || os.contains("darwin"))
-                && architectureId(architecture) != null) {
+        final String architectureId = architectureId(architecture);
+        if (architectureId != null
+                && (os.equals("linux") || os.startsWith("linux ")
+                    || os.contains("mac") || os.contains("darwin"))) {
+            return;
+        }
+        if ("x86_64".equals(architectureId) && os.contains("win")) {
             return;
         }
         throw new IOException(
-            "Full installation has no reviewed managed fx runtime for "
+            "Full installation has no managed fx runtime payload for "
                 + os + "/" + architecture
         );
     }
@@ -403,11 +407,14 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             operatingSystem = "linux";
         } else if (os.contains("mac") || os.contains("darwin")) {
             operatingSystem = "macos";
+        } else if (os.contains("win")) {
+            operatingSystem = "windows";
         } else {
             throw new IOException("managed fx operating system is unsupported: " + os);
         }
         String architectureId = architectureId(architecture);
-        if (architectureId == null) {
+        if (architectureId == null || ("windows".equals(operatingSystem)
+                && !"x86_64".equals(architectureId))) {
             throw new IOException("managed fx architecture is unsupported: " + architecture);
         }
         String installPath = installData.getVariable(INSTALL_PATH_VAR);
@@ -424,7 +431,8 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         Path selectedDirectory = versionRoot.resolve(operatingSystem + "-" + architectureId);
         requireSafeManagedRuntimeAncestors(home, selectedDirectory);
         for (String platform : List.of(
-            "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"
+            "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64",
+            "windows-x86_64"
         )) {
             Path platformDirectory = versionRoot.resolve(platform);
             if (!platformDirectory.equals(selectedDirectory)) {
@@ -432,11 +440,14 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             }
         }
 
-        Path executable = selectedDirectory.resolve("fx");
+        final boolean windows = "windows".equals(operatingSystem);
+        Path executable = selectedDirectory.resolve(windows ? "fx.exe" : "fx");
         if (!Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)) {
             throw new IOException("managed fx executable is missing: " + executable);
         }
-        if (!executable.toFile().setExecutable(true, true) || !Files.isExecutable(executable)) {
+        if (!windows
+                && (!executable.toFile().setExecutable(true, true)
+                    || !Files.isExecutable(executable))) {
             throw new IOException("managed fx executable is not runnable: " + executable);
         }
     }
@@ -508,8 +519,11 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
 
     private static boolean isInstallerOwnedManagedRuntime(Path directory)
             throws IOException {
+        final String executableName = directory.getFileName().toString().startsWith("windows-")
+            ? "fx.exe"
+            : "fx";
         final Set<String> expected = Set.of(
-            "fx",
+            executableName,
             "LICENSE",
             "THIRD_PARTY_NOTICES.md",
             "TURBOISM-DISTRIBUTION-NOTICE.txt",
@@ -532,7 +546,7 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             directory.getFileName().toString()
         );
         if (identity == null || !matchesIdentity(
-            directory.resolve("fx"),
+            directory.resolve(executableName),
             new FileIdentity(identity.size(), identity.sha256())
         )) {
             return false;
@@ -622,7 +636,8 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
             }
         }
         if (!identities.keySet().equals(Set.of(
-            "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64"
+            "linux-x86_64", "linux-aarch64", "macos-x86_64", "macos-aarch64",
+            "windows-x86_64"
         ))) {
             throw new IllegalStateException("managed fx platform set is unsupported");
         }

@@ -126,6 +126,9 @@ final class FxManagedRuntimeService {
         if (platform == null) return Result.PLATFORM_UNSUPPORTED;
         final FxRuntimeManifest.Entry entry = entrySelector.entry(platform).orElse(null);
         if (entry == null) return Result.PLATFORM_UNSUPPORTED;
+        if (entry.delivery() == FxRuntimeManifest.Delivery.PRODUCT_PAYLOAD) {
+            return Result.PRODUCT_PAYLOAD_ONLY;
+        }
         final Path root = resolver.managedRoot();
         final Path versionRoot = confined(root.resolve(FxRuntimeManifest.VERSION));
         final Path target = confined(versionRoot.resolve(platform.id()));
@@ -214,8 +217,9 @@ final class FxManagedRuntimeService {
 
     private void download(final FxRuntimeManifest.Entry entry, final Path archive)
         throws IOException, InterruptedException {
-        final HttpRequest request = HttpRequest.newBuilder(entry.sourceUri())
-            .timeout(REQUEST_TIMEOUT)
+        final HttpRequest request = HttpRequest.newBuilder(
+            entry.sourceUri().orElseThrow(() -> new IOException("runtime is not downloadable"))
+        ).timeout(REQUEST_TIMEOUT)
             .header("Accept", "application/octet-stream")
             .header("User-Agent", USER_AGENT)
             .GET()
@@ -694,6 +698,7 @@ final class FxManagedRuntimeService {
 
     enum Result {
         INSTALLED,
+        PRODUCT_PAYLOAD_ONLY,
         PLATFORM_UNSUPPORTED,
         FAILED
     }

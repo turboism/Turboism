@@ -18,14 +18,24 @@ final class McpSessionRegistry {
     private final Map<String, StoredSession> sessions = new LinkedHashMap<>();
     private final Duration idleTimeout;
     private final Clock clock;
+    private final java.util.function.Consumer<String> onExpired;
 
     McpSessionRegistry() {
-        this(DEFAULT_IDLE_TIMEOUT, Clock.systemUTC());
+        this(DEFAULT_IDLE_TIMEOUT, Clock.systemUTC(), ignored -> { });
     }
 
     McpSessionRegistry(final Duration idleTimeout, final Clock clock) {
+        this(idleTimeout, clock, ignored -> { });
+    }
+
+    McpSessionRegistry(
+        final Duration idleTimeout,
+        final Clock clock,
+        final java.util.function.Consumer<String> onExpired
+    ) {
         this.idleTimeout = java.util.Objects.requireNonNull(idleTimeout, "idleTimeout");
         this.clock = java.util.Objects.requireNonNull(clock, "clock");
+        this.onExpired = java.util.Objects.requireNonNull(onExpired, "onExpired");
         if (idleTimeout.isNegative() || idleTimeout.isZero()) {
             throw new IllegalArgumentException("idleTimeout must be positive");
         }
@@ -70,7 +80,13 @@ final class McpSessionRegistry {
 
     private void pruneExpired() {
         final Instant cutoff = clock.instant().minus(idleTimeout);
-        sessions.entrySet().removeIf(entry -> entry.getValue().lastAccess().isBefore(cutoff));
+        final java.util.ArrayList<String> expired = new java.util.ArrayList<>();
+        sessions.entrySet().removeIf(entry -> {
+            final boolean remove = entry.getValue().lastAccess().isBefore(cutoff);
+            if (remove) expired.add(entry.getKey());
+            return remove;
+        });
+        expired.forEach(onExpired);
     }
 
     record Session(String id, String protocolVersion, boolean initialized) {
