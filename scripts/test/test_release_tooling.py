@@ -12,6 +12,16 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
+FX_RUNTIME_ROOT = "runtimes/fx/0.0.5/windows-x86_64/"
+FX_RUNTIME_SOURCES = {
+    FX_RUNTIME_ROOT + "fx.exe": ROOT / "packaging/fx-runtime/windows-x86_64/fx.exe",
+    FX_RUNTIME_ROOT + "LICENSE": ROOT / "packaging/fx-runtime/LICENSE",
+    FX_RUNTIME_ROOT + "THIRD_PARTY_NOTICES.md": ROOT / "packaging/fx-runtime/THIRD_PARTY_NOTICES.md",
+    FX_RUNTIME_ROOT + "TURBOISM-DISTRIBUTION-NOTICE.txt": (
+        ROOT / "packaging/fx-runtime/TURBOISM-DISTRIBUTION-NOTICE.txt"
+    ),
+    FX_RUNTIME_ROOT + "manifest.properties": ROOT / "packaging/fx-runtime/manifest.properties",
+}
 
 
 def load(name: str, path: Path):
@@ -57,6 +67,20 @@ def sidecar(path: Path) -> None:
         f"{release.sha256(path)}  {path.name}\n",
         encoding="utf-8",
     )
+
+
+def fx_runtime_entries() -> tuple[tuple[str, bytes], ...]:
+    return tuple(
+        (name, source.read_bytes())
+        for name, source in sorted(FX_RUNTIME_SOURCES.items())
+    )
+
+
+def stage_fx_runtime(stage: Path) -> None:
+    for name, source in FX_RUNTIME_SOURCES.items():
+        target = stage / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes(source.read_bytes())
 
 
 class ReleaseNotesTest(unittest.TestCase):
@@ -220,7 +244,8 @@ class ReleaseVerifierTest(unittest.TestCase):
         exe = dist / f"TurboismInstaller-{version}.exe"
         jar = dist / f"TurboismInstaller-{version}.jar"
         archive(lite, version)
-        archive(full, version, self.PLUGINS)
+        archive(full, version, self.PLUGINS, fx_runtime_entries())
+        stage_fx_runtime(stage)
         exe.write_bytes(b"exe")
         jar.write_bytes(b"jar")
         for path in (lite, full, exe, jar):
@@ -296,13 +321,42 @@ class ReleaseVerifierTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.verify(fixture)
 
-    def test_rejects_managed_fx_runtime_in_full(self):
+    def test_rejects_full_missing_managed_fx_file(self):
+        fixture = self.fixture()
+        entries = fx_runtime_entries()[:-1]
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-full.zip",
+            plugins=self.PLUGINS,
+            extra=entries,
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_full_wrong_managed_fx_identity(self):
+        fixture = self.fixture()
+        entries = tuple(
+            (name, b"wrong" if name.endswith("/fx.exe") else content)
+            for name, content in fx_runtime_entries()
+        )
+        self.rewrite_archive(
+            fixture,
+            "turboism-0.42.0-full.zip",
+            plugins=self.PLUGINS,
+            extra=entries,
+        )
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_full_extra_managed_fx_platform(self):
         fixture = self.fixture()
         self.rewrite_archive(
             fixture,
             "turboism-0.42.0-full.zip",
             plugins=self.PLUGINS,
-            extra=(("runtimes/fx/0.0.5/linux-x86_64/fx", b"linux"),),
+            extra=fx_runtime_entries() + (
+                ("runtimes/fx/0.0.5/linux-x86_64/fx", b"linux"),
+            ),
         )
         with self.assertRaises(ValueError):
             self.verify(fixture)
@@ -317,7 +371,13 @@ class ReleaseVerifierTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.verify(fixture)
 
-    def test_rejects_managed_fx_runtime_in_windows_stage(self):
+    def test_rejects_wrong_managed_fx_identity_in_windows_stage(self):
+        fixture = self.fixture()
+        (fixture[2] / FX_RUNTIME_ROOT / "fx.exe").write_bytes(b"wrong")
+        with self.assertRaises(ValueError):
+            self.verify(fixture)
+
+    def test_rejects_extra_managed_fx_platform_in_windows_stage(self):
         fixture = self.fixture()
         runtime = fixture[2] / "runtimes" / "fx" / "0.0.5" / "linux-x86_64"
         runtime.mkdir(parents=True)

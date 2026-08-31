@@ -242,9 +242,12 @@ LangString BatIntegrationHelp ${LANG_JAPANESE} "Turboism は各元 BAT をバッ
 LangString NoLaunchWarning ${LANG_ENGLISH} "Both normal launch paths are disabled. Turboism will not activate from Start-menu or existing Cubism shortcuts. Choose No to go back, or Yes to deliberately continue."
 LangString NoLaunchWarning ${LANG_SIMPCHINESE} "两个常规启动路径均已关闭。Turboism 不会通过开始菜单或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
 LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路が両方無効です。Turboism はスタートメニューまたは既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
-LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration failed. Existing BAT files and backups were preserved. Review the installer details and retry."
-LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成失败。现有 BAT 与备份已保留。请查看安装详情后重试。"
-LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合に失敗しました。既存 BAT とバックアップは保持されています。インストール詳細を確認して再試行してください。"
+LangString InitialConfigurationError ${LANG_ENGLISH} "Initial Cubism discovery or shortcut configuration failed. Turboism is installed; run Turboism_Configurator from the Start menu to retry."
+LangString InitialConfigurationError ${LANG_SIMPCHINESE} "Cubism 初始扫描或快捷方式配置失败。Turboism 已完成安装；请从开始菜单运行 Turboism_Configurator 重试。"
+LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の初期検出またはショートカット設定に失敗しました。Turboism のインストールは完了しています。スタートメニューから Turboism_Configurator を実行して再試行してください。"
+LangString BatIntegrationError ${LANG_ENGLISH} "Cubism BAT integration did not complete or elevation was canceled. Review the installer log and run Turboism_Configurator to inspect or retry; hash-protected files are never overwritten after an unknown edit."
+LangString BatIntegrationError ${LANG_SIMPCHINESE} "Cubism BAT 集成未完成，或管理员授权已取消。请查看安装日志，并运行 Turboism_Configurator 检查或重试；检测到未知改动后绝不会覆盖受哈希保护的文件。"
+LangString BatIntegrationError ${LANG_JAPANESE} "Cubism BAT の統合が完了しなかったか、管理者承認がキャンセルされました。インストーラーログを確認し、Turboism_Configurator で状態確認または再試行してください。不明な編集を検出したファイルは上書きしません。"
 LangString StartMenuResultCreated ${LANG_ENGLISH} "Turboism Start-menu shortcuts are enabled."
 LangString StartMenuResultCreated ${LANG_SIMPCHINESE} "已启用 Turboism 开始菜单快捷方式。"
 LangString StartMenuResultCreated ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを有効にしました。"
@@ -528,6 +531,31 @@ Function LaunchOptionsLeave
   ${EndIf}
 FunctionEnd
 
+Function .onInstSuccess
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection' $0
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
+    Return
+  ${EndIf}
+  ${If} $createStartMenu == 1
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts' $0
+  ${Else}
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts' $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
+    Return
+  ${EndIf}
+  ${If} $integrateCubismBat == 1
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat' $0
+  ${Else}
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat' $0
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)"
+  ${EndIf}
+FunctionEnd
+
 ; ---------- Section 声明 ----------
 ; 插件 Section 由 plugin-sections.nsh 提供（见文件头注释）
 Section "-核心文件" SecCore
@@ -574,6 +602,17 @@ Section "-托管 GraalVM" SecManagedGraal
       DetailPrint "$(ManagedGraalInstallError)"
       MessageBox MB_ICONEXCLAMATION|MB_OK "$(ManagedGraalInstallError)"
     ${EndIf}
+  ${EndIf}
+SectionEnd
+
+Section "-托管 fx 运行时" SecManagedFx
+  ${If} $Mode == 1
+    SetOutPath "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
+    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/fx.exe"
+    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/LICENSE"
+    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/THIRD_PARTY_NOTICES.md"
+    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/TURBOISM-DISTRIBUTION-NOTICE.txt"
+    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/manifest.properties"
   ${EndIf}
 SectionEnd
 
@@ -941,6 +980,15 @@ Section "Uninstall"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"
   RMDir /r "$INSTDIR\graal"
+  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\fx.exe"
+  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\LICENSE"
+  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\THIRD_PARTY_NOTICES.md"
+  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\TURBOISM-DISTRIBUTION-NOTICE.txt"
+  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\manifest.properties"
+  RMDir "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
+  RMDir "$INSTDIR\runtimes\fx\0.0.5"
+  RMDir "$INSTDIR\runtimes\fx"
+  RMDir "$INSTDIR\runtimes"
   RMDir /r "$INSTDIR\logs"
   RMDir /r "$INSTDIR\state"
   RMDir /r "$INSTDIR\cache"

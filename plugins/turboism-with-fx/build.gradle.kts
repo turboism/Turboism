@@ -12,6 +12,10 @@ tasks.test {
         "turboism.fxRuntimeFixtureDir",
         rootProject.file("packaging/fx-runtime").absolutePath
     )
+    systemProperty(
+        "turboism.windowsFxFixture",
+        rootProject.file("packaging/fx-runtime/windows-x86_64/fx.exe").absolutePath
+    )
 }
 
 tasks.processResources {

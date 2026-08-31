@@ -147,33 +147,48 @@ public final class ConfigMergeRegression {
         }
     }
 
-    /** The listener must reject unsupported Windows Full before config mutation, not Thin or Lite. */
+    /** Windows x64 Full is admitted; Windows arm64 still fails before config mutation. */
     private static void managedFxPlatformPolicy() throws Exception {
         final String originalOs = System.getProperty("os.name");
         final String originalArchitecture = System.getProperty("os.arch");
         System.setProperty("os.name", "Windows 11");
-        System.setProperty("os.arch", "amd64");
         try {
+            System.setProperty("os.arch", "amd64");
             final Path fullHome = Files.createTempDirectory("installer-policy-full-");
             final Path fullConfig = fullHome.resolve("config.json");
-            final byte[] before = validConfig("full").getBytes(StandardCharsets.UTF_8);
             try {
-                Files.write(fullConfig, before);
-                try {
-                    listener(fullHome, "full").beforePacks(List.of());
-                    check("Windows Full rejects unsupported managed fx platform", false);
-                } catch (RuntimeException expected) {
-                    check("Windows Full rejects unsupported managed fx platform",
-                            expected.getCause() instanceof IOException
-                                    && expected.getCause().getMessage().contains(
-                                            "no reviewed managed fx runtime"));
-                }
-                check("Windows Full rejection occurs before config mutation",
-                        java.util.Arrays.equals(before, Files.readAllBytes(fullConfig)));
+                Files.writeString(fullConfig, validConfig("full"), StandardCharsets.UTF_8);
+                listener(fullHome, "full").beforePacks(List.of());
+                check("Windows x64 Full admits the managed fx product payload", true);
+                check("Windows x64 Full reaches config merge",
+                        Files.readString(fullConfig, StandardCharsets.UTF_8)
+                                .contains("\"worktreeId\":\"turboism-runtime\""));
             } finally {
                 deleteTree(fullHome);
             }
 
+            System.setProperty("os.arch", "aarch64");
+            final Path armHome = Files.createTempDirectory("installer-policy-arm-");
+            final Path armConfig = armHome.resolve("config.json");
+            final byte[] before = validConfig("full").getBytes(StandardCharsets.UTF_8);
+            try {
+                Files.write(armConfig, before);
+                try {
+                    listener(armHome, "full").beforePacks(List.of());
+                    check("Windows arm64 Full rejects the missing managed fx payload", false);
+                } catch (RuntimeException expected) {
+                    check("Windows arm64 Full rejects the missing managed fx payload",
+                            expected.getCause() instanceof IOException
+                                    && expected.getCause().getMessage().contains(
+                                            "no managed fx runtime payload"));
+                }
+                check("Windows arm64 rejection occurs before config mutation",
+                        java.util.Arrays.equals(before, Files.readAllBytes(armConfig)));
+            } finally {
+                deleteTree(armHome);
+            }
+
+            System.setProperty("os.arch", "amd64");
             for (String mode : List.of("thin", "lite")) {
                 final Path home = Files.createTempDirectory("installer-policy-" + mode + "-");
                 final Path config = home.resolve("config.json");

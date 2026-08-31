@@ -50,6 +50,7 @@ final class FxProcessTransport implements FxAcpTransport {
         builder.directory(launch.workingDirectory().toFile());
         builder.redirectErrorStream(false);
         builder.environment().put("NO_COLOR", "1");
+        builder.environment().putAll(launch.environment());
         if (validationJavaBridge(launch)) {
             builder.environment().keySet().removeIf(name ->
                 "JAVA_TOOL_OPTIONS".equalsIgnoreCase(name)
@@ -60,7 +61,7 @@ final class FxProcessTransport implements FxAcpTransport {
         return new FxProcessTransport(builder.start());
     }
 
-    private static void verifyManagedRuntimeForLaunch(
+    static void verifyManagedRuntimeForLaunch(
         final FxLaunchConfiguration launch
     ) throws IOException {
         final FxLaunchConfiguration.ManagedRuntimeIdentity identity = launch.managedRuntime();

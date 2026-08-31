@@ -56,7 +56,7 @@ final class FxManagedRuntimeServiceTest {
     }
 
     @Test
-    void unsupportedWindowsDoesNotSendARequest() {
+    void windowsProductPayloadRequiresReinstallWithoutSendingARequestOrMutating() {
         final CountingHttpClient client = new CountingHttpClient();
         final FxManagedRuntimeService service = new FxManagedRuntimeService(
             paths(),
@@ -72,10 +72,12 @@ final class FxManagedRuntimeServiceTest {
         );
 
         assertEquals(
-            FxManagedRuntimeService.Result.PLATFORM_UNSUPPORTED,
+            FxManagedRuntimeService.Result.PRODUCT_PAYLOAD_ONLY,
             service.installOrRepair()
         );
         assertEquals(0, client.requests);
+        assertFalse(Files.exists(home.resolve("runtimes")));
+        assertFalse(Files.exists(home.resolve("cache")));
     }
 
     @Test
@@ -280,10 +282,15 @@ final class FxManagedRuntimeServiceTest {
     @Test
     void manifestPinsVersionedReleaseAssetsAndNoLatestEndpoint() {
         for (FxRuntimeManifest.Entry entry : FxRuntimeManifest.allEntries().values()) {
-            assertEquals("https", entry.sourceUri().getScheme());
-            assertEquals("github.com", entry.sourceUri().getHost());
-            assertTrue(entry.sourceUri().getPath().contains("/download/v0.0.5/"));
-            assertFalse(entry.sourceUri().toString().contains("latest"));
+            if (entry.delivery() == FxRuntimeManifest.Delivery.PRODUCT_PAYLOAD) {
+                assertTrue(entry.sourceUri().isEmpty());
+                continue;
+            }
+            final URI source = entry.sourceUri().orElseThrow();
+            assertEquals("https", source.getScheme());
+            assertEquals("github.com", source.getHost());
+            assertTrue(source.getPath().contains("/download/v0.0.5/"));
+            assertFalse(source.toString().contains("latest"));
             assertTrue(entry.archiveSize() > 0L);
             assertTrue(entry.releaseAssetPath().startsWith(
                 "/github-production-release-asset/1330702515/"
@@ -345,7 +352,7 @@ final class FxManagedRuntimeServiceTest {
 
     private FxRuntimeManifest.Entry fixtureEntry(final byte[] archive) throws Exception {
         final byte[] executable = executableFixture();
-        return new FxRuntimeManifest.Entry(
+        return FxRuntimeManifest.Entry.upstreamArchive(
             "linux-x86_64",
             sha256(executable),
             executable.length,

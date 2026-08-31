@@ -29,6 +29,16 @@
       "reason": "Publishes the active authenticated loopback endpoint to permission-approved automation plugins without exposing MCP private state files."
     },
     {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Registers the local MCP Connection window action."
+    },
+    {
+      "id": "turboism.ui.menu.contribute",
+      "scope": "application",
+      "reason": "Adds the MCP Connection entry to the Turboism menu."
+    },
+    {
       "id": "turboism.cubism.model.read",
       "scope": "application",
       "reason": "Lists and resolves active Cubism model objects requested through MCP."
@@ -82,7 +92,7 @@
   ],
   "environment": {
     "requiresCubism": true,
-    "ui": "none"
+    "ui": "swing"
   },
   "tags": [
     "mcp",

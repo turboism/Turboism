@@ -6,23 +6,33 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.43.3] - 2026-08-30
+## [0.43.3] - 2026-08-31
 
 ### Added
 
+- Added a managed Windows x64 fx v0.0.5 product payload to Full installers and archives, verified by exact size and SHA-256 before launch; Windows product repair or reinstall restores it because upstream provides no Windows repair archive.
 - Added the localized “For you, a bouquet” dedication to the Core About window beneath the Turboism title.
 - Added the complete Simplified-Chinese-authoritative Turboism End User Runtime Declaration v2.0 at the repository root and in public installers, with four separate required acknowledgements for project identity, lawful Cubism authorization, user-content backups, and as-is operation.
 - Added concise startup phase-duration diagnostics for configuration, services, host adapters, plugin loading, and final reporting.
+- Added a Turboism MCP Connection window that shows the current local MCP address, its bearer token, explicit copy actions, and a bounded process-local connection and request history that never records bearer values or MCP session identifiers.
+- Added a stable default MCP port `43123`, with `turboism.mcp.port=0` still selecting an ephemeral port, plus verified Claude Code, Visual Studio Code, and Codex CLI configuration examples.
+- Added a direct **Turboism → fx Settings** menu entry so the runtime path, fx-owned shell, and provider setup are reachable before any MCP or ACP connection exists.
+- Added saved fx provider profiles with modal add, edit, remove, and select dialogs: the fx-owned Vercel, Codex, and Grok built-ins launch their exact fx login commands, and custom OpenAI-compatible or self-hosted endpoints are served by a Turboism-owned loopback adapter.
+- Added best-effort `/v1/models` discovery plus a modal manual model-ID dialog for custom provider profiles.
+- Added persistent custom-provider API-key storage so a key is entered once: protected with Windows DPAPI for the current user where that succeeds, and otherwise written to `auth.json` in the plugin's own configuration directory.
 
 ### Changed
 
 - Made the Core About window display the framework version generated from the authoritative Gradle release version.
 - Corrected the release-plugin allowlist to publish the History Panel and PSD Clip Mask Import business plugins while keeping development shells, demos, and legacy placeholders out of public installers and archives.
-- Enlarged the Windows installer and made the post-install configurator resizable and maximizable; the configurator now opens automatically, lists only exact supported Cubism Editor installations (5.2.03, 5.3.02, and 5.3.03), and exposes independent Turboism-shortcut and hash-guarded official-BAT integration controls.
+- Enlarged the Windows installer and made the manual configurator resizable and maximizable; installation now discovers exact supported Cubism Editor installations (5.2.03, 5.3.02, and 5.3.03), selects every compatible installation found, and applies the chosen Turboism-shortcut and hash-guarded official-BAT controls headlessly without opening the configurator.
 - Made optional managed GraalVM installation failures or cancellation visible and logged without aborting the remaining Turboism installation.
 - Defined ordinary bottom-status notifications as a latest-message slot and recorded every status invocation through the calling plugin's scoped Turboism logger; compact resident metrics retain independent keyed slots.
 - Clarified in every official UI Theme locale that Cubism Editor should be restarted after applying a theme to ensure it is rendered correctly.
+- Documented that the Windows fx candidate intentionally does not claim durable-session, ACP MCP-server, native-tool, networking, process, or persistence parity with official Linux/macOS fx assets.
 - Made Clip Mask Viewer show a localized loading state immediately and move detached relationship indexing, counts, analysis, and graph projection off the Cubism host thread, with cancellation and stale-result guards.
+- Documented that fx v0.0.5 has no Claude subscription login and that a Claude Pro/Max or Claude Code subscription is not an Anthropic API credential, so no such provider profile is offered; the custom adapter implements OpenAI Chat Completions only.
+- Documented that fx's Gateway reasoning level is deliberately not forwarded to OpenAI-compatible endpoints instead of being translated into a guessed `reasoning_effort`.
 
 ### Fixed
 
@@ -33,6 +43,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added persistent configurator and managed-GraalVM subprocess diagnostics, including concurrent labelled stdout and stderr draining, so failed BAT integration and optional runtime setup are actionable.
 - Stopped plugin activation from creating empty per-plugin config, data, and cache directories; storage now creates only the directory needed by the first real operation, plugin logs use the shared runtime log, and the obsolete `palette-filter-attach.tsv` diagnostic is no longer produced.
 - Removed the unsupported reflective outside-canvas repaint attempt; theme changes now use the reliable restart-required behavior confirmed on Cubism Editor 5.2.03 and 5.3.02.
+- Fixed the fx Settings window requiring an established connection before the fx shell could be opened, which made provider and model setup unreachable on a fresh installation.
+- Fixed the custom-endpoint adapter rejecting the reasoning field fx sends on every request, ignoring the `ai-language-model-id` request header, and requiring an API key for unauthenticated self-hosted endpoints.
 
 ## [0.43.2] - 2026-08-29
 

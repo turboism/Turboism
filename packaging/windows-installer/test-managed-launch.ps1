@@ -190,6 +190,19 @@ try {
         -Destination (Join-Path $hyphenD3DRoot "CubismEditor5-D3D.bat")
     $unsupportedPatch = New-SyntheticCubism -Name "Live2D" -Version "5.3.01"
     $unsupported = New-SyntheticCubism -Name "fixture unsupported" -Version "5.4.00"
+    $patchless53 = New-SyntheticCubism -Name "placeholder" -Version "5.3.02" -LeafName "Cubism 5.3"
+    $resolvedVersions = @{}
+    $resolvedVersions[(Join-Path $root52 "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.2.03"
+    $resolvedVersions[(Join-Path $root53 "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.3.02"
+    $resolvedVersions[(Join-Path $root53DuplicateVersion "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.3.02"
+    $resolvedVersions[(Join-Path $hyphenD3DRoot "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.3.03"
+    $resolvedVersions[(Join-Path $patchless53 "app\lib\Live2D_Cubism.jar").ToUpperInvariant()] = "5.3.02"
+    $script:CubismArtifactVersionResolver = {
+        param([string]$Java, [string]$ApplicationJar, [string]$TurboismHome)
+        $key = [System.IO.Path]::GetFullPath($ApplicationJar).ToUpperInvariant()
+        if ($resolvedVersions.ContainsKey($key)) { return $resolvedVersions[$key] }
+        return $null
+    }
 
     $scanDrive = Join-Path $temp "D-shaped-drive"
     $scanProgramFiles = Join-Path $scanDrive "Program Files"
@@ -225,8 +238,10 @@ try {
     $roots = @($root53, $root52, $root53.ToUpperInvariant(), $root53DuplicateVersion)
     $candidates = Get-CubismInstallations -Roots $roots
     Assert-ManagedLaunch (@($candidates).Count -eq 3) "case-insensitive root dedupe keeps two exact 5.3.02 installs"
-    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "exact 5.2.03 and 5.3.02 roots pass file-shape checks"
-    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2.03" -and $candidates[1].Version -eq "5.3.02") "inventory order retains exact version then canonical path"
+    Assert-ManagedLaunch (@($candidates | Where-Object { $_.Selectable }).Count -eq 3) "exact reviewed 5.2.03 and 5.3.02 artifacts pass admission"
+    Assert-ManagedLaunch ($candidates[0].Version -eq "5.2.03" -and $candidates[1].Version -eq "5.3.02") "inventory order retains exact artifact version then canonical path"
+    $patchlessCandidate = New-CubismInstallationCandidate -Root $patchless53
+    Assert-ManagedLaunch ($patchlessCandidate.Selectable -and $patchlessCandidate.Version -eq "5.3.02") "patchless Cubism 5.3 directory resolves the exact version from its application artifact"
     Assert-ManagedLaunch (@($candidates | Where-Object { $_.D3DBat }).Count -eq 1) "D3D BAT is an optional separately named entry"
     $hyphenD3DCandidate = New-CubismInstallationCandidate -Root $hyphenD3DRoot
     Assert-ManagedLaunch ($hyphenD3DCandidate.D3DBat -like '*CubismEditor5-D3D.bat') "hyphenated official D3D BAT is discovered"
@@ -585,7 +600,7 @@ try {
         Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
     }
     $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
-    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+    $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     try {
         $exitCode = Invoke-CubismOfficialBat `
             -OfficialBat $bat `
@@ -597,8 +612,9 @@ try {
         Assert-ManagedLaunch ($exitCode -eq 23) "official normal BAT exit code is propagated"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'NORMAL=1') "normal launch invokes the official BAT"
         $markerText = Get-Content -LiteralPath $marker -Raw
+        Assert-ManagedLaunch ($markerText -match '(?m)^JDK=\s*$') "official BAT receives an empty JDK_JAVA_OPTIONS expansion"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-javaagent:')).Count -eq 1) "Turboism agent is attached exactly once"
-        Assert-ManagedLaunch ($markerText -match '-javaagent:.*turboism-agent\.jar') "current Turboism agent is inherited"
+        Assert-ManagedLaunch ($markerText -match 'TOOL=.*-javaagent:.*turboism-agent\.jar') "current Turboism agent is supplied through JAVA_TOOL_OPTIONS"
         Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar') "stale Turboism agent is removed"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm\.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
@@ -607,14 +623,14 @@ try {
         Assert-ManagedLaunch ($markerText -notmatch 'old-java|old-classpath') "stale Graal child-host options are removed"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "packaged Graal child host is enabled exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.java=')).Count -eq 1) "packaged Graal child Java replaces stale inherited values"
-        Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match '-Xmx192m') "unrelated pre-existing JVM option is preserved"
+        Assert-ManagedLaunch ($markerText -match 'TOOL=.*-Xmx192m') "unrelated JAVA_TOOL_OPTIONS JVM option is preserved"
         Assert-ManagedLaunch ($markerText -match 'TOOL=-Dfile.encoding=UTF-8' -and $markerText -notmatch 'TOOL=.*old-turboism-agent') "unrelated tool JVM option is preserved and stale attachment is removed"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
-        $env:JDK_JAVA_OPTIONS = '-Xmx1 "unmatched'
+        $env:JAVA_TOOL_OPTIONS = '-Xmx1 "unmatched'
         $malformedThrew = $false
         try { [void](Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent) } catch { $malformedThrew = $true }
         Assert-ManagedLaunch $malformedThrew "unsupported JVM quoting fails closed"
-        Assert-ManagedLaunch ($env:JDK_JAVA_OPTIONS -eq '-Xmx1 "unmatched') "failed launch restores malformed parent options"
+        Assert-ManagedLaunch ($env:JAVA_TOOL_OPTIONS -eq '-Xmx1 "unmatched') "failed launch restores malformed parent options"
     }
     finally {
         if ($null -eq $oldJdk) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue } else { $env:JDK_JAVA_OPTIONS = $oldJdk }
@@ -950,12 +966,20 @@ try {
     $batRoot = New-SyntheticCubism -Name "BAT" -Version "5.3.03" -D3D $false
     $batCandidate = New-CubismInstallationCandidate -Root $batRoot -Source "manual"
     $batCandidate.Selected = $true
+    $batFixtureText = "@echo off`r`nset CUBISM_TEST=flower`r`n"
+    $batFixtureBytes = [byte[]](@(0xEF, 0xBB, 0xBF) + @(
+        [System.Text.UTF8Encoding]::new($false).GetBytes($batFixtureText)
+    ))
+    [System.IO.File]::WriteAllBytes($batCandidate.OfficialBat, $batFixtureBytes)
     $batOriginal = [System.IO.File]::ReadAllBytes($batCandidate.OfficialBat)
     $batRecords = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate))
     Assert-ManagedLaunch ($batRecords.Count -eq 1) "official BAT integration records one selected BAT"
-    Assert-ManagedLaunch (Test-Path -LiteralPath ($batCandidate.OfficialBat + ".turboism-original.bak")) "official BAT backup is created"
+    $batBackup = $batCandidate.OfficialBat + ".turboism-original.bak"
+    Assert-ManagedLaunch (Test-Path -LiteralPath $batBackup) "official BAT backup is created"
+    Assert-ManagedLaunch ([System.Linq.Enumerable]::SequenceEqual([byte[]]$batOriginal, [byte[]][System.IO.File]::ReadAllBytes($batBackup))) "fresh official BAT backup preserves exact original bytes"
     $batManaged = [System.IO.File]::ReadAllText($batCandidate.OfficialBat, [System.Text.Encoding]::Default)
     Assert-ManagedLaunch ($batManaged -match '(?m)^rem TURBOISM MANAGED BEGIN$' -and $batManaged -match '-javaagent:.*turboism-agent\.jar') "official BAT receives current owned Turboism arguments"
+    Assert-ManagedLaunch ($batManaged -match '(?m)^set "JAVA_TOOL_OPTIONS=.*-javaagent:' -and $batManaged -notmatch '(?m)^set "JDK_JAVA_OPTIONS=') "official BAT integration uses JVM-parsed tool options instead of cmd-expanded JDK options"
     $batHash = Get-CubismSha256 $batCandidate.OfficialBat
     $batRecords2 = @(Invoke-CubismBatIntegration -TurboismHome $batHome -Candidates @($batCandidate) -ExistingRecords $batRecords)
     Assert-ManagedLaunch ((Get-CubismSha256 $batCandidate.OfficialBat) -eq $batHash -and $batRecords2[0].ManagedSha256 -eq $batHash) "current update skips unnecessary BAT rewrite"
@@ -989,4 +1013,5 @@ finally {
     }
     Remove-Item -LiteralPath $temp -Recurse -Force -ErrorAction SilentlyContinue
     Remove-Item Env:TURBOISM_TEST_OUTPUT -ErrorAction SilentlyContinue
+    $script:CubismArtifactVersionResolver = $null
 }

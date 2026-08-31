@@ -82,12 +82,12 @@ final class TurboismWithFxWindowTest {
     }
 
     @Test
-    void editableProviderAndModelValuesRemainOpaque() {
+    void editableModelValuesAndCatalogChoicesRemainOpaque() {
         final JComboBox<FxAcpConfigOption.Choice> choices = new JComboBox<>();
         choices.setEditable(true);
-        choices.getEditor().setItem("custom-provider-id");
+        choices.getEditor().setItem("custom-model-id");
         assertEquals(
-            "custom-provider-id",
+            "custom-model-id",
             TurboismWithFxWindow.selectedConfigValue(choices)
         );
 

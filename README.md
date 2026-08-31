@@ -52,11 +52,11 @@ Download one of the following from the
 [latest GitHub Release](https://github.com/Turboism/Turboism/releases/latest):
 
 - `TurboismInstaller-<version>.exe` — recommended Windows installer;
-- `turboism-<version>-full.zip` — agent plus the exact reviewed first-party plugin bundle; it includes Turboism with fx but no managed native fx runtime on Windows;
+- `turboism-<version>-full.zip` — agent, the exact first-party plugin bundle, and the managed Windows x64 fx product payload;
 - `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs or managed fx bytes;
-- `TurboismInstaller-<version>.jar` — Java 17 installer; Full carries reviewed Linux/macOS managed fx payloads and rejects Windows, while Thin can be installed on Windows without native fx bytes.
+- `TurboismInstaller-<version>.jar` — Java 17 installer; Full installs the matching managed fx payload on Linux, macOS, or Windows x64, while Thin carries plugins without managed runtime bytes.
 
-Windows Full/Thin may carry Turboism with fx and accept a custom executable path structurally. The first-party loopback MCP server is available on supported Windows hosts with bearer authentication and per-user, owner/file-type, reparse-point, secure-temporary-file, and post-move publication checks. A managed native fx runtime for Windows is still unavailable, so Turboism with fx requires a separately configured compatible executable there.
+Windows Full supplies an exact-size, exact-SHA Turboism build of upstream fx v0.0.5. It is not an official Vercel Windows asset and does not claim durable-session, ACP MCP-server, native-tool, networking, process, or persistence parity with the official Linux/macOS runtimes. Windows has no online fx repair archive; repair or reinstall Turboism Full to restore the payload.
 
 Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
@@ -65,7 +65,7 @@ verify from their directory, for example:
 sha256sum -c TurboismInstaller-0.43.3.exe.sha256
 ```
 
-After a successful Windows installation, `configure_turboism.ps1` opens automatically and lists only exact supported Cubism Editor 5.2.03 / 5.3.02 / 5.3.03 installations. Turboism-owned shortcuts and official Cubism BAT integration are separate controls. BAT integration is attempted only for exact installations selected by the user, preserves a hash-guarded backup for restoration, and writes actionable diagnostics under `logs/installer/`.
+During a successful Windows installation, the installer scans for exact supported Cubism Editor 5.2.03 / 5.3.02 / 5.3.03 installations, selects every compatible installation found, and applies the chosen shortcut and official-BAT options headlessly. The Start-menu configurator remains available for later changes. BAT integration is attempted only for exact selected installations, preserves a hash-guarded backup for restoration, and writes actionable diagnostics under `logs/installer/`.
 
 ## Architecture
 

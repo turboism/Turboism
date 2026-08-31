@@ -10,6 +10,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 final class FxRuntimeResolverTest {
 
@@ -84,9 +85,7 @@ final class FxRuntimeResolverTest {
     }
 
     @Test
-    void WindowsRemainsUnsupportedUntilAReviewedNativePayloadIsPinned() throws Exception {
-        Files.createDirectories(home.resolve("runtimes/fx/0.0.5/windows-x86_64"));
-        Files.writeString(home.resolve("runtimes/fx/0.0.5/windows-x86_64/fx.exe"), "fake");
+    void windowsProductPayloadIsSupportedAndFailsClosedWhenMissing() {
         final FxRuntimeResolver resolver = new FxRuntimeResolver(
             paths(),
             () -> FxRuntimePlatform.detect("Windows 11", "amd64")
@@ -96,7 +95,36 @@ final class FxRuntimeResolverTest {
             FxRuntimeResolver.Resolution.Unavailable.class,
             resolver.resolve(null)
         );
-        assertEquals(FxRuntimeResolver.Problem.PLATFORM_UNSUPPORTED, unavailable.problem());
+        assertEquals(FxRuntimeResolver.Problem.RUNTIME_MISSING, unavailable.problem());
+        assertEquals("windows-x86_64", unavailable.platformId());
+    }
+
+    @Test
+    void exactWindowsProductPayloadResolvesAsManaged() throws Exception {
+        final FxRuntimeManifest.Entry entry = FxRuntimeManifest.allEntries().get(
+            "windows-x86_64"
+        );
+        assertNotNull(entry);
+        final Path executable = home.resolve(
+            "runtimes/fx/0.0.5/windows-x86_64/fx.exe"
+        );
+        Files.createDirectories(executable.getParent());
+        final Path fixture = Path.of(System.getProperty("turboism.windowsFxFixture"));
+        Files.copy(fixture, executable);
+        final FxRuntimeResolver resolver = new FxRuntimeResolver(
+            paths(),
+            () -> FxRuntimePlatform.detect("Windows 11", "amd64")
+        );
+
+        final FxRuntimeResolver.Resolution.Available available = assertInstanceOf(
+            FxRuntimeResolver.Resolution.Available.class,
+            resolver.resolve(null)
+        );
+        assertEquals(executable.toString(), available.executable());
+        assertEquals(FxRuntimeResolver.Source.MANAGED, available.source());
+        assertEquals("windows-x86_64", available.platformId());
+        assertEquals(entry.executableSize(), available.managedRuntime().size());
+        assertEquals(entry.executableSha256(), available.managedRuntime().sha256());
     }
 
     private PluginPaths paths() {

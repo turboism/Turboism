@@ -9,15 +9,16 @@ param(
     [switch]$DisableBat,
     [switch]$EnableShortcuts,
     [switch]$DisableShortcuts,
-    [switch]$InitialShortcuts,
-    [switch]$InitialBat
+    [switch]$InitializeSelection,
+    [switch]$Elevated
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
 # and explicit shortcut/BAT launch integration. Official BAT files are edited
 # only through the separately selected, hash-guarded integration mode.
 $ErrorActionPreference = "Stop"
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptPath = $MyInvocation.MyCommand.Path
+$scriptDir = Split-Path -Parent $scriptPath
 . (Join-Path $scriptDir "cubism-launch-common.ps1")
 
 if (-not [string]::IsNullOrWhiteSpace($HomePath)) { $turboismHome = $HomePath.TrimEnd('\', '/') }
@@ -40,13 +41,39 @@ function Write-InstallerLog {
 }
 Write-InstallerLog "CONFIGURATOR_START"
 
-if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts) | Where-Object { $_ }).Count -gt 1) {
-    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, and DisableShortcuts are mutually exclusive"
+function Test-CurrentProcessElevated {
+    try {
+        $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = New-Object Security.Principal.WindowsPrincipal($identity)
+        return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    }
+    catch { return $false }
+}
+
+function Invoke-ElevatedConfiguratorMode {
+    param([string]$Mode)
+    if (@("IntegrateBat", "DisableBat", "Cleanup") -notcontains $Mode) { throw "invalid elevated mode" }
+    $powershell = Join-Path $PSHOME "powershell.exe"
+    if (-not (Test-Path -LiteralPath $powershell -PathType Leaf)) { $powershell = (Get-Process -Id $PID).Path }
+    $quotedScript = '"' + $scriptPath.Replace('"', '\"') + '"'
+    $quotedHome = '"' + $turboismHome.Replace('"', '\"') + '"'
+    $arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File {0} -Home {1} -{2} -Elevated' -f $quotedScript, $quotedHome, $Mode
+    $process = Start-Process -FilePath $powershell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
+    return [int]$process.ExitCode
+}
+
+if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts, $InitializeSelection) | Where-Object { $_ }).Count -gt 1) {
+    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, DisableShortcuts, and InitializeSelection are mutually exclusive"
     exit 1
 }
 if ($Cleanup) {
     try {
         if (Test-Path -LiteralPath $statePath) {
+            $cleanupState = Read-CubismInstallationState -StatePath $statePath
+            if (-not $cleanupState.Valid) { throw "Managed installation state is invalid: $($cleanupState.Error)" }
+            if (-not $Elevated -and $cleanupState.BatIntegrations.Count -gt 0) {
+                exit (Invoke-ElevatedConfiguratorMode -Mode "Cleanup")
+            }
             Invoke-CubismManagedCleanup -TurboismHome $turboismHome -StatePath $statePath
         }
         else {
@@ -69,11 +96,39 @@ if ($RetirePlugins) {
         exit 1
     }
 }
+if ($InitializeSelection) {
+    try {
+        $state = Read-CubismInstallationState -StatePath $statePath
+        if (-not $state.Valid) { throw "Managed installation state is invalid: $($state.Error)" }
+        $roots = Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root })
+        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots $roots -TurboismHome $turboismHome) -SavedInstallations $state.Installations)
+        Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $state.ManagedShortcuts -ManagedShortcutHashes $state.ManagedShortcutHashes -ShortcutTakeovers $state.ShortcutTakeovers -BatIntegrations $state.BatIntegrations -LaunchMode $state.LaunchMode
+        Write-Host "TURBOISM_CUBISM_SELECTION selected=$(@($candidates | Where-Object { $_.Selected -and $_.Selectable }).Count)"
+        exit 0
+    }
+    catch {
+        Write-Error $_.Exception.Message
+        exit 1
+    }
+}
+if ($DisableBat -and -not $Elevated) {
+    try {
+        $disableBatState = Read-CubismInstallationState -StatePath $statePath
+        if (-not $disableBatState.Valid) { throw "Managed installation state is invalid: $($disableBatState.Error)" }
+        if ($disableBatState.BatIntegrations.Count -eq 0) { exit 0 }
+        exit (Invoke-ElevatedConfiguratorMode -Mode "DisableBat")
+    }
+    catch { Write-Error $_.Exception.Message; exit 1 }
+}
+if ($IntegrateBat -and -not $Elevated) {
+    try { exit (Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat") }
+    catch { Write-Error $_.Exception.Message; exit 1 }
+}
 if ($IntegrateBat -or $DisableBat -or $EnableShortcuts -or $DisableShortcuts) {
     try {
         $state = Read-CubismInstallationState -StatePath $statePath
         if (-not $state.Valid) { throw "Managed installation state is invalid: $($state.Error)" }
-        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root }))) -SavedInstallations $state.Installations)
+        $candidates = @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots (Get-CubismDiscoveryRoots -SavedRoots @($state.Installations | ForEach-Object { $_.Root })) -TurboismHome $turboismHome) -SavedInstallations $state.Installations)
         if ($IntegrateBat) {
             $selectedBatKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
             foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
@@ -217,7 +272,7 @@ function Refresh-CubismCandidates {
     $savedRoots = @($stateInstallations | ForEach-Object { $_.Root })
     $discovery = Get-CubismDiscoveryRoots -SavedRoots $savedRoots -ManualRoots $manualRoots -IncludeMetadata
     $script:automaticRootKeys = @($discovery.AutomaticRootKeys)
-    return @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots $discovery.Roots) -SavedInstallations $stateInstallations)
+    return @(Merge-CubismSelection -Candidates (Get-CubismInstallations -Roots $discovery.Roots -TurboismHome $turboismHome) -SavedInstallations $stateInstallations)
 }
 $candidates = Refresh-CubismCandidates
 
@@ -315,7 +370,7 @@ $rescanButton.Add_Click({
 $addButton.Add_Click({
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog; $dialog.Description = $S.AddTitle
     if ($dialog.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
-        $candidate = New-CubismInstallationCandidate -Root $dialog.SelectedPath -Source "manual"
+        $candidate = New-CubismInstallationCandidate -Root $dialog.SelectedPath -Source "manual" -TurboismHome $turboismHome
         if ($null -ne $candidate.Key -and @($candidates | Where-Object { $_.Key -eq $candidate.Key }).Count -eq 0) {
             $manualRoots += $candidate.CanonicalRoot; $candidate.Selected = [bool]$candidate.Selectable; $candidates += $candidate
             $candidates = @($candidates | Sort-Object @{Expression={ if ($_.Version) { [version]$_.Version } else { [version]"0.0.0" } }}, @{Expression={ $_.CanonicalRoot.ToUpperInvariant() }})
@@ -356,23 +411,16 @@ $saveButton.Add_Click({
         $postLaunchState = Read-CubismInstallationState -StatePath $statePath
         if (-not $postLaunchState.Valid) { throw "Managed installation state is invalid after shortcut configuration: $($postLaunchState.Error)" }
         if ($batCheck.Checked) {
-            $selectedBatKeys = New-Object System.Collections.Generic.HashSet[string]([System.StringComparer]::OrdinalIgnoreCase)
-            foreach ($candidate in @($candidates | Where-Object { $_.Selected -and $_.Selectable })) {
-                foreach ($path in @($candidate.OfficialBat, $candidate.D3DBat)) {
-                    if (-not [string]::IsNullOrWhiteSpace($path)) { [void]$selectedBatKeys.Add([System.IO.Path]::GetFullPath($path)) }
-                }
-            }
-            $retainedRecords = @($postLaunchState.BatIntegrations | Where-Object { $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
-            $removedRecords = @($postLaunchState.BatIntegrations | Where-Object { -not $selectedBatKeys.Contains([System.IO.Path]::GetFullPath($_.Path)) })
-            if ($removedRecords.Count -gt 0) { Restore-CubismBatIntegrations -Records $removedRecords }
-            $batRecords = Invoke-CubismBatIntegration -TurboismHome $turboismHome -Candidates $candidates -ExistingRecords $retainedRecords
-            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $postLaunchState.ManagedShortcuts -ManagedShortcutHashes $postLaunchState.ManagedShortcutHashes -ShortcutTakeovers $postLaunchState.ShortcutTakeovers -BatIntegrations $batRecords -LaunchMode $postLaunchState.LaunchMode
-            Write-InstallerLog "BAT_INTEGRATION_OK" ("records={0} restored={1}" -f $batRecords.Count, $removedRecords.Count)
+            $batExit = Invoke-ElevatedConfiguratorMode -Mode "IntegrateBat"
+            if ($batExit -ne 0) { throw "Elevated Cubism BAT integration failed with exit code $batExit." }
+            $postLaunchState = Read-CubismInstallationState -StatePath $statePath
+            Write-InstallerLog "BAT_INTEGRATION_OK" ("records={0}" -f $postLaunchState.BatIntegrations.Count)
         }
         elseif ($postLaunchState.BatIntegrations.Count -gt 0) {
-            Restore-CubismBatIntegrations -Records $postLaunchState.BatIntegrations
-            Write-CubismInstallationState -StatePath $statePath -Candidates $candidates -ManagedShortcuts $postLaunchState.ManagedShortcuts -ManagedShortcutHashes $postLaunchState.ManagedShortcutHashes -ShortcutTakeovers $postLaunchState.ShortcutTakeovers -LaunchMode $postLaunchState.LaunchMode
-            Write-InstallerLog "BAT_INTEGRATION_RESTORED" ("records={0}" -f $postLaunchState.BatIntegrations.Count)
+            $batExit = Invoke-ElevatedConfiguratorMode -Mode "DisableBat"
+            if ($batExit -ne 0) { throw "Elevated Cubism BAT restoration failed with exit code $batExit." }
+            $postLaunchState = Read-CubismInstallationState -StatePath $statePath
+            Write-InstallerLog "BAT_INTEGRATION_RESTORED"
         }
 
         $config = [ordered]@{ format = "turboism.runtime.config"; schemaVersion = 1; worktreeId = "turboism-runtime"; pluginDirs = @("plugins") }

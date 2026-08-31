@@ -8,6 +8,7 @@ import dev.turboism.sdk.config.ConfigSchema;
 import dev.turboism.sdk.config.ConfigWriteResult;
 import dev.turboism.sdk.config.PluginConfigRegistry;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -34,9 +35,44 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 final class TurboismWithFxPluginLifecycleTest {
 
     @Test
-    void autoConnectRequiresCompatibilityAcknowledgementAndUsesManagedRuntimeByDefault() {
+    void autoConnectRequiresAgentWindowAndCompatibilityAcknowledgement() {
         assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(true));
         assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(false));
+        assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(true, true));
+        assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(true, false));
+        assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(false, true));
+    }
+
+    @Test
+    void firstOpenStartsAutoConnectBeforeClaimingWindowFocus() {
+        final java.util.ArrayList<String> order = new java.util.ArrayList<>();
+
+        TurboismWithFxPlugin.presentAgentWindow(
+            () -> order.add("connect"),
+            () -> order.add("focus")
+        );
+
+        assertEquals(List.of("connect", "focus"), order);
+    }
+
+    @Test
+    void reopeningWithoutAutoConnectStillClaimsWindowFocus() {
+        final AtomicInteger focused = new AtomicInteger();
+
+        TurboismWithFxPlugin.presentAgentWindow(null, focused::incrementAndGet);
+
+        assertEquals(1, focused.get());
+    }
+
+    @Test
+    void settingsOpenClaimsFocusWithoutStartingConnectionWork() {
+        final AtomicInteger focused = new AtomicInteger();
+        final AtomicInteger connections = new AtomicInteger();
+
+        TurboismWithFxPlugin.presentSettingsWindow(focused::incrementAndGet);
+
+        assertEquals(1, focused.get());
+        assertEquals(0, connections.get());
     }
 
     @Test
@@ -44,6 +80,7 @@ final class TurboismWithFxPluginLifecycleTest {
         final ScopeAwareConfig config = new ScopeAwareConfig();
         final DisposableScope runtimeScope = new DisposableScope();
         final AtomicInteger actions = new AtomicInteger();
+        final AtomicInteger menus = new AtomicInteger();
         final AtomicInteger toolbar = new AtomicInteger();
         final CountDownLatch entered = new CountDownLatch(1);
         final CountDownLatch release = new CountDownLatch(1);
@@ -58,16 +95,22 @@ final class TurboismWithFxPluginLifecycleTest {
                 throw new AssertionError(interrupted);
             }
         });
-        plugin.init(context(config, runtimeScope, actions, toolbar));
+        plugin.init(context(config, runtimeScope, actions, menus, toolbar));
         plugin.enable();
         final java.lang.reflect.Method showWindow = plugin.getClass().getDeclaredMethod(
-            "showWindow"
+            "showWindow",
+            Class.forName(
+                "dev.turboism.plugin.turboismwithfx.TurboismWithFxPlugin$WindowTarget"
+            )
         );
         showWindow.setAccessible(true);
+        final Object agentTarget = java.util.Arrays.stream(
+            showWindow.getParameterTypes()[0].getEnumConstants()
+        ).filter(value -> "AGENT".equals(value.toString())).findFirst().orElseThrow();
         final AtomicReference<Throwable> failure = new AtomicReference<>();
         final Thread opener = new Thread(() -> {
             try {
-                showWindow.invoke(plugin);
+                showWindow.invoke(plugin, agentTarget);
             } catch (Throwable thrown) {
                 failure.set(thrown);
             }
@@ -91,9 +134,10 @@ final class TurboismWithFxPluginLifecycleTest {
         final ScopeAwareConfig config = new ScopeAwareConfig();
         final DisposableScope runtimeScope = new DisposableScope();
         final AtomicInteger actions = new AtomicInteger();
+        final AtomicInteger menus = new AtomicInteger();
         final AtomicInteger toolbar = new AtomicInteger();
         final TurboismWithFxPlugin plugin = new TurboismWithFxPlugin();
-        plugin.init(context(config, runtimeScope, actions, toolbar));
+        plugin.init(context(config, runtimeScope, actions, menus, toolbar));
 
         plugin.enable();
         final FxPluginSettings first = settings(plugin);
@@ -107,7 +151,8 @@ final class TurboismWithFxPluginLifecycleTest {
         assertEquals("Persist these user instructions.", first.initialPrompt());
         assertEquals(1, config.activeReadScopes());
         assertEquals(1, config.activeWriteScopes());
-        assertEquals(1, actions.get());
+        assertEquals(2, actions.get());
+        assertEquals(1, menus.get());
         assertEquals(1, toolbar.get());
 
         plugin.disable();
@@ -115,6 +160,7 @@ final class TurboismWithFxPluginLifecycleTest {
         assertEquals(0, config.activeReadScopes());
         assertEquals(0, config.activeWriteScopes());
         assertEquals(0, actions.get());
+        assertEquals(0, menus.get());
         assertEquals(0, toolbar.get());
         assertEquals("first-fx", first.executable());
 
@@ -129,13 +175,15 @@ final class TurboismWithFxPluginLifecycleTest {
         assertEquals("second-fx", second.executable());
         assertEquals(1, config.activeReadScopes());
         assertEquals(1, config.activeWriteScopes());
-        assertEquals(1, actions.get());
+        assertEquals(2, actions.get());
+        assertEquals(1, menus.get());
         assertEquals(1, toolbar.get());
 
         plugin.shutdown();
         assertEquals(0, config.activeReadScopes());
         assertEquals(0, config.activeWriteScopes());
         assertEquals(0, actions.get());
+        assertEquals(0, menus.get());
         assertEquals(0, toolbar.get());
     }
 
@@ -143,6 +191,7 @@ final class TurboismWithFxPluginLifecycleTest {
         final ScopeAwareConfig config,
         final DisposableScope scope,
         final AtomicInteger actions,
+        final AtomicInteger menus,
         final AtomicInteger toolbar
     ) {
         final PluginLogger logger = new PluginLogger() {
@@ -158,7 +207,16 @@ final class TurboismWithFxPluginLifecycleTest {
             @Override public String format(final String key, final Object... arguments) { return key; }
             @Override public boolean contains(final String key) { return true; }
         };
-        final ActionRegistry actionRegistry = (id, action) -> registration(actions);
+        final ActionRegistry actionRegistry = (id, action) -> {
+            assertEquals(id, action.id());
+            return registration(actions);
+        };
+        final MenuRegistry menuRegistry = contribution -> {
+            assertEquals("Turboism/menu.fx-settings", contribution.menuPath());
+            assertEquals(TurboismWithFxPlugin.SETTINGS_ACTION_ID, contribution.actionId());
+            assertEquals(42, contribution.order());
+            return registration(menus);
+        };
         final MainToolbarRegistry toolbarRegistry = new MainToolbarRegistry() {
             @Override
             public Registration contribute(
@@ -199,9 +257,7 @@ final class TurboismWithFxPluginLifecycleTest {
                 case "paths" -> paths();
                 case "actions" -> actionRegistry;
                 case "mainToolbar" -> toolbarRegistry;
-                case "menus" -> throw new AssertionError(
-                    "fx plugin must not request the top-menu registry"
-                );
+                case "menus" -> menuRegistry;
                 case "disposableScope" -> scope;
                 case "toString" -> "TurboismWithFxPluginLifecycleTestContext";
                 case "hashCode" -> System.identityHashCode(proxy);

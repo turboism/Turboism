@@ -1,27 +1,53 @@
 # Managed fx runtime payload
 
-Turboism distributes the reviewed fx `0.0.5` runtime as a product payload, not as a native binary inside the plugin JAR.
+Turboism distributes fx `0.0.5` as a product payload outside the plugin JAR.
 
 - Upstream source commit: `df7e6245e1992758d4060c97477ceafa27770551`
 - Runtime destination: `runtimes/fx/0.0.5/<platform>/`
-- Normal plugin launch verifies the installed executable size and SHA-256 from the closed plugin manifest.
-- `manifest.properties` pins the official Linux/macOS release archive names, exact archive sizes and SHA-256 values, reviewed GitHub release-asset redirect paths, installed executable hashes, and legal-file identities.
-- The cross-platform Java Full installer carries the offline payload and installs only the matching reviewed Linux/macOS platform before first run. Windows ZIP/NSIS Full still carries the complete plugin roster, including Turboism with fx, but carries no `runtimes/fx/**`; Java Full rejects Windows before mutation, while Java Thin can install the plugin roster without native fx bytes. On supported Windows hosts the first-party loopback MCP server uses bearer authentication plus per-user, owner/file-type, reparse-point, secure-temporary-file, and post-move publication checks; a Windows custom executable can therefore be configured structurally, but no managed native fx runtime is shipped for Windows. Lite remains plugin-free and runtime-free. Optional Thin-package repair on a supported Linux/macOS platform is explicit and user-initiated; it downloads only the exact reviewed platform asset, accepts only the pinned GitHub release-asset redirect path, verifies the archive and extracted files, and activates the runtime atomically.
-- Every installed platform directory must contain `LICENSE`, `THIRD_PARTY_NOTICES.md`, and `manifest.properties` beside the executable.
-- Provider credentials and fx durable data are never part of this payload.
+- Normal launch verifies the installed executable size and SHA-256 from the closed plugin manifest.
+- Every platform directory includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, `TURBOISM-DISTRIBUTION-NOTICE.txt`, and `manifest.properties` beside the executable.
+- Provider credentials, MCP bearer material, and fx durable data are never part of this payload.
 
-The upstream `0.0.5` release has no Windows asset. The next upstream release, `0.0.6`, also ships only Linux/macOS assets, and a pristine Zig 0.16.0 `x86_64-windows` build of either tag fails with the same 32 Windows-portability errors before producing an executable. The same pristine `0.0.6` source and compiler do produce a working Linux executable, confirming that the Windows failure is target portability rather than a broken checkout or toolchain.
+## Delivery
 
-Turboism also reviewed draft upstream PR #412 at exact head `aeb0db3903216c353c5b66fc424813f5bdcaface`. It is not an admissible Windows payload: stock Zig 0.16.0 does not build it, its Windows workflow is invalid and omits required standard-library changes, and an investigation-only PE required locally reconstructed behavioral stubs. The resulting source reports fx `0.0.6`, its Linux control build fails, and Windows credentials/private ACLs, durable sessions, reparse-point containment, Winsock/MCP HTTP, process-tree cancellation, and release production remain unqualified. That PE was not staged or distributed.
+The exact supported platforms are Linux x86-64, Linux ARM64, macOS x86-64,
+macOS ARM64, and Windows x86-64.
 
-A Turboism-built Windows candidate must retain the exact pristine v0.0.5 archive (`5,295,167` bytes, SHA-256 `97b5e68f71a9b32d7c9a9f65edd392f6c54e94076abef0f2577d4cfed8e317cc`) as an independent build input. Validation replays the reviewed patch against that archive and recomputes a canonical source-tree digest over sorted UTF-8 relative paths, normalized executable modes, and length-delimited file bytes. The exact reviewed patch and patched-tree hashes are supplied independently from the candidate and must match its metadata; packaging snapshots candidate inputs before replay, and exact-host preflight cross-checks the resulting evidence. Candidate declarations alone are not provenance evidence.
+The four Linux/macOS executables are unmodified official upstream release
+assets. Their archive names, sizes, SHA-256 values, reviewed GitHub release
+asset paths, installed executable identities, and legal-file identities are
+pinned in `manifest.properties`. Java Full installs only the host's matching
+platform. On explicit user request, supported Linux/macOS Thin installations
+can download that exact pinned archive and activate it atomically.
 
-A later upstream version tag does not currently unblock Windows either. Exact tag `v0.4.5` (`14f00f6be246789496f987317cc5af28b81aad16`) fails a pristine Zig 0.16.0 `x86_64-windows` ReleaseSafe build with 36 compilation errors and produces no PE. Its release workflow and artifacts cover only Linux and macOS. The tag also lacks qualified Windows private ACLs, physical reparse-point containment, directory durability, consistent task-local home handling, and Job Object-backed process-tree ownership. Its Linux control binary builds, but the upstream unit suite is not clean.
+Windows x86-64 uses a Turboism product payload because upstream fx v0.0.5 has
+no Windows release archive. Windows NSIS Full, Full ZIP, and Java Full carry:
 
-Two older open Windows ports were also evaluated and rejected as distributable artifacts. PR #377 head `9d7c683fc9f438bddc33424541c9d1a406451845` does produce a pristine stock-Zig Windows PE and contains useful Winsock and physical-path work, but it is stale and conflicted, stores credentials/OAuth state as plaintext profile files without private DACL enforcement, has no Windows parent-directory durability, and cancels only the direct child process. PR #331 head `7554ea206f10fba5e38fc279f0bce14a4bc01673` is older and more conflicted, lacks Windows CI/releases, has weaker lexical containment and plaintext-secret handling, and its native Windows web-fetch path fails closed. Neither binary was executed, staged, or packaged. PR #377 may be used only as reviewed source material for a new minimal backport onto the exact supported fx source.
+```text
+runtimes/fx/0.0.5/windows-x86_64/
+  fx.exe
+  LICENSE
+  THIRD_PARTY_NOTICES.md
+  TURBOISM-DISTRIBUTION-NOTICE.txt
+  manifest.properties
+```
 
-Turboism now has a **phase-1 compile-only backport** from exact v0.0.5 using an unmodified stock Zig 0.16.0 toolchain. Two isolated builds produced the same PE32+ x86-64 Windows console executable: `11,198,464` bytes, SHA-256 `e11b311898f5767a593033a2b152629db072f855fdacf1432a55f42f21d0b067`. Its reviewed source patch SHA-256 is `58129f01455920a0fded8c88aea7fcd3de17e8bdbb014dd0b5b183c3d6475993`, and replaying it over the pinned pristine archive produces canonical source-tree SHA-256 `7af149eb4833ddd1094cf5841101185a068fdb1f99da2eef663ec6a10846ee4c`. This is not yet an admitted candidate or product runtime: it intentionally exposes only in-memory ACP `session/new`, omits durable session capabilities, rejects ACP MCP servers, advertises no native tools, and leaves networking/process/persistence features disabled.
+The executable identity is fixed at `11,174,912` bytes and SHA-256
+`04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541`.
+It is labeled as a Turboism build of upstream fx v0.0.5, not as an official
+Vercel Windows asset. There is no online Windows repair archive; product repair
+or reinstall restores it. Lite remains plugin-free and runtime-free.
 
-Windows must remain absent until the modified v0.0.5 build passes private DACL, final-handle containment, parent-namespace durability, secure credential, Job Object process-tree, loopback MCP, durable-session, permission, legal/reproducibility, exact Cubism 5.2.03/5.3.02/5.3.03, and manual no-probe qualification. The Linux/Java validation bridge and investigation-only cross-builds are not product runtimes.
+## Windows candidate limits
+
+The Windows product build is intended to make the packaged ACP integration
+usable in the current Windows candidate. It does not imply feature parity with
+the official Linux/macOS assets. In particular, Turboism does not claim
+Windows parity for durable sessions, ACP MCP-server support, native tools, or
+networking, process, and persistence functionality disabled in this build.
+The plugin still verifies the exact executable identity before launch, and its
+normal ACP and authenticated Turboism MCP availability checks remain in force.
+Host-facing operations remain limited to exact Cubism 5.2.03/5.3.02/5.3.03
+admission and the typed services available in the active host.
 
 Vercel does not sponsor or endorse Turboism or this integration.

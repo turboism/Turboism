@@ -201,6 +201,8 @@ val fxRuntimePlatforms = listOf(
     "macos-x86_64",
     "macos-aarch64"
 )
+val windowsFxRuntimePlatform = "windows-x86_64"
+val windowsFxRuntimeExecutable = fxRuntimeRoot.resolve("$windowsFxRuntimePlatform/fx.exe")
 val fxRuntimeCache = layout.buildDirectory.dir("fx-runtime/cache")
 val fxRuntimeStage = layout.buildDirectory.dir("fx-runtime/staging")
 val fxReleaseHost = "github.com"
@@ -463,6 +465,11 @@ val stageInstallerPayload by tasks.registering {
         inputs.files(project(":plugins:$module").tasks.named("jar"))
     }
     installerTemplateFiles.forEach { inputs.file(it) }
+    inputs.file(fxRuntimeManifestFile)
+    inputs.file(windowsFxRuntimeExecutable)
+    inputs.file(fxRuntimeRoot.resolve("LICENSE"))
+    inputs.file(fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md"))
+    inputs.file(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
     outputs.dir(payloadDir)
     dependsOn(project(":bootstrap").tasks.named("jar"))
     dependsOn(project(":graal-host").tasks.named("windowsPreviewDist"))
@@ -537,10 +544,45 @@ val stageInstallerPayload by tasks.registering {
                 .replace("__VERSION__", version)
             file("$stage/$target").writeText(text)
         }
-        // Managed fx runtimes are intentionally absent from this shared Windows stage.
-        // ZIP/NSIS Full carries the complete plugin roster, including Turboism with fx,
-        // but Windows has no reviewed managed fx executable; Thin/custom-executable use
-        // remains available without mispackaging Linux/macOS binaries into Windows assets.
+        val fxManifest = loadFxRuntimeManifest()
+        val fxVersion = fxManifest.getProperty("fxVersion")
+            ?: throw GradleException("managed fx manifest has no fxVersion")
+        val fxDelivery = fxManifest.getProperty("$windowsFxRuntimePlatform.delivery")
+        val fxExecutableSize = fxManifest.getProperty(
+            "$windowsFxRuntimePlatform.executableSize"
+        )?.toLongOrNull()
+        val fxExecutableSha256 = fxManifest.getProperty(
+            "$windowsFxRuntimePlatform.executableSha256"
+        )
+        if (fxDelivery != "product-payload" || fxVersion != "0.0.5"
+            || fxExecutableSize != 11_174_912L
+            || fxExecutableSha256 != "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541"
+            || !windowsFxRuntimeExecutable.isFile
+            || Files.isSymbolicLink(windowsFxRuntimeExecutable.toPath())
+            || windowsFxRuntimeExecutable.length() != fxExecutableSize
+            || sha256(windowsFxRuntimeExecutable) != fxExecutableSha256) {
+            throw GradleException("Windows managed fx product payload identity mismatch")
+        }
+        val windowsFxTarget = stage.resolve(
+            "runtimes/fx/$fxVersion/$windowsFxRuntimePlatform"
+        )
+        copy {
+            from(windowsFxRuntimeExecutable)
+            from(fxRuntimeRoot.resolve("LICENSE"))
+            from(fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md"))
+            from(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
+            from(fxRuntimeManifestFile)
+            into(windowsFxTarget)
+        }
+        if (windowsFxTarget.listFiles()?.map { it.name }?.sorted() != listOf(
+                "LICENSE",
+                "THIRD_PARTY_NOTICES.md",
+                "TURBOISM-DISTRIBUTION-NOTICE.txt",
+                "fx.exe",
+                "manifest.properties"
+            )) {
+            throw GradleException("Windows managed fx product payload inventory mismatch")
+        }
         // OS-appropriate launcher/configuration files
         copy {
             from("packaging/windows-installer/launch-cubism-turboism.bat")
@@ -661,7 +703,7 @@ val javaInstallerPayloadDir = layout.buildDirectory.dir("java-installer/staging"
 
 val stageJavaInstallerPayload by tasks.registering {
     group = "packaging"
-    description = "Adds reviewed Linux/macOS managed fx runtimes to the Java installer payload."
+    description = "Adds the exact platform-specific managed fx runtimes to the Java installer payload."
     dependsOn(stageInstallerPayload, stageFxRuntimePayload)
     inputs.dir(payloadDir)
     inputs.dir(fxRuntimeStage)
@@ -843,6 +885,8 @@ val generateInstallerXml by tasks.registering {
             append("            </fileset>\n")
             append("            <file src=\"").append(stageRel)
                 .append("/runtimes/fx/0.0.5/macos-aarch64/fx\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/macos-aarch64\" override=\"true\" os=\"mac\"/>\n")
+            append("            <fileset dir=\"").append(stageRel)
+                .append("/runtimes/fx/0.0.5/windows-x86_64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/windows-x86_64\" override=\"true\" os=\"windows\"/>\n")
             append("        </pack>")
         }
         val pluginPacks = payloadPack + "\n" + runtimePack + "\n" + selectionPacks
