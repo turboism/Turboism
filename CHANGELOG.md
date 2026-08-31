@@ -45,6 +45,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Removed the unsupported reflective outside-canvas repaint attempt; theme changes now use the reliable restart-required behavior confirmed on Cubism Editor 5.2.03 and 5.3.02.
 - Fixed the fx Settings window requiring an established connection before the fx shell could be opened, which made provider and model setup unreachable on a fresh installation.
 - Fixed the custom-endpoint adapter rejecting the reasoning field fx sends on every request, ignoring the `ai-language-model-id` request header, and requiring an API key for unauthenticated self-hosted endpoints.
+- Fixed managed Windows launches reparsing path-bearing Turboism JVM options as standalone `cmd.exe` commands; options are now inserted as quoted arguments in an ephemeral Cubism BAT while inherited Java option variables and stale Turboism integration blocks are excluded from the child process.
 
 ## [0.43.2] - 2026-08-29
 

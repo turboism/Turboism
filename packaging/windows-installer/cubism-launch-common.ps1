@@ -1726,6 +1726,76 @@ function New-CubismJavaOverrideBat {
     }
 }
 
+function New-CubismManagedOptionsBat {
+    param(
+        [string]$OfficialBat,
+        [string]$CubismRoot,
+        [string]$TurboismHome,
+        [string]$Agent,
+        [object]$GraalHost = $null
+    )
+    $root = ConvertTo-CubismCanonicalRoot $CubismRoot
+    $source = [System.IO.Path]::GetFullPath($OfficialBat)
+    $canonicalHome = ConvertTo-CubismCanonicalRoot $TurboismHome
+    if ($null -eq $root -or $null -eq $canonicalHome -or
+        -not (Test-CubismNormalFile $source) -or -not (Test-CubismNormalFile $Agent)) {
+        throw "managed Cubism launch input is invalid"
+    }
+    $managedOptions = @(
+        "-Dturboism.home=$canonicalHome",
+        "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120"
+    )
+    if ($null -ne $GraalHost) {
+        $managedOptions += @(
+            "-Dturboism.graal.enabled=true",
+            "-Dturboism.graal.java=$($GraalHost.Java)",
+            "-Dturboism.graal.classpath=$($GraalHost.ClassPath)"
+        )
+    }
+    else { $managedOptions += "-Dturboism.graal.enabled=false" }
+    $managedOptions += @(Get-CubismManagedJdkExportTokens)
+    if (@($managedOptions | Where-Object { $_ -match '[\r\n"&|<>^%!`]' }).Count -gt 0) {
+        throw "managed Cubism JVM option contains an unsupported BAT character"
+    }
+
+    $directory = Get-CubismLaunchStageDirectory -TurboismHome $canonicalHome
+    $temporary = Join-Path $directory (".turboism-options-$PID-$([guid]::NewGuid().ToString('N')).bat")
+    $encoding = [System.Text.Encoding]::Default
+    $text = [System.IO.File]::ReadAllText($source, $encoding)
+    $legacy = '(?ims)^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?BEGIN)?\s*$.*?^rem\s+TURBOISM(?:\s+(?:MANAGED\s+)?END)?\s*$\r?\n?'
+    $text = [regex]::Replace($text, $legacy, '')
+
+    $workingDirectoryPattern = '(?im)^cd[ \t]+/d[ \t]+"[^"\r\n]+"[ \t]*(?:\r?\n|$)'
+    if ([regex]::Matches($text, $workingDirectoryPattern).Count -ne 1) {
+        throw "official Cubism BAT must contain exactly one working-directory assignment"
+    }
+    $workingDirectory = 'cd /d "' + $root + '"' + "`r`n"
+    $text = [regex]::Replace($text, $workingDirectoryPattern, { param($match) $workingDirectory }, 1)
+
+    $mainClassPattern = '(?im)^[ \t]*com\.live2d\.cubism\.CECubismEditorApp[ \t]*\^[ \t]*(?:\r?\n|$)'
+    if ([regex]::Matches($text, $mainClassPattern).Count -ne 1) {
+        throw "official Cubism BAT must contain exactly one Editor main-class invocation"
+    }
+    $optionLines = @($managedOptions | ForEach-Object { '  "' + $_ + '" ^' }) -join "`r`n"
+    $text = [regex]::Replace(
+        $text,
+        $mainClassPattern,
+        { param($match) $optionLines + "`r`n" + $match.Value },
+        1
+    )
+    try {
+        [System.IO.File]::WriteAllText($temporary, $text, $encoding)
+        if (-not (Test-CubismNormalFile $temporary)) { throw "managed Cubism launch BAT was not created" }
+        return $temporary
+    }
+    catch {
+        if (Test-Path -LiteralPath $temporary -PathType Leaf) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+        throw
+    }
+}
+
 function Invoke-CubismOfficialBat {
     param(
         [string]$OfficialBat,
@@ -1769,45 +1839,41 @@ function Invoke-CubismOfficialBat {
     if ($null -eq $root -or $null -eq $official -or (-not $rootEntry -and -not $stagedEntry) -or
         -not (Test-CubismNormalFile $official)) { throw "Cubism BAT is not an admitted managed launch entry" }
 
-    $oldJdk = $env:JDK_JAVA_OPTIONS
-    $oldTool = $env:JAVA_TOOL_OPTIONS
+    $savedEnvironment = @{}
+    foreach ($name in @("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")) {
+        $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
+    }
+    $managedBat = ""
     $exitCode = 1
     try {
-        $managedOptions = @(
-            "-Dturboism.home=$TurboismHome",
-            "-javaagent:$Agent=home=$TurboismHome;timeoutSeconds=120"
-        )
-        if ($null -ne $GraalHost) {
-            $managedOptions += @(
-                "-Dturboism.graal.enabled=true",
-                "-Dturboism.graal.java=$($GraalHost.Java)",
-                "-Dturboism.graal.classpath=$($GraalHost.ClassPath)"
-            )
+        # Pass Turboism options as quoted arguments in an ephemeral copy of the
+        # reviewed Cubism BAT. Java environment option variables are deliberately
+        # cleared for this child so neither a prior Turboism BAT integration nor
+        # cmd.exe can reinterpret path-bearing options as standalone commands.
+        $managedBat = New-CubismManagedOptionsBat `
+            -OfficialBat $official `
+            -CubismRoot $root `
+            -TurboismHome $canonicalHome `
+            -Agent $Agent `
+            -GraalHost $GraalHost
+        foreach ($name in $savedEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $null, "Process")
         }
-        else { $managedOptions += "-Dturboism.graal.enabled=false" }
-        $managed = @($managedOptions + @(Get-CubismManagedJdkExportTokens)) |
-            ForEach-Object { ConvertTo-JdkOptionToken $_ }
-        $unrelatedTool = Remove-TurboismJdkOptions $oldTool
-        # CubismEditor5.bat uses an unquoted `%JDK_JAVA_OPTIONS%` command-line
-        # expansion. Quoted path-bearing values in that variable are reparsed by
-        # cmd.exe and can become standalone commands. JAVA_TOOL_OPTIONS is read
-        # directly by the JVM instead, so keep the process-local Turboism options
-        # there and clear JDK_JAVA_OPTIONS for the official BAT invocation.
-        $env:JDK_JAVA_OPTIONS = ""
-        $env:JAVA_TOOL_OPTIONS = ((@($unrelatedTool) + $managed) |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_) }) -join " "
         Push-Location -LiteralPath $root
         try {
-            & $official @Arguments
+            & $managedBat @Arguments
             $exitCode = $LASTEXITCODE
         }
         finally { Pop-Location }
     }
     finally {
-        if ($null -eq $oldJdk) { Remove-Item Env:JDK_JAVA_OPTIONS -ErrorAction SilentlyContinue }
-        else { $env:JDK_JAVA_OPTIONS = $oldJdk }
-        if ($null -eq $oldTool) { Remove-Item Env:JAVA_TOOL_OPTIONS -ErrorAction SilentlyContinue }
-        else { $env:JAVA_TOOL_OPTIONS = $oldTool }
+        foreach ($name in $savedEnvironment.Keys) {
+            [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], "Process")
+        }
+        if (-not [string]::IsNullOrWhiteSpace($managedBat) -and
+            (Test-Path -LiteralPath $managedBat -PathType Leaf)) {
+            Remove-Item -LiteralPath $managedBat -Force -ErrorAction SilentlyContinue
+        }
     }
     return $exitCode
 }

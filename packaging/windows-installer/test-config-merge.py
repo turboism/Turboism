@@ -385,12 +385,13 @@ def check_configurator_flow_contract():
           and "CONFIGURATION_FAILED" in configure
           and "BAT_INTEGRATION_OK" in configure
           and 'Log: " + $installerLogPath' in configure)
-    check("CF8 managed launch avoids cmd reparsing quoted JDK options",
-          '$env:JDK_JAVA_OPTIONS = ""' in common
-          and '$env:JAVA_TOOL_OPTIONS = ((@($unrelatedTool) + $managed)' in common
-          and "CubismEditor5.bat uses an unquoted `%JDK_JAVA_OPTIONS%`" in common
-          and "'set \"JAVA_TOOL_OPTIONS=' + (($options -join ' ')" in common
-          and "'set \"JDK_JAVA_OPTIONS=' + (($options -join ' ')" not in common)
+    check("CF8 managed launch passes quoted JVM arguments through an ephemeral BAT",
+          "function New-CubismManagedOptionsBat" in common
+          and "managed Cubism JVM option contains an unsupported BAT character" in common
+          and "Java environment option variables are deliberately" in common
+          and '[Environment]::SetEnvironmentVariable($name, $null, "Process")' in common
+          and "-Dturboism.home=$canonicalHome" in common
+          and "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120" in common)
 
 
 
