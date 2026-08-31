@@ -670,8 +670,8 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         authenticateProvider.addActionListener(ignored -> authenticateProviderProfile());
         addProviderModel.addActionListener(ignored -> addManualModel());
         refreshProviderModels.addActionListener(ignored -> discoverProviderModels());
-        providerProfileList.addListSelectionListener(ignored -> {
-            if (!ignored.getValueIsAdjusting()) refreshProfileModels();
+        providerProfileList.addListSelectionListener(event -> {
+            if (!event.getValueIsAdjusting()) refreshProfileModels();
         });
         send.addActionListener(ignored -> submitPrompt());
         cancel.addActionListener(ignored -> onCancel.run());
@@ -1041,6 +1041,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         ).withSessionApiKey(replacement.id(), sessionApiKey);
         refreshProviderProfileLists();
         providerProfileList.setSelectedValue(replacement, true);
+        onSaveSettings.run();
     }
 
     private void removeProviderProfile() {
@@ -1065,6 +1066,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         );
         discoveredProviderModels.remove(selected.id());
         refreshProviderProfileLists();
+        onSaveSettings.run();
     }
 
     private void useProviderProfile() {
@@ -1076,6 +1078,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
             providerConfiguration.sessionApiKeys()
         );
         refreshProviderProfileLists();
+        onSaveSettings.run();
     }
 
     private void authenticateProviderProfile() {
