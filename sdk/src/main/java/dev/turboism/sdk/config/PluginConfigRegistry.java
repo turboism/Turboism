@@ -30,6 +30,26 @@ public interface PluginConfigRegistry {
         throw new UnsupportedOperationException("typed config schema is not available");
     }
 
+    /**
+     * Registers a typed schema and explicitly opts selected scalar keys into the shared settings UI.
+     *
+     * <p>The default preserves compatibility with hosts that support typed configuration but do not
+     * yet render config editors: the schema is still registered, while the presentation metadata is
+     * ignored. Runtimes with editor support validate the metadata before publishing either surface.</p>
+     *
+     * @param schema typed configuration schema
+     * @param migrations complete migration chain for the schema
+     * @param editor explicit user-editable field metadata
+     * @return completion of schema registration and, when supported, settings publication
+     */
+    default CompletionStage<Void> registerUserEditableSchema(
+        final ConfigSchema schema,
+        final List<ConfigMigration> migrations,
+        final ConfigSchemaEditor editor
+    ) {
+        return registerSchema(schema, migrations);
+    }
+
     default <T> CompletionStage<ConfigReadResult<T>> read(final ConfigKey<T> key) {
         throw new UnsupportedOperationException("typed config read is not available");
     }

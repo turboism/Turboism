@@ -22,7 +22,8 @@ public final class SettingsContributionStore implements SettingsContributionSour
 
     private final Map<String, Entry> entries = new LinkedHashMap<>();
 
-    Registration register(final String pluginId, final SettingsContribution contribution) {
+    /** Registers one runtime-validated contribution under its owning plugin. */
+    public Registration register(final String pluginId, final SettingsContribution contribution) {
         final String owner = requireText(pluginId, "pluginId");
         final SettingsContribution value = Objects.requireNonNull(contribution, "contribution");
         final String identity = owner + ':' + value.id();

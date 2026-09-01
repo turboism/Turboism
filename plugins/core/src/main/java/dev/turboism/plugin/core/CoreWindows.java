@@ -217,14 +217,22 @@ final class CoreWindows implements AutoCloseable {
         final JButton cancel = new JButton(text("common.cancel"));
         final JButton apply = new JButton(text("common.apply"));
         final Runnable save = () -> {
-            settings.save(new RuntimeSettings(
-                safeMode.isSelected(), (String) logLevel.getSelectedItem(),
-                ((Number) maxLogStorage.getValue()).intValue(),
-                skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
-                separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
-            ));
-            rendered.save().run();
-            CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
+            try {
+                rendered.save().run();
+                settings.save(new RuntimeSettings(
+                    safeMode.isSelected(), (String) logLevel.getSelectedItem(),
+                    ((Number) maxLogStorage.getValue()).intValue(),
+                    skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
+                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
+                ));
+                CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
+            } catch (RuntimeException failure) {
+                CoreDialogs.message(
+                    dialog,
+                    text("common.turboism"),
+                    Objects.toString(failure.getMessage(), "Settings could not be saved.")
+                );
+            }
         };
         ok.addActionListener(ignored -> { save.run(); dialog.setVisible(false); });
         cancel.addActionListener(ignored -> dialog.setVisible(false));
@@ -269,7 +277,11 @@ final class CoreWindows implements AutoCloseable {
             .comparingInt(RenderedTab::index)
             .thenComparing(RenderedTab::id));
         final JTabbedPane tabs = new JTabbedPane();
-        for (RenderedTab tab : renderedTabs) tabs.addTab(tab.title(), tab.panel());
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
+        for (RenderedTab tab : renderedTabs) {
+            finishForm(tab.panel());
+            tabs.addTab(tab.title(), tab.panel());
+        }
         return new RenderedSettings(tabs, () -> saves.forEach(Runnable::run));
     }
 
@@ -1023,6 +1035,23 @@ final class CoreWindows implements AutoCloseable {
         constraints.weightx = 1;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         panel.add(right, constraints);
+    }
+
+    private static void finishForm(final JPanel panel) {
+        if (!(panel.getLayout() instanceof GridBagLayout layout)) return;
+        int row = 0;
+        for (java.awt.Component component : panel.getComponents()) {
+            row = Math.max(row, layout.getConstraints(component).gridy + 1);
+        }
+        final GridBagConstraints filler = new GridBagConstraints();
+        filler.gridx = 0;
+        filler.gridy = row;
+        filler.gridwidth = 2;
+        filler.weightx = 1;
+        filler.weighty = 1;
+        filler.fill = GridBagConstraints.BOTH;
+        filler.anchor = GridBagConstraints.NORTHWEST;
+        panel.add(javax.swing.Box.createGlue(), filler);
     }
 
 
