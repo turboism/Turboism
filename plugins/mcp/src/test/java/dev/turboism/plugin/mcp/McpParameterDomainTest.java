@@ -192,6 +192,7 @@ final class McpParameterDomainTest {
 
         assertEquals(Boolean.TRUE, output.get("ok"));
         final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+        assertEquals(Boolean.FALSE, result.get("bound"));
         assertEquals(null, result.get("binding"));
         assertEquals(List.of(), model.values.get("ParamA").getParameterBindings());
     }
@@ -202,6 +203,14 @@ final class McpParameterDomainTest {
         model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
         final McpParameterDomain domain = domain(model);
         final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+        domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", target,
+                "points", List.of(Map.of("value", 2))
+            ))
+        ));
 
         final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
             "operations", List.of(
@@ -218,9 +227,10 @@ final class McpParameterDomainTest {
             assertEquals("APPLIED", result.get("outcome"));
             assertEquals(Boolean.FALSE, result.get("retryable"));
             assertEquals(List.of(), result.get("canonicalPointIds"));
+            assertEquals(Boolean.FALSE, result.get("bound"));
             assertEquals(null, result.get("binding"));
         }
-        assertEquals(2, model.unbindCalls);
+        assertEquals(1, model.unbindCalls);
     }
 
     @Test
@@ -292,8 +302,14 @@ final class McpParameterDomainTest {
             assertEquals("APPLIED", result.get("outcome"));
             assertEquals(Boolean.FALSE, result.get("retryable"));
             assertEquals(List.of(canonicalId), result.get("canonicalPointIds"));
+            final Map<String, Object> sourceReadback = object(result.get("source"));
+            assertEquals(
+                Boolean.FALSE,
+                object(list(sourceReadback.get("bindings")).get(0)).get("bound")
+            );
             final Map<String, Object> targetReadback = object(result.get("target"));
             final Map<String, Object> targetBindingResult = object(list(targetReadback.get("bindings")).get(0));
+            assertEquals(Boolean.TRUE, targetBindingResult.get("bound"));
             final Map<String, Object> targetBinding = object(targetBindingResult.get("binding"));
             assertEquals(canonicalId, object(list(targetBinding.get("points")).get(0)).get("id"));
         }
@@ -718,8 +734,7 @@ final class McpParameterDomainTest {
                 @Override public void movePoint(final ParameterBindingTarget target, final ParameterBindingPointId pointId, final float value) { throw new UnsupportedOperationException(); }
                 @Override public void deletePoint(final ParameterBindingTarget target, final ParameterBindingPointId pointId) { throw new UnsupportedOperationException(); }
                 @Override public void unbind(final ParameterBindingTarget target) {
-                    unbindCalls++;
-                    parameter.bindings.remove(target);
+                    if (parameter.bindings.remove(target) != null) unbindCalls++;
                     if (unbindFailureAfterWrite != null) throw unbindFailureAfterWrite;
                 }
             };
