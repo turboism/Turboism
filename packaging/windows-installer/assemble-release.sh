@@ -246,8 +246,8 @@ FX_FILES = {
     FX_ROOT + "TURBOISM-DISTRIBUTION-NOTICE.txt",
     FX_ROOT + "manifest.properties",
 }
-FX_SIZE = 11174912
-FX_SHA256 = "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541"
+FX_SIZE = 11144192
+FX_SHA256 = "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2"
 
 def write_bytes(archive, name, data, mode):
     info = zipfile.ZipInfo(name, TIMESTAMP)

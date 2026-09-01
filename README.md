@@ -56,7 +56,7 @@ Download one of the following from the
 - `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs or managed fx bytes;
 - `TurboismInstaller-<version>.jar` — Java 17 installer; Full installs the matching managed fx payload on Linux, macOS, or Windows x64, while Thin carries plugins without managed runtime bytes.
 
-Windows Full supplies an exact-size, exact-SHA Turboism build of upstream fx v0.0.5. It is not an official Vercel Windows asset and does not claim durable-session, ACP MCP-server, native-tool, networking, process, or persistence parity with the official Linux/macOS runtimes. Windows has no online fx repair archive; repair or reinstall Turboism Full to restore the payload.
+Windows Full supplies an exact-size, exact-SHA Turboism build of upstream fx v0.0.5. It is not an official Vercel Windows asset. The Windows candidate admits only Turboism's exact authenticated numeric-loopback HTTP MCP server and keeps ACP sessions ephemeral; it does not claim durable-session, native-tool, general networking, process, or persistence parity with the official Linux/macOS runtimes. Windows has no online fx repair archive; repair or reinstall Turboism Full to restore the payload.
 
 Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:

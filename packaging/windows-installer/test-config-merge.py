@@ -402,10 +402,10 @@ def check_managed_fx_contract():
     fx = FX_RUNTIME_DIR / "fx.exe"
     import hashlib
     check("FX1 exact Windows executable exists",
-          fx.is_file() and fx.stat().st_size == 11174912)
+          fx.is_file() and fx.stat().st_size == 11144192)
     check("FX1 exact Windows executable hash is pinned",
           hashlib.sha256(fx.read_bytes()).hexdigest()
-          == "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541")
+          == "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2")
     section_start = text.index('Section "-托管 fx 运行时"')
     section_end = text.index("SectionEnd", section_start)
     section = text[section_start:section_end]
