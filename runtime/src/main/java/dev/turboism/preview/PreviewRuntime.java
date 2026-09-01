@@ -569,7 +569,13 @@ public final class PreviewRuntime implements AutoCloseable {
         final String graalJs = environment.discoveredScriptCount()
             + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
         STARTUP_BANNER.publish(
-            log::banner,
+            List.of(
+                log::banner,
+                banner -> {
+                    System.out.println(banner);
+                    System.out.flush();
+                }
+            ),
             new StartupBanner.Details(
                 StartupBanner.frameworkVersion(),
                 System.getProperty("java.version", "unavailable"),
