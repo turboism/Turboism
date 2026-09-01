@@ -12,11 +12,17 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 /** Manages JAR-level plugin lifecycle across ordered entrypoint instances. */
 public final class PluginManager {
 
     private final Map<String, PluginRuntime> plugins = new HashMap<>();
+    private final ConcurrentMap<String, CompletableFuture<PluginLifecycleState>> disableOperations =
+        new ConcurrentHashMap<>();
     private final StartupReport report = new StartupReport();
     private final RuntimeScheduler scheduler;
 
@@ -105,26 +111,62 @@ public final class PluginManager {
      * <p>Ignores an unknown id and any plugin not currently in
      * {@link PluginLifecycleState#ENABLED}. Entrypoint failures do not abort the pass: every
      * entrypoint is still invoked, each failure is reported, and the plugin ends in
-     * {@link PluginLifecycleState#DISABLE_FAILED} rather than {@code DISABLED}. The entrypoint calls
-     * are dispatched through the runtime scheduler.
+     * {@link PluginLifecycleState#DISABLE_FAILED} rather than {@code DISABLED}. Entrypoint teardown,
+     * scope closure, the terminal state transition, and completion of the returned stage all run in
+     * the one lifecycle task accepted by the runtime scheduler. Concurrent disable calls share that
+     * task and its result.
+     *
+     * <p>If the scheduler rejects the lifecycle task, the returned stage fails with a stable
+     * {@link IllegalStateException}; no entrypoint or scope teardown runs and the plugin remains
+     * enabled so callers cannot mistake rejected work for a completed disable.
      *
      * @param id the plugin to disable
+     * @return a stage completed with the terminal lifecycle state; an unknown plugin completes with
+     *     {@code null}, and a plugin that is not enabled completes with its current state
      */
-    public void disable(final String id) {
+    public CompletionStage<PluginLifecycleState> disable(final String id) {
         final PluginRuntime runtime = plugins.get(id);
-        if (runtime == null || runtime.state() != PluginLifecycleState.ENABLED) {
-            return;
+        if (runtime == null) {
+            return CompletableFuture.completedFuture(null);
         }
-        scheduler.dispatch(lifecycleTask(runtime, "lifecycle.disable"), () -> disableRuntime(runtime));
-        if (!closeDisposableScope(runtime, "DISABLE_FAILED")) {
-            return;
+        if (runtime.state() != PluginLifecycleState.ENABLED) {
+            return CompletableFuture.completedFuture(runtime.state());
         }
-        if (runtime.state() == PluginLifecycleState.ENABLED) {
-            runtime.transitionTo(PluginLifecycleState.DISABLED);
+
+        final CompletableFuture<PluginLifecycleState> candidate = new CompletableFuture<>();
+        final CompletableFuture<PluginLifecycleState> active =
+            disableOperations.putIfAbsent(runtime.id(), candidate);
+        if (active != null) {
+            return active;
         }
+        if (runtime.state() != PluginLifecycleState.ENABLED) {
+            disableOperations.remove(runtime.id(), candidate);
+            candidate.complete(runtime.state());
+            return candidate;
+        }
+
+        final boolean accepted = scheduler.dispatch(
+            lifecycleTask(runtime, "lifecycle.disable"),
+            () -> disableRuntime(runtime, candidate)
+        );
+        if (!accepted) {
+            final IllegalStateException rejection = new IllegalStateException(
+                "Plugin lifecycle disable dispatch was rejected"
+            );
+            try {
+                reportProblem(runtime, "DISABLE_FAILED", rejection);
+            } finally {
+                candidate.completeExceptionally(rejection);
+                disableOperations.remove(runtime.id(), candidate);
+            }
+        }
+        return candidate;
     }
 
-    private void disableRuntime(final PluginRuntime runtime) {
+    private void disableRuntime(
+        final PluginRuntime runtime,
+        final CompletableFuture<PluginLifecycleState> completion
+    ) {
         logInfo(runtime, "Plugin lifecycle: disable started");
         boolean failed = false;
         final List<TurboismPlugin> entries = runtime.entrypoints();
@@ -136,11 +178,19 @@ public final class PluginManager {
                 reportProblem(runtime, "DISABLE_FAILED", exception);
             }
         }
-        if (failed) {
-            runtime.transitionTo(PluginLifecycleState.DISABLE_FAILED);
-            return;
+        if (!closeDisposableScope(runtime, "DISABLE_FAILED")) {
+            failed = true;
         }
-        logInfo(runtime, "Plugin lifecycle: disable succeeded entrypoints=" + entries.size());
+
+        final PluginLifecycleState terminalState = failed
+            ? PluginLifecycleState.DISABLE_FAILED
+            : PluginLifecycleState.DISABLED;
+        runtime.transitionTo(terminalState);
+        if (!failed) {
+            logInfo(runtime, "Plugin lifecycle: disable succeeded entrypoints=" + entries.size());
+        }
+        completion.complete(terminalState);
+        disableOperations.remove(runtime.id(), completion);
     }
 
     private static PluginTask lifecycleTask(
@@ -219,7 +269,6 @@ public final class PluginManager {
             return true;
         } catch (Exception exception) {
             reportProblem(runtime, failureCode, exception);
-            runtime.transitionTo(PluginLifecycleState.valueOf(failureCode));
             return false;
         }
     }

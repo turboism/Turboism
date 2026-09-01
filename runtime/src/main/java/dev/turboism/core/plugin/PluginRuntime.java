@@ -11,15 +11,16 @@ import java.util.List;
 /**
  * Runtime state for one plugin JAR and all of its ordered entrypoints.
  *
- * <p>Mutable and not thread-safe: it is owned by the plugin lifecycle, which drives every
- * transition from a single thread. Entrypoint order is the declaration order from the plugin
- * manifest and is preserved, because hook dispatch is order-sensitive.</p>
+ * <p>Mutable lifecycle composition is owned by the plugin lifecycle, which drives every transition
+ * from a single thread. The current state is published for observers awaiting asynchronous lifecycle
+ * completion. Entrypoint order is the declaration order from the plugin manifest and is preserved,
+ * because hook dispatch is order-sensitive.</p>
  */
 public final class PluginRuntime {
 
     private final String id;
     private final PluginDescriptor descriptor;
-    private PluginLifecycleState state = PluginLifecycleState.DISCOVERED;
+    private volatile PluginLifecycleState state = PluginLifecycleState.DISCOVERED;
     private List<TurboismPlugin> entrypoints = List.of();
     private PluginContext context;
     private DisabledReason disabledReason;
