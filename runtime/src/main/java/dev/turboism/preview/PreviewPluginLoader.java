@@ -446,7 +446,9 @@ final class PreviewPluginLoader {
         final String pluginId
     ) {
         for (int index = resources.enabled - 1; index >= 0; index--) {
-            try {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                resources.classLoader
+            )) {
                 resources.entrypoints.get(index).disable();
             } catch (Exception exception) {
                 log.error(pluginId, "Plugin enable rollback failed", exception);
@@ -459,7 +461,9 @@ final class PreviewPluginLoader {
         final String pluginId
     ) {
         for (int index = resources.entrypoints.size() - 1; index >= 0; index--) {
-            try {
+            try (ContextClassLoaderScope ignored = ContextClassLoaderScope.bind(
+                resources.classLoader
+            )) {
                 resources.entrypoints.get(index).shutdown();
             } catch (Exception exception) {
                 log.error(pluginId, "Plugin cleanup after load failure failed", exception);
