@@ -566,6 +566,66 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
+    void committedCreateReturnsStableIdAndReadbackWarningWithoutInvitingRetry() throws Exception {
+        final ModelObjectReference committed = new ModelObjectReference(
+            ModelObjectKind.PART,
+            "PartCommitted"
+        );
+        final ModelObjectService objects = new MutableObjects() {
+            @Override public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
+                throw new ModelObjectOperationException(
+                    ModelObjectOperationException.Code.COMMITTED,
+                    "descriptor readback failed",
+                    new IllegalStateException("readback unavailable"),
+                    Optional.of(committed)
+                );
+            }
+        };
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), objects, new FakeReadServices()
+        ));
+        try {
+            final HttpResponse<byte[]> response = toolCall(
+                server.endpoint(),
+                60,
+                McpProductionDomainCatalog.APPLY,
+                Map.of("operations", List.of(Map.of(
+                    "operation", "create",
+                    "kind", "part",
+                    "name", "Committed Part"
+                )))
+            );
+            final Map<String, Object> envelope = object(result(response));
+            assertEquals(Boolean.FALSE, envelope.get("isError"));
+            final Map<String, Object> batch = object(envelope.get("structuredContent"));
+            assertEquals(Boolean.TRUE, batch.get("ok"));
+            final Map<String, Object> result = object(
+                object(array(batch.get("results")).get(0)).get("result")
+            );
+            assertEquals("APPLIED_WITH_READBACK_WARNING", result.get("outcome"));
+            assertEquals(Boolean.FALSE, result.get("retryable"));
+            assertEquals("PartCommitted", result.get("createdObjectId"));
+            assertEquals("part", result.get("kind"));
+            assertEquals("descriptor readback failed", result.get("readbackWarning"));
+            assertNotNull(result.get("diagnosticId"));
+
+            final Map<String, Object> diagnostics = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, SESSIONS.get(server.endpoint()),
+                Map.of(
+                    "jsonrpc", "2.0", "id", 61, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS)
+                )
+            ));
+            final Map<String, Object> event = object(array(diagnostics.get("events")).get(0));
+            assertEquals(result.get("diagnosticId"), event.get("diagnosticId"));
+            assertEquals("create", event.get("operation"));
+            assertEquals("APPLIED_WITH_READBACK_WARNING", event.get("outcome"));
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
     void returnsStableToolErrorWhenStructuralProviderIsUnavailable() throws Exception {
         final ModelObjectService unavailable = new MutableObjects() {
             @Override public List<ModelObjectDescriptor> list() {
