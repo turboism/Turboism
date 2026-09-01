@@ -199,10 +199,12 @@ final class McpProductionDomainCatalog {
         final String code = errorValue instanceof Map<?, ?> raw
             ? String.valueOf(raw.get("code"))
             : "FAILED";
-        enriched.put(
-            "outcome",
-            "INVALID_ARGUMENT".equals(code) ? "NOT_APPLIED" : "OUTCOME_UNKNOWN"
-        );
+        final String outcome = "INVALID_ARGUMENT".equals(code)
+            ? "NOT_APPLIED" : "OUTCOME_UNKNOWN";
+        enriched.put("outcome", outcome);
+        if ("OUTCOME_UNKNOWN".equals(outcome)) {
+            enriched.put("diagnosticId", java.util.UUID.randomUUID().toString());
+        }
         return enriched;
     }
 

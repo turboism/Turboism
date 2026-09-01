@@ -468,6 +468,7 @@ final class McpParameterDomain {
         result.putAll(readback);
         if (readbackFailure != null) {
             result.put("readbackWarning", error(readbackFailure));
+            result.put("diagnosticId", java.util.UUID.randomUUID().toString());
         }
         return result;
     }
@@ -513,7 +514,8 @@ final class McpParameterDomain {
                 entry("message", safeMessage(cause)),
                 entry("outcome", BindingWriteOutcome.OUTCOME_UNKNOWN.name()),
                 entry("retryable", false),
-                entry("canonicalPointIds", null)
+                entry("canonicalPointIds", null),
+                entry("diagnosticId", java.util.UUID.randomUUID().toString())
             ))
         );
     }

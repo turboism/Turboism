@@ -69,7 +69,14 @@ final class McpRuntimeDiagnosticsTest {
             (name, arguments) -> envelope(Map.of(
                 "ok", true,
                 "results", List.of(
-                    Map.of("outcome", "OUTCOME_UNKNOWN", "message", "token=must-not-leak"),
+                    Map.of(
+                        "operation", "unbind",
+                        "result", Map.of(
+                            "outcome", "OUTCOME_UNKNOWN",
+                            "diagnosticId", "diag-123",
+                            "message", "token=must-not-leak"
+                        )
+                    ),
                     Map.of("outcome", "APPLIED_WITH_READBACK_WARNING"),
                     Map.of("error", Map.of("code", "ROLLBACK_FAILED")),
                     Map.of("error", Map.of("code", "TIMEOUT")),
@@ -89,6 +96,9 @@ final class McpRuntimeDiagnosticsTest {
             "RUNTIME_EXCEPTION"
         ), events.stream().map(McpRuntimeDiagnostics.Event::kind).toList());
         assertTrue(events.stream().allMatch(event -> event.provider().equals("turboism.write")));
+        assertEquals("diag-123", events.get(0).diagnosticId());
+        assertEquals("unbind", events.get(0).operation());
+        assertEquals("OUTCOME_UNKNOWN", events.get(0).outcome());
         assertTrue(events.stream().noneMatch(event -> event.message().contains("must-not-leak")));
     }
 
