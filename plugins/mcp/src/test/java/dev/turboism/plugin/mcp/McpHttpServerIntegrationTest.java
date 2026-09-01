@@ -191,6 +191,19 @@ final class McpHttpServerIntegrationTest {
             ));
             assertEquals(Boolean.TRUE, applied.get("ok"));
             assertEquals(2L, integer(applied.get("succeeded")));
+            final List<Object> appliedResults = array(applied.get("results"));
+            final Map<String, Object> renameResult = object(
+                object(appliedResults.get(0)).get("result")
+            );
+            assertEquals("APPLIED", renameResult.get("outcome"));
+            assertEquals(Boolean.FALSE, renameResult.get("retryable"));
+            final Map<String, Object> createResult = object(
+                object(appliedResults.get(1)).get("result")
+            );
+            assertEquals("APPLIED", createResult.get("outcome"));
+            assertEquals("Generated1", createResult.get("createdObjectId"));
+            assertEquals("warp_deformer", createResult.get("kind"));
+            assertEquals(Boolean.FALSE, createResult.get("retryable"));
             assertEquals("Head Renamed", objects.find(ModelObjectKind.PART, "PartHead").name());
             assertInstanceOf(ModelObjectCreateRequest.WarpDeformer.class, objects.lastCreate);
             final ModelObjectCreateRequest.WarpDeformer warp =
@@ -414,7 +427,7 @@ final class McpHttpServerIntegrationTest {
             new CapturingLogger(), new MutableObjects(), new FakeReadServices()
         ));
         try {
-            final String olderVersion = "2025-06-18";
+            final String olderVersion = "2025-03-26";
             final HttpResponse<byte[]> initialize = request(
                 server.endpoint(), TOKEN, null, null, null, Map.of(
                     "jsonrpc", "2.0", "id", 1, "method", "initialize",
@@ -591,10 +604,13 @@ final class McpHttpServerIntegrationTest {
             final Map<String, Object> structured = object(result.get("structuredContent"));
             assertEquals(Boolean.FALSE, structured.get("ok"));
             final Map<String, Object> operation = object(array(structured.get("results")).get(0));
+            final Map<String, Object> unavailableResult = object(operation.get("result"));
             assertEquals(
                 "UNAVAILABLE",
-                object(object(operation.get("result")).get("error")).get("code")
+                object(unavailableResult.get("error")).get("code")
             );
+            assertEquals("OUTCOME_UNKNOWN", unavailableResult.get("outcome"));
+            assertEquals(Boolean.FALSE, unavailableResult.get("retryable"));
 
             final String sessionId = SESSIONS.get(server.endpoint());
             final Map<String, Object> hierarchy = resourceJson(request(
