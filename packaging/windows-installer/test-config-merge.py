@@ -390,6 +390,7 @@ def check_configurator_flow_contract():
           and "managed Cubism JVM option contains an unsupported BAT character" in common
           and "Java environment option variables are deliberately" in common
           and '[Environment]::SetEnvironmentVariable($name, $null, "Process")' in common
+          and "-Duser.dir=$root" in common
           and "-Dturboism.home=$canonicalHome" in common
           and "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120" in common)
 

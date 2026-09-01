@@ -638,6 +638,7 @@ try {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "packaged Graal child host is enabled exactly once"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.java=')).Count -eq 1) "packaged Graal child Java replaces stale inherited values"
         Assert-ManagedLaunch ($markerText -match [regex]::Escape("-Dturboism.home=$turboismHome")) "space-containing Turboism home remains one direct JVM argument"
+        Assert-ManagedLaunch ($markerText -match [regex]::Escape("-Duser.dir=$(ConvertTo-CubismCanonicalRoot $root53)")) "Cubism user.dir is pinned to the selected installation root"
         Assert-ManagedLaunch ((Get-Content -LiteralPath $marker -Raw) -match 'ARG1=fixture argument') "arguments with spaces reach the official BAT"
         $env:JAVA_TOOL_OPTIONS = '-Xmx1 "unmatched'
         $malformedExit = Invoke-CubismOfficialBat -OfficialBat $bat -CubismRoot $root53 -TurboismHome $turboismHome -Agent $agent
