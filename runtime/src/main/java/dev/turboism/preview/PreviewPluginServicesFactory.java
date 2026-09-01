@@ -298,7 +298,8 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     ) {
         return new RuntimeTypedPluginConfigRegistry(
             dependencies.config(), descriptor.id(), paths.configDir(), permissions,
-            tasks, scope, evidence, failureCollector
+            tasks, scope, evidence, failureCollector, descriptor.name(),
+            dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }
 

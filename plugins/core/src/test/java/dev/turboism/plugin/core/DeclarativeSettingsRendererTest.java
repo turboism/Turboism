@@ -13,6 +13,9 @@ import org.junit.jupiter.api.Test;
 
 import javax.swing.JDialog;
 import javax.swing.JPanel;
+import javax.swing.JTabbedPane;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.lang.reflect.Method;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +24,8 @@ import java.util.Map;
 import java.util.OptionalInt;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class DeclarativeSettingsRendererTest {
 
@@ -33,8 +38,9 @@ class DeclarativeSettingsRendererTest {
                 tab("performance", "Performance", contribution(
                     "later", "performance", "Performance", OptionalInt.of(200), OptionalInt.empty()
                 )),
-                tab("custom", "Custom", contribution(
-                    "custom", "custom", "Custom", OptionalInt.of(150), OptionalInt.empty()
+                tab("custom", "A very long localized settings title", contribution(
+                    "custom", "custom", "A very long localized settings title",
+                    OptionalInt.of(150), OptionalInt.empty()
                 ))
             ),
             plugins(),
@@ -55,12 +61,29 @@ class DeclarativeSettingsRendererTest {
 
         assertEquals(5, rendered.tabs().getTabCount());
         assertEquals(
-            List.of("Runtime", "Custom", "Performance", "Startup", "Maintenance"),
+            List.of(
+                "Runtime",
+                "A very long localized settings title",
+                "Performance",
+                "Startup",
+                "Maintenance"
+            ),
             java.util.stream.IntStream.range(0, rendered.tabs().getTabCount())
                 .mapToObj(rendered.tabs()::getTitleAt)
                 .toList()
         );
-        assertEquals(2, ((JPanel) rendered.tabs().getComponentAt(1)).getComponentCount());
+        assertEquals(JTabbedPane.SCROLL_TAB_LAYOUT, rendered.tabs().getTabLayoutPolicy());
+        for (int index = 0; index < rendered.tabs().getTabCount(); index++) {
+            assertNull(rendered.tabs().getTabComponentAt(index));
+        }
+        final JPanel custom = (JPanel) rendered.tabs().getComponentAt(1);
+        assertEquals(3, custom.getComponentCount());
+        final GridBagLayout layout = (GridBagLayout) custom.getLayout();
+        final GridBagConstraints filler = layout.getConstraints(
+            custom.getComponent(custom.getComponentCount() - 1)
+        );
+        assertTrue(filler.weighty > 0);
+        assertEquals(GridBagConstraints.NORTHWEST, filler.anchor);
     }
 
     private static SettingsSnapshot.Tab tab(

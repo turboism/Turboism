@@ -11,6 +11,7 @@ import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigRegistrationError;
 import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigSchemaEditor;
 import dev.turboism.sdk.config.ConfigSchemaValidationError;
 import dev.turboism.sdk.config.ConfigSchemaValidationException;
 import dev.turboism.sdk.config.ConfigValue;
@@ -25,6 +26,7 @@ import dev.turboism.sdk.storage.StoragePath;
 import dev.turboism.sdk.storage.StorageRoot;
 import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.ui.settings.SettingsContributionStore;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -55,6 +57,7 @@ public final class RuntimeTypedPluginConfigRegistry
     private final TypedConfigIoExecutor io;
     private final CleanupEvidenceCollector cleanupEvidence;
     private final TypedConfigFailureReporter failureReporter;
+    private final ConfigSchemaSettingsPublisher settingsPublisher;
     private final Object lifecycleLock = new Object();
     private final Map<String, RegisteredSchema> schemas = new HashMap<>();
     private final Map<String, String> paths = new HashMap<>();
@@ -111,6 +114,24 @@ public final class RuntimeTypedPluginConfigRegistry
         final CleanupEvidenceCollector cleanupEvidence,
         final RuntimeFailureSink failureSink
     ) {
+        this(
+            legacy, pluginId, configRoot, permissions, tasks, scope, cleanupEvidence, failureSink,
+            null, null
+        );
+    }
+
+    public RuntimeTypedPluginConfigRegistry(
+        final PluginConfigRegistry legacy,
+        final String pluginId,
+        final Path configRoot,
+        final Set<String> permissions,
+        final RuntimePluginTaskScheduler tasks,
+        final DisposableScope scope,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final RuntimeFailureSink failureSink,
+        final String pluginName,
+        final SettingsContributionStore settingsContributions
+    ) {
         this.legacy = Objects.requireNonNull(legacy, "legacy");
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissions = Set.copyOf(Objects.requireNonNull(permissions, "permissions"));
@@ -124,6 +145,17 @@ public final class RuntimeTypedPluginConfigRegistry
             throw new IllegalStateException("Typed config storage is unavailable.");
         }
         this.io = new TypedConfigIoExecutor(this.pluginId, tasks);
+        if ((pluginName == null) != (settingsContributions == null)) {
+            io.close();
+            throw new IllegalArgumentException(
+                "pluginName and settingsContributions must be supplied together"
+            );
+        }
+        this.settingsPublisher = pluginName == null
+            ? null
+            : new ConfigSchemaSettingsPublisher(
+                this, this.pluginId, pluginName, settingsContributions
+            );
         try {
             Objects.requireNonNull(scope, "scope").register(this);
         } catch (RuntimeException exception) {
@@ -164,13 +196,37 @@ public final class RuntimeTypedPluginConfigRegistry
         final ConfigSchema schema,
         final List<ConfigMigration> migrations
     ) {
-        final RegisteredSchema candidate;
+        return register(validated(schema, migrations));
+    }
+
+    @Override
+    public CompletionStage<Void> registerUserEditableSchema(
+        final ConfigSchema schema,
+        final List<ConfigMigration> migrations,
+        final ConfigSchemaEditor editor
+    ) {
+        final RegisteredSchema candidate = validated(schema, migrations);
+        if (settingsPublisher == null) {
+            return register(candidate);
+        }
+        final ConfigSchemaSettingsPublisher.PreparedEditor prepared =
+            settingsPublisher.prepare(candidate, editor);
+        return register(candidate).thenRun(() -> settingsPublisher.publish(prepared));
+    }
+
+    private RegisteredSchema validated(
+        final ConfigSchema schema,
+        final List<ConfigMigration> migrations
+    ) {
         try {
-            candidate = validate(schema, migrations);
+            return validate(schema, migrations);
         } catch (ConfigSchemaValidationException failure) {
             failureReporter.schemaValidationFailed(failure);
             throw failure;
         }
+    }
+
+    private CompletionStage<Void> register(final RegisteredSchema candidate) {
         synchronized (lifecycleLock) {
             if (schemas.containsKey(candidate.schema.configId())) {
                 final ConfigSchemaValidationException failure = validation(
@@ -309,6 +365,7 @@ public final class RuntimeTypedPluginConfigRegistry
             }
             active = false;
         }
+        if (settingsPublisher != null) settingsPublisher.close();
         io.close();
         synchronized (lifecycleLock) {
             final int removed = schemas.size();
