@@ -71,6 +71,7 @@ final class CoreWindows implements AutoCloseable {
     static final String ABOUT_LOGO_TEXT = "Turboism";
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_SUPPORT = "https://ifdian.net/a/raintrap341";
+    static final String ABOUT_THANKS = "https://thanks.turboism.dev";
     private static final Object ABOUT_LOGO_LOCK = new Object();
     private static volatile Path aboutLogoPng;
     private PluginTableModel pluginTableModel;
@@ -868,7 +869,6 @@ final class CoreWindows implements AutoCloseable {
             + ".bouquet{margin-top:8px;font-size:13px;color:#7c3aed;text-align:center;}"
             + ".links{margin-top:14px;font-size:12px;text-align:center;}"
             + ".links a{color:#155dfc;text-decoration:none;}"
-            + ".thanks{margin-top:14px;font-size:12px;color:#9ca3af;text-align:center;line-height:1.7;}"
             + "</style></head><body>"
             + "<table width=\"360\" height=\"220\" cellpadding=\"0\" cellspacing=\"0\">"
             + "<tr><td align=\"center\" valign=\"middle\">"
@@ -878,14 +878,19 @@ final class CoreWindows implements AutoCloseable {
             + "<div class=\"links\"><a href=\"" + ABOUT_HOMEPAGE + "\">"
             + escapeHtml(i18n.text("about.homepage")) + "</a> &nbsp;·&nbsp; "
             + "<a href=\"" + ABOUT_SUPPORT + "\">"
-            + escapeHtml(i18n.text("about.support")) + "</a></div>"
-            + "<div class=\"thanks\">" + i18n.text("about.thanks") + "</div>"
+            + escapeHtml(i18n.text("about.support")) + "</a> &nbsp;·&nbsp; "
+            + "<a href=\"" + ABOUT_THANKS + "\">"
+            + escapeHtml(i18n.text("about.thanks")) + "</a></div>"
             + "</td></tr></table>"
             + "</body></html>";
     }
 
     private void openAboutLink(final String value) {
-        if (!ABOUT_HOMEPAGE.equals(value) && !ABOUT_SUPPORT.equals(value)) return;
+        if (!ABOUT_HOMEPAGE.equals(value)
+            && !ABOUT_SUPPORT.equals(value)
+            && !ABOUT_THANKS.equals(value)) {
+            return;
+        }
         if (!openHttpLink(value)) {
             CoreDialogs.message(
                 aboutDialog,
