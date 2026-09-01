@@ -300,6 +300,10 @@ final class McpTools {
         } catch (ToolInputException failure) {
             return toolFailure("INVALID_ARGUMENT", failure.getMessage(), failure, false);
         } catch (ModelObjectOperationException failure) {
+            if (failure.code() == ModelObjectOperationException.Code.COMMITTED
+                && CREATE.equals(toolName)) {
+                return committedCreate(failure);
+            }
             return toolFailure(failure.code().name(), safeMessage(failure), failure, false);
         } catch (ReadServiceException failure) {
             return toolFailure("FAILED", failure.getMessage(), failure, false);
@@ -663,6 +667,28 @@ final class McpTools {
             entry("policy", policy == ModelObjectDeletePolicy.CASCADE
                 ? "cascade" : "reject_referenced")
         );
+    }
+
+    private Map<String, Object> committedCreate(
+        final ModelObjectOperationException failure
+    ) {
+        final ModelObjectReference reference = failure.committedReference().orElseThrow(() ->
+            new IllegalStateException("COMMITTED create failure omitted its stable reference")
+        );
+        final String diagnosticId = java.util.UUID.randomUUID().toString();
+        logger.warn(
+            "MCP model-object create committed with readback warning: "
+                + diagnosticId + ": " + safeMessage(failure)
+        );
+        return toolResult(linked(
+            entry("ok", true),
+            entry("outcome", "APPLIED_WITH_READBACK_WARNING"),
+            entry("retryable", false),
+            entry("createdObjectId", reference.id()),
+            entry("kind", wire(reference.kind())),
+            entry("readbackWarning", safeMessage(failure)),
+            entry("diagnosticId", diagnosticId)
+        ), false);
     }
 
     private Map<String, Object> toolFailure(

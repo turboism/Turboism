@@ -128,6 +128,21 @@ final class McpOutputSchemas {
             object(
                 properties(
                     entry("ok", constant(true)),
+                    entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                    entry("retryable", constant(false)),
+                    entry("createdObjectId", stringSchema()),
+                    entry("kind", modelObjectKind()),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of(
+                    "ok", "outcome", "retryable", "createdObjectId", "kind",
+                    "readbackWarning", "diagnosticId"
+                )
+            ),
+            object(
+                properties(
+                    entry("ok", constant(true)),
                     entry("outcome", writeSuccessOutcome()),
                     entry("retryable", constant(false)),
                     entry("deleted", constant(true)),
