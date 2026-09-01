@@ -200,6 +200,10 @@ LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs 
 LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
 LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
 
+LangString ManagedFxSection ${LANG_ENGLISH} "Bundled fx runtime (optional)"
+LangString ManagedFxSection ${LANG_SIMPCHINESE} "捆绑的 fx 运行时（可选）"
+LangString ManagedFxSection ${LANG_JAPANESE} "同梱 fx ランタイム（任意）"
+
 LangString ManagedGraalLabel ${LANG_ENGLISH} "Download and install Turboism-managed GraalVM (optional; about 326 MiB)"
 LangString ManagedGraalLabel ${LANG_SIMPCHINESE} "下载并安装 Turboism 托管的 GraalVM（可选；约 326 MiB）"
 LangString ManagedGraalLabel ${LANG_JAPANESE} "Turboism 管理の GraalVM をダウンロードしてインストール（任意、約 326 MiB）"
@@ -229,9 +233,9 @@ LangString GraalProgressHint ${LANG_ENGLISH} "When downloading, a separate progr
 LangString GraalProgressHint ${LANG_SIMPCHINESE} "下载时将显示独立进度窗口，包括已下载/总字节数、传输速度和“取消”按钮。"
 LangString GraalProgressHint ${LANG_JAPANESE} "ダウンロード中は別の進捗画面に、ダウンロード済み/合計バイト数、転送速度、キャンセルボタンが表示されます。"
 
-LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Detect Cubism installations"
-LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "扫描 Cubism 安装"
-LangString CubismDiscoveryTitle ${LANG_JAPANESE} "Cubism インストールを検出"
+LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Cubism installations"
+LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"
+LangString CubismDiscoveryTitle ${LANG_JAPANESE} "Cubism インストール"
 LangString CubismDiscoverySubtitle ${LANG_ENGLISH} "Exact application JARs determine whether each installation is supported."
 LangString CubismDiscoverySubtitle ${LANG_SIMPCHINESE} "安装器将通过应用程序 JAR 的精确身份判断每个安装是否受支持。"
 LangString CubismDiscoverySubtitle ${LANG_JAPANESE} "各インストールの対応可否はアプリケーション JAR の正確な同一性で判定します。"
@@ -303,6 +307,9 @@ LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めませ�
 LangString PluginRetireError ${LANG_ENGLISH} "Cannot retire an obsolete Turboism plugin JAR. Close Cubism and retry the upgrade."
 LangString PluginRetireError ${LANG_SIMPCHINESE} "无法移除旧版 Turboism 插件 JAR。请关闭 Cubism 后重试升级。"
 LangString PluginRetireError ${LANG_JAPANESE} "旧版 Turboism プラグイン JAR を削除できません。Cubism を終了してアップグレードを再試行してください。"
+LangString JarPayloadInstallError ${LANG_ENGLISH} "Cannot install the Turboism JAR payload. Close Cubism and retry the installation."
+LangString JarPayloadInstallError ${LANG_SIMPCHINESE} "无法安装 Turboism JAR 载荷。请关闭 Cubism 后重试安装。"
+LangString JarPayloadInstallError ${LANG_JAPANESE} "Turboism JAR ペイロードをインストールできません。Cubism を終了してインストールを再試行してください。"
 LangString ShortcutCleanupFailure ${LANG_ENGLISH} "Turboism shortcut restoration/cleanup failed. Nothing else was removed; retry uninstall after resolving the conflict."
 LangString ShortcutCleanupFailure ${LANG_SIMPCHINESE} "Turboism 快捷方式恢复/清理失败。未删除其他内容；解决冲突后请重试卸载。"
 LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカットの復元/クリーンアップに失敗しました。他の項目は削除していません。競合を解決してからアンインストールを再試行してください。"
@@ -675,6 +682,7 @@ CubismDiscoveryReadLoop:
     ${EndIf}
     StrCpy $3 "$line" "" 8
     SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
+    SendMessage $CubismDiscoveryList ${LB_SETHORIZONTALEXTENT} 8192 0
     Goto CubismDiscoveryReadLoop
   ${EndIf}
   StrCpy $CubismDiscoveryMalformed 1
@@ -714,6 +722,7 @@ Function CubismDiscoveryCreate
   Pop $CubismDiscoveryStatus
   ${NSD_CreateListBox} 0 34u 100% 112u ""
   Pop $CubismDiscoveryList
+  ${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}
   ${NSD_OnBack} CubismDiscoveryBack
 
   GetDlgItem $CubismDiscoveryNext $HWNDPARENT 1
@@ -830,9 +839,16 @@ Section "-核心文件" SecCore
     Abort
   ${EndIf}
   SetOutPath "$INSTDIR"
-  File "${STAGING_DIR}/turboism-agent.jar"
-  SetOutPath "$INSTDIR\graal\lib"
+  File "${STAGING_DIR}/install-jar-payload.ps1"
+  SetOutPath "$PLUGINSDIR\Turboism-core-jars"
+  File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
+  SetOutPath "$PLUGINSDIR\Turboism-core-jars\graal\lib"
   File "${STAGING_DIR}/graal/lib/*.jar"
+  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-core-jars" -DestinationRoot "$INSTDIR"' $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"
+    Abort
+  ${EndIf}
   SetOutPath "$INSTDIR"
   File "${STAGING_DIR}/launch-cubism-turboism.bat"
   File "${STAGING_DIR}/launch-cubism-turboism.ps1"
@@ -861,15 +877,13 @@ Section "-托管 GraalVM" SecManagedGraal
   ${EndIf}
 SectionEnd
 
-Section "-托管 fx 运行时" SecManagedFx
-  ${If} $Mode == 1
-    SetOutPath "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
-    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/fx.exe"
-    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/LICENSE"
-    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/THIRD_PARTY_NOTICES.md"
-    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/TURBOISM-DISTRIBUTION-NOTICE.txt"
-    File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/manifest.properties"
-  ${EndIf}
+Section /o "$(ManagedFxSection)" SecManagedFx
+  SetOutPath "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
+  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/fx.exe"
+  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/LICENSE"
+  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/THIRD_PARTY_NOTICES.md"
+  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/TURBOISM-DISTRIBUTION-NOTICE.txt"
+  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/manifest.properties"
 SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
@@ -1223,6 +1237,7 @@ Section "Uninstall"
   Delete "$INSTDIR\launch-cubism-turboism.ps1"
   Delete "$INSTDIR\cubism-launch-common.ps1"
   Delete "$INSTDIR\configure_turboism.ps1"
+  Delete "$INSTDIR\install-jar-payload.ps1"
   Delete "$INSTDIR\install-managed-graal.ps1"
   Delete "$INSTDIR\turboism.ico"
   Delete "$INSTDIR\turboism.png"

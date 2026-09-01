@@ -166,6 +166,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
     "packaging/windows-installer/cubism-launch-common.ps1",
+    "packaging/windows-installer/install-jar-payload.ps1",
     "packaging/windows-installer/install-managed-graal.ps1",
     "packaging/windows-installer/assets/turboism.ico",
     "packaging/windows-installer/assets/turboism.png",
@@ -589,6 +590,7 @@ val stageInstallerPayload by tasks.registering {
             from("packaging/windows-installer/launch-cubism-turboism.ps1")
             from("packaging/windows-installer/configure_turboism.ps1")
             from("packaging/windows-installer/cubism-launch-common.ps1")
+            from("packaging/windows-installer/install-jar-payload.ps1")
             from("packaging/windows-installer/install-managed-graal.ps1")
             from("packaging/windows-installer/assets/turboism.ico")
             from("packaging/windows-installer/assets/turboism.png")
