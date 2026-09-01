@@ -404,6 +404,82 @@ final class McpParameterDomainTest {
     }
 
     @Test
+    void applySchemasUseStrictOperationUnionsWithRuntimeRequiredFields() {
+        final McpParameterDomain domain = domain(new FakeModel());
+        final Map<String, Object> parameterSchema = inputSchema(
+            domain,
+            McpParameterDomain.PARAMETERS_APPLY
+        );
+        final List<Object> parameterAlternatives = operationAlternatives(parameterSchema);
+        assertEquals(8, parameterAlternatives.size());
+        assertStrictAlternatives(parameterAlternatives);
+        final Map<String, Object> copy = alternative(parameterAlternatives, "copy");
+        assertEquals(List.of("operation", "parameterId"), copy.get("required"));
+        assertEquals(
+            java.util.Set.of("operation", "parameterId"),
+            object(copy.get("properties")).keySet()
+        );
+
+        final Map<String, Object> bindingSchema = inputSchema(
+            domain,
+            McpParameterDomain.BINDINGS_APPLY
+        );
+        final List<Object> bindingAlternatives = operationAlternatives(bindingSchema);
+        assertEquals(9, bindingAlternatives.size());
+        assertStrictAlternatives(bindingAlternatives);
+        final Map<String, Object> bind = alternative(bindingAlternatives, "bind");
+        assertEquals(
+            List.of("operation", "parameterId", "target", "points"),
+            bind.get("required")
+        );
+        final Map<String, Object> points = object(object(bind.get("properties")).get("points"));
+        assertEquals(1, points.get("minItems"));
+        final Map<String, Object> point = object(points.get("items"));
+        assertEquals(List.of("value"), point.get("required"));
+        assertEquals(Boolean.TRUE, object(object(point.get("properties")).get("id")).get("deprecated"));
+        for (String operation : List.of(
+            "transfer", "transfer_clamped", "transfer_morph_clamped"
+        )) {
+            final Map<String, Object> transfer = alternative(bindingAlternatives, operation);
+            assertEquals(
+                1,
+                object(object(transfer.get("properties")).get("targets")).get("minItems")
+            );
+        }
+    }
+
+    @Test
+    void bindAcceptsValueOnlyPointsAndReturnsCanonicalIdsThroughToolCatalog() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain domain = domain(model);
+
+        final Map<String, Object> envelope = domain.toolCatalog().call(
+            McpParameterDomain.BINDINGS_APPLY,
+            Map.of("operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", Map.of("type", "art_mesh", "id", "ArtMesh1"),
+                "points", List.of(Map.of("value", 2))
+            )))
+        );
+
+        assertEquals(Boolean.FALSE, envelope.get("isError"));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        final Map<String, Object> result = object(
+            object(list(output.get("results")).get(0)).get("result")
+        );
+        assertEquals("APPLIED", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+        assertEquals(List.of("canonical-bind"), result.get("canonicalPointIds"));
+        final Map<String, Object> binding = object(result.get("binding"));
+        assertEquals(
+            "canonical-bind",
+            object(list(binding.get("points")).get(0)).get("id")
+        );
+    }
+
+    @Test
     void bindingOperationsRereadActualStateRejectBlendCrudAndStopOnError() {
         final FakeModel model = new FakeModel();
         model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
@@ -445,6 +521,49 @@ final class McpParameterDomainTest {
         assertEquals(Boolean.FALSE, error.get("retryable"));
         assertEquals(null, error.get("canonicalPointIds"));
         assertEquals(message, error.get("message"));
+    }
+
+    private static Map<String, Object> inputSchema(
+        final McpParameterDomain domain,
+        final String toolName
+    ) {
+        return object(domain.tools().stream()
+            .filter(value -> toolName.equals(value.get("name")))
+            .findFirst()
+            .orElseThrow()
+            .get("inputSchema"));
+    }
+
+    private static List<Object> operationAlternatives(final Map<String, Object> applySchema) {
+        final Map<String, Object> operations = object(
+            object(applySchema.get("properties")).get("operations")
+        );
+        assertEquals(1, operations.get("minItems"));
+        return list(object(operations.get("items")).get("oneOf"));
+    }
+
+    private static void assertStrictAlternatives(final List<Object> alternatives) {
+        for (Object value : alternatives) {
+            final Map<String, Object> alternative = object(value);
+            assertEquals(Boolean.FALSE, alternative.get("additionalProperties"));
+            final Map<String, Object> operation = object(
+                object(alternative.get("properties")).get("operation")
+            );
+            assertEquals(1, list(operation.get("enum")).size());
+            assertTrue(list(alternative.get("required")).contains("operation"));
+        }
+    }
+
+    private static Map<String, Object> alternative(
+        final List<Object> alternatives,
+        final String operation
+    ) {
+        return alternatives.stream()
+            .map(McpParameterDomainTest::object)
+            .filter(value -> list(object(object(value.get("properties")).get("operation"))
+                .get("enum")).contains(operation))
+            .findFirst()
+            .orElseThrow();
     }
 
     private static McpParameterDomain domain(final FakeModel model) {
@@ -552,7 +671,21 @@ final class McpParameterDomainTest {
             return new ParameterBindingOperations() {
                 @Override public void bind(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
                     bindCalls++;
-                    parameter.bindings.put(target, new ParameterBinding(target, parameterId, ParameterBindingFamily.KEYFORM_GRID, points));
+                    final List<ParameterBindingPoint> canonical = new ArrayList<>();
+                    for (int index = 0; index < points.size(); index++) {
+                        canonical.add(new ParameterBindingPoint(
+                            new ParameterBindingPointId(
+                                index == 0 ? "canonical-bind" : "canonical-bind-" + index
+                            ),
+                            points.get(index).value()
+                        ));
+                    }
+                    parameter.bindings.put(target, new ParameterBinding(
+                        target,
+                        parameterId,
+                        ParameterBindingFamily.KEYFORM_GRID,
+                        canonical
+                    ));
                 }
                 @Override public void createPoint(final ParameterBindingTarget target, final ParameterBindingPoint point) {
                     final ParameterBinding existing = parameter.bindings.get(target);

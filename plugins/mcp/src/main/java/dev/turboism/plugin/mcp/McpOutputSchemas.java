@@ -201,14 +201,30 @@ final class McpOutputSchemas {
     }
 
     private static Map<String, Object> bindingOperationResult() {
-        return operationResult(oneOf(
-            bindingResult(),
-            bindingResults(),
-            object(
-                properties(entry("source", bindingResults()), entry("target", bindingResults())),
-                List.of("source", "target")
-            )
-        ));
+        return operationResult(bindingWriteSuccess());
+    }
+
+    private static Map<String, Object> bindingWriteSuccess() {
+        return object(
+            properties(
+                entry("outcome", enumSchema(List.of(
+                    "APPLIED", "APPLIED_WITH_READBACK_WARNING"
+                ))),
+                entry("retryable", constant(false)),
+                entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("parameterId", stringSchema()),
+                entry("sourceParameterId", stringSchema()),
+                entry("targetParameterId", stringSchema()),
+                entry("target", oneOf(bindingTarget(), bindingResults())),
+                entry("targets", array(bindingTarget())),
+                entry("binding", nullableObject(binding())),
+                entry("bindings", array(bindingResult())),
+                entry("source", bindingResults()),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of("outcome", "retryable", "canonicalPointIds")
+        );
     }
 
     private static Map<String, Object> operationResult(final Map<String, Object> successResult) {
@@ -372,7 +388,13 @@ final class McpOutputSchemas {
             properties(
                 entry("code", stringSchema()),
                 entry("message", stringSchema()),
-                entry("details", stringSchema())
+                entry("details", stringSchema()),
+                entry("outcome", enumSchema(List.of(
+                    "NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"
+                ))),
+                entry("retryable", constant(false)),
+                entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("diagnosticId", stringSchema())
             ),
             List.of("code", "message")
         );
@@ -382,6 +404,10 @@ final class McpOutputSchemas {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>(object);
         result.put("type", List.of("object", "null"));
         return result;
+    }
+
+    private static Map<String, Object> nullableArray(final Map<String, Object> items) {
+        return linked(entry("type", List.of("array", "null")), entry("items", items));
     }
 
     private static Map<String, Object> oneOf(final Map<String, Object>... alternatives) {
