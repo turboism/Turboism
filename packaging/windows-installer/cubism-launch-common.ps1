@@ -1742,6 +1742,7 @@ function New-CubismManagedOptionsBat {
         throw "managed Cubism launch input is invalid"
     }
     $managedOptions = @(
+        "-Duser.dir=$root",
         "-Dturboism.home=$canonicalHome",
         "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120"
     )

@@ -195,7 +195,7 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                     }
                     try {
                         cleaner.clean();
-                        System.err.println("Turboism startup empty-dock cleanup completed");
+                        System.out.println("Turboism startup empty-dock cleanup completed");
                         return;
                     } catch (RuntimeException | Error failure) {
                         System.err.println(
