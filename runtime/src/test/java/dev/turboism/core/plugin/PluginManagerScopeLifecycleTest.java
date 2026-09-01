@@ -3,6 +3,7 @@ package dev.turboism.core.plugin;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
+import dev.turboism.core.runtime.PluginTask;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.sdk.plugin.DisposableScope;
@@ -14,13 +15,20 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static dev.turboism.core.plugin.PluginManagerTestFixtures.PLUGIN_ID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PluginManagerScopeLifecycleTest {
@@ -67,6 +75,175 @@ class PluginManagerScopeLifecycleTest {
         // Then
         assertTrue(scopeClosed.get());
         scheduler.shutdown();
+    }
+
+    @Test
+    void delayedDispatchLeavesPluginEnabledAndScopeOpenUntilLifecycleTaskRuns() throws Exception {
+        // Given
+        RuntimeScheduler scheduler = scheduler(5_000L, 4);
+        PluginManager manager = new PluginManager(scheduler);
+        CountDownLatch blockerStarted = new CountDownLatch(1);
+        CountDownLatch releaseBlocker = new CountDownLatch(1);
+        assertTrue(scheduler.dispatch(
+            new PluginTask("event.subscribe", PLUGIN_ID, "delay lifecycle lane", "none"),
+            () -> {
+                blockerStarted.countDown();
+                await(releaseBlocker);
+            }
+        ));
+        assertTrue(blockerStarted.await(1, TimeUnit.SECONDS));
+        DisposableScope scope = new DisposableScope();
+        AtomicBoolean scopeClosed = registerCloseProbe(scope);
+        AtomicInteger disableCount = new AtomicInteger();
+        PluginRuntime runtime = runtime(new CountOnlyDisablePlugin(disableCount));
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
+        manager.registerDescriptor(runtime);
+
+        try {
+            // When
+            CompletionStage<PluginLifecycleState> completion = manager.disable(PLUGIN_ID);
+
+            // Then
+            assertFalse(completion.toCompletableFuture().isDone());
+            assertEquals(PluginLifecycleState.ENABLED, runtime.state());
+            assertEquals(0, disableCount.get());
+            assertFalse(scopeClosed.get());
+
+            releaseBlocker.countDown();
+            assertEquals(
+                PluginLifecycleState.DISABLED,
+                completion.toCompletableFuture().get(1, TimeUnit.SECONDS)
+            );
+            assertEquals(1, disableCount.get());
+            assertTrue(scopeClosed.get());
+        } finally {
+            releaseBlocker.countDown();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void dispatchRejectionFailsCompletionWithoutRunningTeardownOrChangingState() throws Exception {
+        // Given
+        RuntimeScheduler scheduler = scheduler();
+        PluginManager manager = new PluginManager(scheduler);
+        DisposableScope scope = new DisposableScope();
+        AtomicBoolean scopeClosed = registerCloseProbe(scope);
+        AtomicInteger disableCount = new AtomicInteger();
+        PluginRuntime runtime = runtime(new CountOnlyDisablePlugin(disableCount));
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
+        manager.registerDescriptor(runtime);
+        scheduler.shutdown();
+
+        // When
+        CompletionStage<PluginLifecycleState> completion = manager.disable(PLUGIN_ID);
+        ExecutionException failure = assertThrows(
+            ExecutionException.class,
+            () -> completion.toCompletableFuture().get(1, TimeUnit.SECONDS)
+        );
+
+        // Then
+        IllegalStateException rejection = assertInstanceOf(
+            IllegalStateException.class,
+            failure.getCause()
+        );
+        assertEquals("Plugin lifecycle disable dispatch was rejected", rejection.getMessage());
+        assertEquals(PluginLifecycleState.ENABLED, runtime.state());
+        assertEquals(0, disableCount.get());
+        assertFalse(scopeClosed.get());
+        assertEquals("DISABLE_FAILED", manager.report().problems().get(0).code());
+    }
+
+    @Test
+    void disableOrdersReverseEntrypointsScopeStateAndCompletionOnLifecycleThread() throws Exception {
+        // Given
+        RuntimeScheduler scheduler = scheduler(5_000L, 4);
+        PluginManager manager = new PluginManager(scheduler);
+        List<String> events = new CopyOnWriteArrayList<>();
+        List<String> threads = new CopyOnWriteArrayList<>();
+        CountDownLatch secondStarted = new CountDownLatch(1);
+        CountDownLatch releaseSecond = new CountDownLatch(1);
+        TurboismPlugin first = recordingDisablePlugin("first", events, threads);
+        TurboismPlugin second = new TurboismPlugin() {
+            @Override
+            public void disable() {
+                events.add("disable:second");
+                threads.add(Thread.currentThread().getName());
+                secondStarted.countDown();
+                await(releaseSecond);
+            }
+        };
+        PluginRuntime runtime = runtime(List.of(first, second));
+        DisposableScope scope = new DisposableScope();
+        scope.register(() -> {
+            events.add("scope:" + runtime.state());
+            threads.add(Thread.currentThread().getName());
+        });
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
+        manager.registerDescriptor(runtime);
+
+        try {
+            // When
+            CompletionStage<PluginLifecycleState> completion = manager.disable(PLUGIN_ID);
+            assertTrue(secondStarted.await(1, TimeUnit.SECONDS));
+            CompletionStage<PluginLifecycleState> observed = completion.thenApply(state -> {
+                events.add("completion:" + runtime.state());
+                threads.add(Thread.currentThread().getName());
+                return state;
+            });
+            releaseSecond.countDown();
+
+            // Then
+            assertEquals(
+                PluginLifecycleState.DISABLED,
+                observed.toCompletableFuture().get(1, TimeUnit.SECONDS)
+            );
+            assertEquals(List.of(
+                "disable:second",
+                "disable:first",
+                "scope:ENABLED",
+                "completion:DISABLED"
+            ), events);
+            assertEquals(1, threads.stream().distinct().count());
+        } finally {
+            releaseSecond.countDown();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void concurrentDisableCallsShareOneLifecycleCompletion() throws Exception {
+        // Given
+        RuntimeScheduler scheduler = scheduler(5_000L, 4);
+        PluginManager manager = new PluginManager(scheduler);
+        CountDownLatch disableStarted = new CountDownLatch(1);
+        CountDownLatch releaseDisable = new CountDownLatch(1);
+        PluginRuntime runtime = runtime(new TurboismPlugin() {
+            @Override
+            public void disable() {
+                disableStarted.countDown();
+                await(releaseDisable);
+            }
+        });
+        manager.registerDescriptor(runtime);
+
+        try {
+            // When
+            CompletionStage<PluginLifecycleState> first = manager.disable(PLUGIN_ID);
+            assertTrue(disableStarted.await(1, TimeUnit.SECONDS));
+            CompletionStage<PluginLifecycleState> second = manager.disable(PLUGIN_ID);
+
+            // Then
+            assertSame(first, second);
+            releaseDisable.countDown();
+            assertEquals(
+                PluginLifecycleState.DISABLED,
+                first.toCompletableFuture().get(1, TimeUnit.SECONDS)
+            );
+        } finally {
+            releaseDisable.countDown();
+            scheduler.shutdown();
+        }
     }
 
     @Test
@@ -146,19 +323,25 @@ class PluginManagerScopeLifecycleTest {
     }
 
     @Test
-    void disableFailureEmitsDiagnosticProblem() throws Exception {
+    void disableFailureEmitsDiagnosticProblemAndCompletesAfterScopeClosure() throws Exception {
         // Given
         RuntimeScheduler scheduler = scheduler();
         PluginManager manager = new PluginManager(scheduler);
+        DisposableScope scope = new DisposableScope();
+        AtomicBoolean scopeClosed = registerCloseProbe(scope);
         PluginRuntime runtime = runtime(new FailingDisablePlugin());
-        runtime.setContext(PluginManagerTestFixtures.context(new DisposableScope()));
+        runtime.setContext(PluginManagerTestFixtures.context(scope));
         manager.registerDescriptor(runtime);
 
         // When
-        manager.disable(PLUGIN_ID);
-        awaitState(runtime, PluginLifecycleState.DISABLE_FAILED);
+        PluginLifecycleState result = manager.disable(PLUGIN_ID)
+            .toCompletableFuture()
+            .get(1, TimeUnit.SECONDS);
 
         // Then
+        assertEquals(PluginLifecycleState.DISABLE_FAILED, result);
+        assertEquals(PluginLifecycleState.DISABLE_FAILED, runtime.state());
+        assertTrue(scopeClosed.get());
         assertEquals("DISABLE_FAILED", manager.report().problems().get(0).code());
         scheduler.shutdown();
     }
@@ -182,18 +365,26 @@ class PluginManagerScopeLifecycleTest {
     }
 
     private static RuntimeScheduler scheduler() {
+        return scheduler(500L, 4);
+    }
+
+    private static RuntimeScheduler scheduler(long timeoutMillis, int queueCapacity) {
         List<PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         return new RuntimeScheduler(
             new DefaultWorkBudgetPolicy(),
-            new PluginWorkExecutorRegistry(1, 4, events::add, CLOCK),
+            new PluginWorkExecutorRegistry(timeoutMillis, 1, queueCapacity, events::add, CLOCK),
             new PluginManagerTestFixtures.ImmediateSidecarDispatcher(),
             events::add
         );
     }
 
     private static PluginRuntime runtime(TurboismPlugin plugin) {
+        return runtime(List.of(plugin));
+    }
+
+    private static PluginRuntime runtime(List<TurboismPlugin> plugins) {
         PluginRuntime runtime = new PluginRuntime(PLUGIN_ID, PluginManagerTestFixtures.descriptor());
-        runtime.setEntrypoints(List.of(plugin));
+        runtime.setEntrypoints(plugins);
         runtime.transitionTo(PluginLifecycleState.ENABLED);
         return runtime;
     }
@@ -202,6 +393,29 @@ class PluginManagerScopeLifecycleTest {
         AtomicBoolean scopeClosed = new AtomicBoolean(false);
         scope.register(() -> scopeClosed.set(true));
         return scopeClosed;
+    }
+
+    private static TurboismPlugin recordingDisablePlugin(
+        String name,
+        List<String> events,
+        List<String> threads
+    ) {
+        return new TurboismPlugin() {
+            @Override
+            public void disable() {
+                events.add("disable:" + name);
+                threads.add(Thread.currentThread().getName());
+            }
+        };
+    }
+
+    private static void await(CountDownLatch latch) {
+        try {
+            assertTrue(latch.await(1, TimeUnit.SECONDS));
+        } catch (InterruptedException exception) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(exception);
+        }
     }
 
     private static PluginLogger recordingLogger(List<String> messages) {
