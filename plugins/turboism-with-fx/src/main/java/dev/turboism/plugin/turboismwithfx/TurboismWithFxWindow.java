@@ -137,8 +137,10 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     private boolean applyingOptions;
     private boolean applyingSessions;
     private boolean connected;
+    private boolean connecting;
     private boolean durableSessionsAvailable;
     private boolean prompting;
+    private String submittedPrompt;
     private String lastLifecycleMessage = "";
     private int transcriptChars;
     private Runnable onConnect = () -> { };
@@ -231,6 +233,13 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         return providerConfiguration;
     }
 
+    boolean claimAutoConnect() {
+        if (connected || connecting) return false;
+        connecting = true;
+        connect.setEnabled(false);
+        return true;
+    }
+
     void showAgentAndFront() {
         showAndFront(agentFrame, prompt);
     }
@@ -249,6 +258,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     public void showConnecting(final boolean compatibilityMode) {
         if (!acceptingEvents.get()) return;
         connected = false;
+        connecting = true;
         prompting = false;
         showLifecycleStatus("status.connecting", StatusTone.WORKING);
         connect.setText(localization.text("button.connecting"));
@@ -265,6 +275,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     ) {
         if (!acceptingEvents.get()) return;
         connected = true;
+        connecting = false;
         durableSessionsAvailable = durableSessions;
         prompting = false;
         showConfigOptions(options);
@@ -355,6 +366,10 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     public void showPrompting() {
         if (!acceptingEvents.get()) return;
         prompting = true;
+        if (submittedPrompt != null && prompt.getText().strip().equals(submittedPrompt)) {
+            prompt.setText("");
+        }
+        submittedPrompt = null;
         setStatus("status.prompting", statusColor(StatusTone.WORKING));
         setConversationControls(true, true);
     }
@@ -373,6 +388,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     public void showFailure(final String localizationKey) {
         if (!acceptingEvents.get()) return;
         connected = false;
+        connecting = false;
         durableSessionsAvailable = false;
         prompting = false;
         showLifecycleStatus(localizationKey, StatusTone.ERROR);
@@ -391,6 +407,15 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         setStatus(localizationKey, statusColor(StatusTone.ERROR));
         connect.setEnabled(true);
         setConversationControls(connected, false);
+    }
+
+    @Override
+    public void showProviderModelWarning() {
+        if (!acceptingEvents.get()) return;
+        submittedPrompt = null;
+        showSessionFailure("status.provider-model-required");
+        appendSystem(localization.text("transcript.provider-model-required"));
+        prompt.requestFocusInWindow();
     }
 
     @Override
@@ -579,6 +604,23 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         refreshProviderModels.setText(localization.text("button.refresh-provider-models"));
         addProviderModel.setText(localization.text("button.add-provider-model"));
         providerProfileList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        providerProfileList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override public Component getListCellRendererComponent(
+                final JList<?> list,
+                final Object value,
+                final int index,
+                final boolean isSelected,
+                final boolean cellHasFocus
+            ) {
+                super.getListCellRendererComponent(
+                    list, value, index, isSelected, cellHasFocus
+                );
+                if (value instanceof FxProviderProfile profile) {
+                    setText(profileDisplayName(profile));
+                }
+                return this;
+            }
+        });
         profileModelList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         refreshProviderProfileLists();
         repairRuntime.setText(localization.text("button.repair-runtime"));
@@ -928,8 +970,14 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
             selected.id().equals(providerConfiguration.activeProfileId())
                 ? "status.provider-profile-active"
                 : "status.provider-profile-selected",
-            selected.name()
+            profileDisplayName(selected)
         ));
+    }
+
+    private String profileDisplayName(final FxProviderProfile profile) {
+        return FxProviderProfile.UNCONFIGURED_ID.equals(profile.id())
+            ? localization.text("label.provider-not-selected")
+            : profile.name();
     }
 
     private List<String> activeFxModels(final FxProviderProfile profile) {
@@ -1029,6 +1077,9 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         final FxProviderProfile replacement,
         final String sessionApiKey
     ) {
+        final boolean active = replacement.id().equals(
+            providerConfiguration.activeProfileId()
+        );
         final ArrayList<FxProviderProfile> custom = new ArrayList<>(
             providerConfiguration.customProfiles()
         );
@@ -1041,7 +1092,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         ).withSessionApiKey(replacement.id(), sessionApiKey);
         refreshProviderProfileLists();
         providerProfileList.setSelectedValue(replacement, true);
-        onSaveSettings.run();
+        if (active) onConnect.run(); else onSaveSettings.run();
     }
 
     private void removeProviderProfile() {
@@ -1055,6 +1106,9 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
             JOptionPane.WARNING_MESSAGE
         );
         if (result != JOptionPane.OK_OPTION) return;
+        final boolean active = selected.id().equals(
+            providerConfiguration.activeProfileId()
+        );
         final ArrayList<FxProviderProfile> custom = new ArrayList<>(
             providerConfiguration.customProfiles()
         );
@@ -1066,7 +1120,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         );
         discoveredProviderModels.remove(selected.id());
         refreshProviderProfileLists();
-        onSaveSettings.run();
+        if (active) onConnect.run(); else onSaveSettings.run();
     }
 
     private void useProviderProfile() {
@@ -1078,7 +1132,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
             providerConfiguration.sessionApiKeys()
         );
         refreshProviderProfileLists();
-        onSaveSettings.run();
+        onConnect.run();
     }
 
     private void authenticateProviderProfile() {
@@ -1348,7 +1402,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         if (!connected || prompting) return;
         final String text = prompt.getText().strip();
         if (text.isEmpty()) return;
-        prompt.setText("");
+        submittedPrompt = text;
         onPrompt.accept(text);
     }
 

@@ -33,11 +33,7 @@ final class FxProcessTransport implements FxAcpTransport {
         descendantSampler.start();
     }
 
-    /**
-     * Starts {@code fx acp} directly without a shell. Stock fx is refused unless the caller has
-     * explicitly selected compatibility mode because its native tools cannot currently be disabled
-     * through a supported CLI or ACP option.
-     */
+    /** Starts {@code fx acp} directly without a shell using the validated launch mode. */
     static FxProcessTransport start(final FxLaunchConfiguration configuration) throws IOException {
         final FxLaunchConfiguration launch = Objects.requireNonNull(configuration, "configuration");
         if (!launch.permitsStockFx()) {
@@ -97,14 +93,19 @@ final class FxProcessTransport implements FxAcpTransport {
                 "fx validation bridge properties are unavailable"
             );
         }
-        return List.of(
+        final java.util.ArrayList<String> command = new java.util.ArrayList<>(List.of(
             launch.executable(),
             "-Dturboism.fx.validation.bridgeConfig=" + configuration,
             "-cp",
             classPath,
             "acp",
             "acp"
-        );
+        ));
+        if (!launch.startupModel().isEmpty()) {
+            command.add("--model");
+            command.add(launch.startupModel());
+        }
+        return List.copyOf(command);
     }
 
     private static boolean validationJavaBridge(

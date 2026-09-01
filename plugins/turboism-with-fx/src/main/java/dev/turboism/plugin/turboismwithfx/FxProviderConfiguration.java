@@ -15,9 +15,9 @@ record FxProviderConfiguration(
     FxProviderConfiguration {
         activeProfileId = Objects.requireNonNullElse(
             activeProfileId,
-            FxProviderProfile.VERCEL_ID
+            FxProviderProfile.UNCONFIGURED_ID
         ).strip();
-        if (activeProfileId.isEmpty()) activeProfileId = FxProviderProfile.VERCEL_ID;
+        if (activeProfileId.isEmpty()) activeProfileId = FxProviderProfile.UNCONFIGURED_ID;
         customProfiles = List.copyOf(Objects.requireNonNull(customProfiles, "customProfiles"));
         final LinkedHashMap<String, FxProviderProfile> unique = new LinkedHashMap<>();
         for (FxProviderProfile profile : customProfiles) {
@@ -41,11 +41,11 @@ record FxProviderConfiguration(
                 break;
             }
         }
-        if (!activeExists) activeProfileId = FxProviderProfile.VERCEL_ID;
+        if (!activeExists) activeProfileId = FxProviderProfile.UNCONFIGURED_ID;
     }
 
     FxProviderConfiguration() {
-        this(FxProviderProfile.VERCEL_ID, List.of(), Map.of());
+        this(FxProviderProfile.UNCONFIGURED_ID, List.of(), Map.of());
     }
 
     List<FxProviderProfile> profiles() {

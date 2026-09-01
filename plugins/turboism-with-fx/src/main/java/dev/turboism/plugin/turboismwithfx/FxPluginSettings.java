@@ -226,7 +226,7 @@ final class FxPluginSettings implements AutoCloseable {
             final List<FxProviderProfile> profiles =
                 FxProviderProfileCodec.decode(read(CUSTOM_PROVIDER_PROFILES, ""));
             return new FxProviderConfiguration(
-                read(ACTIVE_PROVIDER_PROFILE, FxProviderProfile.VERCEL_ID),
+                read(ACTIVE_PROVIDER_PROFILE, FxProviderProfile.UNCONFIGURED_ID),
                 profiles,
                 readSecrets(profiles)
             );

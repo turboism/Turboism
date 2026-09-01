@@ -8,6 +8,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -15,6 +16,34 @@ final class FxProcessTransportTest {
 
     @TempDir
     Path temporaryDirectory;
+
+    @Test
+    void startupModelIsAnOptionalDirectArgument() {
+        assertEquals(
+            java.util.List.of("C:\\Program Files\\fx.exe", "acp"),
+            new FxLaunchConfiguration(
+                "C:\\Program Files\\fx.exe",
+                temporaryDirectory,
+                FxSecurityMode.FX_NATIVE_TOOLS
+            ).command()
+        );
+        assertEquals(
+            java.util.List.of(
+                "C:\\Program Files\\fx.exe",
+                "acp",
+                "--model",
+                "vendor/model with space"
+            ),
+            new FxLaunchConfiguration(
+                "C:\\Program Files\\fx.exe",
+                temporaryDirectory,
+                FxSecurityMode.FX_NATIVE_TOOLS,
+                null,
+                java.util.Map.of(),
+                "vendor/model with space"
+            ).command()
+        );
+    }
 
     @Test
     void managedRuntimeIsReverifiedImmediatelyBeforeLaunch() throws Exception {

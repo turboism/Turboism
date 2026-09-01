@@ -61,6 +61,7 @@ label.provider
 label.provider-endpoint
 label.provider-entry-detail
 label.provider-name
+label.provider-not-selected
 label.provider-secret-detail
 label.provider-unavailable
 label.saved-providers
@@ -112,6 +113,7 @@ status.process-terminated
 status.prompt-complete
 status.prompt-failed
 status.prompting
+status.provider-model-required
 status.provider-models-failed
 status.provider-models-refreshed
 status.provider-models-refreshing
@@ -133,6 +135,7 @@ toolbar.fx.label
 toolbar.fx.tooltip
 transcript.agent
 transcript.compatibility-warning
+transcript.provider-model-required
 transcript.system
 transcript.thinking
 transcript.thinking-hidden

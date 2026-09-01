@@ -33,6 +33,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Made Clip Mask Viewer show a localized loading state immediately and move detached relationship indexing, counts, analysis, and graph projection off the Cubism host thread, with cancellation and stale-result guards.
 - Documented that fx v0.0.5 has no Claude subscription login and that a Claude Pro/Max or Claude Code subscription is not an Anthropic API credential, so no such provider profile is offered; the custom adapter implements OpenAI Chat Completions only.
 - Documented that fx's Gateway reasoning level is deliberately not forwarded to OpenAI-compatible endpoints instead of being translated into a guessed `reasoning_effort`.
+- Made fx Agent windows connect automatically without requiring a provider, model, or compatibility selection; missing provider/model setup is now reported only when the user sends a prompt.
+- Made custom-provider default models optional and made **Use** reconnect the selected profile immediately.
 
 ### Fixed
 
@@ -45,6 +47,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Removed the unsupported reflective outside-canvas repaint attempt; theme changes now use the reliable restart-required behavior confirmed on Cubism Editor 5.2.03 and 5.3.02.
 - Fixed the fx Settings window requiring an established connection before the fx shell could be opened, which made provider and model setup unreachable on a fresh installation.
 - Fixed the custom-endpoint adapter rejecting the reasoning field fx sends on every request, ignoring the `ai-language-model-id` request header, and requiring an API key for unauthenticated self-hosted endpoints.
+- Fixed custom profiles inheriting an unrelated Codex or Grok selection from the user's normal fx home by launching adapted connections with a plugin-owned Gateway-only fx home and an optional direct `--model` argument.
+- Fixed prompt text being cleared before Turboism could report that no usable provider or model was selected.
 - Fixed managed Windows launches reparsing path-bearing Turboism JVM options as standalone `cmd.exe` commands; options are now inserted as quoted arguments in an ephemeral Cubism BAT while inherited Java option variables and stale Turboism integration blocks are excluded from the child process.
 
 ## [0.43.2] - 2026-08-29

@@ -15,6 +15,7 @@ record FxProviderProfile(
     String defaultModel,
     List<String> manualModels
 ) {
+    static final String UNCONFIGURED_ID = "unconfigured";
     static final String VERCEL_ID = "fx-native-vercel";
     static final String CODEX_ID = "fx-native-codex";
     static final String GROK_ID = "fx-native-grok";
@@ -28,7 +29,12 @@ record FxProviderProfile(
         apiKeyEnvironment = Objects.requireNonNullElse(apiKeyEnvironment, "").strip();
         defaultModel = Objects.requireNonNullElse(defaultModel, "").strip();
         manualModels = normalizedModels(manualModels);
-        if (kind == Kind.FX_NATIVE) {
+        if (kind == Kind.NONE) {
+            if (!nativeProvider.isEmpty() || !endpoint.isEmpty() || !apiKeyEnvironment.isEmpty()
+                || !defaultModel.isEmpty() || !manualModels.isEmpty()) {
+                throw new IllegalArgumentException("unconfigured provider profile is invalid");
+            }
+        } else if (kind == Kind.FX_NATIVE) {
             if (nativeProvider.isEmpty() || !endpoint.isEmpty() || !apiKeyEnvironment.isEmpty()) {
                 throw new IllegalArgumentException("fx-native provider profile is invalid");
             }
@@ -48,6 +54,16 @@ record FxProviderProfile(
 
     static List<FxProviderProfile> builtIns() {
         return List.of(
+            new FxProviderProfile(
+                UNCONFIGURED_ID,
+                "No provider selected",
+                Kind.NONE,
+                "",
+                "",
+                "",
+                "",
+                List.of()
+            ),
             new FxProviderProfile(
                 VERCEL_ID,
                 "Vercel AI Gateway",
@@ -82,7 +98,8 @@ record FxProviderProfile(
     }
 
     boolean builtIn() {
-        return VERCEL_ID.equals(id) || CODEX_ID.equals(id) || GROK_ID.equals(id);
+        return UNCONFIGURED_ID.equals(id) || VERCEL_ID.equals(id)
+            || CODEX_ID.equals(id) || GROK_ID.equals(id);
     }
 
     FxCustomEndpointSettings customEndpoint(final String sessionApiKey) {
@@ -107,6 +124,7 @@ record FxProviderProfile(
     }
 
     enum Kind {
+        NONE,
         FX_NATIVE,
         OPENAI_COMPATIBLE
     }

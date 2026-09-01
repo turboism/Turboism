@@ -38,6 +38,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
     private final FxCustomEndpointSettings settings;
     private final URI baseEndpoint;
     private final URI endpoint;
+    private final List<String> configuredModels;
+    private volatile java.util.Set<String> availableModels;
     private final AtomicBoolean closed = new AtomicBoolean();
 
     private FxOpenAiAdapter(
@@ -46,7 +48,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
         final HttpClient client,
         final FxCustomEndpointSettings settings,
         final URI baseEndpoint,
-        final URI endpoint
+        final URI endpoint,
+        final List<String> configuredModels
     ) {
         this.server = server;
         this.executor = executor;
@@ -54,10 +57,22 @@ final class FxOpenAiAdapter implements AutoCloseable {
         this.settings = settings;
         this.baseEndpoint = baseEndpoint;
         this.endpoint = endpoint;
+        this.configuredModels = List.copyOf(configuredModels);
+        this.availableModels = java.util.Set.copyOf(configuredModels);
     }
 
     static FxOpenAiAdapter start(final FxCustomEndpointSettings settings) throws IOException {
+        return start(settings, List.of());
+    }
+
+    static FxOpenAiAdapter start(
+        final FxCustomEndpointSettings settings,
+        final List<String> configuredModels
+    ) throws IOException {
         final FxCustomEndpointSettings checked = Objects.requireNonNull(settings, "settings");
+        final List<String> models = List.copyOf(Objects.requireNonNull(
+            configuredModels, "configuredModels"
+        ));
         if (!checked.enabled()) throw new IllegalArgumentException("custom endpoint is disabled");
         final URI base = normalizedBase(checked.endpoint());
         final HttpServer server = HttpServer.create(new InetSocketAddress(
@@ -81,7 +96,8 @@ final class FxOpenAiAdapter implements AutoCloseable {
                 .build(),
             checked,
             base,
-            local
+            local,
+            models
         );
         server.createContext("/v3/ai/language-model", adapter::generate);
         server.createContext("/coding-agent/v1/models", adapter::models);
@@ -133,6 +149,10 @@ final class FxOpenAiAdapter implements AutoCloseable {
             "FX_GATEWAY_CHAT_URL", endpoint + "/v3/ai/language-model",
             "FX_GATEWAY_BASE_URL", endpoint.toString()
         );
+    }
+
+    boolean hasModel(final String model) {
+        return model != null && availableModels.contains(model);
     }
 
     private void generate(final HttpExchange exchange) throws IOException {
@@ -223,9 +243,18 @@ final class FxOpenAiAdapter implements AutoCloseable {
             } catch (IOException | IllegalArgumentException | IllegalStateException ignored) {
                 // The configured model remains the authoritative fallback.
             }
-            if (data.stream().noneMatch(value -> settings.model().equals(object(value).get("id")))) {
+            for (String model : configuredModels) {
+                if (data.stream().noneMatch(value -> model.equals(object(value).get("id")))) {
+                    data.add(gatewayModel(model));
+                }
+            }
+            if (!settings.model().isBlank()
+                && data.stream().noneMatch(value -> settings.model().equals(object(value).get("id")))) {
                 data.add(gatewayModel(settings.model()));
             }
+            final java.util.LinkedHashSet<String> published = new java.util.LinkedHashSet<>();
+            data.forEach(value -> published.add((String) object(value).get("id")));
+            availableModels = java.util.Set.copyOf(published);
             sendJson(exchange, 200, Map.of("object", "list", "data", data));
         }
     }
@@ -445,7 +474,12 @@ final class FxOpenAiAdapter implements AutoCloseable {
     }
 
     private String selectedModel(final String requestedModel) {
-        if (requestedModel == null || requestedModel.isBlank()) return settings.model();
+        if (requestedModel == null || requestedModel.isBlank()) {
+            if (settings.model().isBlank()) {
+                throw new IllegalArgumentException("Select a model before sending a prompt");
+            }
+            return settings.model();
+        }
         final String model = requestedModel.strip();
         if (model.length() > 512 || model.chars().anyMatch(Character::isISOControl)) {
             throw new IllegalArgumentException("Requested model id is invalid");
