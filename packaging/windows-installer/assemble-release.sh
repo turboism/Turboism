@@ -141,12 +141,18 @@ lines.append("; 勾选状态（disabledPlugins 元数据）；Lite 模式由 Mod
 lines.append("")
 
 # 隐藏载荷 Section：Full 模式安装全部插件 JAR；Lite 模式不写任何 JAR（$Mode 守卫）。
+# JAR 先提取到私有临时目录，再由单个 PowerShell 进程按 SHA-256 跳过相同文件。
 # 隐藏 Section 不出现在组件页，用户无法取消选中；勾选只控制 disabledPlugins。
 lines.append('Section "-插件载荷" SecPluginPayload')
 lines.append("  ${If} $Mode == 1")
-lines.append('    SetOutPath "$INSTDIR\\plugins"')
+lines.append('    SetOutPath "$PLUGINSDIR\\Turboism-plugin-jars"')
 for p in plugins:
     lines.append(f'    File "/oname={p["module"]}.jar" "${{STAGING_DIR}}/plugins/{p["module"]}.jar"')
+lines.append("    ExecWait '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-jars\" -DestinationRoot \"$INSTDIR\\plugins\"' $0")
+lines.append("    ${If} $0 != 0")
+lines.append('      MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"')
+lines.append("      Abort")
+lines.append("    ${EndIf}")
 lines.append("  ${EndIf}")
 lines.append("SectionEnd")
 lines.append("")

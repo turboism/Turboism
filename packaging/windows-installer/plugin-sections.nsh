@@ -4,7 +4,7 @@
 
 Section "-插件载荷" SecPluginPayload
   ${If} $Mode == 1
-    SetOutPath "$INSTDIR\plugins"
+    SetOutPath "$PLUGINSDIR\Turboism-plugin-jars"
     File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
     File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
@@ -22,6 +22,11 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
     File "/oname=turboism-with-fx.jar" "${STAGING_DIR}/plugins/turboism-with-fx.jar"
     File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-jars" -DestinationRoot "$INSTDIR\plugins"' $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"
+      Abort
+    ${EndIf}
   ${EndIf}
 SectionEnd
 

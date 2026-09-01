@@ -404,7 +404,11 @@ def check_configurator_flow_contract():
     check("CF1j discovery page has English, Simplified Chinese, and Japanese text",
           all(text.count("LangString %s " % key) == 3 for key in discovery_keys)
           and all(('LangString CubismDiscoveryTitle ${LANG_%s}' % language) in text
-                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
+                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+          and 'LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"' in text)
+    check("CF1j2 scaled discovery list exposes complete paths horizontally",
+          "${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}" in discovery_create
+          and "${LB_SETHORIZONTALEXTENT} 8192" in poll)
     check("CF1k exact artifact probes and the entire pre-install worker are time-bounded",
           "$script:CubismArtifactProbeTimeoutMilliseconds = 20000" in common
           and "WaitForExit($script:CubismArtifactProbeTimeoutMilliseconds)" in common
@@ -488,7 +492,7 @@ def check_configurator_flow_contract():
 
 
 def check_managed_fx_contract():
-    """Full installs the exact Windows fx payload; Lite and uninstall leave none behind."""
+    """The exact Windows fx payload is visible but unselected by default."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     fx = FX_RUNTIME_DIR / "fx.exe"
     import hashlib
@@ -497,12 +501,15 @@ def check_managed_fx_contract():
     check("FX1 exact Windows executable hash is pinned",
           hashlib.sha256(fx.read_bytes()).hexdigest()
           == "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2")
-    section_start = text.index('Section "-托管 fx 运行时"')
+    section_start = text.index('Section /o "$(ManagedFxSection)"')
     section_end = text.index("SectionEnd", section_start)
     section = text[section_start:section_end]
-    check("FX2 NSIS installs managed fx only in Full mode",
-          "${If} $Mode == 1" in section
+    check("FX2 managed fx is optional and unselected by default",
+          "${If} $Mode == 1" not in section
           and '$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64' in section)
+    check("FX2b managed fx has localized component labels",
+          all(f"LangString ManagedFxSection ${{{language}}}" in text
+              for language in ("LANG_ENGLISH", "LANG_SIMPCHINESE", "LANG_JAPANESE")))
     expected = (
         "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
         "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"
@@ -517,6 +524,34 @@ def check_managed_fx_contract():
           all(('Delete "$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64\\'
                + name + '"') in uninstall for name in expected)
           and 'RMDir /r "$INSTDIR\\runtimes"' not in uninstall)
+
+
+def check_jar_payload_contract():
+    """Installer-managed JARs are copied only when SHA-256 differs."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    helper = (INSTALLER_NSI.parent / "install-jar-payload.ps1").read_text(encoding="utf-8")
+    generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
+    gradle = (INSTALLER_NSI.parents[1] / "java-installer" / "installer.gradle.kts").read_text(
+        encoding="utf-8"
+    )
+    check("JAR1 helper compares SHA-256 before writing",
+          "Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256" in helper
+          and "Get-FileHash -LiteralPath $destinationFile -Algorithm SHA256" in helper
+          and "if ($unchanged)" in helper
+          and 'Write-Output "SKIP|$relative"' in helper)
+    check("JAR2 core JARs install through the checksum helper",
+          '$PLUGINSDIR\\Turboism-core-jars' in text
+          and '-File "$INSTDIR\\install-jar-payload.ps1"' in text
+          and '-DestinationRoot "$INSTDIR"' in text
+          and 'MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"' in text)
+    check("JAR3 plugin JAR generator uses one checksum helper process",
+          '$PLUGINSDIR\\\\Turboism-plugin-jars' in generator
+          and '-DestinationRoot \\"$INSTDIR\\\\plugins\\"' in generator
+          and "${If} $0 != 0" in generator)
+    check("JAR4 checksum helper is staged and uninstalled",
+          gradle.count('from("packaging/windows-installer/install-jar-payload.ps1")') == 1
+          and '"packaging/windows-installer/install-jar-payload.ps1"' in gradle
+          and 'Delete "$INSTDIR\\install-jar-payload.ps1"' in text)
 
 
 def check_icon_contract():
@@ -961,6 +996,7 @@ def main():
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
     check_managed_fx_contract()
+    check_jar_payload_contract()
     check_icon_contract()
     check_launcher_and_shortcut_contract()
     check_eula_contract()
