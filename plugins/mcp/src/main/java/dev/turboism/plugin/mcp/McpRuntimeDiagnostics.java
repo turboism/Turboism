@@ -96,22 +96,33 @@ final class McpRuntimeDiagnostics {
         } else {
             kind = "RUNTIME_EXCEPTION";
         }
-        append(kind, provider, failureMessage(failure));
+        append(
+            kind,
+            provider,
+            null,
+            null,
+            null,
+            kind,
+            failure.getClass().getSimpleName(),
+            failureMessage(failure)
+        );
     }
 
     private void recordStructuredOutcomes(final String provider, final Object structured) {
         final LinkedHashSet<String> kinds = new LinkedHashSet<>();
         collectKinds(structured, kinds, 0);
         for (String kind : kinds) {
-            append(kind, provider, switch (kind) {
-                case "OUTCOME_UNKNOWN" -> "Operation outcome could not be determined.";
-                case "APPLIED_WITH_READBACK_WARNING" ->
-                    "Operation applied, but post-write readback could not fully verify the result.";
-                case "ROLLBACK_FAILURE" -> "Operation reported a rollback failure.";
-                case "TIMEOUT" -> "Operation reported a timeout.";
-                case "RUNTIME_EXCEPTION" -> "Operation reported an unexpected runtime failure.";
-                default -> "Operation reported noteworthy runtime evidence.";
-            });
+            append(
+                kind,
+                provider,
+                findString(structured, "diagnosticId", 0),
+                findString(structured, "operation", 0),
+                kind.equals("OUTCOME_UNKNOWN") || kind.equals("APPLIED_WITH_READBACK_WARNING")
+                    ? kind : null,
+                findString(structured, "code", 0),
+                null,
+                structuredMessage(structured, kind)
+            );
         }
     }
 
@@ -145,11 +156,27 @@ final class McpRuntimeDiagnostics {
         }
     }
 
-    private void append(final String kind, final String provider, final String message) {
+    private void append(
+        final String kind,
+        final String provider,
+        final String diagnosticId,
+        final String operation,
+        final String outcome,
+        final String errorCode,
+        final String exceptionType,
+        final String message
+    ) {
         final Event event = new Event(
             clock.instant(),
+            diagnosticId == null
+                ? java.util.UUID.randomUUID().toString()
+                : optionalText(diagnosticId, 128),
             requireText(kind, "kind", 64),
             sanitizedProvider(provider),
+            optionalText(operation, 64),
+            optionalText(outcome, 64),
+            optionalText(errorCode, 64),
+            optionalText(exceptionType, 128),
             sanitized(message, "message", MAX_MESSAGE_CHARS)
         );
         synchronized (lock) {
@@ -159,6 +186,43 @@ final class McpRuntimeDiagnostics {
             }
             events.addLast(event);
         }
+    }
+
+    private static String structuredMessage(final Object structured, final String kind) {
+        final String message = findString(structured, "message", 0);
+        if (message != null) return message;
+        return switch (kind) {
+            case "OUTCOME_UNKNOWN" -> "Operation outcome could not be determined.";
+            case "APPLIED_WITH_READBACK_WARNING" ->
+                "Operation applied, but post-write readback could not fully verify the result.";
+            case "ROLLBACK_FAILURE" -> "Operation reported a rollback failure.";
+            case "TIMEOUT" -> "Operation reported a timeout.";
+            case "RUNTIME_EXCEPTION" -> "Operation reported an unexpected runtime failure.";
+            default -> "Operation reported noteworthy runtime evidence.";
+        };
+    }
+
+    private static String findString(final Object value, final String key, final int depth) {
+        if (value == null || depth > 32) return null;
+        if (value instanceof Map<?, ?> map) {
+            final Object direct = map.get(key);
+            if (direct instanceof String text && !text.isBlank()) return text;
+            for (Object nested : map.values()) {
+                final String found = findString(nested, key, depth + 1);
+                if (found != null) return found;
+            }
+        } else if (value instanceof Iterable<?> iterable) {
+            for (Object nested : iterable) {
+                final String found = findString(nested, key, depth + 1);
+                if (found != null) return found;
+            }
+        }
+        return null;
+    }
+
+    private static String optionalText(final String value, final int maximum) {
+        if (value == null || value.isBlank()) return null;
+        return sanitized(value, "optional diagnostic field", maximum);
     }
 
     private static boolean rollbackFailure(final Throwable failure) {
@@ -244,9 +308,20 @@ final class McpRuntimeDiagnostics {
         return value == Long.MAX_VALUE ? Long.MAX_VALUE : value + 1;
     }
 
-    record Event(Instant observedAt, String kind, String provider, String message) {
+    record Event(
+        Instant observedAt,
+        String diagnosticId,
+        String kind,
+        String provider,
+        String operation,
+        String outcome,
+        String errorCode,
+        String exceptionType,
+        String message
+    ) {
         Event {
             Objects.requireNonNull(observedAt, "observedAt");
+            diagnosticId = requireText(diagnosticId, "diagnosticId", 128);
             kind = requireText(kind, "kind", 64);
             provider = requireText(provider, "provider", 256);
             message = requireText(message, "message", MAX_MESSAGE_CHARS);
