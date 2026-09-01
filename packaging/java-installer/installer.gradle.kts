@@ -555,8 +555,8 @@ val stageInstallerPayload by tasks.registering {
             "$windowsFxRuntimePlatform.executableSha256"
         )
         if (fxDelivery != "product-payload" || fxVersion != "0.0.5"
-            || fxExecutableSize != 11_174_912L
-            || fxExecutableSha256 != "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541"
+            || fxExecutableSize != 11_144_192L
+            || fxExecutableSha256 != "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2"
             || !windowsFxRuntimeExecutable.isFile
             || Files.isSymbolicLink(windowsFxRuntimeExecutable.toPath())
             || windowsFxRuntimeExecutable.length() != fxExecutableSize
