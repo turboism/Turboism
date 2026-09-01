@@ -5,16 +5,22 @@ import dev.turboism.mapping.verification.selector.EditorParameterDefinitionWrite
 import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelectorContract;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Canvas;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawables;
 import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectKind;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterBindingBatchOperations;
 import dev.turboism.sdk.cubism.model.ParameterBindingOperations;
@@ -38,7 +44,7 @@ import java.util.Optional;
 
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
-    NativeLabelColorAuthoring {
+    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -169,6 +175,103 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final Binding binding = binding();
         return new EditorModel(
             binding.identity(), binding.modelId(), binding.source(), binding.model()
+        );
+    }
+
+    @Override
+    public void requireCreateSupported(final ModelObjectCreateRequest request) {
+        hierarchyEditAccess.requireCreateSupported(request);
+    }
+
+    @Override
+    public ModelObjectReference createModelObject(
+        final CubismModel activeModel,
+        final ModelObjectCreateRequest request
+    ) {
+        hierarchyEditAccess.requireCreateSupported(request);
+        if (!(activeModel instanceof EditorModel editorModel)) {
+            throw new IllegalStateException(
+                "Cubism model reference is stale for the active Editor model generation."
+            );
+        }
+        editorModel.current();
+        final CreateParent parent = createParent(editorModel, request.parent());
+        final EditorObjectHierarchyEditAccess.CreatedSource created;
+        if (request instanceof ModelObjectCreateRequest.Part part) {
+            created = hierarchyEditAccess.createPartSource(
+                editorModel.identity,
+                editorModel.source,
+                editorModel.model,
+                part.name(),
+                parent.source(),
+                -1
+            );
+        } else if (request instanceof ModelObjectCreateRequest.ArtMesh artMesh) {
+            created = hierarchyEditAccess.createArtMeshSource(
+                editorModel.identity,
+                editorModel.source,
+                editorModel.model,
+                artMesh.name(),
+                parent.source(),
+                parent.deformer(),
+                -1,
+                artMesh.geometry()
+            );
+        } else if (request instanceof ModelObjectCreateRequest.WarpDeformer warp) {
+            created = hierarchyEditAccess.createWarpSource(
+                editorModel.identity,
+                editorModel.source,
+                editorModel.model,
+                warp.name(),
+                parent.source(),
+                parent.deformer(),
+                -1,
+                warp.grid()
+            );
+        } else if (request instanceof ModelObjectCreateRequest.RotationDeformer rotation) {
+            created = hierarchyEditAccess.createRotationSource(
+                editorModel.identity,
+                editorModel.source,
+                editorModel.model,
+                rotation.name(),
+                parent.source(),
+                parent.deformer(),
+                -1,
+                rotation.form()
+            );
+        } else {
+            throw new IllegalArgumentException(
+                "Unsupported model-object create request: " + request.getClass().getName()
+            );
+        }
+        editorModel.current();
+        return new ModelObjectReference(request.kind(), created.id());
+    }
+
+    private CreateParent createParent(
+        final EditorModel model,
+        final Optional<ModelObjectReference> requestedParent
+    ) {
+        if (requestedParent.isEmpty()) return new CreateParent(null, false);
+        final ModelObjectReference parent = requestedParent.orElseThrow();
+        final Object view = switch (parent.kind()) {
+            case PART -> model.parts().find(new PartId(parent.id()));
+            case ART_MESH -> throw new IllegalArgumentException(
+                "an ArtMesh cannot be used as a parent"
+            );
+            case WARP_DEFORMER -> model.warpDeformers().find(new DeformerId(parent.id()));
+            case ROTATION_DEFORMER -> model.rotationDeformers().find(
+                new DeformerId(parent.id())
+            );
+        };
+        if (!(view instanceof EditorNativeObjectRef nativeRef)) {
+            throw new IllegalStateException(
+                "The create parent is not bound to the active Editor model generation."
+            );
+        }
+        return new CreateParent(
+            nativeRef.nativeSource(),
+            parent.kind() != ModelObjectKind.PART
         );
     }
 
@@ -1131,4 +1234,5 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         Object model
     ) { }
     private record ParameterBinding(String id, Object parameter) { }
+    private record CreateParent(Object source, boolean deformer) { }
 }
