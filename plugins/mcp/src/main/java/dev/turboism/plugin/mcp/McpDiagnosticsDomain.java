@@ -234,9 +234,17 @@ final class McpDiagnosticsDomain {
 
     private static Map<String, Object> runtimeEvent(final McpRuntimeDiagnostics.Event value) {
         return linked(
+            entry("timestamp", value.observedAt().toString()),
             entry("observedAt", value.observedAt().toString()),
+            entry("diagnosticId", value.diagnosticId()),
+            entry("correlationId", value.diagnosticId()),
             entry("kind", value.kind()),
             entry("provider", value.provider()),
+            entry("tool", value.provider()),
+            entry("operation", value.operation()),
+            entry("outcome", value.outcome()),
+            entry("errorCode", value.errorCode()),
+            entry("exceptionType", value.exceptionType()),
             entry("message", value.message())
         );
     }
