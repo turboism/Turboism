@@ -272,6 +272,7 @@ final class McpOutputSchemas {
                 entry("targetParameterId", stringSchema()),
                 entry("target", oneOf(bindingTarget(), bindingResults())),
                 entry("targets", array(bindingTarget())),
+                entry("bound", booleanSchema()),
                 entry("binding", nullableObject(binding())),
                 entry("bindings", array(bindingResult())),
                 entry("source", bindingResults()),
@@ -333,9 +334,10 @@ final class McpOutputSchemas {
             properties(
                 entry("parameterId", stringSchema()),
                 entry("target", bindingTarget()),
+                entry("bound", booleanSchema()),
                 entry("binding", nullableObject(binding()))
             ),
-            List.of("parameterId", "target", "binding")
+            List.of("parameterId", "target", "bound", "binding")
         );
     }
 
