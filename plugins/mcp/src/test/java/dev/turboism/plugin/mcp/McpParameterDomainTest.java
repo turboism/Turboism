@@ -404,6 +404,28 @@ final class McpParameterDomainTest {
     }
 
     @Test
+    void parameterCopyReturnsGeneratedIdAndRetrySafeOutcomeThroughToolCatalog() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final Map<String, Object> envelope = domain(model).toolCatalog().call(
+            McpParameterDomain.PARAMETERS_APPLY,
+            Map.of("operations", List.of(Map.of(
+                "operation", "copy",
+                "parameterId", "ParamA"
+            )))
+        );
+
+        assertEquals(Boolean.FALSE, envelope.get("isError"));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        final Map<String, Object> result = object(
+            object(list(output.get("results")).get(0)).get("result")
+        );
+        assertEquals("ParamACopy", result.get("id"));
+        assertEquals("APPLIED", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+    }
+
+    @Test
     void applySchemasUseStrictOperationUnionsWithRuntimeRequiredFields() {
         final McpParameterDomain domain = domain(new FakeModel());
         final Map<String, Object> parameterSchema = inputSchema(
