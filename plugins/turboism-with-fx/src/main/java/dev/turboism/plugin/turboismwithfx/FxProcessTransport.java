@@ -146,6 +146,10 @@ final class FxProcessTransport implements FxAcpTransport {
         return process.isAlive();
     }
 
+    boolean retains(final long pid) {
+        return retained.containsKey(pid);
+    }
+
     /**
      * Performs bounded best-effort cleanup of descendants sampled throughout the direct process
      * lifetime. Retained handles let cleanup continue after the parent exits, but this is not
@@ -188,7 +192,7 @@ final class FxProcessTransport implements FxAcpTransport {
             .toList();
         survivors.forEach(ProcessHandle::destroyForcibly);
         if (process.isAlive()) process.destroyForcibly();
-        awaitExit(survivors, Math.max(100L, Math.min(1000L, millis)));
+        awaitExit(survivors, Math.max(1000L, Math.min(3000L, millis + 2250L)));
         try {
             process.waitFor(Math.max(100L, Math.min(1000L, millis)), TimeUnit.MILLISECONDS);
         } catch (InterruptedException failure) {
