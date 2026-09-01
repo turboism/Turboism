@@ -25,6 +25,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -42,7 +43,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     private final RuntimeConfigRepository config;
     private final PendingPluginOperations pending;
     private final ExecutorService installExecutor;
-    private final AtomicBoolean installPending = new AtomicBoolean();
+    private final AtomicReference<InstallRequest> currentInstall = new AtomicReference<>();
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final LocalizationDiagnosticSink metadataDiagnostics;
 
@@ -99,6 +100,16 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         this(home, Optional::empty, packageChooser, runtimePlugins, () -> Locale.getDefault(Locale.Category.DISPLAY));
     }
 
+    RuntimePluginManagementService(
+        final Path home,
+        final PackageChooser packageChooser,
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final ExecutorService installExecutor
+    ) {
+        this(home, Optional::empty, packageChooser, runtimePlugins,
+            () -> Locale.getDefault(Locale.Category.DISPLAY), ignored -> { }, installExecutor);
+    }
+
     private RuntimePluginManagementService(
         final Path home,
         final Supplier<Optional<Path>> synchronousPackageChooser,
@@ -117,6 +128,19 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final MetadataLocaleProvider metadataLocale,
         final Consumer<String> diagnostics
     ) {
+        this(home, synchronousPackageChooser, packageChooser, runtimePlugins, metadataLocale, diagnostics,
+            Executors.newSingleThreadExecutor(new InstallThreadFactory()));
+    }
+
+    private RuntimePluginManagementService(
+        final Path home,
+        final Supplier<Optional<Path>> synchronousPackageChooser,
+        final PackageChooser packageChooser,
+        final Supplier<List<PluginInfo>> runtimePlugins,
+        final MetadataLocaleProvider metadataLocale,
+        final Consumer<String> diagnostics,
+        final ExecutorService installExecutor
+    ) {
         final Path normalized = home.toAbsolutePath().normalize();
         pluginsDirectory = normalized.resolve("plugins");
         this.synchronousPackageChooser = java.util.Objects.requireNonNull(
@@ -129,7 +153,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         this.metadataDiagnostics = value -> diagnostic.accept(value.code() + ": " + value.message());
         config = new RuntimeConfigRepository(normalized, ignored -> { });
         pending = new PendingPluginOperations(normalized);
-        installExecutor = Executors.newSingleThreadExecutor(new InstallThreadFactory());
+        this.installExecutor = java.util.Objects.requireNonNull(installExecutor, "installExecutor");
     }
 
     @Override
@@ -140,7 +164,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         final PluginInfo loadedCore = catalog.get(CORE_PLUGIN_ID);
         catalog.put(CORE_PLUGIN_ID, loadedCore == null ? corePlugin() : withCoreFlag(loadedCore));
         final Set<String> disabled = config.disabledPlugins();
-        for (PendingPluginOperations.Operation operation : pending.operations()) {
+        List<PendingPluginOperations.Operation> operations;
+        try {
+            operations = pending.operations();
+        } catch (RuntimeException invalidJournal) {
+            operations = List.of();
+        }
+        for (PendingPluginOperations.Operation operation : operations) {
             final PluginInfo existing = catalog.get(operation.pluginId());
             final String pendingLabel = operation.type().equals("INSTALL") ? "INSTALL" : "UNINSTALL";
             if (existing != null) catalog.put(existing.id(), withDesired(existing, disabled, pendingLabel));
@@ -175,61 +205,65 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
 
     @Override
     public synchronized OperationResult install() {
+        if (pending.recoveryRequired()) return pendingRecoveryRequired();
         return stage(synchronousPackageChooser.get());
     }
 
     @Override
     public void requestInstall(final Consumer<OperationResult> completion) {
         final Consumer<OperationResult> requested = java.util.Objects.requireNonNull(completion, "completion");
-        if (!active.get() || !installPending.compareAndSet(false, true)) {
+        if (!active.get()) {
+            requested.accept(cancelledInstall());
+            return;
+        }
+        if (pending.recoveryRequired()) {
+            requested.accept(pendingRecoveryRequired());
+            return;
+        }
+        final InstallRequest request = new InstallRequest(requested);
+        if (!currentInstall.compareAndSet(null, request)) {
             requested.accept(OperationResult.rejected(
                 "PLUGIN_INSTALL_BUSY", "Another plugin installation is already in progress."
             ));
             return;
         }
-        final AtomicBoolean settled = new AtomicBoolean();
-        final Consumer<OperationResult> terminal = result -> {
-            if (settled.compareAndSet(false, true)) requested.accept(result);
-        };
+        if (!active.get()) {
+            request.settle(cancelledInstall());
+            return;
+        }
         try {
-            packageChooser.choose(selection -> selected(selection, terminal));
+            packageChooser.choose(selection -> selected(selection, request));
         } catch (RuntimeException failure) {
-            installPending.set(false);
-            terminal.accept(cancelledInstall());
+            request.settle(cancelledInstall());
         }
     }
 
-    private void selected(
-        final Optional<Path> selection,
-        final Consumer<OperationResult> completion
-    ) {
+    private void selected(final Optional<Path> selection, final InstallRequest request) {
         if (!active.get()) {
-            installPending.set(false);
-            completion.accept(cancelledInstall());
+            request.settle(cancelledInstall());
             return;
         }
         final Optional<Path> selected = selection == null ? Optional.empty() : selection;
         if (selected.isEmpty()) {
-            installPending.set(false);
-            completion.accept(cancelledInstall());
+            request.settle(cancelledInstall());
             return;
         }
         try {
             installExecutor.execute(() -> {
+                if (!active.get()) {
+                    request.settle(cancelledInstall());
+                    return;
+                }
                 OperationResult result;
                 try {
                     result = stage(selected);
                 } catch (RuntimeException failure) {
-                    result = OperationResult.rejected(
-                        "PLUGIN_INSTALL_FAILED", "Plugin package was rejected safely."
-                    );
-                } finally {
-                    installPending.set(false);
+                    result = failedInstall();
                 }
-                if (active.get()) completion.accept(result);
+                request.settle(result);
             });
         } catch (RejectedExecutionException closed) {
-            installPending.set(false);
+            request.settle(active.get() ? failedInstall() : cancelledInstall());
         }
     }
 
@@ -240,8 +274,13 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
             );
         }
         final PendingPluginOperations.StagedInstall result = pending.stage(selected.orElseThrow());
-        return result.accepted()
-            ? OperationResult.accepted(result.code(), "Plugin installation is pending; restart Cubism to apply it.")
+        if (result.accepted()) {
+            return OperationResult.accepted(
+                result.code(), "Plugin installation is pending; restart Cubism to apply it."
+            );
+        }
+        return result.code().equals("PLUGIN_PENDING_RECOVERY_REQUIRED")
+            ? pendingRecoveryRequired()
             : OperationResult.rejected(result.code(), "Plugin package was rejected safely.");
     }
 
@@ -251,17 +290,37 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         );
     }
 
+    private static OperationResult failedInstall() {
+        return OperationResult.rejected(
+            "PLUGIN_INSTALL_FAILED", "Plugin package was rejected safely."
+        );
+    }
+
+    private static OperationResult pendingRecoveryRequired() {
+        return OperationResult.rejected(
+            "PLUGIN_PENDING_RECOVERY_REQUIRED",
+            "Plugin changes are blocked until the pending operations journal is recovered."
+        );
+    }
+
     @Override
     public synchronized OperationResult uninstall(final String pluginId) {
         if (CORE_PLUGIN_ID.equals(pluginId)) {
             return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism core plugin cannot be uninstalled.");
         }
+        if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
             return OperationResult.rejected("PLUGIN_NOT_INSTALLED", "Plugin is not installed.");
         }
-        return pending.stageUninstall(pluginId)
-            ? OperationResult.accepted("PLUGIN_UNINSTALL_PENDING", "Plugin uninstall is pending; restart Cubism to apply it.")
-            : OperationResult.rejected("PLUGIN_PENDING_WRITE_FAILED", "Plugin uninstall could not be staged.");
+        final PendingPluginOperations.StagedUninstall result = pending.stageUninstall(pluginId);
+        if (result.accepted()) {
+            return OperationResult.accepted(
+                result.code(), "Plugin uninstall is pending; restart Cubism to apply it."
+            );
+        }
+        return result.code().equals("PLUGIN_PENDING_RECOVERY_REQUIRED")
+            ? pendingRecoveryRequired()
+            : OperationResult.rejected(result.code(), "Plugin uninstall could not be staged.");
     }
 
     @Override
@@ -269,6 +328,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         if (CORE_PLUGIN_ID.equals(pluginId)) {
             return OperationResult.rejected("PLUGIN_CORE_PROTECTED", "The Turboism core plugin cannot be disabled.");
         }
+        if (pending.recoveryRequired()) return pendingRecoveryRequired();
         if (installedArchive(pluginId).isEmpty()) {
             return OperationResult.rejected("PLUGIN_NOT_INSTALLED", "Plugin is not installed.");
         }
@@ -298,7 +358,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
     @Override
     public void close() {
         if (!active.compareAndSet(true, false)) return;
-        packageChooser.close();
+        RuntimeException closeFailure = null;
+        try {
+            packageChooser.close();
+        } catch (RuntimeException failure) {
+            closeFailure = failure;
+        }
+        final InstallRequest request = currentInstall.get();
+        if (request != null) {
+            try {
+                request.settle(cancelledInstall());
+            } catch (RuntimeException failure) {
+                if (closeFailure == null) closeFailure = failure;
+                else closeFailure.addSuppressed(failure);
+            }
+        }
         installExecutor.shutdownNow();
         try {
             if (!installExecutor.awaitTermination(5L, TimeUnit.SECONDS)) {
@@ -307,9 +381,8 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             throw new IllegalStateException("Interrupted while closing plugin installation", interrupted);
-        } finally {
-            installPending.set(false);
         }
+        if (closeFailure != null) throw closeFailure;
     }
 
     private List<PluginInfo> installed() {
@@ -415,6 +488,21 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         } catch (Exception failure) { return Optional.empty(); }
     }
 
+
+    private final class InstallRequest {
+        private final Consumer<OperationResult> completion;
+        private final AtomicBoolean settled = new AtomicBoolean();
+
+        private InstallRequest(final Consumer<OperationResult> completion) {
+            this.completion = completion;
+        }
+
+        private void settle(final OperationResult result) {
+            if (!settled.compareAndSet(false, true)) return;
+            currentInstall.compareAndSet(this, null);
+            completion.accept(result);
+        }
+    }
 
     interface PackageChooser extends AutoCloseable {
         void choose(Consumer<Optional<Path>> completion);
