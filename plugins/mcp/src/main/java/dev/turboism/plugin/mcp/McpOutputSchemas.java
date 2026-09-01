@@ -188,16 +188,56 @@ final class McpOutputSchemas {
     private static Map<String, Object> parameterOperationResult() {
         return operationResult(oneOf(
             parameter(),
-            object(properties(entry("created", array(parameter()))), List.of("created")),
             object(
-                properties(entry("parameterId", stringSchema()), entry("removed", constant(true))),
+                properties(
+                    entry("created", array(parameter())),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of("created")
+            ),
+            object(
+                properties(
+                    entry("parameterId", stringSchema()),
+                    entry("removed", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
                 List.of("parameterId", "removed")
             ),
             object(
-                properties(entry("parameterIds", array(stringSchema())), entry("removed", constant(true))),
+                properties(
+                    entry("parameterIds", array(stringSchema())),
+                    entry("removed", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
                 List.of("parameterIds", "removed")
-            )
+            ),
+            parameterReadbackWarning("parameterId"),
+            parameterReadbackWarning("parameterIds")
         ));
+    }
+
+    private static Map<String, Object> parameterReadbackWarning(final String identity) {
+        final Map<String, Object> identitySchema = "parameterIds".equals(identity)
+            ? array(stringSchema()) : stringSchema();
+        return object(
+            properties(
+                entry(identity, identitySchema),
+                entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                entry("retryable", constant(false)),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of(identity, "outcome", "retryable", "readbackWarning", "diagnosticId")
+        );
     }
 
     private static Map<String, Object> bindingOperationResult() {
@@ -260,7 +300,11 @@ final class McpOutputSchemas {
                 entry("defaultValue", numberSchema()),
                 entry("maximumValue", numberSchema()),
                 entry("type", enumSchema(List.of("normal", "blend_shape"))),
-                entry("repeat", booleanSchema())
+                entry("repeat", booleanSchema()),
+                entry("outcome", writeSuccessOutcome()),
+                entry("retryable", constant(false)),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
             ),
             List.of(
                 "id", "name", "value", "minimumValue", "defaultValue",

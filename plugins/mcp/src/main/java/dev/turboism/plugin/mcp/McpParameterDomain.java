@@ -189,6 +189,9 @@ final class McpParameterDomain {
                 ));
             } catch (java.util.concurrent.CancellationException failure) {
                 throw failure;
+            } catch (WriteOutcomeUnknownException failure) {
+                failed = true;
+                results.add(outcomeUnknown(index, operation, failure));
             } catch (RuntimeException failure) {
                 failed = true;
                 results.add(failure(index, operation, failure));
@@ -222,19 +225,53 @@ final class McpParameterDomain {
             }
             case "create" -> {
                 only(operation, "operation", "definition");
-                final Parameter created = model.parameters().create(definition(requiredObject(operation, "definition")));
-                yield parameter(model, created.id());
+                final ParameterDefinition definition = definition(
+                    requiredObject(operation, "definition")
+                );
+                yield parameterWrite(
+                    () -> {
+                        final Parameter created = model.parameters().create(definition);
+                        return linked(entry("parameterId", created.id().value()));
+                    },
+                    identity -> parameter(
+                        model,
+                        new ParameterId((String) identity.get("parameterId"))
+                    )
+                );
             }
             case "create_many" -> {
                 only(operation, "operation", "definitions");
-                final List<ParameterDefinition> definitions = definitions(required(operation, "definitions"));
-                final List<Parameter> created = model.parameters().createMany(definitions);
-                yield linked(entry("created", created.stream().map(value -> parameter(model, value.id())).toList()));
+                final List<ParameterDefinition> definitions = definitions(
+                    required(operation, "definitions")
+                );
+                yield parameterWrite(
+                    () -> {
+                        final List<Parameter> created = model.parameters().createMany(definitions);
+                        return linked(entry(
+                            "parameterIds",
+                            created.stream().map(value -> value.id().value()).toList()
+                        ));
+                    },
+                    identity -> linked(entry(
+                        "created",
+                        parameterIds(identity.get("parameterIds")).stream()
+                            .map(id -> parameter(model, id)).toList()
+                    ))
+                );
             }
             case "copy" -> {
                 only(operation, "operation", "parameterId");
-                final Parameter copied = model.parameters().copy(parameterId(operation));
-                yield parameter(model, copied.id());
+                final ParameterId sourceId = parameterId(operation);
+                yield parameterWrite(
+                    () -> {
+                        final Parameter copied = model.parameters().copy(sourceId);
+                        return linked(entry("parameterId", copied.id().value()));
+                    },
+                    identity -> parameter(
+                        model,
+                        new ParameterId((String) identity.get("parameterId"))
+                    )
+                );
             }
             case "update_definition" -> {
                 only(operation, "operation", "parameterId", "definition");
@@ -246,14 +283,30 @@ final class McpParameterDomain {
             case "remove" -> {
                 only(operation, "operation", "parameterId");
                 final ParameterId id = parameterId(operation);
-                model.parameters().remove(id);
-                yield linked(entry("parameterId", id.value()), entry("removed", true));
+                yield parameterWrite(
+                    () -> {
+                        model.parameters().remove(id);
+                        return linked(
+                            entry("parameterId", id.value()),
+                            entry("removed", true)
+                        );
+                    },
+                    identity -> identity
+                );
             }
             case "remove_many" -> {
                 only(operation, "operation", "parameterIds");
                 final List<ParameterId> ids = parameterIds(required(operation, "parameterIds"));
-                model.parameters().removeMany(ids);
-                yield linked(entry("parameterIds", ids.stream().map(ParameterId::value).toList()), entry("removed", true));
+                yield parameterWrite(
+                    () -> {
+                        model.parameters().removeMany(ids);
+                        return linked(
+                            entry("parameterIds", ids.stream().map(ParameterId::value).toList()),
+                            entry("removed", true)
+                        );
+                    },
+                    identity -> identity
+                );
             }
             default -> throw new InputException("Unknown parameter operation: " + name);
         };
@@ -278,7 +331,7 @@ final class McpParameterDomain {
                 ));
             } catch (java.util.concurrent.CancellationException failure) {
                 throw failure;
-            } catch (BindingOutcomeUnknownException failure) {
+            } catch (WriteOutcomeUnknownException failure) {
                 failed = true;
                 results.add(outcomeUnknown(index, operation, failure));
             } catch (RuntimeException failure) {
@@ -432,6 +485,33 @@ final class McpParameterDomain {
         );
     }
 
+    private static Map<String, Object> parameterWrite(
+        final java.util.function.Supplier<Map<String, Object>> write,
+        final java.util.function.Function<Map<String, Object>, Map<String, Object>> readback
+    ) {
+        final Map<String, Object> identity;
+        try {
+            identity = write.get();
+        } catch (RuntimeException failure) {
+            throw new WriteOutcomeUnknownException(failure);
+        }
+        try {
+            final LinkedHashMap<String, Object> result = new LinkedHashMap<>(
+                readback.apply(identity)
+            );
+            result.put("outcome", WriteOutcome.APPLIED.name());
+            result.put("retryable", false);
+            return result;
+        } catch (RuntimeException failure) {
+            final LinkedHashMap<String, Object> result = new LinkedHashMap<>(identity);
+            result.put("outcome", WriteOutcome.APPLIED_WITH_READBACK_WARNING.name());
+            result.put("retryable", false);
+            result.put("readbackWarning", error(failure));
+            result.put("diagnosticId", java.util.UUID.randomUUID().toString());
+            return result;
+        }
+    }
+
     private static Map<String, Object> bindingWrite(
         final Runnable write,
         final java.util.function.Supplier<Map<String, Object>> readback,
@@ -440,13 +520,13 @@ final class McpParameterDomain {
         try {
             write.run();
         } catch (RuntimeException failure) {
-            throw new BindingOutcomeUnknownException(failure);
+            throw new WriteOutcomeUnknownException(failure);
         }
         try {
-            return bindingWriteResult(BindingWriteOutcome.APPLIED, readback.get(), null);
+            return bindingWriteResult(WriteOutcome.APPLIED, readback.get(), null);
         } catch (RuntimeException failure) {
             return bindingWriteResult(
-                BindingWriteOutcome.APPLIED_WITH_READBACK_WARNING,
+                WriteOutcome.APPLIED_WITH_READBACK_WARNING,
                 identity,
                 failure
             );
@@ -454,7 +534,7 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> bindingWriteResult(
-        final BindingWriteOutcome outcome,
+        final WriteOutcome outcome,
         final Map<String, Object> readback,
         final RuntimeException readbackFailure
     ) {
@@ -502,7 +582,7 @@ final class McpParameterDomain {
     private static Map<String, Object> outcomeUnknown(
         final int index,
         final Map<String, Object> operation,
-        final BindingOutcomeUnknownException failure
+        final WriteOutcomeUnknownException failure
     ) {
         final RuntimeException cause = (RuntimeException) failure.getCause();
         return linked(
@@ -510,9 +590,9 @@ final class McpParameterDomain {
             entry("operation", operation.get("operation")),
             entry("ok", false),
             entry("error", linked(
-                entry("code", BindingWriteOutcome.OUTCOME_UNKNOWN.name()),
+                entry("code", WriteOutcome.OUTCOME_UNKNOWN.name()),
                 entry("message", safeMessage(cause)),
-                entry("outcome", BindingWriteOutcome.OUTCOME_UNKNOWN.name()),
+                entry("outcome", WriteOutcome.OUTCOME_UNKNOWN.name()),
                 entry("retryable", false),
                 entry("canonicalPointIds", null),
                 entry("diagnosticId", java.util.UUID.randomUUID().toString())
@@ -976,14 +1056,14 @@ final class McpParameterDomain {
         return failure.getMessage() == null || failure.getMessage().isBlank() ? failure.getClass().getSimpleName() : failure.getMessage();
     }
 
-    private enum BindingWriteOutcome {
+    private enum WriteOutcome {
         APPLIED,
         APPLIED_WITH_READBACK_WARNING,
         OUTCOME_UNKNOWN
     }
 
-    private static final class BindingOutcomeUnknownException extends RuntimeException {
-        private BindingOutcomeUnknownException(final RuntimeException cause) {
+    private static final class WriteOutcomeUnknownException extends RuntimeException {
+        private WriteOutcomeUnknownException(final RuntimeException cause) {
             super(cause);
         }
     }
