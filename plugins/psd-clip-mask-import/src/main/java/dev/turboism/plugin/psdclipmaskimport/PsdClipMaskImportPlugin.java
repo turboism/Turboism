@@ -34,6 +34,7 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
     public void enable() {
         requireContext();
         try {
+            context.disposableScope().register(importService);
             context.disposableScope().register(registerImportAction());
             context.disposableScope().register(importService.registerSection());
             enabled = true;
@@ -46,11 +47,13 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
     @Override
     public void disable() {
         enabled = false;
+        if (importService != null) importService.close();
     }
 
     @Override
     public void shutdown() {
         enabled = false;
+        if (importService != null) importService.close();
         importService = null;
         context = null;
     }
@@ -72,7 +75,7 @@ public final class PsdClipMaskImportPlugin implements TurboismPlugin {
                 }
 
                 @Override public Consumer<ActionRegistry.ActionContext> handler() {
-                    return ignored -> importService.importClipMasks();
+                    return ignored -> importService.requestImport();
                 }
             }
         );

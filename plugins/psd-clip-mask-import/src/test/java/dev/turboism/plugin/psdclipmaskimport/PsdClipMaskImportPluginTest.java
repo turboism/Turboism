@@ -35,13 +35,18 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.PanelView;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class PsdClipMaskImportPluginTest {
@@ -118,6 +123,31 @@ final class PsdClipMaskImportPluginTest {
             "the button label must route through PluginLocalization");
     }
 
+    @Test
+    void importActionReturnsImmediatelyAndIgnoresClicksWhileTheImportIsRunning() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.blockModelRead = true;
+        final PsdClipMaskImportPlugin plugin = new PsdClipMaskImportPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ActionRegistry.Action action = context.registeredActions().get(0);
+
+        assertTimeoutPreemptively(
+            Duration.ofSeconds(1),
+            () -> action.handler().accept(new ActionRegistry.ActionContext() { })
+        );
+        assertTrue(context.modelReadStarted.await(2, TimeUnit.SECONDS));
+
+        action.handler().accept(new ActionRegistry.ActionContext() { });
+        context.allowModelRead.countDown();
+        assertTrue(context.modelReadFinished.await(2, TimeUnit.SECONDS));
+
+        assertEquals(1, context.modelReadCount.get(),
+            "a repeated click must not start a second import while the first is active");
+        plugin.disable();
+        plugin.shutdown();
+    }
+
     private static final class RecordingPluginContext implements PluginContext {
 
         @Override public dev.turboism.sdk.i18n.PluginLocalization localization() {
@@ -126,7 +156,12 @@ final class PsdClipMaskImportPluginTest {
         final DisposableScope scope = new DisposableScope();
         private final List<ActionRegistry.Action> actions = new ArrayList<>();
         private final List<CollapsibleSectionContribution> sections = new ArrayList<>();
+        final AtomicInteger modelReadCount = new AtomicInteger();
+        final CountDownLatch modelReadStarted = new CountDownLatch(1);
+        final CountDownLatch allowModelRead = new CountDownLatch(1);
+        final CountDownLatch modelReadFinished = new CountDownLatch(1);
         boolean failPanelContribution;
+        boolean blockModelRead;
 
         List<ActionRegistry.Action> registeredActions() { return actions; }
         List<CollapsibleSectionContribution> registeredSections() { return sections; }
@@ -150,7 +185,19 @@ final class PsdClipMaskImportPluginTest {
                 @Override public Optional<ModelSnapshot> activeModel() { return Optional.empty(); }
                 @Override public boolean isHostPresent() { return false; }
                 @Override public CubismModelAccess model() {
-                    return () -> { throw new UnsupportedOperationException("model unavailable"); };
+                    return () -> {
+                        modelReadCount.incrementAndGet();
+                        modelReadStarted.countDown();
+                        if (blockModelRead) {
+                            try {
+                                allowModelRead.await();
+                            } catch (InterruptedException interrupted) {
+                                Thread.currentThread().interrupt();
+                            }
+                        }
+                        modelReadFinished.countDown();
+                        throw new UnsupportedOperationException("model unavailable");
+                    };
                 }
                 @Override public TransactionManager transactionManager() {
                     return (ctx, docId) -> { throw new UnsupportedOperationException("transactions unavailable"); };

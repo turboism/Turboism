@@ -7,6 +7,7 @@ psd.clip-mask-import.failed
 psd.clip-mask-import.imported
 psd.clip-mask-import.no-write.all-skipped
 psd.clip-mask-import.no-write.none
+psd.clip-mask-import.no-write.omitted
 psd.clip-mask-import.preview.header
 psd.clip-mask-import.preview.inverted
 psd.clip-mask-import.preview.not-inverted
@@ -17,6 +18,10 @@ psd.clip-mask-import.preview.relationship
 psd.clip-mask-import.preview.skip-row
 psd.clip-mask-import.preview.skipped
 psd.clip-mask-import.preview.title
+psd.clip-mask-import.progress.applying
+psd.clip-mask-import.progress.confirming
+psd.clip-mask-import.progress.preparing
+psd.clip-mask-import.progress.title
 psd.clip-mask-import.skip.already-matches
 psd.clip-mask-import.skip.ambiguous-document
 psd.clip-mask-import.skip.base-layer-unresolved
