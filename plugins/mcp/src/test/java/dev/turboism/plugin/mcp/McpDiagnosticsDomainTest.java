@@ -43,8 +43,10 @@ import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutService;
 import dev.turboism.sdk.ui.workspace.layout.WorkspaceLayoutSnapshot;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -58,6 +60,10 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class McpDiagnosticsDomainTest {
+
+    private static final Clock CLOCK = Clock.fixed(
+        Instant.parse("2026-09-01T12:00:00Z"), ZoneOffset.UTC
+    );
 
     @Test
     void coreResourceProjectsVersionAndCapabilitiesThroughThePublicCatalog() {
@@ -82,7 +88,7 @@ final class McpDiagnosticsDomainTest {
             "mocInspection", false
         ), payload.get("capabilities"));
         assertEquals(true, uiExecution[0]);
-        assertEquals(6, domain.resourceCatalog().resources().size());
+        assertEquals(8, domain.resourceCatalog().resources().size());
     }
 
     @Test
@@ -112,6 +118,8 @@ final class McpDiagnosticsDomainTest {
         final Map<String, Object> statusPayload = payload(
             domain.resourceCatalog(), McpDiagnosticsDomain.WORKSPACE
         );
+        assertEquals("workspace", statusPayload.get("kind"));
+        assertEquals("cubism", statusPayload.get("provider"));
         assertEquals("AVAILABLE", statusPayload.get("availability"));
         assertEquals(Map.of("id", "modeling", "displayName", "Modeling"),
             statusPayload.get("current"));
@@ -121,6 +129,8 @@ final class McpDiagnosticsDomainTest {
         final Map<String, Object> layoutPayload = payload(
             domain.resourceCatalog(), McpDiagnosticsDomain.WORKSPACE_LAYOUT
         );
+        assertEquals("workspace-layout", layoutPayload.get("kind"));
+        assertEquals("cubism", layoutPayload.get("provider"));
         assertEquals("AVAILABLE", layoutPayload.get("availability"));
         final Map<String, Object> root = object(layoutPayload.get("root"));
         assertEquals("split", root.get("type"));
@@ -129,6 +139,17 @@ final class McpDiagnosticsDomainTest {
             .stream().map(McpDiagnosticsDomainTest::object).map(tab -> tab.get("paletteId")).toList());
         assertEquals("inspector", object(list(object(children.get(1)).get("tabs")).get(0))
             .get("paletteId"));
+
+        final Map<String, Object> workspaceDefinition = resourceDefinition(
+            domain.resourceCatalog(), McpDiagnosticsDomain.WORKSPACE
+        );
+        final Map<String, Object> layoutDefinition = resourceDefinition(
+            domain.resourceCatalog(), McpDiagnosticsDomain.WORKSPACE_LAYOUT
+        );
+        assertEquals("Cubism workspaces", workspaceDefinition.get("title"));
+        assertEquals("Cubism workspace layout", layoutDefinition.get("title"));
+        assertTrue(((String) workspaceDefinition.get("description")).contains("exposed separately"));
+        assertTrue(((String) layoutDefinition.get("description")).contains("exposed separately"));
     }
 
     @Test
@@ -223,19 +244,27 @@ final class McpDiagnosticsDomainTest {
         final List<DiagnosticReport.Problem> problems = new java.util.ArrayList<>();
         problems.add(problem(
             "MAPPING_FAILED",
-            "Failed at /opt/private/model.cmo3\nthen C:\\Users\\example\\secret.txt and file:///tmp/private.json\u0007",
+            "Failed token=super-secret sessionId=session-secret at /opt/private/model.cmo3\n"
+                + "then C:\\Users\\example\\secret.txt and file:///tmp/private.json\u0007",
             DiagnosticReport.Severity.ERROR
         ));
         for (int index = 0; index < 105; index++) {
             problems.add(problem("INFO_" + index, "detail " + index, DiagnosticReport.Severity.INFO));
         }
-        final McpDiagnosticsDomain domain = domain(diagnostics(problems));
+        final McpDiagnosticsDomain domain = domain(
+            diagnostics(problems),
+            new McpRuntimeDiagnostics(8, CLOCK),
+            McpResourceCatalog.empty()
+        );
 
         final Map<String, Object> payload = payload(
             domain.resourceCatalog(), McpDiagnosticsDomain.DIAGNOSTICS
         );
 
+        assertEquals("startup", payload.get("kind"));
+        assertEquals("turboism", payload.get("provider"));
         assertEquals("1970-01-01T00:00:00Z", payload.get("createdAt"));
+        assertEquals("2026-09-01T12:00:00Z", payload.get("asOf"));
         assertEquals(true, payload.get("truncated"));
         assertEquals(100, list(payload.get("problems")).size());
         final Map<String, Object> first = object(list(payload.get("problems")).get(0));
@@ -246,9 +275,104 @@ final class McpDiagnosticsDomainTest {
         assertFalse(message.contains("/opt/private"));
         assertFalse(message.contains("C:\\Users"));
         assertFalse(message.contains("file:"));
+        assertFalse(message.contains("super-secret"));
+        assertFalse(message.contains("session-secret"));
         assertFalse(message.contains("\n"));
         assertFalse(message.contains("\u0007"));
+        assertTrue(message.contains("[redacted-token]"));
+        assertTrue(message.contains("[redacted-session]"));
         assertTrue(message.contains("[redacted-path]"));
+    }
+
+    @Test
+    void parameterBindingAggregateReadsTheExistingParameterAndBindingTemplates() {
+        final List<String> requested = new java.util.ArrayList<>();
+        final McpResourceCatalog parameterResources = new McpResourceCatalog(
+            List.of(Map.of("uri", McpParameterDomain.PARAMETERS_URI)),
+            List.of(
+                Map.of("uriTemplate", McpParameterDomain.PARAMETER_URI_TEMPLATE),
+                Map.of("uriTemplate", McpParameterDomain.BINDINGS_URI_TEMPLATE)
+            ),
+            uri -> {
+                requested.add(uri);
+                if (McpParameterDomain.PARAMETERS_URI.equals(uri)) {
+                    return resourceContent(uri, Map.of("parameters", List.of(
+                        Map.of("id", "ParamA"),
+                        Map.of("id", "Param A+B")
+                    )));
+                }
+                if (uri.equals("turboism://active/model/parameters/ParamA/bindings")) {
+                    return resourceContent(uri, Map.of(
+                        "parameterId", "ParamA",
+                        "bindings", List.of(Map.of("family", "keyform_grid"))
+                    ));
+                }
+                if (uri.equals("turboism://active/model/parameters/Param%20A%2BB/bindings")) {
+                    return resourceContent(uri, Map.of(
+                        "parameterId", "Param A+B",
+                        "bindings", List.of()
+                    ));
+                }
+                throw new McpResourceCatalog.ResourceNotFound(uri);
+            }
+        );
+        final McpDiagnosticsDomain domain = domain(
+            diagnostics(), new McpRuntimeDiagnostics(8, CLOCK), parameterResources
+        );
+
+        final Map<String, Object> payload = payload(
+            domain.resourceCatalog(), McpDiagnosticsDomain.PARAMETER_BINDINGS
+        );
+
+        assertEquals("parameter-bindings", payload.get("kind"));
+        assertEquals("cubism", payload.get("provider"));
+        final List<Object> aggregate = list(payload.get("parameterBindings"));
+        assertEquals(2, aggregate.size());
+        assertEquals("ParamA", object(aggregate.get(0)).get("parameterId"));
+        assertEquals("Param A+B", object(aggregate.get(1)).get("parameterId"));
+        assertEquals(List.of(
+            McpParameterDomain.PARAMETERS_URI,
+            "turboism://active/model/parameters/ParamA/bindings",
+            "turboism://active/model/parameters/Param%20A%2BB/bindings"
+        ), requested);
+    }
+
+    @Test
+    void runtimeDiagnosticsHaveNoFabricatedCreatedAtAndStartupPreservesAnUnavailableOne() {
+        final McpRuntimeDiagnostics runtime = new McpRuntimeDiagnostics(8, CLOCK);
+        final McpToolCatalog observed = runtime.observe(new McpToolCatalog(
+            List.of(Map.of("name", "turboism.test")),
+            (name, arguments) -> { throw new RuntimeException("token=secret /private/model.cmo3"); }
+        ));
+        assertThrows(RuntimeException.class, () -> observed.call("turboism.test", Map.of()));
+        final DiagnosticReport unavailableCreationTime = new DiagnosticReport() {
+            @Override public Instant createdAt() { return null; }
+            @Override public List<Problem> problems() { return List.of(); }
+        };
+        final McpDiagnosticsDomain domain = domain(
+            unavailableCreationTime, runtime, McpResourceCatalog.empty()
+        );
+
+        final Map<String, Object> startup = payload(
+            domain.resourceCatalog(), McpDiagnosticsDomain.DIAGNOSTICS
+        );
+        assertEquals(null, startup.get("createdAt"));
+        assertEquals("2026-09-01T12:00:00Z", startup.get("asOf"));
+
+        final Map<String, Object> recent = payload(
+            domain.resourceCatalog(), McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS
+        );
+        assertEquals("runtime", recent.get("kind"));
+        assertEquals("turboism-mcp", recent.get("provider"));
+        assertEquals("2026-09-01T12:00:00Z", recent.get("asOf"));
+        assertFalse(recent.containsKey("createdAt"));
+        assertEquals(false, recent.get("truncated"));
+        assertEquals(0L, recent.get("dropped"));
+        final Map<String, Object> event = object(list(recent.get("events")).get(0));
+        assertEquals("RUNTIME_EXCEPTION", event.get("kind"));
+        assertEquals("turboism.test", event.get("provider"));
+        assertFalse(((String) event.get("message")).contains("secret"));
+        assertFalse(((String) event.get("message")).contains("/private"));
     }
 
     @Test
@@ -327,6 +451,23 @@ final class McpDiagnosticsDomainTest {
             WorkspaceLayoutService.unavailable(),
             diagnostics,
             new McpExecutionBridge(immediateUi(), Duration.ofSeconds(1))
+        );
+    }
+
+    private static McpDiagnosticsDomain domain(
+        final DiagnosticReport diagnostics,
+        final McpRuntimeDiagnostics runtimeDiagnostics,
+        final McpResourceCatalog parameterResources
+    ) {
+        return new McpDiagnosticsDomain(
+            facade(coreRuntime(new boolean[1])),
+            WorkspaceService.unavailable(),
+            WorkspaceLayoutService.unavailable(),
+            diagnostics,
+            runtimeDiagnostics,
+            parameterResources,
+            new McpExecutionBridge(immediateUi(), Duration.ofSeconds(1)),
+            CLOCK
         );
     }
 
@@ -557,6 +698,27 @@ final class McpDiagnosticsDomainTest {
                 throw new AssertionError("Delayed UI work is not expected");
             }
         };
+    }
+
+    private static List<Map<String, Object>> resourceContent(
+        final String uri,
+        final Map<String, Object> payload
+    ) {
+        return List.of(Map.of(
+            "uri", uri,
+            "mimeType", "application/json",
+            "text", Json.stringify(payload)
+        ));
+    }
+
+    private static Map<String, Object> resourceDefinition(
+        final McpResourceCatalog catalog,
+        final String uri
+    ) {
+        return catalog.resources().stream()
+            .filter(resource -> uri.equals(resource.get("uri")))
+            .findFirst()
+            .orElseThrow();
     }
 
     private static Map<String, Object> payload(
