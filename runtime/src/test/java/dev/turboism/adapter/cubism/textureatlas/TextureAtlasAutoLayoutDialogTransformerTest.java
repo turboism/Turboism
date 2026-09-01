@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.textureatlas;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.objectweb.asm.ClassWriter;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
@@ -9,6 +10,8 @@ import javax.swing.JComboBox;
 import javax.swing.JPanel;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -43,6 +46,32 @@ class TextureAtlasAutoLayoutDialogTransformerTest {
             System.getProperties().remove(key);
         }
         assertTrue(constructionCompleted.get());
+    }
+
+    @Test
+    void transformationDoesNotCreateDedicatedDiagnosticLog(@TempDir final Path home) {
+        final String previousHome = System.getProperty("turboism.home");
+        System.setProperty("turboism.home", home.toString());
+        try {
+            final TextureAtlasAutoLayoutDialogTransformer transformer =
+                new TextureAtlasAutoLayoutDialogTransformer(
+                    "fixture/AtlasDialog", "(Ljava/lang/Object;)V", null,
+                    "test.texture-atlas.dialog-ingress.no-log"
+                );
+
+            final byte[] transformed = transformer.transform(
+                null, null, "fixture/AtlasDialog", null, null, fixtureClass()
+            );
+
+            assertNotNull(transformed);
+            assertFalse(Files.exists(home.resolve("logs").resolve("dialog-transform.log")));
+        } finally {
+            if (previousHome == null) {
+                System.clearProperty("turboism.home");
+            } else {
+                System.setProperty("turboism.home", previousHome);
+            }
+        }
     }
 
     private static TextureAtlasAutoLayoutDialogContributor contributor() {
