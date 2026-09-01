@@ -97,7 +97,7 @@ final class FxProcessTransportTest {
             #!/bin/sh
             "%s" "%s" &
             printf '%%s' "$!" > "%s"
-            sleep 0.25
+            sleep 1
             exit 0
             """.formatted(childScript, grandchildPid, childPid));
         executable.toFile().setExecutable(true, true);
@@ -115,7 +115,12 @@ final class FxProcessTransportTest {
             }
             assertTrue(Files.exists(childPid), "fixture child pid was not published");
             child = Long.parseLong(Files.readString(childPid));
-            for (int attempt = 0; attempt < 200 && transport.isAlive(); attempt++) {
+            final ProcessHandle childHandle = ProcessHandle.of(child).orElseThrow();
+            for (int attempt = 0; attempt < 200 && !transport.retains(child); attempt++) {
+                Thread.sleep(5L);
+            }
+            assertTrue(transport.retains(child), "fixture child was not sampled for retention");
+            for (int attempt = 0; attempt < 400 && transport.isAlive(); attempt++) {
                 Thread.sleep(5L);
             }
             assertTrue(!transport.isAlive(), "fixture parent did not exit");
@@ -126,7 +131,7 @@ final class FxProcessTransportTest {
             if (Files.exists(grandchildPid)) {
                 grandchild = Long.parseLong(Files.readString(grandchildPid));
             }
-            assertTrue(awaitGone(child, Duration.ofSeconds(3)),
+            assertTrue(awaitGone(childHandle, Duration.ofSeconds(5)),
                 "retained child survived after direct process exit");
             if (grandchild > 0L) {
                 assertTrue(awaitGone(grandchild, Duration.ofSeconds(3)),
@@ -189,14 +194,18 @@ final class FxProcessTransportTest {
 
     private static boolean awaitGone(final long pid, final Duration timeout)
         throws InterruptedException {
+        final ProcessHandle handle = ProcessHandle.of(pid).orElse(null);
+        return handle == null || awaitGone(handle, timeout);
+    }
+
+    private static boolean awaitGone(final ProcessHandle handle, final Duration timeout)
+        throws InterruptedException {
         final long deadline = System.nanoTime() + timeout.toNanos();
         while (System.nanoTime() < deadline) {
-            final ProcessHandle handle = ProcessHandle.of(pid).orElse(null);
-            if (handle == null || !handle.isAlive() || zombie(handle)) return true;
+            if (!handle.isAlive() || zombie(handle)) return true;
             Thread.sleep(10L);
         }
-        final ProcessHandle handle = ProcessHandle.of(pid).orElse(null);
-        return handle == null || !handle.isAlive() || zombie(handle);
+        return !handle.isAlive() || zombie(handle);
     }
 
     private static boolean zombie(final ProcessHandle handle) {
