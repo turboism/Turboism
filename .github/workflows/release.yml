@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  PLUGIN_DIRECTORY_REVISION: c556c90adee0f12b5ce81c9c8108eab8e53aec16
+
 concurrency:
   group: product-release-candidate-${{ github.ref }}
   cancel-in-progress: false
@@ -123,6 +126,23 @@ jobs:
             --dist build/windows-installer/dist \
             "${market_args[@]}" \
             --candidate build/release-orchestrator/candidate.json
+          python3 - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          path = Path("build/release-orchestrator/candidate.json")
+          candidate = json.loads(path.read_text(encoding="utf-8"))
+          revision = os.environ["PLUGIN_DIRECTORY_REVISION"]
+          if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+              raise SystemExit("Plugin Directory revision must be an immutable commit SHA")
+          candidate["pluginDirectoryRevision"] = revision
+          path.write_text(
+              json.dumps(candidate, separators=(",", ":"), sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
 
       - name: Extract release notes from changelog
         run: |

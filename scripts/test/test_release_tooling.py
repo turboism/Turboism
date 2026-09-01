@@ -112,6 +112,69 @@ class ReleaseBaselineAuditTest(unittest.TestCase):
 
 
 class ReleaseWorkflowTest(unittest.TestCase):
+    PLUGIN_DIRECTORY_REVISION = "c556c90adee0f12b5ce81c9c8108eab8e53aec16"
+
+    def test_minimum_ci_runs_dev_check_for_pull_requests_and_main(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertRegex(workflow, r"(?m)^  pull_request:\s*$")
+        self.assertRegex(workflow, r'(?m)^  push:\n    branches: \["main"\]\s*$')
+        self.assertEqual(
+            workflow.count("./gradlew --no-daemon devCheck --console=plain"),
+            1,
+        )
+        self.assertNotIn("checkIntegration", workflow)
+        self.assertNotIn("integration-tests", workflow)
+        self.assertRegex(workflow, r"(?m)^permissions:\n  contents: read\s*$")
+
+    def test_plugin_directory_revision_and_publisher_permissions_are_immutable(self):
+        candidate_workflows = [
+            (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8"),
+            (ROOT / ".github/workflows/publish-selected-plugins.yml").read_text(
+                encoding="utf-8"
+            ),
+        ]
+        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(
+            encoding="utf-8"
+        )
+        pin = f"PLUGIN_DIRECTORY_REVISION: {self.PLUGIN_DIRECTORY_REVISION}"
+        for workflow in candidate_workflows:
+            self.assertIn(pin, workflow)
+            self.assertIn('candidate["pluginDirectoryRevision"] = revision', workflow)
+        self.assertIn(pin, publisher)
+        self.assertIn("plugin_directory_revision: ${{ steps.plan.outputs.plugin_directory_revision }}", publisher)
+        self.assertIn('plan["pluginDirectoryRevision"] = revision', publisher)
+        self.assertIn(
+            'test "$PLUGIN_DIRECTORY_REVISION" = '
+            '"${{ needs.preflight.outputs.plugin_directory_revision }}"',
+            publisher,
+        )
+        self.assertIn('--ref "$PLUGIN_DIRECTORY_REVISION"', publisher)
+        verifier_refs = re.findall(
+            r"repository: turboism/turboism-plugin-directory\n\s+ref: ([^\n]+)",
+            publisher,
+        )
+        self.assertEqual(
+            verifier_refs,
+            [
+                "${{ env.PLUGIN_DIRECTORY_REVISION }}",
+                "${{ needs.preflight.outputs.plugin_directory_revision }}",
+            ],
+        )
+        top_permissions = re.search(
+            r"(?m)^permissions:\n((?:  [^\n]+\n)+)", publisher
+        )
+        self.assertIsNotNone(top_permissions)
+        self.assertEqual(
+            set(top_permissions.group(1).splitlines()),
+            {"  actions: read", "  contents: read"},
+        )
+        self.assertEqual(publisher.count("contents: write"), 1)
+        self.assertRegex(
+            publisher,
+            r"(?m)^  publish-framework:\n(?:.*\n)*?    permissions:\n"
+            r"      actions: read\n      contents: write$",
+        )
+
     def test_does_not_claim_unavailable_licensed_evidence(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertNotIn("TURBOISM_LEGACY_EVIDENCE", workflow)
