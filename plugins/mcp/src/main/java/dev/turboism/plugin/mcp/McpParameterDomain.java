@@ -666,14 +666,16 @@ final class McpParameterDomain {
         final ParameterId parameterId,
         final ParameterBindingTarget target
     ) {
-        final Map<String, Object> result = linked(
+        final Map<String, Object> binding = model.parameters().find(parameterId)
+            .getParameterBindings().stream()
+            .filter(value -> value.target().equals(target))
+            .findFirst().map(McpParameterDomain::binding).orElse(null);
+        return linked(
             entry("parameterId", parameterId.value()),
             entry("target", target(target)),
-            entry("binding", model.parameters().find(parameterId).getParameterBindings().stream()
-                .filter(value -> value.target().equals(target))
-                .findFirst().map(McpParameterDomain::binding).orElse(null))
+            entry("bound", binding != null),
+            entry("binding", binding)
         );
-        return result;
     }
 
     private static Map<String, Object> bindingResults(
