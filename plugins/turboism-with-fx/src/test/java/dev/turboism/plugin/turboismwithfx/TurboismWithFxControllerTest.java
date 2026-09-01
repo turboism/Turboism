@@ -446,6 +446,45 @@ final class TurboismWithFxControllerTest {
             )).get("provider"));
             assertTrue(captured.get().environment().containsKey("AI_GATEWAY_API_KEY"));
             assertEquals(List.of(temporaryExecutable().toString(), "acp"), captured.get().command());
+            assertEquals(List.of(
+                "fx connection: starting",
+                "fx connection: Turboism MCP endpoint ready",
+                "fx connection: runtime verified",
+                "fx connection: starting ACP process",
+                "fx connection: ACP initialized",
+                "fx connection: loading saved ACP session",
+                "fx connection: ACP session ready"
+            ), fixture.logger.infos);
+        }
+    }
+
+    @Test
+    void stalledClientStartupFailsWithinConfiguredDeadline() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final java.util.concurrent.CountDownLatch entered = new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.atomic.AtomicBoolean release =
+            new java.util.concurrent.atomic.AtomicBoolean();
+        try (TurboismWithFxController controller = fixture.controller(
+            (configuration, listener) -> {
+                entered.countDown();
+                while (!release.get()) {
+                    try {
+                        Thread.sleep(5L);
+                    } catch (InterruptedException ignored) {
+                        // The fixture deliberately models a native start call that ignores interruption.
+                    }
+                }
+                return inactiveClient();
+            },
+            Duration.ofMillis(50)
+        )) {
+            controller.connect(temporaryExecutable().toString(), false, "");
+            assertTrue(entered.await(2, java.util.concurrent.TimeUnit.SECONDS));
+            fixture.view.awaitFailure("status.acp-failed");
+            assertTrue(fixture.logger.hasErrors());
+        } finally {
+            release.set(true);
         }
     }
 
@@ -1553,8 +1592,15 @@ final class TurboismWithFxControllerTest {
         private TurboismWithFxController controller(
             final TurboismWithFxController.ClientStarter clientStarter
         ) {
+            return controller(clientStarter, Duration.ofSeconds(25));
+        }
+
+        private TurboismWithFxController controller(
+            final TurboismWithFxController.ClientStarter clientStarter,
+            final Duration startTimeout
+        ) {
             return new TurboismWithFxController(
-                context(), new FxPluginSettings(config, logger), view, clientStarter
+                context(), new FxPluginSettings(config, logger), view, clientStarter, startTimeout
             );
         }
 
@@ -1773,11 +1819,12 @@ final class TurboismWithFxControllerTest {
     }
 
     private static final class CapturingLogger implements PluginLogger {
+        private final List<String> infos = new java.util.concurrent.CopyOnWriteArrayList<>();
         private final List<String> warnings = new java.util.concurrent.CopyOnWriteArrayList<>();
         private final List<Throwable> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
 
         @Override public void debug(final String message) { }
-        @Override public void info(final String message) { }
+        @Override public void info(final String message) { infos.add(message); }
         @Override public void warn(final String message) { warnings.add(message); }
         @Override public void error(final String message) { errors.add(new AssertionError(message)); }
         @Override public void error(final String message, final Throwable throwable) { errors.add(throwable); }

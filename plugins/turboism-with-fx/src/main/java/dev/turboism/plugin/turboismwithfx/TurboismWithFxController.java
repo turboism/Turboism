@@ -27,6 +27,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
 
     private static final Duration REQUEST_TIMEOUT = Duration.ofSeconds(20);
+    private static final Duration CLIENT_START_TIMEOUT = Duration.ofSeconds(25);
     private static final int MAX_PENDING_UI_UPDATES = 256;
     static final int MAX_PENDING_LOAD_EVENTS = 64;
     static final long MAX_PENDING_LOAD_TEXT_BYTES = 1024L * 1024L;
@@ -40,6 +41,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private final FxRuntimeResolver runtimeResolver;
     private final FxManagedRuntimeService managedRuntime;
     private final ClientStarter clientStarter;
+    private final Duration clientStartTimeout;
     private final View view;
     private final ExecutorService serial;
     private final Object stateLock = new Object();
@@ -73,6 +75,16 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final View view,
         final ClientStarter clientStarter
     ) {
+        this(context, settings, view, clientStarter, CLIENT_START_TIMEOUT);
+    }
+
+    TurboismWithFxController(
+        final PluginContext context,
+        final FxPluginSettings settings,
+        final View view,
+        final ClientStarter clientStarter,
+        final Duration clientStartTimeout
+    ) {
         this.context = Objects.requireNonNull(context, "context");
         this.settings = Objects.requireNonNull(settings, "settings");
         this.runtimeResolver = new FxRuntimeResolver(context.paths());
@@ -80,6 +92,10 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             context.paths(), this::managedRuntimeDiagnostic
         );
         this.clientStarter = Objects.requireNonNull(clientStarter, "clientStarter");
+        this.clientStartTimeout = Objects.requireNonNull(clientStartTimeout, "clientStartTimeout");
+        if (clientStartTimeout.isZero() || clientStartTimeout.isNegative()) {
+            throw new IllegalArgumentException("clientStartTimeout must be positive");
+        }
         this.view = Objects.requireNonNull(view, "view");
         this.serial = Executors.newSingleThreadExecutor(runnable -> {
             final Thread thread = new Thread(runnable, "turboism-with-fx-controller");
@@ -356,10 +372,12 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     }
 
     private void connectNow(final String executable, final boolean compatibilityMode) {
+        context.logger().info("fx connection: starting");
         disconnectNow();
         try {
             final McpHttpConnection connection = context.mcpConnections().current()
                 .orElseThrow(() -> new FxAcpException("Turboism MCP Server is not available"));
+            context.logger().info("fx connection: Turboism MCP endpoint ready");
             final FxRuntimeResolver.Resolution resolution = runtimeResolver.resolve(executable);
             if (resolution instanceof FxRuntimeResolver.Resolution.Unavailable unavailable) {
                 ui(() -> view.showFailure(runtimeFailureKey(unavailable.problem())));
@@ -367,6 +385,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             final FxRuntimeResolver.Resolution.Available available =
                 (FxRuntimeResolver.Resolution.Available) resolution;
+            context.logger().info("fx connection: runtime verified");
             final FxProviderProfile profile = settings.providerConfiguration().activeProfile();
             final FxCustomEndpointSettings customEndpoint = settings.customEndpoint();
             final FxOpenAiAdapter adapter;
@@ -398,19 +417,17 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 environment = java.util.Map.of();
                 startupModel = "";
             }
+            context.logger().info("fx connection: starting ACP process");
             final FxAcpClient connected;
             try {
-                connected = clientStarter.start(
-                    new FxLaunchConfiguration(
-                        available.executable(),
-                        context.paths().stateDir(),
-                        FxSecurityMode.FX_NATIVE_TOOLS,
-                        available.managedRuntime(),
-                        environment,
-                        startupModel
-                    ),
-                    this
-                );
+                connected = startClient(new FxLaunchConfiguration(
+                    available.executable(),
+                    context.paths().stateDir(),
+                    FxSecurityMode.FX_NATIVE_TOOLS,
+                    available.managedRuntime(),
+                    environment,
+                    startupModel
+                ));
             } catch (IOException | FxAcpException | RuntimeException failure) {
                 if (adapter != null) {
                     customEndpointAdapter = null;
@@ -422,6 +439,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 }
                 throw failure;
             }
+            context.logger().info("fx connection: ACP initialized");
             if (closed.get()) {
                 connected.close();
                 return;
@@ -441,6 +459,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 ? settings.sessionId()
                 : null;
             if (savedSessionId == null) {
+                context.logger().info("fx connection: creating ACP session");
                 final FxAcpSession created = applySavedProvider(
                     connected,
                     connected.newSession(
@@ -448,11 +467,13 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                     )
                 );
                 activateSession(created);
+                context.logger().info("fx connection: ACP session ready");
                 ui(() -> view.showConnected(
                     created.configOptions(),
                     created.durableSessionsAvailable()
                 ));
             } else {
+                context.logger().info("fx connection: loading saved ACP session");
                 final LoadTransaction load = beginLoadTransaction(connected, savedSessionId);
                 try {
                     final FxAcpSession restored = applySavedProvider(
@@ -470,12 +491,14 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                     ))) {
                         return;
                     }
+                    context.logger().info("fx connection: ACP session ready");
                 } catch (FxAcpException | RuntimeException loadFailure) {
                     if (!discardCurrentLoadTransaction(load)) return;
                     context.logger().warn(
                         "Stored fx session could not be loaded; creating a new session"
                     );
                     if (!loadGenerationCurrent(load)) return;
+                    context.logger().info("fx connection: creating ACP session");
                     final FxAcpSession created = applySavedProvider(
                         connected,
                         connected.newSession(
@@ -484,6 +507,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                     );
                     if (!loadGenerationCurrent(load)) return;
                     activateSession(created);
+                    context.logger().info("fx connection: ACP session ready");
                     ui(() -> view.showConnected(
                         created.configOptions(),
                         created.durableSessionsAvailable()
@@ -497,6 +521,44 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             connectionFailed(failure, diagnosticKey(failure));
         } catch (RuntimeException failure) {
             connectionFailed(failure, "status.connection-failed");
+        }
+    }
+
+    private FxAcpClient startClient(final FxLaunchConfiguration configuration)
+        throws IOException, FxAcpException {
+        final AtomicBoolean abandoned = new AtomicBoolean();
+        final java.util.concurrent.FutureTask<FxAcpClient> launch =
+            new java.util.concurrent.FutureTask<>(() -> {
+                final FxAcpClient started = clientStarter.start(configuration, this);
+                if (abandoned.get() || closed.get()) {
+                    started.close();
+                    throw new FxAcpException("fx ACP startup was cancelled");
+                }
+                return started;
+            });
+        final Thread thread = new Thread(launch, "turboism-with-fx-acp-start");
+        thread.setDaemon(true);
+        thread.start();
+        try {
+            return launch.get(
+                clientStartTimeout.toMillis(),
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            );
+        } catch (java.util.concurrent.TimeoutException failure) {
+            abandoned.set(true);
+            launch.cancel(true);
+            throw new FxAcpException("timed out starting fx ACP", failure);
+        } catch (InterruptedException failure) {
+            abandoned.set(true);
+            launch.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new FxAcpException("interrupted while starting fx ACP", failure);
+        } catch (java.util.concurrent.ExecutionException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof IOException io) throw io;
+            if (cause instanceof FxAcpException acp) throw acp;
+            if (cause instanceof RuntimeException runtime) throw runtime;
+            throw new FxAcpException("fx ACP startup failed", cause);
         }
     }
 

@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -43,6 +44,13 @@ final class FxProcessTransportTest {
                 "vendor/model with space"
             ).command()
         );
+    }
+
+    @Test
+    void windowsTeardownSkipsProcessHandleDescendantEnumeration() {
+        assertFalse(FxProcessTransport.tracksDescendants("Windows 11"));
+        assertFalse(FxProcessTransport.tracksDescendants("windows server 2025"));
+        assertTrue(FxProcessTransport.tracksDescendants("Linux"));
     }
 
     @Test
