@@ -70,6 +70,23 @@ final class TurboismWithFxWindowTest {
     }
 
     @Test
+    void settingsRegistersFallbackUisBeforeComponentConstruction() {
+        final javax.swing.UIDefaults defaults = new javax.swing.UIDefaults();
+        defaults.put("PanelUI", "test.CustomPanelUI");
+
+        TurboismWithFxWindow.installFallbackSwingUis(defaults);
+
+        assertEquals("test.CustomPanelUI", defaults.get("PanelUI"));
+        assertEquals("javax.swing.plaf.basic.BasicTabbedPaneUI", defaults.get("TabbedPaneUI"));
+        assertEquals("javax.swing.plaf.basic.BasicScrollPaneUI", defaults.get("ScrollPaneUI"));
+        assertEquals("javax.swing.plaf.basic.BasicComboBoxUI", defaults.get("ComboBoxUI"));
+        assertEquals("javax.swing.plaf.basic.BasicTextFieldUI", defaults.get("TextFieldUI"));
+        assertEquals("javax.swing.plaf.basic.BasicTextAreaUI", defaults.get("TextAreaUI"));
+        assertEquals("javax.swing.plaf.basic.BasicListUI", defaults.get("ListUI"));
+        assertEquals("javax.swing.plaf.basic.BasicButtonUI", defaults.get("ButtonUI"));
+    }
+
+    @Test
     void permissionDialogHasAConcreteMinimumSize() {
         final Dimension minimum = TurboismWithFxWindow.permissionDialogMinimum();
         assertTrue(minimum.width >= 620);
