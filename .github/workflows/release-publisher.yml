@@ -27,7 +27,10 @@ on:
 
 permissions:
   actions: read
-  contents: write
+  contents: read
+
+env:
+  PLUGIN_DIRECTORY_REVISION: c556c90adee0f12b5ce81c9c8108eab8e53aec16
 
 concurrency:
   group: turboism-production-release
@@ -47,6 +50,7 @@ jobs:
       source_created_at: ${{ steps.source.outputs.source_created_at }}
       intent: ${{ steps.plan.outputs.intent }}
       plan_id: ${{ steps.plan.outputs.plan_id }}
+      plugin_directory_revision: ${{ steps.plan.outputs.plugin_directory_revision }}
     steps:
       - name: Resolve candidate identity
         id: source
@@ -132,9 +136,12 @@ jobs:
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: turboism/turboism-plugin-directory
-          ref: main
+          ref: ${{ env.PLUGIN_DIRECTORY_REVISION }}
           path: build/release-publisher/plugin-directory
           persist-credentials: false
+
+      - name: Verify pinned Plugin Directory revision
+        run: test "$(git -C build/release-publisher/plugin-directory rev-parse HEAD)" = "$PLUGIN_DIRECTORY_REVISION"
 
       - name: Locate and validate candidate contract
         id: plan
@@ -208,6 +215,38 @@ jobs:
               --plugin-directory-repo build/release-publisher/plugin-directory \
               --plan "$PLAN"
           fi
+          python3 - "$CANDIDATE" "$PLAN" "$PLUGIN_DIRECTORY_REVISION" "$RECOVERED" <<'PY'
+          import hashlib
+          import json
+          import re
+          import sys
+          from pathlib import Path
+
+          candidate_path = Path(sys.argv[1])
+          plan_path = Path(sys.argv[2])
+          revision = sys.argv[3]
+          recovered = sys.argv[4] == "true"
+          if re.fullmatch(r"[0-9a-f]{40}", revision) is None:
+              raise SystemExit("Plugin Directory revision must be an immutable commit SHA")
+          candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+          if candidate.get("pluginDirectoryRevision") != revision:
+              raise SystemExit("candidate Plugin Directory revision does not match publisher pin")
+          plan = json.loads(plan_path.read_text(encoding="utf-8"))
+          if recovered and plan.get("pluginDirectoryRevision") != revision:
+              raise SystemExit("recovered plan Plugin Directory revision does not match publisher pin")
+          plan["pluginDirectoryRevision"] = revision
+          payload = dict(plan)
+          payload.pop("planId", None)
+          canonical = json.dumps(payload, ensure_ascii=False, allow_nan=False,
+                                 separators=(",", ":"), sort_keys=True).encode("utf-8")
+          plan["planId"] = hashlib.sha256(canonical).hexdigest()
+          plan_path.write_text(
+              json.dumps(plan, ensure_ascii=False, allow_nan=False,
+                         separators=(",", ":"), sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          PY
+          python3 scripts/release/turboism-release.py verify --plan "$PLAN"
           PLAN_ID="$(python3 -c 'import json; print(json.load(open("build/release-publisher/plan.json"))["planId"])')"
           INTENT="$(python3 -c 'import json; print(json.load(open("build/release-publisher/plan.json"))["intent"])')"
           if [ -n "$EXPECTED_PLAN_ID" ] && [ "$PLAN_ID" != "$EXPECTED_PLAN_ID" ]; then
@@ -216,6 +255,7 @@ jobs:
           fi
           echo "plan_id=$PLAN_ID" >> "$GITHUB_OUTPUT"
           echo "intent=$INTENT" >> "$GITHUB_OUTPUT"
+          echo "plugin_directory_revision=$PLUGIN_DIRECTORY_REVISION" >> "$GITHUB_OUTPUT"
 
       - name: Upload immutable plan for audit and resume
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -251,9 +291,14 @@ jobs:
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           repository: turboism/turboism-plugin-directory
-          ref: main
+          ref: ${{ needs.preflight.outputs.plugin_directory_revision }}
           path: build/release-publisher/plugin-directory
           persist-credentials: false
+
+      - name: Verify planned Plugin Directory revision
+        run: |
+          test "$PLUGIN_DIRECTORY_REVISION" = "${{ needs.preflight.outputs.plugin_directory_revision }}"
+          test "$(git -C build/release-publisher/plugin-directory rev-parse HEAD)" = "$PLUGIN_DIRECTORY_REVISION"
 
       - name: Dispatch or resume exact Plugin Directory request
         id: provider
@@ -283,7 +328,7 @@ jobs:
           if [ "$COUNT" -eq 0 ]; then
             gh workflow run publish-plugin-directory-v2.yml \
               --repo turboism/turboism-plugin-directory \
-              --ref main \
+              --ref "$PLUGIN_DIRECTORY_REVISION" \
               -f source_run_id="$SOURCE_RUN_ID" \
               -f source_sha="$SOURCE_SHA" \
               -f artifact_name="$MARKET_ARTIFACT" \
@@ -367,6 +412,9 @@ jobs:
           exit 1
 
   publish-framework:
+    permissions:
+      actions: read
+      contents: write
     needs: [preflight, publish-plugins]
     if: >-
       always() &&
