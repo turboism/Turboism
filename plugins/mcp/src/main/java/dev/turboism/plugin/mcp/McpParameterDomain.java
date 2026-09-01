@@ -278,6 +278,9 @@ final class McpParameterDomain {
                 ));
             } catch (java.util.concurrent.CancellationException failure) {
                 throw failure;
+            } catch (BindingOutcomeUnknownException failure) {
+                failed = true;
+                results.add(outcomeUnknown(index, operation, failure));
             } catch (RuntimeException failure) {
                 failed = true;
                 results.add(failure(index, operation, failure));
@@ -329,8 +332,11 @@ final class McpParameterDomain {
                 final ParameterId parameterId = parameterId(operation);
                 rejectBlendShapeCrud(model, parameterId);
                 final ParameterBindingTarget target = target(requiredObject(operation, "target"));
-                model.parameterBindings(parameterId).unbind(target);
-                yield bindingResult(model, parameterId, target);
+                yield bindingWrite(
+                    () -> model.parameterBindings(parameterId).unbind(target),
+                    () -> bindingResult(model, parameterId, target),
+                    linked(entry("parameterId", parameterId.value()), entry("target", target(target)))
+                );
             }
             case "invert" -> {
                 only(operation, "operation", "parameterId", "targets");
@@ -339,15 +345,32 @@ final class McpParameterDomain {
                 model.parameterBindingBatch().invert(targets);
                 yield bindingResults(model, parameterId, targets);
             }
-            case "transfer", "transfer_clamped", "transfer_morph_clamped" -> {
+            case "transfer", "transfer_clamped" -> {
                 only(operation, "operation", "sourceParameterId", "targetParameterId", "targets", "invertAfterTransfer");
                 final ParameterBindingTransferPlan plan = transferPlan(operation);
-                switch (name) {
-                    case "transfer" -> model.parameterBindingBatch().transfer(plan);
-                    case "transfer_clamped" -> model.parameterBindingBatch().transferClamped(plan);
-                    case "transfer_morph_clamped" -> model.parameterBindingBatch().transferMorphClamped(plan);
-                    default -> throw new AssertionError(name);
-                }
+                yield bindingWrite(
+                    () -> {
+                        if ("transfer".equals(name)) {
+                            model.parameterBindingBatch().transfer(plan);
+                        } else {
+                            model.parameterBindingBatch().transferClamped(plan);
+                        }
+                    },
+                    () -> linked(
+                        entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
+                        entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))
+                    ),
+                    linked(
+                        entry("sourceParameterId", plan.sourceParameterId().value()),
+                        entry("targetParameterId", plan.targetParameterId().value()),
+                        entry("targets", plan.targets().stream().map(McpParameterDomain::target).toList())
+                    )
+                );
+            }
+            case "transfer_morph_clamped" -> {
+                only(operation, "operation", "sourceParameterId", "targetParameterId", "targets", "invertAfterTransfer");
+                final ParameterBindingTransferPlan plan = transferPlan(operation);
+                model.parameterBindingBatch().transferMorphClamped(plan);
                 yield linked(
                     entry("source", bindingResults(model, plan.sourceParameterId(), plan.targets())),
                     entry("target", bindingResults(model, plan.targetParameterId(), plan.targets()))
@@ -376,6 +399,92 @@ final class McpParameterDomain {
             ))),
             entry("structuredContent", output),
             entry("isError", error)
+        );
+    }
+
+    private static Map<String, Object> bindingWrite(
+        final Runnable write,
+        final java.util.function.Supplier<Map<String, Object>> readback,
+        final Map<String, Object> identity
+    ) {
+        try {
+            write.run();
+        } catch (RuntimeException failure) {
+            throw new BindingOutcomeUnknownException(failure);
+        }
+        try {
+            return bindingWriteResult(BindingWriteOutcome.APPLIED, readback.get(), null);
+        } catch (RuntimeException failure) {
+            return bindingWriteResult(
+                BindingWriteOutcome.APPLIED_WITH_READBACK_WARNING,
+                identity,
+                failure
+            );
+        }
+    }
+
+    private static Map<String, Object> bindingWriteResult(
+        final BindingWriteOutcome outcome,
+        final Map<String, Object> readback,
+        final RuntimeException readbackFailure
+    ) {
+        final LinkedHashMap<String, Object> result = new LinkedHashMap<>();
+        result.put("outcome", outcome.name());
+        result.put("retryable", false);
+        result.put(
+            "canonicalPointIds",
+            readbackFailure == null ? canonicalPointIds(readback) : null
+        );
+        result.putAll(readback);
+        if (readbackFailure != null) {
+            result.put("readbackWarning", error(readbackFailure));
+        }
+        return result;
+    }
+
+    private static List<String> canonicalPointIds(final Object value) {
+        final java.util.LinkedHashSet<String> result = new java.util.LinkedHashSet<>();
+        collectCanonicalPointIds(value, result);
+        return List.copyOf(result);
+    }
+
+    private static void collectCanonicalPointIds(
+        final Object value,
+        final java.util.Set<String> result
+    ) {
+        if (value instanceof Map<?, ?> object) {
+            final Object points = object.get("points");
+            if (points instanceof List<?> list) {
+                for (Object point : list) {
+                    if (point instanceof Map<?, ?> pointObject
+                        && pointObject.get("id") instanceof String id) {
+                        result.add(id);
+                    }
+                }
+            }
+            for (Object nested : object.values()) collectCanonicalPointIds(nested, result);
+        } else if (value instanceof List<?> list) {
+            for (Object nested : list) collectCanonicalPointIds(nested, result);
+        }
+    }
+
+    private static Map<String, Object> outcomeUnknown(
+        final int index,
+        final Map<String, Object> operation,
+        final BindingOutcomeUnknownException failure
+    ) {
+        final RuntimeException cause = (RuntimeException) failure.getCause();
+        return linked(
+            entry("index", index),
+            entry("operation", operation.get("operation")),
+            entry("ok", false),
+            entry("error", linked(
+                entry("code", BindingWriteOutcome.OUTCOME_UNKNOWN.name()),
+                entry("message", safeMessage(cause)),
+                entry("outcome", BindingWriteOutcome.OUTCOME_UNKNOWN.name()),
+                entry("retryable", false),
+                entry("canonicalPointIds", null)
+            ))
         );
     }
 
@@ -648,7 +757,9 @@ final class McpParameterDomain {
         return result;
     }
 
-    private static Map.Entry<String, Object> entry(final String key, final Object value) { return Map.entry(key, value); }
+    private static Map.Entry<String, Object> entry(final String key, final Object value) {
+        return new java.util.AbstractMap.SimpleImmutableEntry<>(key, value);
+    }
 
     private static Object required(final Map<String, Object> values, final String key) {
         if (!values.containsKey(key) || values.get(key) == null) throw new InputException(key + " is required");
@@ -704,6 +815,18 @@ final class McpParameterDomain {
 
     private static String safeMessage(final RuntimeException failure) {
         return failure.getMessage() == null || failure.getMessage().isBlank() ? failure.getClass().getSimpleName() : failure.getMessage();
+    }
+
+    private enum BindingWriteOutcome {
+        APPLIED,
+        APPLIED_WITH_READBACK_WARNING,
+        OUTCOME_UNKNOWN
+    }
+
+    private static final class BindingOutcomeUnknownException extends RuntimeException {
+        private BindingOutcomeUnknownException(final RuntimeException cause) {
+            super(cause);
+        }
     }
 
     private static final class InputException extends RuntimeException {
