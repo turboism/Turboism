@@ -15,8 +15,11 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
@@ -166,6 +169,57 @@ class RuntimePluginManagementInstallWorkflowTest {
     }
 
     @Test
+    void executorRejectionSettlesAcceptedInstallExactlyOnce() throws Exception {
+        final Path source = home.resolve("sample.tplugin");
+        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final ControlledChooser chooser = new ControlledChooser();
+        final ExecutorService executor = Executors.newSingleThreadExecutor();
+        executor.shutdownNow();
+        final RuntimePluginManagementService service = new RuntimePluginManagementService(
+            home, chooser, List::of, executor
+        );
+        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final CountDownLatch completed = new CountDownLatch(1);
+
+        service.requestInstall(result -> {
+            results.add(result);
+            completed.countDown();
+        });
+        assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
+        chooser.complete(Optional.of(source));
+
+        assertTrue(completed.await(1, TimeUnit.SECONDS));
+        assertEquals(1, results.size());
+        assertEquals("PLUGIN_INSTALL_FAILED", results.get(0).code());
+        chooser.complete(Optional.of(source));
+        assertEquals(1, results.size());
+        service.close();
+    }
+
+    @Test
+    void closeBeforeBackgroundCompletionSettlesAcceptedInstallExactlyOnce() throws Exception {
+        final Path source = home.resolve("sample.tplugin");
+        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final ControlledChooser chooser = new ControlledChooser();
+        final HoldingExecutor executor = new HoldingExecutor();
+        final RuntimePluginManagementService service = new RuntimePluginManagementService(
+            home, chooser, List::of, executor
+        );
+        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+
+        service.requestInstall(results::add);
+        assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
+        chooser.complete(Optional.of(source));
+        final Runnable background = executor.submitted;
+        service.close();
+        background.run();
+
+        assertEquals(1, results.size());
+        assertEquals("PLUGIN_INSTALL_CANCELLED", results.get(0).code());
+        assertFalse(Files.exists(home.resolve("state/runtime/plugin-management/pending.json")));
+    }
+
+    @Test
     void overlappingInstallRequestIsRejectedAsBusy() throws Exception {
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
@@ -201,6 +255,21 @@ class RuntimePluginManagementInstallWorkflowTest {
             @Override public String label() { return id; }
             @Override public Consumer<ActionRegistry.ActionContext> handler() { return handler; }
         };
+    }
+
+    private static final class HoldingExecutor extends AbstractExecutorService {
+        private volatile boolean shutdown;
+        private volatile Runnable submitted;
+
+        @Override public void shutdown() { shutdown = true; }
+        @Override public List<Runnable> shutdownNow() { shutdown = true; return List.of(); }
+        @Override public boolean isShutdown() { return shutdown; }
+        @Override public boolean isTerminated() { return shutdown; }
+        @Override public boolean awaitTermination(final long timeout, final TimeUnit unit) { return shutdown; }
+        @Override public void execute(final Runnable command) {
+            if (shutdown) throw new java.util.concurrent.RejectedExecutionException();
+            submitted = command;
+        }
     }
 
     private static final class ControlledChooser implements RuntimePluginManagementService.PackageChooser {
