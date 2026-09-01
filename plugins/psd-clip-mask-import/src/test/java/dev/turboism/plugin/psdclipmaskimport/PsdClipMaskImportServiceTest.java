@@ -177,6 +177,38 @@ final class PsdClipMaskImportServiceTest {
     }
 
     @Test
+    void noWriteNotificationCapsSkipDetailsAndReportsTheOmittedCount() {
+        final RecordingHost host = new RecordingHost();
+        final PsdClipMaskImportService service = service(host);
+        final List<PsdClipMaskPlan.Skip> skips = new ArrayList<>();
+        for (int index = 0; index < 12; index++) {
+            skips.add(new PsdClipMaskPlan.Skip(
+                new ArtMeshId("Skipped" + index),
+                List.of(new PsdClipMaskPlan.SourceRef("psd-face", "layer-" + index)),
+                PsdClipMaskPlan.SkipReason.ALREADY_MATCHES,
+                "already matches"
+            ));
+        }
+        final PsdClipMaskPlan plan = new PsdClipMaskPlan(List.of(), List.of(), skips);
+        final PsdClipMaskImportService.ImportResult result =
+            new PsdClipMaskImportService.ImportResult(
+                PsdClipMaskImportService.ImportOutcome.NO_WRITE,
+                0,
+                skips.size(),
+                0
+            );
+
+        final String message = service.noWriteText(plan, result);
+
+        assertTrue(message.contains("Skipped0"), message);
+        assertTrue(message.contains("Skipped9"), message);
+        assertFalse(message.contains("Skipped10"), message);
+        assertFalse(message.contains("Skipped11"), message);
+        assertTrue(message.contains("2 additional skipped relationships omitted"), message);
+        assertTrue(message.contains("0 applied, 12 skipped, 0 failures"), message);
+    }
+
+    @Test
     void planChangeAfterPreviewAbortsWithZeroWritesAndZeroBatchCalls() {
         final RecordingHost host = new RecordingHost();
         host.ui.onConfirm = () -> host.psds.set(0, RecordingHost.psdWithoutRelationship());

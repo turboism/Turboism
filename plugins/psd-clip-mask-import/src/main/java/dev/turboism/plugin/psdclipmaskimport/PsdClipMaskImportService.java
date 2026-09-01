@@ -36,18 +36,20 @@ import java.util.Objects;
  * step, and refresh are the contract of the SDK batch operation; the plugin
  * never writes per-item or builds its own rollback.</p>
  */
-public final class PsdClipMaskImportService {
+public final class PsdClipMaskImportService implements AutoCloseable {
 
     public static final String ACTION_ID = "psd-clip-mask-import.import";
     public static final String PREVIEW_DIALOG_ID = "psd-clip-mask-import.preview";
     public static final String TURBOISM_PANEL_ID = "turboism.panel.main";
     public static final String SECTION_ID = "psd-clip-mask-import.section";
     public static final int SECTION_ORDER = 110;
+    private static final int MAX_NO_WRITE_SKIP_ROWS = 10;
 
     private final CubismModelAccess models;
     private final PluginContext context;
     private final UiHostCapabilityService uiHost;
     private final PsdClipMaskPlanner planner = new PsdClipMaskPlanner();
+    private final PsdClipMaskImportRunner runner;
 
     public PsdClipMaskImportService(
         final CubismModelAccess models,
@@ -57,6 +59,24 @@ public final class PsdClipMaskImportService {
         this.models = Objects.requireNonNull(models, "models");
         this.context = Objects.requireNonNull(context, "context");
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
+        this.runner = new PsdClipMaskImportRunner(
+            this::importClipMasks,
+            () -> new PsdClipMaskImportProgressDialog(context.localization()),
+            failure -> context.logger().error(
+                "PSD Clip Mask Import background operation failed safely.",
+                failure
+            )
+        );
+    }
+
+    /** Starts one import asynchronously, or focuses the active progress window on a repeated click. */
+    boolean requestImport() {
+        return runner.requestImport();
+    }
+
+    @Override
+    public void close() {
+        runner.close();
     }
 
     /**
@@ -88,8 +108,9 @@ public final class PsdClipMaskImportService {
      * Runs the whole import: plan from the active model, show the preview, and on confirmation commit
      * every assignment in one batch.
      *
-     * <p>Reports the outcome as a value and always posts a matching status notification; it does not
-     * throw for an unavailable model or a failed apply. Cancelling the preview performs zero writes, as
+     * <p>Reports the outcome as a value and posts a matching status notification unless plugin
+     * shutdown cancels the asynchronous run; it does not throw for an unavailable model or a failed
+     * apply. Cancelling the preview performs zero writes, as
      * does {@code NO_WRITE} when the plan is empty. Confirmation is the explicit overwrite consent: the
      * identity and plan are re-verified against a freshly obtained model, and any change since the
      * preview aborts with zero writes.
@@ -97,7 +118,14 @@ public final class PsdClipMaskImportService {
      * @return the outcome plus applied, skipped and failure counts
      */
     public ImportResult importClipMasks() {
+        return importClipMasks(PsdClipMaskImportProgress.noop());
+    }
+
+    private ImportResult importClipMasks(final PsdClipMaskImportProgress progress) {
+        progress.preparing();
+        if (progress.cancellationRequested()) return cancelledResult();
         final PlannedImport planned = buildPlannedImport();
+        if (progress.cancellationRequested()) return cancelledResult();
         if (planned == null) {
             return notifyFailed(new ImportResult(ImportOutcome.FAILED, 0, 0, 1));
         }
@@ -113,8 +141,11 @@ public final class PsdClipMaskImportService {
             );
             return result;
         }
+        progress.awaitingConfirmation();
+        if (progress.cancellationRequested()) return cancelledResult();
         if (!uiHost.confirmDialog(preview(plan))) {
-            final ImportResult result = new ImportResult(ImportOutcome.CANCELLED, 0, 0, 0);
+            if (progress.cancellationRequested()) return cancelledResult();
+            final ImportResult result = cancelledResult();
             notify(
                 "psd.clip-mask-import.cancelled",
                 "WARNING",
@@ -125,7 +156,10 @@ public final class PsdClipMaskImportService {
             );
             return result;
         }
-        final ImportResult result = commit(planned);
+        if (progress.cancellationRequested()) return cancelledResult();
+        progress.applying();
+        final ImportResult result = commit(planned, progress);
+        if (progress.cancellationRequested()) return result;
         if (result.outcome() == ImportOutcome.FAILED) {
             return notifyFailed(result);
         }
@@ -211,15 +245,23 @@ public final class PsdClipMaskImportService {
      * data plus localized copy; raw host exception text and planner-owned
      * English detail strings never appear here.
      */
-    private String noWriteText(final PsdClipMaskPlan plan, final ImportResult result) {
+    String noWriteText(final PsdClipMaskPlan plan, final ImportResult result) {
         final StringBuilder message = new StringBuilder();
         if (plan.skips().isEmpty()) {
             message.append(context.localization().text("psd.clip-mask-import.no-write.none"));
         } else {
             message.append(context.localization().text("psd.clip-mask-import.no-write.all-skipped"));
-            for (PsdClipMaskPlan.Skip skip : plan.skips()) {
+            final int visibleRows = Math.min(plan.skips().size(), MAX_NO_WRITE_SKIP_ROWS);
+            for (int index = 0; index < visibleRows; index++) {
                 message.append('\n');
-                appendSkip(message, skip);
+                appendSkip(message, plan.skips().get(index));
+            }
+            final int omitted = plan.skips().size() - visibleRows;
+            if (omitted > 0) {
+                message.append(context.localization().format(
+                    "psd.clip-mask-import.no-write.omitted",
+                    omitted
+                ));
             }
         }
         message.append(' ').append(counts(result));
@@ -284,17 +326,24 @@ public final class PsdClipMaskImportService {
      * thread, and the single Undo step are the contract of
      * {@link CubismModel#replaceArtMeshClipMasks}.
      */
-    private ImportResult commit(final PlannedImport previewed) {
+    private ImportResult commit(
+        final PlannedImport previewed,
+        final PsdClipMaskImportProgress progress
+    ) {
         try {
+            if (progress.cancellationRequested()) return cancelledResult();
             final CubismModel model = models.active();
+            if (progress.cancellationRequested()) return cancelledResult();
             if (!currentIdentity(model).equals(previewed.identity())) {
                 return new ImportResult(ImportOutcome.FAILED, 0, 0, 1);
             }
             final PlannedImport revalidated = revalidate(model);
+            if (progress.cancellationRequested()) return cancelledResult();
             if (revalidated == null || !revalidated.equals(previewed)) {
                 return new ImportResult(ImportOutcome.FAILED, 0, 0, 1);
             }
             final PsdClipMaskPlan plan = revalidated.plan();
+            if (progress.cancellationRequested()) return cancelledResult();
             model.replaceArtMeshClipMasks(toReplacements(plan));
             return new ImportResult(
                 ImportOutcome.APPLIED,
@@ -303,7 +352,9 @@ public final class PsdClipMaskImportService {
                 0
             );
         } catch (RuntimeException failure) {
-            return new ImportResult(ImportOutcome.FAILED, 0, previewed.plan().skips().size(), 1);
+            return progress.cancellationRequested()
+                ? cancelledResult()
+                : new ImportResult(ImportOutcome.FAILED, 0, previewed.plan().skips().size(), 1);
         }
     }
 
@@ -357,6 +408,10 @@ public final class PsdClipMaskImportService {
         // in different namespaces and must not be compared. Document identity plus the
         // Editor GUID detects binding changes here; the model itself remains generation-bound.
         return new Identity(new DocumentId(document.documentId()), model.id());
+    }
+
+    private static ImportResult cancelledResult() {
+        return new ImportResult(ImportOutcome.CANCELLED, 0, 0, 0);
     }
 
     private ImportResult notifyFailed(final ImportResult result) {
