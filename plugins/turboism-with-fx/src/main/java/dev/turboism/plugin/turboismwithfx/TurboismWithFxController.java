@@ -47,6 +47,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private final ArrayDeque<UiUpdate> pendingUi = new ArrayDeque<>();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicReference<FxAcpClient> client = new AtomicReference<>();
+    private final AtomicReference<PendingSettings> pendingSettings = new AtomicReference<>();
     private boolean uiDrainScheduled;
     private boolean uiOverflowReported;
     private LoadTransaction loadTransaction;
@@ -55,6 +56,7 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
     private volatile FxAcpSession session;
     private volatile McpHttpConnection mcpConnection;
     private volatile FxOpenAiAdapter customEndpointAdapter;
+    private volatile FxDeferredGatewayAdapter deferredGatewayAdapter;
     private volatile boolean prompting;
 
     TurboismWithFxController(
@@ -118,15 +120,23 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final String initialPrompt,
         final FxProviderConfiguration providerConfiguration
     ) {
+        final PendingSettings pending = new PendingSettings(
+            executable, compatibilityMode, initialPrompt, providerConfiguration
+        );
+        pendingSettings.set(pending);
         submit(() -> {
-            if (!saveSettingsNow(
-                executable,
-                compatibilityMode,
-                initialPrompt,
-                providerConfiguration
-            )) return;
-            ui(() -> view.showConnecting(compatibilityMode));
-            connectNow(executable, compatibilityMode);
+            try {
+                if (!saveSettingsNow(
+                    executable,
+                    compatibilityMode,
+                    initialPrompt,
+                    providerConfiguration
+                )) return;
+                ui(() -> view.showConnecting(compatibilityMode));
+                connectNow(executable, compatibilityMode);
+            } finally {
+                pendingSettings.compareAndSet(pending, null);
+            }
         });
     }
 
@@ -162,14 +172,22 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final String initialPrompt,
         final FxProviderConfiguration providerConfiguration
     ) {
+        final PendingSettings pending = new PendingSettings(
+            executable, compatibilityMode, initialPrompt, providerConfiguration
+        );
+        pendingSettings.set(pending);
         submit(() -> {
-            if (saveSettingsNow(
-                executable,
-                compatibilityMode,
-                initialPrompt,
-                providerConfiguration
-            )) {
-                ui(view::showSettingsSaved);
+            try {
+                if (saveSettingsNow(
+                    executable,
+                    compatibilityMode,
+                    initialPrompt,
+                    providerConfiguration
+                )) {
+                    ui(view::showSettingsSaved);
+                }
+            } finally {
+                pendingSettings.compareAndSet(pending, null);
             }
         });
     }
@@ -305,6 +323,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         try {
             final String executableOverride = validateExecutableOverride(executable);
             final String instructions = validateInitialPrompt(initialPrompt);
+            final FxProviderProfile previousProfile =
+                settings.providerConfiguration().activeProfile();
             if (legacyCustomEndpoint == null) {
                 settings.writeUserSettings(
                     executableOverride,
@@ -320,6 +340,9 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                     legacyCustomEndpoint
                 );
             }
+            if (!previousProfile.equals(settings.providerConfiguration().activeProfile())) {
+                settings.clearSessionId();
+            }
             return true;
         } catch (IllegalArgumentException failure) {
             context.logger().warn("Turboism with fx settings were invalid");
@@ -334,10 +357,6 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
 
     private void connectNow(final String executable, final boolean compatibilityMode) {
         disconnectNow();
-        if (!compatibilityMode) {
-            ui(() -> view.showFailure("status.mcp-only-unavailable"));
-            return;
-        }
         try {
             final McpHttpConnection connection = context.mcpConnections().current()
                 .orElseThrow(() -> new FxAcpException("Turboism MCP Server is not available"));
@@ -348,16 +367,36 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             final FxRuntimeResolver.Resolution.Available available =
                 (FxRuntimeResolver.Resolution.Available) resolution;
+            final FxProviderProfile profile = settings.providerConfiguration().activeProfile();
             final FxCustomEndpointSettings customEndpoint = settings.customEndpoint();
             final FxOpenAiAdapter adapter;
+            final FxDeferredGatewayAdapter deferred;
             final java.util.Map<String, String> environment;
+            final String startupModel;
             if (customEndpoint.enabled()) {
-                adapter = FxOpenAiAdapter.start(customEndpoint);
+                adapter = FxOpenAiAdapter.start(
+                    customEndpoint,
+                    profile.models(List.of())
+                );
+                deferred = null;
                 customEndpointAdapter = adapter;
-                environment = adapter.fxEnvironment();
+                environment = FxIsolatedHome.gatewayEnvironment(
+                    context.paths().stateDir(), profile.id(), adapter.fxEnvironment()
+                );
+                startupModel = customEndpoint.model();
+            } else if (profile.kind() == FxProviderProfile.Kind.NONE) {
+                adapter = null;
+                deferred = FxDeferredGatewayAdapter.start();
+                deferredGatewayAdapter = deferred;
+                environment = FxIsolatedHome.gatewayEnvironment(
+                    context.paths().stateDir(), profile.id(), deferred.fxEnvironment()
+                );
+                startupModel = "";
             } else {
                 adapter = null;
+                deferred = null;
                 environment = java.util.Map.of();
+                startupModel = "";
             }
             final FxAcpClient connected;
             try {
@@ -367,7 +406,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                         context.paths().stateDir(),
                         FxSecurityMode.FX_NATIVE_TOOLS,
                         available.managedRuntime(),
-                        environment
+                        environment,
+                        startupModel
                     ),
                     this
                 );
@@ -375,6 +415,10 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 if (adapter != null) {
                     customEndpointAdapter = null;
                     adapter.close();
+                }
+                if (deferred != null) {
+                    deferredGatewayAdapter = null;
+                    deferred.close();
                 }
                 throw failure;
             }
@@ -397,8 +441,11 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 ? settings.sessionId()
                 : null;
             if (savedSessionId == null) {
-                final FxAcpSession created = connected.newSession(
-                    context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                final FxAcpSession created = applySavedProvider(
+                    connected,
+                    connected.newSession(
+                        context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                    )
                 );
                 activateSession(created);
                 ui(() -> view.showConnected(
@@ -408,11 +455,14 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             } else {
                 final LoadTransaction load = beginLoadTransaction(connected, savedSessionId);
                 try {
-                    final FxAcpSession restored = connected.loadSession(
-                        savedSessionId,
-                        context.paths().stateDir(),
-                        connection,
-                        REQUEST_TIMEOUT
+                    final FxAcpSession restored = applySavedProvider(
+                        connected,
+                        connected.loadSession(
+                            savedSessionId,
+                            context.paths().stateDir(),
+                            connection,
+                            REQUEST_TIMEOUT
+                        )
                     );
                     if (!completeLoadTransaction(load, restored, () -> view.showConnected(
                         restored.configOptions(),
@@ -426,8 +476,11 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                         "Stored fx session could not be loaded; creating a new session"
                     );
                     if (!loadGenerationCurrent(load)) return;
-                    final FxAcpSession created = connected.newSession(
-                        context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                    final FxAcpSession created = applySavedProvider(
+                        connected,
+                        connected.newSession(
+                            context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                        )
                     );
                     if (!loadGenerationCurrent(load)) return;
                     activateSession(created);
@@ -458,8 +511,11 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final McpHttpConnection connection = mcpConnection;
         if (active == null || connection == null || prompting) return;
         try {
-            activateSession(active.newSession(
-                context.paths().stateDir(), connection, REQUEST_TIMEOUT
+            activateSession(applySavedProvider(
+                active,
+                active.newSession(
+                    context.paths().stateDir(), connection, REQUEST_TIMEOUT
+                )
             ));
             final FxAcpSession created = session;
             ui(() -> {
@@ -527,6 +583,42 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         } catch (FxAcpException failure) {
             context.logger().error("fx session list failed", failure);
             ui(() -> view.showSessionFailure("status.session-list-failed"));
+        }
+    }
+
+    private FxAcpSession applySavedProvider(
+        final FxAcpClient active,
+        final FxAcpSession current
+    ) throws FxAcpException {
+        final FxProviderProfile profile = settings.providerConfiguration().activeProfile();
+        if (profile.kind() != FxProviderProfile.Kind.FX_NATIVE) return current;
+        final FxAcpConfigOption provider = current.option("provider");
+        if (provider == null || profile.nativeProvider().equals(provider.currentValue())
+            || provider.choices().stream().noneMatch(choice ->
+                profile.nativeProvider().equals(choice.value())
+            )) {
+            return current;
+        }
+        final FxAcpClient.PendingConfigUpdate update = active.setConfigOption(
+            current.sessionId(), "provider", profile.nativeProvider()
+        );
+        try {
+            final List<FxAcpConfigOption> options = update.result().get(
+                REQUEST_TIMEOUT.toMillis(),
+                java.util.concurrent.TimeUnit.MILLISECONDS
+            );
+            return new FxAcpSession(
+                current.sessionId(), options, current.capabilities()
+            );
+        } catch (InterruptedException failure) {
+            active.abandon(update.request());
+            Thread.currentThread().interrupt();
+            throw new FxAcpException("fx provider selection was interrupted", failure);
+        } catch (java.util.concurrent.TimeoutException failure) {
+            active.abandon(update.request());
+            throw new FxAcpException("fx provider selection timed out", failure);
+        } catch (java.util.concurrent.ExecutionException failure) {
+            throw new FxAcpException("fx provider selection failed", unwrap(failure));
         }
     }
 
@@ -655,6 +747,10 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         final FxAcpClient active = client.get();
         final FxAcpSession current = session;
         if (active == null || current == null || prompting) return;
+        if (!providerAndModelAvailable(current)) {
+            ui(view::showProviderModelWarning);
+            return;
+        }
         final String initial = settings.initialPrompt().strip();
         final String prefix = initial.isEmpty()
             ? SYSTEM_BOUNDARY + "\n\nUser request:\n"
@@ -689,6 +785,28 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
                 refreshSessionsNow();
             }
         }));
+    }
+
+    private boolean providerAndModelAvailable(final FxAcpSession current) {
+        final FxProviderProfile profile = settings.providerConfiguration().activeProfile();
+        if (profile.kind() == FxProviderProfile.Kind.NONE) return false;
+        final FxAcpConfigOption provider = current.option("provider");
+        final FxAcpConfigOption model = current.option("model");
+        if (provider == null || model == null || !hasCurrentChoice(model)) return false;
+        if (profile.kind() == FxProviderProfile.Kind.OPENAI_COMPATIBLE) {
+            final FxOpenAiAdapter adapter = customEndpointAdapter;
+            return "gateway".equals(provider.currentValue())
+                && adapter != null
+                && adapter.hasModel(model.currentValue());
+        }
+        return profile.nativeProvider().equals(provider.currentValue())
+            && hasCurrentChoice(provider);
+    }
+
+    private static boolean hasCurrentChoice(final FxAcpConfigOption option) {
+        return option.choices().stream().anyMatch(choice ->
+            choice.value().equals(option.currentValue())
+        );
     }
 
     private void cancelNow() {
@@ -801,6 +919,12 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             }
             mcpConnection = null;
             prompting = false;
+            final FxOpenAiAdapter adapter = customEndpointAdapter;
+            customEndpointAdapter = null;
+            final FxDeferredGatewayAdapter deferred = deferredGatewayAdapter;
+            deferredGatewayAdapter = null;
+            if (adapter != null) adapter.close();
+            if (deferred != null) deferred.close();
             ui(() -> view.showFailure("status.process-terminated"));
         });
     }
@@ -1037,6 +1161,21 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         }
     }
 
+    private record PendingSettings(
+        String executable,
+        boolean compatibilityMode,
+        String initialPrompt,
+        FxProviderConfiguration providerConfiguration
+    ) {
+        private PendingSettings {
+            executable = Objects.requireNonNullElse(executable, "");
+            initialPrompt = Objects.requireNonNullElse(initialPrompt, "");
+            providerConfiguration = Objects.requireNonNull(
+                providerConfiguration, "providerConfiguration"
+            );
+        }
+    }
+
     private record UiUpdate(Runnable work, boolean droppable) {
         private UiUpdate {
             work = Objects.requireNonNull(work, "work");
@@ -1066,6 +1205,8 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         mcpConnection = null;
         final FxOpenAiAdapter adapter = customEndpointAdapter;
         customEndpointAdapter = null;
+        final FxDeferredGatewayAdapter deferred = deferredGatewayAdapter;
+        deferredGatewayAdapter = null;
         prompting = false;
         if (active != null) {
             if (current != null && current.capabilities().closeSession()) {
@@ -1078,10 +1219,21 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
             active.close();
         }
         if (adapter != null) adapter.close();
+        if (deferred != null) deferred.close();
     }
 
     @Override
     public void close() {
+        if (closed.get()) return;
+        final PendingSettings pending = pendingSettings.getAndSet(null);
+        if (pending != null) {
+            saveSettingsNow(
+                pending.executable(),
+                pending.compatibilityMode(),
+                pending.initialPrompt(),
+                pending.providerConfiguration()
+            );
+        }
         if (!closed.compareAndSet(false, true)) return;
         discardLoadTransaction();
         synchronized (uiLock) {
@@ -1217,6 +1369,9 @@ final class TurboismWithFxController implements AutoCloseable, FxAcpListener {
         void showPromptComplete(String stopReason);
         void showFailure(String localizationKey);
         void showSessionFailure(String localizationKey);
+        default void showProviderModelWarning() {
+            showSessionFailure("status.provider-model-required");
+        }
         void showSettingsSaved();
         default void showManagedRuntimeInstalling() {
         }

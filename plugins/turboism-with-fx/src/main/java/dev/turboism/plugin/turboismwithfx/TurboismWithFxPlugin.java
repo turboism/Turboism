@@ -208,7 +208,9 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         final TurboismWithFxWindow toShow;
         TurboismWithFxController autoConnect = null;
         String autoExecutable = null;
+        boolean autoCompatibility = false;
         String autoInitialPrompt = null;
+        FxProviderConfiguration autoProviderConfiguration = null;
         synchronized (this) {
             if (!enabled || settings == null) return;
             if (window == null) {
@@ -250,16 +252,20 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
                 );
                 window = created;
                 controller = next;
-                if (shouldAutoConnect(
-                    target == WindowTarget.AGENT,
-                    currentSettings.compatibilityMode()
-                )) {
-                    autoConnect = next;
-                    autoExecutable = currentSettings.executable();
-                    autoInitialPrompt = currentSettings.initialPrompt();
-                }
             }
             toShow = window;
+            if (toShow != null && controller != null
+                && shouldAutoConnect(
+                    target == WindowTarget.AGENT,
+                    toShow.compatibilityMode()
+                )
+                && toShow.claimAutoConnect()) {
+                autoConnect = controller;
+                autoExecutable = toShow.executable();
+                autoCompatibility = toShow.compatibilityMode();
+                autoInitialPrompt = toShow.initialPrompt();
+                autoProviderConfiguration = toShow.providerConfiguration();
+            }
         }
         if (target == WindowTarget.SETTINGS) {
             presentSettingsWindow(toShow::showSettingsAndFront);
@@ -267,12 +273,15 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         }
         final TurboismWithFxController connection = autoConnect;
         final String connectionExecutable = autoExecutable;
+        final boolean connectionCompatibility = autoCompatibility;
         final String connectionInitialPrompt = autoInitialPrompt;
+        final FxProviderConfiguration connectionProviders = autoProviderConfiguration;
         presentAgentWindow(
             connection == null ? null : () -> connection.connect(
                 connectionExecutable,
-                true,
-                connectionInitialPrompt
+                connectionCompatibility,
+                connectionInitialPrompt,
+                connectionProviders
             ),
             toShow::showAgentAndFront
         );
@@ -293,12 +302,11 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
     }
 
     /**
-     * Returns whether the saved launch state is sufficient for first-open connection.
+     * Returns whether opening this target should start the first fx connection.
      *
-     * <p>The executable no longer gates automatic connection: a blank advanced override selects the
-     * managed runtime. Connection remains fail-closed until the user has acknowledged stock fx
-     * native-tool compatibility mode. Reopening an already constructed window does not evaluate this
-     * predicate again, so it cannot start a second ACP process.</p>
+     * <p>The Agent connects immediately with the managed runtime or saved executable. Provider,
+     * model, and compatibility choices are session configuration and do not gate ACP startup. The
+     * Settings window remains available without starting fx.</p>
      */
     static boolean shouldAutoConnect(final boolean compatibilityMode) {
         return shouldAutoConnect(true, compatibilityMode);
@@ -308,7 +316,7 @@ public final class TurboismWithFxPlugin implements TurboismPlugin {
         final boolean agentWindow,
         final boolean compatibilityMode
     ) {
-        return agentWindow && compatibilityMode;
+        return agentWindow;
     }
 
     private void disposeUi() {

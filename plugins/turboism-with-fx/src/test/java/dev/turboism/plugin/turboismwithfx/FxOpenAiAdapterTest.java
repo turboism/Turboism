@@ -126,6 +126,47 @@ final class FxOpenAiAdapterTest {
     }
 
     @Test
+    void providerWithoutDefaultModelPublishesOnlyDiscoveredModels() throws Exception {
+        try (FxOpenAiAdapter adapter = FxOpenAiAdapter.start(settings("", ""))) {
+            final HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(
+                    URI.create(adapter.endpoint() + "/coding-agent/v1/models")
+                ).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
+
+            assertEquals(200, response.statusCode());
+            final Map<String, Object> catalog = object(StrictJson.parse(response.body()));
+            assertEquals(
+                List.of("local/one", "local/two"),
+                ((List<?>) catalog.get("data")).stream()
+                    .map(FxOpenAiAdapterTest::object)
+                    .map(model -> (String) model.get("id"))
+                    .toList()
+            );
+        }
+    }
+
+    @Test
+    void manuallyAddedModelsArePublishedAndRecognizedForPrompting() throws Exception {
+        try (FxOpenAiAdapter adapter = FxOpenAiAdapter.start(
+            settings("", ""),
+            List.of("manual/model")
+        )) {
+            final HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
+                HttpRequest.newBuilder(
+                    URI.create(adapter.endpoint() + "/coding-agent/v1/models")
+                ).GET().build(),
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
+
+            assertEquals(200, response.statusCode());
+            assertTrue(adapter.hasModel("manual/model"));
+            assertFalse(adapter.hasModel("unlisted/model"));
+        }
+    }
+
+    @Test
     void keylessSelfHostedEndpointSendsNoAuthorizationAndNeverLeaksTheAdapterBearer()
         throws Exception {
         try (FxOpenAiAdapter adapter = FxOpenAiAdapter.start(settings(""))) {
@@ -186,10 +227,14 @@ final class FxOpenAiAdapterTest {
     }
 
     private FxCustomEndpointSettings settings(final String apiKey) {
+        return settings(apiKey, "profile/default-model");
+    }
+
+    private FxCustomEndpointSettings settings(final String apiKey, final String model) {
         return new FxCustomEndpointSettings(
             true,
             "http://127.0.0.1:" + upstream.getAddress().getPort() + "/v1",
-            "profile/default-model",
+            model,
             "",
             apiKey
         );
