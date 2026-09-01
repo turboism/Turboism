@@ -7,6 +7,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -45,10 +47,18 @@ class TypedPluginConfigContractTest {
             Object.class,
             long.class
         );
+        final Method editable = PluginConfigRegistry.class.getMethod(
+            "registerUserEditableSchema",
+            ConfigSchema.class,
+            List.class,
+            ConfigSchemaEditor.class
+        );
         assertTrue(register.isDefault());
+        assertTrue(editable.isDefault());
         assertTrue(read.isDefault());
         assertTrue(write.isDefault());
         assertEquals(CompletionStage.class, register.getReturnType());
+        assertEquals(CompletionStage.class, editable.getReturnType());
     }
 
     @Test
@@ -175,6 +185,89 @@ class TypedPluginConfigContractTest {
                 ))
             )
         );
+    }
+
+    @Test
+    void configSchemaEditorIsExplicitImmutableAndBounded() {
+        final ConfigSchemaEditor editor = new ConfigSchemaEditor(List.of(
+            new ConfigSchemaEditor.Toggle("enabled", "Enabled", OptionalInt.of(20)),
+            new ConfigSchemaEditor.Text("name", "Name", 24, OptionalInt.empty()),
+            new ConfigSchemaEditor.Choice(
+                "mode",
+                "Mode",
+                List.of(
+                    new ConfigSchemaEditor.Option("SAFE", "Safe"),
+                    new ConfigSchemaEditor.Option("FAST", "Fast")
+                ),
+                OptionalInt.of(10)
+            )
+        ));
+
+        assertEquals(List.of("enabled", "name", "mode"), editor.fields().stream()
+            .map(ConfigSchemaEditor.Field::key).toList());
+        assertThrows(UnsupportedOperationException.class, () -> editor.fields().clear());
+        assertThrows(IllegalArgumentException.class, () -> new ConfigSchemaEditor(List.of()));
+        assertThrows(IllegalArgumentException.class, () -> new ConfigSchemaEditor(List.of(
+            new ConfigSchemaEditor.Toggle("enabled", "One", OptionalInt.empty()),
+            new ConfigSchemaEditor.Toggle("enabled", "Two", OptionalInt.empty())
+        )));
+        assertThrows(IllegalArgumentException.class, () ->
+            new ConfigSchemaEditor.Text("name", "Name", 0, OptionalInt.empty())
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+            new ConfigSchemaEditor.Toggle("enabled", "Enabled", OptionalInt.of(-1))
+        );
+        assertThrows(IllegalArgumentException.class, () -> new ConfigSchemaEditor.Choice(
+            "mode",
+            "Mode",
+            List.of(
+                new ConfigSchemaEditor.Option("same", "One"),
+                new ConfigSchemaEditor.Option("same", "Two")
+            ),
+            OptionalInt.empty()
+        ));
+    }
+
+    @Test
+    void defaultEditableRegistrationDelegatesToTypedSchemaRegistration() {
+        final boolean[] registered = {false};
+        final PluginConfigRegistry registry = new PluginConfigRegistry() {
+            @Override public dev.turboism.sdk.plugin.Registration readScope(final String path) {
+                return () -> { };
+            }
+            @Override public dev.turboism.sdk.plugin.Registration writeScope(final String path) {
+                return () -> { };
+            }
+            @Override public Optional<String> readString(final String path, final String key) {
+                return Optional.empty();
+            }
+            @Override public void writeString(
+                final String path,
+                final String key,
+                final String value
+            ) {
+            }
+            @Override public CompletionStage<Void> registerSchema(
+                final ConfigSchema schema,
+                final List<ConfigMigration> migrations
+            ) {
+                registered[0] = true;
+                return CompletableFuture.completedFuture(null);
+            }
+        };
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "main", "enabled", true, ConfigCodecs.booleanValue()
+        );
+
+        registry.registerUserEditableSchema(
+            new ConfigSchema("main", "main.cfg", 1, List.of(enabled)),
+            List.of(),
+            new ConfigSchemaEditor(List.of(
+                new ConfigSchemaEditor.Toggle("enabled", "Enabled", OptionalInt.empty())
+            ))
+        ).toCompletableFuture().join();
+
+        assertTrue(registered[0]);
     }
 
     private static String names(final Enum<?>[] values) {

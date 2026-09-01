@@ -14,6 +14,7 @@ import dev.turboism.sdk.config.ConfigReadResult;
 import dev.turboism.sdk.config.ConfigRegistrationError;
 import dev.turboism.sdk.config.ConfigRegistrationException;
 import dev.turboism.sdk.config.ConfigSchema;
+import dev.turboism.sdk.config.ConfigSchemaEditor;
 import dev.turboism.sdk.config.ConfigSchemaValidationError;
 import dev.turboism.sdk.config.ConfigSchemaValidationException;
 import dev.turboism.sdk.config.ConfigValueSource;
@@ -23,6 +24,8 @@ import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.task.RuntimePluginTaskScheduler;
+import dev.turboism.sdk.ui.settings.SettingsControl;
+import dev.turboism.ui.settings.SettingsContributionStore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -46,6 +49,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeTypedPluginConfigRegistryTest {
+
+    private enum Mode { SAFE, FAST }
 
     @TempDir
     Path temporary;
@@ -509,6 +514,198 @@ class RuntimeTypedPluginConfigRegistryTest {
         assertEquals(0, stored.value().revision());
     }
 
+    @Test
+    void editableSchemasCoalesceIntoOnePluginNamedTabAndShareRevision() throws Exception {
+        final SettingsContributionStore settingsStore = new SettingsContributionStore();
+        final RuntimeTypedPluginConfigRegistry registry = registry(
+            allPermissions(),
+            new RuntimeFailureCollector(),
+            settingsStore,
+            "Typed Config Test"
+        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "general", "enabled", true, ConfigCodecs.booleanValue()
+        );
+        final ConfigKey<Integer> count = new ConfigKey<>(
+            "general", "count", 2, ConfigCodecs.boundedInt(1, 5)
+        );
+        final ConfigKey<Mode> mode = new ConfigKey<>(
+            "advanced", "mode", Mode.SAFE, ConfigCodecs.enumValue(Mode.class)
+        );
+
+        registry.registerUserEditableSchema(
+            new ConfigSchema("general", "general.cfg", 1, List.of(enabled, count)),
+            List.of(),
+            new ConfigSchemaEditor(List.of(
+                new ConfigSchemaEditor.Text("count", "Count", 6, java.util.OptionalInt.of(20)),
+                new ConfigSchemaEditor.Toggle("enabled", "Enabled", java.util.OptionalInt.of(10))
+            ))
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        registry.registerUserEditableSchema(
+            new ConfigSchema("advanced", "advanced.cfg", 1, List.of(mode)),
+            List.of(),
+            new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                "mode",
+                "Mode",
+                List.of(
+                    new ConfigSchemaEditor.Option("SAFE", "Safe"),
+                    new ConfigSchemaEditor.Option("FAST", "Fast")
+                ),
+                java.util.OptionalInt.empty()
+            )))
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        final var snapshot = settingsStore.snapshot();
+        assertEquals(1, snapshot.size());
+        assertEquals("Typed Config Test", snapshot.get(0).title());
+        assertEquals(ConfigSchemaSettingsPublisher.tabId(
+            "dev.turboism.plugin.typed-config-test"
+        ), snapshot.get(0).id());
+        assertEquals(List.of("Enabled", "Count", "Mode"), snapshot.get(0).contributions().stream()
+            .map(entry -> entry.contribution().control().label()).toList());
+
+        final SettingsControl.Toggle toggle = (SettingsControl.Toggle) snapshot.get(0)
+            .contributions().get(0).contribution().control();
+        final SettingsControl.Text text = (SettingsControl.Text) snapshot.get(0)
+            .contributions().get(1).contribution().control();
+        final SettingsControl.Choice choice = (SettingsControl.Choice) snapshot.get(0)
+            .contributions().get(2).contribution().control();
+        assertTrue(toggle.binding().read());
+        assertEquals("2", text.binding().read());
+        assertEquals("SAFE", choice.binding().read());
+        assertTrue(registry.write(count, 3, 0).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS).written());
+        toggle.binding().write(false);
+        text.binding().write("2");
+        assertEquals(3, registry.read(count).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS).value().value());
+        text.binding().write("4");
+        choice.binding().write("FAST");
+
+        assertFalse(registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS)
+            .value().value());
+        final ConfigReadResult<Integer> storedCount = registry.read(count)
+            .toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertEquals(4, storedCount.value().value());
+        assertEquals(3, storedCount.value().revision());
+        assertEquals(Mode.FAST, registry.read(mode).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS).value().value());
+        assertThrows(IllegalArgumentException.class, () -> text.binding().write("6"));
+
+        scope.close();
+        scope = null;
+        assertTrue(settingsStore.snapshot().isEmpty());
+    }
+
+    @Test
+    void incompatibleEditorMetadataFailsBeforeSchemaOrSettingsPublication() throws Exception {
+        final SettingsContributionStore settingsStore = new SettingsContributionStore();
+        final RuntimeTypedPluginConfigRegistry registry = registry(
+            allPermissions(),
+            new RuntimeFailureCollector(),
+            settingsStore,
+            "Typed Config Test"
+        );
+        final ConfigKey<Boolean> enabled = new ConfigKey<>(
+            "main", "enabled", true, ConfigCodecs.booleanValue()
+        );
+        final ConfigSchema schema = new ConfigSchema("main", "main.cfg", 1, List.of(enabled));
+
+        final IllegalArgumentException failure = assertThrows(
+            IllegalArgumentException.class,
+            () -> registry.registerUserEditableSchema(
+                schema,
+                List.of(),
+                new ConfigSchemaEditor(List.of(
+                    new ConfigSchemaEditor.Text(
+                        "enabled", "Enabled", 12, java.util.OptionalInt.empty()
+                    )
+                ))
+            )
+        );
+        assertTrue(failure.getMessage().contains("text requires a string or bounded-int codec"));
+        assertTrue(settingsStore.snapshot().isEmpty());
+
+        final ConfigKey<String> mode = new ConfigKey<>(
+            "choice", "mode", "safe", ConfigCodecs.stringValue(16)
+        );
+        final IllegalArgumentException missingDefault = assertThrows(
+            IllegalArgumentException.class,
+            () -> registry.registerUserEditableSchema(
+                new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
+                List.of(),
+                new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                    "mode",
+                    "Mode",
+                    List.of(new ConfigSchemaEditor.Option("fast", "Fast")),
+                    java.util.OptionalInt.empty()
+                )))
+            )
+        );
+        assertTrue(missingDefault.getMessage().contains("must include the key default value"));
+        assertTrue(settingsStore.snapshot().isEmpty());
+
+        registry.registerSchema(schema, List.of()).toCompletableFuture().get(2, TimeUnit.SECONDS);
+        assertTrue(registry.read(enabled).toCompletableFuture().get(2, TimeUnit.SECONDS)
+            .value().value());
+    }
+
+    @Test
+    void choiceBindingFallsBackToDeclaredDefaultWithoutOverwritingLegacyValue() throws Exception {
+        final TypedConfigDocumentStore documents = new TypedConfigDocumentStore(
+            temporary.resolve("typed-config")
+        );
+        documents.writeAtomic(
+            "choice.cfg",
+            new TypedConfigDocumentStore.StoredDocument(1, 7, Map.of("mode", "legacy"))
+        );
+        final SettingsContributionStore settingsStore = new SettingsContributionStore();
+        final RuntimeTypedPluginConfigRegistry registry = registry(
+            allPermissions(),
+            new RuntimeFailureCollector(),
+            settingsStore,
+            "Typed Config Test"
+        );
+        final ConfigKey<String> mode = new ConfigKey<>(
+            "choice", "mode", "safe", ConfigCodecs.stringValue(16)
+        );
+        registry.registerUserEditableSchema(
+            new ConfigSchema("choice", "choice.cfg", 1, List.of(mode)),
+            List.of(),
+            new ConfigSchemaEditor(List.of(new ConfigSchemaEditor.Choice(
+                "mode",
+                "Mode",
+                List.of(
+                    new ConfigSchemaEditor.Option("safe", "Safe"),
+                    new ConfigSchemaEditor.Option("fast", "Fast")
+                ),
+                java.util.OptionalInt.empty()
+            )))
+        ).toCompletableFuture().get(2, TimeUnit.SECONDS);
+
+        final SettingsControl.Choice choice = (SettingsControl.Choice) settingsStore.snapshot()
+            .get(0).contributions().get(0).contribution().control();
+        assertEquals("safe", choice.binding().read());
+        choice.binding().write("safe");
+
+        final ConfigReadResult<String> stored = registry.read(mode).toCompletableFuture()
+            .get(2, TimeUnit.SECONDS);
+        assertEquals("legacy", stored.value().value());
+        assertEquals(7, stored.value().revision());
+    }
+
+    @Test
+    void generatedPluginTabIdsAreDeterministicBoundedAndDistinct() {
+        final String firstPlugin = "a".repeat(127) + "1";
+        final String secondPlugin = "a".repeat(127) + "2";
+        final String first = ConfigSchemaSettingsPublisher.tabId(firstPlugin);
+
+        assertEquals(first, ConfigSchemaSettingsPublisher.tabId(firstPlugin));
+        assertEquals(62, first.length());
+        assertTrue(first.matches("[a-z0-9][a-z0-9._-]{0,63}"));
+        assertFalse(first.equals(ConfigSchemaSettingsPublisher.tabId(secondPlugin)));
+    }
+
     private RuntimeTypedPluginConfigRegistry registry(final Set<String> permissions) {
         return registry(permissions, new RuntimeFailureCollector());
     }
@@ -516,6 +713,15 @@ class RuntimeTypedPluginConfigRegistryTest {
     private RuntimeTypedPluginConfigRegistry registry(
         final Set<String> permissions,
         final RuntimeFailureCollector failures
+    ) {
+        return registry(permissions, failures, null, null);
+    }
+
+    private RuntimeTypedPluginConfigRegistry registry(
+        final Set<String> permissions,
+        final RuntimeFailureCollector failures,
+        final SettingsContributionStore settingsStore,
+        final String pluginName
     ) {
         scope = new DisposableScope();
         runtimeScheduler = new RuntimeScheduler(
@@ -537,7 +743,9 @@ class RuntimeTypedPluginConfigRegistryTest {
             tasks,
             scope,
             new dev.turboism.cleanup.CleanupEvidenceCollector(),
-            failures
+            failures,
+            pluginName,
+            settingsStore
         );
     }
 
