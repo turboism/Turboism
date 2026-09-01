@@ -86,6 +86,10 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
     private static final String SETTINGS_ICON_RESOURCE = "icons/settings.png";
     private static final Dimension PERMISSION_DIALOG_MINIMUM = new Dimension(620, 360);
 
+    static {
+        installFallbackSwingUis(UIManager.getDefaults());
+    }
+
     private final PluginLocalization localization;
     private final JFrame agentFrame;
     private final JFrame settingsFrame;
@@ -790,6 +794,7 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         final JPanel root = new JPanel(new BorderLayout(8, 8));
         root.setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
         final JTabbedPane tabs = new JTabbedPane();
+        tabs.setTabLayoutPolicy(JTabbedPane.SCROLL_TAB_LAYOUT);
         tabs.addTab(localization.text("tab.runtime"), settingsPage(runtimeSection()));
         tabs.addTab(localization.text("tab.provider-model"), settingsPage(configSection()));
         tabs.addTab(
@@ -1764,6 +1769,33 @@ final class TurboismWithFxWindow implements TurboismWithFxController.View {
         configAvailability.setText(connected
             ? localization.text("label.config-applies-immediately")
             : localization.text("label.config-owned-by-fx"));
+    }
+
+    static void installFallbackSwingUis(final javax.swing.UIDefaults defaults) {
+        final Map<String, String> fallbacks = Map.ofEntries(
+            Map.entry("ButtonUI", "javax.swing.plaf.basic.BasicButtonUI"),
+            Map.entry("CheckBoxUI", "javax.swing.plaf.basic.BasicCheckBoxUI"),
+            Map.entry("ComboBoxUI", "javax.swing.plaf.basic.BasicComboBoxUI"),
+            Map.entry("EditorPaneUI", "javax.swing.plaf.basic.BasicEditorPaneUI"),
+            Map.entry("LabelUI", "javax.swing.plaf.basic.BasicLabelUI"),
+            Map.entry("ListUI", "javax.swing.plaf.basic.BasicListUI"),
+            Map.entry("MenuUI", "javax.swing.plaf.basic.BasicMenuUI"),
+            Map.entry("MenuItemUI", "javax.swing.plaf.basic.BasicMenuItemUI"),
+            Map.entry("OptionPaneUI", "javax.swing.plaf.basic.BasicOptionPaneUI"),
+            Map.entry("PanelUI", "javax.swing.plaf.basic.BasicPanelUI"),
+            Map.entry("PasswordFieldUI", "javax.swing.plaf.basic.BasicPasswordFieldUI"),
+            Map.entry("RootPaneUI", "javax.swing.plaf.basic.BasicRootPaneUI"),
+            Map.entry("ScrollPaneUI", "javax.swing.plaf.basic.BasicScrollPaneUI"),
+            Map.entry("SeparatorUI", "javax.swing.plaf.basic.BasicSeparatorUI"),
+            Map.entry("SplitPaneUI", "javax.swing.plaf.basic.BasicSplitPaneUI"),
+            Map.entry("TabbedPaneUI", "javax.swing.plaf.basic.BasicTabbedPaneUI"),
+            Map.entry("TextAreaUI", "javax.swing.plaf.basic.BasicTextAreaUI"),
+            Map.entry("TextFieldUI", "javax.swing.plaf.basic.BasicTextFieldUI"),
+            Map.entry("TextPaneUI", "javax.swing.plaf.basic.BasicTextPaneUI"),
+            Map.entry("ToolTipUI", "javax.swing.plaf.basic.BasicToolTipUI"),
+            Map.entry("ViewportUI", "javax.swing.plaf.basic.BasicViewportUI")
+        );
+        fallbacks.forEach(defaults::putIfAbsent);
     }
 
     private JFrame frame(final String titleKey) {
