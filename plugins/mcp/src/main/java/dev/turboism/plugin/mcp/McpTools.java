@@ -351,27 +351,42 @@ final class McpTools {
         only(arguments, "id", "name");
         final Optional<String> idFilter = optionalString(arguments, "id");
         final Optional<String> nameFilter = optionalString(arguments, "name");
-        final Optional<HierarchyNode> root = idFilter
-            .map(value -> readService(() -> hierarchyQuery.findNode(new ModelObjectId(value))))
-            .orElseGet(() -> readService(hierarchyQuery::currentHierarchy)
-                .map(ModelHierarchy::rootNode));
-        if (nameFilter.isEmpty()) {
+        final List<ModelObjectDescriptor> descriptors;
+        try {
+            descriptors = execution.ui(service::list);
+        } catch (ModelObjectOperationException failure) {
+            if (failure.code() != ModelObjectOperationException.Code.UNAVAILABLE
+                && failure.code() != ModelObjectOperationException.Code.STALE) {
+                throw failure;
+            }
             return linked(
                 entry("ok", true),
-                entry("root", root.map(this::hierarchyNode).orElse(null))
+                entry("availability", "UNAVAILABLE"),
+                entry("root", null),
+                entry("diagnosticCode", "MODEL_HIERARCHY_PROVIDER_UNAVAILABLE")
             );
         }
-        final List<Map<String, Object>> matches = root
-            .map(this::collectSubtrees)
-            .orElseGet(List::of)
-            .stream()
-            .filter(node -> containsIgnoreCase(node.name(), nameFilter.orElseThrow()))
-            .map(this::hierarchyNode)
-            .toList();
+        final ModelObjectHierarchy hierarchy = ModelObjectHierarchy.from(descriptors);
+        if (nameFilter.isPresent()) {
+            final List<Map<String, Object>> matches = hierarchy.descriptors().stream()
+                .filter(value -> containsIgnoreCase(value.name(), nameFilter.orElseThrow()))
+                .map(hierarchy::node)
+                .toList();
+            return linked(
+                entry("ok", true),
+                entry("availability", "AVAILABLE"),
+                entry("count", matches.size()),
+                entry("matches", matches)
+            );
+        }
+        final Object root = idFilter
+            .map(hierarchy::findNode)
+            .orElseGet(hierarchy::root);
         return linked(
             entry("ok", true),
-            entry("count", matches.size()),
-            entry("matches", matches)
+            entry("availability", "AVAILABLE"),
+            entry("root", root),
+            entry("diagnosticCode", null)
         );
     }
 
@@ -429,27 +444,128 @@ final class McpTools {
         );
     }
 
-    private List<HierarchyNode> collectSubtrees(final HierarchyNode node) {
-        final ArrayList<HierarchyNode> result = new ArrayList<>();
-        collect(node, result);
-        return result;
-    }
+    private static final class ModelObjectHierarchy {
+        private static final String ROOT_ID = "active-model";
 
-    private void collect(final HierarchyNode node, final ArrayList<HierarchyNode> result) {
-        result.add(node);
-        for (HierarchyNode child : readService(() -> hierarchyQuery.childrenOf(node.id()))) {
-            collect(child, result);
+        private final List<ModelObjectDescriptor> descriptors;
+        private final Map<ModelObjectReference, ModelObjectDescriptor> byReference;
+        private final Map<ModelObjectReference, List<ModelObjectDescriptor>> children;
+        private final List<ModelObjectDescriptor> roots;
+
+        private ModelObjectHierarchy(
+            final List<ModelObjectDescriptor> descriptors,
+            final Map<ModelObjectReference, ModelObjectDescriptor> byReference,
+            final Map<ModelObjectReference, List<ModelObjectDescriptor>> children,
+            final List<ModelObjectDescriptor> roots
+        ) {
+            this.descriptors = descriptors;
+            this.byReference = byReference;
+            this.children = children;
+            this.roots = roots;
         }
-    }
-    private Map<String, Object> hierarchyNode(final HierarchyNode node) {
-        final List<HierarchyNode> children = readService(() -> hierarchyQuery.childrenOf(node.id()));
-        return linked(
-            entry("id", node.id().value()),
-            entry("name", node.name()),
-            entry("kind", node.kind().name()),
-            entry("parentId", node.parentId().map(ModelObjectId::value).orElse(null)),
-            entry("children", children.stream().map(this::hierarchyNode).toList())
-        );
+
+        static ModelObjectHierarchy from(final List<ModelObjectDescriptor> values) {
+            final List<ModelObjectDescriptor> descriptors = List.copyOf(values);
+            final LinkedHashMap<ModelObjectReference, ModelObjectDescriptor> byReference =
+                new LinkedHashMap<>();
+            for (ModelObjectDescriptor descriptor : descriptors) {
+                if (byReference.putIfAbsent(descriptor.reference(), descriptor) != null) {
+                    throw inconsistent("duplicate object reference " + descriptor.reference());
+                }
+            }
+            final LinkedHashMap<ModelObjectReference, List<ModelObjectDescriptor>> children =
+                new LinkedHashMap<>();
+            final ArrayList<ModelObjectDescriptor> roots = new ArrayList<>();
+            for (ModelObjectDescriptor descriptor : descriptors) {
+                if (descriptor.parent().isEmpty()) {
+                    roots.add(descriptor);
+                    continue;
+                }
+                final ModelObjectReference parent = descriptor.parent().orElseThrow();
+                if (!byReference.containsKey(parent)) {
+                    throw inconsistent(
+                        descriptor.reference() + " references absent parent " + parent
+                    );
+                }
+                children.computeIfAbsent(parent, ignored -> new ArrayList<>()).add(descriptor);
+            }
+            final ModelObjectHierarchy hierarchy = new ModelObjectHierarchy(
+                descriptors,
+                Map.copyOf(byReference),
+                immutableChildren(children),
+                List.copyOf(roots)
+            );
+            for (ModelObjectDescriptor descriptor : descriptors) {
+                hierarchy.assertAcyclic(descriptor.reference(), new java.util.LinkedHashSet<>());
+            }
+            return hierarchy;
+        }
+
+        List<ModelObjectDescriptor> descriptors() {
+            return descriptors;
+        }
+
+        Map<String, Object> root() {
+            return linked(
+                entry("id", ROOT_ID),
+                entry("name", "Active Model"),
+                entry("kind", "MODEL"),
+                entry("parentId", null),
+                entry("children", roots.stream().map(this::node).toList())
+            );
+        }
+
+        Object findNode(final String id) {
+            if (ROOT_ID.equals(id)) return root();
+            final List<ModelObjectDescriptor> matches = descriptors.stream()
+                .filter(value -> value.reference().id().equals(id))
+                .toList();
+            if (matches.size() > 1) {
+                throw new ToolInputException("id is ambiguous across model-object kinds: " + id);
+            }
+            return matches.isEmpty() ? null : node(matches.get(0));
+        }
+
+        Map<String, Object> node(final ModelObjectDescriptor descriptor) {
+            return linked(
+                entry("id", descriptor.reference().id()),
+                entry("name", descriptor.name()),
+                entry("kind", descriptor.reference().kind().name()),
+                entry("parentId", descriptor.parent().map(ModelObjectReference::id).orElse(ROOT_ID)),
+                entry("children", children.getOrDefault(
+                    descriptor.reference(), List.of()
+                ).stream().map(this::node).toList())
+            );
+        }
+
+        private void assertAcyclic(
+            final ModelObjectReference reference,
+            final java.util.LinkedHashSet<ModelObjectReference> path
+        ) {
+            if (!path.add(reference)) {
+                throw inconsistent("cycle at " + reference);
+            }
+            for (ModelObjectDescriptor child : children.getOrDefault(reference, List.of())) {
+                assertAcyclic(child.reference(), path);
+            }
+            path.remove(reference);
+        }
+
+        private static Map<ModelObjectReference, List<ModelObjectDescriptor>> immutableChildren(
+            final Map<ModelObjectReference, List<ModelObjectDescriptor>> values
+        ) {
+            final LinkedHashMap<ModelObjectReference, List<ModelObjectDescriptor>> result =
+                new LinkedHashMap<>();
+            values.forEach((key, value) -> result.put(key, List.copyOf(value)));
+            return Map.copyOf(result);
+        }
+
+        private static ModelObjectOperationException inconsistent(final String detail) {
+            return new ModelObjectOperationException(
+                ModelObjectOperationException.Code.FAILED,
+                "Authoritative model-object hierarchy is inconsistent: " + detail
+            );
+        }
     }
 
     private <T> T readService(final ServiceCall<T> call) {

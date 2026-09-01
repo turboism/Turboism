@@ -76,12 +76,39 @@ final class McpProductionDomainCatalog {
 
     private Map<String, Object> overview() {
         final Map<String, Object> snapshot = snapshot();
+        final Map<String, Object> authoritative = invoke(McpTools.LIST, Map.of());
+        if (!Boolean.TRUE.equals(authoritative.get("ok"))) {
+            return linked(
+                entry("ok", true),
+                entry("availability", "UNAVAILABLE"),
+                entry("document", snapshot.get("document")),
+                entry("model", null),
+                entry("selection", snapshot.get("selection")),
+                entry("objects", null),
+                entry("modelObjects", null),
+                entry("diagnosticCode", "MODEL_OBJECT_PROVIDER_UNAVAILABLE")
+            );
+        }
+        final List<Object> objects = array(authoritative.get("objects"), "objects");
+        final Object model = modelWithObjects(snapshot.get("model"), objects);
         return linked(
-            entry("ok", snapshot.get("ok")),
+            entry("ok", true),
+            entry("availability", "AVAILABLE"),
             entry("document", snapshot.get("document")),
-            entry("model", snapshot.get("model")),
-            entry("selection", snapshot.get("selection"))
+            entry("model", model),
+            entry("selection", snapshot.get("selection")),
+            entry("objects", objects),
+            entry("modelObjects", objects),
+            entry("diagnosticCode", null)
         );
+    }
+
+    private static Object modelWithObjects(final Object value, final List<Object> objects) {
+        if (!(value instanceof Map<?, ?> raw)) return null;
+        final LinkedHashMap<String, Object> model = new LinkedHashMap<>(stringMap(raw, "model"));
+        model.put("objects", objects);
+        model.put("modelObjects", objects);
+        return model;
     }
 
     private Map<String, Object> apply(final Map<String, Object> arguments) {
@@ -223,36 +250,130 @@ final class McpProductionDomainCatalog {
     }
 
     private static Map<String, Object> operationSchema() {
+        return linked(entry("oneOf", List.of(
+            createPartSchema(),
+            createArtMeshSchema(false),
+            createArtMeshSchema(true),
+            createWarpDeformerSchema(),
+            createRotationDeformerSchema(),
+            objectSchema(
+                linked(
+                    entry("operation", enumSchema(List.of("rename"))),
+                    entry("kind", modelObjectKindSchema()),
+                    entry("id", stringSchema()),
+                    entry("name", stringSchema())
+                ),
+                List.of("operation", "kind", "id", "name")
+            ),
+            objectSchema(
+                linked(
+                    entry("operation", enumSchema(List.of("reparent"))),
+                    entry("kind", modelObjectKindSchema()),
+                    entry("id", stringSchema()),
+                    entry("parent", parentSchema(modelObjectKindSchema())),
+                    entry("index", Map.of("type", "integer", "minimum", -1))
+                ),
+                List.of("operation", "kind", "id", "parent")
+            ),
+            objectSchema(
+                linked(
+                    entry("operation", enumSchema(List.of("delete"))),
+                    entry("kind", modelObjectKindSchema()),
+                    entry("id", stringSchema()),
+                    entry("policy", enumSchema(List.of("reject_referenced", "cascade")))
+                ),
+                List.of("operation", "kind", "id")
+            )
+        )));
+    }
+
+    private static Map<String, Object> createPartSchema() {
         return objectSchema(
             linked(
-                entry("operation", enumSchema(List.of("create", "rename", "reparent", "delete"))),
-                entry("kind", enumSchema(List.of("part", "art_mesh", "warp_deformer", "rotation_deformer"))),
-                entry("id", stringSchema()),
+                entry("operation", enumSchema(List.of("create"))),
+                entry("kind", enumSchema(List.of("part"))),
                 entry("name", stringSchema()),
-                entry("parent", objectSchema(linked(
-                    entry("kind", enumSchema(List.of("part", "art_mesh", "warp_deformer", "rotation_deformer"))),
-                    entry("id", stringSchema())
-                ), List.of("kind", "id"))),
-                entry("index", Map.of("type", "integer", "minimum", -1)),
-                entry("policy", enumSchema(List.of("reject_referenced", "cascade"))),
-                entry("positions", pointArraySchema()),
-                entry("uvs", pointArraySchema()),
-                entry("triangleIndices", Map.of("type", "array", "items", Map.of("type", "integer", "minimum", 0))),
+                entry("parent", parentSchema(enumSchema(List.of("part"))))
+            ),
+            List.of("operation", "kind", "name")
+        );
+    }
+
+    private static Map<String, Object> createArtMeshSchema(final boolean explicitGeometry) {
+        final LinkedHashMap<String, Object> properties = linked(
+            entry("operation", enumSchema(List.of("create"))),
+            entry("kind", enumSchema(List.of("art_mesh"))),
+            entry("name", stringSchema()),
+            entry("parent", parentSchema(parentKindSchema()))
+        );
+        if (explicitGeometry) {
+            properties.put("positions", pointArraySchema(3));
+            properties.put("uvs", pointArraySchema(3));
+            properties.put("triangleIndices", linked(
+                entry("type", "array"),
+                entry("minItems", 3),
+                entry("items", Map.of("type", "integer", "minimum", 0))
+            ));
+        }
+        return objectSchema(
+            properties,
+            explicitGeometry
+                ? List.of("operation", "kind", "name", "positions", "uvs", "triangleIndices")
+                : List.of("operation", "kind", "name")
+        );
+    }
+
+    private static Map<String, Object> createWarpDeformerSchema() {
+        return objectSchema(
+            linked(
+                entry("operation", enumSchema(List.of("create"))),
+                entry("kind", enumSchema(List.of("warp_deformer"))),
+                entry("name", stringSchema()),
+                entry("parent", parentSchema(parentKindSchema())),
                 entry("rows", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
                 entry("columns", Map.of("type", "integer", "minimum", 1, "maximum", 64)),
                 entry("quadTransform", Map.of("type", "boolean")),
-                entry("controlPoints", pointArraySchema()),
+                entry("controlPoints", pointArraySchema(4)),
                 entry("originX", Map.of("type", "number")),
                 entry("originY", Map.of("type", "number")),
                 entry("width", Map.of("type", "number", "exclusiveMinimum", 0)),
-                entry("height", Map.of("type", "number", "exclusiveMinimum", 0)),
+                entry("height", Map.of("type", "number", "exclusiveMinimum", 0))
+            ),
+            List.of("operation", "kind", "name")
+        );
+    }
+
+    private static Map<String, Object> createRotationDeformerSchema() {
+        return objectSchema(
+            linked(
+                entry("operation", enumSchema(List.of("create"))),
+                entry("kind", enumSchema(List.of("rotation_deformer"))),
+                entry("name", stringSchema()),
+                entry("parent", parentSchema(parentKindSchema())),
+                entry("originX", Map.of("type", "number")),
+                entry("originY", Map.of("type", "number")),
                 entry("angle", Map.of("type", "number")),
                 entry("scale", Map.of("type", "number", "exclusiveMinimum", 0)),
                 entry("reflectedX", Map.of("type", "boolean")),
                 entry("reflectedY", Map.of("type", "boolean"))
             ),
-            List.of("operation")
+            List.of("operation", "kind", "name")
         );
+    }
+
+    private static Map<String, Object> parentSchema(final Map<String, Object> kind) {
+        return objectSchema(
+            linked(entry("kind", kind), entry("id", stringSchema())),
+            List.of("kind", "id")
+        );
+    }
+
+    private static Map<String, Object> modelObjectKindSchema() {
+        return enumSchema(List.of("part", "art_mesh", "warp_deformer", "rotation_deformer"));
+    }
+
+    private static Map<String, Object> parentKindSchema() {
+        return enumSchema(List.of("part", "warp_deformer", "rotation_deformer"));
     }
 
     private static Map<String, Object> resource(
@@ -269,9 +390,10 @@ final class McpProductionDomainCatalog {
         );
     }
 
-    private static Map<String, Object> pointArraySchema() {
+    private static Map<String, Object> pointArraySchema(final int minimumItems) {
         return linked(
             entry("type", "array"),
+            entry("minItems", minimumItems),
             entry("items", objectSchema(linked(
                 entry("x", Map.of("type", "number")),
                 entry("y", Map.of("type", "number"))
