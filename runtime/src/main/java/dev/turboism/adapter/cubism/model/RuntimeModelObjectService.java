@@ -38,6 +38,7 @@ public final class RuntimeModelObjectService implements ModelObjectService {
     private final CubismModelAccess modelAccess;
     private final PermissionChecker permissions;
     private final BooleanSupplier activeScope;
+    private final RuntimeModelObjectCreateProvider createProvider;
 
     public RuntimeModelObjectService(
         final CubismModelAccess modelAccess,
@@ -47,6 +48,9 @@ public final class RuntimeModelObjectService implements ModelObjectService {
         this.modelAccess = Objects.requireNonNull(modelAccess, "modelAccess");
         this.permissions = Objects.requireNonNull(permissions, "permissions");
         this.activeScope = Objects.requireNonNull(activeScope, "activeScope");
+        this.createProvider = modelAccess instanceof RuntimeModelObjectCreateProvider provider
+            ? provider
+            : null;
     }
 
     @Override
@@ -98,7 +102,12 @@ public final class RuntimeModelObjectService implements ModelObjectService {
     public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
         requireWrite("modelObjects.create");
         final ModelObjectCreateRequest checked = Objects.requireNonNull(request, "request");
-        return translate("Create model object", () -> create(activeModel(), checked));
+        return translate("Create model object", () -> {
+            if (createProvider != null) {
+                createProvider.requireCreateSupported(checked);
+            }
+            return create(activeModel(), checked);
+        });
     }
 
     @Override
@@ -196,6 +205,13 @@ public final class RuntimeModelObjectService implements ModelObjectService {
         final CubismModel model,
         final ModelObjectCreateRequest request
     ) {
+        if (createProvider != null) {
+            final ModelObjectReference reference = Objects.requireNonNull(
+                createProvider.createModelObject(model, request),
+                "created model-object reference"
+            );
+            return describeCommitted(reference, () -> describe(model, reference));
+        }
         final ParentResolution parent = resolveParent(model, request.parent());
         if (request instanceof ModelObjectCreateRequest.Part partRequest) {
             final Part created = model.parts().create(
@@ -203,7 +219,11 @@ public final class RuntimeModelObjectService implements ModelObjectService {
                 parent.part(),
                 -1
             );
-            return describe(created);
+            final ModelObjectReference reference = new ModelObjectReference(
+                ModelObjectKind.PART,
+                created.id().value()
+            );
+            return describeCommitted(reference, () -> describe(created));
         }
         if (request instanceof ModelObjectCreateRequest.ArtMesh artMeshRequest) {
             final Drawable created = model.drawables().create(
@@ -414,6 +434,22 @@ public final class RuntimeModelObjectService implements ModelObjectService {
             .map(model.parts()::find)
             .orElse(null);
         return new ParentResolution(part, deformer);
+    }
+
+    private static ModelObjectDescriptor describeCommitted(
+        final ModelObjectReference reference,
+        final Supplier<ModelObjectDescriptor> readback
+    ) {
+        try {
+            return readback.get();
+        } catch (RuntimeException failure) {
+            throw new ModelObjectOperationException(
+                ModelObjectOperationException.Code.COMMITTED,
+                "Model object was created, but its descriptor could not be read back",
+                failure,
+                Optional.of(reference)
+            );
+        }
     }
 
     private static void ensureUnreferenced(
