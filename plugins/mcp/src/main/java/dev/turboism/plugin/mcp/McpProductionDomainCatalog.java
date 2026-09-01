@@ -176,7 +176,34 @@ final class McpProductionDomainCatalog {
         }
         final LinkedHashMap<String, Object> arguments = new LinkedHashMap<>(values);
         arguments.remove("operation");
-        return invoke(legacyName, arguments);
+        return withWriteOutcome(operation, invoke(legacyName, arguments));
+    }
+
+    private static Map<String, Object> withWriteOutcome(
+        final String operation,
+        final Map<String, Object> result
+    ) {
+        if (result.containsKey("outcome")) return result;
+        final LinkedHashMap<String, Object> enriched = new LinkedHashMap<>(result);
+        enriched.put("retryable", false);
+        if (Boolean.TRUE.equals(result.get("ok"))) {
+            enriched.put("outcome", "APPLIED");
+            if ("create".equals(operation) && result.get("object") instanceof Map<?, ?> raw) {
+                final Map<String, Object> object = stringMap(raw, "object");
+                enriched.put("createdObjectId", object.get("id"));
+                enriched.put("kind", object.get("kind"));
+            }
+            return enriched;
+        }
+        final Object errorValue = result.get("error");
+        final String code = errorValue instanceof Map<?, ?> raw
+            ? String.valueOf(raw.get("code"))
+            : "FAILED";
+        enriched.put(
+            "outcome",
+            "INVALID_ARGUMENT".equals(code) ? "NOT_APPLIED" : "OUTCOME_UNKNOWN"
+        );
+        return enriched;
     }
 
     private Map<String, Object> invoke(final String name, final Map<String, Object> arguments) {
@@ -194,7 +221,15 @@ final class McpProductionDomainCatalog {
             entry("operation", operation),
             entry("ok", false),
             entry("skipped", true),
-            entry("result", failure("SKIPPED", "not run because a previous operation failed"))
+            entry("result", linked(
+                entry("ok", false),
+                entry("outcome", "NOT_APPLIED"),
+                entry("retryable", false),
+                entry("error", linked(
+                    entry("code", "SKIPPED"),
+                    entry("message", "not run because a previous operation failed")
+                ))
+            ))
         );
     }
 
