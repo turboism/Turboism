@@ -151,6 +151,8 @@ final class McpRuntimeDiagnostics {
         } else if (normalized.equals("TIMEOUT") || normalized.equals("TIMED_OUT")
             || normalized.contains("TIMED OUT")) {
             kinds.add("TIMEOUT");
+        } else if (normalized.equals("INVALID_ARGUMENT")) {
+            kinds.add("INVALID_REQUEST");
         } else if (normalized.equals("FAILED") || normalized.equals("INTERNAL_OUTPUT_INVALID")) {
             kinds.add("RUNTIME_EXCEPTION");
         }
@@ -198,6 +200,7 @@ final class McpRuntimeDiagnostics {
             case "ROLLBACK_FAILURE" -> "Operation reported a rollback failure.";
             case "TIMEOUT" -> "Operation reported a timeout.";
             case "RUNTIME_EXCEPTION" -> "Operation reported an unexpected runtime failure.";
+            case "INVALID_REQUEST" -> "Operation rejected an invalid request.";
             default -> "Operation reported noteworthy runtime evidence.";
         };
     }
