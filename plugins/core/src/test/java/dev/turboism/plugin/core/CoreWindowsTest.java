@@ -21,7 +21,7 @@ class CoreWindowsTest {
         @Override public String text(final String key) {
             return switch (key) {
                 case "about.bouquet" -> "For you, a bouquet";
-                case "about.thanks" -> "Thanks to<br>@希娜莉丝 and all contributors";
+                case "about.thanks" -> "Thanks list";
                 case "about.homepage" -> "Homepage";
                 case "about.support" -> "Support us";
                 default -> key;
@@ -124,23 +124,23 @@ class CoreWindowsTest {
     }
 
     @Test
-    void aboutHtml_containsVersionTaglineThanksAndLogoImage() {
-        final String html = CoreWindows.aboutHtml(I18N, "0.42.0");
-        assertTrue(html.contains("0.42.0"));
+    void aboutHtmlContainsVersionDedicationTaglineAndThreeLinks() {
+        final String html = CoreWindows.aboutHtml(I18N, "0.43.3");
+        assertTrue(html.contains("0.43.3"));
         assertTrue(html.contains("Live2D Cubism Extension Framework"));
         assertTrue(html.contains("For you, a bouquet"));
-        assertTrue(html.indexOf("For you, a bouquet") < html.indexOf("@希娜莉丝"));
-        assertTrue(html.contains("@希娜莉丝"));
         assertTrue(html.contains("<img src=\"file:"));
         assertTrue(html.contains("alt=\"Turboism\""));
         assertTrue(html.contains("href=\"https://www.turboism.dev\">Homepage</a>"));
         assertTrue(html.contains("href=\"https://ifdian.net/a/raintrap341\">Support us</a>"));
+        assertTrue(html.contains("href=\"https://thanks.turboism.dev\">Thanks list</a>"));
     }
 
     @Test
     void aboutLinksOnlyAdmitHttpAndHttpsUris() {
         assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_HOMEPAGE));
         assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_SUPPORT));
+        assertTrue(CoreWindows.httpLinkAllowed(CoreWindows.ABOUT_THANKS));
         assertFalse(CoreWindows.httpLinkAllowed("file:///tmp/turboism"));
         assertFalse(CoreWindows.httpLinkAllowed("javascript:alert(1)"));
         assertFalse(CoreWindows.httpLinkAllowed("not a uri"));
