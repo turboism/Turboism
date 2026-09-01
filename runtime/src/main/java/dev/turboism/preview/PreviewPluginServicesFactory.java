@@ -16,6 +16,7 @@ import dev.turboism.i18n.CubismHostLocale;
 import dev.turboism.i18n.RuntimePluginLocalization;
 import dev.turboism.home.PluginHomePaths;
 import dev.turboism.home.TurboismHomeLayout;
+import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.storage.StorageRoot;
@@ -201,10 +202,14 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final CorePluginContext.Dependencies dependencies = dependencies(
             descriptor, paths, uiScheduler, scope, eventOwner, classLoader
         );
+        final RuntimePluginLocalization pluginLocalization = localization(descriptor, classLoader);
         return new PreviewPluginServices(
-            dependencies, localization(descriptor, classLoader), tasks,
+            dependencies, pluginLocalization, tasks,
             storage(descriptor, paths, permissions, tasks, scope, evidence),
-            typedConfig(dependencies, descriptor, paths, permissions, tasks, scope, evidence),
+            typedConfig(
+                dependencies, descriptor, pluginDisplayName(descriptor.name(), pluginLocalization),
+                paths, permissions, tasks, scope, evidence
+            ),
             userFiles(descriptor, permissions, tasks, scope, evidence),
             hostReads(descriptor, permissions, tasks, scope),
             new dev.turboism.mcp.RuntimeMcpConnectionService(
@@ -287,9 +292,21 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         );
     }
 
+    static String pluginDisplayName(
+        final String fallback,
+        final PluginLocalization localization
+    ) {
+        final String defaultName = Objects.requireNonNull(fallback, "fallback");
+        final PluginLocalization resolved = Objects.requireNonNull(localization, "localization");
+        if (!resolved.contains("plugin.name")) return defaultName;
+        final String localized = resolved.text("plugin.name");
+        return localized == null || localized.isBlank() ? defaultName : localized;
+    }
+
     private RuntimeTypedPluginConfigRegistry typedConfig(
         final CorePluginContext.Dependencies dependencies,
         final PluginDescriptor descriptor,
+        final String pluginName,
         final PluginHomePaths paths,
         final Set<String> permissions,
         final RuntimePluginTaskScheduler tasks,
@@ -298,7 +315,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
     ) {
         return new RuntimeTypedPluginConfigRegistry(
             dependencies.config(), descriptor.id(), paths.configDir(), permissions,
-            tasks, scope, evidence, failureCollector, descriptor.name(),
+            tasks, scope, evidence, failureCollector, pluginName,
             dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }

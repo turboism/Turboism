@@ -34,6 +34,17 @@ class CoreWindowsTest {
     };
 
     @Test
+    void settingsOkClosesOnlyAfterASuccessfulSave() {
+        final int[] closes = {0};
+
+        CoreWindows.saveAndClose(() -> false, () -> closes[0]++);
+        assertEquals(0, closes[0]);
+
+        CoreWindows.saveAndClose(() -> true, () -> closes[0]++);
+        assertEquals(1, closes[0]);
+    }
+
+    @Test
     void cubismJvmContributionTargetsPerformanceAndKeepsGraalVmFirst() {
         final var contribution = CubismJvmSettingsContribution.create(
             I18N,
