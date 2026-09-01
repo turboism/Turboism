@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 final class FxProcessTransport implements FxAcpTransport {
 
     private static final long DESCENDANT_SAMPLE_MILLIS = 10L;
+    private static final long DESCENDANT_SAMPLER_JOIN_MILLIS = 250L;
 
     private final Process process;
     private final java.util.Map<Long, ProcessHandle> retained = new ConcurrentHashMap<>();
@@ -25,12 +26,22 @@ final class FxProcessTransport implements FxAcpTransport {
 
     private FxProcessTransport(final Process process) {
         this.process = Objects.requireNonNull(process, "process");
+        if (!tracksDescendants(System.getProperty("os.name", ""))) {
+            descendantSampler = null;
+            return;
+        }
         descendantSampler = new Thread(
             this::sampleDescendantsWhileParentLives,
             "turboism-fx-descendant-sampler-" + process.pid()
         );
         descendantSampler.setDaemon(true);
         descendantSampler.start();
+    }
+
+    static boolean tracksDescendants(final String operatingSystem) {
+        return !Objects.requireNonNullElse(operatingSystem, "")
+            .toLowerCase(Locale.ROOT)
+            .startsWith("windows");
     }
 
     /** Starts {@code fx acp} directly without a shell using the validated launch mode. */
@@ -144,6 +155,10 @@ final class FxProcessTransport implements FxAcpTransport {
     @Override
     public void terminate(final Duration grace) {
         final long millis = Math.max(0L, Objects.requireNonNull(grace, "grace").toMillis());
+        if (descendantSampler == null) {
+            terminateDirectProcess(millis);
+            return;
+        }
         final long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(millis);
         retainDescendants();
         boolean interrupted = false;
@@ -182,6 +197,23 @@ final class FxProcessTransport implements FxAcpTransport {
         if (interrupted) Thread.currentThread().interrupt();
     }
 
+    private void terminateDirectProcess(final long millis) {
+        boolean interrupted = false;
+        process.destroy();
+        try {
+            if (millis > 0L) process.waitFor(millis, TimeUnit.MILLISECONDS);
+        } catch (InterruptedException failure) {
+            interrupted = true;
+        }
+        if (process.isAlive()) process.destroyForcibly();
+        try {
+            process.waitFor(Math.max(100L, Math.min(1000L, millis)), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException failure) {
+            interrupted = true;
+        }
+        if (interrupted) Thread.currentThread().interrupt();
+    }
+
     private void sampleDescendantsWhileParentLives() {
         while (process.isAlive()) {
             retainDescendants();
@@ -197,7 +229,7 @@ final class FxProcessTransport implements FxAcpTransport {
 
     private boolean joinSamplerInterrupted() {
         try {
-            descendantSampler.join();
+            descendantSampler.join(DESCENDANT_SAMPLER_JOIN_MILLIS);
             return false;
         } catch (InterruptedException failure) {
             return true;
