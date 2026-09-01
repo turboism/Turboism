@@ -350,14 +350,13 @@ public final class PsdClipMaskImportService {
     private Identity currentIdentity(final CubismModel model) {
         final DocumentSnapshot document = context.cubism().activeDocument()
             .orElseThrow(() -> new IllegalStateException("no active document"));
-        final String documentModelId = document.model()
-            .map(dev.turboism.sdk.cubism.ModelSnapshot::modelId)
+        document.model()
             .orElseThrow(() -> new IllegalStateException("active document has no model"));
-        final ModelId modelId = model.id();
-        if (!documentModelId.equals(modelId.value())) {
-            throw new IllegalStateException("active model does not match the active document");
-        }
-        return new Identity(new DocumentId(document.documentId()), modelId);
+        // DocumentSnapshot.modelId is a runtime-generated snapshot identity, while
+        // CubismModel.id is the Editor model-source GUID. They identify the same model
+        // in different namespaces and must not be compared. Document identity plus the
+        // Editor GUID detects binding changes here; the model itself remains generation-bound.
+        return new Identity(new DocumentId(document.documentId()), model.id());
     }
 
     private ImportResult notifyFailed(final ImportResult result) {

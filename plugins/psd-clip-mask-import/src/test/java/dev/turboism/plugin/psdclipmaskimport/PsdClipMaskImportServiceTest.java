@@ -244,9 +244,24 @@ final class PsdClipMaskImportServiceTest {
     }
 
     @Test
-    void activeModelMismatchAfterPreviewFailsClosedWithoutCallingTheBackend() {
+    void syntheticDocumentSnapshotModelIdDoesNotRejectTheActiveEditorModel() {
         final RecordingHost host = new RecordingHost();
-        host.ui.onConfirm = () -> host.context.activeDocumentModelId = "model-b";
+        host.context.activeDocumentModelId = "runtime-synthetic-model-identity";
+        final PsdClipMaskImportService service = service(host);
+
+        final PsdClipMaskImportService.ImportResult result = service.importClipMasks();
+
+        assertEquals(PsdClipMaskImportService.ImportOutcome.APPLIED, result.outcome());
+        assertEquals(3, result.applied());
+        assertEquals(0, result.failures());
+        assertEquals(1, host.batches.size(),
+            "document snapshots and editor models use different model-id namespaces on the host");
+    }
+
+    @Test
+    void activeEditorModelChangeAfterPreviewFailsClosedWithoutCallingTheBackend() {
+        final RecordingHost host = new RecordingHost();
+        host.ui.onConfirm = () -> host.activeModelId = new ModelId("model-b");
         final PsdClipMaskImportService service = service(host);
 
         final PsdClipMaskImportService.ImportResult result = service.importClipMasks();
@@ -255,7 +270,7 @@ final class PsdClipMaskImportServiceTest {
         assertEquals(0, result.applied());
         assertEquals(1, result.failures());
         assertEquals(0, host.batches.size(),
-            "a model/document mismatch must abort before any backend call");
+            "an active editor-model change must abort before any backend call");
         assertEquals("WARNING", host.ui.notifications.get(0).severity());
     }
 
@@ -377,6 +392,7 @@ final class PsdClipMaskImportServiceTest {
         final List<PsdClipMaskDocumentSnapshot> psds = new ArrayList<>(List.of(psdFace()));
         final java.util.Map<ArtMeshId, Boolean> invertedState = new java.util.HashMap<>();
         final List<List<ClipMaskReplacement>> batches = new ArrayList<>();
+        ModelId activeModelId = new ModelId("model-a");
         RuntimeException modelFailure;
         RuntimeException backendFailure;
 
@@ -384,7 +400,7 @@ final class PsdClipMaskImportServiceTest {
             modelAccess = new CubismModelAccess() {
                 @Override public CubismModel active() {
                     return new CubismModel() {
-                @Override public ModelId id() { return new ModelId("model-a"); }
+                @Override public ModelId id() { return activeModelId; }
                 @Override public dev.turboism.sdk.cubism.model.Parameters parameters() {
                     throw new UnsupportedOperationException();
                 }
