@@ -94,14 +94,14 @@ final class McpOutputSchemas {
             entry("index", nonNegativeInteger()),
             entry("operation", stringSchema()),
             entry("ok", constant(false)),
-            entry("result", failure())
+            entry("result", modelObjectFailure())
         );
         final Map<String, Object> skipped = properties(
             entry("index", nonNegativeInteger()),
             entry("operation", stringSchema()),
             entry("ok", constant(false)),
             entry("skipped", constant(true)),
-            entry("result", failure())
+            entry("result", modelObjectFailure())
         );
         return oneOf(
             object(common, List.of("index", "operation", "ok", "result")),
@@ -113,19 +113,53 @@ final class McpOutputSchemas {
     private static Map<String, Object> modelObjectSuccess() {
         return oneOf(
             object(
-                properties(entry("ok", constant(true)), entry("object", modelObjectDescriptor())),
-                List.of("ok", "object")
+                properties(
+                    entry("ok", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("object", modelObjectDescriptor()),
+                    entry("createdObjectId", stringSchema()),
+                    entry("kind", modelObjectKind()),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of("ok", "outcome", "retryable", "object")
             ),
             object(
                 properties(
                     entry("ok", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
                     entry("deleted", constant(true)),
                     entry("target", modelObjectReference()),
-                    entry("policy", enumSchema(List.of("reject_referenced", "cascade")))
+                    entry("policy", enumSchema(List.of("reject_referenced", "cascade"))),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
                 ),
-                List.of("ok", "deleted", "target", "policy")
+                List.of("ok", "outcome", "retryable", "deleted", "target", "policy")
             )
         );
+    }
+
+    private static Map<String, Object> modelObjectFailure() {
+        return object(
+            properties(
+                entry("ok", constant(false)),
+                entry("outcome", writeFailureOutcome()),
+                entry("retryable", constant(false)),
+                entry("error", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of("ok", "outcome", "retryable", "error")
+        );
+    }
+
+    private static Map<String, Object> writeSuccessOutcome() {
+        return enumSchema(List.of("APPLIED", "APPLIED_WITH_READBACK_WARNING"));
+    }
+
+    private static Map<String, Object> writeFailureOutcome() {
+        return enumSchema(List.of("NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"));
     }
 
     private static Map<String, Object> modelObjectDescriptor() {
