@@ -216,7 +216,7 @@ final class CoreWindows implements AutoCloseable {
         final JButton ok = new JButton(text("common.ok"));
         final JButton cancel = new JButton(text("common.cancel"));
         final JButton apply = new JButton(text("common.apply"));
-        final Runnable save = () -> {
+        final java.util.function.BooleanSupplier save = () -> {
             try {
                 rendered.save().run();
                 settings.save(new RuntimeSettings(
@@ -226,17 +226,19 @@ final class CoreWindows implements AutoCloseable {
                     separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
                 ));
                 CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
+                return true;
             } catch (RuntimeException failure) {
                 CoreDialogs.message(
                     dialog,
                     text("common.turboism"),
                     Objects.toString(failure.getMessage(), "Settings could not be saved.")
                 );
+                return false;
             }
         };
-        ok.addActionListener(ignored -> { save.run(); dialog.setVisible(false); });
+        ok.addActionListener(ignored -> saveAndClose(save, () -> dialog.setVisible(false)));
         cancel.addActionListener(ignored -> dialog.setVisible(false));
-        apply.addActionListener(ignored -> save.run());
+        apply.addActionListener(ignored -> save.getAsBoolean());
         final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         buttons.add(ok);
         buttons.add(cancel);
@@ -244,6 +246,15 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    static void saveAndClose(
+        final java.util.function.BooleanSupplier save,
+        final Runnable close
+    ) {
+        if (Objects.requireNonNull(save, "save").getAsBoolean()) {
+            Objects.requireNonNull(close, "close").run();
+        }
     }
 
     private RenderedSettings renderSettings(
