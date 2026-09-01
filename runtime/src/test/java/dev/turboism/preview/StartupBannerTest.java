@@ -34,18 +34,20 @@ final class StartupBannerTest {
     }
 
     @Test
-    void publishesOnlyOncePerRuntimeProcess() {
+    void publishesEveryDestinationOnlyOncePerRuntimeProcess() {
         final StartupBanner banner = new StartupBanner();
-        final List<String> published = new ArrayList<>();
+        final List<String> runtimeLog = new ArrayList<>();
+        final List<String> hostConsole = new ArrayList<>();
         final StartupBanner.Details details = new StartupBanner.Details(
             "0.43.3", "17", "unavailable (standard JVM)", "5.2.03", 4,
             "0 discovered; host unavailable"
         );
 
-        banner.publish(published::add, details);
-        banner.publish(published::add, details);
+        banner.publish(List.of(runtimeLog::add, hostConsole::add), details);
+        banner.publish(List.of(runtimeLog::add, hostConsole::add), details);
 
-        assertEquals(1, published.size());
+        assertEquals(1, runtimeLog.size());
+        assertEquals(runtimeLog, hostConsole);
     }
 
     @Test
