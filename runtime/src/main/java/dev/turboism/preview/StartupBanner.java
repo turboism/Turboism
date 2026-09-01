@@ -2,6 +2,7 @@ package dev.turboism.preview;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Objects;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -14,11 +15,15 @@ final class StartupBanner {
 
     private final AtomicBoolean published = new AtomicBoolean(false);
 
-    void publish(final Consumer<String> sink, final Details details) {
-        Objects.requireNonNull(sink, "sink");
+    void publish(final List<Consumer<String>> sinks, final Details details) {
+        final List<Consumer<String>> targets = List.copyOf(
+            Objects.requireNonNull(sinks, "sinks")
+        );
+        if (targets.isEmpty()) throw new IllegalArgumentException("sinks must not be empty");
         Objects.requireNonNull(details, "details");
         if (published.compareAndSet(false, true)) {
-            sink.accept(render(details));
+            final String rendered = render(details);
+            targets.forEach(sink -> sink.accept(rendered));
         }
     }
 
