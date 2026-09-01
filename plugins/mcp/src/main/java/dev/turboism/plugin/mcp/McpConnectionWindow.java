@@ -11,6 +11,7 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
+import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
@@ -27,6 +28,7 @@ import java.awt.Insets;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.net.URI;
+import java.text.MessageFormat;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -45,6 +47,7 @@ final class McpConnectionWindow {
     private final JFrame frame;
     private final JTextField endpoint = new JTextField();
     private final JTextField token = new JTextField();
+    private final JTextArea agentPrompt = new JTextArea(3, 20);
     private final HistoryModel history = new HistoryModel();
     private final JTable historyTable = new JTable(history);
     private final JButton refresh = new JButton();
@@ -91,6 +94,9 @@ final class McpConnectionWindow {
         frame.setLocationByPlatform(true);
         endpoint.setEditable(false);
         token.setEditable(false);
+        agentPrompt.setEditable(false);
+        agentPrompt.setLineWrap(true);
+        agentPrompt.setWrapStyleWord(true);
         endpoint.setFont(new Font(Font.MONOSPACED, Font.PLAIN, endpoint.getFont().getSize()));
         token.setFont(new Font(Font.MONOSPACED, Font.PLAIN, token.getFont().getSize()));
         historyTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
@@ -131,12 +137,25 @@ final class McpConnectionWindow {
         );
         constraints.gridy++;
         constraints.gridx = 0;
-        constraints.gridwidth = 3;
+        constraints.gridwidth = 1;
+        constraints.weightx = 0;
+        credentials.add(new JLabel(text("label.agent-prompt", "Coding-agent prompt")), constraints);
+        constraints.gridx = 1;
         constraints.weightx = 1;
-        credentials.add(new JLabel("<html>" + text(
-            "label.token-warning",
-            "The token is a local secret. Copy it only into a trusted local coding agent."
-        ) + "</html>"), constraints);
+        final JScrollPane promptScroll = new JScrollPane(agentPrompt);
+        promptScroll.setPreferredSize(new Dimension(480, 76));
+        credentials.add(promptScroll, constraints);
+        final JButton copyPrompt = new JButton(text(
+            "button.copy-agent-prompt",
+            "Copy agent prompt"
+        ));
+        copyPrompt.addActionListener(ignored -> copy(
+            agentPrompt.getText(),
+            "status.agent-prompt-copied"
+        ));
+        constraints.gridx = 2;
+        constraints.weightx = 0;
+        credentials.add(copyPrompt, constraints);
 
         final JPanel historyPanel = new JPanel(new BorderLayout(6, 6));
         historyPanel.setBorder(BorderFactory.createTitledBorder(
@@ -178,8 +197,10 @@ final class McpConnectionWindow {
         final McpConnectionSnapshot current = snapshot.get();
         endpoint.setText(current.endpoint() == null ? "" : current.endpoint().toString());
         token.setText(current.authorization());
+        agentPrompt.setText(codingAgentPrompt(localization, current));
         endpoint.setCaretPosition(0);
         token.setCaretPosition(0);
+        agentPrompt.setCaretPosition(0);
         history.replace(current.history());
     }
 
@@ -196,10 +217,35 @@ final class McpConnectionWindow {
 
     private String copyStatus(final String key) {
         return text(key, switch (key) {
+            case "status.agent-prompt-copied" -> "MCP coding-agent prompt copied by explicit user action";
             case "status.endpoint-copied" -> "MCP address copied by explicit user action";
             case "status.token-copied" -> "MCP bearer token copied by explicit user action";
             default -> "MCP connection value copied by explicit user action";
         });
+    }
+
+    static String codingAgentPrompt(
+        final PluginLocalization localization,
+        final McpConnectionSnapshot snapshot
+    ) {
+        final PluginLocalization messages = Objects.requireNonNull(localization, "localization");
+        final McpConnectionSnapshot current = Objects.requireNonNull(snapshot, "snapshot");
+        final String address = current.endpoint() == null ? "" : current.endpoint().toString();
+        final String authorization = current.authorization();
+        final String key = "prompt.coding-agent";
+        try {
+            if (!messages.contains(key)) throw new IllegalStateException("missing localization key");
+            final String value = messages.format(key, address, authorization);
+            if (value != null && !value.isBlank()
+                && !key.equals(value) && !("⟦" + key + "⟧").equals(value)) return value;
+        } catch (RuntimeException unavailable) {
+            // Use the bundled English instruction below.
+        }
+        return MessageFormat.format(
+            "This is the Turboism MCP server. Connect to {0} and configure it with the HTTP header Authorization: {1}.",
+            address,
+            authorization
+        );
     }
 
     private String text(final String key, final String fallback) {
