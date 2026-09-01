@@ -29,7 +29,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Made optional managed GraalVM installation failures or cancellation visible and logged without aborting the remaining Turboism installation.
 - Defined ordinary bottom-status notifications as a latest-message slot and recorded every status invocation through the calling plugin's scoped Turboism logger; compact resident metrics retain independent keyed slots.
 - Clarified in every official UI Theme locale that Cubism Editor should be restarted after applying a theme to ensure it is rendered correctly.
-- Documented that the Windows fx candidate intentionally does not claim durable-session, ACP MCP-server, native-tool, networking, process, or persistence parity with official Linux/macOS fx assets.
+- Documented that the Windows fx candidate admits only Turboism's exact authenticated numeric-loopback HTTP MCP server and does not claim durable-session, native-tool, general networking, process, or persistence parity with official Linux/macOS fx assets.
 - Made Clip Mask Viewer show a localized loading state immediately and move detached relationship indexing, counts, analysis, and graph projection off the Cubism host thread, with cancellation and stale-result guards.
 - Documented that fx v0.0.5 has no Claude subscription login and that a Claude Pro/Max or Claude Code subscription is not an Anthropic API credential, so no such provider profile is offered; the custom adapter implements OpenAI Chat Completions only.
 - Documented that fx's Gateway reasoning level is deliberately not forwarded to OpenAI-compatible endpoints instead of being translated into a guessed `reasoning_effort`.
@@ -49,6 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Fixed the custom-endpoint adapter rejecting the reasoning field fx sends on every request, ignoring the `ai-language-model-id` request header, and requiring an API key for unauthenticated self-hosted endpoints.
 - Fixed custom profiles inheriting an unrelated Codex or Grok selection from the user's normal fx home by launching adapted connections with a plugin-owned Gateway-only fx home and an optional direct `--model` argument.
 - Fixed prompt text being cleared before Turboism could report that no usable provider or model was selected.
+- Replaced the restricted Windows fx payload that rejected ACP MCP servers with an independently reproducible build limited to Turboism's exact authenticated numeric-loopback HTTP MCP server.
 - Fixed managed Windows launches reparsing path-bearing Turboism JVM options as standalone `cmd.exe` commands; options are now inserted as quoted arguments in an ephemeral Cubism BAT while inherited Java option variables and stale Turboism integration blocks are excluded from the child process.
 
 ## [0.43.2] - 2026-08-29

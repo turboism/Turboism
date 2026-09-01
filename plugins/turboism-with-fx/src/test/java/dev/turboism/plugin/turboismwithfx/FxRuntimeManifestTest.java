@@ -26,9 +26,9 @@ final class FxRuntimeManifestTest {
         );
         assertEquals(FxRuntimeManifest.Delivery.PRODUCT_PAYLOAD, windows.delivery());
         assertTrue(windows.sourceUri().isEmpty());
-        assertEquals(11_174_912L, windows.executableSize());
+        assertEquals(11_144_192L, windows.executableSize());
         assertEquals(
-            "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541",
+            "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2",
             windows.executableSha256()
         );
         assertEquals("0.0.5", FxRuntimeManifest.VERSION);

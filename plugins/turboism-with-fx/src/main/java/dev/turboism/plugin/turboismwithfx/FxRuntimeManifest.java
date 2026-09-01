@@ -81,8 +81,8 @@ final class FxRuntimeManifest {
         ));
         add(entries, Entry.productPayload(
             "windows-x86_64",
-            "04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541",
-            11_174_912L,
+            "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2",
+            11_144_192L,
             "Turboism build of upstream fx v0.0.5"
         ));
         return Map.copyOf(entries);

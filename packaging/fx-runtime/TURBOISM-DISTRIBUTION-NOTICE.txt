@@ -12,14 +12,16 @@ upstream source, not an official Vercel Windows asset. It is distributed only
 inside Turboism Full products and is verified by exact size and SHA-256 before
 launch:
 
-size: 11174912 bytes
-SHA-256: 04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541
+size: 11144192 bytes
+SHA-256: a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2
 
 The current Windows candidate intentionally provides a narrower feature set.
-It does not claim durable-session, ACP MCP-server, native-tool, networking,
-process, or persistence parity with the official Linux and macOS assets.
-Windows repair is performed by repairing or reinstalling Turboism Full; there
-is no upstream Windows archive for online repair.
+It admits only the exact authenticated numeric-loopback HTTP MCP server supplied
+by Turboism ACP, and Windows ACP sessions remain ephemeral. It does not claim
+durable-session, native-tool, general networking, process, or persistence
+parity with the official Linux and macOS assets. Windows repair is performed by
+repairing or reinstalling Turboism Full; there is no upstream Windows archive
+for online repair.
 
 fx is an independent project from Vercel, Inc. and is licensed under the
 Apache License, Version 2.0. Every platform payload retains the upstream
