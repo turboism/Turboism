@@ -8,6 +8,7 @@ import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.BlendMode;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Deformers;
 import dev.turboism.sdk.cubism.model.Drawable;
@@ -178,6 +179,49 @@ final class RuntimeModelObjectServiceTest {
     }
 
     @Test
+    void rejectsUnavailableCreateProviderBeforeReadingTheActiveModelOrParent() {
+        final AtomicBoolean activeRead = new AtomicBoolean();
+        final RuntimeModelObjectService service = new RuntimeModelObjectService(
+            new UnavailableCreateAccess(activeRead),
+            PermissionChecker.allowAll(),
+            () -> true
+        );
+
+        final ModelObjectOperationException failure = assertThrows(
+            ModelObjectOperationException.class,
+            () -> service.create(new ModelObjectCreateRequest.Part(
+                "Blocked Part",
+                Optional.of(new ModelObjectReference(ModelObjectKind.PART, "Missing"))
+            ))
+        );
+
+        assertEquals(ModelObjectOperationException.Code.UNAVAILABLE, failure.code());
+        assertFalse(activeRead.get(), "capability rejection must precede active-model and parent reads");
+    }
+
+    @Test
+    void reportsCommittedCreationWhenDescriptorReadbackFails() {
+        final MutableModel model = new MutableModel();
+        model.failCreatedDescriptorReads = true;
+        final RuntimeModelObjectService service = service(model, () -> true);
+
+        final ModelObjectOperationException failure = assertThrows(
+            ModelObjectOperationException.class,
+            () -> service.create(new ModelObjectCreateRequest.Part(
+                "Committed Part",
+                Optional.empty()
+            ))
+        );
+
+        assertEquals(ModelObjectOperationException.Code.COMMITTED, failure.code());
+        assertEquals(
+            Optional.of(new ModelObjectReference(ModelObjectKind.PART, "Part1")),
+            failure.committedReference()
+        );
+        assertTrue(model.contains(new ModelObjectReference(ModelObjectKind.PART, "Part1")));
+    }
+
+    @Test
     void rejectsCallsAfterTheOwningPluginBecomesStale() {
         final MutableModel model = new MutableModel();
         final AtomicBoolean active = new AtomicBoolean(true);
@@ -220,6 +264,33 @@ final class RuntimeModelObjectServiceTest {
         return new WarpGrid(rows, columns, false, points);
     }
 
+    private static final class UnavailableCreateAccess implements CubismModelAccess,
+        RuntimeModelObjectCreateProvider {
+        private final AtomicBoolean activeRead;
+
+        private UnavailableCreateAccess(final AtomicBoolean activeRead) {
+            this.activeRead = activeRead;
+        }
+
+        @Override public CubismModel active() {
+            activeRead.set(true);
+            throw new AssertionError("active model must not be read");
+        }
+
+        @Override public void requireCreateSupported(final ModelObjectCreateRequest request) {
+            throw new ModelObjectProviderUnavailableException(
+                "Model-object creation provider is unavailable"
+            );
+        }
+
+        @Override public ModelObjectReference createModelObject(
+            final CubismModel model,
+            final ModelObjectCreateRequest request
+        ) {
+            throw new AssertionError("create must not be invoked");
+        }
+    }
+
     private static final class MutableModel implements CubismModel {
         private final MutableParts parts = new MutableParts();
         private final MutableDrawables drawables = new MutableDrawables();
@@ -227,6 +298,7 @@ final class RuntimeModelObjectServiceTest {
         private final MutableWarpDeformers warps = new MutableWarpDeformers();
         private final MutableRotationDeformers rotations = new MutableRotationDeformers();
         private int sequence;
+        private boolean failCreatedDescriptorReads;
 
         MutablePart addPart(final String id, final String name, final MutablePart parent) {
             final MutablePart value = new MutablePart(id, name, parent);
@@ -315,7 +387,9 @@ final class RuntimeModelObjectServiceTest {
                     .orElseThrow(() -> new NoSuchElementException(id.value()));
             }
             @Override public Part create(final String name, final Part parent, final int index) {
-                return addPart(next("Part"), name, (MutablePart) parent);
+                final MutablePart created = addPart(next("Part"), name, (MutablePart) parent);
+                created.failDescriptorReads = failCreatedDescriptorReads;
+                return created;
             }
             @Override public void remove(final Part part) { values.remove(part); }
         }
@@ -398,13 +472,17 @@ final class RuntimeModelObjectServiceTest {
         private final PartId id;
         private String name;
         private MutablePart parent;
+        private boolean failDescriptorReads;
         MutablePart(final String id, final String name, final MutablePart parent) {
             this.id = new PartId(id);
             this.name = name;
             this.parent = parent;
         }
         @Override public PartId id() { return id; }
-        @Override public String name() { return name; }
+        @Override public String name() {
+            if (failDescriptorReads) throw new IllegalStateException("descriptor readback failed");
+            return name;
+        }
         @Override public void setName(final String value) { name = value; }
         @Override public void setParent(final Part value, final int index) {
             parent = (MutablePart) value;
