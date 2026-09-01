@@ -265,6 +265,24 @@ try {
     Remove-Item Env:TURBOISM_TEST_OUTPUT -ErrorAction SilentlyContinue
     Remove-Item -LiteralPath $marker -Force -ErrorAction SilentlyContinue
 
+    $discoveryHome = Join-Path $temp "installer discovery home"
+    New-Item -ItemType Directory -Path $discoveryHome -Force | Out-Null
+    $discoveryReport = Join-Path $discoveryHome "cubism-scan.result"
+    Write-CubismInstallerDiscoveryReport `
+        -TurboismHome $discoveryHome `
+        -OutputPath $discoveryReport `
+        -Roots @($root52, $root53, $hyphenD3DRoot, $unsupportedPatch, $unsupported) | Out-Null
+    $discoveryLines = @([System.IO.File]::ReadAllLines($discoveryReport, [System.Text.Encoding]::Unicode))
+    Assert-ManagedLaunch ($discoveryLines[0] -eq "TURBOISM_CUBISM_SCAN_V1" -and $discoveryLines[-1] -eq "END") "installer discovery report has a complete versioned envelope"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -eq "RESULT|OK|3|2" }).Count -eq 1) "installer discovery report counts exact supported and unsupported artifacts"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*5.2.03*" }).Count -eq 1) "installer discovery report displays exact Cubism 5.2.03"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*5.3.02*" }).Count -eq 1) "installer discovery report displays exact Cubism 5.3.02"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*5.3.03*" }).Count -eq 1) "installer discovery report displays exact Cubism 5.3.03"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*unsupported*" -or $_ -like "DISPLAY|*Unsupported*" -or $_ -like "DISPLAY|*不支持*" -or $_ -like "DISPLAY|*未対応*" }).Count -eq 2) "installer discovery report keeps unreviewed artifacts visible and unsupported"
+    $discoveryFiles = @(Get-ChildItem -LiteralPath $discoveryHome -File -Force)
+    Assert-ManagedLaunch ($discoveryFiles.Count -eq 1 -and $discoveryFiles[0].FullName -eq $discoveryReport) "installer discovery publishes only the final atomic report"
+    Assert-ManagedLaunch (-not (Test-Path -LiteralPath (Join-Path $discoveryHome "cubism-installations.json"))) "installer discovery creates no managed installation state"
+
     $initial = Merge-CubismSelection -Candidates $candidates -SavedInstallations @()
     Assert-ManagedLaunch (@($initial | Where-Object { -not $_.Selected }).Count -eq 0) "initial supported inventory is all-selected"
     $initial[1].Selected = $false

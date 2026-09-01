@@ -10,7 +10,9 @@ param(
     [switch]$EnableShortcuts,
     [switch]$DisableShortcuts,
     [switch]$InitializeSelection,
-    [switch]$Elevated
+    [switch]$Elevated,
+    [string]$InstallerDiscoveryOutput = "",
+    [switch]$InstallerDiscoveryWorker
 )
 
 # Turboism WinForms configurator: plugin selection, bounded Cubism selection,
@@ -25,6 +27,69 @@ if (-not [string]::IsNullOrWhiteSpace($HomePath)) { $turboismHome = $HomePath.Tr
 elseif (-not [string]::IsNullOrWhiteSpace($env:TURBOISM_HOME)) { $turboismHome = $env:TURBOISM_HOME.TrimEnd('\', '/') }
 else { $turboismHome = $scriptDir }
 if (-not (Test-CubismNormalDirectory $turboismHome)) { throw "Turboism home does not exist: $turboismHome" }
+if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoveryOutput)) {
+    if ($InstallerDiscoveryWorker) {
+        try {
+            Write-CubismInstallerDiscoveryReport `
+                -TurboismHome $turboismHome `
+                -OutputPath $InstallerDiscoveryOutput | Out-Null
+            exit 0
+        }
+        catch {
+            Write-Error $_.Exception.Message
+            exit 1
+        }
+    }
+
+    $discoveryProcess = $null
+    try {
+        $powershell = Join-Path $PSHOME "powershell.exe"
+        if (-not (Test-CubismNormalFile $powershell)) { $powershell = (Get-Process -Id $PID).Path }
+        $info = [System.Diagnostics.ProcessStartInfo]::new()
+        $info.FileName = $powershell
+        $info.Arguments = '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "{0}" -Home "{1}" -InstallerDiscoveryOutput "{2}" -InstallerDiscoveryWorker' -f $scriptPath, $turboismHome, $InstallerDiscoveryOutput
+        $info.UseShellExecute = $false
+        $info.CreateNoWindow = $true
+        $discoveryProcess = [System.Diagnostics.Process]::new()
+        $discoveryProcess.StartInfo = $info
+        if (-not $discoveryProcess.Start()) { throw "Cannot start the Cubism discovery worker" }
+        if (-not $discoveryProcess.WaitForExit(105000)) {
+            try { $discoveryProcess.Kill() } catch { }
+            try { $discoveryProcess.WaitForExit() } catch { }
+            if (-not (Test-Path -LiteralPath $InstallerDiscoveryOutput)) {
+                Write-CubismInstallerDiscoveryReport `
+                    -TurboismHome $turboismHome `
+                    -OutputPath $InstallerDiscoveryOutput `
+                    -FailureCode "TimeoutException" | Out-Null
+            }
+            exit 1
+        }
+        if (-not (Test-CubismNormalFile $InstallerDiscoveryOutput)) {
+            Write-CubismInstallerDiscoveryReport `
+                -TurboismHome $turboismHome `
+                -OutputPath $InstallerDiscoveryOutput `
+                -FailureCode "MissingResult" | Out-Null
+            exit 1
+        }
+        exit $discoveryProcess.ExitCode
+    }
+    catch {
+        if (-not (Test-Path -LiteralPath $InstallerDiscoveryOutput)) {
+            try {
+                Write-CubismInstallerDiscoveryReport `
+                    -TurboismHome $turboismHome `
+                    -OutputPath $InstallerDiscoveryOutput `
+                    -FailureCode $_.Exception.GetType().Name | Out-Null
+            }
+            catch { }
+        }
+        Write-Error $_.Exception.Message
+        exit 1
+    }
+    finally {
+        if ($null -ne $discoveryProcess) { $discoveryProcess.Dispose() }
+    }
+}
 $statePath = Join-Path $turboismHome "cubism-installations.json"
 $configPath = Join-Path $turboismHome "config.json"
 $pluginDir = Join-Path $turboismHome "plugins"
