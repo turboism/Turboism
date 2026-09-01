@@ -1,0 +1,37 @@
+# Minimum ordinary CI gate. Expensive host and release integration checks remain
+# in their dedicated workflows and completed-commit verification paths.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  dev-check:
+    name: devCheck
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out exact event commit
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Set up Java 17
+        uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      - name: Run minimum development gate
+        run: ./gradlew --no-daemon devCheck --console=plain
