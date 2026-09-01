@@ -827,13 +827,7 @@ final class CoreWindows implements AutoCloseable {
             }
         });
 
-        final JButton close = new JButton(text("common.close"));
-        close.addActionListener(ignored -> dialog.setVisible(false));
-        final JPanel buttons = new JPanel(new FlowLayout(FlowLayout.CENTER));
-        buttons.add(close);
-
         dialog.add(content, BorderLayout.CENTER);
-        dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
     }
 
