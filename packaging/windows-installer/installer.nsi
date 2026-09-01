@@ -20,6 +20,7 @@ Unicode true
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
 !include "Sections.nsh"
+!include "WinMessages.nsh"
 
 ; ---------- 编译期参数（assemble-release.sh 传入绝对路径；缺省值供独立编译） ----------
 ; 注意：makensis 将脚本内相对路径解析为相对于脚本所在目录，
@@ -87,7 +88,7 @@ SetFont "MS Shell Dlg" 12
 !define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
 
-; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → 启动选项 → 安装 → Finish ----------
+; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
 !define MUI_LICENSEPAGE_CHECKBOX
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
@@ -100,6 +101,7 @@ Page custom ModeCreate ModeLeave
 !insertmacro MUI_PAGE_COMPONENTS
 Page custom GraalCreate GraalLeave
 !insertmacro MUI_PAGE_DIRECTORY
+Page custom CubismDiscoveryCreate CubismDiscoveryLeave
 Page custom LaunchOptionsCreate LaunchOptionsLeave
 !insertmacro MUI_PAGE_INSTFILES
 !insertmacro MUI_PAGE_FINISH
@@ -227,6 +229,28 @@ LangString GraalProgressHint ${LANG_ENGLISH} "When downloading, a separate progr
 LangString GraalProgressHint ${LANG_SIMPCHINESE} "下载时将显示独立进度窗口，包括已下载/总字节数、传输速度和“取消”按钮。"
 LangString GraalProgressHint ${LANG_JAPANESE} "ダウンロード中は別の進捗画面に、ダウンロード済み/合計バイト数、転送速度、キャンセルボタンが表示されます。"
 
+LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Detect Cubism installations"
+LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "扫描 Cubism 安装"
+LangString CubismDiscoveryTitle ${LANG_JAPANESE} "Cubism インストールを検出"
+LangString CubismDiscoverySubtitle ${LANG_ENGLISH} "Exact application JARs determine whether each installation is supported."
+LangString CubismDiscoverySubtitle ${LANG_SIMPCHINESE} "安装器将通过应用程序 JAR 的精确身份判断每个安装是否受支持。"
+LangString CubismDiscoverySubtitle ${LANG_JAPANESE} "各インストールの対応可否はアプリケーション JAR の正確な同一性で判定します。"
+LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning possible Cubism installations and checking exact Live2D_Cubism.jar identities…"
+LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描可能的 Cubism 安装并校验 Live2D_Cubism.jar 的精确身份……"
+LangString CubismDiscoveryScanning ${LANG_JAPANESE} "Cubism の候補をスキャンし、Live2D_Cubism.jar の正確な同一性を確認しています…"
+LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid. Supported installations will be revalidated and configured after installation."
+LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。安装后会重新校验并配置受支持的安装。"
+LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。インストール後に再検証して設定します。"
+LangString CubismDiscoveryNone ${LANG_ENGLISH} "No supported Cubism installation was found. Turboism can still be installed and configured later."
+LangString CubismDiscoveryNone ${LANG_SIMPCHINESE} "未找到受支持的 Cubism 安装。仍可安装 Turboism，并在之后进行配置。"
+LangString CubismDiscoveryNone ${LANG_JAPANESE} "対応する Cubism インストールが見つかりません。Turboism はそのままインストールし、後で設定できます。"
+LangString CubismDiscoveryFailed ${LANG_ENGLISH} "Cubism scanning did not complete. Turboism can still be installed and configured later."
+LangString CubismDiscoveryFailed ${LANG_SIMPCHINESE} "Cubism 扫描未完成。仍可安装 Turboism，并在之后进行配置。"
+LangString CubismDiscoveryFailed ${LANG_JAPANESE} "Cubism のスキャンを完了できませんでした。Turboism はそのままインストールし、後で設定できます。"
+LangString CubismDiscoveryTimeout ${LANG_ENGLISH} "Cubism scanning timed out. Turboism can still be installed and configured later."
+LangString CubismDiscoveryTimeout ${LANG_SIMPCHINESE} "Cubism 扫描超时。仍可安装 Turboism，并在之后进行配置。"
+LangString CubismDiscoveryTimeout ${LANG_JAPANESE} "Cubism のスキャンがタイムアウトしました。Turboism はそのままインストールし、後で設定できます。"
+
 LangString LaunchOptionsTitle ${LANG_ENGLISH} "Choose normal launch integration"
 LangString LaunchOptionsTitle ${LANG_SIMPCHINESE} "选择常规启动集成"
 LangString LaunchOptionsTitle ${LANG_JAPANESE} "通常起動の統合を選択"
@@ -316,6 +340,22 @@ Var GraalDialog
 Var GraalNowRadio
 Var GraalLaterRadio
 Var managedGraalHelp
+Var CubismDiscoveryDialog
+Var CubismDiscoveryList
+Var CubismDiscoveryStatus
+Var CubismDiscoveryNext
+Var CubismDiscoveryWorkDir
+Var CubismDiscoveryResult
+Var CubismDiscoveryHandle
+Var CubismDiscoveryGeneration
+Var CubismDiscoveryStarted
+Var CubismDiscoveryPollCount
+Var CubismDiscoveryComplete
+Var CubismDiscoverySupported
+Var CubismDiscoveryOther
+Var CubismDiscoveryResultSeen
+Var CubismDiscoveryEndSeen
+Var CubismDiscoveryMalformed
 Var LaunchOptionsDialog
 Var createStartMenu
 Var integrateCubismBat
@@ -366,6 +406,10 @@ Function .onInit
   StrCpy $EulaAck4State 0
   StrCpy $Mode 1
   StrCpy $installManagedGraal 0
+  StrCpy $CubismDiscoveryGeneration 0
+  StrCpy $CubismDiscoveryStarted 0
+  StrCpy $CubismDiscoveryPollCount 0
+  StrCpy $CubismDiscoveryComplete 0
   StrCpy $createStartMenu 1
   StrCpy $integrateCubismBat 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
@@ -495,6 +539,218 @@ Function GraalLeave
   ${Else}
     StrCpy $installManagedGraal 0
   ${EndIf}
+FunctionEnd
+
+Function TrimCubismDiscoveryLine
+  ${Do}
+    StrLen $len $line
+    ${If} $len == 0
+      ${ExitDo}
+    ${EndIf}
+    IntOp $next $len - 1
+    StrCpy $ch "$line" 1 $next
+    ${If} $ch == "$\r"
+    ${OrIf} $ch == "$\n"
+      StrCpy $line "$line" $next
+    ${Else}
+      ${ExitDo}
+    ${EndIf}
+  ${Loop}
+FunctionEnd
+
+Function SplitPipeFirst
+  StrCpy $1 ""
+  StrCpy $pos 0
+  StrLen $len $0
+  ${Do}
+    ${If} $pos >= $len
+      ${ExitDo}
+    ${EndIf}
+    StrCpy $ch "$0" 1 $pos
+    ${If} $ch == "|"
+      IntOp $next $pos + 1
+      StrCpy $1 "$0" "" $next
+      StrCpy $0 "$0" $pos
+      ${ExitDo}
+    ${EndIf}
+    IntOp $pos $pos + 1
+  ${Loop}
+FunctionEnd
+
+Function CubismDiscoveryEnableNext
+  StrCpy $CubismDiscoveryComplete 1
+  EnableWindow $CubismDiscoveryNext 1
+FunctionEnd
+
+Function CubismDiscoveryFail
+  ${NSD_KillTimer} CubismDiscoveryPoll
+  ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryFailed)"
+  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+Function CubismDiscoveryPoll
+  IntOp $CubismDiscoveryPollCount $CubismDiscoveryPollCount + 1
+  IfFileExists "$CubismDiscoveryResult" ReadCubismDiscoveryResult
+  ${If} $CubismDiscoveryPollCount >= 480
+    ${NSD_KillTimer} CubismDiscoveryPoll
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryTimeout)"
+    Call CubismDiscoveryEnableNext
+  ${EndIf}
+  Return
+
+ReadCubismDiscoveryResult:
+  ${NSD_KillTimer} CubismDiscoveryPoll
+  StrCpy $CubismDiscoveryResultSeen 0
+  StrCpy $CubismDiscoveryEndSeen 0
+  StrCpy $CubismDiscoveryMalformed 0
+  StrCpy $CubismDiscoverySupported 0
+  StrCpy $CubismDiscoveryOther 0
+  StrCpy $2 0
+  FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r
+  ${If} $CubismDiscoveryHandle == ""
+    Call CubismDiscoveryFail
+    Return
+  ${EndIf}
+
+CubismDiscoveryReadLoop:
+  ClearErrors
+  FileReadUTF16LE $CubismDiscoveryHandle $line
+  ${If} ${Errors}
+    Goto CubismDiscoveryReadDone
+  ${EndIf}
+  Call TrimCubismDiscoveryLine
+  ${If} $line == ""
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  ${If} $CubismDiscoveryEndSeen == 1
+    StrCpy $CubismDiscoveryMalformed 1
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  ${If} $2 == 0
+    ${If} $line != "TURBOISM_CUBISM_SCAN_V1"
+      StrCpy $CubismDiscoveryMalformed 1
+    ${EndIf}
+    StrCpy $2 1
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  ${If} $line == "END"
+    ${If} $CubismDiscoveryResultSeen != 1
+      StrCpy $CubismDiscoveryMalformed 1
+    ${EndIf}
+    StrCpy $CubismDiscoveryEndSeen 1
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  StrCpy $3 "$line" 7
+  ${If} $3 == "RESULT|"
+    ${If} $CubismDiscoveryResultSeen != 0
+      StrCpy $CubismDiscoveryMalformed 1
+      Goto CubismDiscoveryReadLoop
+    ${EndIf}
+    StrCpy $0 "$line" "" 7
+    Call SplitPipeFirst
+    StrCpy $4 "$0"
+    StrCpy $0 "$1"
+    Call SplitPipeFirst
+    StrCpy $CubismDiscoverySupported "$0"
+    StrCpy $0 "$1"
+    Call SplitPipeFirst
+    StrCpy $CubismDiscoveryOther "$0"
+    ${If} $4 == "OK"
+      ${If} $1 != ""
+        StrCpy $CubismDiscoveryMalformed 1
+      ${EndIf}
+    ${ElseIf} $4 == "ERROR"
+      StrCpy $CubismDiscoveryMalformed 1
+    ${Else}
+      StrCpy $CubismDiscoveryMalformed 1
+    ${EndIf}
+    StrCpy $CubismDiscoveryResultSeen 1
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  StrCpy $3 "$line" 8
+  ${If} $3 == "DISPLAY|"
+    ${If} $CubismDiscoveryResultSeen != 1
+      StrCpy $CubismDiscoveryMalformed 1
+      Goto CubismDiscoveryReadLoop
+    ${EndIf}
+    StrCpy $3 "$line" "" 8
+    SendMessage $CubismDiscoveryList ${LB_ADDSTRING} 0 "STR:$3"
+    Goto CubismDiscoveryReadLoop
+  ${EndIf}
+  StrCpy $CubismDiscoveryMalformed 1
+  Goto CubismDiscoveryReadLoop
+
+CubismDiscoveryReadDone:
+  FileClose $CubismDiscoveryHandle
+  ${If} $CubismDiscoveryEndSeen != 1
+  ${OrIf} $CubismDiscoveryResultSeen != 1
+  ${OrIf} $CubismDiscoveryMalformed != 0
+    Call CubismDiscoveryFail
+    Return
+  ${EndIf}
+  ${If} $CubismDiscoverySupported == 0
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryNone)"
+  ${Else}
+    ${NSD_SetText} $CubismDiscoveryStatus "$(CubismDiscoveryComplete)"
+  ${EndIf}
+  Call CubismDiscoveryEnableNext
+FunctionEnd
+
+Function CubismDiscoveryBack
+  Pop $0
+  ${NSD_KillTimer} CubismDiscoveryPoll
+  EnableWindow $CubismDiscoveryNext 1
+  StrCpy $CubismDiscoveryComplete 0
+FunctionEnd
+
+Function CubismDiscoveryCreate
+  nsDialogs::Create 1018
+  Pop $CubismDiscoveryDialog
+  ${If} $CubismDiscoveryDialog == error
+    Abort
+  ${EndIf}
+  !insertmacro MUI_HEADER_TEXT "$(CubismDiscoveryTitle)" "$(CubismDiscoverySubtitle)"
+  ${NSD_CreateLabel} 0 0 100% 28u "$(CubismDiscoveryScanning)"
+  Pop $CubismDiscoveryStatus
+  ${NSD_CreateListBox} 0 34u 100% 112u ""
+  Pop $CubismDiscoveryList
+  ${NSD_OnBack} CubismDiscoveryBack
+
+  GetDlgItem $CubismDiscoveryNext $HWNDPARENT 1
+  EnableWindow $CubismDiscoveryNext 0
+  StrCpy $CubismDiscoveryComplete 0
+  StrCpy $CubismDiscoveryPollCount 0
+  ${If} $CubismDiscoveryStarted == 1
+    Call CubismDiscoveryPoll
+    ${If} $CubismDiscoveryComplete != 1
+      ${NSD_CreateTimer} CubismDiscoveryPoll 250
+    ${EndIf}
+  ${Else}
+    IntOp $CubismDiscoveryGeneration $CubismDiscoveryGeneration + 1
+    InitPluginsDir
+    StrCpy $CubismDiscoveryWorkDir "$PLUGINSDIR\Turboism-discovery-$CubismDiscoveryGeneration"
+    StrCpy $CubismDiscoveryResult "$CubismDiscoveryWorkDir\cubism-scan.result"
+    SetOutPath "$CubismDiscoveryWorkDir"
+    File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
+    File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
+    File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
+    ClearErrors
+    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"'
+    ${If} ${Errors}
+      Call CubismDiscoveryFail
+    ${Else}
+      StrCpy $CubismDiscoveryStarted 1
+      ${NSD_CreateTimer} CubismDiscoveryPoll 250
+    ${EndIf}
+  ${EndIf}
+  nsDialogs::Show
+FunctionEnd
+
+Function CubismDiscoveryLeave
+  ${If} $CubismDiscoveryComplete != 1
+    Abort
+  ${EndIf}
+  ${NSD_KillTimer} CubismDiscoveryPoll
 FunctionEnd
 
 Function LaunchOptionsCreate

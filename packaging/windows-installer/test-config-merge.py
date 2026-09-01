@@ -332,6 +332,96 @@ def check_configurator_flow_contract():
     check("CF1 launch choices precede payload installation",
           text.index("Page custom LaunchOptionsCreate LaunchOptionsLeave")
           < text.index("MUI_PAGE_INSTFILES"))
+    directory_page = text.index("MUI_PAGE_DIRECTORY")
+    discovery_page = text.index("Page custom CubismDiscoveryCreate CubismDiscoveryLeave")
+    launch_page = text.index("Page custom LaunchOptionsCreate LaunchOptionsLeave")
+    check("CF1b exact Cubism discovery is visible before launch choices and payload mutation",
+          directory_page < discovery_page < launch_page < text.index("MUI_PAGE_INSTFILES"))
+    discovery_start = text.index("Function CubismDiscoveryCreate")
+    discovery_end = text.index("FunctionEnd", discovery_start)
+    discovery_create = text[discovery_start:discovery_end]
+    check("CF1c pre-install discovery stages the current exact verifier payload",
+          all(path in discovery_create for path in (
+              '${STAGING_DIR}/turboism-agent.jar',
+              '${STAGING_DIR}/configure_turboism.ps1',
+              '${STAGING_DIR}/cubism-launch-common.ps1'))
+          and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_create)
+    scanner_exec = next(line for line in discovery_create.splitlines()
+                        if "InstallerDiscoveryOutput" in line)
+    check("CF1d pre-install discovery launches asynchronously",
+          scanner_exec.strip().startswith("Exec '")
+          and "ExecWait" not in scanner_exec
+          and "nsExec" not in scanner_exec)
+    check("CF1e pre-install discovery disables Next before timer polling",
+          discovery_create.index("EnableWindow $CubismDiscoveryNext 0")
+          < discovery_create.index("${NSD_CreateTimer} CubismDiscoveryPoll 250"))
+    poll_start = text.index("Function CubismDiscoveryPoll")
+    poll_end = text.index("FunctionEnd", poll_start)
+    poll = text[poll_start:poll_end]
+    fail_start = text.index("Function CubismDiscoveryFail")
+    fail_end = text.index("FunctionEnd", fail_start)
+    fail = text[fail_start:fail_end]
+    back_start = text.index("Function CubismDiscoveryBack")
+    back_end = text.index("FunctionEnd", back_start)
+    back = text[back_start:back_end]
+    check("CF1f discovery completion and recoverable failures release the wizard",
+          "${NSD_KillTimer} CubismDiscoveryPoll" in poll
+          and "Call CubismDiscoveryEnableNext" in poll
+          and "${NSD_KillTimer} CubismDiscoveryPoll" in fail
+          and "Call CubismDiscoveryEnableNext" in fail
+          and "CubismDiscoveryTimeout" in poll)
+    check("CF1g Back navigation invalidates the poll and restores shared Next",
+          "${NSD_OnBack} CubismDiscoveryBack" in discovery_create
+          and "${NSD_KillTimer} CubismDiscoveryPoll" in back
+          and "EnableWindow $CubismDiscoveryNext 1" in back
+          and "StrCpy $CubismDiscoveryComplete 0" in back)
+    early_scan = configure.index("if (-not [string]::IsNullOrWhiteSpace($InstallerDiscoveryOutput))")
+    check("CF1h configurator discovery mode is headless and precedes state/log/UI setup",
+          "[string]$InstallerDiscoveryOutput" in configure
+          and "Write-CubismInstallerDiscoveryReport" in configure[early_scan:configure.index("$statePath", early_scan)]
+          and early_scan < configure.index("$statePath") < configure.index("Add-Type -AssemblyName System.Windows.Forms"))
+    check("CF1i discovery exporter preserves exact admission and complete atomic publication",
+          "function Write-CubismInstallerDiscoveryReport" in common
+          and "Get-CubismDiscoveryRoots" in common
+          and "Get-CubismInstallations" in common
+          and "TURBOISM_CUBISM_SCAN_V1" in common
+          and "$publish = $false" in common
+          and "$publish = $true" in common
+          and "if ($publish -and (Test-CubismNormalFile $temporary))" in common
+          and "[System.IO.File]::Move($temporary, $output)" in common)
+    check("CF1i2 discovery report preserves localized labels and non-ASCII paths",
+          "[System.Text.UnicodeEncoding]::new($false, $true, $true)" in common
+          and "FileReadUTF16LE $CubismDiscoveryHandle $line" in poll)
+    check("CF1i3 result parsing cannot overwrite the open report handle",
+          'FileOpen $CubismDiscoveryHandle "$CubismDiscoveryResult" r' in poll
+          and "FileClose $CubismDiscoveryHandle" in poll
+          and "FileReadUTF16LE $0 $line" not in poll)
+    discovery_keys = (
+        "CubismDiscoveryTitle", "CubismDiscoverySubtitle", "CubismDiscoveryScanning",
+        "CubismDiscoveryComplete", "CubismDiscoveryNone", "CubismDiscoveryFailed",
+        "CubismDiscoveryTimeout",
+    )
+    check("CF1j discovery page has English, Simplified Chinese, and Japanese text",
+          all(text.count("LangString %s " % key) == 3 for key in discovery_keys)
+          and all(('LangString CubismDiscoveryTitle ${LANG_%s}' % language) in text
+                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
+    check("CF1k exact artifact probes and the entire pre-install worker are time-bounded",
+          "$script:CubismArtifactProbeTimeoutMilliseconds = 20000" in common
+          and "WaitForExit($script:CubismArtifactProbeTimeoutMilliseconds)" in common
+          and "try { $process.Kill() }" in common
+          and "[switch]$InstallerDiscoveryWorker" in configure
+          and "$discoveryProcess.WaitForExit(105000)" in configure
+          and "try { $discoveryProcess.Kill() }" in configure
+          and '-FailureCode "TimeoutException"' in configure)
+    check("CF1l Back/forward navigation reuses one discovery worker",
+          "Var CubismDiscoveryStarted" in text
+          and "${If} $CubismDiscoveryStarted == 1" in discovery_create
+          and "StrCpy $CubismDiscoveryStarted 1" in discovery_create
+          and discovery_create.count("InstallerDiscoveryOutput") == 1)
+    check("CF1m every DISPLAY record fits the NSIS string buffer",
+          "-MaximumLength 520" in common
+          and "-MaximumLength 260" in common
+          and "[int]$MaximumLength = 900" in common)
     success = text[text.index("Function .onInstSuccess"):
                    text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
     check("CF2 successful installation performs headless initial configuration",

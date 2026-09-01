@@ -16,6 +16,7 @@ $script:CubismMaxJdkOptionLength = 4096
 $script:CubismMaxLaunchArguments = 64
 $script:CubismScriptRoot = $PSScriptRoot
 $script:CubismArtifactVersionResolver = $null
+$script:CubismArtifactProbeTimeoutMilliseconds = 20000
 $script:CubismMaxScanResults = 256
 $script:CubismMaxScanEntries = 4096
 $script:CubismMaxScanDrives = 26
@@ -66,25 +67,38 @@ function Get-CubismVersionFromArtifact {
     if (-not (Test-CubismNormalFile $Java) -or
         -not (Test-CubismNormalFile $ApplicationJar) -or
         -not (Test-CubismNormalFile $agent)) { return $null }
-    $previousErrorPreference = $ErrorActionPreference
-    $savedEnvironment = @{}
-    foreach ($name in @("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")) {
-        $savedEnvironment[$name] = [Environment]::GetEnvironmentVariable($name, "Process")
-        [Environment]::SetEnvironmentVariable($name, $null, "Process")
-    }
+    $process = $null
     try {
-        $ErrorActionPreference = "Continue"
-        $output = @(& $Java -cp $agent dev.turboism.mapping.verification.ReviewedHostArtifactCli $ApplicationJar 2>$null)
-        if ($LASTEXITCODE -ne 0) { return $null }
-        $version = ($output | ForEach-Object { [string]$_ } | Where-Object { $_ -match '^5\.(?:2\.03|3\.(?:02|03))$' } | Select-Object -First 1)
-        return $(if ([string]::IsNullOrWhiteSpace($version)) { $null } else { $version })
+        $info = [System.Diagnostics.ProcessStartInfo]::new()
+        $info.FileName = $Java
+        $info.Arguments = '-cp "{0}" dev.turboism.mapping.verification.ReviewedHostArtifactCli "{1}"' -f $agent, $ApplicationJar
+        $info.UseShellExecute = $false
+        $info.CreateNoWindow = $true
+        $info.RedirectStandardOutput = $true
+        $info.RedirectStandardError = $true
+        foreach ($name in @("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS")) {
+            [void]$info.EnvironmentVariables.Remove($name)
+        }
+        $process = [System.Diagnostics.Process]::new()
+        $process.StartInfo = $info
+        if (-not $process.Start()) { return $null }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        if (-not $process.WaitForExit($script:CubismArtifactProbeTimeoutMilliseconds)) {
+            try { $process.Kill() } catch { }
+            try { $process.WaitForExit() } catch { }
+            return $null
+        }
+        [void][System.Threading.Tasks.Task]::WaitAll(@($stdout, $stderr), 5000)
+        if ($process.ExitCode -ne 0) { return $null }
+        $version = @($stdout.Result -split '[\r\n]+' | Where-Object {
+            $_ -match '^5\.(?:2\.03|3\.(?:02|03))$'
+        } | Select-Object -First 1)
+        return $(if ($version.Count -eq 0) { $null } else { [string]$version[0] })
     }
     catch { return $null }
     finally {
-        $ErrorActionPreference = $previousErrorPreference
-        foreach ($name in $savedEnvironment.Keys) {
-            [Environment]::SetEnvironmentVariable($name, $savedEnvironment[$name], "Process")
-        }
+        if ($null -ne $process) { $process.Dispose() }
     }
 }
 
@@ -355,6 +369,106 @@ function Get-CubismInstallations {
         if ($null -ne $candidate.Key -and $seen.Add($candidate.Key)) { $items += $candidate }
     }
     return @($items | Sort-Object @{Expression={ if ($_.Version) { [version]$_.Version } else { [version]"0.0.0" } }}, @{Expression={ $_.CanonicalRoot.ToUpperInvariant() }})
+}
+
+function ConvertTo-CubismDiscoveryField {
+    param(
+        [string]$Value,
+        [int]$MaximumLength = 900
+    )
+    $safe = $(if ($null -eq $Value) { "" } else { [string]$Value })
+    $safe = ($safe -replace '[\r\n|]+', ' ').Trim()
+    if ($safe.Length -gt $MaximumLength) { return $safe.Substring(0, $MaximumLength - 1) + "…" }
+    return $safe
+}
+
+function Write-CubismInstallerDiscoveryReport {
+    param(
+        [string]$TurboismHome,
+        [string]$OutputPath,
+        [AllowNull()][string[]]$Roots = $null,
+        [string]$FailureCode = ""
+    )
+    $canonicalHome = ConvertTo-CubismCanonicalRoot $TurboismHome
+    if ($null -eq $canonicalHome -or -not (Test-CubismNormalDirectory $canonicalHome)) {
+        throw "installer discovery home is invalid"
+    }
+    if ([string]::IsNullOrWhiteSpace($OutputPath)) { throw "installer discovery output is missing" }
+    $output = [System.IO.Path]::GetFullPath($OutputPath)
+    $parent = Split-Path -Parent $output
+    $homePrefix = $canonicalHome + [System.IO.Path]::DirectorySeparatorChar
+    if (-not $output.StartsWith($homePrefix, [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not (Test-CubismNormalDirectory $parent) -or
+        (Test-Path -LiteralPath $output)) {
+        throw "installer discovery output is not a new normal file below Turboism home"
+    }
+
+    $temporary = Join-Path $parent ("." + [System.IO.Path]::GetFileName($output) + "." + [guid]::NewGuid().ToString("N") + ".tmp")
+    $unicode = [System.Text.UnicodeEncoding]::new($false, $true, $true)
+    $publish = $false
+    try {
+        try {
+            if (-not [string]::IsNullOrWhiteSpace($FailureCode)) {
+                $diagnostic = ConvertTo-CubismDiscoveryField $FailureCode -MaximumLength 80
+                [System.IO.File]::WriteAllLines(
+                    $temporary,
+                    @("TURBOISM_CUBISM_SCAN_V1", "RESULT|ERROR|0|0|$diagnostic", "END"),
+                    $unicode
+                )
+                $publish = $true
+                return $output
+            }
+            $scanRoots = if ($null -eq $Roots) { @(Get-CubismDiscoveryRoots) } else { @($Roots) }
+            $candidates = @(Get-CubismInstallations -Roots $scanRoots -TurboismHome $canonicalHome)
+            $supported = @($candidates | Where-Object { $_.Selectable }).Count
+            $other = $candidates.Count - $supported
+            $language = [System.Threading.Thread]::CurrentThread.CurrentUICulture.TwoLetterISOLanguageName
+            $labels = switch ($language) {
+                "zh" { @{ Supported = "支持"; Unsupported = "不支持"; Invalid = "无效" } }
+                "ja" { @{ Supported = "対応"; Unsupported = "未対応"; Invalid = "不正" } }
+                default { @{ Supported = "Supported"; Unsupported = "Unsupported"; Invalid = "Invalid" } }
+            }
+            $lines = [System.Collections.Generic.List[string]]::new()
+            [void]$lines.Add("TURBOISM_CUBISM_SCAN_V1")
+            [void]$lines.Add("RESULT|OK|$supported|$other")
+            foreach ($candidate in $candidates) {
+                if ($candidate.Selectable) {
+                    $label = "$($labels.Supported) $($candidate.Version)"
+                }
+                elseif ($candidate.Status -eq "Unsupported") { $label = $labels.Unsupported }
+                else { $label = $labels.Invalid }
+                $root = ConvertTo-CubismDiscoveryField $candidate.CanonicalRoot -MaximumLength 520
+                $reason = ConvertTo-CubismDiscoveryField $candidate.Reason -MaximumLength 260
+                [void]$lines.Add("DISPLAY|[$label] $root — $reason")
+            }
+            [void]$lines.Add("END")
+            [System.IO.File]::WriteAllLines($temporary, $lines, $unicode)
+            $publish = $true
+        }
+        catch {
+            $failure = $_
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+            $diagnostic = ConvertTo-CubismDiscoveryField $failure.Exception.GetType().Name -MaximumLength 80
+            [System.IO.File]::WriteAllLines(
+                $temporary,
+                @("TURBOISM_CUBISM_SCAN_V1", "RESULT|ERROR|0|0|$diagnostic", "END"),
+                $unicode
+            )
+            $publish = $true
+            throw $failure
+        }
+        finally {
+            if ($publish -and (Test-CubismNormalFile $temporary)) {
+                [System.IO.File]::Move($temporary, $output)
+            }
+        }
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary -PathType Leaf) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+    }
+    return $output
 }
 
 function Merge-CubismSelection {
