@@ -1,5 +1,6 @@
 package dev.turboism.sdk.ui.window;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -39,8 +40,8 @@ class TurboismWindowFactoryTest {
 
             BufferedImage decoded = ImageIO.read(in);
             assertNotNull(decoded, "icon bytes must decode as a PNG");
-            assertTrue(decoded.getWidth() > 0, "decoded PNG width must be positive");
-            assertTrue(decoded.getHeight() > 0, "decoded PNG height must be positive");
+            assertEquals(256, decoded.getWidth(), "product title icon width");
+            assertEquals(256, decoded.getHeight(), "product title icon height");
         }
     }
 
