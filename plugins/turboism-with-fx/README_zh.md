@@ -36,8 +36,9 @@ Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent C
 - Treats a saved custom executable as an advanced override rather than requiring a separate fx installation for normal use.
 - Passes fx the current authenticated Turboism MCP endpoint so the agent can call typed Cubism automation tools.
 - Provides a dedicated Agent conversation window with an fx-owned durable-session sidebar, compact color-coded bounded live transcript, IME-aware prompt submission, cancellation, and permission review.
-- Provides a separate paged Settings window for the runtime path, compatibility acknowledgement, saved provider profiles with their model lists, the active fx-owned Provider and Model controls, an fx-owned interactive shell/login launcher, connection diagnostics, and user-authored initial instructions.
-- Lists, creates, and loads durable sessions through fx ACP while leaving their event log, provider/model preferences, and credentials under fx ownership.
+- 提供独立的分页设置窗口，用于管理运行时路径、已保存的提供商及模型、当前 Provider/Model、内置登录操作、连接诊断和用户初始指令。
+- Agent 窗口打开后会自动连接 ACP；连接时可以不选择提供商和模型，只有实际发送对话时才会提示补充配置。
+- 通过 fx ACP 列出、创建和加载会话；自定义 OpenAI 兼容配置和凭据由 Turboism 插件设置及本地凭据存储管理。
 
 ## 要求与兼容性
 
@@ -46,7 +47,7 @@ Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent C
 - **Interface mode:** `swing`.
 - **Plugin dependency:** Turboism MCP Server `dev.turboism.plugin.mcp` in `[0.1.0,0.2.0)`.
 - **Managed runtime:** Full products stage fx v0.0.5 (`df7e6245e1992758d4060c97477ceafa27770551`) under `runtimes/fx/0.0.5/<platform>/`: pinned official assets on Linux/macOS and an exact-size, exact-SHA Turboism build on Windows x64. Other ACP agent identities, versions, platform paths, sizes, or executable hashes fail closed.
-- **Authentication:** Settings can open exact fx v0.0.5 interactive actions (`fx`, `fx login vercel|codex|grok`, `fx setup`, and matching logout commands) in a separate terminal. Credential input and storage remain inside fx; ACP itself exposes no provider-login protocol.
+- **认证：** 设置页可以为内置配置打开 fx v0.0.5 的交互操作（`fx`、`fx login vercel|codex|grok`、`fx setup` 及对应退出命令）。自定义 OpenAI 兼容 API Key 在 Windows 上优先使用 DPAPI，否则降级写入插件本地 `auth.json`。
 - **Platform payloads:** Official upstream Linux x86_64, Linux ARM64, macOS x86_64, and macOS ARM64 release assets are pinned for offline product distribution. Full products also carry the Turboism-built Windows x86-64 payload. Java Full retains only the matching payload; unsupported targets fail before config or payload mutation. Thin carries plugins without native runtime bytes, and Lite remains plugin-free and runtime-free.
 - **Windows distribution:** Windows NSIS Full, Full ZIP, and Java Full contain `runtimes/fx/0.0.5/windows-x86_64/fx.exe` with exact identity `11,174,912` bytes / SHA-256 `04eca2ccb0037d4080724ad644cb42a2605f610632e0e95148f077e1550c4541`. This is a Turboism build of upstream v0.0.5, not an official Vercel asset. It has no online repair archive; repair or reinstall Turboism Full to restore it. The current Windows candidate does not claim durable-session, ACP MCP-server, native-tool, networking, process, or persistence parity with the official Linux/macOS runtimes.
 
@@ -65,11 +66,11 @@ Settings can override the managed executable with an explicit custom path. On Fu
 
 ## 使用方法
 
-1. Choose the **fx** main-toolbar icon to open the Agent window. If compatibility mode was acknowledged, first open automatically resolves and connects the managed runtime; a custom executable is not required.
-2. Choose the icon-only **Settings** control in the Agent status strip. Its Runtime, Provider and Model, and Security and Instructions pages separate launch, fx-owned configuration, and the fixed security boundary. Leave the advanced custom executable override blank for the managed runtime, add optional initial instructions, and review and explicitly select compatibility mode. Stock fx cannot be started in strict MCP-only mode.
-3. Choose **Connect** or **Reconnect**. Turboism resolves the platform payload and verifies its pinned bytes before process launch. Provider and Model choices then come directly from fx. Connection and ACP initialization transitions also appear as System entries in the transcript; the status strip and Settings diagnostics distinguish unsupported platforms, missing or corrupt managed payloads, unavailable MCP, and missing fx authentication.
-4. Manage provider profiles on the Provider and Model page. The saved list always contains the three fx-owned built-ins (Vercel AI Gateway, Codex, Grok); **Sign in** launches their exact fx-owned login command in a separate terminal, so ChatGPT/Codex subscription authentication stays inside fx. There is no Claude subscription profile: fx v0.0.5 has no `fx login claude`, and a Claude Pro/Max or Claude Code subscription is not an Anthropic API credential. **Add provider** opens a modal dialog for an OpenAI-compatible or self-hosted endpoint (display name, base URL, optional API-key environment variable, optional API key, default model). **Discover models** reads `/v1/models` best-effort, and **Add model** opens a modal dialog for an exact model ID when discovery is unavailable. **Use** selects the active profile.
-5. Select a provider and model. For a built-in profile these are the exact opaque choices fx returned, and changes apply immediately to the active fx session through ACP. For a custom profile Turboism starts a local loopback adapter that speaks the Gateway protocol to fx and OpenAI Chat Completions upstream, then points fx at it for the next connection; reconnect after changing a custom profile. fx v0.0.5 itself has no provider/model object create or delete API. Use the Runtime page's fx shell for fx-owned login, logout, API-key setup, and the full interactive fx UI.
+1. 点击主工具栏中的 **fx** 图标打开 Agent 窗口。Turboism 会立即解析托管运行时并启动 ACP 连接；自定义可执行文件、提供商、模型和兼容模式都不是连接前置条件。
+2. 点击 Agent 状态栏中的 **设置** 图标。Runtime、Provider and Model、Security and Instructions 页面分别管理启动、提供商配置和固定指令边界。正常使用时将高级自定义可执行文件留空。
+3. **连接** 或 **重新连接** 仍可用于手动重试。连接过程会以简洁的 System 消息显示在对话记录中。
+4. Provider and Model 页包含“未选择提供商”以及 Vercel AI Gateway、Codex、Grok 三个内置配置。**添加提供商** 可创建 OpenAI 兼容或自托管端点，默认模型可以留空；**发现模型** 会尝试读取 `/v1/models`，也可以手动添加模型 ID。点击 **使用** 后会保存并自动重新连接。
+5. 自定义配置通过本地 Gateway-to-OpenAI 适配器运行。Turboism 为该 fx 子进程使用仅包含 `{"provider":"gateway"}` 的插件自有隔离 HOME，避免普通 fx 配置中的 Codex/Grok 选择干扰启动。非空默认模型会作为直接参数 `fx acp --model <id>` 传入。
 6. Use the sidebar to refresh, create, or load fx-owned durable sessions.
 7. Enter a Cubism automation request and press **Enter** or choose **Send**. Use **Shift+Enter** or **Ctrl+Enter** for a newline. Enter is left to an active platform input method while it is composing text, so Chinese and other IME candidates can be committed normally. Turboism's fixed security boundary is prepended first, followed by the saved initial instructions and then the current request.
 7. Agent, System, Tool, User, and Thinking entries use distinct foreground colors without separate sender header lines or large message gaps. Thinking entries are omitted by default and can be revealed from the status strip.

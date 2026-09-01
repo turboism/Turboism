@@ -19,6 +19,7 @@ final class FxProviderProfileTest {
 
         assertEquals(
             List.of(
+                FxProviderProfile.UNCONFIGURED_ID,
                 FxProviderProfile.VERCEL_ID,
                 FxProviderProfile.CODEX_ID,
                 FxProviderProfile.GROK_ID
@@ -27,7 +28,12 @@ final class FxProviderProfileTest {
         );
         builtIns.forEach(profile -> {
             assertTrue(profile.builtIn());
-            assertEquals(FxProviderProfile.Kind.FX_NATIVE, profile.kind());
+            assertEquals(
+                FxProviderProfile.UNCONFIGURED_ID.equals(profile.id())
+                    ? FxProviderProfile.Kind.NONE
+                    : FxProviderProfile.Kind.FX_NATIVE,
+                profile.kind()
+            );
             assertTrue(profile.endpoint().isEmpty());
             assertTrue(profile.apiKeyEnvironment().isEmpty());
             assertFalse(profile.customEndpoint("sk-ignored").enabled());
@@ -40,8 +46,10 @@ final class FxProviderProfileTest {
     }
 
     @Test
-    void customProfilesRequireAValidEndpointAndModel() {
-        assertThrows(IllegalArgumentException.class, () -> custom("http://host/v1", ""));
+    void customProfilesRequireAValidEndpointButAllowModelSelectionLater() {
+        final FxProviderProfile withoutDefault = custom("http://host/v1", "");
+        assertTrue(withoutDefault.defaultModel().isEmpty());
+        assertTrue(withoutDefault.customEndpoint("").model().isEmpty());
         assertThrows(IllegalArgumentException.class, () -> custom("ftp://host/v1", "m"));
         assertThrows(IllegalArgumentException.class, () -> custom("http://u:p@host/v1", "m"));
         assertThrows(IllegalArgumentException.class, () -> custom("http://host/v1?k=1", "m"));
@@ -92,7 +100,7 @@ final class FxProviderProfileTest {
             List.of(),
             Map.of()
         );
-        assertEquals(FxProviderProfile.VERCEL_ID, removed.activeProfileId());
+        assertEquals(FxProviderProfile.UNCONFIGURED_ID, removed.activeProfileId());
         assertFalse(removed.customEndpoint().enabled());
     }
 

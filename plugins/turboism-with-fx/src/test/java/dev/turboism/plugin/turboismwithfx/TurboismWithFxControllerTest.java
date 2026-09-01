@@ -34,16 +34,16 @@ final class TurboismWithFxControllerTest {
     Path temporaryDirectory;
 
     @Test
-    void strictModeFailsClosedBeforeLaunchingFx() throws Exception {
+    void compatibilityChoiceDoesNotBlockConnectionSetup() throws Exception {
         final Fixture fixture = new Fixture();
         try (TurboismWithFxController controller = fixture.controller()) {
             controller.connect("missing-fx-fixture", false, "");
-            fixture.view.awaitFailure("status.mcp-only-unavailable");
+            fixture.view.awaitFailure("status.mcp-unavailable");
         }
 
         assertEquals("missing-fx-fixture", fixture.config.value("fxExecutable"));
         assertEquals("false", fixture.config.value("allowFxNativeTools"));
-        assertFalse(fixture.logger.hasErrors());
+        assertTrue(fixture.logger.hasErrors());
     }
 
     @Test
@@ -116,9 +116,10 @@ final class TurboismWithFxControllerTest {
     @Test
     void oversizedPromptIsRejectedBeforeAcpDispatch() throws Exception {
         final Fixture fixture = new Fixture();
+        fixture.config.values.put("activeProviderProfile", FxProviderProfile.VERCEL_ID);
         try (TurboismWithFxController controller = fixture.controller()) {
             set(controller, "client", inactiveClient());
-            set(controller, "session", new FxAcpSession("sess-1", List.of()));
+            set(controller, "session", configuredSession("sess-1"));
 
             controller.sendPrompt("x".repeat(TurboismWithFxController.MAX_PROMPT_CHARS));
             fixture.view.awaitFailure("status.prompt-failed");
@@ -127,6 +128,42 @@ final class TurboismWithFxControllerTest {
                 .anyMatch(message -> message.contains("ACP text limit")));
             assertTrue(fixture.view.userMessages.isEmpty());
             assertFalse(booleanField(controller, "prompting"));
+        }
+    }
+
+    @Test
+    void missingProviderAndModelWarnOnlyWhenPrompting() throws Exception {
+        final Fixture fixture = new Fixture();
+        final CapturingTransport transport = new CapturingTransport();
+        try (FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { });
+             TurboismWithFxController controller = fixture.controller()) {
+            set(controller, "client", client);
+            set(controller, "session", new FxAcpSession("sess-1", List.of()));
+
+            controller.sendPrompt("rename the object");
+            fixture.view.awaitFailure("status.provider-model-required");
+
+            assertTrue(fixture.view.userMessages.isEmpty());
+            assertFalse(booleanField(controller, "prompting"));
+            assertFalse(transport.hasRequest());
+        }
+    }
+
+    @Test
+    void changingProviderClearsThePreviousDurableSession() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("fxSessionId", "provider-a-session");
+        try (TurboismWithFxController controller = fixture.controller()) {
+            controller.saveSettings("", false, "", new FxProviderConfiguration(
+                FxProviderProfile.CODEX_ID, List.of(), Map.of()
+            ));
+            awaitSerial(controller);
+
+            assertEquals("", fixture.config.value("fxSessionId"));
+            assertEquals(
+                FxProviderProfile.CODEX_ID,
+                fixture.config.value("activeProviderProfile")
+            );
         }
     }
 
@@ -154,11 +191,12 @@ final class TurboismWithFxControllerTest {
     void userInitialPromptIsPersistedAndAppendedAfterTheFixedBoundary() throws Exception {
         final Fixture fixture = new Fixture();
         fixture.config.values.put("initialPrompt", "Prefer concise Cubism edits.");
+        fixture.config.values.put("activeProviderProfile", FxProviderProfile.VERCEL_ID);
         final CapturingTransport transport = new CapturingTransport();
         try (FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { });
              TurboismWithFxController controller = fixture.controller()) {
             set(controller, "client", client);
-            set(controller, "session", new FxAcpSession("sess-1", List.of()));
+            set(controller, "session", configuredSession("sess-1"));
 
             controller.sendPrompt("rename the object");
             fixture.view.awaitPrompting();
@@ -177,11 +215,12 @@ final class TurboismWithFxControllerTest {
     @Test
     void exactBoundaryPromptIsAcceptedAndCarriesTheSystemBoundary() throws Exception {
         final Fixture fixture = new Fixture();
+        fixture.config.values.put("activeProviderProfile", FxProviderProfile.VERCEL_ID);
         final CapturingTransport transport = new CapturingTransport();
         try (FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { });
              TurboismWithFxController controller = fixture.controller()) {
             set(controller, "client", client);
-            set(controller, "session", new FxAcpSession("sess-1", List.of()));
+            set(controller, "session", configuredSession("sess-1"));
             final int prefixLength = (TurboismWithFxController.SYSTEM_BOUNDARY
                 + "\n\nUser request:\n").length();
             final String userPrompt = "x".repeat(
@@ -208,11 +247,11 @@ final class TurboismWithFxControllerTest {
         fixture.uiRejects = true;
         try (TurboismWithFxController controller = fixture.controller()) {
             controller.connect("fx", false, "");
-            fixture.view.awaitFailure("status.mcp-only-unavailable");
+            fixture.view.awaitFailure("status.mcp-unavailable");
         }
 
         assertEquals(0, fixture.uiCalls.get());
-        assertFalse(fixture.logger.hasErrors());
+        assertTrue(fixture.logger.hasErrors());
     }
 
     @Test
@@ -377,8 +416,11 @@ final class TurboismWithFxControllerTest {
         fixture.config.values.put("fxSessionId", "saved-session");
         fixture.mcpConnection = Optional.of(testMcpConnection());
         final ReplayLoadTransport transport = new ReplayLoadTransport("saved-session");
+        final java.util.concurrent.atomic.AtomicReference<FxLaunchConfiguration> captured =
+            new java.util.concurrent.atomic.AtomicReference<>();
         try (TurboismWithFxController controller = fixture.controller(
             (configuration, listener) -> {
+                captured.set(configuration);
                 final FxAcpClient connected = new FxAcpClient(transport, listener);
                 try {
                     setCapabilities(
@@ -396,6 +438,70 @@ final class TurboismWithFxControllerTest {
 
             assertEquals(List.of("connected", "agent:restored"), fixture.view.timeline);
             assertEquals("saved-session", fixture.config.value("fxSessionId"));
+            assertEquals("gateway", object(dev.turboism.protocol.json.StrictJson.parse(
+                java.nio.file.Files.readAllBytes(
+                    Path.of(captured.get().environment().get("HOME"))
+                        .resolve(".fx/settings.json")
+                )
+            )).get("provider"));
+            assertTrue(captured.get().environment().containsKey("AI_GATEWAY_API_KEY"));
+            assertEquals(List.of(temporaryExecutable().toString(), "acp"), captured.get().command());
+        }
+    }
+
+    @Test
+    void customProviderUsesIsolatedGatewayHomeAndStartupModel() throws Exception {
+        final Fixture fixture = new Fixture();
+        final FxProviderProfile profile = new FxProviderProfile(
+            "custom-provider",
+            "Custom provider",
+            FxProviderProfile.Kind.OPENAI_COMPATIBLE,
+            "",
+            "http://127.0.0.1:1/v1",
+            "",
+            "vendor/model",
+            List.of("vendor/manual")
+        );
+        fixture.config.values.put("activeProviderProfile", profile.id());
+        fixture.config.values.put(
+            "customProviderProfiles",
+            FxProviderProfileCodec.encode(List.of(profile))
+        );
+        fixture.config.values.put("fxSessionId", "saved-session");
+        fixture.mcpConnection = Optional.of(testMcpConnection());
+        final ReplayLoadTransport transport = new ReplayLoadTransport("saved-session");
+        final java.util.concurrent.atomic.AtomicReference<FxLaunchConfiguration> captured =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        try (TurboismWithFxController controller = fixture.controller(
+            (configuration, listener) -> {
+                captured.set(configuration);
+                final FxAcpClient connected = new FxAcpClient(transport, listener);
+                setCapabilitiesUnchecked(
+                    connected,
+                    new FxAcpClient.FxAcpCapabilities(true, false, false)
+                );
+                return connected;
+            }
+        )) {
+            final Path executable = temporaryExecutable();
+            controller.connect(executable.toString(), false, "");
+            fixture.view.awaitTimeline("agent:restored");
+
+            assertEquals(
+                List.of(executable.toString(), "acp", "--model", "vendor/model"),
+                captured.get().command()
+            );
+            assertEquals(
+                captured.get().environment().get("HOME"),
+                captured.get().environment().get("USERPROFILE")
+            );
+            assertTrue(captured.get().environment().containsKey("FX_GATEWAY_CHAT_URL"));
+            assertEquals("gateway", object(dev.turboism.protocol.json.StrictJson.parse(
+                java.nio.file.Files.readAllBytes(
+                    Path.of(captured.get().environment().get("HOME"))
+                        .resolve(".fx/settings.json")
+                )
+            )).get("provider"));
         }
     }
 
@@ -1035,6 +1141,34 @@ final class TurboismWithFxControllerTest {
     }
 
     @Test
+    void savedBuiltInProviderIsAppliedBeforeTheSessionIsShown() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.config.values.put("activeProviderProfile", FxProviderProfile.CODEX_ID);
+        final ProviderConfigTransport transport = new ProviderConfigTransport();
+        try (FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { });
+             TurboismWithFxController controller = fixture.controller()) {
+            final FxAcpSession updated = invokeApplySavedProvider(
+                controller,
+                client,
+                new FxAcpSession("sess-1", List.of(
+                    new FxAcpConfigOption(
+                        "provider",
+                        "Provider",
+                        "gateway",
+                        List.of(
+                            new FxAcpConfigOption.Choice("gateway", "Gateway"),
+                            new FxAcpConfigOption.Choice("codex", "Codex")
+                        )
+                    )
+                ))
+            );
+
+            assertEquals("codex", updated.option("provider").currentValue());
+            assertEquals("codex", transport.selectedProvider);
+        }
+    }
+
+    @Test
     void configDispatchFailureRestoresTheLastConfirmedOptions() throws Exception {
         final Fixture fixture = new Fixture();
         final FxAcpConfigOption confirmed = new FxAcpConfigOption(
@@ -1059,6 +1193,30 @@ final class TurboismWithFxControllerTest {
             assertEquals("provider", fixture.view.configFailureId.get());
             assertEquals(List.of(confirmed), fixture.view.configFailureOptions.get());
         }
+    }
+
+    @Test
+    void closeFlushesTheLatestVisibleProviderSettings() {
+        final Fixture fixture = new Fixture();
+        final FxProviderProfile profile = new FxProviderProfile(
+            "saved-on-close",
+            "Saved on close",
+            FxProviderProfile.Kind.OPENAI_COMPATIBLE,
+            "",
+            "http://127.0.0.1:9000/v1",
+            "",
+            "",
+            List.of()
+        );
+        final TurboismWithFxController controller = fixture.controller();
+
+        controller.saveSettings("", false, "", new FxProviderConfiguration(
+            profile.id(), List.of(profile), Map.of()
+        ));
+        controller.close();
+
+        assertEquals(profile.id(), fixture.config.value("activeProviderProfile"));
+        assertTrue(fixture.config.value("customProviderProfiles").contains(profile.id()));
     }
 
     @Test
@@ -1128,6 +1286,24 @@ final class TurboismWithFxControllerTest {
     }
 
     @Test
+    void matchingTerminationClosesTheDeferredProviderAdapter() throws Exception {
+        final Fixture fixture = new Fixture();
+        try (FxAcpClient source = inactiveClient();
+             TurboismWithFxController controller = fixture.controller()) {
+            final FxDeferredGatewayAdapter adapter = FxDeferredGatewayAdapter.start();
+            set(controller, "client", source);
+            set(controller, "session", new FxAcpSession("sess-1", List.of()));
+            set(controller, "deferredGatewayAdapter", adapter);
+
+            controller.terminated(source, "terminated");
+            awaitSerial(controller);
+
+            assertTrue(adapter.isClosed());
+            assertTrue(atomicClient(controller) == null);
+        }
+    }
+
+    @Test
     void staleTerminationCannotDetachTheCurrentClient() throws Exception {
         final Fixture fixture = new Fixture();
         try (FxAcpClient stale = inactiveClient();
@@ -1145,8 +1321,44 @@ final class TurboismWithFxControllerTest {
         }
     }
 
+    private static FxAcpSession configuredSession(final String sessionId) {
+        return new FxAcpSession(sessionId, List.of(
+            new FxAcpConfigOption(
+                "provider",
+                "Provider",
+                "gateway",
+                List.of(new FxAcpConfigOption.Choice("gateway", "Gateway"))
+            ),
+            new FxAcpConfigOption(
+                "model",
+                "Model",
+                "vendor/model",
+                List.of(new FxAcpConfigOption.Choice("vendor/model", "vendor/model"))
+            )
+        ));
+    }
+
     private FxAcpClient inactiveClient() throws java.io.IOException {
         return new FxAcpClient(new CapturingTransport(), new FxAcpListener() { });
+    }
+
+    private static FxAcpSession invokeApplySavedProvider(
+        final TurboismWithFxController controller,
+        final FxAcpClient client,
+        final FxAcpSession session
+    ) throws Exception {
+        final java.lang.reflect.Method method = controller.getClass().getDeclaredMethod(
+            "applySavedProvider", FxAcpClient.class, FxAcpSession.class
+        );
+        method.setAccessible(true);
+        try {
+            return (FxAcpSession) method.invoke(controller, client, session);
+        } catch (java.lang.reflect.InvocationTargetException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof Exception exception) throw exception;
+            if (cause instanceof Error error) throw error;
+            throw failure;
+        }
     }
 
     private static void invokeActivateSession(
@@ -1796,6 +2008,71 @@ final class TurboismWithFxControllerTest {
         }
     }
 
+    private static final class ProviderConfigTransport implements FxAcpTransport {
+        private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStdout;
+        private final java.io.PipedInputStream stderr = new java.io.PipedInputStream();
+        private final java.io.PipedOutputStream serverStderr;
+        private volatile String selectedProvider;
+
+        private ProviderConfigTransport() throws java.io.IOException {
+            serverStdout = new java.io.PipedOutputStream(clientStdout);
+            serverStderr = new java.io.PipedOutputStream(stderr);
+        }
+
+        @Override public java.io.InputStream stdout() { return clientStdout; }
+        @Override public java.io.InputStream stderr() { return stderr; }
+        @Override public java.io.OutputStream stdin() {
+            return new java.io.OutputStream() {
+                private final java.io.ByteArrayOutputStream line =
+                    new java.io.ByteArrayOutputStream();
+                @Override public void write(final int value) throws java.io.IOException {
+                    if (value == '\n') {
+                        respond(line.toString(java.nio.charset.StandardCharsets.UTF_8));
+                        line.reset();
+                    } else {
+                        line.write(value);
+                    }
+                }
+            };
+        }
+        @Override public boolean isAlive() { return true; }
+        @Override public void terminate(final Duration grace) { close(); }
+        @Override public void close() {
+            try { serverStdout.close(); } catch (java.io.IOException ignored) { }
+            try { serverStderr.close(); } catch (java.io.IOException ignored) { }
+        }
+
+        private void respond(final String json) throws java.io.IOException {
+            final Map<String, Object> request = object(
+                dev.turboism.protocol.json.StrictJson.parse(
+                    json.getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                )
+            );
+            final Map<String, Object> params = object(request.get("params"));
+            selectedProvider = (String) params.get("value");
+            final Map<String, Object> option = Map.of(
+                "type", "select",
+                "id", "provider",
+                "name", "Provider",
+                "currentValue", selectedProvider,
+                "options", List.of(
+                    Map.of("value", "gateway", "name", "Gateway"),
+                    Map.of("value", "codex", "name", "Codex")
+                )
+            );
+            final Map<String, Object> response = Map.of(
+                "jsonrpc", "2.0",
+                "id", request.get("id"),
+                "result", Map.of("configOptions", List.of(option))
+            );
+            serverStdout.write((
+                dev.turboism.protocol.json.StrictJson.stringify(response) + "\n"
+            ).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            serverStdout.flush();
+        }
+    }
+
     private static final class CapturingTransport implements FxAcpTransport {
         private final java.io.PipedInputStream clientStdout = new java.io.PipedInputStream();
         private final java.io.PipedOutputStream serverStdout;
@@ -1806,6 +2083,10 @@ final class TurboismWithFxControllerTest {
         private CapturingTransport() throws java.io.IOException {
             serverStdout = new java.io.PipedOutputStream(clientStdout);
             serverStderr = new java.io.PipedOutputStream(stderr);
+        }
+
+        private boolean hasRequest() {
+            return stdin.size() > 0;
         }
 
         private Map<String, Object> request() throws Exception {

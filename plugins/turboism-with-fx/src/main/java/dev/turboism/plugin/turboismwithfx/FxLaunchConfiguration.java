@@ -10,14 +10,15 @@ record FxLaunchConfiguration(
     Path workingDirectory,
     FxSecurityMode securityMode,
     ManagedRuntimeIdentity managedRuntime,
-    java.util.Map<String, String> environment
+    java.util.Map<String, String> environment,
+    String startupModel
 ) {
     FxLaunchConfiguration(
         final String executable,
         final Path workingDirectory,
         final FxSecurityMode securityMode
     ) {
-        this(executable, workingDirectory, securityMode, null, java.util.Map.of());
+        this(executable, workingDirectory, securityMode, null, java.util.Map.of(), "");
     }
 
     FxLaunchConfiguration(
@@ -26,7 +27,17 @@ record FxLaunchConfiguration(
         final FxSecurityMode securityMode,
         final ManagedRuntimeIdentity managedRuntime
     ) {
-        this(executable, workingDirectory, securityMode, managedRuntime, java.util.Map.of());
+        this(executable, workingDirectory, securityMode, managedRuntime, java.util.Map.of(), "");
+    }
+
+    FxLaunchConfiguration(
+        final String executable,
+        final Path workingDirectory,
+        final FxSecurityMode securityMode,
+        final ManagedRuntimeIdentity managedRuntime,
+        final java.util.Map<String, String> environment
+    ) {
+        this(executable, workingDirectory, securityMode, managedRuntime, environment, "");
     }
 
     FxLaunchConfiguration {
@@ -49,14 +60,20 @@ record FxLaunchConfiguration(
             checkedEnvironment.put(key, text);
         });
         environment = java.util.Map.copyOf(checkedEnvironment);
+        startupModel = Objects.requireNonNullElse(startupModel, "").strip();
+        if (startupModel.length() > 512
+            || startupModel.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException("startup model is invalid");
+        }
     }
 
     /**
      * Returns the fixed ACP command. Arguments are never interpreted by a shell, preventing a
-     * persisted executable path from gaining command-string semantics.
+     * persisted executable path or model id from gaining command-string semantics.
      */
     List<String> command() {
-        return List.of(executable, "acp");
+        if (startupModel.isEmpty()) return List.of(executable, "acp");
+        return List.of(executable, "acp", "--model", startupModel);
     }
 
     boolean permitsStockFx() {

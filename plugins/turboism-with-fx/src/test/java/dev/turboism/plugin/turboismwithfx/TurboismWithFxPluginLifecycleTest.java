@@ -35,12 +35,13 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 final class TurboismWithFxPluginLifecycleTest {
 
     @Test
-    void autoConnectRequiresAgentWindowAndCompatibilityAcknowledgement() {
+    void agentWindowAutoConnectDoesNotDependOnProviderOrCompatibilitySetup() {
         assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(true));
-        assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(false));
+        assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(false));
         assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(true, true));
-        assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(true, false));
+        assertEquals(true, TurboismWithFxPlugin.shouldAutoConnect(true, false));
         assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(false, true));
+        assertEquals(false, TurboismWithFxPlugin.shouldAutoConnect(false, false));
     }
 
     @Test

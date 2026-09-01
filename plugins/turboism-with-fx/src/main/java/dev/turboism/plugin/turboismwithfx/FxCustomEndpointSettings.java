@@ -27,7 +27,7 @@ record FxCustomEndpointSettings(
         }
         if (enabled) {
             validateEndpoint(endpoint);
-            if (model.isEmpty() || model.chars().anyMatch(Character::isISOControl)) {
+            if (model.chars().anyMatch(Character::isISOControl)) {
                 throw new IllegalArgumentException("custom endpoint model is invalid");
             }
         }
