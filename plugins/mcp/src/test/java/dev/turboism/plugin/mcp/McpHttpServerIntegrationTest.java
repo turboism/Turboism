@@ -216,7 +216,7 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 4, "method", "resources/list")
             );
-            assertEquals(13, array(result(resources).get("resources")).size());
+            assertEquals(15, array(result(resources).get("resources")).size());
             final HttpResponse<byte[]> document = request(
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of(
@@ -679,7 +679,7 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 10, "method", "resources/list")
             );
-            assertEquals(13, array(result(listed).get("resources")).size());
+            assertEquals(15, array(result(listed).get("resources")).size());
 
             final Map<String, Object> workspaceResource = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,
@@ -708,9 +708,27 @@ final class McpHttpServerIntegrationTest {
                     "params", Map.of("uri", McpDiagnosticsDomain.DIAGNOSTICS)
                 )
             ));
-            assertEquals("1970-01-01T00:00:00Z", diagnosticsResource.get("createdAt"));
+            assertEquals("startup", diagnosticsResource.get("kind"));
+            assertEquals("turboism", diagnosticsResource.get("provider"));
+            assertEquals(null, diagnosticsResource.get("createdAt"));
+            assertTrue(diagnosticsResource.containsKey("asOf"));
             assertEquals(List.of(), diagnosticsResource.get("problems"));
             assertEquals(Boolean.FALSE, diagnosticsResource.get("truncated"));
+
+            final Map<String, Object> runtimeDiagnostics = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 103, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS)
+                )
+            ));
+            assertEquals("runtime", runtimeDiagnostics.get("kind"));
+            assertEquals("turboism-mcp", runtimeDiagnostics.get("provider"));
+            assertFalse(runtimeDiagnostics.containsKey("createdAt"));
+            assertTrue(runtimeDiagnostics.containsKey("asOf"));
+            assertEquals(List.of(), runtimeDiagnostics.get("events"));
+            assertEquals(Boolean.FALSE, runtimeDiagnostics.get("truncated"));
+            assertEquals(0L, integer(runtimeDiagnostics.get("dropped")));
 
             final Map<String, Object> documentResource = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,
