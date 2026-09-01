@@ -103,6 +103,35 @@ final class McpRuntimeDiagnosticsTest {
     }
 
     @Test
+    void invalidToolRequestsProduceBoundedRuntimeDiagnosticEvents() {
+        final McpRuntimeDiagnostics diagnostics = new McpRuntimeDiagnostics(4, CLOCK);
+        final McpToolCatalog observed = diagnostics.observe(new McpToolCatalog(
+            List.of(Map.of("name", "turboism.model_objects.apply")),
+            (name, arguments) -> envelope(Map.of(
+                "ok", false,
+                "results", List.of(Map.of(
+                    "operation", "create",
+                    "result", Map.of(
+                        "ok", false,
+                        "error", Map.of(
+                            "code", "INVALID_ARGUMENT",
+                            "message", "unknown argument: token=secret"
+                        )
+                    )
+                ))
+            ))
+        ));
+
+        observed.call("turboism.model_objects.apply", Map.of());
+
+        final McpRuntimeDiagnostics.Event event = diagnostics.snapshot().events().get(0);
+        assertEquals("INVALID_REQUEST", event.kind());
+        assertEquals("create", event.operation());
+        assertEquals("INVALID_ARGUMENT", event.errorCode());
+        assertFalse(event.message().contains("secret"));
+    }
+
+    @Test
     void resourceTimeoutsAreRecordedWithTheResourceUriAsProvider() {
         final McpRuntimeDiagnostics diagnostics = new McpRuntimeDiagnostics(4, CLOCK);
         final McpResourceCatalog observed = diagnostics.observe(new McpResourceCatalog(
