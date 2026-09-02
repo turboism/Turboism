@@ -155,7 +155,10 @@ public final class TurboismAgent {
         final ShutdownHookRegistrar shutdownHookRegistrar
     ) {
         if (!START_REQUESTED.compareAndSet(false, true)) {
-            System.out.println("Turboism agent start ignored: runtime has already been requested");
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "bootstrap",
+                "Agent start ignored because the runtime was already requested"
+            );
             return;
         }
 
@@ -183,7 +186,10 @@ public final class TurboismAgent {
                 options.home(),
                 System.getProperty("java.class.path", ""),
                 Path.of(System.getProperty("user.dir", ".")),
-                code -> System.out.println("Turboism startup suppression: " + code)
+                code -> dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Startup suppression: " + code
+                )
             );
         if (attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN) {
             installMeshMirrorHookPremain(
@@ -196,28 +202,25 @@ public final class TurboismAgent {
         if (!STARTUP_SUPPRESSION.compareAndSet(null, startupSuppression)) {
             startupSuppression.close();
         }
-        System.out.println(
-            "Turboism startup suppression status=" + startupSuppression.status()
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            "bootstrap",
+            "Startup suppression status=" + startupSuppression.status()
                 + ", safeMode=" + startupSuppression.policy().safeMode()
-                + ", requestedUpdate="
-                + startupSuppression.policy().requestedSkipStartupUpdateCheck()
-                + ", effectiveUpdate=" + startupSuppression.policy().skipStartupUpdateCheck()
-                + ", requestedSplash=" + startupSuppression.policy().requestedSkipStartupSplash()
-                + ", effectiveSplash=" + startupSuppression.policy().skipStartupSplash()
-                + ", requestedInformation="
-                + startupSuppression.policy().requestedSkipStartupInformation()
-                + ", effectiveInformation=" + startupSuppression.policy().skipStartupInformation()
         );
         final PipeImplLoopbackInstaller.Installation pipeImplShim =
             PipeImplLoopbackInstaller.install(
                 instrumentation,
-                code -> System.out.println("Turboism pipe shim: " + code)
+                code -> dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Pipe shim: " + code
+                )
             );
         if (!PIPE_IMPL_SHIM.compareAndSet(null, pipeImplShim)) {
             pipeImplShim.close();
         }
-        System.out.println(
-            "Turboism pipe shim status=" + pipeImplShim.status()
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            "bootstrap",
+            "Pipe shim status=" + pipeImplShim.status()
                 + ", transformOutcome=" + pipeImplShim.transformOutcome()
         );
         final Thread bootstrap = BootstrapThreadFactory.create(
@@ -228,9 +231,9 @@ public final class TurboismAgent {
 
     private static void start(final AgentOptions options, final Instrumentation instrumentation) {
         try {
-            System.out.println(
-                "Turboism agent active; waiting for " + options.hostClassName()
-                    + " for up to " + options.detectionTimeout().toSeconds() + " seconds"
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "bootstrap",
+                "Agent active; waiting for the Cubism host"
             );
             final Optional<HostClassLocator.LocatedHost> located = new HostClassLocator().await(
                 instrumentation,
@@ -532,7 +535,7 @@ public final class TurboismAgent {
         final HostClassLocator.LocatedHost host
     ) {
         if (safeModeActive()) {
-            System.err.println("Turboism dock-tab popup hook skipped in safe mode");
+            runtimeInfo("Turboism dock-tab popup hook skipped in safe mode");
             return;
         }
         VerifiedDockTabPopupHookInstaller installer = null;
@@ -566,7 +569,7 @@ public final class TurboismAgent {
         final PreviewRuntime runtime
     ) {
         if (safeModeActive()) {
-            System.err.println("Turboism floating-frame dispose hook skipped in safe mode");
+            runtimeInfo("Turboism floating-frame dispose hook skipped in safe mode");
             return;
         }
         VerifiedFloatingFrameDisposeHookInstaller installer = null;
@@ -580,10 +583,10 @@ public final class TurboismAgent {
             );
             installer.install();
             if (!FLOATING_FRAME_DISPOSE_HOOK.compareAndSet(null, installer)) installer.close();
-            System.err.println("Turboism floating-frame dispose hook installed");
+            runtimeInfo("Turboism floating-frame dispose hook installed");
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
+            runtimeWarn(
                 "Turboism floating-frame dispose hook disabled safely: "
                     + failure.getClass().getName()
             );
@@ -596,7 +599,7 @@ public final class TurboismAgent {
         final HostClassLocator.LocatedHost host
     ) {
         if (safeModeActive()) {
-            System.err.println("Turboism floating-tab close hook skipped in safe mode");
+            runtimeInfo("Turboism floating-tab close hook skipped in safe mode");
             return;
         }
         VerifiedFloatingTabCloseHookInstaller installer = null;
@@ -611,10 +614,10 @@ public final class TurboismAgent {
             );
             installer.install();
             if (!FLOATING_TAB_CLOSE_HOOK.compareAndSet(null, installer)) installer.close();
-            System.err.println("Turboism floating-tab close hook installed");
+            runtimeInfo("Turboism floating-tab close hook installed");
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
+            runtimeWarn(
                 "Turboism floating-tab close hook disabled safely: "
                     + failure.getClass().getName()
             );
@@ -745,15 +748,15 @@ public final class TurboismAgent {
                 options.performanceProbeRollbackOutput()
             );
             if (!PERFORMANCE_PROBE.compareAndSet(null, installer)) installer.close();
-            System.err.println(
+            runtimeInfo(
                 "Turboism validation performance probe installed; capture="
                     + options.performanceProbeCapture()
             );
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
+            runtimeWarn(
                 "Turboism validation performance probe disabled safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+                    + failure.getClass().getName()
             );
         }
     }
@@ -767,7 +770,10 @@ public final class TurboismAgent {
         if (!meshMirrorHookEnabled(policy)) return null;
         final Optional<Path> artifact = StartupSuppressionInstaller.locateHostArtifact(classPath, workingDirectory);
         if (artifact.isEmpty()) {
-            System.err.println("Turboism mesh mirror hook unavailable: exact host artifact was not admitted during PREMAIN");
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "mesh-mirror",
+                "Mesh mirror hook unavailable because the host artifact was not admitted"
+            );
             return null;
         }
         try {
@@ -790,7 +796,11 @@ public final class TurboismAgent {
             }
             return installer;
         } catch (Throwable failure) {
-            System.err.println("Turboism mesh mirror hook disabled safely: " + failure.getClass().getName());
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "mesh-mirror",
+                "Mesh mirror hook disabled safely",
+                failure
+            );
             return null;
         }
     }
@@ -905,7 +915,7 @@ public final class TurboismAgent {
         final VerifiedMeshMirrorHookInstaller installer = MESH_MIRROR_HOOK.get();
         if (installer == null) {
             if (!authorized) {
-                System.err.println("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
+                runtimeInfo("Turboism mesh mirror hook disabled by policy or missing authorized consumer");
             }
             return;
         }
@@ -923,7 +933,7 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             installer.close();
             MESH_MIRROR_HOOK.compareAndSet(installer, null);
-            System.err.println(
+            runtimeWarn(
                 "Turboism mesh mirror runtime binding disabled safely: " + failure.getClass().getName()
             );
         }
@@ -950,9 +960,8 @@ public final class TurboismAgent {
                     failure.addSuppressed(closeFailure);
                 }
             }
-            System.err.println(
-                "Turboism FPS counting hook disabled safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+            runtimeWarn(
+                "Turboism FPS counting hook disabled safely: " + failure.getClass().getName()
             );
         }
     }
@@ -987,12 +996,12 @@ public final class TurboismAgent {
 
     private static void runtimeInfo(final String message) {
         final PreviewRuntime runtime = RUNTIME.get();
-        if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+        if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
     }
 
     private static void runtimeWarn(final String message) {
         final PreviewRuntime runtime = RUNTIME.get();
-        if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+        if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
     }
     private static Path defaultHome() {
         final String configured = System.getProperty("turboism.home");
@@ -1047,11 +1056,11 @@ public final class TurboismAgent {
             projectHook.close();
             final String message =
                 "TURBOISM_PROJECT_LIFECYCLE_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
         } catch (Throwable failure) {
             final String message =
                 "Turboism project lifecycle hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
         }
     }
 
@@ -1068,11 +1077,11 @@ public final class TurboismAgent {
             fileChooserHistoryHook.close();
             final String message =
                 "TURBOISM_FILE_CHOOSER_HISTORY_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
         } catch (Throwable failure) {
             final String message =
                 "Turboism file-chooser history hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
         }
     }
 
@@ -1088,12 +1097,12 @@ public final class TurboismAgent {
                 TEXTURE_ATLAS_AUTO_LAYOUT_HOOK.compareAndSet(autoLayout, null);
                 final String message =
                     "TURBOISM_TEXTURE_ATLAS_AUTO_LAYOUT_HOOK cleanup=COMPLETE phase=" + phase;
-                if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
             } catch (Throwable failure) {
                 final String message =
                     "Turboism texture-atlas automatic-layout hook cleanup failed safely: phase="
                         + phase;
-                if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
             }
         }
         final VerifiedTextureAtlasDataModelHookInstaller dataModel =
@@ -1104,11 +1113,11 @@ public final class TurboismAgent {
                 TEXTURE_ATLAS_HOOK.compareAndSet(dataModel, null);
                 final String message =
                     "TURBOISM_TEXTURE_ATLAS_DATA_MODEL_HOOK cleanup=COMPLETE phase=" + phase;
-                if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
             } catch (Throwable failure) {
                 final String message =
                     "Turboism texture-atlas data-model hook cleanup failed safely: phase=" + phase;
-                if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
             }
         }
     }
@@ -1124,10 +1133,10 @@ public final class TurboismAgent {
         try {
             parameterHook.close();
             final String message = "TURBOISM_PARAMETER_HOOK cleanup=COMPLETE phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.info("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
         } catch (Throwable failure) {
             final String message = "Turboism parameter hook cleanup failed safely: phase=" + phase;
-            if (runtime == null) System.err.println(message); else runtime.warn("bootstrap", message);
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
         }
     }
 
@@ -1196,7 +1205,7 @@ public final class TurboismAgent {
             try {
                 meshMirrorHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism mesh mirror hook cleanup failed safely");
+                runtimeWarn("Turboism mesh mirror hook cleanup failed safely");
             }
         }
         final VerifiedPerformanceProbeInstaller performanceProbe = PERFORMANCE_PROBE.getAndSet(null);
@@ -1204,8 +1213,7 @@ public final class TurboismAgent {
             try {
                 performanceProbe.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism performance probe cleanup failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage());
+                runtimeWarn("Turboism performance probe cleanup failed safely");
             }
         }
 
@@ -1214,7 +1222,7 @@ public final class TurboismAgent {
             try {
                 fpsHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism FPS hook cleanup failed safely");
+                runtimeWarn("Turboism FPS hook cleanup failed safely");
             }
             PerformanceFpsHookRegistry.clear(fpsHook);
         }
@@ -1233,7 +1241,7 @@ public final class TurboismAgent {
             try {
                 floatingFrameHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism floating-frame dispose hook cleanup failed safely");
+                runtimeWarn("Turboism floating-frame dispose hook cleanup failed safely");
             }
         }
         final VerifiedFloatingTabCloseHookInstaller floatingTabCloseHook =
@@ -1242,7 +1250,7 @@ public final class TurboismAgent {
             try {
                 floatingTabCloseHook.close();
             } catch (Throwable failure) {
-                System.err.println("Turboism floating-tab close hook cleanup failed safely");
+                runtimeWarn("Turboism floating-tab close hook cleanup failed safely");
             }
         }
         closeProjectLifecycleHook(RUNTIME.get(), "runtime-close");
@@ -1285,8 +1293,10 @@ public final class TurboismAgent {
         try {
             runtime.close();
         } catch (Throwable failure) {
-            System.out.println(
-                "Turboism shutdown hook failed safely: RUNTIME_CLOSE_FAILED"
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "bootstrap",
+                "Shutdown hook failed safely: RUNTIME_CLOSE_FAILED",
+                failure
             );
         }
         return true;
@@ -1313,11 +1323,8 @@ public final class TurboismAgent {
             }
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            final String message = failure.getMessage();
-            System.err.println(
-                "Turboism texture-atlas hook disabled safely: "
-                    + failure.getClass().getName()
-                    + (message == null || message.isBlank() ? "" : ": " + message)
+            runtimeWarn(
+                "Turboism texture-atlas hook disabled safely: " + failure.getClass().getName()
             );
         }
     }
@@ -1355,24 +1362,11 @@ public final class TurboismAgent {
             }
         } catch (Throwable failure) {
             if (installer != null) installer.close();
-            System.err.println(
-                "Turboism texture-atlas automatic-layout hook disabled safely: "
-                    + failure.getClass().getName()
+            runtime.error(
+                "bootstrap",
+                "Turboism texture-atlas automatic-layout hook disabled safely",
+                failure
             );
-            try {
-                final Path home = Path.of(System.getProperty("turboism.home", "."));
-                final Path diag = home.resolve("logs").resolve("bootstrap-diagnostic.log");
-                java.nio.file.Files.createDirectories(diag.getParent());
-                java.nio.file.Files.writeString(
-                    diag,
-                    java.time.Instant.now() + " texture-atlas auto-layout hook install failed: "
-                        + failure + "\n",
-                    java.nio.file.StandardOpenOption.CREATE,
-                    java.nio.file.StandardOpenOption.APPEND
-                );
-            } catch (Throwable ignored) {
-                // diagnostics are best-effort
-            }
         }
     }
 }

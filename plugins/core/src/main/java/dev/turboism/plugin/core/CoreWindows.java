@@ -218,7 +218,9 @@ final class CoreWindows implements AutoCloseable {
         final JButton apply = new JButton(text("common.apply"));
         final java.util.function.BooleanSupplier save = () -> {
             try {
-                rendered.save().run();
+                if (!rendered.save().getAsBoolean()) {
+                    return false;
+                }
                 settings.save(new RuntimeSettings(
                     safeMode.isSelected(), (String) logLevel.getSelectedItem(),
                     ((Number) maxLogStorage.getValue()).intValue(),
@@ -267,7 +269,7 @@ final class CoreWindows implements AutoCloseable {
                 entry.getKey(), entry.getValue().title(), entry.getValue().index(), entry.getValue().panel()
             ));
         }
-        final List<Runnable> saves = new ArrayList<>();
+        final List<java.util.function.BooleanSupplier> saves = new ArrayList<>();
         for (SettingsSnapshot.Tab tab : settingsContributions.snapshot()) {
             RenderedTab rendered = renderedTabs.stream()
                 .filter(candidate -> candidate.id().equals(tab.id()))
@@ -293,10 +295,17 @@ final class CoreWindows implements AutoCloseable {
             finishForm(tab.panel());
             tabs.addTab(tab.title(), tab.panel());
         }
-        return new RenderedSettings(tabs, () -> saves.forEach(Runnable::run));
+        return new RenderedSettings(tabs, () -> {
+            for (java.util.function.BooleanSupplier save : saves) {
+                if (!save.getAsBoolean()) {
+                    return false;
+                }
+            }
+            return true;
+        });
     }
 
-    private Runnable renderControl(
+    private java.util.function.BooleanSupplier renderControl(
         final JDialog owner,
         final JPanel panel,
         final int row,
@@ -315,6 +324,10 @@ final class CoreWindows implements AutoCloseable {
                 final SettingsControl.Option selected =
                     (SettingsControl.Option) combo.getSelectedItem();
                 if (selected == null) return;
+                if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(choice.id())) {
+                    accepted[0] = selected.value();
+                    return;
+                }
                 final SettingsChangeDecision decision = choice.validator().validate(
                     accepted[0], selected.value()
                 );
@@ -331,7 +344,19 @@ final class CoreWindows implements AutoCloseable {
                 showRejectedChange(owner, decision);
             });
             add(panel, row, new JLabel(choice.label()), combo);
-            return () -> choice.binding().write(accepted[0]);
+            return () -> {
+                if (CubismJvmSettingsContribution.CONTRIBUTION_ID.equals(choice.id())) {
+                    final SettingsChangeDecision decision = choice.validator().validate(
+                        initial, accepted[0]
+                    );
+                    if (!decision.accepted()) {
+                        showRejectedChange(owner, decision);
+                        return false;
+                    }
+                }
+                choice.binding().write(accepted[0]);
+                return true;
+            };
         }
         if (control instanceof SettingsControl.Toggle toggle) {
             final boolean initial = Boolean.TRUE.equals(toggle.binding().read());
@@ -357,21 +382,29 @@ final class CoreWindows implements AutoCloseable {
                 showRejectedChange(owner, decision);
             });
             add(panel, row, checkbox, new JLabel());
-            return () -> toggle.binding().write(accepted[0]);
+            return () -> {
+                toggle.binding().write(accepted[0]);
+                return true;
+            };
         }
         if (control instanceof SettingsControl.Text text) {
             final String initial = Objects.toString(text.binding().read(), "");
             final JTextField field = new JTextField(initial, text.columns());
+            if (CubismJvmSettingsContribution.PATH_CONTRIBUTION_ID.equals(text.id())) {
+                final String placeholder = this.text("settings.cubism-jvm.graalvm-path-placeholder");
+                field.putClientProperty("JTextField.placeholderText", placeholder);
+                field.setToolTipText(placeholder);
+            }
             add(panel, row, new JLabel(text.label()), field);
             return () -> {
                 final String proposed = field.getText();
                 final SettingsChangeDecision decision = text.validator().validate(initial, proposed);
                 if (!decision.accepted()) {
-                    field.setText(initial);
                     showRejectedChange(owner, decision);
-                    return;
+                    return false;
                 }
                 text.binding().write(proposed);
+                return true;
             };
         }
         throw new IllegalArgumentException("unsupported settings control: " + control.getClass().getName());
@@ -580,7 +613,7 @@ final class CoreWindows implements AutoCloseable {
     private record RenderedTab(String id, String title, int index, JPanel panel) {
     }
 
-    record RenderedSettings(JTabbedPane tabs, Runnable save) {
+    record RenderedSettings(JTabbedPane tabs, java.util.function.BooleanSupplier save) {
     }
 
     private JDialog createPluginsDialog() {
@@ -594,7 +627,7 @@ final class CoreWindows implements AutoCloseable {
         pluginTable.setToolTipText(text("plugins.details.hint"));
         pluginTable.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override public void mouseClicked(final java.awt.event.MouseEvent event) {
-                if (event.getClickCount() == 2 && javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                if (pluginDetailsDoubleClick(event)) {
                     final int row = pluginTable.rowAtPoint(event.getPoint());
                     if (row >= 0) {
                         pluginTable.setRowSelectionInterval(row, row);
@@ -663,6 +696,12 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(new JScrollPane(pluginTable), BorderLayout.CENTER);
         dialog.add(bottom, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    static boolean pluginDetailsDoubleClick(final java.awt.event.MouseEvent event) {
+        return event != null
+            && event.getClickCount() == 2
+            && javax.swing.SwingUtilities.isLeftMouseButton(event);
     }
 
     private void showSelectedPluginDetails() {

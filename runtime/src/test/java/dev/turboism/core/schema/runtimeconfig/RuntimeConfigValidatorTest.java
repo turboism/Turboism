@@ -55,6 +55,28 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsOptionalCustomGraalVmPath() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put(
+            "graalVmPath",
+            "C:\\Program Files\\GraalVM\\bin\\java.exe"
+        );
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
+    void rejectsBlankOrNonTextCustomGraalVmPath() {
+        final ObjectNode blank = base();
+        blank.withObject("launcher").put("graalVmPath", "  ");
+        final ObjectNode nonText = base();
+        nonText.withObject("launcher").put("graalVmPath", 42);
+
+        assertTrue(codes(blank).contains("RUNTIME_CONFIG_BAD_GRAALVM_PATH"));
+        assertTrue(codes(nonText).contains("RUNTIME_CONFIG_BAD_GRAALVM_PATH"));
+    }
+
+    @Test
     void rejectsUnknownCubismJvmLauncherSelection() {
         final ObjectNode root = base();
         root.withObject("launcher").put("cubismJvm", "other");

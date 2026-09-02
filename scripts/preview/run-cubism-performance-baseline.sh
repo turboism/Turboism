@@ -33,7 +33,7 @@ fi
 jfr="-XX:StartFlightRecording=filename=${run_windows}\\cubism.jfr,settings=profile,dumponexit=true,maxsize=512m"
 agent=""
 if [[ "$variant" != a0 ]]; then
-  agent=" --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.home=Z:${home//\//\\} -javaagent:Z:${task//\//\\}\\bundle\\turboism-agent.jar=home=Z:${home//\//\\};timeoutSeconds=180"
+  agent=" -Djava.locale.providers=CLDR,SPI -Dturboism.home=Z:${home//\//\\} -javaagent:Z:${task//\//\\}\\bundle\\turboism-agent.jar=home=Z:${home//\//\\};timeoutSeconds=180"
 fi
 cat > "$run/launch.bat" <<EOF
 @echo off

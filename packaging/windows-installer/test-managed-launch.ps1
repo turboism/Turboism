@@ -51,26 +51,20 @@ function Find-CubismRunnableJdk17 {
     return $null
 }
 
-function Invoke-CubismJdkParserRegression {
+function Invoke-CubismJdkOptionRegression {
     param([string]$Java)
-    # Real-JVM proof that the legacy malformed java.base.jdk... dot spelling is
-    # rejected while the corrected java.base/jdk... slash spelling parses.
-    $malformed = '--add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
-    $valid = @(Get-CubismManagedJdkExportTokens) -join ' '
+    # Real-JVM proof that the managed locale-provider option remains valid on
+    # the supported Java 17 baseline while obsolete internal ASM exports stay absent.
+    $managed = @(Get-CubismManagedJdkOptionTokens) -join ' '
     $previous = $env:JDK_JAVA_OPTIONS
     $previousErrorPreference = $ErrorActionPreference
-    $malformedExit = -1
-    $validExit = -1
-    $malformedRun = @()
-    $validRun = @()
+    $exitCode = -1
+    $run = @()
     try {
         $ErrorActionPreference = "Continue"
-        $env:JDK_JAVA_OPTIONS = $malformed
-        $malformedRun = @(& $Java -version 2>&1)
-        $malformedExit = $LASTEXITCODE
-        $env:JDK_JAVA_OPTIONS = $valid
-        $validRun = @(& $Java -version 2>&1)
-        $validExit = $LASTEXITCODE
+        $env:JDK_JAVA_OPTIONS = $managed
+        $run = @(& $Java -version 2>&1)
+        $exitCode = $LASTEXITCODE
     }
     finally {
         $ErrorActionPreference = $previousErrorPreference
@@ -78,15 +72,14 @@ function Invoke-CubismJdkParserRegression {
         else { $env:JDK_JAVA_OPTIONS = $previous }
     }
     return [pscustomobject]@{
-        MalformedExit = [int]$malformedExit
-        ValidExit = [int]$validExit
-        MalformedOutput = ($malformedRun | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
-        ValidOutput = ($validRun | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+        ExitCode = [int]$exitCode
+        Options = $managed
+        Output = ($run | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
     }
 }
 
 if ($JdkParserOnly) {
-    # Focused cross-platform gate: real JDK 17 parser proof only. No BAT/COM
+    # Focused cross-platform gate: real JDK 17 option proof only. No BAT/COM
     # fixtures are constructed or executed; the process exits 0 on success.
     $cleanupProbe = Remove-TurboismJdkOptions '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath -Xmx256m -Dcustom=1'
     Assert-ManagedLaunch (([regex]::Matches($cleanupProbe, 'add-exports=')).Count -eq 0) "cleanup removes both valid slash and legacy malformed dot export forms"
@@ -95,11 +88,11 @@ if ($JdkParserOnly) {
     $jdk17 = Find-CubismRunnableJdk17
     if ($null -eq $jdk17) { throw "JDK 17 parser regression cannot run: no runnable Java 17 (JAVA_HOME, PATH)" }
     Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
-    $regression = Invoke-CubismJdkParserRegression -Java $jdk17
-    Assert-ManagedLaunch ($regression.MalformedExit -ne 0) "real Java 17 parser rejects legacy malformed dot-form exports (exit $($regression.MalformedExit))"
-    Assert-ManagedLaunch ($regression.MalformedOutput -match 'JDK_JAVA_OPTIONS') "malformed rejection proves the launcher consumed JDK_JAVA_OPTIONS"
-    Assert-ManagedLaunch ($regression.ValidExit -eq 0) "real Java 17 parser accepts the corrected slash-form exports (exit $($regression.ValidExit))"
-    Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
+    $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
+    Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI') "managed options use the CLDR and SPI locale providers"
+    Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
+    Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
+    Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"
     exit 0
 }
@@ -279,6 +272,7 @@ try {
     Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*5.3.02*" }).Count -eq 1) "installer discovery report displays exact Cubism 5.3.02"
     Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*5.3.03*" }).Count -eq 1) "installer discovery report displays exact Cubism 5.3.03"
     Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|*unsupported*" -or $_ -like "DISPLAY|*Unsupported*" -or $_ -like "DISPLAY|*不支持*" -or $_ -like "DISPLAY|*未対応*" }).Count -eq 2) "installer discovery report keeps unreviewed artifacts visible and unsupported"
+    Assert-ManagedLaunch (@($discoveryLines | Where-Object { $_ -like "DISPLAY|* — *" }).Count -eq 0) "installer discovery display records omit per-path explanations"
     $discoveryFiles = @(Get-ChildItem -LiteralPath $discoveryHome -File -Force)
     Assert-ManagedLaunch ($discoveryFiles.Count -eq 1 -and $discoveryFiles[0].FullName -eq $discoveryReport) "installer discovery publishes only the final atomic report"
     Assert-ManagedLaunch (-not (Test-Path -LiteralPath (Join-Path $discoveryHome "cubism-installations.json"))) "installer discovery creates no managed installation state"
@@ -484,6 +478,13 @@ try {
     $emptyPreferenceHome = Join-Path $temp "empty preference home"
     New-Item -ItemType Directory -Path $emptyPreferenceHome -Force | Out-Null
     Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $emptyPreferenceHome) -eq "graalvm") "missing config defaults Cubism to GraalVM"
+    $legacyConfig = [ordered]@{ launcher = [ordered]@{ cubismJvm = "graalvm" } }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $emptyPreferenceHome "config.json"),
+        ($legacyConfig | ConvertTo-Json -Depth 3 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    Assert-ManagedLaunch ((Read-CubismGraalVmPath -TurboismHome $emptyPreferenceHome) -eq "") "config without optional custom GraalVM path remains compatible under strict mode"
     $oldCubismJavaEnvironment = $env:TURBOISM_CUBISM_JAVA
     $oldTurboismGraalHome = $env:TURBOISM_GRAALVM_HOME
     $oldGraalHome = $env:GRAALVM_HOME
@@ -507,7 +508,10 @@ try {
         $fallbackConfig = [ordered]@{
             format = "turboism.runtime.config"; schemaVersion = 1
             worktreeId = "turboism-runtime"; pluginDirs = @("plugins")
-            launcher = [ordered]@{ cubismJvm = "graalvm" }
+            launcher = [ordered]@{
+                cubismJvm = "graalvm"
+                graalVmPath = (Join-Path $fallbackProbeHome "missing custom graalvm")
+            }
         }
         [System.IO.File]::WriteAllText(
             (Join-Path $fallbackProbeHome "config.json"),
@@ -549,9 +553,34 @@ try {
     [System.IO.File]::WriteAllBytes($javaOverride, [byte[]](11, 12, 13, 14))
     [System.IO.File]::WriteAllText(
         (Join-Path $temp "graalvm\release"),
+        "IMPLEMENTOR=`"Oracle Corporation`"`r`nJAVA_VERSION=`"25.0.4+7`"`r`nGRAALVM_VERSION=`"25.0.4+7.1`"`r`n",
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    $automaticGraalHome = Join-Path $turboismHome "graalvm"
+    $automaticGraalJava = Join-Path $automaticGraalHome "bin\java.exe"
+    New-Item -ItemType Directory -Path (Split-Path -Parent $automaticGraalJava) -Force | Out-Null
+    [System.IO.File]::WriteAllBytes($automaticGraalJava, [byte[]](51, 52, 53, 54))
+    [System.IO.File]::WriteAllText(
+        (Join-Path $automaticGraalHome "release"),
         "IMPLEMENTOR=`"GraalVM Community`"`r`nJAVA_VERSION=`"25.0.4`"`r`nGRAALVM_VERSION=`"25.2.4`"`r`n",
         (New-Object System.Text.UTF8Encoding($false))
     )
+    $customPathConfig = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+        launcher = [ordered]@{ cubismJvm = "graalvm"; graalVmPath = (Join-Path $temp "graalvm\bin") }
+    }
+    [System.IO.File]::WriteAllText(
+        (Join-Path $turboismHome "config.json"),
+        ($customPathConfig | ConvertTo-Json -Depth 4 -Compress),
+        (New-Object System.Text.UTF8Encoding($false))
+    )
+    Assert-ManagedLaunch ((Read-CubismGraalVmPath -TurboismHome $turboismHome) -eq (Join-Path $temp "graalvm\bin")) "custom GraalVM bin path round-trips from config"
+    Assert-ManagedLaunch ((Find-CubismGraalJava -TurboismHome $turboismHome) -eq [System.IO.Path]::GetFullPath($automaticGraalJava)) "automatic GraalVM discovery precedes the custom path"
+    Remove-Item -LiteralPath $automaticGraalHome -Recurse -Force
+    Assert-ManagedLaunch ((Find-CubismGraalJava -TurboismHome $turboismHome) -eq [System.IO.Path]::GetFullPath($javaOverride)) "custom GraalVM path is used after automatic discovery is exhausted"
     $graalLibraryRoot = Join-Path $turboismHome "graal\lib"
     New-Item -ItemType Directory -Path $graalLibraryRoot -Force | Out-Null
     foreach ($library in @(
@@ -622,11 +651,11 @@ try {
     }
     else {
         Write-Host "ok: JDK 17 parser regression uses runnable Java 17 at $jdk17"
-        $regression = Invoke-CubismJdkParserRegression -Java $jdk17
-        Assert-ManagedLaunch ($regression.MalformedExit -ne 0) "real Java 17 parser rejects legacy malformed dot-form exports (exit $($regression.MalformedExit))"
-        Assert-ManagedLaunch ($regression.MalformedOutput -match 'JDK_JAVA_OPTIONS') "malformed rejection proves the launcher consumed JDK_JAVA_OPTIONS"
-        Assert-ManagedLaunch ($regression.ValidExit -eq 0) "real Java 17 parser accepts the corrected slash-form exports (exit $($regression.ValidExit))"
-        Assert-ManagedLaunch ($regression.ValidOutput -match 'version "17\.') "valid run proves a real Java 17 JVM executed"
+        $regression = Invoke-CubismJdkOptionRegression -Java $jdk17
+        Assert-ManagedLaunch ($regression.Options -eq '-Djava.locale.providers=CLDR,SPI') "managed options use the CLDR and SPI locale providers"
+        Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
+        Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
+        Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
     }
     $env:JDK_JAVA_OPTIONS = '-Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base.jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
     $env:JAVA_TOOL_OPTIONS = '-Dfile.encoding=UTF-8 -Xmx192m -javaagent:old-turboism-agent.jar -Dturboism.home=old-home -Dturboism.graal.enabled=true -Dturboism.graal.java=old-java -Dturboism.graal.classpath=old-classpath --add-exports=java.base.jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
@@ -648,9 +677,9 @@ try {
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-javaagent:')).Count -eq 1) "Turboism agent is attached exactly once"
         Assert-ManagedLaunch ($markerText -match 'JAVA_ARGS=.*-javaagent:.*turboism-agent\.jar') "current Turboism agent is a direct quoted BAT argument"
         Assert-ManagedLaunch ($markerText -notmatch 'old-turboism-agent\.jar|legacy\.parent\.option') "inherited Java options do not enter the managed child"
-        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm=ALL-UNNAMED')).Count -eq 1) "base ASM export is attached exactly once"
-        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base/jdk\.internal\.org\.objectweb\.asm\.commons=ALL-UNNAMED')).Count -eq 1) "commons ASM export is attached exactly once"
-        Assert-ManagedLaunch (([regex]::Matches($markerText, '--add-exports=java\.base\.jdk\.internal\.org\.objectweb\.asm')).Count -eq 0) "legacy malformed dot-form exports are never emitted"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, 'add-exports=')).Count -eq 0) "obsolete internal ASM exports are not emitted"
+        Assert-ManagedLaunch (([regex]::Matches($markerText, '-Djava\.locale\.providers=CLDR,SPI')).Count -eq 1) "supported locale providers are attached exactly once"
+        Assert-ManagedLaunch ($markerText -notmatch 'java\.locale\.providers=COMPAT') "removed COMPAT locale provider is not emitted"
         Assert-ManagedLaunch ($markerText -notmatch 'old-home') "stale Turboism home option is removed"
         Assert-ManagedLaunch ($markerText -notmatch 'old-java|old-classpath') "stale Graal child-host options are removed"
         Assert-ManagedLaunch (([regex]::Matches($markerText, '-Dturboism\.graal\.enabled=true')).Count -eq 1) "packaged Graal child host is enabled exactly once"

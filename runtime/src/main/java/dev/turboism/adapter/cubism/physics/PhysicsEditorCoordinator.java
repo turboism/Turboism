@@ -121,9 +121,16 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
             synchronized (lock) {
                 if (closed || contribution != active) controller.close(); else controllers.add(controller);
             }
-            System.err.println("Turboism physics editor header installed rows=" + table.getRowCount());
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "physics-editor",
+                "Installed physics editor controls"
+            );
         } catch (Throwable failure) {
-            System.err.println("Turboism physics editor install failed safely: " + failure.getClass().getName());
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "physics-editor",
+                "Physics editor control installation failed safely",
+                failure
+            );
         }
     }
 
@@ -178,7 +185,11 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
                 if (summary.rows() > 0) applyAll(!summary.allEnabled(), true);
             } catch (Throwable failure) {
                 header.setEnabled(false);
-                System.err.println("Turboism physics editor bulk update failed safely: " + failure.getClass().getName());
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "physics-editor",
+                    "Physics editor bulk update failed safely",
+                    failure
+                );
             }
         }
 
@@ -186,7 +197,11 @@ public final class PhysicsEditorCoordinator implements PhysicsEditorService, Aut
         public void tableChanged(final TableModelEvent event) {
             if (retainOnReopen) {
                 try { remember(sources()); } catch (Throwable failure) {
-                    System.err.println("Turboism physics editor retention failed safely: " + failure.getClass().getName());
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "physics-editor",
+                        "Physics editor retention failed safely",
+                        failure
+                    );
                 }
             }
             repaint();

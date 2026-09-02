@@ -52,7 +52,7 @@ the frozen acceptance conditions, including the R2 repairs:
       Python `encoding="utf-8"`). macOS additionally checks that the
       installed uninstall.command is a regular non-symlink executable file.
   8.  The plugin payload matches the sole release-plugin allowlist
-      `packaging/release-plugins.txt` exactly (the frozen 18 approved
+      `packaging/release-plugins.txt` exactly (the frozen 17 approved
       projects; runtime-owned core is never a payload plugin), and the seven
       excluded public modules' IDs/JARs are absent from the payload, packs, and
       selection surface — the shared manifest is the regression oracle.
@@ -120,26 +120,26 @@ LOCALIZED_EULA_MARKER = {
 # both modes on every run, and the probes must observe them live.
 LOCALIZED_MODE = {
     "eng": {
-        "full": ("Full installation (all plugins)",
-                 "Installs the Turboism agent and every first-party plugin. You can deselect individual plugins on the next page."),
-        "thin": ("Thin installation (plugins, online fx repair)",
-                 "Installs every first-party plugin without native fx runtime bytes. Turboism with fx can explicitly install the exact reviewed platform runtime online later."),
+        "full": ("Full installation (bundled plugins)",
+                 "Installs the Turboism agent and all approved release plugins. You can deselect individual plugins on the next page."),
+        "thin": ("Thin installation (bundled plugins, no fx runtime)",
+                 "Installs all approved release plugins without native fx runtime bytes."),
         "lite": ("Lite installation (no plugins)",
                  "Installs only the Turboism agent and common files. No first-party plugin JAR is copied."),
     },
     "chn": {
-        "full": ("完整安装（全部插件）",
-                 "安装 Turboism 代理与全部第一方插件。可在下一页取消勾选个别插件。"),
-        "thin": ("轻量安装（含插件，fx 在线修复）",
-                 "安装全部第一方插件但不包含 fx 原生运行时字节；Turboism with fx 可在之后显式在线安装经过审查的精确平台运行时。"),
+        "full": ("完整安装（发布插件）",
+                 "安装 Turboism 代理与全部获准发布的插件。可在下一页取消勾选个别插件。"),
+        "thin": ("轻量安装（发布插件，不含 fx 运行时）",
+                 "安装全部获准发布的插件，但不包含 fx 原生运行时字节。"),
         "lite": ("精简安装（不含插件）",
                  "仅安装 Turboism 代理与公共文件，不复制任何第一方插件 JAR。"),
     },
     "jpn": {
-        "full": ("フルインストール（全プラグイン）",
-                 "Turboism エージェントと全ファーストパーティプラグインをインストールします。次のページで個別に選択を解除できます。"),
-        "thin": ("Thin インストール（プラグインあり、fx オンライン修復）",
-                 "全ファーストパーティプラグインをインストールしますが、fx ネイティブランタイムは含みません。Turboism with fx からレビュー済みの正確なプラットフォームランタイムを後で明示的にオンラインインストールできます。"),
+        "full": ("フルインストール（公開対象プラグイン）",
+                 "Turboism エージェントと公開が承認された全プラグインをインストールします。次のページで個別に選択を解除できます。"),
+        "thin": ("Thin インストール（公開対象プラグイン、fx ランタイムなし）",
+                 "公開が承認された全プラグインをインストールしますが、fx ネイティブランタイムは含みません。"),
         "lite": ("ライトインストール（プラグインなし）",
                  "Turboism エージェントと共通ファイルのみをインストールします。ファーストパーティプラグインの JAR はコピーされません。"),
     },
@@ -212,7 +212,7 @@ def assert_automated_eula_gate(jar):
 
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 18-project list plus the seven excluded public module names is the regression
+# This exact 17-project list plus the eight excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
@@ -233,10 +233,9 @@ MANIFEST_EXPECTED = [
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
-    ":plugins:turboism-with-fx",
     ":plugins:ui-theme",
 ]
-# The seven public-exclusion modules: absent from the manifest and therefore
+# The eight public-exclusion modules: absent from the manifest and therefore
 # from every release payload, pack, section, and selection surface. Their
 # committed ids are read from each module's plugin.json descriptor at
 # verification time, never derived from module names.
@@ -248,6 +247,7 @@ EXCLUDED_PUBLIC_MODULES = (
     "project-inspector",
     "project-panel",
     "psd-import",
+    "turboism-with-fx",
 )
 # Renamed algorithm identity: module/JAR atlas-maxrects-bssf carries the
 # MaxRects-BSSF display name and the historical texture-atlas compatibility id.
@@ -439,7 +439,7 @@ def assert_managed_fx_payload(payload):
 def load_release_manifest(path):
     """Parses the sole release-plugin allowlist (packaging/release-plugins.txt)
     fail-closed: blank/comment lines, malformed or non-plugin entries,
-    duplicates, unsorted order, or drift from the frozen 18-project allowlist
+    duplicates, unsorted order, or drift from the frozen 17-project allowlist
     are fatal. Returns the allowlisted plugin module names (manifest entries
     minus the runtime-owned core)."""
     check("release manifest exists", os.path.isfile(path), path)
@@ -454,7 +454,7 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 18-project allowlist",
+    check("release manifest matches the frozen 17-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
@@ -795,31 +795,6 @@ def assert_installed_fx_runtime(target, platform):
     check("full install excludes non-current managed fx platforms",
           not any(os.path.lexists(os.path.join(target, "runtimes", "fx", FX_VERSION, value))
                   for value in other), "other=%s" % other)
-
-
-def assert_required_plugin_dependency_selection(jar, payload_plugins):
-    by_module = {plugin["module"]: plugin for plugin in payload_plugins}
-    mcp_id = by_module["mcp"]["id"]
-    fx_id = by_module["turboism-with-fx"]["id"]
-    base = tempfile.mkdtemp(prefix="turboism-required-dependency ")
-    target = os.path.join(base, "home")
-    clear_task_lock()
-    rc, out = run_console(
-        jar,
-        install_answers(
-            "thin",
-            target,
-            deselect={mcp_id},
-            payload_plugins=payload_plugins,
-        ),
-    )
-    check("required MCP dependency selection install exit 0", rc == 0, "rc=%s" % rc)
-    disabled = json.load(open(os.path.join(target, "config.json"))).get(
-        "disabledPlugins", []
-    )
-    check("deselecting MCP also disables Turboism with fx",
-          mcp_id in disabled and fx_id in disabled, str(disabled))
-    shutil.rmtree(base, ignore_errors=True)
 
 
 def assert_full_install(jar, payload, payload_plugins):
@@ -1690,7 +1665,7 @@ def main():
 
     # Shared-manifest + committed-descriptor regression oracle: the staged
     # payload must equal the allowlisted plugin modules (core excluded) and
-    # never carry one of the seven excluded public modules or their committed
+    # never carry one of the eight excluded public modules or their committed
     # ids; every included payload module's id/name is compared exactly to its
     # committed plugin.json descriptor (see assert_plugin_identity).
     manifest_modules = load_release_manifest(args.manifest)
@@ -1741,7 +1716,6 @@ def main():
         assert_install_home_symlink_rejected(jar)
         assert_unsupported_windows_full(jar, payload_plugins)
         assert_thin_install(jar, payload_plugins)
-        assert_required_plugin_dependency_selection(jar, payload_plugins)
         supported_fx = current_fx_platform() is not None
         if supported_fx:
             assert_full_defaults_all(jar, payload_plugins)

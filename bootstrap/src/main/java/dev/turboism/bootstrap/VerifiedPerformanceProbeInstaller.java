@@ -177,15 +177,18 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         final Thread watch = new Thread(() -> {
             while (installed.get()) {
                 if (Files.isRegularFile(trigger)) {
-                    System.err.println("Turboism performance probe trigger detected: " + trigger);
+                    dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                        "performance-probe",
+                        "Performance probe trigger detected"
+                    );
                     try {
                         close();
                     } catch (Throwable failure) {
-                        System.err.println("Turboism performance probe trigger close failed safely: "
-                            + failure.getClass().getName() + ": " + failure.getMessage()
-                            + (failure.getCause() == null ? ""
-                                : " cause=" + failure.getCause().getClass().getName()
-                                    + ": " + failure.getCause().getMessage()));
+                        dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                            "performance-probe",
+                            "Performance probe trigger close failed safely",
+                            failure
+                        );
                     }
                     return;
                 }
@@ -264,7 +267,10 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
         reporter.schedule(() -> {
             final long started = System.currentTimeMillis();
             if (!recorder.startCapture()) {
-                System.err.println("Turboism performance probe capture rejected safely");
+                dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                    "performance-probe",
+                    "Performance probe capture rejected safely"
+                );
                 return;
             }
             PerformanceProbeCarrier.enable(metricMask(scenario));
@@ -285,7 +291,11 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
                         recorder.snapshot()
                     );
                 } catch (Throwable failure) {
-                    System.err.println("Turboism performance probe report failed safely");
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "performance-probe",
+                        "Performance probe report failed safely",
+                        failure
+                    );
                 }
             }, duration.toSeconds(), TimeUnit.SECONDS);
         }, delay.toSeconds(), TimeUnit.SECONDS);
@@ -307,13 +317,17 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
     @Override
     public void close() {
         if (!installed.get()) {
-            System.err.println("Turboism performance probe close skipped: not installed");
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "performance-probe",
+                "Performance probe close skipped because it is not installed"
+            );
             return;
         }
         if (!installed.compareAndSet(true, false)) return;
-        System.err.println(
-            "Turboism performance probe close started; admitted=" + admitted.get()
-                + ", runId=" + runId + ", rollbackOutput=" + rollbackOutput);
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            "performance-probe",
+            "Performance probe close started; admitted=" + admitted.get()
+        );
         recorder.stopCapture();
         PerformanceProbeCarrier.disable();
         reporter.shutdownNow();
@@ -327,8 +341,10 @@ final class VerifiedPerformanceProbeInstaller implements AutoCloseable {
             rollbackObserver.beginRestoration();
             final Set<Class<?>> restoreTargets = new LinkedHashSet<>(transformed);
             restoreTargets.addAll(currentlyLoadedTargets());
-            System.err.println("Turboism performance probe close: restoreTargets="
-                + restoreTargets.stream().map(Class::getName).sorted().toList());
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "performance-probe",
+                "Restoring " + restoreTargets.size() + " performance probe targets"
+            );
             for (Class<?> target : restoreTargets) {
                 try {
                     if (instrumentation.isModifiableClass(target)) instrumentation.retransformClasses(target);

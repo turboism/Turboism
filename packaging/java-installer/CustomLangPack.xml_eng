@@ -9,10 +9,10 @@
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xsi:schemaLocation="http://izpack.org/schema/langpack https://izpack.org/schema/5.0/izpack-langpack-5.0.xsd">
 
-    <str id="InstallationGroupPanel.group.full" txt="Full installation (all plugins)"/>
-    <str id="InstallationGroupPanel.description.full" txt="Installs the Turboism agent and every first-party plugin. You can deselect individual plugins on the next page."/>
-    <str id="InstallationGroupPanel.group.thin" txt="Thin installation (plugins, online fx repair)"/>
-    <str id="InstallationGroupPanel.description.thin" txt="Installs every first-party plugin without native fx runtime bytes. Turboism with fx can explicitly install the exact reviewed platform runtime online later."/>
+    <str id="InstallationGroupPanel.group.full" txt="Full installation (bundled plugins)"/>
+    <str id="InstallationGroupPanel.description.full" txt="Installs the Turboism agent and all approved release plugins. You can deselect individual plugins on the next page."/>
+    <str id="InstallationGroupPanel.group.thin" txt="Thin installation (bundled plugins, no fx runtime)"/>
+    <str id="InstallationGroupPanel.description.thin" txt="Installs all approved release plugins without native fx runtime bytes."/>
     <str id="InstallationGroupPanel.group.lite" txt="Lite installation (no plugins)"/>
     <str id="InstallationGroupPanel.description.lite" txt="Installs only the Turboism agent and common files. No first-party plugin JAR is copied."/>
     <str id="InstallationGroupPanel.sortKey.full" txt="1"/>

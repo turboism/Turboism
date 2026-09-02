@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turboism-with-fx
 version: 0.1.0
 kind: feature
-status: preview
-delivery: store-candidate
+status: development
+delivery: development-only
 category: integration
 tags: automation, fx, agent
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Turboism with fx
 
-> **Official Turboism plugin** · **Status: Preview**
+> **Official Turboism plugin** · **Status: Development — not published**
 
 Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent Client Protocol (ACP) v1 and authenticated loopback MCP. Full products carry managed runtimes outside the plugin JAR under `runtimes/fx/0.0.5/<platform>/`: official upstream payloads on Linux/macOS and a Turboism product payload on Windows x64.
 
@@ -55,9 +55,9 @@ The reviewed fx release exposes only `--model` and `--log-file` for `fx acp`. It
 
 ## Install and enable
 
-This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication:
+This plugin is **development-only** while its known bugs remain unresolved. It is not bundled in Turboism releases and is not eligible for Plugin Directory publication.
 
-1. Use Full to install the matching fx runtime and notices under `runtimes/fx/0.0.5/<platform>/`. Windows x64 Full uses the bundled Turboism product payload; Thin has no managed runtime bytes and Lite does not install this plugin.
+1. Build the plugin JAR from source and install it manually only in a development environment. Full, Thin, and Lite release packages do not include this plugin JAR.
 2. Enable **Turboism with fx** in Plugin Management, then open **Turboism → fx Settings** before any ACP connection. On Runtime, choose an fx shell action for Vercel AI Gateway, Codex, Grok, or Gateway API-key setup. Turboism launches the verified managed/custom executable in a separate terminal; credentials remain fx-owned and are never included in the runtime payload or Turboism config.
 3. Enable **Turboism MCP Server** before connecting the Agent. MCP is required for an ACP Agent session, but it is not required to open Settings or the fx shell.
 4. Choose the **fx** icon immediately to the left of **Turboism Home** on Cubism's main toolbar when ready to connect.
@@ -122,7 +122,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 ## Status and limitations
 
-- **Status:** Preview.
+- **Status:** Development-only; not published.
 - Strict MCP-only mode fails closed because fx v0.0.5 has no supported native-tool disable control.
 - Compatibility mode is not strict confinement: fx native file, terminal, search, and fetch tools remain available.
 - Read-oriented native tools may not request approval in every case. Do not enable compatibility mode where fx must be confined to MCP.

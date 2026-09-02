@@ -4,12 +4,16 @@ import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.PrintStream;
 import java.lang.instrument.Instrumentation;
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedPhysicsEditorHookInstallerTest {
 
@@ -38,15 +42,26 @@ class VerifiedPhysicsEditorHookInstallerTest {
             "b", "n", "d"
         );
 
-        try (VerifiedPhysicsEditorHookInstaller installer = new VerifiedPhysicsEditorHookInstaller(
-            instrumentation,
-            TargetPanel.class.getClassLoader(),
-            new PhysicsEditorCoordinator(),
-            profile
-        )) {
-            installer.install();
+        final PrintStream originalOut = System.out;
+        final PrintStream originalErr = System.err;
+        final ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        try (PrintStream stream = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
+            System.setOut(stream);
+            System.setErr(stream);
+            try (VerifiedPhysicsEditorHookInstaller installer = new VerifiedPhysicsEditorHookInstaller(
+                instrumentation,
+                TargetPanel.class.getClassLoader(),
+                new PhysicsEditorCoordinator(),
+                profile
+            )) {
+                installer.install();
+            }
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
         }
 
+        assertTrue(captured.toString(StandardCharsets.UTF_8).isEmpty());
         assertEquals(List.of(
             "add:true",
             "retransform:" + TargetPanel.class.getName(),

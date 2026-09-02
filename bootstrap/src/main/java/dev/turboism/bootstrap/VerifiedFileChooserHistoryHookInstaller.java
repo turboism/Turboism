@@ -60,13 +60,14 @@ final class VerifiedFileChooserHistoryHookInstaller implements AutoCloseable {
                 if (targetClassName.equals(loaded.getName())
                     && loaded.getClassLoader() == hostClassLoader
                     && instrumentation.isModifiableClass(loaded)) {
-                    System.out.println("FILE-CHOOSER-INSTALL:found-class=" + loaded.getName());
                     instrumentation.retransformClasses(loaded);
                     retransformed++;
                 }
             }
-            System.out.println("FILE-CHOOSER-INSTALL:target=" + targetClassName
-                + " retransformed=" + retransformed);
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "file-chooser",
+                "Installed verified file-chooser hooks; retransformed=" + retransformed
+            );
         } catch (Throwable failure) {
             close();
             throw failure;

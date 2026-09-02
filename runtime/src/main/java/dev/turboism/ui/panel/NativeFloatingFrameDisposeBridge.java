@@ -36,7 +36,7 @@ public final class NativeFloatingFrameDisposeBridge {
      * Entry point called from the verified frame-disposal hook, on the host UI thread.
      *
      * <p>Fail-closed: no handler or a {@code null} frame means no cleanup runs, and a handler
-     * that throws — including an {@link Error} — is caught and logged to {@code System.err}
+     * that throws — including an {@link Error} — is caught and routed to Turboism diagnostics
      * rather than propagating into host disposal.
      *
      * @param frame the frame that was disposed
@@ -46,13 +46,13 @@ public final class NativeFloatingFrameDisposeBridge {
         if (handler == null || frame == null) {
             return;
         }
-        System.err.println("Turboism floating-frame dispose hook fired: " + frame.getClass().getName());
         try {
             handler.disposed(frame);
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism floating-frame cleanup failed safely: " + failure.getClass().getName()
-                    + ": " + failure.getMessage()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "floating-panels",
+                "Floating-frame cleanup failed safely",
+                failure
             );
         }
     }
