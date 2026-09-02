@@ -394,6 +394,9 @@ def load_release_manifest(path):
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
 
+_STRICT_VERSION_RE = re.compile(r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
+
+
 def load_plugin_metadata(manifest_path, modules):
     """Reads committed plugin.json descriptors for the given modules — the
     regression oracle for payload identity. The canonical
@@ -402,8 +405,8 @@ def load_plugin_metadata(manifest_path, modules):
     plugins/<module>/src/main/resources/META-INF/turboism/plugin.json path
     (no scans, no id/name inference). Fail-closed on manifest path shape,
     missing or non-regular descriptor, non-object JSON, blank/non-string
-    id/name, and duplicate module or id. Returns
-    {module: {"id": id, "name": name}}."""
+    id/name/version, and duplicate module or id. Returns
+    {module: {"id": id, "name": name, "version": version}}."""
     canonical = os.path.normpath(manifest_path)
     check("release manifest path has canonical packaging shape",
           os.path.basename(canonical) == "release-plugins.txt"
@@ -425,14 +428,22 @@ def load_plugin_metadata(manifest_path, modules):
               descriptor)
         pid = meta.get("id")
         pname = meta.get("name")
+        pversion = meta.get("version")
         check("plugin descriptor has nonblank string id",
               isinstance(pid, str) and bool(pid.strip()), descriptor)
         check("plugin descriptor has nonblank string name",
               isinstance(pname, str) and bool(pname.strip()), descriptor)
+        check("plugin descriptor has strict MAJOR.MINOR.PATCH version",
+              isinstance(pversion, str) and bool(_STRICT_VERSION_RE.match(pversion.strip())),
+              descriptor)
         check("plugin descriptor id unique across metadata",
               pid.strip() not in seen_ids, pid)
         seen_ids.add(pid.strip())
-        metadata[module] = {"id": pid.strip(), "name": pname.strip()}
+        metadata[module] = {
+            "id": pid.strip(),
+            "name": pname.strip(),
+            "version": pversion.strip(),
+        }
     return metadata
 
 
@@ -1499,14 +1510,17 @@ def assert_global_lock_untouched(before):
 def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata):
     """Built-JAR metadata is the identity authority (never module-name or
     filename derived); committed plugin.json descriptors are the regression
-    oracle. Asserts every included payload module's id/name equals its
+    oracle. Asserts every included payload module's id/name/version equals its
     descriptor, excluded modules and their committed ids are absent, the
     renamed algorithm display identity plus its compatibility id holds, and
     the required present/absent plugin facts hold."""
     by_module = {p["module"]: p for p in payload_plugins}
-    actual = {module: {"id": p["id"], "name": p["name"]}
-              for module, p in by_module.items()}
-    check("included payload identities equal committed metadata (module+id+name)",
+    actual = {module: {
+        "id": p["id"],
+        "name": p["name"],
+        "version": p["version"],
+    } for module, p in by_module.items()}
+    check("included payload identities equal committed metadata (module+id+name+version)",
           actual == included_metadata,
           "actual=%s expected=%s" % (sorted(actual.items()),
                                      sorted(included_metadata.items())))

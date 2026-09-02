@@ -216,9 +216,6 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
 
             final HostInstanceDescriptor descriptor = available.orElseThrow();
-            sceneTableHost.connect(
-                descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
-            );
             if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
                 host.connect(descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
             }
@@ -242,6 +239,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 return finishRequestedClose(null);
             }
             if (isCurrentConnection(connectionKey)) {
+                reconnectSceneBridgeIfNeeded(
+                    descriptor.verificationEvidence().projectWorkspace()
+                );
                 return state();
             }
             editorUiLifecycle.replacing();
@@ -287,6 +287,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             if (closeRequested()) {
                 return finishRequestedClose(candidate);
             }
+            final HostVerificationEvidence.Slice sceneEvidence =
+                descriptor.verificationEvidence().projectWorkspace();
+            sceneTableHost.connect(
+                sceneEvidence.verifiedArtifact(), sceneEvidence.hostClassLoader()
+            );
             dynamic.connect(candidateAdapters);
             dynamicModelAccess.connect(candidate.modelAccess());
             dynamicCoreRuntime.connect(candidate.coreRuntimeInfo());
@@ -704,8 +709,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             paletteAppearanceCoordinator.close();
-            sceneTableHost.disconnect();
-            paletteSurfaceCoordinator.close();
+            // close() keeps all palette cleanup (PaletteSurfaceCoordinator, which now owns the
+            // scene filter sink binding) under cleanupOwnedResources(), matching main's unified
+            // palette-surface path; sceneTableHost.disconnect() happens there exactly once.
             if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
                 host.close();
             }
@@ -769,6 +775,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     /** Registration cleanup must succeed before its owning connection can be closed. */
     private CleanupOutcome cleanupOwnedResources() {
+        sceneTableHost.disconnect();
         dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
         textureAtlasEditorUi.deactivate();
         meshEditUiService.resetSession();
@@ -866,6 +873,19 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             throw lifecycleFailure;
         }
         return failed;
+    }
+
+    /**
+     * Recovers a Scene bridge that failed while the main host connection stayed active. Unsupported
+     * artifacts stay closed and already-connected/connecting bridges are left alone, so a transient
+     * palette-not-ready failure can heal on the next refresh without re-hashing the artifact.
+     */
+    private void reconnectSceneBridgeIfNeeded(final HostVerificationEvidence.Slice evidence) {
+        final dev.turboism.ui.table.SceneTableHostOperations.State sceneState = sceneTableHost.state();
+        if (sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.DISCONNECTED
+            || sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.FAILED) {
+            sceneTableHost.connect(evidence.verifiedArtifact(), evidence.hostClassLoader());
+        }
     }
 
     private boolean isCurrentConnection(final ConnectionKey connectionKey) {
