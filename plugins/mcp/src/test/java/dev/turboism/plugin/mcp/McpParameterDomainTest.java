@@ -168,6 +168,356 @@ final class McpParameterDomainTest {
     }
 
     @Test
+    void unbindDoesNotReportFailureWhenSuccessfulReadbackContainsNullBinding() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain domain = domain(model);
+        final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+        domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", target,
+                "points", List.of(Map.of("id", "point-1", "value", 2))
+            ))
+        ));
+
+        final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "unbind",
+                "parameterId", "ParamA",
+                "target", target
+            ))
+        ));
+
+        assertEquals(Boolean.TRUE, output.get("ok"));
+        final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+        assertEquals(Boolean.FALSE, result.get("bound"));
+        assertEquals(null, result.get("binding"));
+        assertEquals(List.of(), model.values.get("ParamA").getParameterBindings());
+    }
+
+    @Test
+    void repeatedUnbindIsAppliedAndExplicitlyNotRetryable() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain domain = domain(model);
+        final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+        domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", target,
+                "points", List.of(Map.of("value", 2))
+            ))
+        ));
+
+        final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(
+                Map.of("operation", "unbind", "parameterId", "ParamA", "target", target),
+                Map.of("operation", "unbind", "parameterId", "ParamA", "target", target)
+            )
+        ));
+
+        assertEquals(Boolean.TRUE, output.get("ok"));
+        for (Object value : list(output.get("results"))) {
+            final Map<String, Object> operation = object(value);
+            assertEquals(Boolean.TRUE, operation.get("ok"));
+            final Map<String, Object> result = object(operation.get("result"));
+            assertEquals("APPLIED", result.get("outcome"));
+            assertEquals(Boolean.FALSE, result.get("retryable"));
+            assertEquals(List.of(), result.get("canonicalPointIds"));
+            assertEquals(Boolean.FALSE, result.get("bound"));
+            assertEquals(null, result.get("binding"));
+        }
+        assertEquals(1, model.unbindCalls);
+    }
+
+    @Test
+    void unbindReadbackFailureReportsAppliedWarningAndIsNotRetryable() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain domain = domain(model);
+        final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+        domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", target,
+                "points", List.of(Map.of("id", "point-1", "value", 2))
+            ))
+        ));
+        model.values.get("ParamA").bindingReadFailure = new IllegalStateException("readback failed");
+
+        final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "unbind",
+                "parameterId", "ParamA",
+                "target", target
+            ))
+        ));
+
+        assertEquals(Boolean.TRUE, output.get("ok"));
+        final Map<String, Object> operation = object(list(output.get("results")).get(0));
+        assertEquals(Boolean.TRUE, operation.get("ok"));
+        final Map<String, Object> result = object(operation.get("result"));
+        assertEquals("APPLIED_WITH_READBACK_WARNING", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+        assertEquals(null, result.get("canonicalPointIds"));
+        assertEquals("readback failed", object(result.get("readbackWarning")).get("message"));
+        model.values.get("ParamA").bindingReadFailure = null;
+        assertEquals(List.of(), model.values.get("ParamA").getParameterBindings());
+    }
+
+    @Test
+    void transferAndTransferClampedReturnAppliedCanonicalReadbackAndAreNotRetryable() {
+        for (String operationName : List.of("transfer", "transfer_clamped")) {
+            final FakeModel model = new FakeModel();
+            model.add("Source", "Source", 1, 0, 10, ParameterType.NORMAL);
+            model.add("Target", "Target", 1, 0, 10, ParameterType.NORMAL);
+            final McpParameterDomain domain = domain(model);
+            final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+            domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", "bind",
+                    "parameterId", "Source",
+                    "target", target,
+                    "points", List.of(Map.of("id", "client-point", "value", 2))
+                ))
+            ));
+
+            final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", operationName,
+                    "sourceParameterId", "Source",
+                    "targetParameterId", "Target",
+                    "targets", List.of(target),
+                    "invertAfterTransfer", false
+                ))
+            ));
+
+            assertEquals(Boolean.TRUE, output.get("ok"));
+            final Map<String, Object> result = object(object(list(output.get("results")).get(0)).get("result"));
+            final String canonicalId = "canonical-" + operationName;
+            assertEquals("APPLIED", result.get("outcome"));
+            assertEquals(Boolean.FALSE, result.get("retryable"));
+            assertEquals(List.of(canonicalId), result.get("canonicalPointIds"));
+            final Map<String, Object> sourceReadback = object(result.get("source"));
+            assertEquals(
+                Boolean.FALSE,
+                object(list(sourceReadback.get("bindings")).get(0)).get("bound")
+            );
+            final Map<String, Object> targetReadback = object(result.get("target"));
+            final Map<String, Object> targetBindingResult = object(list(targetReadback.get("bindings")).get(0));
+            assertEquals(Boolean.TRUE, targetBindingResult.get("bound"));
+            final Map<String, Object> targetBinding = object(targetBindingResult.get("binding"));
+            assertEquals(canonicalId, object(list(targetBinding.get("points")).get(0)).get("id"));
+        }
+    }
+
+    @Test
+    void transferReadbackFailureReportsAppliedWarningWithoutInvitingRetry() {
+        for (String operationName : List.of("transfer", "transfer_clamped")) {
+            final FakeModel model = new FakeModel();
+            model.add("Source", "Source", 1, 0, 10, ParameterType.NORMAL);
+            model.add("Target", "Target", 1, 0, 10, ParameterType.NORMAL);
+            final McpParameterDomain domain = domain(model);
+            final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+            domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", "bind",
+                    "parameterId", "Source",
+                    "target", target,
+                    "points", List.of(Map.of("id", "client-point", "value", 2))
+                ))
+            ));
+            model.values.get("Source").bindingReadFailure =
+                new IllegalStateException(operationName + " readback failed");
+
+            final Map<String, Object> output = domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", operationName,
+                    "sourceParameterId", "Source",
+                    "targetParameterId", "Target",
+                    "targets", List.of(target)
+                ))
+            ));
+
+            assertEquals(Boolean.TRUE, output.get("ok"));
+            final Map<String, Object> operation = object(list(output.get("results")).get(0));
+            assertEquals(Boolean.TRUE, operation.get("ok"));
+            final Map<String, Object> result = object(operation.get("result"));
+            assertEquals("APPLIED_WITH_READBACK_WARNING", result.get("outcome"));
+            assertEquals(Boolean.FALSE, result.get("retryable"));
+            assertEquals(null, result.get("canonicalPointIds"));
+            assertEquals(
+                operationName + " readback failed",
+                object(result.get("readbackWarning")).get("message")
+            );
+            model.values.get("Source").bindingReadFailure = null;
+            assertEquals(List.of(), model.values.get("Source").getParameterBindings());
+            assertEquals(
+                "canonical-" + operationName,
+                model.values.get("Target").getParameterBindings().get(0).points().get(0).id().value()
+            );
+        }
+    }
+
+    @Test
+    void submittedBindingWritesThatThrowReportUnknownOutcomeAndAreNotRetryable() {
+        final Map<String, Object> target = Map.of("type", "art_mesh", "id", "ArtMesh1");
+
+        final FakeModel unbindModel = new FakeModel();
+        unbindModel.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain unbindDomain = domain(unbindModel);
+        unbindDomain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", target,
+                "points", List.of(Map.of("id", "point-1", "value", 2))
+            ))
+        ));
+        unbindModel.unbindFailureAfterWrite = new IllegalStateException("unbind completion unknown");
+        assertOutcomeUnknown(unbindDomain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+            "operations", List.of(Map.of(
+                "operation", "unbind",
+                "parameterId", "ParamA",
+                "target", target
+            ))
+        )), "unbind completion unknown");
+        unbindModel.unbindFailureAfterWrite = null;
+        assertEquals(List.of(), unbindModel.values.get("ParamA").getParameterBindings());
+
+        for (String operationName : List.of("transfer", "transfer_clamped")) {
+            final FakeModel model = new FakeModel();
+            model.add("Source", "Source", 1, 0, 10, ParameterType.NORMAL);
+            model.add("Target", "Target", 1, 0, 10, ParameterType.NORMAL);
+            final McpParameterDomain domain = domain(model);
+            domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", "bind",
+                    "parameterId", "Source",
+                    "target", target,
+                    "points", List.of(Map.of("id", "point-1", "value", 2))
+                ))
+            ));
+            model.batchFailureAfterWrite = new IllegalStateException(operationName + " completion unknown");
+
+            assertOutcomeUnknown(domain.call(McpParameterDomain.BINDINGS_APPLY, Map.of(
+                "operations", List.of(Map.of(
+                    "operation", operationName,
+                    "sourceParameterId", "Source",
+                    "targetParameterId", "Target",
+                    "targets", List.of(target)
+                ))
+            )), operationName + " completion unknown");
+
+            model.batchFailureAfterWrite = null;
+            assertEquals(List.of(), model.values.get("Source").getParameterBindings());
+            assertEquals(1, model.values.get("Target").getParameterBindings().size());
+        }
+    }
+
+    @Test
+    void parameterCopyReturnsGeneratedIdAndRetrySafeOutcomeThroughToolCatalog() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final Map<String, Object> envelope = domain(model).toolCatalog().call(
+            McpParameterDomain.PARAMETERS_APPLY,
+            Map.of("operations", List.of(Map.of(
+                "operation", "copy",
+                "parameterId", "ParamA"
+            )))
+        );
+
+        assertEquals(Boolean.FALSE, envelope.get("isError"));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        final Map<String, Object> result = object(
+            object(list(output.get("results")).get(0)).get("result")
+        );
+        assertEquals("ParamACopy", result.get("id"));
+        assertEquals("APPLIED", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+    }
+
+    @Test
+    void applySchemasUseStrictOperationUnionsWithRuntimeRequiredFields() {
+        final McpParameterDomain domain = domain(new FakeModel());
+        final Map<String, Object> parameterSchema = inputSchema(
+            domain,
+            McpParameterDomain.PARAMETERS_APPLY
+        );
+        final List<Object> parameterAlternatives = operationAlternatives(parameterSchema);
+        assertEquals(8, parameterAlternatives.size());
+        assertStrictAlternatives(parameterAlternatives);
+        final Map<String, Object> copy = alternative(parameterAlternatives, "copy");
+        assertEquals(List.of("operation", "parameterId"), copy.get("required"));
+        assertEquals(
+            java.util.Set.of("operation", "parameterId"),
+            object(copy.get("properties")).keySet()
+        );
+
+        final Map<String, Object> bindingSchema = inputSchema(
+            domain,
+            McpParameterDomain.BINDINGS_APPLY
+        );
+        final List<Object> bindingAlternatives = operationAlternatives(bindingSchema);
+        assertEquals(9, bindingAlternatives.size());
+        assertStrictAlternatives(bindingAlternatives);
+        final Map<String, Object> bind = alternative(bindingAlternatives, "bind");
+        assertEquals(
+            List.of("operation", "parameterId", "target", "points"),
+            bind.get("required")
+        );
+        final Map<String, Object> points = object(object(bind.get("properties")).get("points"));
+        assertEquals(1, points.get("minItems"));
+        final Map<String, Object> point = object(points.get("items"));
+        assertEquals(List.of("value"), point.get("required"));
+        assertEquals(Boolean.TRUE, object(object(point.get("properties")).get("id")).get("deprecated"));
+        for (String operation : List.of(
+            "transfer", "transfer_clamped", "transfer_morph_clamped"
+        )) {
+            final Map<String, Object> transfer = alternative(bindingAlternatives, operation);
+            assertEquals(
+                1,
+                object(object(transfer.get("properties")).get("targets")).get("minItems")
+            );
+        }
+    }
+
+    @Test
+    void bindAcceptsValueOnlyPointsAndReturnsCanonicalIdsThroughToolCatalog() {
+        final FakeModel model = new FakeModel();
+        model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
+        final McpParameterDomain domain = domain(model);
+
+        final Map<String, Object> envelope = domain.toolCatalog().call(
+            McpParameterDomain.BINDINGS_APPLY,
+            Map.of("operations", List.of(Map.of(
+                "operation", "bind",
+                "parameterId", "ParamA",
+                "target", Map.of("type", "art_mesh", "id", "ArtMesh1"),
+                "points", List.of(Map.of("value", 2))
+            )))
+        );
+
+        assertEquals(Boolean.FALSE, envelope.get("isError"));
+        final Map<String, Object> output = object(envelope.get("structuredContent"));
+        final Map<String, Object> result = object(
+            object(list(output.get("results")).get(0)).get("result")
+        );
+        assertEquals("APPLIED", result.get("outcome"));
+        assertEquals(Boolean.FALSE, result.get("retryable"));
+        assertEquals(List.of("canonical-bind"), result.get("canonicalPointIds"));
+        final Map<String, Object> binding = object(result.get("binding"));
+        assertEquals(
+            "canonical-bind",
+            object(list(binding.get("points")).get(0)).get("id")
+        );
+    }
+
+    @Test
     void bindingOperationsRereadActualStateRejectBlendCrudAndStopOnError() {
         final FakeModel model = new FakeModel();
         model.add("ParamA", "A", 1, 0, 10, ParameterType.NORMAL);
@@ -194,6 +544,64 @@ final class McpParameterDomainTest {
         assertEquals("ArtMesh1", object(binding.get("target")).get("id"));
         assertEquals("INVALID_ARGUMENT", object(object(list(output.get("results")).get(1)).get("error")).get("code"));
         assertEquals(1, model.bindCalls);
+    }
+
+    private static void assertOutcomeUnknown(
+        final Map<String, Object> output,
+        final String message
+    ) {
+        assertEquals(Boolean.FALSE, output.get("ok"));
+        final Map<String, Object> operation = object(list(output.get("results")).get(0));
+        assertEquals(Boolean.FALSE, operation.get("ok"));
+        final Map<String, Object> error = object(operation.get("error"));
+        assertEquals("OUTCOME_UNKNOWN", error.get("code"));
+        assertEquals("OUTCOME_UNKNOWN", error.get("outcome"));
+        assertEquals(Boolean.FALSE, error.get("retryable"));
+        assertEquals(null, error.get("canonicalPointIds"));
+        assertEquals(message, error.get("message"));
+    }
+
+    private static Map<String, Object> inputSchema(
+        final McpParameterDomain domain,
+        final String toolName
+    ) {
+        return object(domain.tools().stream()
+            .filter(value -> toolName.equals(value.get("name")))
+            .findFirst()
+            .orElseThrow()
+            .get("inputSchema"));
+    }
+
+    private static List<Object> operationAlternatives(final Map<String, Object> applySchema) {
+        final Map<String, Object> operations = object(
+            object(applySchema.get("properties")).get("operations")
+        );
+        assertEquals(1, operations.get("minItems"));
+        return list(object(operations.get("items")).get("oneOf"));
+    }
+
+    private static void assertStrictAlternatives(final List<Object> alternatives) {
+        for (Object value : alternatives) {
+            final Map<String, Object> alternative = object(value);
+            assertEquals(Boolean.FALSE, alternative.get("additionalProperties"));
+            final Map<String, Object> operation = object(
+                object(alternative.get("properties")).get("operation")
+            );
+            assertEquals(1, list(operation.get("enum")).size());
+            assertTrue(list(alternative.get("required")).contains("operation"));
+        }
+    }
+
+    private static Map<String, Object> alternative(
+        final List<Object> alternatives,
+        final String operation
+    ) {
+        return alternatives.stream()
+            .map(McpParameterDomainTest::object)
+            .filter(value -> list(object(object(value.get("properties")).get("operation"))
+                .get("enum")).contains(operation))
+            .findFirst()
+            .orElseThrow();
     }
 
     private static McpParameterDomain domain(final FakeModel model) {
@@ -250,6 +658,9 @@ final class McpParameterDomainTest {
         private int createManyCalls;
         private int removeManyCalls;
         private int bindCalls;
+        private int unbindCalls;
+        private RuntimeException unbindFailureAfterWrite;
+        private RuntimeException batchFailureAfterWrite;
 
         void add(final String id, final String name, final float value, final float min, final float max, final ParameterType type) {
             values.put(id, new FakeParameter(this, new ParameterDefinition(new ParameterId(id), name, min, 0, max, type, false), value));
@@ -298,7 +709,21 @@ final class McpParameterDomainTest {
             return new ParameterBindingOperations() {
                 @Override public void bind(final ParameterBindingTarget target, final List<ParameterBindingPoint> points) {
                     bindCalls++;
-                    parameter.bindings.put(target, new ParameterBinding(target, parameterId, ParameterBindingFamily.KEYFORM_GRID, points));
+                    final List<ParameterBindingPoint> canonical = new ArrayList<>();
+                    for (int index = 0; index < points.size(); index++) {
+                        canonical.add(new ParameterBindingPoint(
+                            new ParameterBindingPointId(
+                                index == 0 ? "canonical-bind" : "canonical-bind-" + index
+                            ),
+                            points.get(index).value()
+                        ));
+                    }
+                    parameter.bindings.put(target, new ParameterBinding(
+                        target,
+                        parameterId,
+                        ParameterBindingFamily.KEYFORM_GRID,
+                        canonical
+                    ));
                 }
                 @Override public void createPoint(final ParameterBindingTarget target, final ParameterBindingPoint point) {
                     final ParameterBinding existing = parameter.bindings.get(target);
@@ -308,14 +733,49 @@ final class McpParameterDomainTest {
                 }
                 @Override public void movePoint(final ParameterBindingTarget target, final ParameterBindingPointId pointId, final float value) { throw new UnsupportedOperationException(); }
                 @Override public void deletePoint(final ParameterBindingTarget target, final ParameterBindingPointId pointId) { throw new UnsupportedOperationException(); }
-                @Override public void unbind(final ParameterBindingTarget target) { parameter.bindings.remove(target); }
+                @Override public void unbind(final ParameterBindingTarget target) {
+                    if (parameter.bindings.remove(target) != null) unbindCalls++;
+                    if (unbindFailureAfterWrite != null) throw unbindFailureAfterWrite;
+                }
             };
         }
         @Override public ParameterBindingBatchOperations parameterBindingBatch() {
             return new ParameterBindingBatchOperations() {
                 @Override public void invert(final List<ParameterBindingTarget> targets) { }
-                @Override public void transfer(final ParameterBindingTransferPlan plan) { }
+                @Override public void transfer(final ParameterBindingTransferPlan plan) {
+                    transferBindings(plan, "canonical-transfer");
+                    if (batchFailureAfterWrite != null) throw batchFailureAfterWrite;
+                }
+                @Override public void transferClamped(final ParameterBindingTransferPlan plan) {
+                    transferBindings(plan, "canonical-transfer_clamped");
+                    if (batchFailureAfterWrite != null) throw batchFailureAfterWrite;
+                }
             };
+        }
+        private void transferBindings(
+            final ParameterBindingTransferPlan plan,
+            final String canonicalPrefix
+        ) {
+            final FakeParameter source = values.get(plan.sourceParameterId().value());
+            final FakeParameter destination = values.get(plan.targetParameterId().value());
+            for (ParameterBindingTarget target : plan.targets()) {
+                final ParameterBinding binding = source.bindings.remove(target);
+                if (binding == null) continue;
+                final List<ParameterBindingPoint> canonicalPoints = new ArrayList<>();
+                for (int index = 0; index < binding.points().size(); index++) {
+                    final String id = index == 0 ? canonicalPrefix : canonicalPrefix + "-" + index;
+                    canonicalPoints.add(new ParameterBindingPoint(
+                        new ParameterBindingPointId(id),
+                        binding.points().get(index).value()
+                    ));
+                }
+                destination.bindings.put(target, new ParameterBinding(
+                    target,
+                    plan.targetParameterId(),
+                    binding.family(),
+                    canonicalPoints
+                ));
+            }
         }
         @Override public Parts parts() { return null; }
         @Override public Drawables drawables() { return null; }
@@ -329,6 +789,7 @@ final class McpParameterDomainTest {
         private ParameterDefinition definition;
         private float value;
         private RuntimeException setFailure;
+        private RuntimeException bindingReadFailure;
         private final LinkedHashMap<ParameterBindingTarget, ParameterBinding> bindings = new LinkedHashMap<>();
         private FakeParameter(
             final FakeModel owner,
@@ -349,7 +810,10 @@ final class McpParameterDomainTest {
             this.value = value;
         }
         @Override public ParameterType type() { return definition.type(); }
-        @Override public List<ParameterBinding> getParameterBindings() { return List.copyOf(bindings.values()); }
+        @Override public List<ParameterBinding> getParameterBindings() {
+            if (bindingReadFailure != null) throw bindingReadFailure;
+            return List.copyOf(bindings.values());
+        }
         @Override public void updateDefinition(final ParameterDefinition definition) {
             final String oldId = this.definition.id().value();
             final String newId = definition.id().value();

@@ -224,15 +224,32 @@ final class McpHttpServer implements AutoCloseable {
             final McpParameterDomain parameters = new McpParameterDomain(
                 checked.cubism(), execution
             );
+            final McpResourceCatalog parameterResources = parameters.resourceCatalog();
             final McpHistoryCommandDomain historyCommands = new McpHistoryCommandDomain(
                 checked.history(), checked.editorCommands()
             );
+            final McpRuntimeDiagnostics runtimeDiagnostics = new McpRuntimeDiagnostics();
             final McpDiagnosticsDomain diagnostics = new McpDiagnosticsDomain(
                 checked.cubism(),
                 checked.workspace(),
                 checked.workspaceLayout(),
                 checked.diagnostics(),
+                runtimeDiagnostics,
+                parameterResources,
                 execution
+            );
+            final McpToolCatalog tools = runtimeDiagnostics.observe(McpToolCatalog.combine(
+                production.tools(),
+                parameters.toolCatalog(),
+                historyCommands.tools()
+            ));
+            final McpResourceCatalog resources = runtimeDiagnostics.observe(
+                McpResourceCatalog.combine(
+                    production.resourceCatalog(),
+                    diagnostics.resourceCatalog(),
+                    parameterResources,
+                    historyCommands.resources()
+                )
             );
             final McpConnectionHistory history = new McpConnectionHistory();
             transport = new McpHttpServer(
@@ -240,17 +257,8 @@ final class McpHttpServer implements AutoCloseable {
                 executor,
                 logger,
                 McpProtocol.forCatalogs(
-                    McpToolCatalog.combine(
-                        production.tools(),
-                        parameters.toolCatalog(),
-                        historyCommands.tools()
-                    ),
-                    McpResourceCatalog.combine(
-                        production.resourceCatalog(),
-                        diagnostics.resourceCatalog(),
-                        parameters.resourceCatalog(),
-                        historyCommands.resources()
-                    ),
+                    tools,
+                    resources,
                     McpPromptCatalog.defaults()
                 ),
                 checked.token(),
@@ -953,7 +961,7 @@ final class McpHttpServer implements AutoCloseable {
 
         static DiagnosticReport emptyDiagnostics() {
             return new DiagnosticReport() {
-                @Override public Instant createdAt() { return Instant.EPOCH; }
+                @Override public Instant createdAt() { return null; }
                 @Override public java.util.List<Problem> problems() { return java.util.List.of(); }
             };
         }

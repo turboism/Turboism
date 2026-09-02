@@ -4,6 +4,8 @@ import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -15,6 +17,9 @@ import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.model.ModelEditLevel;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectKind;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterDefinition;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
@@ -87,6 +92,45 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, staleParameters::all);
         assertThrows(IllegalStateException.class, staleParameter::getValue);
         assertEquals(new ModelId("model-b"), access.active().id());
+    }
+
+    @Test
+    void modelObjectCreateProviderUsesTheCapturedSessionGeneration() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final RecordingCreateAccess provider = new RecordingCreateAccess("model-a");
+        access.connect(provider);
+        final CubismModel captured = access.active();
+        final ModelObjectCreateRequest request = new ModelObjectCreateRequest.Part(
+            "Created",
+            Optional.empty()
+        );
+
+        access.requireCreateSupported(request);
+        assertEquals(
+            new ModelObjectReference(ModelObjectKind.PART, "PartStable"),
+            access.createModelObject(captured, request)
+        );
+        assertSame(provider.model, provider.createdAgainst);
+
+        access.connect(modelAccess("model-b", 2.0F));
+        assertThrows(
+            IllegalStateException.class,
+            () -> access.createModelObject(captured, request)
+        );
+    }
+
+    @Test
+    void modelObjectCreateProviderUnavailableIsTypedBeforeModelMutation() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        access.connect(modelAccess("model-a", 1.0F));
+
+        assertThrows(
+            ModelObjectProviderUnavailableException.class,
+            () -> access.requireCreateSupported(new ModelObjectCreateRequest.Part(
+                "Blocked",
+                Optional.empty()
+            ))
+        );
     }
 
     @Test
@@ -332,6 +376,32 @@ class DynamicCubismModelAccessTest {
     }
 
     /** Recording fixture: Wave 1 write/read delegate calls land in {@link #calls}. */
+    private static final class RecordingCreateAccess implements CubismModelAccess,
+        RuntimeModelObjectCreateProvider {
+        private final CubismModel model;
+        private CubismModel createdAgainst;
+
+        private RecordingCreateAccess(final String id) {
+            this.model = model(id, parameter(1.0F));
+        }
+
+        @Override public CubismModel active() {
+            return model;
+        }
+
+        @Override public void requireCreateSupported(final ModelObjectCreateRequest request) {
+            assertEquals(ModelObjectKind.PART, request.kind());
+        }
+
+        @Override public ModelObjectReference createModelObject(
+            final CubismModel activeModel,
+            final ModelObjectCreateRequest request
+        ) {
+            createdAgainst = activeModel;
+            return new ModelObjectReference(request.kind(), "PartStable");
+        }
+    }
+
     private static final class RecordingModel implements CubismModel {
         final List<String> calls = new java.util.ArrayList<>();
         final ModelProfile profile = new ModelProfile() {
