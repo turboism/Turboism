@@ -28,7 +28,7 @@ set "VALIDATION_AGENT=%TURBOISM_HOME%\workspace-validation-agent.jar"
 REM Absolute path to the ISOLATED COPY of the fixture model opened for this run.
 set "FIXTURE=%TURBOISM_HOME%\fixture.cmo3"
 
-set "JAVA_TOOL_OPTIONS=--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.home=%TURBOISM_HOME% -javaagent:%PRODUCTION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180 -javaagent:%VALIDATION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180"
+set "JAVA_TOOL_OPTIONS=-Djava.locale.providers=CLDR,SPI -Dturboism.home=%TURBOISM_HOME% -javaagent:%PRODUCTION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180 -javaagent:%VALIDATION_AGENT%=home=%TURBOISM_HOME%;timeoutSeconds=180"
 
 call "%CUBISM_BAT%" "%FIXTURE%"
 set "EXIT_CODE=%ERRORLEVEL%"

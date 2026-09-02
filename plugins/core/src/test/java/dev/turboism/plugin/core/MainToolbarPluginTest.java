@@ -93,10 +93,15 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(1, context.uiHost().settingsContributions().size());
-        final var settingsContribution = context.uiHost().settingsContributions().get(0);
-        assertEquals("performance", settingsContribution.tab().id());
-        assertEquals("cubism-jvm", settingsContribution.id());
+        assertEquals(2, context.uiHost().settingsContributions().size());
+        assertEquals(
+            List.of("cubism-graalvm-path", "cubism-jvm"),
+            context.uiHost().settingsContributions().stream()
+                .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
+                .toList()
+        );
+        assertTrue(context.uiHost().settingsContributions().stream()
+            .allMatch(contribution -> contribution.tab().id().equals("performance")));
         assertEquals(1, context.uiHost().panelContributions().size());
         final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
         assertEquals("turboism.panel.main", panel.id());

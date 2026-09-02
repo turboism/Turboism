@@ -82,6 +82,40 @@ $agent = Join-Path $turboismHome "turboism-agent.jar"
 if (-not (Test-Path -LiteralPath $agent -PathType Leaf)) { throw ($M.AgentMissing -f $agent) }
 $statePath = Join-Path $turboismHome "cubism-installations.json"
 
+function Get-TurboismLauncherVersion {
+    $readme = Join-Path $turboismHome "README.txt"
+    if (-not (Test-Path -LiteralPath $readme -PathType Leaf)) { return "unknown" }
+    try {
+        if ((Get-Item -LiteralPath $readme -Force -ErrorAction Stop).Length -gt 65536) {
+            return "unknown"
+        }
+        $firstLine = Get-Content -LiteralPath $readme -Encoding UTF8 -TotalCount 1 -ErrorAction Stop
+        if ([string]$firstLine -match '^Turboism\s+([0-9]+\.[0-9]+\.[0-9]+)\b') {
+            return $Matches[1]
+        }
+    }
+    catch { }
+    return "unknown"
+}
+
+function Write-TurboismLauncherBanner {
+    Write-Host ""
+    Write-Host " _____ _   _ ____  ____   ___ ___ ____  __  __"
+    Write-Host "|_   _| | | |  _ \| __ ) / _ \_ _/ ___||  \/  |"
+    Write-Host "  | | | | | | |_) |  _ \| | | | |\___ \| |\/| |"
+    Write-Host "  | | | |_| |  _ <| |_) | |_| | | ___) | |  | |"
+    Write-Host "  |_|  \___/|_| \_\____/ \___/___|____/|_|  |_|"
+    Write-Host ""
+    Write-Host "                  For you, a bouquet."
+    Write-Host ""
+    Write-Host "  Cubism Extensibility Framework"
+    Write-Host "  ------------------------------------------------"
+    Write-Host (("  Version   : {0}" -f (Get-TurboismLauncherVersion)))
+    Write-Host ""
+}
+
+Write-TurboismLauncherBanner
+
 function Resolve-SelectedCandidate {
     if (-not [string]::IsNullOrWhiteSpace($CubismRoot)) {
         $requested = $CubismRoot.Trim()

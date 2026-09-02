@@ -51,11 +51,14 @@ public final class NativePhysicsEditorBridge {
     public static void afterConstructed(final Object panel) {
         final Binding binding = INSTALLED.get();
         if (binding == null || panel == null) return;
-        System.err.println("Turboism physics editor panel constructed class=" + panel.getClass().getName());
         try {
             binding.coordinator().onPanelConstructed(panel, binding.profile());
         } catch (Throwable failure) {
-            System.err.println("Turboism physics editor contribution failed safely: " + failure.getClass().getName());
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "physics-editor",
+                "Physics editor contribution failed safely",
+                failure
+            );
         }
     }
 

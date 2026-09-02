@@ -310,8 +310,10 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 }
             }
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism texture-atlas dialog contribution retransformation failed safely: " + failure
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "texture-atlas",
+                "Texture-atlas dialog contribution retransformation failed safely",
+                failure
             );
         }
         try {
@@ -328,8 +330,10 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
                 }
             }
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism texture-atlas statistics contribution retransformation failed safely: " + failure
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "texture-atlas",
+                "Texture-atlas statistics contribution retransformation failed safely",
+                failure
             );
         }
     }

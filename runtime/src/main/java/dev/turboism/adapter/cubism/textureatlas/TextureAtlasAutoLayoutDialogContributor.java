@@ -67,8 +67,10 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         try {
             inject(Objects.requireNonNull(dialog, "dialog"));
         } catch (RuntimeException | LinkageError failure) {
-            System.err.println(
-                "Turboism texture-atlas dialog contribution failed safely: " + failure
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "texture-atlas",
+                "Texture-atlas dialog contribution failed safely",
+                failure
             );
         }
     }
@@ -220,8 +222,10 @@ public final class TextureAtlasAutoLayoutDialogContributor {
         try {
             observer.accept(observation);
         } catch (RuntimeException | Error failure) {
-            System.err.println(
-                "Turboism texture-atlas dialog validation observer failed safely: " + failure
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "texture-atlas",
+                "Texture-atlas dialog validation observer failed safely",
+                failure
             );
         }
     }

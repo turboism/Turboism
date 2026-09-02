@@ -115,8 +115,9 @@ public final class DockTreeTraversal {
         for (Object child : new ArrayList<>(splitContents(component))) {
             Objects.requireNonNull(child, "Cubism split child");
             if (isEmptyDockComponent(child)) {
-                System.err.println(
-                    "Turboism removing empty dock component: " + child.getClass().getName()
+                dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "floating-panels",
+                    "Removing one empty dock component"
                 );
                 resolver.invoke(SPLIT_REMOVE, component, child);
             }

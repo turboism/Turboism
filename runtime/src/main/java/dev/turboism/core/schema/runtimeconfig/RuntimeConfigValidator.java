@@ -32,7 +32,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
-    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm");
+    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
 
     public RuntimeConfigValidator() {
@@ -166,6 +166,19 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                 "launcher.cubismJvm",
                 source
             ));
+        }
+        if (launcher.has("graalVmPath")) {
+            final JsonNode value = launcher.get("graalVmPath");
+            if (!value.isTextual() || value.asText().isBlank()
+                || value.asText().length() > 4096
+                || value.asText().chars().anyMatch(character -> character < 0x20)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_GRAALVM_PATH",
+                    "launcher.graalVmPath must be a non-blank path of at most 4096 characters",
+                    "launcher.graalVmPath",
+                    source
+                ));
+            }
         }
     }
 

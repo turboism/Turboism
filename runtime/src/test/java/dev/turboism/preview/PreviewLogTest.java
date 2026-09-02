@@ -142,21 +142,27 @@ class PreviewLogTest {
     }
 
     @Test
-    void ordinaryRecordsAreNotDuplicatedToStandardOutput() throws Exception {
-        final PrintStream original = System.out;
+    void frameworkOnlySinkKeepsOrdinaryRecordsOutOfNativeConsoleStreams() throws Exception {
+        final PrintStream originalOut = System.out;
+        final PrintStream originalErr = System.err;
         final ByteArrayOutputStream output = new ByteArrayOutputStream();
+        final ByteArrayOutputStream error = new ByteArrayOutputStream();
         System.setOut(new PrintStream(output));
+        System.setErr(new PrintStream(error));
         try (PreviewLog log = new PreviewLog(
             temporary.resolve("quiet.log"),
             Clock.fixed(Instant.EPOCH, ZoneOffset.UTC),
-            (level, component, message, failure) -> { }
+            PreviewLog.Sink.NONE
         )) {
             log.info("runtime", "normal startup record");
+            assertTrue(log.snapshot().lines().get(0).endsWith("normal startup record"));
         } finally {
-            System.setOut(original);
+            System.setOut(originalOut);
+            System.setErr(originalErr);
         }
 
         assertEquals("", output.toString());
+        assertEquals("", error.toString());
     }
 
     @Test

@@ -64,6 +64,11 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             localization(context).text("main-toolbar.about-menu.label"), ignored -> windows.showAbout());
         registerSettingsActions();
         context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createPath(
+                localization(context), services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
         registerPluginActions();

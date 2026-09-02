@@ -179,8 +179,10 @@ public final class PerformanceFpsHookInstaller implements PerformanceFpsHook {
                 } catch (Throwable failure) {
                     // Fail-open diagnostic: on-load instrumentation keeps
                     // counting; only pre-install loaded classes are missed.
-                    System.err.println(
-                        "Turboism FPS counting hook deferred retransform failed safely: " + failure
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "performance",
+                        "FPS counting hook deferred retransform failed safely",
+                        failure
                     );
                 }
             }

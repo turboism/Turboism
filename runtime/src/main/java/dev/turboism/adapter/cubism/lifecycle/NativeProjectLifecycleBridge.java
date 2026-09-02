@@ -75,7 +75,6 @@ public final class NativeProjectLifecycleBridge {
      * @param file the file being opened, or null for a newly created document
      */
     public static void beginModelOpen(final String displayName, final File file) {
-        System.out.println("LIFECYCLE-BRIDGE:method=beginModelOpen kind=MODEL op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginOpen(ProjectContentKind.MODEL, displayName, file, null);
@@ -90,7 +89,6 @@ public final class NativeProjectLifecycleBridge {
      * @param file the file being opened, or null for a newly created animation
      */
     public static void beginAnimationOpen(final Object animation, final File file) {
-        System.out.println("LIFECYCLE-BRIDGE:method=beginAnimationOpen kind=ANIMATION op=OPEN");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginOpen(
@@ -117,9 +115,6 @@ public final class NativeProjectLifecycleBridge {
         final int kindOrdinal,
         final int operationOrdinal
     ) {
-        System.out.println("LIFECYCLE-BRIDGE:method=beginContent kind="
-            + enumNameOrDash(ProjectContentKind.values(), kindOrdinal)
-            + " op=" + enumNameOrDash(ProjectFileOperationType.values(), operationOrdinal));
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeBeginExisting(
@@ -137,7 +132,6 @@ public final class NativeProjectLifecycleBridge {
      * @param content the value the instrumented host method is returning, possibly null
      */
     public static void completeObject(final Object content) {
-        System.out.println("LIFECYCLE-BRIDGE:method=completeObject kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(content, content != null, null);
@@ -150,7 +144,6 @@ public final class NativeProjectLifecycleBridge {
      * @param succeeded the boolean the instrumented host method is returning
      */
     public static void completeBoolean(final boolean succeeded) {
-        System.out.println("LIFECYCLE-BRIDGE:method=completeBoolean kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(null, succeeded, null);
@@ -164,7 +157,6 @@ public final class NativeProjectLifecycleBridge {
      * @throws NullPointerException when {@code failure} is null and a bridge is installed
      */
     public static void failedFile(final Throwable failure) {
-        System.out.println("LIFECYCLE-BRIDGE:method=failedFile kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteFile(null, false, Objects.requireNonNull(failure, "failure"));
@@ -177,7 +169,6 @@ public final class NativeProjectLifecycleBridge {
      * exit is never blocked by plugin state.
      */
     public static void beforeEditorExit() {
-        System.out.println("LIFECYCLE-BRIDGE:method=beforeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         EditorLifecycleCoordinator.ExitInvocation invocation = null;
@@ -197,7 +188,6 @@ public final class NativeProjectLifecycleBridge {
      *     after phase
      */
     public static void completeEditorExit(final boolean accepted) {
-        System.out.println("LIFECYCLE-BRIDGE:method=completeEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteExit(accepted, null);
@@ -211,7 +201,6 @@ public final class NativeProjectLifecycleBridge {
      * @throws NullPointerException when {@code failure} is null and a bridge is installed
      */
     public static void failedEditorExit(final Throwable failure) {
-        System.out.println("LIFECYCLE-BRIDGE:method=failedEditorExit kind=- op=-");
         final NativeProjectLifecycleBridge bridge = INSTALLED.get();
         if (bridge == null) return;
         bridge.safeCompleteExit(false, Objects.requireNonNull(failure, "failure"));

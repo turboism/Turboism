@@ -438,8 +438,7 @@ function Write-CubismInstallerDiscoveryReport {
                 elseif ($candidate.Status -eq "Unsupported") { $label = $labels.Unsupported }
                 else { $label = $labels.Invalid }
                 $root = ConvertTo-CubismDiscoveryField $candidate.CanonicalRoot -MaximumLength 520
-                $reason = ConvertTo-CubismDiscoveryField $candidate.Reason -MaximumLength 260
-                [void]$lines.Add("DISPLAY|[$label] $root — $reason")
+                [void]$lines.Add("DISPLAY|[$label] $root")
             }
             [void]$lines.Add("END")
             [System.IO.File]::WriteAllLines($temporary, $lines, $unicode)
@@ -1429,7 +1428,7 @@ function Get-CubismBatIntegrationText {
     $options = @(
         (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome"),
         (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
-    ) + @(Get-CubismManagedJdkExportTokens)
+    ) + @(Get-CubismManagedJdkOptionTokens)
     $managed = @(
         'rem TURBOISM MANAGED BEGIN',
         'set "TURBOISM_HOME=' + $TurboismHome + '"',
@@ -1638,13 +1637,10 @@ function Remove-TurboismJdkOptions {
     return ($kept -join " ").Trim()
 }
 
-function Get-CubismManagedJdkExportTokens {
-    # Legal JDK 17 --add-exports syntax is module/package; the legacy
-    # malformed java.base.jdk... dot spelling is never emitted.
-    return @(
-        "--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED",
-        "--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED"
-    )
+function Get-CubismManagedJdkOptionTokens {
+    # CLDR replaces the locale data removed with the legacy COMPAT provider.
+    # Keep SPI available for Cubism or plugin service-provider extensions.
+    return @("-Djava.locale.providers=CLDR,SPI")
 }
 
 function ConvertTo-JdkOptionToken {
@@ -1669,6 +1665,25 @@ function Read-CubismJvmPreference {
     return [string]$document.launcher.cubismJvm
 }
 
+function Read-CubismGraalVmPath {
+    param([string]$TurboismHome)
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return "" }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) { return "" }
+    $pathProperty = $launcherProperty.Value.PSObject.Properties["graalVmPath"]
+    if ($null -eq $pathProperty -or $null -eq $pathProperty.Value) { return "" }
+    $value = $pathProperty.Value
+    if ($value -isnot [string] -or [string]::IsNullOrWhiteSpace($value) -or
+        $value.Length -gt $script:CubismMaxStateFieldLength -or $value -match '[\x00-\x1F]') {
+        throw "Turboism custom GraalVM path is invalid"
+    }
+    return $value.Trim()
+}
+
 function Test-CubismCompatibleGraalJava {
     param([string]$JavaPath)
     if (-not (Test-CubismNormalFile $JavaPath)) { return $false }
@@ -1680,8 +1695,8 @@ function Test-CubismCompatibleGraalJava {
         $item = Get-Item -LiteralPath $release -Force -ErrorAction Stop
         if ($item.Length -gt 65536) { return $false }
         $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop
-        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM[^"]*"\s*$' -and
-            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.[^"]*"\s*$'
+        return $metadata -match '(?m)^GRAALVM_VERSION="[^"\r\n]+"\s*$' -and
+            $metadata -match '(?m)^JAVA_VERSION="[^"\r\n]+"\s*$'
     }
     catch { return $false }
 }
@@ -1691,7 +1706,11 @@ function Find-CubismGraalJava {
     if (-not [string]::IsNullOrWhiteSpace($ExplicitJava)) {
         $explicit = $ExplicitJava
         if (Test-Path -LiteralPath $explicit -PathType Container) {
-            $explicit = Join-Path $explicit "bin\java.exe"
+            $explicit = if ((Split-Path -Leaf $explicit) -ieq "bin") {
+                Join-Path $explicit "java.exe"
+            } else {
+                Join-Path $explicit "bin\java.exe"
+            }
         }
         if (-not (Test-CubismNormalFile $explicit)) { return "" }
         return [System.IO.Path]::GetFullPath($explicit)
@@ -1706,10 +1725,18 @@ function Find-CubismGraalJava {
     if (-not [string]::IsNullOrWhiteSpace($env:GRAALVM_HOME)) {
         $candidates += (Join-Path $env:GRAALVM_HOME "bin\java.exe")
     }
+    $configured = Read-CubismGraalVmPath -TurboismHome $TurboismHome
+    if (-not [string]::IsNullOrWhiteSpace($configured)) { $candidates += $configured }
     foreach ($candidate in $candidates) {
         if ([string]::IsNullOrWhiteSpace($candidate)) { continue }
         $path = $candidate
-        if (Test-Path -LiteralPath $path -PathType Container) { $path = Join-Path $path "bin\java.exe" }
+        if (Test-Path -LiteralPath $path -PathType Container) {
+            $path = if ((Split-Path -Leaf $path) -ieq "bin") {
+                Join-Path $path "java.exe"
+            } else {
+                Join-Path $path "bin\java.exe"
+            }
+        }
         if (-not (Test-CubismCompatibleGraalJava $path)) { continue }
         return [System.IO.Path]::GetFullPath($path)
     }
@@ -1868,7 +1895,7 @@ function New-CubismManagedOptionsBat {
         )
     }
     else { $managedOptions += "-Dturboism.graal.enabled=false" }
-    $managedOptions += @(Get-CubismManagedJdkExportTokens)
+    $managedOptions += @(Get-CubismManagedJdkOptionTokens)
     if (@($managedOptions | Where-Object { $_ -match '[\r\n"&|<>^%!`]' }).Count -gt 0) {
         throw "managed Cubism JVM option contains an unsupported BAT character"
     }

@@ -67,6 +67,7 @@ turboism.*.config.json
 00_MASTER_PROMPT_v2.md
 CONTEXT.md
 FILE_MANIFEST.md
+HOST_VALIDATION_SCHEDULING.md
 INITIALIZE.md
 
 # 验证 artifact 目录（本机工作流产物，不入库）

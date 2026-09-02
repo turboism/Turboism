@@ -50,14 +50,11 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
 
     @FunctionalInterface
     interface Sink {
+        Sink NONE = (level, component, message, failure) -> { };
         Sink STDERR = (level, component, message, failure) ->
             System.err.println("[" + level + "][" + component + "] " + message);
 
-        /**
-         * Writes one record to the host logger. The sink receives structured fields rather than the
-         * session-file line so the host's own appender remains the sole owner of timestamps and
-         * level prefixes.
-         */
+        /** Writes one structured record to an optional secondary sink. */
         void write(Level level, String component, String message, Throwable failure);
 
         default void close() {}
@@ -173,7 +170,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * above TRACE.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      */
     public void trace(final String component, final String message) {
         write(Level.TRACE, component, message, null);
@@ -183,7 +180,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * Records a DEBUG-level line. Dropped when the minimum level is above DEBUG.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      */
     public void debug(final String component, final String message) {
         write(Level.DEBUG, component, message, null);
@@ -193,7 +190,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * Records an INFO-level line, which is the default threshold.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      */
     public void info(final String component, final String message) {
         write(Level.INFO, component, message, null);
@@ -203,7 +200,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * Records a WARN-level line.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      */
     public void warn(final String component, final String message) {
         write(Level.WARN, component, message, null);
@@ -216,7 +213,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * propagates an exception to its caller.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      * @param failure throwable to attach, or null to write the line alone
      */
     public void error(final String component, final String message, final Throwable failure) {
@@ -228,7 +225,7 @@ public final class PreviewLog implements AutoCloseable, RuntimeLogReader {
      * The cause chain is handled exactly as in {@link #error}.
      *
      * @param component short subsystem tag included in the line
-     * @param message the text; sanitized before it reaches the file, the sink and stdout
+     * @param message the text; sanitized before it reaches the framework file and optional sink
      * @param failure throwable to attach, or null to write the line alone
      */
     public void fatal(final String component, final String message, final Throwable failure) {

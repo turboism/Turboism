@@ -30,11 +30,10 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
         this.bindings = List.copyOf(Objects.requireNonNull(bindings, "bindings"));
         if (this.bindings.isEmpty()) throw new IllegalArgumentException("bindings must not be empty");
         this.expectedClassLoader = expectedClassLoader;
-        System.out.println("LIFECYCLE-TRANSFORM:bindings=" + this.bindings.size());
-        for (Binding binding : this.bindings) {
-            System.out.println("LIFECYCLE-TRANSFORM:binding owner=" + binding.ownerInternalName()
-                + " method=" + binding.methodName() + " desc=" + binding.descriptor());
-        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            "lifecycle",
+            "Prepared verified lifecycle transformer with " + this.bindings.size() + " bindings"
+        );
     }
 
     @Override
@@ -81,8 +80,10 @@ public final class ProjectLifecycleNativeMethodTransformer implements ClassFileT
                     .orElse(null);
                 if (binding == null) return delegate;
                 transformed[0] = true;
-                System.out.println("LIFECYCLE-TRANSFORM:class=" + className + " method=" + name
-                    + " desc=" + descriptor);
+                dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "lifecycle",
+                    "Installed one verified lifecycle transform"
+                );
                 return instrument(delegate, binding);
             }
         }, ClassReader.EXPAND_FRAMES);

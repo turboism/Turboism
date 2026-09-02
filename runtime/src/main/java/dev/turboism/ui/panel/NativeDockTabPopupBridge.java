@@ -35,7 +35,7 @@ public final class NativeDockTabPopupBridge {
      *
      * <p>Fail-closed: with no handler installed, or a {@code null} argument, the native menu is
      * left exactly as the host built it. A handler that throws — including an {@link Error} — is
-     * caught and logged to {@code System.err} so a broken augmentation cannot take the host popup
+     * caught and routed to Turboism diagnostics so a broken augmentation cannot take the host popup
      * down with it.
      *
      * @param menu the native popup menu being built
@@ -49,9 +49,10 @@ public final class NativeDockTabPopupBridge {
         try {
             handler.augment(menu, palette);
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism dock-tab popup augmentation failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "floating-panels",
+                "Dock-tab popup augmentation failed safely",
+                failure
             );
         }
     }

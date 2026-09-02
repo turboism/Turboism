@@ -5,8 +5,8 @@ import java.lang.reflect.Method;
 import java.util.Locale;
 import java.util.Objects;
 
-/** Routes Turboism records through Cubism's existing Log4j2 context and appenders. */
-final class CubismLoggerBridge implements PreviewLog.Sink {
+/** Routes only concise Turboism notices through Cubism's existing Log4j2 context. */
+final class CubismLoggerBridge {
 
     private static final String LOGGER_NAME = "dev.turboism";
 
@@ -47,8 +47,7 @@ final class CubismLoggerBridge implements PreviewLog.Sink {
         return new CubismLoggerBridge(logger, methods, cleanup);
     }
 
-    @Override
-    public void write(
+    void write(
         final PreviewLog.Level level,
         final String component,
         final String message,
@@ -69,8 +68,7 @@ final class CubismLoggerBridge implements PreviewLog.Sink {
         }
     }
 
-    @Override
-    public void close() {
+    void close() {
         cleanup.run();
     }
 
@@ -98,7 +96,10 @@ final class CubismLoggerBridge implements PreviewLog.Sink {
         try {
             setLevel.invoke(null, LOGGER_NAME, level);
         } catch (ReflectiveOperationException | RuntimeException | LinkageError exception) {
-            System.err.println("Turboism could not restore the Cubism logger level: " + exception.getMessage());
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "native-notice",
+                "Cubism logger level restoration was unavailable"
+            );
         }
     }
 

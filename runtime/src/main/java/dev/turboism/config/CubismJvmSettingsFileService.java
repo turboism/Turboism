@@ -96,23 +96,69 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public String graalVmPath() {
+        final JsonNode value = config.read().path("launcher").path("graalVmPath");
+        return value.isTextual() ? value.asText() : "";
+    }
+
+    @Override
+    public String saveGraalVmPath(final String value) {
+        final String requested = Objects.requireNonNullElse(value, "").trim();
+        final String persisted;
+        if (requested.isEmpty()) {
+            persisted = "";
+        } else {
+            final Optional<Path> compatible = compatibleGraalVmPath(requested);
+            if (compatible.isEmpty()) {
+                throw new IllegalArgumentException(
+                    "GraalVM path must identify a GraalVM installation"
+                );
+            }
+            persisted = Paths.get(requested).toAbsolutePath().normalize().toString();
+        }
+        config.update(root -> {
+            if (persisted.isEmpty()) {
+                root.withObject("launcher").remove("graalVmPath");
+            } else {
+                root.withObject("launcher").put("graalVmPath", persisted);
+            }
+            return root;
+        });
+        return persisted;
+    }
+
+    @Override
+    public boolean graalVmPathCompatible(final String value) {
+        return value == null || value.isBlank() || compatibleGraalVmPath(value).isPresent();
+    }
+
+    @Override
     public Optional<Path> graalVmJava() {
         if (turboismHome == null) return Optional.empty();
-        final List<Path> candidates = new ArrayList<>();
-        addExecutable(candidates, environment.get("TURBOISM_CUBISM_JAVA"));
-        final Optional<Path> explicit = candidates.stream()
-            .map(path -> path.toAbsolutePath().normalize())
-            .filter(CubismJvmSettingsFileService::compatibleGraalVmExecutable)
-            .findFirst();
+        final Optional<Path> explicit = compatibleGraalVmPath(
+            environment.get("TURBOISM_CUBISM_JAVA")
+        );
         if (explicit.isPresent()) return explicit;
         if (managedRuntime != null) {
             final Optional<Path> managed = managedRuntime.managedJavaExecutableIfReady();
             if (managed.isPresent()) return managed;
         }
-        candidates.clear();
+        final List<Path> candidates = new ArrayList<>();
         candidates.add(turboismHome.resolve("graalvm/bin/java.exe"));
         addHome(candidates, environment.get("TURBOISM_GRAALVM_HOME"));
         addHome(candidates, environment.get("GRAALVM_HOME"));
+        final Optional<Path> discovered = candidates.stream()
+            .map(path -> path.toAbsolutePath().normalize())
+            .filter(CubismJvmSettingsFileService::compatibleGraalVmExecutable)
+            .findFirst();
+        return discovered.isPresent()
+            ? discovered
+            : compatibleGraalVmPath(graalVmPath());
+    }
+
+    private static Optional<Path> compatibleGraalVmPath(final String raw) {
+        final List<Path> candidates = new ArrayList<>();
+        addExecutable(candidates, raw);
         return candidates.stream()
             .map(path -> path.toAbsolutePath().normalize())
             .filter(CubismJvmSettingsFileService::compatibleGraalVmExecutable)
@@ -123,9 +169,14 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         if (raw == null || raw.isBlank()) return;
         try {
             final Path path = Paths.get(raw.trim());
-            candidates.add(Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)
-                ? path.resolve("bin/java.exe")
-                : path);
+            if (!Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS)) {
+                candidates.add(path);
+            } else if (path.getFileName() != null
+                && path.getFileName().toString().equalsIgnoreCase("bin")) {
+                candidates.add(path.resolve("java.exe"));
+            } else {
+                candidates.add(path.resolve("bin/java.exe"));
+            }
         } catch (RuntimeException ignored) {
             // An invalid environment path is unavailable, not an alternate authority.
         }
@@ -155,9 +206,8 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
         try {
             if (Files.size(release) > 64 * 1024) return false;
             final String metadata = Files.readString(release, StandardCharsets.UTF_8);
-            return releaseValue(metadata, "IMPLEMENTOR").orElse("").equals("GraalVM Community")
-                && releaseValue(metadata, "GRAALVM_VERSION").orElse("").equals("25.2.4")
-                && releaseValue(metadata, "JAVA_VERSION").orElse("").equals("25.0.4");
+            return !releaseValue(metadata, "GRAALVM_VERSION").orElse("").isBlank()
+                && !releaseValue(metadata, "JAVA_VERSION").orElse("").isBlank();
         } catch (IOException | RuntimeException ignored) {
             return false;
         }

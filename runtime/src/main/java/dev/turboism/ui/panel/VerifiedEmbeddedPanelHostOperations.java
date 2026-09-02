@@ -606,9 +606,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             }
             return traversal.containsComponent(resolver.invoke(ROOT_COMPONENT, rootContainer), box);
         } catch (RuntimeException failure) {
-            System.err.println(
-                "Turboism original dock box tree validation failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "floating-panels",
+                "Original dock box tree validation failed safely",
+                failure
             );
             return false;
     }
@@ -628,8 +629,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         // Idempotent docking: skip when the palette is already in the target box,
         // which can happen when the tab close and the frame dispose both fire.
         if (paletteBoxContains(targetBox, panel.palette())) {
-            System.err.println(
-                "Turboism dock entry skipped: palette already docked in target box"
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "floating-panels",
+                "Dock entry skipped because the panel is already docked"
             );
             return;
         }
@@ -715,9 +717,10 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             try {
                 mergeDisposedFrameEntries(frame, entries);
             } catch (RuntimeException | Error failure) {
-                System.err.println(
-                    "Turboism floating-frame merge failed safely: "
-                        + failure.getClass().getName() + ": " + failure.getMessage()
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "floating-panels",
+                    "Floating-frame merge failed safely",
+                    failure
                 );
             }
         }));
@@ -781,9 +784,9 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             }
             final NativePanel panel = nativePanel(palette);
             final Object workspace = currentWorkspace(panel.dock());
-            System.err.println(
-                "Turboism floating-tab close: docking palette class=" + palette.getClass().getName()
-                    + " frame=" + floating.frame().getClass().getName()
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "floating-panels",
+                "Docking one closed floating panel"
             );
             dockEntry(
                 workspace,

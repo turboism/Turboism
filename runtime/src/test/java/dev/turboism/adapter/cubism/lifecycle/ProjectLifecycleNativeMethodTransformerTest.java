@@ -18,7 +18,10 @@ import org.objectweb.asm.Label;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.List;
@@ -28,10 +31,45 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ProjectLifecycleNativeMethodTransformerTest {
 
     private static final String OWNER = "fixture/LifecycleHost";
+
+    @Test
+    void transformationDoesNotPrintHostClassMethodOrDescriptorIdentities() {
+        final PrintStream originalOut = System.out;
+        final PrintStream originalErr = System.err;
+        final ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        try (PrintStream stream = new PrintStream(captured, true, StandardCharsets.UTF_8)) {
+            System.setOut(stream);
+            System.setErr(stream);
+            final ProjectLifecycleNativeMethodTransformer transformer =
+                new ProjectLifecycleNativeMethodTransformer(
+                    List.of(ProjectLifecycleNativeMethodTransformer.Binding.editorExit(
+                        OWNER,
+                        "exit",
+                        "()Z"
+                    )),
+                    null
+                );
+            assertNotNull(transformer.transform(
+                null,
+                null,
+                OWNER,
+                null,
+                null,
+                fixtureClass()
+            ));
+        } finally {
+            System.setOut(originalOut);
+            System.setErr(originalErr);
+        }
+
+        final String output = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(output.isEmpty(), () -> "unexpected native-console output: " + output);
+    }
 
     @Test
     void transformedMethodsPublishNormalRejectedAndExceptionalLifecycleResults() throws Exception {

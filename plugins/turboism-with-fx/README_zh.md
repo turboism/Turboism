@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turboism-with-fx
 version: 0.1.0
 kind: feature
-status: preview
-delivery: store-candidate
+status: development
+delivery: development-only
 category: integration
 tags: automation, fx, agent
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Turboism with fx
 
-> **Turboism 官方插件** · **状态：预览**
+> **Turboism 官方插件** · **状态：开发中——暂不发布**
 
 Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent Client Protocol (ACP) v1 and authenticated loopback MCP. Full products carry managed runtimes outside the plugin JAR under `runtimes/fx/0.0.5/<platform>/`: official upstream payloads on Linux/macOS and a Turboism product payload on Windows x64.
 
@@ -55,9 +55,9 @@ The reviewed fx release exposes only `--model` and `--log-file` for `fx acp`. It
 
 ## 安装与启用
 
-This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication:
+此插件在已知问题修复完成前仅供开发使用，不随 Turboism 版本捆绑，也不进入插件目录发布。
 
-1. Use Full to install the matching fx runtime and notices under `runtimes/fx/0.0.5/<platform>/`. Windows x64 Full uses the bundled Turboism product payload; Thin has no managed runtime bytes and Lite does not install this plugin.
+1. 从源码构建插件 JAR，并且仅在开发环境中手动安装。Full、Thin 和 Lite 发布包均不包含此插件 JAR。
 2. 在插件管理中启用 **Turboism with fx**，然后在任何 ACP 连接之前打开 **Turboism → fx 设置**。在 Runtime 页面选择 Vercel AI Gateway、Codex、Grok 或 Gateway API 密钥设置对应的 fx shell 操作。Turboism 会在独立终端中启动经验证的托管/自定义可执行文件；凭据仍由 fx 所有，绝不会写入运行时载荷或 Turboism 配置。
 3. 在连接 Agent 前启用 **Turboism MCP Server**。ACP Agent 会话需要 MCP，但打开设置和 fx shell 不需要 MCP。
 4. 准备连接时，选择 Cubism 主工具栏中紧靠 **Turboism Home** 左侧的 **fx** 图标。
@@ -122,7 +122,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 ## 状态与限制
 
-- **Status:** Preview.
+- **状态：** 开发中；暂不发布。
 - Strict MCP-only mode fails closed because fx v0.0.5 has no supported native-tool disable control.
 - Compatibility mode is not strict confinement: fx native file, terminal, search, and fetch tools remain available.
 - Read-oriented native tools may not request approval in every case. Do not enable compatibility mode where fx must be confined to MCP.

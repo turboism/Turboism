@@ -1122,8 +1122,7 @@ REMOTE
 fi
 
 all_jvm_options=(
-  '--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED'
-  '--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED'
+  '-Djava.locale.providers=CLDR,SPI'
   "-Dturboism.home=$win_home"
   "-Dturboism.validation.runId=$task_id"
   "-Dturboism.validation.hostVersion=$version"

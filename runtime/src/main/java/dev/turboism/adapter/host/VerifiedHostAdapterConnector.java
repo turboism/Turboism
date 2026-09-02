@@ -598,17 +598,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     }
 
     private static void diag(final String message) {
-        final String line = "TURBOISM_TOOLBAR_DIAG " + message + "\n";
-        System.err.print(line);
-        try {
-            java.nio.file.Files.write(
-                java.nio.file.Path.of("Z:\\tmp\\turboism-toolbar-diag.txt"),
-                line.getBytes(java.nio.charset.StandardCharsets.UTF_8),
-                java.nio.file.StandardOpenOption.CREATE,
-                java.nio.file.StandardOpenOption.APPEND
-            );
-        } catch (Exception ignored) {
-        }
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug("toolbar", message);
     }
 
     private ToolbarMaterial toolbarMaterial(final HostVerificationEvidence evidence) throws Exception {
@@ -616,11 +606,10 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             || mainToolbarResolverFactory == null
             || editorUiPluginResources == null
             || editorUiActionRouter == null) {
-            System.err.println("TURBOISM_TOOLBAR_DIAG toolbarMaterial=null mainToolbarEmpty="
-                + evidence.mainToolbar().isEmpty()
-                + " factory=" + (mainToolbarResolverFactory != null)
-                + " resources=" + (editorUiPluginResources != null)
-                + " router=" + (editorUiActionRouter != null));
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "toolbar",
+                "Main toolbar integration is unavailable"
+            );
             return null;
         }
         final HostVerificationEvidence.Slice slice = evidence.mainToolbar().orElseThrow();

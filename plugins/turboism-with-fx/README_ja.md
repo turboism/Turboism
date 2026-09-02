@@ -3,8 +3,8 @@ turboismReadmeSchema: 1
 pluginId: dev.turboism.plugin.turboism-with-fx
 version: 0.1.0
 kind: feature
-status: preview
-delivery: store-candidate
+status: development
+delivery: development-only
 category: integration
 tags: automation, fx, agent
 turboismApi: "[0.1.0,0.2.0)"
@@ -14,7 +14,7 @@ interface: swing
 
 # Turboism with fx
 
-> **Turboism 公式プラグイン** · **ステータス: プレビュー**
+> **Turboism 公式プラグイン** · **ステータス: 開発中 — 未公開**
 
 Opens separate Agent and Settings windows and connects fx v0.0.5 through Agent Client Protocol (ACP) v1 and authenticated loopback MCP. Full products carry managed runtimes outside the plugin JAR under `runtimes/fx/0.0.5/<platform>/`: official upstream payloads on Linux/macOS and a Turboism product payload on Windows x64.
 
@@ -54,9 +54,9 @@ The reviewed fx release exposes only `--model` and `--log-file` for `fx acp`. It
 
 ## インストールと有効化
 
-This official plugin is a **store candidate**, not yet a published store listing. Until marketplace publication:
+既知の不具合が解消されるまで、このプラグインは開発専用です。Turboism リリースには同梱されず、Plugin Directory の公開対象にもなりません。
 
-1. Use Full to install the matching fx runtime and notices under `runtimes/fx/0.0.5/<platform>/`. Windows x64 Full uses the bundled Turboism product payload; Thin has no managed runtime bytes and Lite does not install this plugin.
+1. ソースからプラグイン JAR をビルドし、開発環境にのみ手動でインストールします。Full、Thin、Lite の各リリースパッケージには、このプラグイン JAR は含まれません。
 2. Plugin Management で **Turboism with fx** を有効にし、ACP 接続前に **Turboism → fx 設定** を開きます。Runtime ページで Vercel AI Gateway、Codex、Grok、または Gateway API キー設定用の fx shell 操作を選びます。Turboism は検証済みの管理/カスタム実行ファイルを別ターミナルで起動し、認証情報は fx が所有したままで Turboism 設定には保存されません。
 3. Agent を接続する前に **Turboism MCP Server** を有効にします。ACP Agent セッションには MCP が必要ですが、設定や fx shell を開くためには必要ありません。
 4. 接続準備ができたら、Cubism メインツールバーで **Turboism Home** のすぐ左にある **fx** アイコンを選びます。
@@ -121,7 +121,7 @@ Plugin lifecycle and failure records can appear in Turboism's session log and Cu
 
 ## 状態と制限
 
-- **Status:** Preview.
+- **ステータス:** 開発中。未公開。
 - Strict MCP-only mode fails closed because fx v0.0.5 has no supported native-tool disable control.
 - Compatibility mode is not strict confinement: fx native file, terminal, search, and fetch tools remain available.
 - Read-oriented native tools may not request approval in every case. Do not enable compatibility mode where fx must be confined to MCP.

@@ -116,9 +116,10 @@ public final class NativeFileChooserHistoryBridge {
                 List.of(directory.orElseThrow().toFile())
             );
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism file-chooser history apply failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "file-chooser",
+                "File-chooser history apply failed safely",
+                failure
             );
         }
     }
@@ -138,9 +139,10 @@ public final class NativeFileChooserHistoryBridge {
                 service.setProjectRecentDirectory(history.get(0).toPath());
             }
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism file-chooser history capture failed safely: "
-                    + failure.getClass().getName() + ": " + failure.getMessage()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "file-chooser",
+                "File-chooser history capture failed safely",
+                failure
             );
         }
     }

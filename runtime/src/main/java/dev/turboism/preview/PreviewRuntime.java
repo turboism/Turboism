@@ -141,6 +141,7 @@ public final class PreviewRuntime implements AutoCloseable {
 
             @Override
             public void closeLog() throws IOException {
+                dev.turboism.runtime.log.RuntimeDiagnostics.clear();
                 log.close();
             }
         };
@@ -248,27 +249,21 @@ public final class PreviewRuntime implements AutoCloseable {
             hostClassLoader,
             "hostClassLoader"
         );
-        PreviewLog.Sink hostLogSink;
-        String hostLogFailure;
-        try {
-            hostLogSink = CubismLoggerBridge.connect(verifiedHostClassLoader);
-            hostLogFailure = null;
-        } catch (ReflectiveOperationException | LinkageError | SecurityException failure) {
-            hostLogSink = PreviewLog.Sink.STDERR;
-            hostLogFailure = failure.getClass().getSimpleName() + ": " + failure.getMessage();
-        }
-        final PreviewLog log;
-        try {
-            log = PreviewLog.openSession(
-                layout.runtimeLogsDir(),
-                Clock.systemUTC(),
-                ProcessHandle.current().pid(),
-                hostLogSink
-            );
-        } catch (IOException failure) {
-            hostLogSink.close();
-            throw failure;
-        }
+        final PreviewLog log = PreviewLog.openSession(
+            layout.runtimeLogsDir(),
+            Clock.systemUTC(),
+            ProcessHandle.current().pid(),
+            PreviewLog.Sink.NONE
+        );
+        dev.turboism.runtime.log.RuntimeDiagnostics.install((level, component, message, failure) -> {
+            switch (level) {
+                case TRACE -> log.trace(component, message);
+                case DEBUG -> log.debug(component, message);
+                case INFO -> log.info(component, message);
+                case WARN -> log.warn(component, message);
+                case ERROR -> log.error(component, message, failure);
+            }
+        });
         RuntimeScheduler scheduler = null;
         HostRuntimeIngress ingress = null;
         LocalPluginRuntime plugins = null;
@@ -290,9 +285,6 @@ public final class PreviewRuntime implements AutoCloseable {
             log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
                 dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
             ));
-            if (hostLogFailure != null) {
-                log.warn("runtime", "Cubism logger bridge unavailable; using stderr: " + hostLogFailure);
-            }
             log.info("runtime", "Starting Turboism 0.1 Developer Preview at " + home);
             startupTimer.completed("configuration", message -> log.info("startup", message));
             // Inject the persisted theme before the Cubism GL scene initializes so
@@ -464,6 +456,7 @@ public final class PreviewRuntime implements AutoCloseable {
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner();
+            publishNativeStartupNotice(verifiedHostClassLoader, log);
             startupTimer.completed("reports-and-banner", message -> log.info("startup", message));
             return runtime;
         } catch (RuntimeException | Error failure) {
@@ -557,6 +550,32 @@ public final class PreviewRuntime implements AutoCloseable {
         log.error(component, message, failure);
     }
 
+    private static void publishNativeStartupNotice(
+        final ClassLoader hostClassLoader,
+        final PreviewLog log
+    ) {
+        CubismLoggerBridge bridge = null;
+        try {
+            bridge = CubismLoggerBridge.connect(hostClassLoader);
+            bridge.write(
+                PreviewLog.Level.INFO,
+                "runtime",
+                "Turboism started. Open Turboism Logs for framework details.",
+                null
+            );
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
+            log.debug("runtime", "Native startup notice was unavailable");
+        } finally {
+            if (bridge != null) {
+                try {
+                    bridge.close();
+                } catch (RuntimeException | LinkageError failure) {
+                    log.debug("runtime", "Native startup logger cleanup was unavailable");
+                }
+            }
+        }
+    }
+
     private void publishStartupBanner() {
         final LocalPluginRuntime.StartupEnvironment environment =
             pluginRuntime.startupEnvironment();
@@ -569,13 +588,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final String graalJs = environment.discoveredScriptCount()
             + " discovered; host " + (graal.enabled() ? "available" : "unavailable");
         STARTUP_BANNER.publish(
-            List.of(
-                log::banner,
-                banner -> {
-                    System.out.println(banner);
-                    System.out.flush();
-                }
-            ),
+            List.of(log::banner),
             new StartupBanner.Details(
                 StartupBanner.frameworkVersion(),
                 System.getProperty("java.version", "unavailable"),
@@ -701,6 +714,7 @@ public final class PreviewRuntime implements AutoCloseable {
         if (scheduler != null) {
             scheduler.shutdown();
         }
+        dev.turboism.runtime.log.RuntimeDiagnostics.clear();
         try {
             log.close();
         } catch (IOException ignored) {
