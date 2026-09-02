@@ -2615,17 +2615,18 @@ final class EditorObjectReadAccess {
         ) {
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requireCurrentPartSource(source, parentSource);
-            final Object created = hierarchyEditAccess.createArtMeshSource(
+            final EditorObjectHierarchyEditAccess.CreatedSource created = hierarchyEditAccess.createArtMeshSource(
                 identity,
                 source,
                 model,
                 name,
                 parentSource,
+                false,
                 index,
                 geometry
             );
             return artMeshes(identity, source, model).stream()
-                .filter(ref -> ref.source() == created)
+                .filter(ref -> ref.source() == created.source())
                 .findFirst()
                 .map(ref -> (Drawable) new EditorDrawable(identity, source, model, ref))
                 .orElseThrow(() -> unavailable(
@@ -2653,11 +2654,19 @@ final class EditorObjectReadAccess {
         ) {
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requireCurrentPartSource(source, parentSource);
-            final Object created = hierarchyEditAccess.createWarpSource(
-                identity, source, model, name, parentSource, index, rows, columns
-            );
+            final EditorObjectHierarchyEditAccess.CreatedSource created =
+                hierarchyEditAccess.createWarpSource(
+                    identity,
+                    source,
+                    model,
+                    name,
+                    parentSource,
+                    false,
+                    index,
+                    EditorObjectHierarchyEditAccess.defaultWarpGrid(rows, columns)
+                );
             return deformerRefs(identity, source, model).stream()
-                .filter(ref -> ref.source() == created)
+                .filter(ref -> ref.source() == created.source())
                 .findFirst()
                 .map(ref -> (WarpDeformer) new EditorWarp(identity, source, model, ref))
                 .orElseThrow(() -> unavailable(
@@ -2670,11 +2679,19 @@ final class EditorObjectReadAccess {
         ) {
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requireCurrentPartSource(source, parentSource);
-            final Object created = hierarchyEditAccess.createRotationSource(
-                identity, source, model, name, parentSource, index
-            );
+            final EditorObjectHierarchyEditAccess.CreatedSource created =
+                hierarchyEditAccess.createRotationSource(
+                    identity,
+                    source,
+                    model,
+                    name,
+                    parentSource,
+                    false,
+                    index,
+                    new RotationDeformerForm(0F, 0F, 0F, 1F, false, false)
+                );
             return deformerRefs(identity, source, model).stream()
-                .filter(ref -> ref.source() == created)
+                .filter(ref -> ref.source() == created.source())
                 .findFirst()
                 .map(ref -> (RotationDeformer) new EditorRotation(identity, source, model, ref))
                 .orElseThrow(() -> unavailable(

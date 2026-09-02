@@ -357,6 +357,14 @@ final class McpExpandedProtocolTest {
             )));
             assertEquals(1, list(diagnosticPrompt.get("messages")).size());
         }
+        final Map<String, Object> repairPrompt = result(protocol.handle(request(
+            60, "prompts/get", Map.of("name", "repair_parameter_bindings")
+        )));
+        final String repairText = (String) object(object(
+            list(repairPrompt.get("messages")).get(0)
+        ).get("content")).get("text");
+        assertTrue(repairText.contains("turboism://active/model/parameter-bindings"));
+        assertTrue(repairText.contains("turboism://active/model/parameters/{parameterId}/bindings"));
 
         final Map<String, Object> missingEnvelope = object(protocol.handle(request(
             5, "resources/read", Map.of("uri", "turboism://missing")

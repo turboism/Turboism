@@ -191,6 +191,19 @@ final class McpHttpServerIntegrationTest {
             ));
             assertEquals(Boolean.TRUE, applied.get("ok"));
             assertEquals(2L, integer(applied.get("succeeded")));
+            final List<Object> appliedResults = array(applied.get("results"));
+            final Map<String, Object> renameResult = object(
+                object(appliedResults.get(0)).get("result")
+            );
+            assertEquals("APPLIED", renameResult.get("outcome"));
+            assertEquals(Boolean.FALSE, renameResult.get("retryable"));
+            final Map<String, Object> createResult = object(
+                object(appliedResults.get(1)).get("result")
+            );
+            assertEquals("APPLIED", createResult.get("outcome"));
+            assertEquals("Generated1", createResult.get("createdObjectId"));
+            assertEquals("warp_deformer", createResult.get("kind"));
+            assertEquals(Boolean.FALSE, createResult.get("retryable"));
             assertEquals("Head Renamed", objects.find(ModelObjectKind.PART, "PartHead").name());
             assertInstanceOf(ModelObjectCreateRequest.WarpDeformer.class, objects.lastCreate);
             final ModelObjectCreateRequest.WarpDeformer warp =
@@ -203,7 +216,7 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 4, "method", "resources/list")
             );
-            assertEquals(13, array(result(resources).get("resources")).size());
+            assertEquals(15, array(result(resources).get("resources")).size());
             final HttpResponse<byte[]> document = request(
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of(
@@ -414,7 +427,7 @@ final class McpHttpServerIntegrationTest {
             new CapturingLogger(), new MutableObjects(), new FakeReadServices()
         ));
         try {
-            final String olderVersion = "2025-06-18";
+            final String olderVersion = "2025-03-26";
             final HttpResponse<byte[]> initialize = request(
                 server.endpoint(), TOKEN, null, null, null, Map.of(
                     "jsonrpc", "2.0", "id", 1, "method", "initialize",
@@ -553,10 +566,78 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
-    void returnsStableToolErrorWhenStructuralProviderIsUnavailable() throws Exception {
-        final ModelObjectService unavailable = new MutableObjects() {
+    void committedCreateReturnsStableIdAndReadbackWarningWithoutInvitingRetry() throws Exception {
+        final ModelObjectReference committed = new ModelObjectReference(
+            ModelObjectKind.PART,
+            "PartCommitted"
+        );
+        final ModelObjectService objects = new MutableObjects() {
             @Override public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
                 throw new ModelObjectOperationException(
+                    ModelObjectOperationException.Code.COMMITTED,
+                    "descriptor readback failed",
+                    new IllegalStateException("readback unavailable"),
+                    Optional.of(committed)
+                );
+            }
+        };
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), objects, new FakeReadServices()
+        ));
+        try {
+            final HttpResponse<byte[]> response = toolCall(
+                server.endpoint(),
+                60,
+                McpProductionDomainCatalog.APPLY,
+                Map.of("operations", List.of(Map.of(
+                    "operation", "create",
+                    "kind", "part",
+                    "name", "Committed Part"
+                )))
+            );
+            final Map<String, Object> envelope = object(result(response));
+            assertEquals(Boolean.FALSE, envelope.get("isError"));
+            final Map<String, Object> batch = object(envelope.get("structuredContent"));
+            assertEquals(Boolean.TRUE, batch.get("ok"));
+            final Map<String, Object> result = object(
+                object(array(batch.get("results")).get(0)).get("result")
+            );
+            assertEquals("APPLIED_WITH_READBACK_WARNING", result.get("outcome"));
+            assertEquals(Boolean.FALSE, result.get("retryable"));
+            assertEquals("PartCommitted", result.get("createdObjectId"));
+            assertEquals("part", result.get("kind"));
+            assertEquals("descriptor readback failed", result.get("readbackWarning"));
+            assertNotNull(result.get("diagnosticId"));
+
+            final Map<String, Object> diagnostics = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, SESSIONS.get(server.endpoint()),
+                Map.of(
+                    "jsonrpc", "2.0", "id", 61, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS)
+                )
+            ));
+            final Map<String, Object> event = object(array(diagnostics.get("events")).get(0));
+            assertEquals(result.get("diagnosticId"), event.get("diagnosticId"));
+            assertEquals("create", event.get("operation"));
+            assertEquals("APPLIED_WITH_READBACK_WARNING", event.get("outcome"));
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void returnsStableToolErrorWhenStructuralProviderIsUnavailable() throws Exception {
+        final ModelObjectService unavailable = new MutableObjects() {
+            @Override public List<ModelObjectDescriptor> list() {
+                throw unavailable();
+            }
+
+            @Override public ModelObjectDescriptor create(final ModelObjectCreateRequest request) {
+                throw unavailable();
+            }
+
+            private ModelObjectOperationException unavailable() {
+                return new ModelObjectOperationException(
                     ModelObjectOperationException.Code.UNAVAILABLE,
                     "structural provider is not verified"
                 );
@@ -583,10 +664,36 @@ final class McpHttpServerIntegrationTest {
             final Map<String, Object> structured = object(result.get("structuredContent"));
             assertEquals(Boolean.FALSE, structured.get("ok"));
             final Map<String, Object> operation = object(array(structured.get("results")).get(0));
+            final Map<String, Object> unavailableResult = object(operation.get("result"));
             assertEquals(
                 "UNAVAILABLE",
-                object(object(operation.get("result")).get("error")).get("code")
+                object(unavailableResult.get("error")).get("code")
             );
+            assertEquals("OUTCOME_UNKNOWN", unavailableResult.get("outcome"));
+            assertEquals(Boolean.FALSE, unavailableResult.get("retryable"));
+
+            final String sessionId = SESSIONS.get(server.endpoint());
+            final Map<String, Object> hierarchy = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 61, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.MODEL_HIERARCHY)
+                )
+            ));
+            assertEquals("UNAVAILABLE", hierarchy.get("availability"));
+            assertEquals(null, hierarchy.get("root"));
+            assertEquals("MODEL_HIERARCHY_PROVIDER_UNAVAILABLE", hierarchy.get("diagnosticCode"));
+
+            final Map<String, Object> overview = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 62, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.MODEL_OVERVIEW)
+                )
+            ));
+            assertEquals("UNAVAILABLE", overview.get("availability"));
+            assertEquals(null, overview.get("objects"));
+            assertEquals("MODEL_OBJECT_PROVIDER_UNAVAILABLE", overview.get("diagnosticCode"));
         } finally {
             server.close();
         }
@@ -595,16 +702,17 @@ final class McpHttpServerIntegrationTest {
     @Test
     void servesInspectionResourcesOverAuthenticatedLoopbackHttp() throws Exception {
         final FakeReadServices reads = new FakeReadServices();
-        final HierarchyNode root = new HierarchyNode(
-            new ModelObjectId("ModelRoot"), "Model Root", HierarchyNode.Kind.MODEL,
-            Optional.empty(), List.of(new ModelObjectId("PartBody"))
-        );
-        final HierarchyNode part = new HierarchyNode(
-            new ModelObjectId("PartBody"), "Body", HierarchyNode.Kind.PART,
-            Optional.of(new ModelObjectId("ModelRoot")), List.of()
-        );
-        reads.hierarchy.put(root);
-        reads.hierarchy.put(part);
+        final MutableObjects objects = new MutableObjects();
+        objects.put(new ModelObjectDescriptor(
+            new ModelObjectReference(ModelObjectKind.PART, "PartBody"),
+            "Body",
+            Optional.empty()
+        ));
+        objects.put(new ModelObjectDescriptor(
+            new ModelObjectReference(ModelObjectKind.ART_MESH, "ArtMeshFace"),
+            "Face",
+            Optional.of(new ModelObjectReference(ModelObjectKind.PART, "PartBody"))
+        ));
         reads.clipMasks.add(new ClipMaskRecord(
             "guid-face", "ArtMeshFace", "Face", false, List.of("guid-mask")
         ));
@@ -622,7 +730,7 @@ final class McpHttpServerIntegrationTest {
         reads.read.model(model);
 
         final McpHttpServer server = McpHttpServer.start(dependencies(
-            new CapturingLogger(), new MutableObjects(), reads
+            new CapturingLogger(), objects, reads
         ));
         try {
             ensureSession(server.endpoint());
@@ -631,7 +739,7 @@ final class McpHttpServerIntegrationTest {
                 server.endpoint(), TOKEN, null, true, sessionId,
                 Map.of("jsonrpc", "2.0", "id", 10, "method", "resources/list")
             );
-            assertEquals(13, array(result(listed).get("resources")).size());
+            assertEquals(15, array(result(listed).get("resources")).size());
 
             final Map<String, Object> workspaceResource = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,
@@ -660,9 +768,27 @@ final class McpHttpServerIntegrationTest {
                     "params", Map.of("uri", McpDiagnosticsDomain.DIAGNOSTICS)
                 )
             ));
-            assertEquals("1970-01-01T00:00:00Z", diagnosticsResource.get("createdAt"));
+            assertEquals("startup", diagnosticsResource.get("kind"));
+            assertEquals("turboism", diagnosticsResource.get("provider"));
+            assertEquals(null, diagnosticsResource.get("createdAt"));
+            assertTrue(diagnosticsResource.containsKey("asOf"));
             assertEquals(List.of(), diagnosticsResource.get("problems"));
             assertEquals(Boolean.FALSE, diagnosticsResource.get("truncated"));
+
+            final Map<String, Object> runtimeDiagnostics = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 103, "method", "resources/read",
+                    "params", Map.of("uri", McpDiagnosticsDomain.RUNTIME_DIAGNOSTICS)
+                )
+            ));
+            assertEquals("runtime", runtimeDiagnostics.get("kind"));
+            assertEquals("turboism-mcp", runtimeDiagnostics.get("provider"));
+            assertFalse(runtimeDiagnostics.containsKey("createdAt"));
+            assertTrue(runtimeDiagnostics.containsKey("asOf"));
+            assertEquals(List.of(), runtimeDiagnostics.get("events"));
+            assertEquals(Boolean.FALSE, runtimeDiagnostics.get("truncated"));
+            assertEquals(0L, integer(runtimeDiagnostics.get("dropped")));
 
             final Map<String, Object> documentResource = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,
@@ -681,7 +807,24 @@ final class McpHttpServerIntegrationTest {
                     "params", Map.of("uri", McpProductionDomainCatalog.MODEL_HIERARCHY)
                 )
             ));
-            assertEquals("ModelRoot", object(hierarchyResource.get("root")).get("id"));
+            final Map<String, Object> hierarchyRoot = object(hierarchyResource.get("root"));
+            assertEquals("AVAILABLE", hierarchyResource.get("availability"));
+            assertEquals("active-model", hierarchyRoot.get("id"));
+            final List<Object> hierarchyParts = array(hierarchyRoot.get("children"));
+            assertEquals(1, hierarchyParts.size());
+            assertEquals("PartBody", object(hierarchyParts.get(0)).get("id"));
+            assertEquals(1, array(object(hierarchyParts.get(0)).get("children")).size());
+
+            final Map<String, Object> overview = resourceJson(request(
+                server.endpoint(), TOKEN, null, true, sessionId,
+                Map.of(
+                    "jsonrpc", "2.0", "id", 120, "method", "resources/read",
+                    "params", Map.of("uri", McpProductionDomainCatalog.MODEL_OVERVIEW)
+                )
+            ));
+            assertEquals("AVAILABLE", overview.get("availability"));
+            assertEquals(2, array(overview.get("objects")).size());
+            assertEquals(overview.get("objects"), overview.get("modelObjects"));
 
             final Map<String, Object> masks = resourceJson(request(
                 server.endpoint(), TOKEN, null, true, sessionId,

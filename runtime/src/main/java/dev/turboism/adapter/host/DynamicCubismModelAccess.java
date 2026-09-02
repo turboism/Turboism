@@ -1,5 +1,7 @@
 package dev.turboism.adapter.host;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
+import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -23,6 +25,8 @@ import dev.turboism.sdk.cubism.model.WarpGrid;
 import dev.turboism.sdk.cubism.model.Glue;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.Glues;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
@@ -46,7 +50,7 @@ import java.util.function.Function;
 
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
 final class DynamicCubismModelAccess implements CubismModelAccess,
-    NativeLabelColorAuthoring {
+    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -104,6 +108,43 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         } finally {
             release(lease);
         }
+    }
+
+    @Override
+    public void requireCreateSupported(final ModelObjectCreateRequest request) {
+        final AccessLease lease = acquireActiveLease();
+        try {
+            createProvider(lease).requireCreateSupported(request);
+        } finally {
+            release(lease);
+        }
+    }
+
+    @Override
+    public ModelObjectReference createModelObject(
+        final CubismModel activeModel,
+        final ModelObjectCreateRequest request
+    ) {
+        if (!(activeModel instanceof SessionModel sessionModel)) {
+            throw staleFailure();
+        }
+        final AccessLease lease = acquireLease(sessionModel.generation);
+        try {
+            return createProvider(lease).createModelObject(sessionModel.delegate, request);
+        } finally {
+            release(lease);
+        }
+    }
+
+    private static RuntimeModelObjectCreateProvider createProvider(
+        final AccessLease lease
+    ) {
+        if (lease.modelAccess() instanceof RuntimeModelObjectCreateProvider provider) {
+            return provider;
+        }
+        throw new ModelObjectProviderUnavailableException(
+            "Model-object creation provider is unavailable for the active host session"
+        );
     }
 
     void connect(final CubismModelAccess modelAccess) {
