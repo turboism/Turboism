@@ -1,5 +1,6 @@
 package dev.turboism.ui.table;
 
+import dev.turboism.mapping.verification.HostArtifactDigest;
 import dev.turboism.sdk.ui.table.SceneTableService;
 
 import javax.swing.JTable;
@@ -7,24 +8,29 @@ import javax.swing.SwingUtilities;
 import javax.swing.event.MouseInputAdapter;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.JTableHeader;
-import java.awt.event.MouseEvent;
-import java.awt.Point;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Point;
 import java.awt.Window;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseListener;
+import java.awt.event.MouseMotionListener;
+import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 
-/** Exact 5.3.02 Scene palette host operations ported from the validated legacy path. */
+/** Exact-artifact Runtime Scene table bridge with fail-closed host member binding. */
 public final class SceneTableHostOperations implements RuntimeSceneTableService.Host,
     dev.turboism.ui.filter.PaletteFilterHostOperations.SceneFilterSink {
 
@@ -37,185 +43,265 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
     private static final String PALETTE_PROPERTY = "dev.turboism.scenePalette";
 
     private final RuntimeSceneTableService service;
+    private final ProfileLoader profileLoader;
+    private final PaletteLocator paletteLocator;
+    private final RetryScheduler retryScheduler;
+    private final AtomicLong connectionToken = new AtomicLong();
+    private volatile State state = State.DISCONNECTED;
     private volatile String filterText = "";
     private volatile List<Object> currentOrder;
+    private volatile Object currentOrderContent;
+    private volatile String currentOrderFile;
     private volatile Object palette;
+    private SceneTableHostProfile.Bound bindings;
     private JTable table;
     private MouseInputAdapter headerClickListener;
     private MouseInputAdapter rowDragListener;
     private SceneTableDragSupport.DragOverlay dragOverlay;
+    private final List<MouseListener> nativeMouseListeners = new ArrayList<>();
+    private final List<MouseMotionListener> nativeMotionListeners = new ArrayList<>();
+    private final Map<Integer, Object> originalHeaders = new LinkedHashMap<>();
     private boolean manualReordering;
-    private volatile long connectionToken;
+    private boolean detaching;
 
     public SceneTableHostOperations() {
+        this(
+            (artifact, loader) -> SceneTableHostProfile.forArtifact(
+                HostArtifactDigest.from(artifact)
+            ).map(profile -> profile.bind(loader)),
+            SceneTableHostOperations::resolvePalette,
+            (delay, operation) -> {
+                final javax.swing.Timer retry = new javax.swing.Timer(delay, ignored -> operation.run());
+                retry.setRepeats(false);
+                retry.start();
+            }
+        );
+    }
+
+    SceneTableHostOperations(
+        final ProfileLoader profileLoader,
+        final PaletteLocator paletteLocator,
+        final RetryScheduler retryScheduler
+    ) {
+        this.profileLoader = Objects.requireNonNull(profileLoader, "profileLoader");
+        this.paletteLocator = Objects.requireNonNull(paletteLocator, "paletteLocator");
+        this.retryScheduler = Objects.requireNonNull(retryScheduler, "retryScheduler");
         service = new RuntimeSceneTableService(this);
     }
 
-    /**
-     * @return the SDK-facing Scene table service backed by these host operations; created once in
-     *     the constructor and stable for the lifetime of this object, whether or not a native
-     *     palette is currently attached
-     */
     public RuntimeSceneTableService service() {
         return service;
     }
 
-    /** Resolves the Scene palette through the same controller path used by the legacy framework. */
-    public boolean connect(final ClassLoader hostClassLoader) {
-        final long token = ++connectionToken;
-        connect(hostClassLoader, token, 0);
-        return true;
+    /** Returns the current bridge connection state. */
+    public State state() {
+        return state;
     }
 
-    private void connect(final ClassLoader hostClassLoader, final long token, final int attempt) {
+    /**
+     * Admits and pre-binds one exact verified host artifact before Scene palette discovery starts.
+     * Unsupported artifacts and artifact-read or member-binding failures never enter polling.
+     */
+    public State connect(final Path verifiedArtifact, final ClassLoader hostClassLoader) {
+        Objects.requireNonNull(verifiedArtifact, "verifiedArtifact");
+        Objects.requireNonNull(hostClassLoader, "hostClassLoader");
+        final long token = connectionToken.incrementAndGet();
+        final Optional<SceneTableHostProfile.Bound> admitted;
+        try {
+            admitted = profileLoader.load(verifiedArtifact, hostClassLoader);
+        } catch (Exception | LinkageError failure) {
+            if (token == connectionToken.get()) state = State.FAILED;
+            detachForToken(token);
+            return state;
+        }
+        if (admitted.isEmpty()) {
+            if (token == connectionToken.get()) state = State.UNSUPPORTED;
+            detachForToken(token);
+            return state;
+        }
+        final SceneTableHostProfile.Bound bound = admitted.orElseThrow();
+        if (token != connectionToken.get()) return state;
+        state = State.CONNECTING;
         onEdt(() -> {
-            if (token != connectionToken) return;
-            final Object nativePalette = resolvePalette(hostClassLoader);
-            if (nativePalette != null && attachNow(nativePalette)) return;
-            final boolean fast = attempt + 1 < FAST_CONNECT_ATTEMPTS;
-            final javax.swing.Timer retry = new javax.swing.Timer(
-                fast ? CONNECT_DELAY_MS : IDLE_CONNECT_DELAY_MS,
-                ignored -> connect(hostClassLoader, token, attempt + 1)
-            );
-            retry.setRepeats(false);
-            retry.start();
+            if (token != connectionToken.get()) return;
+            detachCurrent();
+            bindings = bound;
+            pollForPalette(bound, token, 0);
+        });
+        return state;
+    }
+
+    private void detachForToken(final long token) {
+        onEdt(() -> {
+            if (token == connectionToken.get()) detachCurrent();
         });
     }
 
-    private static Object resolvePalette(final ClassLoader hostClassLoader) {
+    private void pollForPalette(
+        final SceneTableHostProfile.Bound bound,
+        final long token,
+        final int attempt
+    ) {
+        if (token != connectionToken.get() || state != State.CONNECTING) return;
+        final Object nativePalette;
+        try {
+            nativePalette = paletteLocator.resolve(bound);
+        } catch (RuntimeException | LinkageError failure) {
+            failConnection(token);
+            return;
+        }
+        if (nativePalette != null) {
+            try {
+                if (attachNow(nativePalette, bound)) {
+                    if (token == connectionToken.get()) state = State.CONNECTED;
+                } else {
+                    schedulePoll(bound, token, attempt + 1);
+                }
+            } catch (RuntimeException | LinkageError failure) {
+                failConnection(token);
+            }
+            return;
+        }
+        schedulePoll(bound, token, attempt + 1);
+    }
+
+    private void schedulePoll(
+        final SceneTableHostProfile.Bound bound,
+        final long token,
+        final int attempt
+    ) {
+        final boolean fast = attempt < FAST_CONNECT_ATTEMPTS;
+        retryScheduler.schedule(
+            fast ? CONNECT_DELAY_MS : IDLE_CONNECT_DELAY_MS,
+            () -> onEdt(() -> pollForPalette(bound, token, attempt))
+        );
+    }
+
+    private void failConnection(final long token) {
+        if (token != connectionToken.get()) return;
+        state = State.FAILED;
+        detachCurrent();
+    }
+
+    private static Object resolvePalette(final SceneTableHostProfile.Bound bound) {
         for (Window window : Window.getWindows()) {
-            final Object palette = findScenePalette(window, hostClassLoader);
+            final Object palette = findScenePalette(window, bound);
             if (palette != null) return palette;
         }
         return null;
     }
 
-    private static Object findScenePalette(final Component component, final ClassLoader hostClassLoader) {
+    private static Object findScenePalette(
+        final Component component,
+        final SceneTableHostProfile.Bound bound
+    ) {
         if (component instanceof JTable table) {
             final Object remembered = table.getClientProperty(PALETTE_PROPERTY);
-            if (remembered instanceof java.lang.ref.WeakReference<?> reference && reference.get() != null) {
-                return reference.get();
+            if (remembered instanceof java.lang.ref.WeakReference<?> reference) {
+                final Object value = reference.get();
+                if (bound.isController(value)) return value;
             }
-            for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
-                if (listener != null
-                    && SceneTableDragSupport.isNativeSceneRowListener(listener)) {
-                    return field(listener, "a");
+            for (MouseListener listener : table.getMouseListeners()) {
+                if (bound.isNativeSceneRowListener(listener)) {
+                    final Object value = bound.listenerPalette(listener);
+                    if (bound.isController(value)) return value;
                 }
             }
         }
         if (component instanceof Container container) {
             for (Component child : container.getComponents()) {
-                final Object palette = findScenePalette(child, hostClassLoader);
+                final Object palette = findScenePalette(child, bound);
                 if (palette != null) return palette;
             }
         }
         return null;
     }
 
-
     @Override
     public void setSceneFilter(final String keyword) {
         onEdt(() -> {
             filterText = keyword == null ? "" : keyword.trim().toLowerCase(Locale.ROOT);
+            reconcileRowListeners();
             applyViewState();
         });
     }
 
-    /** Rebuilds the visible table cells from the full document list plus the active filter. */
     private void applyViewState() {
-        final Object currentPalette = palette;
         final JTable currentTable = table;
-        final List<Object> rows = tableData(currentPalette);
-        if (currentPalette == null || currentTable == null || rows == null) return;
-        final List<Object> documents = currentOrder != null
-            ? new ArrayList<>(currentOrder)
-            : new ArrayList<>(sceneDocs(currentPalette));
-        final List<Object> visible = new ArrayList<>();
-        for (Object document : documents) {
-            if (matchesSceneFilter(document, filterText)) {
-                visible.add(document);
-            }
-        }
-        rewriteTableRows(rows, visible);
+        final List<Object> rows = tableData();
+        if (palette == null || currentTable == null || rows == null) return;
+        rewriteTableRows(rows, visibleDocuments());
         fireTableChanged(currentTable);
     }
 
-    private static boolean matchesSceneFilter(final Object document, final String keyword) {
-        if (keyword == null || keyword.isEmpty()) {
-            return true;
-        }
-        final Object source = invoke(document, "getSceneSource");
-        final Object movieInfo = source == null ? null : invoke(source, "getMovieInfo");
-        final String haystack = (text(invoke(source, "getSceneName")) + "\n"
-            + text(invoke(movieInfo, "getDisplayDuration")) + "\n"
-            + text(invoke(source, "getTag"))).toLowerCase(Locale.ROOT);
+    private boolean matchesSceneFilter(final Object document, final String keyword) {
+        if (keyword == null || keyword.isEmpty()) return true;
+        final SceneProjection projection = project(document);
+        final String haystack = (projection.name() + "\n" + projection.duration() + "\n"
+            + projection.tag()).toLowerCase(Locale.ROOT);
         return haystack.contains(keyword);
     }
 
-    /**
-     * Detaches from the native Scene palette and undoes every listener and overlay this class
-     * installed.
-     *
-     * <p>Invalidates the connection token first, so any pending reconnect retry aborts instead of
-     * re-attaching. The teardown itself is posted to the Swing event dispatch thread and therefore
-     * may not have completed when this method returns. Safe to call when nothing is attached, and
-     * safe to call more than once.
-     */
+    /** Invalidates pending retries and symmetrically restores all host-owned table state. */
     public void disconnect() {
-        connectionToken++;
+        final long token = connectionToken.incrementAndGet();
+        state = State.DISCONNECTED;
         onEdt(() -> {
-            if (table != null && table.getTableHeader() != null && headerClickListener != null) {
-                table.getTableHeader().removeMouseListener(headerClickListener);
-            }
-            headerClickListener = null;
-            if (table != null && rowDragListener != null) {
-                table.removeMouseListener(rowDragListener);
-                table.removeMouseMotionListener(rowDragListener);
-            }
-            rowDragListener = null;
-            if (dragOverlay != null) dragOverlay.finish();
-            dragOverlay = null;
-            table = null;
-            palette = null;
+            if (token == connectionToken.get()) detachCurrent();
         });
     }
 
-    /**
-     * Attaches to an already-resolved native Scene palette instead of searching the window tree.
-     *
-     * <p>The work is posted to the Swing event dispatch thread; a {@code null} palette is ignored.
-     * Attachment can still fail there — if the palette does not yield the expected table and rows,
-     * nothing is attached and no error is reported to the caller.
-     *
-     * @param nativePalette the host's Scene palette object, or {@code null} to do nothing
-     */
+    /** Attaches an already-resolved palette only after a verified profile has been admitted. */
     public void attach(final Object nativePalette) {
-        if (nativePalette != null) onEdt(() -> attachNow(nativePalette));
+        if (nativePalette == null) return;
+        final long token = connectionToken.get();
+        onEdt(() -> {
+            if (token != connectionToken.get()) return;
+            final SceneTableHostProfile.Bound bound = bindings;
+            if (bound == null) return;
+            try {
+                if (attachNow(nativePalette, bound)) state = State.CONNECTED;
+            } catch (RuntimeException | LinkageError failure) {
+                state = State.FAILED;
+                detachCurrent();
+            }
+        });
     }
 
-    private boolean attachNow(final Object nativePalette) {
-        final Object wrapper = invoke(nativePalette, "c");
-        final Object swingTable = invoke(wrapper, "getJTable");
+    private boolean attachNow(
+        final Object nativePalette,
+        final SceneTableHostProfile.Bound bound
+    ) {
+        if (!SwingUtilities.isEventDispatchThread() || !bound.isController(nativePalette)) return false;
+        final Object wrapper = bound.controllerTable(nativePalette);
+        final Object swingTable = wrapper == null ? null : bound.tableSwing(wrapper);
         final JTable resolvedTable = swingTable instanceof JTable value ? value : null;
-        final List<Object> rows = tableData(nativePalette);
-        if (resolvedTable == null || rows == null) {
-            return false;
-        }
+        final Object data = bound.controllerTableData(nativePalette);
+        if (resolvedTable == null || !(data instanceof List<?>)) return false;
+
+        detachCurrent();
+        bindings = bound;
         palette = nativePalette;
         table = resolvedTable;
-        currentOrder = null;
+        clearViewOrder();
         table.putClientProperty(PALETTE_PROPERTY, new java.lang.ref.WeakReference<>(nativePalette));
         ensureHeaderClickHandler();
-        installManualReordering();
-        service.publishSnapshot(snapshot(nativePalette));
+        reconcileRowListeners();
+        applyViewState();
+        service.publishSnapshot(snapshot(effectiveDocuments()));
         return true;
     }
 
     @Override
     public void setHeader(final String columnId, final String label) {
+        final long token = connectionToken.get();
         onEdt(() -> {
+            if (token != connectionToken.get()) return;
             final int column = columnIndex(columnId);
             if (table == null || column < 0 || column >= table.getColumnModel().getColumnCount()) return;
+            originalHeaders.putIfAbsent(
+                column, table.getColumnModel().getColumn(column).getHeaderValue()
+            );
             table.getColumnModel().getColumn(column).setHeaderValue(label);
             if (table.getTableHeader() != null) table.getTableHeader().repaint();
         });
@@ -223,67 +309,80 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
 
     @Override
     public void setItemPosition(final String itemId, final int position) {
-        final SceneTableService.TableSnapshot current = snapshot(palette);
-        final List<String> order = current.items().stream().map(SceneTableService.Item::id).collect(java.util.stream.Collectors.toCollection(ArrayList::new));
-        final int source = order.indexOf(itemId);
-        if (source < 0 || position < 0 || position >= order.size() || source == position) return;
-        order.add(position, order.remove(source));
-        setItemOrder(order);
+        final long token = connectionToken.get();
+        onEdt(() -> {
+            if (token != connectionToken.get()) return;
+            final List<String> order = effectiveDocuments().stream()
+                .map(this::id)
+                .collect(java.util.stream.Collectors.toCollection(ArrayList::new));
+            final int source = order.indexOf(itemId);
+            if (source < 0 || position < 0 || position >= order.size() || source == position) return;
+            order.add(position, order.remove(source));
+            applyOrder(order);
+        });
     }
 
     @Override
     public void setItemOrder(final List<String> itemIds) {
-        onEdt(() -> applyOrder(itemIds, false));
+        final List<String> requested = List.copyOf(itemIds);
+        final long token = connectionToken.get();
+        onEdt(() -> {
+            if (token == connectionToken.get()) applyOrder(requested);
+        });
     }
 
     @Override
     public void setManualReordering(final boolean enabled) {
+        final long token = connectionToken.get();
         onEdt(() -> {
-            if (manualReordering == enabled && (enabled == (rowDragListener != null))) return;
+            if (token != connectionToken.get()) return;
+            if (enabled == manualReordering) return;
             manualReordering = enabled;
-            installManualReordering();
+            if (!enabled) clearViewOrder();
+            reconcileRowListeners();
+            if (!enabled) applyViewState();
         });
     }
 
-    private void applyOrder(final List<String> itemIds, final boolean persistNativeOrder) {
-        final Object currentPalette = palette;
-        final JTable currentTable = table;
-        final List<Object> rows = tableData(currentPalette);
-        if (currentPalette == null || currentTable == null || rows == null) return;
-
-        final List<Object> currentDocuments = new ArrayList<>(sceneDocs(currentPalette));
+    private void applyOrder(final List<String> itemIds) {
+        if (palette == null || table == null || bindings == null) return;
+        final List<Object> authoritative = authoritativeDocuments();
         final Map<String, Object> documents = new LinkedHashMap<>();
-        for (Object document : currentDocuments) documents.put(id(document), document);
+        for (Object document : authoritative) documents.put(id(document), document);
         final List<Object> ordered = new ArrayList<>();
         for (String itemId : itemIds) {
             final Object document = documents.remove(itemId);
             if (document != null) ordered.add(document);
         }
         ordered.addAll(documents.values());
-        if (ordered.size() != currentDocuments.size()) return;
-
-        if (persistNativeOrder) replaceSceneDocOrder(currentPalette, ordered, true);
-        currentOrder = new ArrayList<>(ordered);
+        if (ordered.size() != authoritative.size()) return;
+        setViewOrder(ordered);
         applyViewState();
-        if (persistNativeOrder) notifySceneOrderChanged(currentPalette);
-        if (persistNativeOrder) {
-            final SceneTableService.TableSnapshot changed = snapshot(currentPalette);
-            service.publishItemOrderChanged(new SceneTableService.ItemOrderChanged(
-                changed.tableId(),
-                changed.scopeId(),
-                changed.items().stream().map(SceneTableService.Item::id).toList()
-            ));
-            service.publishSnapshot(changed);
-    }
     }
 
-    private void installManualReordering() {
-        if (table == null) return;
-        SceneTableDragSupport.removeNativeRowListeners(table);
-        if (!manualReordering) {
-            if (dragOverlay != null) dragOverlay.finish();
-            return;
+    private boolean needsMappedRowListener() {
+        return manualReordering || currentOrder != null || !filterText.isEmpty();
+    }
+
+    /**
+     * Restores Cubism's native row listener only when the visible row order still maps 1:1 onto
+     * the authoritative order. Sorting, filtering, and manual (view-only) order all diverge from
+     * that mapping, so those modes keep the mapped listener that translates view rows back to
+     * authoritative rows. The mapped listener still only permits dragging when manual reordering
+     * is enabled; sort/filter modes use it solely for correct selection and double-click mapping.
+     */
+    private void reconcileRowListeners() {
+        if (detaching || table == null || bindings == null) return;
+        if (needsMappedRowListener()) {
+            captureAndRemoveNativeRowListeners();
+            installRowDragListener();
+        } else {
+            removeDragListener();
+            restoreNativeRowListeners();
         }
+    }
+
+    private void installRowDragListener() {
         if (rowDragListener != null) return;
         dragOverlay = new SceneTableDragSupport.DragOverlay(table);
         dragOverlay.attach();
@@ -292,18 +391,17 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
             private Point pressedPoint;
             private boolean dragging;
 
-            @Override public void mousePressed(final MouseEvent event) {
+            @Override
+            public void mousePressed(final MouseEvent event) {
                 if (!SwingUtilities.isLeftMouseButton(event)) return;
                 pressedRow = table.rowAtPoint(event.getPoint());
                 pressedPoint = event.getPoint();
                 dragging = false;
-                if (pressedRow >= 0) {
-                    SceneTableDragSupport.removeConflictingMouseMotionListeners(table, this);
-                    event.consume();
-                }
+                if (pressedRow >= 0) event.consume();
             }
 
-            @Override public void mouseDragged(final MouseEvent event) {
+            @Override
+            public void mouseDragged(final MouseEvent event) {
                 if (pressedRow < 0 || !manualReordering) return;
                 if (!dragging && pressedPoint != null && pressedPoint.distance(event.getPoint()) >= 4) {
                     dragging = true;
@@ -314,26 +412,22 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
                 event.consume();
             }
 
-            @Override public void mouseReleased(final MouseEvent event) {
-                if (!SwingUtilities.isLeftMouseButton(event)) {
-                    dragOverlay.finish();
-                    reset();
-                    return;
-                }
+            @Override
+            public void mouseReleased(final MouseEvent event) {
                 final int releasedRow = dragging
                     ? dragOverlay.targetRow()
                     : table.rowAtPoint(event.getPoint());
                 if (dragging) dragOverlay.finish();
-                if (dragging && manualReordering && releasedRow >= 0) {
-                    moveScene(pressedRow, releasedRow);
-                } else if (releasedRow >= 0) {
-                    syncSelectedRow(releasedRow);
+                if (SwingUtilities.isLeftMouseButton(event) && releasedRow >= 0) {
+                    if (dragging && manualReordering) moveScene(pressedRow, releasedRow);
+                    else syncSelectedRow(releasedRow);
+                    event.consume();
                 }
                 reset();
-                event.consume();
             }
 
-            @Override public void mouseClicked(final MouseEvent event) {
+            @Override
+            public void mouseClicked(final MouseEvent event) {
                 if (!SwingUtilities.isLeftMouseButton(event) || event.getClickCount() < 2) return;
                 final int row = table.rowAtPoint(event.getPoint());
                 if (row >= 0) {
@@ -352,123 +446,111 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         table.addMouseMotionListener(rowDragListener);
     }
 
-
-    private void moveScene(final int sourceRow, final int targetRow) {
-        final Object currentPalette = palette;
-        final JTable currentTable = table;
-        final List<Object> rows = tableData(currentPalette);
-        final List<Object> documents = sceneDocs(currentPalette);
-        if (currentPalette == null || currentTable == null || rows == null
-            || sourceRow < 0 || targetRow < 0 || sourceRow >= documents.size()
-            || targetRow >= documents.size() || sourceRow == targetRow) return;
-
-        final Object moving = documents.remove(sourceRow);
-        documents.add(targetRow, moving);
-        final List<Object> ordered = new ArrayList<>(documents);
-        syncAnimationOrder(currentPalette, ordered);
-        currentOrder = new ArrayList<>(ordered);
-        applyViewState();
-        notifySceneOrderChanged(currentPalette);
-        if (!sameOrder(sceneDocs(currentPalette), ordered)) {
-            final List<Object> restoredDocuments = sceneDocs(currentPalette);
-            restoredDocuments.clear();
-            restoredDocuments.addAll(ordered);
-            syncAnimationOrder(currentPalette, ordered);
-            rewriteTableRows(rows, ordered);
-            fireTableChanged(currentTable);
-            invoke(invoke(currentPalette, "e"), "updateLastModifiedTimeOfAllDocs");
+    private void captureAndRemoveNativeRowListeners() {
+        for (MouseListener listener : table.getMouseListeners()) {
+            if (bindings.isNativeSceneRowListener(listener)) {
+                nativeMouseListeners.add(listener);
+                table.removeMouseListener(listener);
+            }
         }
+        for (MouseMotionListener listener : table.getMouseMotionListeners()) {
+            if (bindings.isNativeSceneRowListener(listener)) {
+                nativeMotionListeners.add(listener);
+                table.removeMouseMotionListener(listener);
+            }
+        }
+    }
 
-        final SceneTableService.TableSnapshot changed = snapshot(currentPalette);
+    private void restoreNativeRowListeners() {
+        if (table == null) return;
+        for (MouseListener listener : nativeMouseListeners) {
+            if (countIdentity(table.getMouseListeners(), listener)
+                < countIdentity(nativeMouseListeners.toArray(), listener)) {
+                table.addMouseListener(listener);
+            }
+        }
+        for (MouseMotionListener listener : nativeMotionListeners) {
+            if (countIdentity(table.getMouseMotionListeners(), listener)
+                < countIdentity(nativeMotionListeners.toArray(), listener)) {
+                table.addMouseMotionListener(listener);
+            }
+        }
+        nativeMouseListeners.clear();
+        nativeMotionListeners.clear();
+    }
+
+    private void removeDragListener() {
+        if (table != null && rowDragListener != null) {
+            table.removeMouseListener(rowDragListener);
+            table.removeMouseMotionListener(rowDragListener);
+        }
+        rowDragListener = null;
+        if (dragOverlay != null) dragOverlay.detach();
+        dragOverlay = null;
+    }
+
+    boolean moveScene(final int sourceRow, final int targetRow) {
+        final List<Object> fullOrder = effectiveDocuments();
+        final List<Object> visible = filterVisible(fullOrder);
+        if (sourceRow < 0 || targetRow < 0 || sourceRow >= visible.size()
+            || targetRow >= visible.size() || sourceRow == targetRow) return false;
+
+        final Object moving = visible.get(sourceRow);
+        final Object target = visible.get(targetRow);
+        fullOrder.remove(moving);
+        int insertion = fullOrder.indexOf(target);
+        if (insertion < 0) return false;
+        if (sourceRow < targetRow) insertion++;
+        fullOrder.add(insertion, moving);
+        setViewOrder(fullOrder);
+        applyViewState();
+
+        final List<String> orderedIds = fullOrder.stream().map(this::id).toList();
+        final SceneTableService.TableSnapshot changed = snapshot(fullOrder);
         service.publishItemOrderChanged(new SceneTableService.ItemOrderChanged(
-            changed.tableId(),
-            changed.scopeId(),
-            changed.items().stream().map(SceneTableService.Item::id).toList()
+            changed.tableId(), changed.scopeId(), orderedIds
         ));
         service.publishSnapshot(changed);
         syncSelectedRow(targetRow);
+        return true;
     }
 
-    private void syncSelectedRow(final int row) {
-        if (row < 0 || table == null || row >= table.getRowCount()) return;
-        final Object selectedBefore = invoke(palette, "d");
-        invoke(palette, "b", Integer.valueOf(row));
-        final Object selectedAfter = invoke(palette, "d");
-        if (!(selectedAfter instanceof Number value) || value.intValue() != row) {
-            if (!(selectedBefore instanceof Number value) || value.intValue() != row) {
-                invoke(palette, "a", Integer.valueOf(row));
-            }
+    private void syncSelectedRow(final int viewRow) {
+        if (viewRow < 0 || table == null || viewRow >= table.getRowCount()) return;
+        final List<Object> visible = visibleDocuments();
+        if (viewRow >= visible.size()) return;
+        final int nativeRow = indexOfIdentityOrId(authoritativeDocuments(), visible.get(viewRow));
+        if (nativeRow < 0) return;
+        final int selectedBefore = bindings.controllerSelectedRow(palette);
+        bindings.controllerSelectRow(palette, nativeRow);
+        if (bindings.controllerSelectedRow(palette) != nativeRow && selectedBefore != nativeRow) {
+            bindings.controllerSelectRowFallback(palette, nativeRow);
         }
-        table.getSelectionModel().setSelectionInterval(row, row);
-        table.scrollRectToVisible(table.getCellRect(row, 0, true));
+        table.getSelectionModel().setSelectionInterval(viewRow, viewRow);
+        table.scrollRectToVisible(table.getCellRect(viewRow, 0, true));
         table.repaint();
     }
 
     private void openSceneAtRow(final int row) {
-        final List<Object> documents = sceneDocs(palette);
-        if (row < 0 || row >= documents.size()) return;
+        final List<Object> visible = visibleDocuments();
+        if (row < 0 || row >= visible.size()) return;
         syncSelectedRow(row);
-        final Object document = documents.get(row);
-        final Object completePack = invoke(palette, "a");
-        final Object viewContext = invoke(completePack, "getCurrentViewContext");
-        final Object currentDocument = invoke(viewContext, "getDoc");
-        if (currentDocument != null
-            && "com.live2d.cubism.doc.modeling.CModelingDocument".equals(currentDocument.getClass().getName())) {
-            invoke(document, "openScene");
-        } else {
-            invoke(document, "switchScene$default", document, null, Integer.valueOf(1), null);
+        final Object document = visible.get(row);
+        final Object completePack = bindings.controllerCompletePack(palette);
+        final Object viewContext = completePack == null
+            ? null : bindings.completePackViewContext(completePack);
+        final Object currentDocument = viewContext == null ? null : bindings.viewContextDoc(viewContext);
+        if (bindings.isModelingDocument(currentDocument)) {
+            bindings.documentOpenScene(document);
+        } else if (bindings.isSceneDocument(currentDocument)) {
+            bindings.documentSwitchSceneDefault(document);
         }
         table.repaint();
-    }
-
-    private static void replaceSceneDocOrder(
-        final Object palette,
-        final List<Object> ordered,
-        final boolean syncAnimation
-    ) {
-        final Object content = invoke(palette, "e");
-        final List<Object> documents = list(invoke(content, "getSceneDocs"));
-        documents.clear();
-        documents.addAll(ordered);
-        if (syncAnimation) {
-            final Object animation = invoke(content, "getAnimation");
-            final List<Object> scenes = list(invoke(animation, "get_scenes"));
-            scenes.clear();
-            for (Object document : ordered) scenes.add(invoke(document, "getSceneSource"));
-        }
-    }
-
-    private static void syncAnimationOrder(final Object palette, final List<Object> ordered) {
-        final Object content = invoke(palette, "e");
-        final List<Object> scenes = list(invoke(invoke(content, "getAnimation"), "get_scenes"));
-        scenes.clear();
-        for (Object document : ordered) scenes.add(invoke(document, "getSceneSource"));
-    }
-
-    private static boolean sameOrder(final List<Object> left, final List<Object> right) {
-        if (left.size() != right.size()) return false;
-        for (int index = 0; index < left.size(); index++) {
-            if (!id(left.get(index)).equals(id(right.get(index)))) return false;
-        }
-        return true;
-    }
-
-
-    private static void notifySceneOrderChanged(final Object palette) {
-        final Object content = invoke(palette, "e");
-        final Object completePack = invoke(content, "getCompletePack");
-        invoke(invoke(completePack, "getUpdateManager"), "updateScene", content);
-        invoke(content, "updateLastModifiedTimeOfAllDocs");
     }
 
     private void ensureHeaderClickHandler() {
         final JTableHeader header = table.getTableHeader();
         if (header == null) return;
-        if (headerClickListener != null) {
-            for (java.awt.event.MouseListener listener : header.getMouseListeners()) {
-                if (listener == headerClickListener) return;
-            }
-        }
         headerClickListener = new MouseInputAdapter() {
             @Override
             public void mouseClicked(final MouseEvent event) {
@@ -477,16 +559,15 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
                 if (source.getResizingColumn() != null || source.getDraggedColumn() != null) return;
                 final int viewColumn = source.columnAtPoint(event.getPoint());
                 if (viewColumn >= 0 && viewColumn < 3) {
-                    service.publishSnapshot(snapshot(palette));
+                    service.publishSnapshot(snapshot(effectiveDocuments()));
                     service.publishHeaderClick(columnId(viewColumn));
-            }
+                }
             }
         };
         header.addMouseListener(headerClickListener);
     }
 
-    private static SceneTableService.TableSnapshot snapshot(final Object palette) {
-        final JTable table = table(palette);
+    private SceneTableService.TableSnapshot snapshot(final List<Object> documents) {
         final List<SceneTableService.Column> columns = new ArrayList<>();
         for (int index = 0; index < 3; index++) {
             final Object header = table == null || index >= table.getColumnModel().getColumnCount()
@@ -495,27 +576,26 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
             columns.add(new SceneTableService.Column(columnId(index), String.valueOf(header)));
         }
         final List<SceneTableService.Item> items = new ArrayList<>();
-        for (Object document : sceneDocs(palette)) {
-            final Object source = invoke(document, "getSceneSource");
-            final Object movieInfo = invoke(source, "getMovieInfo");
+        for (Object document : documents) {
+            final SceneProjection projection = project(document);
             final Map<String, String> cells = new LinkedHashMap<>();
-            cells.put("name", text(invoke(source, "getSceneName")));
-            cells.put("duration", text(invoke(movieInfo, "getDisplayDuration")));
-            cells.put("tag", text(invoke(source, "getTag")));
-            items.add(new SceneTableService.Item(id(document), cells));
+            cells.put("name", projection.name());
+            cells.put("duration", projection.duration());
+            cells.put("tag", projection.tag());
+            items.add(new SceneTableService.Item(projection.id(), cells));
         }
-        return new SceneTableService.TableSnapshot(SceneTableService.SCENE_TABLE_ID, scopeId(palette), columns, items);
+        return new SceneTableService.TableSnapshot(
+            SceneTableService.SCENE_TABLE_ID, scopeId(), columns, items
+        );
     }
 
-    private static void rewriteTableRows(final List<Object> rows, final List<Object> documents) {
+    private void rewriteTableRows(final List<Object> rows, final List<Object> documents) {
         rows.clear();
         for (Object document : documents) {
-            final Object source = invoke(document, "getSceneSource");
-            rows.add(text(invoke(source, "getSceneName")));
-            final Object movieInfo = invoke(source, "getMovieInfo");
-            final Object duration = invoke(movieInfo, "getDisplayDuration");
-            rows.add(duration instanceof Number ? String.valueOf(((Number) duration).intValue()) : "0");
-            rows.add(text(invoke(source, "getTag")));
+            final SceneProjection projection = project(document);
+            rows.add(projection.name());
+            rows.add(projection.duration());
+            rows.add(projection.tag());
         }
     }
 
@@ -525,18 +605,95 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         table.repaint();
     }
 
-    private static List<Object> sceneDocs(final Object palette) {
-        return list(invoke(invoke(palette, "e"), "getSceneDocs"));
+    private List<Object> effectiveDocuments() {
+        final List<Object> authoritative = authoritativeDocuments();
+        if (currentOrder == null || !orderScopeMatches()) return authoritative;
+        final Map<String, Object> current = new LinkedHashMap<>();
+        for (Object document : authoritative) current.put(id(document), document);
+        final List<Object> reconciled = new ArrayList<>();
+        for (Object ordered : currentOrder) {
+            final Object document = current.remove(id(ordered));
+            if (document != null) reconciled.add(document);
+        }
+        reconciled.addAll(current.values());
+        currentOrder = new ArrayList<>(reconciled);
+        return reconciled;
     }
 
-    private static String scopeId(final Object palette) {
-        final Object file = invoke(invoke(palette, "e"), "getFile");
+    private List<Object> visibleDocuments() {
+        return filterVisible(effectiveDocuments());
+    }
+
+    private List<Object> filterVisible(final List<Object> documents) {
+        final List<Object> visible = new ArrayList<>();
+        for (Object document : documents) {
+            if (matchesSceneFilter(document, filterText)) visible.add(document);
+        }
+        return visible;
+    }
+
+    private List<Object> authoritativeDocuments() {
+        if (palette == null || bindings == null) return new ArrayList<>();
+        final Object content = bindings.controllerContent(palette);
+        if (content == null) return new ArrayList<>();
+        final Object value = bindings.contentSceneDocs(content);
+        return value instanceof List<?> list ? new ArrayList<>(list) : new ArrayList<>();
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Object> tableData() {
+        if (palette == null || bindings == null) return null;
+        final Object value = bindings.controllerTableData(palette);
+        return value instanceof List<?> list ? (List<Object>) list : null;
+    }
+
+    private void setViewOrder(final List<Object> ordered) {
+        currentOrder = new ArrayList<>(ordered);
+        currentOrderContent = currentContent();
+        currentOrderFile = currentFileKey();
+        reconcileRowListeners();
+    }
+
+    private void clearViewOrder() {
+        currentOrder = null;
+        currentOrderContent = null;
+        currentOrderFile = null;
+        reconcileRowListeners();
+    }
+
+    private boolean orderScopeMatches() {
+        final Object content = currentContent();
+        final String file = currentFileKey();
+        if (content != currentOrderContent || !Objects.equals(file, currentOrderFile)) {
+            clearViewOrder();
+            return false;
+        }
+        return true;
+    }
+
+    private Object currentContent() {
+        return palette == null || bindings == null ? null : bindings.controllerContent(palette);
+    }
+
+    private String currentFileKey() {
+        final Object content = currentContent();
+        if (content == null) return null;
+        final Object value = bindings.contentFile(content);
+        return value instanceof File file
+            ? file.toPath().toAbsolutePath().normalize().toString()
+            : text(value);
+    }
+
+    private String scopeId() {
+        final Object content = currentContent();
+        if (content == null) return "";
+        final Object file = bindings.contentFile(content);
         final String source;
         if (file instanceof File value) {
-            source = "file:" + value.getAbsolutePath().toLowerCase(Locale.ROOT);
+            source = "file:" + value.toPath().toAbsolutePath().normalize();
         } else {
             final List<String> identifiers = new ArrayList<>();
-            for (Object document : sceneDocs(palette)) identifiers.add(id(document));
+            for (Object document : authoritativeDocuments()) identifiers.add(id(document));
             identifiers.sort(String::compareTo);
             if (identifiers.isEmpty()) return "";
             source = "scenes:" + String.join("\n", identifiers);
@@ -552,76 +709,149 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         }
     }
 
-    private static JTable table(final Object palette) {
-        final Object value = invoke(invoke(palette, "c"), "getJTable");
-        return value instanceof JTable table ? table : null;
+    private String id(final Object document) {
+        final Object source = bindings.documentSceneSource(document);
+        return source == null ? "" : idFromSource(source);
     }
 
-
-    private static List<Object> tableData(final Object palette) {
-        final Object value = field(palette, "h");
-        return value instanceof List<?> ? list(value) : null;
-    }
-
-    private static String id(final Object document) {
-        final String value = text(invoke(invoke(document, "getSceneSource"), "getGuid")).trim();
+    private String idFromSource(final Object source) {
+        final String value = text(bindings.sourceGuid(source)).trim();
         final java.util.regex.Matcher matcher = UUID_PATTERN.matcher(value);
         return (matcher.find() ? matcher.group() : value).toLowerCase(Locale.ROOT);
     }
 
+    private SceneProjection project(final Object document) {
+        final Object source = bindings.documentSceneSource(document);
+        if (source == null) return new SceneProjection("", "", "0", "");
+        final String name = text(bindings.sourceSceneName(source));
+        final Object movieInfo = bindings.sourceMovieInfo(source);
+        final String duration = movieInfo == null
+            ? "0" : text(bindings.movieInfoDisplayDuration(movieInfo));
+        final String tag = text(bindings.sourceTag(source));
+        return new SceneProjection(idFromSource(source), name, duration, tag);
+    }
+
+    private record SceneProjection(String id, String name, String duration, String tag) { }
+
+    private void detachCurrent() {
+        detaching = true;
+        try {
+            final JTable currentTable = table;
+            if (currentTable != null) {
+                try {
+                    removeDragListener();
+                    restoreNativeRowListeners();
+                    restoreHeaders();
+                    restoreAuthoritativeRows();
+                    if (currentTable.getTableHeader() != null && headerClickListener != null) {
+                        currentTable.getTableHeader().removeMouseListener(headerClickListener);
+                    }
+                } catch (RuntimeException | LinkageError ignored) {
+                    // Best-effort restoration; always finish tearing the bridge down.
+                } finally {
+                    clearPaletteProperty();
+                }
+            }
+            headerClickListener = null;
+            originalHeaders.clear();
+            nativeMouseListeners.clear();
+            nativeMotionListeners.clear();
+            clearViewOrder();
+            manualReordering = false;
+            filterText = "";
+            table = null;
+            palette = null;
+            bindings = null;
+        } finally {
+            detaching = false;
+        }
+    }
+
+    private void clearPaletteProperty() {
+        final Object property = table.getClientProperty(PALETTE_PROPERTY);
+        if (property instanceof java.lang.ref.WeakReference<?> reference
+            && reference.get() == palette) {
+            table.putClientProperty(PALETTE_PROPERTY, null);
+        }
+    }
+
+    private void restoreHeaders() {
+        for (Map.Entry<Integer, Object> entry : originalHeaders.entrySet()) {
+            final int index = entry.getKey();
+            if (index >= 0 && index < table.getColumnModel().getColumnCount()) {
+                table.getColumnModel().getColumn(index).setHeaderValue(entry.getValue());
+            }
+        }
+        if (!originalHeaders.isEmpty() && table.getTableHeader() != null) {
+            table.getTableHeader().repaint();
+        }
+    }
+
+    private void restoreAuthoritativeRows() {
+        final List<Object> rows = tableData();
+        if (rows == null) return;
+        rewriteTableRows(rows, authoritativeDocuments());
+        fireTableChanged(table);
+    }
+
+    private static int indexOfIdentityOrId(final List<Object> documents, final Object target) {
+        for (int index = 0; index < documents.size(); index++) {
+            if (documents.get(index) == target) return index;
+        }
+        return -1;
+    }
+
+    private static int countIdentity(final Object[] values, final Object target) {
+        return (int) Arrays.stream(values).filter(value -> value == target).count();
+    }
 
     private static int columnIndex(final String id) {
-        return switch (id) { case "name" -> 0; case "duration" -> 1; case "tag" -> 2; default -> -1; };
+        return switch (id) {
+            case "name" -> 0;
+            case "duration" -> 1;
+            case "tag" -> 2;
+            default -> -1;
+        };
     }
 
     private static String columnId(final int index) {
-        return switch (index) { case 0 -> "name"; case 1 -> "duration"; case 2 -> "tag"; default -> "column-" + index; };
-    }
-
-    @SuppressWarnings("unchecked")
-    private static List<Object> list(final Object value) {
-        return value instanceof List<?> list ? (List<Object>) list : List.of();
+        return switch (index) {
+            case 0 -> "name";
+            case 1 -> "duration";
+            case 2 -> "tag";
+            default -> "column-" + index;
+        };
     }
 
     private static String text(final Object value) {
         return value == null ? "" : String.valueOf(value);
     }
 
-    private static Object field(final Object target, final String name) {
-        if (target == null) return null;
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                return field.get(target);
-            } catch (ReflectiveOperationException ignored) {
-                type = type.getSuperclass();
-            }
-        }
-        return null;
-    }
-
-    private static Object invoke(final Object target, final String name, final Object... arguments) {
-        if (target == null) return null;
-        Class<?> type = target.getClass();
-        while (type != null) {
-            for (Method method : type.getDeclaredMethods()) {
-                if (!method.getName().equals(name) || method.getParameterCount() != arguments.length) continue;
-                try {
-                    method.setAccessible(true);
-                    return method.invoke(target, arguments);
-                } catch (ReflectiveOperationException | IllegalArgumentException ignored) {
-                    // Try another overload or superclass, matching the legacy reflective adapter.
-                }
-            }
-            type = type.getSuperclass();
-        }
-        return null;
-    }
-
     private static void onEdt(final Runnable operation) {
         if (SwingUtilities.isEventDispatchThread()) operation.run();
         else SwingUtilities.invokeLater(operation);
+    }
+
+    @FunctionalInterface
+    interface ProfileLoader {
+        Optional<SceneTableHostProfile.Bound> load(Path artifact, ClassLoader loader) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface PaletteLocator {
+        Object resolve(SceneTableHostProfile.Bound profile);
+    }
+
+    @FunctionalInterface
+    interface RetryScheduler {
+        void schedule(int delayMillis, Runnable operation);
+    }
+
+    public enum State {
+        DISCONNECTED,
+        UNSUPPORTED,
+        CONNECTING,
+        CONNECTED,
+        FAILED
     }
 }
