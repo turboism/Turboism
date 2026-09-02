@@ -189,10 +189,12 @@ public final class SceneTableHostProfile {
         return Optional.empty();
     }
 
+    /** Returns the exact reviewed Cubism semantic version this profile is admitted for. */
     public String cubismVersion() {
         return cubismVersion;
     }
 
+    /** Returns the exact reviewed host artifact digest this profile is bound to. */
     public HostArtifactDigest artifact() {
         return artifact;
     }
