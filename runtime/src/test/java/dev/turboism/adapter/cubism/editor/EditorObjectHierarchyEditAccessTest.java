@@ -7,11 +7,18 @@ import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.adapter.cubism.model.RuntimeModelObjectService;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
+import dev.turboism.sdk.cubism.model.ModelObjectCreateRequest;
+import dev.turboism.sdk.cubism.model.ModelObjectKind;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Point2;
+import dev.turboism.sdk.cubism.model.RotationDeformerForm;
+import dev.turboism.sdk.cubism.model.WarpGrid;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -133,6 +140,93 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(1, model.drawables().all().size());
         fixture.editMode.edits.get(0).redo();
         assertEquals(2, model.drawables().all().size());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.02"})
+    void serviceCreatesExactDeformersUnderADeformerInOneUndoEach(
+        final String cubismVersion
+    ) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(
+            resolver(cubismVersion),
+            "session-a"
+        );
+        final RuntimeModelObjectService service = new RuntimeModelObjectService(
+            access,
+            PermissionChecker.allowAll(),
+            () -> true
+        );
+        final ModelObjectReference rotationParent = new ModelObjectReference(
+            ModelObjectKind.ROTATION_DEFORMER,
+            "RotationA"
+        );
+        final WarpGrid grid = new WarpGrid(
+            1,
+            2,
+            true,
+            List.of(
+                new Point2(-2F, -1F), new Point2(0F, -1F), new Point2(2F, -1F),
+                new Point2(-2F, 1F), new Point2(0F, 1F), new Point2(2F, 1F)
+            )
+        );
+
+        final var warp = service.create(new ModelObjectCreateRequest.WarpDeformer(
+            "Exact Warp",
+            java.util.Optional.of(rotationParent),
+            grid
+        ));
+        final RotationDeformerForm form = new RotationDeformerForm(
+            15F,
+            2F,
+            3F,
+            1.5F,
+            true,
+            false
+        );
+        final var rotation = service.create(new ModelObjectCreateRequest.RotationDeformer(
+            "Exact Rotation",
+            java.util.Optional.of(new ModelObjectReference(
+                ModelObjectKind.WARP_DEFORMER,
+                "WarpA"
+            )),
+            form
+        ));
+
+        assertEquals(2, fixture.editMode.edits.size(), "each create must commit one Undo");
+        assertEquals(grid, access.active().warpDeformers()
+            .find(new DeformerId(warp.reference().id())).grid());
+        assertEquals(form, access.active().rotationDeformers()
+            .find(new DeformerId(rotation.reference().id())).form());
+        assertEquals(java.util.Optional.of(new DeformerId("RotationA")), access.active()
+            .warpDeformers().find(new DeformerId(warp.reference().id())).parentDeformerId());
+        assertEquals(java.util.Optional.of(new DeformerId("WarpA")), access.active()
+            .rotationDeformers().find(new DeformerId(rotation.reference().id())).parentDeformerId());
+    }
+
+    @Test
+    void createPreflightFailureDoesNotBeginAnEmptyUndo() {
+        final Fixture fixture = new Fixture();
+        fixture.rootPart.handlerUnavailable = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"),
+            "session-a"
+        ).active();
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> model.parts().create(
+                "Blocked Part",
+                model.parts().find(new PartId("Root")),
+                -1
+            )
+        );
+
+        assertEquals(0, fixture.editMode.beginCalls);
+        assertEquals(0, fixture.editMode.edits.size());
+        assertEquals(3, model.parts().all().size());
     }
 
     @ParameterizedTest
@@ -670,6 +764,7 @@ class EditorObjectHierarchyEditAccessTest {
         KeyformGridSource keyformGridSource;
         Undo currentUndo;
         int setTargetCalls;
+        boolean handlerUnavailable;
 
         ObjectSource(final String id, final ModelSource modelSource) {
             this.id = new Id(id);
@@ -707,7 +802,9 @@ class EditorObjectHierarchyEditAccessTest {
             }
             return ancestors;
         }
-        public ACParameterControllableHandler handler() { return new ACParameterControllableHandler(this); }
+        public ACParameterControllableHandler handler() {
+            return handlerUnavailable ? null : new ACParameterControllableHandler(this);
+        }
         public boolean visible() { return true; }
         public boolean locked() { return false; }
         public boolean visibleInHierarchy() { return true; }
@@ -1007,7 +1104,11 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class EditMode {
         final List<Undo> edits = new ArrayList<>();
-        public GroupUndo begin(final String name) { return new GroupUndo(edits); }
+        int beginCalls;
+        public GroupUndo begin(final String name) {
+            beginCalls++;
+            return new GroupUndo(edits);
+        }
         public void end(final boolean abort, final Object ignored) {
             if (abort && !edits.isEmpty()) edits.remove(edits.size() - 1);
         }

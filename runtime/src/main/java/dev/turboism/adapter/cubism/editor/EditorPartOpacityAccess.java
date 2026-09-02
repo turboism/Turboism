@@ -1029,11 +1029,12 @@ final class EditorPartOpacityAccess {
             modelGuard.requireCurrent(identity, model);
             final Object parentSource = nativeSourceOf(parent, "Part parent");
             requirePartSourceCurrent(source, model, parentSource);
-            final Object created = hierarchyEditAccess.createPartSource(
-                identity, source, model, name, parentSource, index
-            );
+            final EditorObjectHierarchyEditAccess.CreatedSource created =
+                hierarchyEditAccess.createPartSource(
+                    identity, source, model, name, parentSource, index
+                );
             return bindings(source, model).stream()
-                .filter(value -> value.source() == created)
+                .filter(value -> value.source() == created.source())
                 .findFirst()
                 .map(value -> (Part) new EditorPart(
                     identity, source, model, value.id(), value.source(), value.part()

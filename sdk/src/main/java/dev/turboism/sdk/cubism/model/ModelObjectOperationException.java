@@ -12,14 +12,15 @@ public final class ModelObjectOperationException extends RuntimeException {
         CONFLICT,
         INVALID_REQUEST,
         STALE,
+        COMMITTED,
         FAILED
     }
 
     private final Code code;
+    private final java.util.Optional<ModelObjectReference> committedReference;
 
     public ModelObjectOperationException(final Code code, final String message) {
-        super(Objects.requireNonNull(message, "message"));
-        this.code = Objects.requireNonNull(code, "code");
+        this(code, message, null, java.util.Optional.empty());
     }
 
     public ModelObjectOperationException(
@@ -27,8 +28,26 @@ public final class ModelObjectOperationException extends RuntimeException {
         final String message,
         final Throwable cause
     ) {
+        this(code, message, cause, java.util.Optional.empty());
+    }
+
+    public ModelObjectOperationException(
+        final Code code,
+        final String message,
+        final Throwable cause,
+        final java.util.Optional<ModelObjectReference> committedReference
+    ) {
         super(Objects.requireNonNull(message, "message"), cause);
         this.code = Objects.requireNonNull(code, "code");
+        this.committedReference = Objects.requireNonNull(
+            committedReference,
+            "committedReference"
+        );
+        if (code != Code.COMMITTED && this.committedReference.isPresent()) {
+            throw new IllegalArgumentException(
+                "committedReference is only valid for COMMITTED failures"
+            );
+        }
     }
 
     /**
@@ -39,5 +58,13 @@ public final class ModelObjectOperationException extends RuntimeException {
      */
     public Code code() {
         return code;
+    }
+
+    /**
+     * @return the stable object reference captured before a committed operation's
+     *     descriptor readback failed; empty for every other failure classification
+     */
+    public java.util.Optional<ModelObjectReference> committedReference() {
+        return committedReference;
     }
 }

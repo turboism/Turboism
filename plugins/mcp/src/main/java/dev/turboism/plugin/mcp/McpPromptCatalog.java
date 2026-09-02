@@ -74,8 +74,12 @@ final class McpPromptCatalog {
                     + "parameters, apply the minimal changes, then re-read the resources."),
             prompt("repair_parameter_bindings", "Repair parameter bindings",
                 "Inspect and repair parameter-binding relationships.",
-                "Read the parameter binding resources, identify broken or incorrect relationships, apply "
-                    + "the smallest binding change, and re-read to verify."),
+                "Read turboism://active/model/parameter-bindings to inspect the aggregate binding state. "
+                    + "For each parameter you may change, use the existing "
+                    + "turboism://active/model/parameters/{parameterId} and "
+                    + "turboism://active/model/parameters/{parameterId}/bindings templates, percent-encoding "
+                    + "parameterId as one URI segment. Apply the smallest binding change, then re-read the "
+                    + "aggregate and affected template resources to verify."),
             prompt("recover_document_history", "Recover document history",
                 "Move the native Undo history to a requested safe state.",
                 "Read the history resource, retain generation and revision, choose move/undo/redo, call "
@@ -87,9 +91,10 @@ final class McpPromptCatalog {
             prompt("diagnose_environment", "Diagnose environment",
                 "Inspect Cubism Core, workspace, layout, and sanitized runtime diagnostics without mutation.",
                 "Read turboism://environment/cubism-core, turboism://environment/workspace, "
-                    + "turboism://environment/workspace/layout, and turboism://environment/diagnostics. "
-                    + "Distinguish typed UNAVAILABLE states from permission, unsupported, timeout, and "
-                    + "cancellation errors. Report blockers and do not call mutation tools."),
+                    + "turboism://environment/workspace/layout, turboism://environment/diagnostics, and "
+                    + "turboism://environment/runtime-diagnostics. Distinguish startup evidence from recent "
+                    + "runtime evidence and typed UNAVAILABLE states from permission, unsupported, timeout, "
+                    + "and cancellation errors. Report blockers and do not call mutation tools."),
             prompt("inspect_model_diagnostics", "Inspect model diagnostics",
                 "Inspect active model scale and texture structure without mutation.",
                 "Read turboism://active/document, turboism://active/model/overview, "

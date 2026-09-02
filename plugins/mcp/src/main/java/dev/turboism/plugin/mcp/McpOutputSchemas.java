@@ -94,14 +94,14 @@ final class McpOutputSchemas {
             entry("index", nonNegativeInteger()),
             entry("operation", stringSchema()),
             entry("ok", constant(false)),
-            entry("result", failure())
+            entry("result", modelObjectFailure())
         );
         final Map<String, Object> skipped = properties(
             entry("index", nonNegativeInteger()),
             entry("operation", stringSchema()),
             entry("ok", constant(false)),
             entry("skipped", constant(true)),
-            entry("result", failure())
+            entry("result", modelObjectFailure())
         );
         return oneOf(
             object(common, List.of("index", "operation", "ok", "result")),
@@ -113,19 +113,68 @@ final class McpOutputSchemas {
     private static Map<String, Object> modelObjectSuccess() {
         return oneOf(
             object(
-                properties(entry("ok", constant(true)), entry("object", modelObjectDescriptor())),
-                List.of("ok", "object")
+                properties(
+                    entry("ok", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("object", modelObjectDescriptor()),
+                    entry("createdObjectId", stringSchema()),
+                    entry("kind", modelObjectKind()),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of("ok", "outcome", "retryable", "object")
             ),
             object(
                 properties(
                     entry("ok", constant(true)),
+                    entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                    entry("retryable", constant(false)),
+                    entry("createdObjectId", stringSchema()),
+                    entry("kind", modelObjectKind()),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of(
+                    "ok", "outcome", "retryable", "createdObjectId", "kind",
+                    "readbackWarning", "diagnosticId"
+                )
+            ),
+            object(
+                properties(
+                    entry("ok", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
                     entry("deleted", constant(true)),
                     entry("target", modelObjectReference()),
-                    entry("policy", enumSchema(List.of("reject_referenced", "cascade")))
+                    entry("policy", enumSchema(List.of("reject_referenced", "cascade"))),
+                    entry("readbackWarning", stringSchema()),
+                    entry("diagnosticId", stringSchema())
                 ),
-                List.of("ok", "deleted", "target", "policy")
+                List.of("ok", "outcome", "retryable", "deleted", "target", "policy")
             )
         );
+    }
+
+    private static Map<String, Object> modelObjectFailure() {
+        return object(
+            properties(
+                entry("ok", constant(false)),
+                entry("outcome", writeFailureOutcome()),
+                entry("retryable", constant(false)),
+                entry("error", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of("ok", "outcome", "retryable", "error")
+        );
+    }
+
+    private static Map<String, Object> writeSuccessOutcome() {
+        return enumSchema(List.of("APPLIED", "APPLIED_WITH_READBACK_WARNING"));
+    }
+
+    private static Map<String, Object> writeFailureOutcome() {
+        return enumSchema(List.of("NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"));
     }
 
     private static Map<String, Object> modelObjectDescriptor() {
@@ -154,27 +203,84 @@ final class McpOutputSchemas {
     private static Map<String, Object> parameterOperationResult() {
         return operationResult(oneOf(
             parameter(),
-            object(properties(entry("created", array(parameter()))), List.of("created")),
             object(
-                properties(entry("parameterId", stringSchema()), entry("removed", constant(true))),
+                properties(
+                    entry("created", array(parameter())),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
+                List.of("created")
+            ),
+            object(
+                properties(
+                    entry("parameterId", stringSchema()),
+                    entry("removed", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
                 List.of("parameterId", "removed")
             ),
             object(
-                properties(entry("parameterIds", array(stringSchema())), entry("removed", constant(true))),
+                properties(
+                    entry("parameterIds", array(stringSchema())),
+                    entry("removed", constant(true)),
+                    entry("outcome", writeSuccessOutcome()),
+                    entry("retryable", constant(false)),
+                    entry("readbackWarning", error()),
+                    entry("diagnosticId", stringSchema())
+                ),
                 List.of("parameterIds", "removed")
-            )
+            ),
+            parameterReadbackWarning("parameterId"),
+            parameterReadbackWarning("parameterIds")
         ));
     }
 
+    private static Map<String, Object> parameterReadbackWarning(final String identity) {
+        final Map<String, Object> identitySchema = "parameterIds".equals(identity)
+            ? array(stringSchema()) : stringSchema();
+        return object(
+            properties(
+                entry(identity, identitySchema),
+                entry("outcome", enumSchema(List.of("APPLIED_WITH_READBACK_WARNING"))),
+                entry("retryable", constant(false)),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of(identity, "outcome", "retryable", "readbackWarning", "diagnosticId")
+        );
+    }
+
     private static Map<String, Object> bindingOperationResult() {
-        return operationResult(oneOf(
-            bindingResult(),
-            bindingResults(),
-            object(
-                properties(entry("source", bindingResults()), entry("target", bindingResults())),
-                List.of("source", "target")
-            )
-        ));
+        return operationResult(bindingWriteSuccess());
+    }
+
+    private static Map<String, Object> bindingWriteSuccess() {
+        return object(
+            properties(
+                entry("outcome", enumSchema(List.of(
+                    "APPLIED", "APPLIED_WITH_READBACK_WARNING"
+                ))),
+                entry("retryable", constant(false)),
+                entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("parameterId", stringSchema()),
+                entry("sourceParameterId", stringSchema()),
+                entry("targetParameterId", stringSchema()),
+                entry("target", oneOf(bindingTarget(), bindingResults())),
+                entry("targets", array(bindingTarget())),
+                entry("bound", booleanSchema()),
+                entry("binding", nullableObject(binding())),
+                entry("bindings", array(bindingResult())),
+                entry("source", bindingResults()),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
+            ),
+            List.of("outcome", "retryable", "canonicalPointIds")
+        );
     }
 
     private static Map<String, Object> operationResult(final Map<String, Object> successResult) {
@@ -210,7 +316,11 @@ final class McpOutputSchemas {
                 entry("defaultValue", numberSchema()),
                 entry("maximumValue", numberSchema()),
                 entry("type", enumSchema(List.of("normal", "blend_shape"))),
-                entry("repeat", booleanSchema())
+                entry("repeat", booleanSchema()),
+                entry("outcome", writeSuccessOutcome()),
+                entry("retryable", constant(false)),
+                entry("readbackWarning", error()),
+                entry("diagnosticId", stringSchema())
             ),
             List.of(
                 "id", "name", "value", "minimumValue", "defaultValue",
@@ -224,9 +334,10 @@ final class McpOutputSchemas {
             properties(
                 entry("parameterId", stringSchema()),
                 entry("target", bindingTarget()),
+                entry("bound", booleanSchema()),
                 entry("binding", nullableObject(binding()))
             ),
-            List.of("parameterId", "target", "binding")
+            List.of("parameterId", "target", "bound", "binding")
         );
     }
 
@@ -338,7 +449,13 @@ final class McpOutputSchemas {
             properties(
                 entry("code", stringSchema()),
                 entry("message", stringSchema()),
-                entry("details", stringSchema())
+                entry("details", stringSchema()),
+                entry("outcome", enumSchema(List.of(
+                    "NOT_APPLIED", "ROLLED_BACK", "OUTCOME_UNKNOWN"
+                ))),
+                entry("retryable", constant(false)),
+                entry("canonicalPointIds", nullableArray(stringSchema())),
+                entry("diagnosticId", stringSchema())
             ),
             List.of("code", "message")
         );
@@ -348,6 +465,10 @@ final class McpOutputSchemas {
         final LinkedHashMap<String, Object> result = new LinkedHashMap<>(object);
         result.put("type", List.of("object", "null"));
         return result;
+    }
+
+    private static Map<String, Object> nullableArray(final Map<String, Object> items) {
+        return linked(entry("type", List.of("array", "null")), entry("items", items));
     }
 
     private static Map<String, Object> oneOf(final Map<String, Object>... alternatives) {
