@@ -151,9 +151,11 @@ public final class FileChooserHistoryNativeMethodTransformer implements ClassFil
         final byte[] transformedBytes = writer.toByteArray();
         for (FileChooserHistoryHostProfile.SaveDialogMethod method : matched) {
             transformedMethod.accept(method);
-            System.out.println("FILE-CHOOSER-TRANSFORM:class=" + className
-                + " method=" + method.name() + " desc=" + method.descriptor());
         }
+        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+            "file-chooser",
+            "Installed " + matched.size() + " verified file-chooser transforms"
+        );
         return transformedBytes;
     }
 

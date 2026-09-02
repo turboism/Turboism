@@ -58,6 +58,33 @@ class CoreWindowsTest {
     }
 
     @Test
+    void customGraalVmPathContributionPrecedesTheJvmChoiceAndPersistsThePath() {
+        final String[] saved = {"C:\\GraalVM"};
+        final CubismJvmSettingsService service = new CubismJvmSettingsService() {
+            @Override public CubismJvm read() { return CubismJvm.BUNDLED; }
+            @Override public CubismJvm save(final CubismJvm next) { return next; }
+            @Override public String graalVmPath() { return saved[0]; }
+            @Override public String saveGraalVmPath(final String value) { return saved[0] = value; }
+            @Override public boolean graalVmPathCompatible(final String value) {
+                return value == null || value.isBlank()
+                    || value.endsWith("\\bin") || value.endsWith("java.exe");
+            }
+        };
+
+        final var contribution = CubismJvmSettingsContribution.createPath(I18N, service);
+        final var text = (dev.turboism.sdk.ui.settings.SettingsControl.Text) contribution.control();
+
+        assertEquals("performance", contribution.tab().id());
+        assertEquals(90, contribution.index().orElseThrow());
+        assertEquals("C:\\GraalVM", text.binding().read());
+        assertTrue(text.validator().validate(saved[0], "").accepted());
+        assertFalse(text.validator().validate(saved[0], "C:\\ordinary\\java.exe.bak").accepted());
+        assertTrue(text.validator().validate(saved[0], "C:\\GraalVM\\bin").accepted());
+        text.binding().write("C:\\GraalVM\\bin");
+        assertEquals("C:\\GraalVM\\bin", saved[0]);
+    }
+
+    @Test
     void unavailableGraalVmInitialValueFallsBackToBundled() {
         assertEquals(
             CubismJvm.BUNDLED,
@@ -132,6 +159,33 @@ class CoreWindowsTest {
             "https://www.graalvm.org/downloads/",
             CubismJvmSettingsService.GRAALVM_DOWNLOAD_URI.toString()
         );
+    }
+
+    @Test
+    void pluginDetailsOpenOnlyForALeftButtonDoubleClick() {
+        final javax.swing.JButton source = new javax.swing.JButton();
+        assertTrue(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(
+            source,
+            java.awt.event.MouseEvent.MOUSE_CLICKED,
+            0L,
+            0,
+            1,
+            1,
+            2,
+            false,
+            java.awt.event.MouseEvent.BUTTON1
+        )));
+        assertFalse(CoreWindows.pluginDetailsDoubleClick(new java.awt.event.MouseEvent(
+            source,
+            java.awt.event.MouseEvent.MOUSE_CLICKED,
+            0L,
+            0,
+            1,
+            1,
+            2,
+            false,
+            java.awt.event.MouseEvent.BUTTON3
+        )));
     }
 
     @Test

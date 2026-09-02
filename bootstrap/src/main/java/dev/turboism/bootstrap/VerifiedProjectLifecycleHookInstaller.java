@@ -58,7 +58,6 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
             int retransformed = 0;
             for (Class<?> loaded : instrumentation.getAllLoadedClasses()) {
                 if (targetClassNames.contains(loaded.getName())) {
-                    System.out.println("LIFECYCLE-INSTALL:found-class=" + loaded.getName());
                     if (loaded.getClassLoader() == hostClassLoader
                         && instrumentation.isModifiableClass(loaded)) {
                         instrumentation.retransformClasses(loaded);
@@ -66,8 +65,10 @@ final class VerifiedProjectLifecycleHookInstaller implements AutoCloseable {
                     }
                 }
             }
-            System.out.println("LIFECYCLE-INSTALL:targets=" + targetClassNames.size()
-                + " retransformed=" + retransformed);
+            dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                "lifecycle",
+                "Installed verified lifecycle hooks; retransformed=" + retransformed
+            );
         } catch (Throwable failure) {
             close();
             throw failure;

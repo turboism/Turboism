@@ -22,7 +22,7 @@ RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入�
 由运行时默认值补全（见 installer.nsi 注释；configure_turboism.ps1 完整保留）。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
-18 项目 / 7 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
+17 项目 / 8 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
 id/module fixture 与该清单相互独立 —— Gradle 模块名不是插件 id 的通用约定
 （如 atlas-maxrects-bssf 与 id 不同形），真实 id 由
 verify-installer.py 与 assemble-release.sh 从各 JAR 的
@@ -41,7 +41,7 @@ ICON_DIR = Path(__file__).resolve().parent / "assets"
 FX_RUNTIME_DIR = (Path(__file__).resolve().parent.parent / "fx-runtime" /
                   "windows-x86_64")
 
-# 冻结的 18 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:backup",
@@ -59,12 +59,12 @@ EXPECTED_PATHS = [
     ":plugins:recent-preview",
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
-    ":plugins:turboism-with-fx",
     ":plugins:ui-theme",
 ]
-# 七个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
+# 八个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
 EXCLUDED = {"bounding-box", "context-menu", "demo", "parameter",
-            "project-inspector", "project-panel", "psd-import"}
+            "project-inspector", "project-panel", "psd-import",
+            "turboism-with-fx"}
 
 
 def check(name, cond, detail=""):
@@ -76,7 +76,7 @@ def check(name, cond, detail=""):
 
 def load_manifest():
     """回归 oracle：从唯一权威 release-plugins.txt 校验清单 —— 空行/注释/非插件项/
-    重复/未排序/偏离冻结 18 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
+    重复/未排序/偏离冻结 17 项/含公开排除模块均失败。返回的模块名仅供 oracle 使用，
     不用于推导模拟器的插件 id（真实 id 以各 JAR 的 plugin.json 为准）。"""
     raw = MANIFEST_PATH.read_text(encoding="utf-8").splitlines()
     invalid = [l for l in raw if not l.strip() or l.strip().startswith("#")]
@@ -87,7 +87,7 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 18 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    check("清单与冻结 17 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
     modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
@@ -253,8 +253,8 @@ def check_nsis_retirement_contract():
           and '$PLUGINSDIR\\Turboism-retire' in text)
     lines = text.splitlines()
     exec_index = next(i for i, line in enumerate(lines)
-                      if "ExecWait" in line and call in line)
-    guard = "\n".join(lines[exec_index:exec_index + 6])
+                      if "nsExec::ExecToLog" in line and call in line)
+    guard = "\n".join(lines[exec_index:exec_index + 7])
     check("R1 NSIS 退休失败关闭",
           "$0 != 0" in guard and "PluginRetireError" in guard and "Abort" in guard)
     check("R1 配置器公开 RetirePlugins 模式",
@@ -348,8 +348,9 @@ def check_configurator_flow_contract():
           and "$PLUGINSDIR\\Turboism-discovery-$CubismDiscoveryGeneration" in discovery_create)
     scanner_exec = next(line for line in discovery_create.splitlines()
                         if "InstallerDiscoveryOutput" in line)
-    check("CF1d pre-install discovery launches asynchronously",
-          scanner_exec.strip().startswith("Exec '")
+    check("CF1d pre-install discovery launches asynchronously without taking focus",
+          scanner_exec.strip().startswith('ExecShell ""')
+          and "SW_HIDE" in scanner_exec
           and "ExecWait" not in scanner_exec
           and "nsExec" not in scanner_exec)
     check("CF1e pre-install discovery disables Next before timer polling",
@@ -397,15 +398,20 @@ def check_configurator_flow_contract():
           and "FileClose $CubismDiscoveryHandle" in poll
           and "FileReadUTF16LE $0 $line" not in poll)
     discovery_keys = (
-        "CubismDiscoveryTitle", "CubismDiscoverySubtitle", "CubismDiscoveryScanning",
-        "CubismDiscoveryComplete", "CubismDiscoveryNone", "CubismDiscoveryFailed",
-        "CubismDiscoveryTimeout",
+        "CubismDiscoveryTitle", "CubismDiscoveryScanning", "CubismDiscoveryComplete",
+        "CubismDiscoveryNone", "CubismDiscoveryFailed", "CubismDiscoveryTimeout",
     )
     check("CF1j discovery page has English, Simplified Chinese, and Japanese text",
           all(text.count("LangString %s " % key) == 3 for key in discovery_keys)
           and all(('LangString CubismDiscoveryTitle ${LANG_%s}' % language) in text
                   for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
           and 'LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"' in text)
+    check("CF1j1 discovery page avoids explanatory and implementation-defense wording",
+          "CubismDiscoverySubtitle" not in text
+          and '!insertmacro MUI_HEADER_TEXT "$(CubismDiscoveryTitle)" ""' in discovery_create
+          and "精确身份" not in text
+          and "Exact application JARs" not in text
+          and 'LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"' in text)
     check("CF1j2 scaled discovery list exposes complete paths horizontally",
           "${NSD_AddStyle} $CubismDiscoveryList ${WS_HSCROLL}" in discovery_create
           and "${LB_SETHORIZONTALEXTENT} 8192" in poll)
@@ -422,14 +428,17 @@ def check_configurator_flow_contract():
           and "${If} $CubismDiscoveryStarted == 1" in discovery_create
           and "StrCpy $CubismDiscoveryStarted 1" in discovery_create
           and discovery_create.count("InstallerDiscoveryOutput") == 1)
-    check("CF1m every DISPLAY record fits the NSIS string buffer",
+    check("CF1m every DISPLAY record contains only a bounded label and path",
           "-MaximumLength 520" in common
-          and "-MaximumLength 260" in common
+          and '[void]$lines.Add("DISPLAY|[$label] $root")' in common
+          and "$candidate.Reason" not in common
+          and " — $reason" not in common
           and "[int]$MaximumLength = 900" in common)
     success = text[text.index("Function .onInstSuccess"):
                    text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
-    check("CF2 successful installation performs headless initial configuration",
-          "ExecWait" in success
+    check("CF2 successful installation performs hidden headless initial configuration",
+          success.count("nsExec::ExecToLog") == 5
+          and "ExecWait" not in success
           and "-NonInteractive" in success
           and "-InitializeSelection" in success
           and "-EnableShortcuts" in success
@@ -437,6 +446,11 @@ def check_configurator_flow_contract():
           and "-IntegrateBat" in success
           and "-DisableBat" in success
           and "Exec '" not in success)
+    check("CF2a every installer-time PowerShell console is hidden",
+          "ExecWait" not in text
+          and "ExecShell \"\" \"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\"" in scanner_exec
+          and "SW_HIDE" in scanner_exec
+          and text.count("nsExec::ExecToLog") == 9)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -628,10 +642,12 @@ def check_launcher_and_shortcut_contract():
               for name in legacy_start_menu)
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in start_menu
           and "!insertmacro RemoveLegacyStartMenuShortcuts" in uninstall)
-    check("L6 installer discloses explicit hash-guarded BAT integration",
+    check("L6 installer keeps BAT integration explicit without defensive help copy",
           "only if explicitly selected" in text
           and "仅在明确勾选时" in text
-          and "BatIntegrationHelp" in text
+          and "当前支持版本：5.2.03, 5.3.02, 5.3.03" in text
+          and "Currently supported versions: 5.2.03, 5.3.02, 5.3.03" in text
+          and "BatIntegrationHelp" not in text
           and "$integrateCubismBat" in text
           and "$batCheck" in configure)
     check("L6b Start-menu and BAT controls are independent and reversible",
@@ -639,15 +655,43 @@ def check_launcher_and_shortcut_contract():
           and "$integrateCubismBat" in text
           and "Disable-CubismShortcutIntegration" in common
           and "Restore-CubismBatIntegrations" in common)
+    launch_options = text[text.index("Function LaunchOptionsCreate"):
+                          text.index("FunctionEnd", text.index("Function LaunchOptionsLeave"))]
+    check("L6d launch options are independent, localized, and tightly spaced",
+          all(('LangString DesktopShortcutOption ${LANG_%s}' % lang) in text
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+          and '${NSD_CreateCheckbox} 0 30u 100% 18u "$(StartMenuOption)"' in launch_options
+          and '${NSD_CreateCheckbox} 0 50u 100% 18u "$(DesktopShortcutOption)"' in launch_options
+          and '${NSD_CreateCheckbox} 0 70u 100% 32u "$(BatIntegrationOption)"' in launch_options
+          and "$DesktopShortcutCheckbox" in launch_options
+          and "${NSD_GetState} $DesktopShortcutCheckbox $createDesktopShortcut" in launch_options
+          and "StrCpy $createDesktopShortcut 0" in text)
+    check("L6e desktop shortcut creation, opt-out cleanup, and uninstall are symmetric",
+          'CreateShortCut "$DESKTOP\\Turboism_Launch_Cubism.lnk"' in start_menu
+          and start_menu.count('Delete "$DESKTOP\\Turboism_Launch_Cubism.lnk"') == 1
+          and 'Delete "$DESKTOP\\Turboism_Launch_Cubism.lnk"' in uninstall
+          and "${AndIf} $createDesktopShortcut == 0" in text)
     check("L6c fresh official BAT backups preserve exact source bytes",
           "[System.IO.File]::Copy($bat, $backup, $false)" in common
           and "Cubism BAT backup verification failed" in common
           and "[int64]$backupFile.Length -ne $originalLength" in common
           and "(Get-CubismSha256 $backup) -ine $originalHash" in common)
-    check("L7 finish page can open the installation directory",
-          "MUI_FINISHPAGE_RUN" in text
+    check("L7 finish page launches Turboism by default and can open the installation directory",
+          "MUI_FINISHPAGE_RUN_FUNCTION LaunchTurboism" in text
+          and "MUI_FINISHPAGE_RUN_TEXT \"$(FinishLaunchTurboismText)\"" in text
+          and "MUI_FINISHPAGE_RUN_NOTCHECKED" not in text
+          and "MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory" in text
+          and all(('LangString FinishLaunchTurboismText ${LANG_%s}' % lang) in text
+                  for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
           and "FinishOpenFolderText" in text
+          and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat" "" SW_SHOWNORMAL' in text
           and 'explorer.exe' in text)
+    check("L8 managed launcher prints the Turboism banner before Cubism selection",
+          "function Write-TurboismLauncherBanner" in launcher
+          and "For you, a bouquet." in launcher
+          and 'Join-Path $turboismHome "README.txt"' in launcher
+          and launcher.index("\nWrite-TurboismLauncherBanner\n")
+              < launcher.index("$cubism = Resolve-SelectedCandidate"))
 
 
 
@@ -691,6 +735,10 @@ def check_eula_contract():
     mode_page = text.index("Page custom ModeCreate ModeLeave")
     check("EULA statement and acknowledgements are separate pages after MIT License",
           first < statement < acknowledgements_page < mode_page)
+    check("Simplified Chinese MIT acceptance consistently uses 我同意",
+          'LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 MIT License，请勾选下方复选框后继续。"' in text
+          and 'LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 MIT License"' in text
+          and '我接受 MIT License' not in text)
     statement_declaration = text[first + len(
         '!insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"'):statement]
     check("EULA statement page keeps the complete localized scrollable body",
@@ -698,6 +746,10 @@ def check_eula_contract():
           and "MUI_LICENSEPAGE_CHECKBOX" not in statement_declaration
           and "MUI_PAGE_CUSTOMFUNCTION_SHOW" not in statement_declaration
           and "MUI_PAGE_CUSTOMFUNCTION_LEAVE" not in statement_declaration)
+    check("Simplified Chinese EULA agree button consistently uses 我同意(I)",
+          '!define MUI_LICENSEPAGE_BUTTON "$(EulaAgreeButtonText)"' in statement_declaration
+          and 'LangString EulaAgreeButtonText ${LANG_SIMPCHINESE} "我同意(&I)"' in text
+          and '我接受(&I)' not in text)
     acknowledgements = (
         "我确认 Turboism 是独立第三方项目，并非 Live2D 官方产品。",
         "我确认使用 Cubism 仍需合法、有效的授权；Turboism 不提供、替代或绕过 Cubism 的许可校验。",
@@ -714,11 +766,11 @@ def check_eula_contract():
           all(value in text for value in acknowledgements)
           and create.count("${NSD_CreateCheckbox}") == 4
           and all("EulaAck%dCheckbox" % index in create for index in range(1, 5)))
-    check("NSIS acknowledgement rows use only one-unit gaps and keep row four visible",
-          '${NSD_CreateCheckbox} 0 0 100% 28u "$(EulaAck1)"' in create
-          and '${NSD_CreateCheckbox} 0 29u 100% 36u "$(EulaAck2)"' in create
-          and '${NSD_CreateCheckbox} 0 66u 100% 44u "$(EulaAck3)"' in create
-          and '${NSD_CreateCheckbox} 0 111u 100% 36u "$(EulaAck4)"' in create)
+    check("NSIS acknowledgement rows are compact, contiguous, and fully visible",
+          '${NSD_CreateCheckbox} 0 0 100% 24u "$(EulaAck1)"' in create
+          and '${NSD_CreateCheckbox} 0 24u 100% 30u "$(EulaAck2)"' in create
+          and '${NSD_CreateCheckbox} 0 54u 100% 38u "$(EulaAck3)"' in create
+          and '${NSD_CreateCheckbox} 0 92u 100% 30u "$(EulaAck4)"' in create)
     check("NSIS reads and requires all four acknowledgement states",
           leave.count("${NSD_GetState}") == 4
           and all("$EulaAck%dState" % index in leave for index in range(1, 5))
@@ -761,10 +813,26 @@ def check_graal_fallback_contract():
     launcher = (INSTALLER_NSI.parent / "launch-cubism-turboism.ps1").read_text(encoding="utf-8")
     check("G1 nullable GraalVM discovery helper exists",
           "function Find-CubismGraalJava" in common and 'return ""' in common)
-    check("G1b discovery requires GraalVM Community 25.2.x release metadata",
+    check("G1b discovery accepts GraalVM metadata across vendors and Java versions",
           "function Test-CubismCompatibleGraalJava" in common
-          and 'IMPLEMENTOR="GraalVM' in common
-          and 'GRAALVM_VERSION="25\\.2\\.' in common)
+          and 'GRAALVM_VERSION="[^"\\r\\n]+"' in common
+          and 'JAVA_VERSION="[^"\\r\\n]+"' in common
+          and 'IMPLEMENTOR="GraalVM Community"' not in common
+          and 'GRAALVM_VERSION="25\\.2\\.4"' not in common
+          and 'JAVA_VERSION="25\\.0\\.4"' not in common)
+    discovery = common[common.index("function Find-CubismGraalJava"):
+                       common.index("function Resolve-CubismGraalJava")]
+    check("G1c custom GraalVM path is consulted after automatic discovery",
+          "function Read-CubismGraalVmPath" in common
+          and '$configured = Read-CubismGraalVmPath -TurboismHome $TurboismHome' in discovery
+          and discovery.index('$candidates += (Join-Path $TurboismHome "graalvm\\bin\\java.exe")')
+              < discovery.index('$configured = Read-CubismGraalVmPath'))
+    check("G1d custom path accepts the documented bin directory level",
+          '(Split-Path -Leaf $path) -ieq "bin"' in discovery
+          and 'Join-Path $path "java.exe"' in discovery)
+    check("G1e missing optional custom path is strict-mode safe",
+          '$launcherProperty.Value.PSObject.Properties["graalVmPath"]' in common
+          and '$null -eq $pathProperty' in common)
     check("G2 explicit Cubism Java override remains strict for missing paths",
           "function Resolve-CubismGraalJava" in common
           and "no GraalVM java.exe is available" in common
@@ -819,7 +887,7 @@ def check_uninstall_postcondition():
     清理的复现：NSIS 曾仅信任 $0 导致残留）；LICENSE 删除必须使用精确基线名。"""
     stmts = uninstall_statements()
     texts = [t for _, t in stmts]
-    cleanup = find_stmt(texts, lambda t: "ExecWait" in t and "-Cleanup" in t)
+    cleanup = find_stmt(texts, lambda t: "nsExec::ExecToLog" in t and "-Cleanup" in t)
     check("U1 托管清理调用存在", cleanup is not None)
     if cleanup is None:
         return

@@ -171,8 +171,10 @@ public final class RuntimePerformanceProbeService
                 published.install();
                 hook = published;
             } catch (Throwable failure) {
-                System.err.println(
-                    "Turboism performance FPS hook disabled safely: " + failure.getClass().getName()
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "performance",
+                    "Performance FPS hook disabled safely",
+                    failure
                 );
             }
         }
@@ -252,9 +254,10 @@ public final class RuntimePerformanceProbeService
                 try {
                     consumer.accept(snapshot);
                 } catch (Throwable failure) {
-                    System.err.println(
-                        "Turboism performance sampling consumer failed safely: "
-                            + failure.getClass().getName()
+                    dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                        "performance",
+                        "Performance sampling consumer failed safely",
+                        failure
                     );
                 }
             }

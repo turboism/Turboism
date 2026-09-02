@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class CubismLoggerBridgeTest {
 
     @Test
-    void invokesTheMatchingCubismLog4jMethodWithoutEmbeddingHostOwnedPrefixes() {
+    void sendsExplicitNativeNoticesThroughTheMatchingCubismLog4jLevel() {
         final RecordingLogger logger = new RecordingLogger();
         final CubismLoggerBridge bridge = new CubismLoggerBridge(logger);
 

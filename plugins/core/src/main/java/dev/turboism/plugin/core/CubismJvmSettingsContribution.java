@@ -19,8 +19,41 @@ import java.util.OptionalInt;
 /** Core-owned declarative Cubism JVM selector rendered in the shared Performance tab. */
 final class CubismJvmSettingsContribution {
     static final String CONTRIBUTION_ID = "cubism-jvm";
+    static final String PATH_CONTRIBUTION_ID = "cubism-graalvm-path";
 
     private CubismJvmSettingsContribution() {
+    }
+
+    static SettingsContribution createPath(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        return new SettingsContribution(
+            PATH_CONTRIBUTION_ID,
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(90),
+            new SettingsControl.Text(
+                PATH_CONTRIBUTION_ID,
+                i18n.text("settings.cubism-jvm.graalvm-path")
+                    + " ("
+                    + i18n.text("settings.locale.restart-required")
+                    + ")",
+                36,
+                SettingsBinding.of(settings::graalVmPath, settings::saveGraalVmPath),
+                (current, proposed) -> settings.graalVmPathCompatible(proposed)
+                    ? SettingsChangeDecision.allow()
+                    : SettingsChangeDecision.rejected(
+                        i18n.text("settings.cubism-jvm.graalvm-path-invalid-title"),
+                        i18n.text("settings.cubism-jvm.graalvm-path-invalid")
+                    )
+            )
+        );
     }
 
     static SettingsContribution create(

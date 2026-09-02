@@ -47,13 +47,13 @@ public final class NativeFloatingTabCloseBridge {
         if (handler == null || palette == null) {
             return false;
         }
-        System.err.println("Turboism floating-tab close hook fired: " + palette.getClass().getName());
         try {
             return handler.closeRequested(palette);
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism floating-tab close interception failed safely: "
-                    + failure.getClass().getName()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "floating-panels",
+                "Floating-tab close interception failed safely",
+                failure
             );
             return false;
         }

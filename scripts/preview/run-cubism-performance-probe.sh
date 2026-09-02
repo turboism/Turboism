@@ -124,7 +124,7 @@ capture=false
 scenario=camera
 jfr="-XX:StartFlightRecording=filename=${run_windows}\\cubism.jfr,settings=profile,dumponexit=true,maxsize=512m"
 options="home=Z:${home//\//\\};timeoutSeconds=180;performanceProbeInstall=true;performanceProbeCapture=$capture;performanceProbeScenario=$scenario;performanceProbeDelaySeconds=60;performanceProbeDurationSeconds=60;performanceProbeOutput=Z:${home//\//\\}\\logs\\performance-probe.json;performanceProbeAgentSha256=$agent_sha;performanceProbeFixtureSha256=$fixture_sha;performanceProbeRunId=$run_id;performanceProbeRollbackOutput=${run_windows}\\rollback-manifest.json"
-agent=" --add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.home=Z:${home//\//\\} -javaagent:Z:${task//\//\\}\\probe-bundle\\turboism-agent.jar=$options"
+agent=" -Djava.locale.providers=CLDR,SPI -Dturboism.home=Z:${home//\//\\} -javaagent:Z:${task//\//\\}\\probe-bundle\\turboism-agent.jar=$options"
 cat > "$run/launch.bat" <<EOF
 @echo off
 setlocal

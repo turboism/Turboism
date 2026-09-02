@@ -73,6 +73,56 @@ class RuntimeSettingsServiceTest {
     }
 
     @Test
+    void persistsCustomGraalVmPathAndUsesItAfterAutomaticDiscovery() throws Exception {
+        final Path packaged = home.resolve("graalvm/bin/java.exe");
+        Files.createDirectories(packaged.getParent());
+        Files.write(packaged, new byte[]{1});
+        writeGraalVmRelease(home.resolve("graalvm"));
+        final Path customHome = home.resolve("custom graalvm");
+        final Path customJava = customHome.resolve("bin/java.exe");
+        Files.createDirectories(customJava.getParent());
+        Files.write(customJava, new byte[]{2});
+        writeGraalVmRelease(customHome);
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(home);
+
+        assertEquals(
+            customJava.getParent().toAbsolutePath().normalize().toString(),
+            service.saveGraalVmPath(customJava.getParent().toString())
+        );
+        assertEquals(packaged.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+        assertEquals(
+            customJava.getParent().toAbsolutePath().normalize().toString(),
+            JSON.readTree(home.resolve("config.json").toFile())
+                .path("launcher").path("graalVmPath").asText()
+        );
+
+        Files.delete(packaged);
+        assertEquals(customJava.toAbsolutePath().normalize(), service.graalVmJava().orElseThrow());
+
+        service.saveGraalVmPath("   ");
+
+        assertEquals("", service.graalVmPath());
+        assertFalse(
+            JSON.readTree(home.resolve("config.json").toFile())
+                .path("launcher").has("graalVmPath")
+        );
+        assertTrue(service.graalVmJava().isEmpty());
+    }
+
+    @Test
+    void rejectsIncompatibleCustomGraalVmPathWithoutChangingConfig() throws Exception {
+        final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(home);
+        service.save(CubismJvm.BUNDLED);
+        final byte[] before = Files.readAllBytes(home.resolve("config.json"));
+
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> service.saveGraalVmPath(home.resolve("ordinary-java").toString())
+        );
+        assertArrayEquals(before, Files.readAllBytes(home.resolve("config.json")));
+    }
+
+    @Test
     void missingHttpClientModuleDoesNotAbortRuntimeSettingsConstruction() {
         final CubismJvmSettingsFileService service = new CubismJvmSettingsFileService(
             new RuntimeConfigRepository(home, ignored -> { }),
@@ -155,23 +205,23 @@ class RuntimeSettingsServiceTest {
     }
 
     @Test
-    void ignoresOrdinaryJavaExecutablesThatAreNotGraalVm252() throws Exception {
+    void acceptsGraalVmAcrossVendorsAndJavaVersionsAndRejectsOrdinaryJava() throws Exception {
         final Path javaExecutable = home.resolve("graalvm/bin/java.exe");
         Files.createDirectories(javaExecutable.getParent());
         Files.write(javaExecutable, new byte[]{1});
         Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"Other VM\"\nJAVA_VERSION=\"25.0.4\"\n");
-        final CubismJvmSettingsFileService wrongImplementor = new CubismJvmSettingsFileService(
+        final CubismJvmSettingsFileService ordinaryJava = new CubismJvmSettingsFileService(
             new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
         );
 
-        assertFalse(wrongImplementor.graalVmAvailable());
+        assertFalse(ordinaryJava.graalVmAvailable());
 
-        Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"GraalVM Community\"\nGRAALVM_VERSION=\"26.0.0\"\n");
-        final CubismJvmSettingsFileService wrongVersion = new CubismJvmSettingsFileService(
+        Files.writeString(home.resolve("graalvm/release"), "IMPLEMENTOR=\"Oracle Corporation\"\nJAVA_VERSION=\"25.0.4+7\"\nGRAALVM_VERSION=\"25.0.4+7.1\"\n");
+        final CubismJvmSettingsFileService otherVersion = new CubismJvmSettingsFileService(
             new RuntimeConfigRepository(home, ignored -> { }), home, java.util.Map.of()
         );
 
-        assertFalse(wrongVersion.graalVmAvailable());
+        assertTrue(otherVersion.graalVmAvailable());
     }
 
     @Test

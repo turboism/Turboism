@@ -9,10 +9,10 @@
                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                  xsi:schemaLocation="http://izpack.org/schema/langpack https://izpack.org/schema/5.0/izpack-langpack-5.0.xsd">
 
-    <str id="InstallationGroupPanel.group.full" txt="フルインストール（全プラグイン）"/>
-    <str id="InstallationGroupPanel.description.full" txt="Turboism エージェントと全ファーストパーティプラグインをインストールします。次のページで個別に選択を解除できます。"/>
-    <str id="InstallationGroupPanel.group.thin" txt="Thin インストール（プラグインあり、fx オンライン修復）"/>
-    <str id="InstallationGroupPanel.description.thin" txt="全ファーストパーティプラグインをインストールしますが、fx ネイティブランタイムは含みません。Turboism with fx からレビュー済みの正確なプラットフォームランタイムを後で明示的にオンラインインストールできます。"/>
+    <str id="InstallationGroupPanel.group.full" txt="フルインストール（公開対象プラグイン）"/>
+    <str id="InstallationGroupPanel.description.full" txt="Turboism エージェントと公開が承認された全プラグインをインストールします。次のページで個別に選択を解除できます。"/>
+    <str id="InstallationGroupPanel.group.thin" txt="Thin インストール（公開対象プラグイン、fx ランタイムなし）"/>
+    <str id="InstallationGroupPanel.description.thin" txt="公開が承認された全プラグインをインストールしますが、fx ネイティブランタイムは含みません。"/>
     <str id="InstallationGroupPanel.group.lite" txt="ライトインストール（プラグインなし）"/>
     <str id="InstallationGroupPanel.description.lite" txt="Turboism エージェントと共通ファイルのみをインストールします。ファーストパーティプラグインの JAR はコピーされません。"/>
     <str id="InstallationGroupPanel.sortKey.full" txt="1"/>

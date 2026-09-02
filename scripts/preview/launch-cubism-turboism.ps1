@@ -55,7 +55,11 @@ function Resolve-JavaExecutable {
     }
     $candidate = $Requested
     if (Test-Path -LiteralPath $candidate -PathType Container) {
-        $candidate = Join-Path $candidate "bin\java.exe"
+        $candidate = if ((Split-Path -Leaf $candidate) -ieq "bin") {
+            Join-Path $candidate "java.exe"
+        } else {
+            Join-Path $candidate "bin\java.exe"
+        }
     }
     if (-not (Test-Path -LiteralPath $candidate -PathType Leaf)) {
         throw "$Label Java executable does not exist: $Requested"
@@ -89,6 +93,38 @@ function Read-CubismJvmPreference {
     return [string]$document.launcher.cubismJvm
 }
 
+function Read-CubismGraalVmPath {
+    param([string]$TurboismHome)
+
+    $config = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $config -PathType Leaf)) {
+        return ""
+    }
+    if ((Get-Item -LiteralPath $config).Length -gt 65536) {
+        throw "Turboism config exceeds 64 KiB: $config"
+    }
+    try {
+        $document = Get-Content -LiteralPath $config -Raw -Encoding UTF8 | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch {
+        throw "Turboism config is invalid: $config"
+    }
+    $launcherProperty = $document.PSObject.Properties["launcher"]
+    if ($null -eq $launcherProperty -or $null -eq $launcherProperty.Value) {
+        return ""
+    }
+    $pathProperty = $launcherProperty.Value.PSObject.Properties["graalVmPath"]
+    if ($null -eq $pathProperty -or $null -eq $pathProperty.Value) {
+        return ""
+    }
+    $value = $pathProperty.Value
+    if ($value -isnot [string] -or [string]::IsNullOrWhiteSpace($value) -or
+        $value.Length -gt 4096 -or $value -match '[\x00-\x1F]') {
+        throw "Turboism custom GraalVM path is invalid"
+    }
+    return $value.Trim()
+}
+
 function Test-CompatibleGraalJava {
     param([string]$JavaPath)
 
@@ -104,9 +140,8 @@ function Test-CompatibleGraalJava {
             return $false
         }
         $metadata = Get-Content -LiteralPath $release -Raw -Encoding UTF8 -ErrorAction Stop
-        return $metadata -match '(?m)^IMPLEMENTOR="GraalVM Community"\s*$' -and
-            $metadata -match '(?m)^GRAALVM_VERSION="25\.2\.4"\s*$' -and
-            $metadata -match '(?m)^JAVA_VERSION="25\.0\.4"\s*$'
+        return $metadata -match '(?m)^GRAALVM_VERSION="[^"\r\n]+"\s*$' -and
+            $metadata -match '(?m)^JAVA_VERSION="[^"\r\n]+"\s*$'
     }
     catch { return $false }
 }
@@ -117,7 +152,7 @@ function Resolve-GraalJava {
     if (-not [string]::IsNullOrWhiteSpace($Requested)) {
         $resolved = Resolve-JavaExecutable -Requested $Requested -Label "Graal"
         if (-not (Test-CompatibleGraalJava $resolved)) {
-            throw "Graal Java must be GraalVM Community 25.2.4 / JDK 25.0.4: $Requested"
+            throw "Graal Java must belong to a GraalVM installation: $Requested"
         }
         return $resolved
     }
@@ -134,10 +169,18 @@ function Resolve-GraalJava {
     if (-not [string]::IsNullOrWhiteSpace($env:GRAALVM_HOME)) {
         $candidates += (Join-Path $env:GRAALVM_HOME "bin\java.exe")
     }
+    $configured = Read-CubismGraalVmPath -TurboismHome $previewRoot
+    if (-not [string]::IsNullOrWhiteSpace($configured)) {
+        $candidates += $configured
+    }
 
     foreach ($candidate in $candidates) {
         if (Test-Path -LiteralPath $candidate -PathType Container) {
-            $candidate = Join-Path $candidate "bin\java.exe"
+            $candidate = if ((Split-Path -Leaf $candidate) -ieq "bin") {
+                Join-Path $candidate "java.exe"
+            } else {
+                Join-Path $candidate "bin\java.exe"
+            }
         }
         if (Test-CompatibleGraalJava $candidate) {
             return (Resolve-Path -LiteralPath $candidate).Path
@@ -277,11 +320,9 @@ $javaArgs = @(
     "-Duser.language=zh",
     "-XX:MaxRAMPercentage=100",
     "-showversion",
-    "--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED",
-    "--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED",
     "-Dturboism.home=$previewRoot",
     "-javaagent:$agent=home=$previewRoot;timeoutSeconds=120",
-    "-Djava.locale.providers=COMPAT,SPI"
+    "-Djava.locale.providers=CLDR,SPI"
 )
 if (-not [string]::IsNullOrWhiteSpace($graalHostJava)) {
     $javaArgs += "-Dturboism.graal.enabled=true"

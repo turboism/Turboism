@@ -24,7 +24,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $bundleRoot "state") | Out-
 $agentWindows = $agent -replace '^Z:', 'Z:'
 $homeWindows = $bundleRoot -replace '^Z:', 'Z:'
 $previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
-$env:JAVA_TOOL_OPTIONS = "--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED --add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED -Dturboism.home=$homeWindows -javaagent:$agentWindows=home=$homeWindows;timeoutSeconds=180"
+$env:JAVA_TOOL_OPTIONS = "-Djava.locale.providers=CLDR,SPI -Dturboism.home=$homeWindows -javaagent:$agentWindows=home=$homeWindows;timeoutSeconds=180"
 
 Push-Location $cubism
 try {

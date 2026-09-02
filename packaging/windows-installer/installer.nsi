@@ -79,14 +79,18 @@ SetFont "MS Shell Dlg" 12
 !define MUI_WELCOMEPAGE_TEXT "$(TurboismWelcomeText)"
 
 !define MUI_LICENSEPAGE_TEXT_TOP "$(LicenseTopText)"
+!define MUI_LICENSEPAGE_TEXT_BOTTOM "$(LicenseBottomText)"
 
 !define MUI_DIRECTORYPAGE_TEXT_TOP "$(DirectoryTopText)"
 
 !define MUI_FINISHPAGE_TITLE "$(FinishTitleText)"
 !define MUI_FINISHPAGE_TEXT "$(FinishBodyText)"
 !define MUI_FINISHPAGE_RUN
-!define MUI_FINISHPAGE_RUN_FUNCTION OpenInstallDirectory
-!define MUI_FINISHPAGE_RUN_TEXT "$(FinishOpenFolderText)"
+!define MUI_FINISHPAGE_RUN_FUNCTION LaunchTurboism
+!define MUI_FINISHPAGE_RUN_TEXT "$(FinishLaunchTurboismText)"
+!define MUI_FINISHPAGE_SHOWREADME
+!define MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory
+!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(FinishOpenFolderText)"
 
 ; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
@@ -94,6 +98,7 @@ SetFont "MS Shell Dlg" 12
 !define MUI_LICENSEPAGE_CHECKBOX_TEXT "$(LicenseAcceptText)"
 !insertmacro MUI_PAGE_LICENSE "${LICENSE_FILE}"
 !define MUI_LICENSEPAGE_TEXT_TOP "$(EulaTopText)"
+!define MUI_LICENSEPAGE_BUTTON "$(EulaAgreeButtonText)"
 !insertmacro MUI_PAGE_LICENSE "$(EulaFile)"
 Page custom EulaAcknowledgementsCreate EulaAcknowledgementsLeave
 Page custom ModeCreate ModeLeave
@@ -129,20 +134,26 @@ LangString TurboismWelcomeTitle ${LANG_ENGLISH} "Welcome to Turboism Setup"
 LangString TurboismWelcomeTitle ${LANG_SIMPCHINESE} "欢迎安装 Turboism"
 LangString TurboismWelcomeTitle ${LANG_JAPANESE} "Turboism セットアップへようこそ"
 
-LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard installs Turboism, an enhanced runtime for Live2D Cubism Editor.$\r$\n$\r$\nInstallation is per-user. On the final options page you may create Turboism shortcuts and, only if explicitly selected, back up and modify official Cubism startup BAT files.$\r$\n$\r$\nClick Next to continue."
-LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式。在最后的选项页面中，您可以创建 Turboism 快捷方式；仅在明确勾选时，安装器才会备份并修改 Cubism 官方启动 BAT。$\r$\n$\r$\n点击“下一步”继续。"
-LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、明示的に選択した場合のみ Cubism 公式起動 BAT をバックアップして変更します。$\r$\n$\r$\n「次へ」をクリックして続行します。"
+LangString TurboismWelcomeText ${LANG_ENGLISH} "This wizard installs Turboism, an enhanced runtime for Live2D Cubism Editor.$\r$\n$\r$\nInstallation is per-user. On the final options page you may create Turboism shortcuts and, only if explicitly selected, back up and modify official Cubism startup BAT files.$\r$\nCurrently supported versions: 5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\nClick Next to continue."
+LangString TurboismWelcomeText ${LANG_SIMPCHINESE} "本向导将安装 Turboism —— Live2D Cubism 编辑器的增强运行时。$\r$\n$\r$\n安装为免管理员模式。在最后的选项页面中，您可以创建 Turboism 快捷方式；仅在明确勾选时，安装器才会备份并修改 Cubism 官方启动 BAT。$\r$\n当前支持版本：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n点击“下一步”继续。"
+LangString TurboismWelcomeText ${LANG_JAPANESE} "このウィザードは Live2D Cubism Editor 用の拡張ランタイム Turboism をインストールします。$\r$\n$\r$\nインストールはユーザー単位です。最後のオプション画面で Turboism ショートカットを作成でき、明示的に選択した場合のみ Cubism 公式起動 BAT をバックアップして変更します。$\r$\n現在対応しているバージョン：5.2.03, 5.3.02, 5.3.03$\r$\n$\r$\n「次へ」をクリックして続行します。"
 
 LangString LicenseTopText ${LANG_ENGLISH} "Please review the MIT License before installing Turboism. Scroll down to see the full text:"
 LangString LicenseTopText ${LANG_SIMPCHINESE} "请在安装 Turboism 前阅读 MIT License。滚动查看全文："
 LangString LicenseTopText ${LANG_JAPANESE} "Turboism をインストールする前に MIT License をお読みください。全文を表示するには下へスクロールしてください："
+LangString LicenseBottomText ${LANG_ENGLISH} "If you accept the MIT License, select the checkbox below to continue."
+LangString LicenseBottomText ${LANG_SIMPCHINESE} "如果您同意 MIT License，请勾选下方复选框后继续。"
+LangString LicenseBottomText ${LANG_JAPANESE} "MIT License に同意する場合は、下のチェックボックスを選択して続行してください。"
 LangString LicenseAcceptText ${LANG_ENGLISH} "I accept the MIT License"
-LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我接受 MIT License"
+LangString LicenseAcceptText ${LANG_SIMPCHINESE} "我同意 MIT License"
 LangString LicenseAcceptText ${LANG_JAPANESE} "MIT License に同意します"
 
 LangString EulaTopText ${LANG_ENGLISH} "Review the full Turboism End User Runtime Statement and Disclaimer below. The four required acknowledgements are on the next page:"
 LangString EulaTopText ${LANG_SIMPCHINESE} "请阅读下方完整的 Turboism 最终用户运行声明与免责声明。四项必选确认位于下一页："
 LangString EulaTopText ${LANG_JAPANESE} "以下の Turboism エンドユーザー運用声明および免責事項の全文を確認してください。必須の4項目の確認は次のページにあります："
+LangString EulaAgreeButtonText ${LANG_ENGLISH} "I &Agree"
+LangString EulaAgreeButtonText ${LANG_SIMPCHINESE} "我同意(&I)"
+LangString EulaAgreeButtonText ${LANG_JAPANESE} "同意する(&A)"
 LangString EulaAcknowledgementsTitle ${LANG_ENGLISH} "Required acknowledgements"
 LangString EulaAcknowledgementsTitle ${LANG_SIMPCHINESE} "必选确认"
 LangString EulaAcknowledgementsTitle ${LANG_JAPANESE} "必須の確認"
@@ -176,6 +187,9 @@ LangString FinishTitleText ${LANG_JAPANESE} "インストール完了"
 LangString FinishBodyText ${LANG_ENGLISH} "Turboism has been installed to:$\r$\n$INSTDIR$\r$\n$\r$\nYour selected activation paths have been applied. Start-menu shortcuts are independent from official-BAT integration. BAT integration uses verified backups and can be restored during uninstall.$\r$\n$\r$\nRun configure_turboism.ps1 to manage Cubism installations and plugin settings."
 LangString FinishBodyText ${LANG_SIMPCHINESE} "Turboism 已安装到：$\r$\n$INSTDIR$\r$\n$\r$\n已应用您选择的激活路径。开始菜单快捷方式与官方 BAT 集成彼此独立；BAT 集成使用经过校验的备份，并可在卸载时恢复。$\r$\n$\r$\n可运行 configure_turboism.ps1 管理 Cubism 安装与插件设置。"
 LangString FinishBodyText ${LANG_JAPANESE} "Turboism は次の場所にインストールされました：$\r$\n$INSTDIR$\r$\n$\r$\n選択した有効化経路を適用しました。スタートメニューのショートカットと公式 BAT の統合は独立しています。BAT 統合は検証済みバックアップを使用し、アンインストール時に復元できます。$\r$\n$\r$\nconfigure_turboism.ps1 で Cubism インストールとプラグイン設定を管理できます。"
+LangString FinishLaunchTurboismText ${LANG_ENGLISH} "Launch Turboism"
+LangString FinishLaunchTurboismText ${LANG_SIMPCHINESE} "启动 Turboism"
+LangString FinishLaunchTurboismText ${LANG_JAPANESE} "Turboism を起動"
 LangString FinishOpenFolderText ${LANG_ENGLISH} "Open the Turboism installation folder"
 LangString FinishOpenFolderText ${LANG_SIMPCHINESE} "打开 Turboism 安装目录"
 LangString FinishOpenFolderText ${LANG_JAPANESE} "Turboism インストールフォルダーを開く"
@@ -236,12 +250,9 @@ LangString GraalProgressHint ${LANG_JAPANESE} "ダウンロード中は別の進
 LangString CubismDiscoveryTitle ${LANG_ENGLISH} "Cubism installations"
 LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"
 LangString CubismDiscoveryTitle ${LANG_JAPANESE} "Cubism インストール"
-LangString CubismDiscoverySubtitle ${LANG_ENGLISH} "Exact application JARs determine whether each installation is supported."
-LangString CubismDiscoverySubtitle ${LANG_SIMPCHINESE} "安装器将通过应用程序 JAR 的精确身份判断每个安装是否受支持。"
-LangString CubismDiscoverySubtitle ${LANG_JAPANESE} "各インストールの対応可否はアプリケーション JAR の正確な同一性で判定します。"
-LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning possible Cubism installations and checking exact Live2D_Cubism.jar identities…"
-LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描可能的 Cubism 安装并校验 Live2D_Cubism.jar 的精确身份……"
-LangString CubismDiscoveryScanning ${LANG_JAPANESE} "Cubism の候補をスキャンし、Live2D_Cubism.jar の正確な同一性を確認しています…"
+LangString CubismDiscoveryScanning ${LANG_ENGLISH} "Scanning for installed Cubism editors…"
+LangString CubismDiscoveryScanning ${LANG_SIMPCHINESE} "正在扫描已安装的 Cubism 编辑器……"
+LangString CubismDiscoveryScanning ${LANG_JAPANESE} "インストール済みの Cubism Editor をスキャンしています…"
 LangString CubismDiscoveryComplete ${LANG_ENGLISH} "Scan complete: $CubismDiscoverySupported supported; $CubismDiscoveryOther unsupported or invalid. Supported installations will be revalidated and configured after installation."
 LangString CubismDiscoveryComplete ${LANG_SIMPCHINESE} "扫描完成：支持 $CubismDiscoverySupported 个；不支持或无效 $CubismDiscoveryOther 个。安装后会重新校验并配置受支持的安装。"
 LangString CubismDiscoveryComplete ${LANG_JAPANESE} "スキャン完了：対応 $CubismDiscoverySupported 件、未対応または不正 $CubismDiscoveryOther 件。インストール後に再検証して設定します。"
@@ -261,15 +272,15 @@ LangString LaunchOptionsTitle ${LANG_JAPANESE} "通常起動の統合を選択"
 LangString StartMenuOption ${LANG_ENGLISH} "Create Turboism Start-menu shortcuts (recommended)"
 LangString StartMenuOption ${LANG_SIMPCHINESE} "创建 Turboism 开始菜单快捷方式（推荐）"
 LangString StartMenuOption ${LANG_JAPANESE} "Turboism のスタートメニューショートカットを作成（推奨）"
+LangString DesktopShortcutOption ${LANG_ENGLISH} "Create a Turboism desktop shortcut"
+LangString DesktopShortcutOption ${LANG_SIMPCHINESE} "创建 Turboism 桌面快捷方式"
+LangString DesktopShortcutOption ${LANG_JAPANESE} "Turboism のデスクトップショートカットを作成"
 LangString BatIntegrationOption ${LANG_ENGLISH} "Modify the selected official Cubism startup BAT files so existing Cubism shortcuts load Turboism"
 LangString BatIntegrationOption ${LANG_SIMPCHINESE} "修改所选 Cubism 官方启动 BAT，使现有 Cubism 快捷方式加载 Turboism"
 LangString BatIntegrationOption ${LANG_JAPANESE} "選択した Cubism 公式起動 BAT を変更し、既存の Cubism ショートカットで Turboism を読み込む"
-LangString BatIntegrationHelp ${LANG_ENGLISH} "Turboism backs up each original BAT, upgrades recognized legacy Turboism blocks, skips already-current integrations, and restores owned unchanged integrations during uninstall. Unknown edits stop safely."
-LangString BatIntegrationHelp ${LANG_SIMPCHINESE} "Turboism 会备份每个原始 BAT、升级可识别的旧 Turboism 区块、跳过已是当前版本的集成，并在卸载时恢复仍由 Turboism 管理且未被改动的 BAT。遇到未知改动会安全停止。"
-LangString BatIntegrationHelp ${LANG_JAPANESE} "Turboism は各元 BAT をバックアップし、認識できる旧 Turboism ブロックを更新し、最新の統合は書き換えず、アンインストール時に所有中で未変更の BAT を復元します。不明な編集がある場合は安全に停止します。"
-LangString NoLaunchWarning ${LANG_ENGLISH} "Both normal launch paths are disabled. Turboism will not activate from Start-menu or existing Cubism shortcuts. Choose No to go back, or Yes to deliberately continue."
-LangString NoLaunchWarning ${LANG_SIMPCHINESE} "两个常规启动路径均已关闭。Turboism 不会通过开始菜单或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
-LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路が両方無効です。Turboism はスタートメニューまたは既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
+LangString NoLaunchWarning ${LANG_ENGLISH} "All normal launch paths are disabled. Turboism will not activate from the Start menu, desktop, or existing Cubism shortcuts. Choose No to go back, or Yes to deliberately continue."
+LangString NoLaunchWarning ${LANG_SIMPCHINESE} "所有常规启动路径均已关闭。Turboism 不会通过开始菜单、桌面或现有 Cubism 快捷方式激活。选择“否”返回修改，或选择“是”明确继续。"
+LangString NoLaunchWarning ${LANG_JAPANESE} "通常の起動経路がすべて無効です。Turboism はスタートメニュー、デスクトップ、または既存の Cubism ショートカットから有効になりません。「いいえ」で戻るか、「はい」で意図的に続行してください。"
 LangString InitialConfigurationError ${LANG_ENGLISH} "Initial Cubism discovery or shortcut configuration failed. Turboism is installed; run Turboism_Configurator from the Start menu to retry."
 LangString InitialConfigurationError ${LANG_SIMPCHINESE} "Cubism 初始扫描或快捷方式配置失败。Turboism 已完成安装；请从开始菜单运行 Turboism_Configurator 重试。"
 LangString InitialConfigurationError ${LANG_JAPANESE} "Cubism の初期検出またはショートカット設定に失敗しました。Turboism のインストールは完了しています。スタートメニューから Turboism_Configurator を実行して再試行してください。"
@@ -365,10 +376,11 @@ Var CubismDiscoveryEndSeen
 Var CubismDiscoveryMalformed
 Var LaunchOptionsDialog
 Var createStartMenu
+Var createDesktopShortcut
 Var integrateCubismBat
 Var StartMenuCheckbox
+Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
-Var LaunchOptionsHelp
 Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
 Var existingDisabled     ; 既有 config.json 的 disabledPlugins，';' 分隔
 Var disabledFinal        ; 合并排序后的列表，';' 分隔
@@ -418,8 +430,13 @@ Function .onInit
   StrCpy $CubismDiscoveryPollCount 0
   StrCpy $CubismDiscoveryComplete 0
   StrCpy $createStartMenu 1
+  StrCpy $createDesktopShortcut 0
   StrCpy $integrateCubismBat 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
+FunctionEnd
+
+Function LaunchTurboism
+  ExecShell "" "$INSTDIR\launch-cubism-turboism.bat" "" SW_SHOWNORMAL
 FunctionEnd
 
 Function OpenInstallDirectory
@@ -435,15 +452,15 @@ Function EulaAcknowledgementsCreate
   ${EndIf}
   !insertmacro MUI_HEADER_TEXT "$(EulaAcknowledgementsTitle)" "$(EulaAcknowledgementsSubtitle)"
 
-  ; Stack the multiline rows contiguously. At 12pt, extra dialog-unit gaps
-  ; scale aggressively on Windows and can push the fourth row below the page.
-  ${NSD_CreateCheckbox} 0 0 100% 28u "$(EulaAck1)"
+  ; Keep the multiline rows compact and contiguous at the installer's 12pt font.
+  ; Heights still cover the longest translated acknowledgement without large gaps.
+  ${NSD_CreateCheckbox} 0 0 100% 24u "$(EulaAck1)"
   Pop $EulaAck1Checkbox
-  ${NSD_CreateCheckbox} 0 29u 100% 36u "$(EulaAck2)"
+  ${NSD_CreateCheckbox} 0 24u 100% 30u "$(EulaAck2)"
   Pop $EulaAck2Checkbox
-  ${NSD_CreateCheckbox} 0 66u 100% 44u "$(EulaAck3)"
+  ${NSD_CreateCheckbox} 0 54u 100% 38u "$(EulaAck3)"
   Pop $EulaAck3Checkbox
-  ${NSD_CreateCheckbox} 0 111u 100% 36u "$(EulaAck4)"
+  ${NSD_CreateCheckbox} 0 92u 100% 30u "$(EulaAck4)"
   Pop $EulaAck4Checkbox
 
   ${NSD_SetState} $EulaAck1Checkbox $EulaAck1State
@@ -717,7 +734,7 @@ Function CubismDiscoveryCreate
   ${If} $CubismDiscoveryDialog == error
     Abort
   ${EndIf}
-  !insertmacro MUI_HEADER_TEXT "$(CubismDiscoveryTitle)" "$(CubismDiscoverySubtitle)"
+  !insertmacro MUI_HEADER_TEXT "$(CubismDiscoveryTitle)" ""
   ${NSD_CreateLabel} 0 0 100% 28u "$(CubismDiscoveryScanning)"
   Pop $CubismDiscoveryStatus
   ${NSD_CreateListBox} 0 34u 100% 112u ""
@@ -744,7 +761,9 @@ Function CubismDiscoveryCreate
     File /oname=configure_turboism.ps1 "${STAGING_DIR}/configure_turboism.ps1"
     File /oname=cubism-launch-common.ps1 "${STAGING_DIR}/cubism-launch-common.ps1"
     ClearErrors
-    Exec '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"'
+    ; ShellExecute keeps discovery asynchronous; SW_HIDE prevents its console
+    ; process from taking focus away from the installer wizard.
+    ExecShell "" "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" '-NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$CubismDiscoveryWorkDir\configure_turboism.ps1" -Home "$CubismDiscoveryWorkDir" -InstallerDiscoveryOutput "$CubismDiscoveryResult"' SW_HIDE
     ${If} ${Errors}
       Call CubismDiscoveryFail
     ${Else}
@@ -768,16 +787,19 @@ Function LaunchOptionsCreate
   ${If} $LaunchOptionsDialog == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 28u "$(LaunchOptionsTitle)"
+  ${NSD_CreateLabel} 0 0 100% 24u "$(LaunchOptionsTitle)"
   Pop $0
-  ${NSD_CreateCheckbox} 0 38u 100% 18u "$(StartMenuOption)"
+  ${NSD_CreateCheckbox} 0 30u 100% 18u "$(StartMenuOption)"
   Pop $StartMenuCheckbox
-  ${NSD_CreateCheckbox} 0 68u 100% 32u "$(BatIntegrationOption)"
+  ${NSD_CreateCheckbox} 0 50u 100% 18u "$(DesktopShortcutOption)"
+  Pop $DesktopShortcutCheckbox
+  ${NSD_CreateCheckbox} 0 70u 100% 32u "$(BatIntegrationOption)"
   Pop $IntegrateBatCheckbox
-  ${NSD_CreateLabel} 12u 106u 96% 72u "$(BatIntegrationHelp)"
-  Pop $LaunchOptionsHelp
   ${If} $createStartMenu == 1
     ${NSD_Check} $StartMenuCheckbox
+  ${EndIf}
+  ${If} $createDesktopShortcut == 1
+    ${NSD_Check} $DesktopShortcutCheckbox
   ${EndIf}
   ${If} $integrateCubismBat == 1
     ${NSD_Check} $IntegrateBatCheckbox
@@ -787,8 +809,10 @@ FunctionEnd
 
 Function LaunchOptionsLeave
   ${NSD_GetState} $StartMenuCheckbox $createStartMenu
+  ${NSD_GetState} $DesktopShortcutCheckbox $createDesktopShortcut
   ${NSD_GetState} $IntegrateBatCheckbox $integrateCubismBat
   ${If} $createStartMenu == 0
+  ${AndIf} $createDesktopShortcut == 0
   ${AndIf} $integrateCubismBat == 0
     MessageBox MB_ICONEXCLAMATION|MB_YESNO|MB_DEFBUTTON2 "$(NoLaunchWarning)" IDYES ContinueWithoutLaunch
     Abort
@@ -797,24 +821,29 @@ Function LaunchOptionsLeave
 FunctionEnd
 
 Function .onInstSuccess
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection' $0
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection'
+  Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
     Return
   ${EndIf}
   ${If} $createStartMenu == 1
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -EnableShortcuts'
+    Pop $0
   ${Else}
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableShortcuts'
+    Pop $0
   ${EndIf}
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(InitialConfigurationError)"
     Return
   ${EndIf}
   ${If} $integrateCubismBat == 1
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -IntegrateBat'
+    Pop $0
   ${Else}
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -DisableBat'
+    Pop $0
   ${EndIf}
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(BatIntegrationError)"
@@ -833,7 +862,8 @@ Section "-核心文件" SecCore
   SetOutPath "$PLUGINSDIR\Turboism-retire"
   File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
   File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-retire\configure_turboism.ps1" -Home "$INSTDIR" -RetirePlugins' $0
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-retire\configure_turboism.ps1" -Home "$INSTDIR" -RetirePlugins'
+  Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONSTOP "$(PluginRetireError)"
     Abort
@@ -844,7 +874,8 @@ Section "-核心文件" SecCore
   File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
   SetOutPath "$PLUGINSDIR\Turboism-core-jars\graal\lib"
   File "${STAGING_DIR}/graal/lib/*.jar"
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-core-jars" -DestinationRoot "$INSTDIR"' $0
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-core-jars" -DestinationRoot "$INSTDIR"'
+  Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"
     Abort
@@ -869,7 +900,8 @@ SectionEnd
 Section "-托管 GraalVM" SecManagedGraal
   ${If} $installManagedGraal == 1
     DetailPrint "$(ManagedGraalStarting)"
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR" -Gui' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\install-managed-graal.ps1" -Home "$INSTDIR" -Gui'
+    Pop $0
     ${If} $0 != 0
       DetailPrint "$(ManagedGraalInstallError)"
       MessageBox MB_ICONEXCLAMATION|MB_OK "$(ManagedGraalInstallError)"
@@ -1201,6 +1233,10 @@ Section -"开始菜单与注册" SecStartMenuReg
     Delete "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk"
     RMDir "$SMPROGRAMS\Turboism"
   ${EndIf}
+  Delete "$DESKTOP\Turboism_Launch_Cubism.lnk"
+  ${If} $createDesktopShortcut == 1
+    CreateShortCut "$DESKTOP\Turboism_Launch_Cubism.lnk" "$INSTDIR\launch-cubism-turboism.bat" "" "$INSTDIR\turboism.ico" 0 SW_SHOWNORMAL "" "$INSTDIR"
+  ${EndIf}
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayName" "Turboism"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "DisplayVersion" "${VER}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\Turboism" "Publisher" "Turboism"
@@ -1213,7 +1249,8 @@ SectionEnd
 ; 不出现在安装器组件页；须为最后一个 Section）
 Section "Uninstall"
   ; 先由托管配置器按 manifest 清理 Turboism 自己创建的快捷方式和安装状态。
-  ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup' $0
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -Cleanup'
+  Pop $0
   ${If} $0 != 0
     MessageBox MB_ICONEXCLAMATION|MB_OK "$(ShortcutCleanupFailure)"
     Abort
@@ -1229,6 +1266,7 @@ Section "Uninstall"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuConfigName).lnk"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuUninstallName).lnk"
   Delete "$SMPROGRAMS\Turboism\$(StartMenuLaunchName).lnk"
+  Delete "$DESKTOP\Turboism_Launch_Cubism.lnk"
   !insertmacro RemoveLegacyStartMenuShortcuts
   RMDir "$SMPROGRAMS\Turboism"
   ; 安装文件

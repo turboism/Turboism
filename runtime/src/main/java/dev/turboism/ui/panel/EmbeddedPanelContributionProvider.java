@@ -195,13 +195,16 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                     }
                     try {
                         cleaner.clean();
-                        System.out.println("Turboism startup empty-dock cleanup completed");
+                        dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                            "floating-panels",
+                            "Startup empty-dock cleanup completed"
+                        );
                         return;
                     } catch (RuntimeException | Error failure) {
-                        System.err.println(
-                            "Turboism startup empty-dock cleanup retry " + attempt
-                                + " failed safely: " + failure.getClass().getName()
-                                + ": " + failure.getMessage()
+                        dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                            "floating-panels",
+                            "Startup empty-dock cleanup retry " + attempt + " failed safely",
+                            failure
                         );
                         if (attempt == 5) {
                             break;
@@ -214,7 +217,10 @@ public final class EmbeddedPanelContributionProvider implements EditorUiContribu
                         }
                     }
                 }
-                System.err.println("Turboism startup empty-dock cleanup gave up after retries");
+                dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                    "floating-panels",
+                    "Startup empty-dock cleanup gave up after retries"
+                );
             }, "turboism-startup-dock-cleanup");
             cleanup.setDaemon(true);
             startupDockCleanup = cleanup;

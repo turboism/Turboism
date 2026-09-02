@@ -20,7 +20,6 @@ Section "-插件载荷" SecPluginPayload
     File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
     File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
     File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
-    File "/oname=turboism-with-fx.jar" "${STAGING_DIR}/plugins/turboism-with-fx.jar"
     File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
     ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-jars" -DestinationRoot "$INSTDIR\plugins"' $0
     ${If} $0 != 0
@@ -120,12 +119,6 @@ LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINES
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_SIMPCHINESE} "Turboism 的纹理图集统计。"
 LangString PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "テクスチャアトラス統計 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats ${LANG_JAPANESE} "Turboism のテクスチャアトラス統計。"
-LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "Turboism with fx 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_ENGLISH} "ACP v1 Agent and Settings windows connecting the verified managed fx runtime to the authenticated MCP server."
-LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "Turboism 与 fx 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_SIMPCHINESE} "通过 ACP v1 代理与设置窗口，将经过验证的托管 fx 运行时连接到已认证的 MCP 服务器。"
-LangString PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "Turboism と fx 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx ${LANG_JAPANESE} "ACP v1 エージェントと設定画面により、検証済み管理対象 fx ランタイムを認証済み MCP サーバーへ接続します。"
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "UI Theme Plugin 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_ENGLISH} "Legacy-compatible theme packages, built-in themes, theme manager workflow, and exact-version Cubism appearance application."
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_SIMPCHINESE} "UI 主题插件 0.1.0"
@@ -177,9 +170,6 @@ SectionEnd
 Section "$(PLUGIN_NAME_dev_turboism_plugin_texture_atlas_stats)" SEC_dev_turboism_plugin_texture_atlas_stats
 SectionEnd
 
-Section "$(PLUGIN_NAME_dev_turboism_plugin_turboism_with_fx)" SEC_dev_turboism_plugin_turboism_with_fx
-SectionEnd
-
 Section "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)" SEC_dev_turboism_plugin_uitheme
 SectionEnd
 
@@ -200,7 +190,6 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_scene_palette_enhancer} "$(PLUGIN_DESC_dev_turboism_plugin_scene_palette_enhancer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_turboism_with_fx} "$(PLUGIN_DESC_dev_turboism_plugin_turboism_with_fx)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
@@ -296,12 +285,6 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_texture_atlas_stats} $1
-  SectionGetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -447,15 +430,6 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.texture-atlas-stats"
     ${EndIf}
   ${EndIf}
-  SectionGetFlags ${SEC_dev_turboism_plugin_turboism_with_fx} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.turboism-with-fx"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.turboism-with-fx"
-    ${EndIf}
-  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_uitheme} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -528,10 +502,6 @@ Function RemoveBundledFromExistingDisabled
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"
   StrCpy $1 "dev.turboism.plugin.texture-atlas-stats"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.turboism-with-fx"
   Call RemoveItemFromList
   StrCpy $existingDisabled "$0"
   StrCpy $0 "$existingDisabled"

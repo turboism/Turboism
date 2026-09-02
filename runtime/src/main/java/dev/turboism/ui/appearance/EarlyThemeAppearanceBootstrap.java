@@ -73,7 +73,11 @@ public final class EarlyThemeAppearanceBootstrap {
             inject(colors.orElseThrow());
             injected.run();
         } catch (RuntimeException failure) {
-            System.err.println("Early theme appearance bootstrap failed safely: " + failure);
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "appearance",
+                "Early theme appearance bootstrap failed safely",
+                failure
+            );
         }
     }
 
@@ -119,7 +123,10 @@ public final class EarlyThemeAppearanceBootstrap {
             colors = loadBuiltinColors(id);
         }
         if (colors.isEmpty()) {
-            System.err.println("Early theme bootstrap: theme not found id=" + id);
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "appearance",
+                "Persisted theme was not found"
+            );
         }
         return colors;
     }

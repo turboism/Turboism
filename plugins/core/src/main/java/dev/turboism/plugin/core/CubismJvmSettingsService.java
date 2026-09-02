@@ -24,6 +24,21 @@ public interface CubismJvmSettingsService {
 
     CubismJvm save(CubismJvm value);
 
+    /** @return the optional user-configured GraalVM home or Java executable path */
+    default String graalVmPath() {
+        return "";
+    }
+
+    /** Persists an optional user-configured GraalVM home or Java executable path. */
+    default String saveGraalVmPath(final String value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /** True when the proposed custom path resolves to a GraalVM executable. */
+    default boolean graalVmPathCompatible(final String value) {
+        return value == null || value.isBlank();
+    }
+
     /** Detects the GraalVM executable the managed launcher can use. */
     default Optional<Path> graalVmJava() {
         return Optional.empty();

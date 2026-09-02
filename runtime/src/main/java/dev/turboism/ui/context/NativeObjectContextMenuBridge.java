@@ -97,9 +97,10 @@ public final class NativeObjectContextMenuBridge {
             final Object result = handler.augment(menu, location, source);
             return result == null ? menu : result;
         } catch (Throwable failure) {
-            System.err.println(
-                "Turboism object context-menu augmentation failed safely: "
-                    + failure.getClass().getName()
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "context-menu",
+                "Object context-menu augmentation failed safely",
+                failure
             );
             return menu;
         }

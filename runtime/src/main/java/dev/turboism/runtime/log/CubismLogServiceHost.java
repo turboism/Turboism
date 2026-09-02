@@ -143,7 +143,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
             final Object appenders = rootLoggerConfig.getClass()
                 .getMethod("getAppenders").invoke(rootLoggerConfig);
             final String topology = describeAppenders(appenders);
-            System.out.println("Turboism CubismLogServiceHost: appender topology: " + topology);
+            RuntimeDiagnostics.debug("cubism-log", "Appender topology: " + topology);
             final Object logPaneAppender = appenders instanceof java.util.Map<?, ?> map
                 ? map.get("CTextPane")
                 : null;
@@ -155,12 +155,13 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
             if (logPaneAppender != null) {
                 wrapLogPaneAppender(context, rootLoggerConfig, logPaneAppender, hostClassLoader);
             } else {
-                System.out.println("Turboism CubismLogServiceHost: CTextPane appender not found; "
-                    + "pre-render log filtering unavailable");
+                RuntimeDiagnostics.warn(
+                    "cubism-log",
+                    "Native log appender was not found; pre-render filtering is unavailable"
+                );
             }
         } catch (ReflectiveOperationException | LinkageError failure) {
-            System.out.println("Turboism CubismLogServiceHost: log4j probe failed: "
-                + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+            RuntimeDiagnostics.error("cubism-log", "Cubism Log4j2 probe failed", failure);
         }
     }
 
@@ -193,8 +194,11 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
                                 try {
                                     method.invoke(delegate, args);
                                 } catch (ReflectiveOperationException | RuntimeException | LinkageError failure) {
-                                    System.out.println("Turboism CubismLogServiceHost: log pane append failed: "
-                                        + failure.getClass().getSimpleName() + ": " + failure.getMessage());
+                                    RuntimeDiagnostics.error(
+                                        "cubism-log",
+                                        "Native log pane append failed safely",
+                                        failure
+                                    );
                                 }
                             }
                         }
@@ -223,7 +227,7 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
         loggerContextClass.getMethod("updateLoggers").invoke(loggerContext);
         wrappedAppender = proxy;
         originalAppender = original;
-        System.out.println("Turboism CubismLogServiceHost: CTextPane appender wrapped for pre-render filtering");
+        RuntimeDiagnostics.debug("cubism-log", "Native log appender wrapped for pre-render filtering");
     }
 
     /** Converts a log4j2 LogEvent into a typed log entry (real level, no text guessing). */

@@ -11,9 +11,11 @@ import dev.turboism.sdk.ui.settings.SettingsSnapshot;
 import dev.turboism.sdk.ui.settings.SettingsTab;
 import org.junit.jupiter.api.Test;
 
+import javax.swing.JComboBox;
 import javax.swing.JDialog;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
+import javax.swing.JTextField;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.lang.reflect.Method;
@@ -84,6 +86,114 @@ class DeclarativeSettingsRendererTest {
         );
         assertTrue(filler.weighty > 0);
         assertEquals(GridBagConstraints.NORTHWEST, filler.anchor);
+    }
+
+    @Test
+    void customPathAndGraalChoiceSaveTogetherWithoutPrematureInstallPrompt() throws Exception {
+        final String[] path = {""};
+        final CubismJvmSettingsService.CubismJvm[] jvm = {
+            CubismJvmSettingsService.CubismJvm.BUNDLED
+        };
+        final CubismJvmSettingsService service = new CubismJvmSettingsService() {
+            @Override public CubismJvmSettingsService.CubismJvm read() { return jvm[0]; }
+            @Override public CubismJvmSettingsService.CubismJvm save(
+                final CubismJvmSettingsService.CubismJvm value
+            ) { return jvm[0] = value; }
+            @Override public String graalVmPath() { return path[0]; }
+            @Override public String saveGraalVmPath(final String value) { return path[0] = value; }
+            @Override public boolean graalVmPathCompatible(final String value) {
+                return value == null || value.isBlank() || value.endsWith("\\bin");
+            }
+            @Override public boolean graalVmAvailable() { return path[0].endsWith("\\bin"); }
+        };
+        final SettingsContribution pathContribution =
+            CubismJvmSettingsContribution.createPath(localization(), service);
+        final SettingsContribution jvmContribution =
+            CubismJvmSettingsContribution.create(localization(), service);
+        final CoreWindows windows = new CoreWindows(
+            localization(),
+            settings(),
+            () -> List.of(new SettingsSnapshot.Tab(
+                "performance",
+                "Performance",
+                OptionalInt.of(200),
+                List.of(
+                    new SettingsSnapshot.Entry("turboism.core", pathContribution),
+                    new SettingsSnapshot.Entry("turboism.core", jvmContribution)
+                )
+            )),
+            plugins(),
+            RuntimeLogReader.unavailable()
+        );
+        final Map<String, CoreWindows.BuiltinTab> builtins = new LinkedHashMap<>();
+        builtins.put(
+            "performance",
+            new CoreWindows.BuiltinTab("Performance", 200, new JPanel(new GridBagLayout()))
+        );
+        final Method render = CoreWindows.class.getDeclaredMethod(
+            "renderSettings", JDialog.class, Map.class
+        );
+        render.setAccessible(true);
+        final CoreWindows.RenderedSettings rendered =
+            (CoreWindows.RenderedSettings) render.invoke(windows, null, builtins);
+        final JPanel performance = (JPanel) rendered.tabs().getComponentAt(0);
+        final JTextField field = java.util.Arrays.stream(performance.getComponents())
+            .filter(JTextField.class::isInstance)
+            .map(JTextField.class::cast)
+            .findFirst()
+            .orElseThrow();
+        final JComboBox<?> combo = java.util.Arrays.stream(performance.getComponents())
+            .filter(JComboBox.class::isInstance)
+            .map(JComboBox.class::cast)
+            .findFirst()
+            .orElseThrow();
+
+        field.setText("D:\\graalvm-jdk-25.0.4+7.1\\bin");
+        for (int index = 0; index < combo.getItemCount(); index++) {
+            final SettingsControl.Option option = (SettingsControl.Option) combo.getItemAt(index);
+            if (option.value().equals("graalvm")) {
+                combo.setSelectedIndex(index);
+                break;
+            }
+        }
+
+        assertTrue(rendered.save().getAsBoolean());
+        assertEquals("D:\\graalvm-jdk-25.0.4+7.1\\bin", path[0]);
+        assertEquals(CubismJvmSettingsService.CubismJvm.GRAALVM, jvm[0]);
+    }
+
+    @Test
+    void customGraalVmPathUsesAVisibleHomeDirectoryPlaceholder() throws Exception {
+        final CoreWindows windows = new CoreWindows(
+            localization(), settings(), List::of, plugins(), RuntimeLogReader.unavailable()
+        );
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final SettingsControl.Text control = new SettingsControl.Text(
+            CubismJvmSettingsContribution.PATH_CONTRIBUTION_ID,
+            "Custom GraalVM path",
+            36,
+            SettingsBinding.of(() -> "", ignored -> { })
+        );
+        final Method render = CoreWindows.class.getDeclaredMethod(
+            "renderControl", JDialog.class, JPanel.class, int.class, SettingsControl.class
+        );
+        render.setAccessible(true);
+
+        render.invoke(windows, null, panel, 0, control);
+
+        final JTextField field = java.util.Arrays.stream(panel.getComponents())
+            .filter(JTextField.class::isInstance)
+            .map(JTextField.class::cast)
+            .findFirst()
+            .orElseThrow();
+        assertEquals(
+            "settings.cubism-jvm.graalvm-path-placeholder",
+            field.getClientProperty("JTextField.placeholderText")
+        );
+        assertEquals(
+            "settings.cubism-jvm.graalvm-path-placeholder",
+            field.getToolTipText()
+        );
     }
 
     private static SettingsSnapshot.Tab tab(

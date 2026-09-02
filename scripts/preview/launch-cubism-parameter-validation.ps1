@@ -185,8 +185,7 @@ $env:LOCALAPPDATA = $isolatedLocal
 
 $previousJavaToolOptions = $env:JAVA_TOOL_OPTIONS
 $env:JAVA_TOOL_OPTIONS = @(
-    "--add-exports=java.base/jdk.internal.org.objectweb.asm=ALL-UNNAMED",
-    "--add-exports=java.base/jdk.internal.org.objectweb.asm.commons=ALL-UNNAMED",
+    "-Djava.locale.providers=CLDR,SPI",
     "-Dturboism.home=$turboismHome",
     "-Dturboism.editorObjectValidation.mode=$ValidationMode",
     "-Dturboism.validation.runId=$runId",

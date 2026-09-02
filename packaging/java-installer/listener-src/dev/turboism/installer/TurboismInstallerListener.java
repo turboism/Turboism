@@ -159,9 +159,10 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
     }
 
     /**
-     * Full installation includes Turboism with fx and therefore requires one reviewed managed
-     * runtime for the current platform. Reject an unsupported host before config mutation or pack
-     * extraction instead of leaving incompatible payloads or an unusable selected plugin behind.
+     * Full installation carries one reviewed managed fx runtime for the current platform, even
+     * while the development-only Turboism with fx plugin is excluded from the release roster.
+     * Reject an unsupported host before config mutation or pack extraction instead of leaving an
+     * incompatible managed-runtime payload behind.
      */
     private void requireManagedFxPlatform() throws IOException {
         if (!"full".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR))) {
