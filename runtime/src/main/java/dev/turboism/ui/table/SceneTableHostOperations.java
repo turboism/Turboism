@@ -88,7 +88,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
         this.retryScheduler = Objects.requireNonNull(retryScheduler, "retryScheduler");
         service = new RuntimeSceneTableService(this);
     }
-
+    /** Returns the runtime Scene-table service this host operations object backs. */
     public RuntimeSceneTableService service() {
         return service;
     }
