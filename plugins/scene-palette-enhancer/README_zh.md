@@ -38,7 +38,8 @@ interface: none
 ## 要求与兼容性
 
 - **Turboism API：** `[0.1.0,0.2.0)`。
-- **Cubism：**需要 Cubism。Scene 调色板桥接仅允许精确审核过的 Editor 构件 `5.2.03` 和 `5.3.02`。虽然 Turboism 的其他 Runtime 功能也允许 `5.3.03`，但在该版本的 Scene 私有 UI selector 完成独立验证前，本插件会在该版本上失败关闭。
+- **Cubism：**需要 Cubism。Scene 调色板桥接允许精确审核过的 Editor 构件 `5.2.03`、`5.3.02` 与 `5.3.03`；其余构件一律失败关闭。Scene 私有 UI selector 已对照精确 `5.3.03` 构件完成独立验证（Scene 调色板 controller/listener 类与 `5.3.02` 逐字节一致，所引用成员 descriptor 全部一致）。
+
 - **界面模式：**`none`。
 - **插件依赖：**未声明。
 

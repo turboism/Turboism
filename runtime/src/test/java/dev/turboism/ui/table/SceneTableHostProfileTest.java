@@ -28,9 +28,11 @@ final class SceneTableHostProfileTest {
             SceneTableHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_02)
                 .orElseThrow().cubismVersion()
         );
-        assertFalse(SceneTableHostProfile.forArtifact(
-            ReviewedHostArtifacts.CUBISM_5_3_03
-        ).isPresent());
+        assertEquals(
+            "5.3.03",
+            SceneTableHostProfile.forArtifact(ReviewedHostArtifacts.CUBISM_5_3_03)
+                .orElseThrow().cubismVersion()
+        );
         assertFalse(SceneTableHostProfile.forArtifact(
             new HostArtifactDigest(1L, "0".repeat(64))
         ).isPresent());
