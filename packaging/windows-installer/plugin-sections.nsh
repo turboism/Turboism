@@ -1,32 +1,91 @@
 ﻿; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。
-; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载
-; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。
+; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只为
+; 全新 config.json 收集 disabledPlugins；更新时 current schema 配置保持不变。
 
 Section "-插件载荷" SecPluginPayload
   ${If} $Mode == 1
-    SetOutPath "$PLUGINSDIR\Turboism-plugin-jars"
-    File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
-    File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
-    File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
-    File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
-    File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
-    File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
-    File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
-    File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
-    File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
-    File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
-    File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
-    File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
-    File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
-    File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
-    File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
-    File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
-    ExecWait '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-jars" -DestinationRoot "$INSTDIR\plugins"' $0
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-plugin-plan" -PlanOnly'
+    Pop $0
     ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"
+      MessageBox MB_ICONSTOP "$(PayloadInstallError)"
       Abort
     ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0000.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0001.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0002.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0003.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0004.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0005.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0006.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0007.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0008.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+    ${EndIf}
+    ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
+      SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
+      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+    ${EndIf}
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR"'
+    Pop $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+      Abort
+    ${EndIf}
+    RMDir /r "$PLUGINSDIR\Turboism-plugin-payload"
+    RMDir /r "$PLUGINSDIR\Turboism-plugin-plan"
   ${EndIf}
+  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256"
+  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256"
+  RMDir "$PLUGINSDIR\Turboism-payload-manifests"
 SectionEnd
 
 LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.1.0"
@@ -439,74 +498,5 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
     ${EndIf}
   ${EndIf}
-FunctionEnd
-
-; 从 $existingDisabled 中逐 id 移除全部当前捆绑插件 id（重选已捆绑插件即启用）。
-; 每个 id 通过通用 RemoveItemFromList 辅助删除，避免长度受限的合并 id 字符串。
-Function RemoveBundledFromExistingDisabled
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.backup"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.clipmask-viewer"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.cubism-tab-filter"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.historypanel"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.mcp"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.mesh-edit-mirror-axis-enhance"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.palette-label-style"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.parameter-batch-transfer"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.perf-stats"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.physics-editor"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.psd-clip-mask-import"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.recent-preview"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.scene-palette-enhancer"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.texture-atlas"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.texture-atlas-stats"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.uitheme"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
 FunctionEnd
 

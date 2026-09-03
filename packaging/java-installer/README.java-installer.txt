@@ -22,10 +22,10 @@ bearer authentication and per-user, owner/file-type, reparse-point,
 secure-temporary-file, and post-move publication checks, but no managed native
 fx runtime is shipped for Windows. Both plugin modes let you deselect
 individual plugins. Lite mode installs only the agent and common
-files. The installer never overwrites an existing config.json blindly: it
-preserves unrelated settings and only merges the plugin selection
-(disabledPlugins). Rerun the installer at any time to change the selected
-plugin set.
+files. On update, an existing current-schema config.json is left byte-for-byte
+unchanged. A recognized legacy schema is migrated atomically; unknown or future
+schemas fail closed without modifying the original. Use configure_turboism.ps1
+when you intentionally want to change the selected plugin set.
 
 On Windows, configure_turboism.ps1 opens after installation and can be run
 again later. It lists only exact supported Cubism Editor 5.2.03, 5.3.02, and

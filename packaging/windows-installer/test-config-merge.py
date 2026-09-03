@@ -1,25 +1,13 @@
 #!/usr/bin/env python3
-"""config.json 合并逻辑 + Full/Lite 插件载荷语义的单元验证。
+"""config.json 生命周期 + Full/Lite 插件载荷语义的单元验证。
 
-本脚本逐条镜像 installer.nsi 中 MergeAndWriteConfig / ReadExistingDisabledPlugins /
-RemoveItemFromList 的 NSIS 实现（';' 分隔列表 + 逐 id 移除 + 插入排序去重 + 从模板
-重建 JSON），并镜像 assemble-release.sh 生成的隐藏载荷 Section（$Mode==1 时安装
-全部插件 JAR，Lite 不写任何 JAR），验证 r6 契约：
-  - Full 安装始终携带全部捆绑插件 JAR；勾选只控制 disabledPlugins
-  - 重选已捆绑插件 → 从既有 disabledPlugins 移除该捆绑 id（通用逐 id 删除，
-    不使用长度受限的合并 id 字符串）；无关 id 保留
-  - Lite 不安装任何插件 JAR；disabledPlugins 写入全部捆绑 id（Full→Lite 后
-    陈旧 JAR 无法加载）
-  - NSIS JSON 数组：前后缀无多余引号，项恰好一次引号、以 "," 分隔
-  - 卸载失败关闭后置：托管清理返回 0 后状态文件仍存在则中止，顺序为
-    清理调用/$0 非零守卫 -> cubism-installations.json 失败关闭守卫 ->
-    DeleteRegKey/载荷删除；LICENSE 删除使用精确安装基线名 LICENSE
-    （见 Uninstall Section 镜像检查，行号级断言）
-  - worktreeId / pluginDirs 固定覆盖；空列表不写出 disabledPlugins 字段
-  - 输出可被 json.load 解析且符合 RuntimeConfigValidator 约束
-
-注意：与 NSIS 一致，既有 config 的其它字段（logLevel/hooks 等）不保留，
-由运行时默认值补全（见 installer.nsi 注释；configure_turboism.ps1 完整保留）。
+本脚本镜像 installer.nsi 与 configure_turboism.ps1 的配置策略：
+  - 全新安装才从当前模板创建 config.json，并由插件选择生成 disabledPlugins；
+  - 已有当前 schema 的 config.json 按原始字节跳过，不因重装或模式选择被覆盖；
+  - 显式 legacy v0（无 schemaVersion）仅通过受限迁移升级到 v1，保留已知用户设置；
+  - 未知旧字段、未来 schema、损坏或超限配置失败关闭，不降级也不截断原文件；
+  - Full 安装始终携带全部捆绑插件 JAR；Lite 不写任何插件 JAR；
+  - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
 17 项目 / 8 公开排除模块回归 oracle（清单漂移即失败），但下方模拟器的合成
@@ -113,7 +101,7 @@ RETIRED_IDS = [
 ]
 RETIRED_MODULES = ["clip-mask", "log-filter", "perf-opt", "render-opt"]
 
-load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
+REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
 
 def split_first(lst: str):
@@ -201,18 +189,59 @@ def build_config_json(disabled):
     return "".join(parts)
 
 
+CURRENT_SCHEMA = 1
+V0_FIELDS = {
+    "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+    "hooks", "launcher", "cubismJvm", "graalVmPath",
+}
+
+
+def migrate_v0(doc):
+    unknown = set(doc) - V0_FIELDS
+    if unknown:
+        raise ValueError("unsupported legacy fields: " + ",".join(sorted(unknown)))
+    if doc.get("format") not in (None, "turboism.runtime.config"):
+        raise ValueError("unsupported legacy format")
+    migrated = {
+        "format": "turboism.runtime.config",
+        "schemaVersion": CURRENT_SCHEMA,
+        "worktreeId": "turboism-runtime",
+        "pluginDirs": ["plugins"],
+    }
+    for field in (
+        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel",
+        "maxLogStorageMiB", "locale", "safeMode", "diagnostics", "hooks",
+    ):
+        if field in doc:
+            migrated[field] = doc[field]
+    launcher = dict(doc.get("launcher", {"cubismJvm": "graalvm"}))
+    if set(launcher) - {"cubismJvm", "graalVmPath"}:
+        raise ValueError("unsupported legacy launcher field")
+    for field in ("cubismJvm", "graalVmPath"):
+        if field in doc:
+            if field in launcher and "launcher" in doc:
+                raise ValueError("duplicate legacy launcher field")
+            launcher[field] = doc[field]
+    migrated["launcher"] = launcher
+    return migrated
+
+
 def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
-    """镜像 SecConfig → MergeAndWriteConfig：
-    - 先由 RemoveBundledFromExistingDisabled 从既有列表逐 id 移除全部捆绑 id；
-    - 再合并本次未勾选插件（Lite 下 ModeLeave 已取消全部 Section → 全部捆绑 id）。"""
-    existing = extract_existing_disabled(existing_text) if existing_text is not None else []
-    for retired in RETIRED_IDS:
-        existing = remove_item(existing, retired)
-    for bid in bundled_ids:
-        existing = remove_item(existing, bid)
+    """镜像 SecConfig：current v1 原字节跳过，v0 迁移，缺失时按选择新建。"""
+    if existing_text is not None:
+        existing = json.loads(existing_text)
+        schema = existing.get("schemaVersion", 0)
+        if schema == CURRENT_SCHEMA:
+            if existing.get("format") != "turboism.runtime.config":
+                raise ValueError("current schema format mismatch")
+            return existing_text
+        if schema != 0:
+            raise ValueError("unsupported schema migration")
+        return json.dumps(migrate_v0(existing), ensure_ascii=False, separators=(",", ":")) + "\r\n"
     if mode == "lite":
-        unchecked = list(bundled_ids)             # Lite 模式收集全部捆绑 id
-    return build_config_json(nsis_merge(unchecked, existing))
+        unchecked = list(bundled_ids)
+    return build_config_json(nsis_merge(unchecked, []))
 
 
 def nsis_jars_after(mode, prev_jars):
@@ -266,8 +295,30 @@ def check_nsis_retirement_contract():
     for ident in RETIRED_IDS:
         check("R1 身份校验 helper 包含退休 id " + ident,
               ident in common)
-        check("R2 NSIS 从 disabledPlugins 删除退休 id " + ident,
-              'StrCpy $1 "%s"' % ident in text)
+
+
+def check_config_migration_contract():
+    """Updates preserve current config bytes and migrate only the explicit v0 shape."""
+    text = INSTALLER_NSI.read_text(encoding="utf-8")
+    configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
+    section = text[text.index('Section "-写入配置" SecConfig'):
+                   text.index("SectionEnd", text.index('Section "-写入配置" SecConfig'))]
+    check("CM1 current config enters migration gate instead of NSIS rewrite",
+          '${FileExists} "$INSTDIR\\config.json"' in section
+          and "-MigrateConfig" in section
+          and section.index("-MigrateConfig") < section.index("Call MergeAndWriteConfig"))
+    check("CM2 same schema is explicitly left unchanged",
+          "TURBOISM_CONFIG unchanged schemaVersion=1" in configure
+          and "if ($schema -eq 1)" in configure)
+    check("CM3 v0 migration is explicit and bounded",
+          "Convert-RuntimeConfigV0ToV1" in configure
+          and "if ($schema -ne 0)" in configure
+          and "config.json exceeds 64 KiB" in configure)
+    check("CM4 migration publishes atomically and fails closed",
+          "[System.IO.File]::Replace($temporary, $configPath, $null, $true)" in configure
+          and "CONFIG_MIGRATION_FAILED" in configure
+          and "ConfigMigrationError" in section
+          and "Abort" in section)
 
 
 def check_managed_graal_installer_contract():
@@ -450,7 +501,7 @@ def check_configurator_flow_contract():
           "ExecWait" not in text
           and "ExecShell \"\" \"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\"" in scanner_exec
           and "SW_HIDE" in scanner_exec
-          and text.count("nsExec::ExecToLog") == 9)
+          and text.count("nsExec::ExecToLog") == 13)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -519,8 +570,9 @@ def check_managed_fx_contract():
     section_end = text.index("SectionEnd", section_start)
     section = text[section_start:section_end]
     check("FX2 managed fx is optional and unselected by default",
-          "${If} $Mode == 1" not in section
-          and '$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64' in section)
+          text[section_start:].startswith('Section /o "$(ManagedFxSection)"')
+          and "${If} $Mode == 1" not in section
+          and '-DestinationRoot "$INSTDIR"' in section)
     check("FX2b managed fx has localized component labels",
           all(f"LangString ManagedFxSection ${{{language}}}" in text
               for language in ("LANG_ENGLISH", "LANG_SIMPCHINESE", "LANG_JAPANESE")))
@@ -528,10 +580,18 @@ def check_managed_fx_contract():
         "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
         "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"
     )
+    generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
     check("FX3 NSIS carries the exact Windows managed runtime inventory",
-          all(('File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/'
-               + name + '"') in section for name in expected)
-          and section.count('File "${STAGING_DIR}/runtimes/fx/') == len(expected))
+          all(name in generator[generator.index("fx_payload = ["):
+                                generator.index("def write_checksum_manifest")]
+              for name in expected)
+          and 'write_checksum_manifest("payload-fx.sha256", fx_payload)' in generator)
+    check("FX3b managed fx checks destination hashes before extraction",
+          "payload-fx.sha256" in section
+          and "-PlanOnly" in section
+          and "Call ExtractManagedFxPayload" in section
+          and section.index("-PlanOnly") < section.index("Call ExtractManagedFxPayload")
+          and '-SourceRoot "$PLUGINSDIR\\Turboism-fx-payload"' in section)
     uninstall = text[text.index('Section "Uninstall"'):
                      text.index("SectionEnd", text.index('Section "Uninstall"'))]
     check("FX4 uninstall removes only the installer-owned Windows runtime files",
@@ -541,31 +601,86 @@ def check_managed_fx_contract():
 
 
 def check_jar_payload_contract():
-    """Installer-managed JARs are copied only when SHA-256 differs."""
+    """Every permanent static NSIS payload entry is extracted only when SHA-256 differs."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     helper = (INSTALLER_NSI.parent / "install-jar-payload.ps1").read_text(encoding="utf-8")
     generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
+    generated_plugins = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
     gradle = (INSTALLER_NSI.parents[1] / "java-installer" / "installer.gradle.kts").read_text(
         encoding="utf-8"
     )
-    check("JAR1 helper compares SHA-256 before writing",
-          "Get-FileHash -LiteralPath $sourceFile -Algorithm SHA256" in helper
-          and "Get-FileHash -LiteralPath $destinationFile -Algorithm SHA256" in helper
-          and "if ($unchanged)" in helper
-          and 'Write-Output "SKIP|$relative"' in helper)
-    check("JAR2 core JARs install through the checksum helper",
-          '$PLUGINSDIR\\Turboism-core-jars' in text
-          and '-File "$INSTDIR\\install-jar-payload.ps1"' in text
-          and '-DestinationRoot "$INSTDIR"' in text
-          and 'MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"' in text)
-    check("JAR3 plugin JAR generator uses one checksum helper process",
-          '$PLUGINSDIR\\\\Turboism-plugin-jars' in generator
-          and '-DestinationRoot \\"$INSTDIR\\\\plugins\\"' in generator
-          and "${If} $0 != 0" in generator)
-    check("JAR4 checksum helper is staged and uninstalled",
+    check("PAY1 helper verifies manifest SHA-256 before and after writing",
+          "Test-PayloadFileUnchanged $destinationFile $entry.Hash" in helper
+          and "Get-PayloadFileHash $sourceFile" in helper
+          and "source checksum does not match its manifest" in helper
+          and "destination checksum does not match after copy" in helper
+          and 'Write-Output "SKIP|$($entry.Relative)"' in helper)
+    check("PAY2 helper rejects empty, duplicate, and unsafe manifests",
+          "Installer payload manifest is empty" in helper
+          and "Installer payload manifest contains a duplicate path" in helper
+          and "Installer payload path escapes its root" in helper
+          and "Installer payload destination is a reparse point" in helper)
+    check("PAY3 generator creates core, plugin, and fx checksum manifests",
+          all(('write_checksum_manifest("payload-%s.sha256"' % category) in generator
+              for category in ("core", "plugins", "fx"))
+          and "f'plugins/{p[\"module\"]}.jar'" in generator)
+    permanent_core = (
+        "turboism-agent.jar", "install-jar-payload.ps1",
+        "launch-cubism-turboism.bat", "launch-cubism-turboism.ps1",
+        "configure_turboism.ps1", "cubism-launch-common.ps1",
+        "install-managed-graal.ps1", "turboism.ico", "turboism.png",
+        "README.txt", "README.zh.txt", "README.ja.txt", "LICENSE",
+        "EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt",
+    )
+    core_payload_source = generator[generator.index("core_payload = ["):
+                                    generator.index("plugin_payload = [")]
+    check("PAY4 every permanent core file is checksum-managed",
+          all(('"%s"' % name) in core_payload_source for name in permanent_core)
+          and 'stage / "graal" / "lib"' in core_payload_source)
+    core_section = text[text.index('Section "-核心文件" SecCore'):
+                        text.index("SectionEnd", text.index('Section "-核心文件" SecCore'))]
+    check("PAY5 core plan precedes conditional extraction and verified copy",
+          "payload-core.sha256" in core_section
+          and "-PlanOnly" in core_section
+          and "Call ExtractCorePayload" in core_section
+          and core_section.index("-PlanOnly") < core_section.index("Call ExtractCorePayload")
+          and '-SourceRoot "$PLUGINSDIR\\Turboism-core-payload"' in core_section)
+    check("PAY6 permanent core files are not directly extracted to INSTDIR",
+          all(('File "${STAGING_DIR}/%s"' % name) not in core_section
+              for name in permanent_core if name != "LICENSE")
+          and 'File "${LICENSE_FILE}"' not in core_section)
+    check("PAY7 plugin payload uses destination-relative manifest paths",
+          "payload-plugins.sha256" in generated_plugins
+          and '-DestinationRoot "$INSTDIR"' in generated_plugins
+          and '$PLUGINSDIR\\Turboism-plugin-payload\\plugins' in generated_plugins
+          and '-SourceRoot "$PLUGINSDIR\\Turboism-plugin-payload"' in generated_plugins)
+    plugin_markers = re.findall(r'Turboism-plugin-plan\\(\d{4})\.need', generated_plugins)
+    plugin_files = re.findall(
+        r'File "/oname=([^\"]+\.jar)" "\$\{STAGING_DIR\}/plugins/[^\"]+"',
+        generated_plugins,
+    )
+    check("PAY7b plugin markers form a complete manifest-aligned sequence",
+          plugin_markers == [f"{index:04d}" for index in range(len(REAL_MODULES))]
+          and len(plugin_files) == len(set(plugin_files)) == len(REAL_MODULES)
+          and sorted(Path(name).stem for name in plugin_files) == sorted(REAL_MODULES))
+    check("PAY8 generated extractors align marker indices and target names",
+          "def append_extractor" in generator
+          and "Path(relative).name" in generator
+          and '${{FileExists}}' in generator
+          and "ExtractCorePayload" in generator
+          and "ExtractManagedFxPayload" in generator)
+    check("PAY9 checksum helper is staged and uninstalled",
           gradle.count('from("packaging/windows-installer/install-jar-payload.ps1")') == 1
           and '"packaging/windows-installer/install-jar-payload.ps1"' in gradle
           and 'Delete "$INSTDIR\\install-jar-payload.ps1"' in text)
+    check("PAY10 temporary extracted payloads are removed before finish",
+          all(path in text for path in (
+              'RMDir /r "$PLUGINSDIR\\Turboism-core-payload"',
+              'RMDir /r "$PLUGINSDIR\\Turboism-core-plan"',
+              'RMDir /r "$PLUGINSDIR\\Turboism-fx-payload"',
+              'RMDir /r "$PLUGINSDIR\\Turboism-fx-plan"'))
+          and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"' in generated_plugins
+          and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"' in generated_plugins)
 
 
 def check_icon_contract():
@@ -589,9 +704,9 @@ def check_icon_contract():
           'Icon "${ICON_FILE}"' in text and 'UninstallIcon "${ICON_FILE}"' in text
           and 'MUI_ICON "${ICON_FILE}"' in text and 'MUI_UNICON "${ICON_FILE}"' in text
           and '-DICON_FILE="$repo_root/packaging/windows-installer/assets/turboism.ico"' in assemble)
-    check("I4 installed icon assets are staged and removed",
-          'File "${STAGING_DIR}/turboism.ico"' in text
-          and 'File "${STAGING_DIR}/turboism.png"' in text
+    check("I4 installed icon assets are checksum-staged and removed",
+          '("turboism.ico", stage / "turboism.ico")' in assemble
+          and '("turboism.png", stage / "turboism.png")' in assemble
           and 'Delete "$INSTDIR\\turboism.ico"' in text
           and 'Delete "$INSTDIR\\turboism.png"' in text)
     check("I5 Start-menu shortcuts use the installed ICO", text.count('$INSTDIR\\turboism.ico') >= 4)
@@ -665,8 +780,11 @@ def check_launcher_and_shortcut_contract():
           and '${NSD_CreateCheckbox} 0 70u 100% 32u "$(BatIntegrationOption)"' in launch_options
           and "$DesktopShortcutCheckbox" in launch_options
           and "${NSD_GetState} $DesktopShortcutCheckbox $createDesktopShortcut" in launch_options
-          and "StrCpy $createDesktopShortcut 0" in text)
-    check("L6e desktop shortcut creation, opt-out cleanup, and uninstall are symmetric",
+          and "StrCpy $createDesktopShortcut 1" in text
+          and "${NSD_Check} $DesktopShortcutCheckbox" in launch_options)
+    check("L6e installer title includes the configured Turboism version",
+          'Name "Turboism ${VER}"' in text)
+    check("L6f desktop shortcut creation, opt-out cleanup, and uninstall are symmetric",
           'CreateShortCut "$DESKTOP\\Turboism_Launch_Cubism.lnk"' in start_menu
           and start_menu.count('Delete "$DESKTOP\\Turboism_Launch_Cubism.lnk"') == 1
           and 'Delete "$DESKTOP\\Turboism_Launch_Cubism.lnk"' in uninstall
@@ -684,8 +802,16 @@ def check_launcher_and_shortcut_contract():
           and all(('LangString FinishLaunchTurboismText ${LANG_%s}' % lang) in text
                   for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
           and "FinishOpenFolderText" in text
-          and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat" "" SW_SHOWNORMAL' in text
+          and 'Exec \'"$SYSDIR\\cmd.exe" /D /S /C ""$INSTDIR\\launch-cubism-turboism.bat""\'' in text
+          and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat"' not in text
           and 'explorer.exe' in text)
+    install_success = text[text.index("Function .onInstSuccess"):
+                           text.index("FunctionEnd", text.index("Function .onInstSuccess"))]
+    check("L7b discovery payload is removed before the Finish page",
+          'RMDir /r "$CubismDiscoveryWorkDir"' in install_success
+          and 'StrCpy $CubismDiscoveryWorkDir ""' in install_success
+          and install_success.index('RMDir /r "$CubismDiscoveryWorkDir"')
+              < install_success.index("-InitializeSelection"))
     check("L8 managed launcher prints the Turboism banner before Cubism selection",
           "function Write-TurboismLauncherBanner" in launcher
           and "For you, a bouquet." in launcher
@@ -789,15 +915,21 @@ def check_eula_contract():
     check("NSIS EULA files are localized",
           all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
               for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
-    core_start = text.index('Section "-核心文件"')
-    core_end = text.index("SectionEnd", core_start)
-    core = text[core_start:core_end]
+    generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
+    check("NSIS license pages use BOM-prefixed UTF-8 EULA copies",
+          'printf \'\\xef\\xbb\\xbf\'' in generator
+          and 'mkdir -p "$generated/eula"' in generator
+          and '-DEULA_DIR="$generated/eula"' in generator
+          and '-DEULA_DIR="$repo_root/packaging/eula"' not in generator
+          and 'EULA.$lang.txt' in generator)
+    core_payload = generator[generator.index("core_payload = ["):
+                             generator.index("plugin_payload = [")]
     uninstall_start = text.index('Section "Uninstall"')
     uninstall_end = text.index("SectionEnd", uninstall_start)
     uninstall = text[uninstall_start:uninstall_end]
     for name in ("EULA.en.txt", "EULA.zh-Hans.txt", "EULA.ja.txt"):
-        check("NSIS packages %s" % name,
-              ('File "${STAGING_DIR}/%s"' % name) in core)
+        check("NSIS checksum-packages %s" % name,
+              ('("%s", stage / "%s")' % (name, name)) in core_payload)
         check("NSIS uninstalls %s" % name,
               ('Delete "$INSTDIR\\%s"' % name) in uninstall)
 
@@ -937,78 +1069,56 @@ def main():
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T3: Full、未勾选 {b}、既有 {u2, a, u1}（u1/u2 无关、a 为捆绑）
-    #     → 捆绑 a 被移除（重选启用），无关 id 保留，合并升序
+    # T3: 已有 current v1 时，无论本次插件选择如何都保持原始字节。
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
-                           "worktreeId": "old-wt", "pluginDirs": ["plugins"],
-                           "disabledPlugins": [UNRELATED + ".2", a, UNRELATED + ".1"]}, indent=2)
+                           "worktreeId": "user-runtime", "pluginDirs": ["custom"],
+                           "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG"}, indent=2)
     out = installer_write_config("full", [b], existing)
-    doc = json.loads(out)
-    check("T3 合并升序且无关保留", doc["disabledPlugins"] == sorted([b, UNRELATED + ".1", UNRELATED + ".2"]),
-          str(doc.get("disabledPlugins")))
-    check("T3 已捆绑被移除（重选启用）", a not in doc.get("disabledPlugins", []))
-    check("T3 worktreeId 覆盖", doc["worktreeId"] == "turboism-runtime")
+    check("T3 current schema 原字节跳过", out == existing)
 
-    # T4: Full、全选、既有 {a, u} → 捆绑 a 移除，无关 u 保留
-    existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
-    out = installer_write_config("full", [], existing)
-    doc = json.loads(out)
-    check("T4 全选后捆绑启用、无关保留", doc["disabledPlugins"] == [UNRELATED], str(doc.get("disabledPlugins")))
+    # T4: Lite 更新也不能以模式选择覆盖已有 current config。
+    out = installer_write_config("lite", BUNDLED_IDS, existing)
+    check("T4 current schema 不受 Lite 更新覆盖", out == existing)
 
-    # T4b: 回归 —— 既有配置含重复的捆绑 id（同一 id 多次出现），后续 Full 重选
-    #       必须移除全部副本，无关 id 保留
-    existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '","' + a + '"]}'
-    out = installer_write_config("full", [b], existing)
-    doc = json.loads(out)
-    check("T4b 重复捆绑 id 全部移除、无关保留", doc["disabledPlugins"] == [b, UNRELATED],
-          str(doc.get("disabledPlugins")))
-
-    # T5: Lite、无既有配置 → 全部捆绑 id 写入 disabledPlugins（无插件 JAR）
+    # T5: Lite 全新安装仍写入全部捆绑 id。
     out = installer_write_config("lite", [a, b], None)
     doc = json.loads(out)
-    check("T5 lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
-
-    # T6: Lite、既有 {b, u} → 捆绑 b 移除后并入全部捆绑 id，无关 u 保留
-    existing = '{"disabledPlugins": ["' + b + '","' + UNRELATED + '"]}'
-    out = installer_write_config("lite", [c], existing)
-    doc = json.loads(out)
-    check("T6 lite 全部捆绑 + 无关保留", doc["disabledPlugins"] == sorted(BUNDLED_IDS + [UNRELATED]),
+    check("T5 fresh lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS,
           str(doc.get("disabledPlugins")))
 
-    # T7: 去重 —— 未勾选 {a}、既有 {a, u}
-    out = installer_write_config("full", [a], '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}')
+    # T6: schema-less v0 迁移到 v1，并保留已知用户设置而不套用本次选择。
+    legacy = json.dumps({"worktreeId": "legacy-runtime", "pluginDirs": ["custom"],
+                         "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG",
+                         "cubismJvm": "bundled"})
+    out = installer_write_config("full", [b], legacy)
     doc = json.loads(out)
-    check("T7 去重", doc["disabledPlugins"] == [a, UNRELATED], str(doc.get("disabledPlugins")))
+    check("T6 v0 迁移到 current schema",
+          doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
+    check("T6 v0 保留用户设置",
+          doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
+          and doc["disabledPlugins"] == [a, UNRELATED] and doc["logLevel"] == "DEBUG")
+    check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
-    # T8: 既有无 disabledPlugins + 未勾选 {a} → 新写出
-    out = installer_write_config("full", [a], '{"worktreeId": "x"}')
-    doc = json.loads(out)
-    check("T8 无既有时新写出", doc["disabledPlugins"] == [a])
+    # T7: 未知 legacy 字段失败关闭。
+    try:
+        installer_write_config("full", [], '{"legacyUnknown":true}')
+        check("T7 未知 v0 字段失败关闭", False)
+    except ValueError:
+        check("T7 未知 v0 字段失败关闭", True)
 
-    # T9: 多行/紧凑混合格式的既有配置（运行时可读样式）
-    existing = ('{\n  "format": "turboism.runtime.config",\n  "schemaVersion": 1,\n'
-                '  "worktreeId": "turboism-runtime",\n  "pluginDirs": ["plugins"],\n'
-                '  "disabledPlugins": ["' + c + '", "' + a + '"],\n  "logLevel": "DEBUG"\n}')
-    out = installer_write_config("full", [b], existing)
-    doc = json.loads(out)
-    check("T9 既有样式兼容（捆绑移除、无关无）", doc["disabledPlugins"] == [b], str(doc.get("disabledPlugins")))
-    check("T9 其它字段按文档不保留", "logLevel" not in doc)
+    # T8: 未来 schema 不得被旧安装器降级。
+    try:
+        installer_write_config("full", [],
+                               '{"format":"turboism.runtime.config","schemaVersion":2}')
+        check("T8 future schema 禁止降级", False)
+    except ValueError:
+        check("T8 future schema 禁止降级", True)
 
-    # T10: 全量场景 —— 既有全部 22 个捆绑 id（逆序）+ 无关，未勾选 {p00}
-    all_ids = ["dev.turboism.plugin.p%02d" % i for i in range(22)]
-    existing = '{"disabledPlugins": ["%s"]}' % '","'.join(list(reversed(all_ids)) + [UNRELATED])
-    out = installer_write_config("full", [all_ids[0]], existing, bundled_ids=all_ids)
-    doc = json.loads(out)
-    check("T10 全量捆绑移除 + 无关保留", doc["disabledPlugins"] == sorted([all_ids[0], UNRELATED]),
-          str(doc.get("disabledPlugins")))
-
-    # T11: 升级退休切片 —— 四个历史 id 必须从 disabledPlugins 删除，
-    # 无关 id 保留；这是 Java/NSIS 两条安装路径的共同升级契约。
-    existing = json.dumps({"disabledPlugins": RETIRED_IDS + [UNRELATED]})
-    out = installer_write_config("full", [], existing)
-    doc = json.loads(out)
-    check("T11 退休 id 从升级配置移除", doc["disabledPlugins"] == [UNRELATED],
-          str(doc.get("disabledPlugins")))
+    # T9: current schema 可以包含安装器不理解的新字段，仍按字节跳过。
+    existing = ('{\n  "format":"turboism.runtime.config",\n  "schemaVersion":1,\n'
+                '  "futureCurrentField":{"ownedBy":"runtime"}\n}')
+    check("T9 current schema 未知字段仍不覆盖",
+          installer_write_config("full", [a], existing) == existing)
 
     # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
     # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
@@ -1018,19 +1128,20 @@ def main():
     doc = json.loads(out)
     check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
 
-    # TI2: 后续重选 Full（未勾选 {b}，既有 TI1 配置）→ JAR 库存完整；
-    #     配置 = (既有 - 捆绑) ∪ 本次未勾选
+    # TI2: 后续 Full 更新仍铺设完整 JAR，但 current config 保持原始选择。
+    original = out
     out = installer_write_config("full", [b], out)
     doc = json.loads(out)
     jars = nsis_jars_after("full", jars)
-    check("TI2 重选后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
-    check("TI2 重选后配置跟随当前选择", doc["disabledPlugins"] == [b], str(doc.get("disabledPlugins")))
+    check("TI2 更新后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
+    check("TI2 更新不覆盖 current config", out == original and doc["disabledPlugins"] == [a, c])
 
-    # TI2b: 既有包含无关 id 的重选 → 无关保留
+    # TI2b: legacy v0 迁移保留它原有的 disabledPlugins，不套用安装页重选。
     existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
     out = installer_write_config("full", [b], existing)
     doc = json.loads(out)
-    check("TI2b 重选保留无关 id", doc["disabledPlugins"] == [b, UNRELATED], str(doc.get("disabledPlugins")))
+    check("TI2b v0 迁移保留插件设置", doc["disabledPlugins"] == [a, UNRELATED],
+          str(doc.get("disabledPlugins")))
 
     # TI3: 全新 Lite → 无插件 JAR；禁用全部捆绑 id
     jars = nsis_jars_after("lite", [])
@@ -1039,13 +1150,15 @@ def main():
     doc = json.loads(out)
     check("TI3 Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
 
-    # TI4: Full→Lite → 不写新 JAR（当前旧 JAR 留盘但被禁用）
+    # TI4: Full→Lite 更新不写新 JAR，也不覆盖已有 current config。
     jars = nsis_jars_after("lite", BUNDLED_MODULES)
     check("TI4 Full→Lite 不写新 JAR（当前旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
-    existing = '{"disabledPlugins": ["' + a + '"]}'
+    existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
+                           "worktreeId": "turboism-runtime", "pluginDirs": ["plugins"],
+                           "disabledPlugins": [a]})
     out = installer_write_config("lite", [], existing)
     doc = json.loads(out)
-    check("TI4 Full→Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
+    check("TI4 Full→Lite 保持 current config", out == existing and doc["disabledPlugins"] == [a])
 
     # TI5: NSIS 升级先删除受控历史模块，再根据当前模式铺设 payload。
     jars = nsis_jars_after("lite", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
@@ -1061,6 +1174,7 @@ def main():
         assert doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
 
     check_nsis_retirement_contract()
+    check_config_migration_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
     check_managed_fx_contract()

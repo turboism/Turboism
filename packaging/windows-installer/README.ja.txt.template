@@ -51,6 +51,10 @@ Turboism 所有のショートカットを使用します。NSIS インストー
   pluginDirs:       ["plugins"]
   disabledPlugins:  無効化するプラグイン id のリスト（未選択、昇順。任意）
 
+更新時、現在の schema の config.json はバイト単位で変更されません。認識可能な
+旧 schema のみ原子的に移行し、不明または将来の schema では元ファイルを変更せず
+更新を中止します。プラグインの有効状態を変更する場合は設定ツールを使用してください。
+
 4. アンインストール
 -------------------
 - NSIS インストーラー（TurboismInstaller-<ver>.exe）の場合は Turboism home の
