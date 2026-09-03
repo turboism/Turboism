@@ -33,6 +33,7 @@ import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.model.ParameterGroup;
 import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.permission.CubismPermissionException;
@@ -77,6 +78,8 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final TransactionManager transactionManager;
     private final CubismModelAccess modelAccess;
     private CubismHistory history = CubismHistory.unavailable();
+    private AuthoringTransactionService authoringTransactions =
+        AuthoringTransactionService.unavailable();
     private final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime;
     private final ParameterLifecycleCoordinator parameterLifecycle;
     private final PartLifecycleCoordinator partLifecycle;
@@ -289,9 +292,50 @@ public final class CubismFacadeImpl implements CubismFacade {
             activeScope,
             textureAtlasEditorUi,
             textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            history,
+            AuthoringTransactionService.unavailable()
+        );
+    }
+
+    /** Full production construction seam including history and authoring transactions. */
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final CubismHistory history,
+        final AuthoringTransactionService authoringTransactions
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
             textureAtlasAlgorithms
         );
         this.history = Objects.requireNonNull(history, "history");
+        this.authoringTransactions = Objects.requireNonNull(
+            authoringTransactions,
+            "authoringTransactions"
+        );
     }
 
     public CubismFacadeImpl(
@@ -389,6 +433,28 @@ public final class CubismFacadeImpl implements CubismFacade {
     ) {
         this(source, permissionGate, modelAccess, parameterLifecycle, partLifecycle, editorObjectLifecycle, activeScope);
         this.history = Objects.requireNonNull(history, "history");
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final BooleanSupplier activeScope,
+        final AuthoringTransactionService authoringTransactions
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            new ParameterLifecycleCoordinator(),
+            new PartLifecycleCoordinator(),
+            new EditorObjectLifecycleCoordinator(),
+            activeScope
+        );
+        this.authoringTransactions = Objects.requireNonNull(
+            authoringTransactions,
+            "authoringTransactions"
+        );
     }
 
     public CubismFacadeImpl(
@@ -779,6 +845,26 @@ public final class CubismFacadeImpl implements CubismFacade {
                 requireActiveScope();
                 permissionGate.require(MODEL_READ_PERMISSION, "history.isCurrentBinding");
                 return delegate.isCurrentBinding(snapshot);
+            }
+        };
+    }
+
+    @Override
+    public AuthoringTransactionService authoringTransactions() {
+        requireActiveScope();
+        final AuthoringTransactionService delegate = authoringTransactions;
+        return new AuthoringTransactionService() {
+            @Override
+            public <T> dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult<T> execute(
+                final dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions options,
+                final dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork<T> work
+            ) {
+                requireActiveScope();
+                permissionGate.require(
+                    MODEL_WRITE_PERMISSION,
+                    "authoringTransactions.execute"
+                );
+                return delegate.execute(options, work);
             }
         };
     }
