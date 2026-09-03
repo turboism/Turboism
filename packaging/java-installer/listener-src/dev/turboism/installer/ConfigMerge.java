@@ -31,14 +31,14 @@ import java.util.TreeSet;
  *
  * Policy:
  *  - absent config: seed from the canonical runtime-config v1 template
- *    (bundled as a resource at /turboism/config.template.json);
- *  - existing config: parsed with the bounded parser; fields not owned by
- *    plugin selection are preserved; worktreeId/pluginDirs are forced to the
- *    installer-owned values; disabledPlugins becomes the sorted set union of
- *    existing disabled ids and bundled-but-unselected ids (Lite = every
- *    bundled id unselected);
- *  - invalid, oversized (> 64 KiB), symlinked, or escaping config targets
- *    fail closed without truncating the original;
+ *    (bundled as a resource at /turboism/config.template.json) and apply the
+ *    initial plugin selection;
+ *  - existing current-schema config: validate its bounded identity, then leave
+ *    its bytes untouched regardless of installation mode or plugin selection;
+ *  - existing legacy v0 config: migrate the explicit known field set to v1,
+ *    preserving user settings and moving legacy launcher fields into launcher;
+ *  - unknown/future schemas, invalid, oversized (> 64 KiB), symlinked, or
+ *    escaping config targets fail closed without truncating the original;
  *  - the read is bounded on the actual bytes (not a raceable size check) and
  *    never follows a symlink;
  *  - writes use a temporary sibling plus an atomic replace only: if atomic
@@ -822,42 +822,108 @@ final class ConfigMerge {
         }
     }
 
+    private static final long CURRENT_SCHEMA_VERSION = 1L;
+    private static final Set<String> V0_FIELDS = Set.of(
+            "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+            "hooks", "launcher", "cubismJvm", "graalVmPath");
+    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
+
     /**
-     * Canonical runtime-config v1 identity (frozen spec): an existing config
-     * is only merged when it has the exact {@code format} value
-     * {@code turboism.runtime.config} and an integral {@code schemaVersion}
-     * equal to 1. Absent, wrong, or type-invalid identity fails closed before
-     * any source mutation; a fresh config always starts from the canonical
-     * bundled template instead.
+     * Admits the current schema without rewriting it and the single explicit legacy v0 shape for
+     * migration. Missing schemaVersion means v0. Future schemas fail closed rather than being
+     * downgraded by an older installer.
      */
     private static void requireCanonical(Map<String, Object> map) throws ConfigException {
-        Object format = map.get("format");
-        if (!(format instanceof String) || !"turboism.runtime.config".equals(format)) {
-            throw new ConfigException("existing config.json is not canonical runtime-config v1 (format="
-                    + format + ")");
-        }
-        Object schema = map.get("schemaVersion");
-        if (schema instanceof Long) {
-            if ((Long) schema != 1L) {
-                throw new ConfigException("existing config.json schemaVersion is not 1: " + schema);
+        final long schema = schemaVersion(map);
+        final Object format = map.get("format");
+        if (schema == CURRENT_SCHEMA_VERSION) {
+            if (!"turboism.runtime.config".equals(format)) {
+                throw new ConfigException("existing config.json format does not match schemaVersion 1: " + format);
             }
+            return;
+        }
+        if (schema != 0L) {
+            throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
+        }
+        if (format != null && !"turboism.runtime.config".equals(format)) {
+            throw new ConfigException("legacy config.json format is unsupported: " + format);
+        }
+    }
+
+    static long schemaVersion(Map<String, Object> map) throws ConfigException {
+        final Object schema = map.get("schemaVersion");
+        if (schema == null) return 0L;
+        final java.math.BigInteger integral;
+        if (schema instanceof Long) {
+            integral = java.math.BigInteger.valueOf((Long) schema);
         } else if (schema instanceof java.math.BigDecimal) {
-            // Exact value comparison (R13): toBigIntegerExact() keeps the full
-            // precision, so e.g. 18446744073709551617 (2^64+1) is not narrowed
-            // modulo 2^64 to 1 and accepted, while integral spellings such as
-            // 1.0 remain valid schemaVersion 1.
-            java.math.BigInteger integral;
             try {
                 integral = ((java.math.BigDecimal) schema).toBigIntegerExact();
             } catch (ArithmeticException e) {
                 throw new ConfigException("existing config.json schemaVersion is not integral: " + schema);
             }
-            if (!java.math.BigInteger.ONE.equals(integral)) {
-                throw new ConfigException("existing config.json schemaVersion is not 1: " + schema);
+        } else {
+            throw new ConfigException("existing config.json schemaVersion is not a number: " + schema);
+        }
+        if (integral.signum() < 0 || integral.bitLength() > 63) {
+            throw new ConfigException("existing config.json schemaVersion is out of range: " + schema);
+        }
+        return integral.longValueExact();
+    }
+
+    static Map<String, Object> migrateToCurrent(Map<String, Object> legacy) throws ConfigException {
+        final long schema = schemaVersion(legacy);
+        if (schema == CURRENT_SCHEMA_VERSION) return legacy;
+        if (schema != 0L) {
+            throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
+        }
+        for (String field : legacy.keySet()) {
+            if (!V0_FIELDS.contains(field)) {
+                throw new ConfigException("legacy config.json contains an unsupported field: " + field);
+            }
+        }
+        final Map<String, Object> migrated = new LinkedHashMap<>();
+        migrated.put("format", "turboism.runtime.config");
+        migrated.put("schemaVersion", CURRENT_SCHEMA_VERSION);
+        migrated.put("worktreeId", WORKTREE_ID);
+        migrated.put("pluginDirs", List.of(PLUGIN_DIR));
+        migrated.put("launcher", new LinkedHashMap<>(Map.of("cubismJvm", "graalvm")));
+        for (String field : List.of(
+                "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
+                "locale", "safeMode", "diagnostics", "hooks")) {
+            if (legacy.containsKey(field)) migrated.put(field, legacy.get(field));
+        }
+
+        final Map<String, Object> launcher = new LinkedHashMap<>();
+        final Object existingLauncher = legacy.get("launcher");
+        if (existingLauncher != null) {
+            if (!(existingLauncher instanceof Map<?, ?>)) {
+                throw new ConfigException("legacy config.json launcher must be an object");
+            }
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) existingLauncher).entrySet()) {
+                if (!(entry.getKey() instanceof String) || !LAUNCHER_FIELDS.contains(entry.getKey())) {
+                    throw new ConfigException("legacy config.json contains an unsupported launcher field: "
+                            + entry.getKey());
+                }
+                launcher.put((String) entry.getKey(), entry.getValue());
             }
         } else {
-            throw new ConfigException("existing config.json schemaVersion is missing or not a number: " + schema);
+            @SuppressWarnings("unchecked")
+            final Map<String, Object> defaults = (Map<String, Object>) migrated.get("launcher");
+            launcher.putAll(defaults);
         }
+        for (String field : LAUNCHER_FIELDS) {
+            if (!legacy.containsKey(field)) continue;
+            if (launcher.containsKey(field) && existingLauncher != null) {
+                throw new ConfigException("legacy config.json defines " + field + " twice");
+            }
+            launcher.put(field, legacy.get(field));
+        }
+        migrated.put("format", "turboism.runtime.config");
+        migrated.put("schemaVersion", CURRENT_SCHEMA_VERSION);
+        migrated.put("launcher", launcher);
+        return migrated;
     }
     /**
      * Loads the canonical template bundled with the installer. The template is

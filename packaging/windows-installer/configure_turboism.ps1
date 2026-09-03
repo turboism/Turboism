@@ -10,6 +10,7 @@ param(
     [switch]$EnableShortcuts,
     [switch]$DisableShortcuts,
     [switch]$InitializeSelection,
+    [switch]$MigrateConfig,
     [switch]$Elevated,
     [string]$InstallerDiscoveryOutput = "",
     [switch]$InstallerDiscoveryWorker
@@ -106,6 +107,139 @@ function Write-InstallerLog {
 }
 Write-InstallerLog "CONFIGURATOR_START"
 
+function Get-RuntimeConfigSchemaVersion {
+    param([object]$Document)
+
+    $property = $Document.PSObject.Properties["schemaVersion"]
+    if ($null -eq $property -or $null -eq $property.Value) { return 0L }
+    try {
+        $number = [decimal]$property.Value
+        if ($number -ne [decimal]::Truncate($number) -or $number -lt 0 -or $number -gt [long]::MaxValue) {
+            throw "schemaVersion must be a non-negative integer"
+        }
+        return [long]$number
+    }
+    catch { throw "config.json schemaVersion is invalid" }
+}
+
+function Read-RuntimeConfigForMigration {
+    if (-not (Test-CubismNormalFile $configPath)) { throw "config.json is not a normal file" }
+    $bytes = [System.IO.File]::ReadAllBytes($configPath)
+    if ($bytes.Length -gt 65536) { throw "config.json exceeds 64 KiB" }
+    try {
+        $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
+        $text = $utf8.GetString($bytes)
+        $document = $text | ConvertFrom-Json -ErrorAction Stop
+    }
+    catch { throw "config.json is not valid UTF-8 JSON" }
+    if ($null -eq $document -or $document -isnot [pscustomobject]) {
+        throw "config.json root must be an object"
+    }
+    return $document
+}
+
+function Convert-RuntimeConfigV0ToV1 {
+    param([object]$Document)
+
+    $allowed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($name in @(
+        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+        "hooks", "launcher", "cubismJvm", "graalVmPath"
+    )) { [void]$allowed.Add($name) }
+    foreach ($property in $Document.PSObject.Properties) {
+        if (-not $allowed.Contains($property.Name)) {
+            throw "legacy config.json contains an unsupported field: $($property.Name)"
+        }
+    }
+
+    $format = $Document.PSObject.Properties["format"]
+    if ($null -ne $format -and $format.Value -ne "turboism.runtime.config") {
+        throw "legacy config.json format is unsupported"
+    }
+
+    $migrated = [ordered]@{
+        format = "turboism.runtime.config"
+        schemaVersion = 1
+        worktreeId = "turboism-runtime"
+        pluginDirs = @("plugins")
+    }
+    foreach ($name in @(
+        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
+        "locale", "safeMode", "diagnostics", "hooks"
+    )) {
+        $property = $Document.PSObject.Properties[$name]
+        if ($null -ne $property) { $migrated[$name] = $property.Value }
+    }
+
+    $launcher = [ordered]@{ cubismJvm = "graalvm" }
+    $launcherProperty = $Document.PSObject.Properties["launcher"]
+    if ($null -ne $launcherProperty) {
+        if ($null -eq $launcherProperty.Value -or $launcherProperty.Value -isnot [pscustomobject]) {
+            throw "legacy config.json launcher must be an object"
+        }
+        foreach ($property in $launcherProperty.Value.PSObject.Properties) {
+            if (@("cubismJvm", "graalVmPath") -cnotcontains $property.Name) {
+                throw "legacy config.json contains an unsupported launcher field: $($property.Name)"
+            }
+            $launcher[$property.Name] = $property.Value
+        }
+    }
+    foreach ($name in @("cubismJvm", "graalVmPath")) {
+        $legacy = $Document.PSObject.Properties[$name]
+        if ($null -ne $legacy) {
+            if ($null -ne $launcherProperty -and $null -ne $launcherProperty.Value.PSObject.Properties[$name]) {
+                throw "legacy config.json defines $name twice"
+            }
+            $launcher[$name] = $legacy.Value
+        }
+    }
+    $migrated["launcher"] = $launcher
+    return [pscustomobject]$migrated
+}
+
+function Write-RuntimeConfigMigrationAtomic {
+    param([object]$Document)
+
+    $json = $Document | ConvertTo-Json -Depth 16
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    $bytes = $encoding.GetBytes($json + "`r`n")
+    if ($bytes.Length -gt 65536) { throw "migrated config.json exceeds 64 KiB" }
+    $temporary = Join-Path $turboismHome (".config-migrate-{0}-{1}.tmp" -f $PID, [guid]::NewGuid().ToString("N"))
+    try {
+        [System.IO.File]::WriteAllBytes($temporary, $bytes)
+        if (-not (Test-CubismNormalFile $temporary)) { throw "temporary migrated config was not created" }
+        [System.IO.File]::Replace($temporary, $configPath, $null, $true)
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary -PathType Leaf) {
+            Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+function Invoke-RuntimeConfigMigration {
+    if (-not (Test-Path -LiteralPath $configPath)) {
+        Write-Host "TURBOISM_CONFIG absent"
+        return
+    }
+    $document = Read-RuntimeConfigForMigration
+    $schema = Get-RuntimeConfigSchemaVersion $document
+    if ($schema -eq 1) {
+        $format = $document.PSObject.Properties["format"]
+        if ($null -eq $format -or $format.Value -ne "turboism.runtime.config") {
+            throw "config.json format does not match schemaVersion 1"
+        }
+        Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1"
+        return
+    }
+    if ($schema -ne 0) { throw "no runtime config migration is available from schemaVersion $schema" }
+    $migrated = Convert-RuntimeConfigV0ToV1 $document
+    Write-RuntimeConfigMigrationAtomic $migrated
+    Write-InstallerLog "CONFIG_MIGRATED" "from=0 to=1"
+    Write-Host "TURBOISM_CONFIG migrated from=0 to=1"
+}
+
 function Test-CurrentProcessElevated {
     try {
         $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -127,9 +261,20 @@ function Invoke-ElevatedConfiguratorMode {
     return [int]$process.ExitCode
 }
 
-if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts, $InitializeSelection) | Where-Object { $_ }).Count -gt 1) {
-    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, DisableShortcuts, and InitializeSelection are mutually exclusive"
+if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts, $InitializeSelection, $MigrateConfig) | Where-Object { $_ }).Count -gt 1) {
+    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, DisableShortcuts, InitializeSelection, and MigrateConfig are mutually exclusive"
     exit 1
+}
+if ($MigrateConfig) {
+    try {
+        Invoke-RuntimeConfigMigration
+        exit 0
+    }
+    catch {
+        Write-InstallerLog "CONFIG_MIGRATION_FAILED" $_.Exception.Message
+        Write-Error $_.Exception.Message
+        exit 1
+    }
 }
 if ($Cleanup) {
     try {

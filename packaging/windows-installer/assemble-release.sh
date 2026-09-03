@@ -36,6 +36,7 @@ cd "$repo_root"
 # 固定路径：installer.nsi 的缺省 STAGING_DIR/OUT_DIR 与此一致，支持独立 makensis 编译
 stage="$repo_root/build/windows-installer/staging"
 dist="$repo_root/build/windows-installer/dist"
+generated="$repo_root/build/windows-installer/generated"
 
 # ---------- 1. Gradle 组装共享 payload（Java 安装器 / NSIS / ZIP 同源） ----------
 echo "[assemble] gradle: stageInstallerPayload"
@@ -47,16 +48,17 @@ if [[ ! -f "$stage/turboism-agent.jar" || ! -d "$stage/plugins" ]]; then
   echo "error: staged payload incomplete at $stage" >&2
   exit 1
 fi
-mkdir -p "$dist"
+mkdir -p "$dist" "$generated"
 
-# ---------- 3. 生成 plugin-sections.nsh ----------
-python3 - "$stage" "$pkg_dir/plugin-sections.nsh" "$repo_root/packaging/release-plugins.txt" <<'PYEOF'
+# ---------- 3. 生成插件 Section 与安装前 JAR 校验清单 ----------
+python3 - "$stage" "$pkg_dir/plugin-sections.nsh" "$repo_root/packaging/release-plugins.txt" "$generated" <<'PYEOF'
 """按 release-plugins.txt（唯一权威）生成 NSIS 插件 Section，并校验 staging 与清单严格一致。
 
 fail-closed 规则：清单缺失/空行/注释/非插件项/重复/未排序即退出；staging 中的插件
 JAR 必须与清单（不含运行时 core）逐项一致 —— 多出的 JAR（含已排除的占位插件）或
 缺失的 JAR 均使组装失败。
 """
+import hashlib
 import json
 import re
 import sys
@@ -66,6 +68,8 @@ from pathlib import Path
 stage = Path(sys.argv[1])
 out = Path(sys.argv[2])
 manifest = Path(sys.argv[3])
+generated = Path(sys.argv[4])
+generated.mkdir(parents=True, exist_ok=True)
 
 if not manifest.is_file():
     sys.exit(f"error: release plugin manifest missing: {manifest}")
@@ -134,26 +138,123 @@ for module in modules:
     })
 plugins.sort(key=lambda p: p["id"])
 
+core_payload = [("turboism-agent.jar", stage / "turboism-agent.jar")]
+core_payload.extend(
+    (path.relative_to(stage).as_posix(), path)
+    for path in sorted((stage / "graal" / "lib").glob("*.jar"))
+)
+core_payload.extend([
+    ("install-jar-payload.ps1", stage / "install-jar-payload.ps1"),
+    ("launch-cubism-turboism.bat", stage / "launch-cubism-turboism.bat"),
+    ("launch-cubism-turboism.ps1", stage / "launch-cubism-turboism.ps1"),
+    ("configure_turboism.ps1", stage / "configure_turboism.ps1"),
+    ("cubism-launch-common.ps1", stage / "cubism-launch-common.ps1"),
+    ("install-managed-graal.ps1", stage / "install-managed-graal.ps1"),
+    ("turboism.ico", stage / "turboism.ico"),
+    ("turboism.png", stage / "turboism.png"),
+    ("README.txt", stage / "README.txt"),
+    ("README.zh.txt", stage / "README.zh.txt"),
+    ("README.ja.txt", stage / "README.ja.txt"),
+    ("LICENSE", stage / "LICENSE.txt"),
+    ("EULA.en.txt", stage / "EULA.en.txt"),
+    ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
+    ("EULA.ja.txt", stage / "EULA.ja.txt"),
+])
+plugin_payload = [
+    (f'plugins/{p["module"]}.jar', stage / "plugins" / f'{p["module"]}.jar')
+    for p in plugins
+]
+fx_root = "runtimes/fx/0.0.5/windows-x86_64"
+fx_payload = [
+    (f"{fx_root}/{name}", stage / fx_root / name)
+    for name in (
+        "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
+        "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties",
+    )
+]
+
+def write_checksum_manifest(name: str, payload):
+    target = generated / name
+    missing = [str(path) for _, path in payload if not path.is_file()]
+    if missing:
+        sys.exit(f"error: installer checksum payload is incomplete: {missing[:3]}")
+    content = "".join(
+        f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {relative}\n"
+        for relative, path in payload
+    )
+    target.write_text(content, encoding="ascii", newline="\n")
+    return target
+
+write_checksum_manifest("payload-core.sha256", core_payload)
+write_checksum_manifest("payload-plugins.sha256", plugin_payload)
+write_checksum_manifest("payload-fx.sha256", fx_payload)
+
 lines = []
 lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。")
-lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只承载")
-lines.append("; 勾选状态（disabledPlugins 元数据）；Lite 模式由 ModeLeave 取消全部可见 Section。")
+lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只为")
+lines.append("; 全新 config.json 收集 disabledPlugins；更新时 current schema 配置保持不变。")
 lines.append("")
 
+# 每项永久载荷都先按目标 SHA-256 生成计划；NSIS 只把缺失或变更项解压到私有临时目录。
+def append_extractor(target, function_name, payload, plan_name, temporary_name):
+    target.append(f"Function {function_name}")
+    for index, (relative, path) in enumerate(payload):
+        parent = str(Path(relative).parent).replace("/", "\\")
+        output = f"$PLUGINSDIR\\{temporary_name}"
+        if parent != ".":
+            output += "\\" + parent
+        source = path.relative_to(stage).as_posix()
+        target.append(f'  ${{If}} ${{FileExists}} "$PLUGINSDIR\\{plan_name}\\{index:04d}.need"')
+        target.append(f'    SetOutPath "{output}"')
+        target.append(f'    File "/oname={Path(relative).name}" "${{STAGING_DIR}}/{source}"')
+        target.append("  ${EndIf}")
+    target.append("FunctionEnd")
+    target.append("")
+
+extract_lines = [
+    "; 由 assemble-release.sh 生成：只解压目标缺失或 SHA-256 不同的永久载荷。",
+]
+append_extractor(
+    extract_lines, "ExtractCorePayload", core_payload,
+    "Turboism-core-plan", "Turboism-core-payload",
+)
+append_extractor(
+    extract_lines, "ExtractManagedFxPayload", fx_payload,
+    "Turboism-fx-plan", "Turboism-fx-payload",
+)
+(generated / "payload-extract.nsh").write_bytes(
+    b"\xef\xbb\xbf" + ("\n".join(extract_lines) + "\n").encode("utf-8")
+)
+
 # 隐藏载荷 Section：Full 模式安装全部插件 JAR；Lite 模式不写任何 JAR（$Mode 守卫）。
-# JAR 先提取到私有临时目录，再由单个 PowerShell 进程按 SHA-256 跳过相同文件。
-# 隐藏 Section 不出现在组件页，用户无法取消选中；勾选只控制 disabledPlugins。
+# 先用内嵌 SHA-256 清单生成计划，再只解压需要替换的条目；写入前仍校验源和目标。
+# 隐藏 Section 不出现在组件页；可见勾选只影响全新安装的 disabledPlugins。
 lines.append('Section "-插件载荷" SecPluginPayload')
 lines.append("  ${If} $Mode == 1")
-lines.append('    SetOutPath "$PLUGINSDIR\\Turboism-plugin-jars"')
-for p in plugins:
-    lines.append(f'    File "/oname={p["module"]}.jar" "${{STAGING_DIR}}/plugins/{p["module"]}.jar"')
-lines.append("    ExecWait '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-jars\" -DestinationRoot \"$INSTDIR\\plugins\"' $0")
+lines.append("    nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
+lines.append("    Pop $0")
 lines.append("    ${If} $0 != 0")
-lines.append('      MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"')
+lines.append('      MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
 lines.append("      Abort")
 lines.append("    ${EndIf}")
+for index, (relative, path) in enumerate(plugin_payload):
+    parent = str(Path(relative).parent).replace("/", "\\")
+    lines.append(f'    ${{If}} ${{FileExists}} "$PLUGINSDIR\\Turboism-plugin-plan\\{index:04d}.need"')
+    lines.append(f'      SetOutPath "$PLUGINSDIR\\Turboism-plugin-payload\\{parent}"')
+    lines.append(f'      File "/oname={path.name}" "${{STAGING_DIR}}/{path.relative_to(stage).as_posix()}"')
+    lines.append("    ${EndIf}")
+lines.append("    nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -SourceRoot \"$PLUGINSDIR\\Turboism-plugin-payload\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\"'")
+lines.append("    Pop $0")
+lines.append("    ${If} $0 != 0")
+lines.append('      MessageBox MB_ICONSTOP "$(PayloadInstallError)"')
+lines.append("      Abort")
+lines.append("    ${EndIf}")
+lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"')
+lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"')
 lines.append("  ${EndIf}")
+lines.append('  Delete "$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256"')
+lines.append('  Delete "$PLUGINSDIR\\Turboism-payload-manifests\\payload-fx.sha256"')
+lines.append('  RMDir "$PLUGINSDIR\\Turboism-payload-manifests"')
 lines.append("SectionEnd")
 lines.append("")
 
@@ -210,16 +311,6 @@ for p in plugins:
     lines.append(f'      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;{p["id"]}"')
     lines.append("    ${EndIf}")
     lines.append("  ${EndIf}")
-lines.append("FunctionEnd")
-lines.append("")
-lines.append("; 从 $existingDisabled 中逐 id 移除全部当前捆绑插件 id（重选已捆绑插件即启用）。")
-lines.append("; 每个 id 通过通用 RemoveItemFromList 辅助删除，避免长度受限的合并 id 字符串。")
-lines.append("Function RemoveBundledFromExistingDisabled")
-for p in plugins:
-    lines.append('  StrCpy $0 "$existingDisabled"')
-    lines.append(f'  StrCpy $1 "{p["id"]}"')
-    lines.append("  Call RemoveItemFromList")
-    lines.append('  StrCpy $existingDisabled "$0"')
 lines.append("FunctionEnd")
 lines.append("")
 
@@ -313,6 +404,13 @@ else
     echo "error: makensis not found; run with --skip-nsis or install nsis" >&2
     exit 1
   fi
+  # NSIS 的 LicenseLangString 依赖 BOM 才能可靠按 UTF-8 解析 license 文本；
+  # 无 BOM 的 UTF-8 中文会在非 UTF-8 ACP 下乱码。仅为 makensis 生成带 BOM 的
+  # EULA 副本，源文件（Java 安装器/ZIP 使用的无 BOM 版本）保持字节不变。
+  mkdir -p "$generated/eula"
+  for lang in en zh-Hans ja; do
+    { printf '\xef\xbb\xbf'; cat "$repo_root/packaging/eula/EULA.$lang.txt"; } > "$generated/eula/EULA.$lang.txt"
+  done
   # VIProductVersion 需要纯数字 x.y.z.w；无法从 VER 推导时跳过版本资源
   ver_numeric=""
   if [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
@@ -330,9 +428,10 @@ else
     -WX
     -DVER="$VER"
     -DSTAGING_DIR="$stage"
+    -DGENERATED_DIR="$generated"
     -DOUT_DIR="$dist"
     -DLICENSE_FILE="$repo_root/LICENSE"
-    -DEULA_DIR="$repo_root/packaging/eula"
+    -DEULA_DIR="$generated/eula"
     -DICON_FILE="$repo_root/packaging/windows-installer/assets/turboism.ico"
   )
   if [[ -n "$ver_numeric" ]]; then
