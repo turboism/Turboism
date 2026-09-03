@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
-## [0.43.3] - 2026-08-31
+## [0.43.3] - 2026-09-03
 
 ### Added
 
@@ -20,6 +20,9 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Added saved fx provider profiles with modal add, edit, remove, and select dialogs: the fx-owned Vercel, Codex, and Grok built-ins launch their exact fx login commands, and custom OpenAI-compatible or self-hosted endpoints are served by a Turboism-owned loopback adapter.
 - Added best-effort `/v1/models` discovery plus a modal manual model-ID dialog for custom provider profiles.
 - Added persistent custom-provider API-key storage so a key is entered once: protected with Windows DPAPI for the current user where that succeeds, and otherwise written to `auth.json` in the plugin's own configuration directory.
+- Added deterministic Windows installer payload handling that skips unchanged JARs and the fx product payload by SHA-256 and no longer shows an empty finish page.
+- Added PSD Clip Mask Import progress reporting and prevented re-entry while an import is running.
+- Added persistent installer-launcher and managed subprocess diagnostics and made MCP parameter and model write outcomes, explicit binding presence, and committed creates retry-safe and correlated into runtime diagnostics.
 
 ### Changed
 
@@ -38,6 +41,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ### Fixed
 
+- Fixed MCP tool writes racing host model operations by keeping model object creation consistent with the Cubism runtime and separating runtime diagnostics resources from connection state.
+- Fixed MCP writes not surviving retries, parameter bindings and committed creates being misreported, and invalid runtime requests being recorded unsafely; write warnings are now correlated with runtime diagnostics and applied schemas align with the binding runtime.
+- Fixed PSD Clip Mask Import comparing model ids across namespaces, which could misfire on equal ids from different scenes; id comparison now stays within one namespace and imports report progress without re-entry.
+- Fixed the Windows installer finish page appearing empty after the payload SHA-256 work, and kept installer-launcher diagnostics draining concurrent labelled stdout/stderr reliably.
 - Fixed the Windows uninstaller configuration-retention checkbox being attached to the outer wizard window, which prevented reliable interaction and could make the confirmation page sluggish.
 - Changed the uninstall option to the unambiguous, default-enabled “Keep config.json” behavior; configuration is deleted only when the user clears it.
 - Restored History snapshot availability on Cubism Editor 5.2.03 while preserving exact-version SDK admission.
