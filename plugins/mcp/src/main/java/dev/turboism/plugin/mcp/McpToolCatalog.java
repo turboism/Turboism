@@ -2,11 +2,9 @@ package dev.turboism.plugin.mcp;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 
 /** Discoverable MCP tool catalog and invocation boundary. */
 final class McpToolCatalog {
@@ -35,41 +33,31 @@ final class McpToolCatalog {
         Map<String, Object> call(String name, Map<String, Object> arguments);
     }
 
+    private final McpToolRegistry registry;
     private final List<Map<String, Object>> definitions;
-    private final Set<String> names;
     private final Map<String, Map<String, Object>> outputSchemas;
-    private final Caller caller;
 
     McpToolCatalog(final List<Map<String, Object>> definitions, final Caller caller) {
-        Objects.requireNonNull(definitions, "definitions");
-        final ArrayList<Map<String, Object>> normalized = new ArrayList<>(definitions.size());
-        final LinkedHashSet<String> discoveredNames = new LinkedHashSet<>();
+        this(legacyRegistry(definitions, caller));
+    }
+
+    private McpToolCatalog(final McpToolRegistry registry) {
+        this.registry = Objects.requireNonNull(registry, "registry");
+        this.definitions = registry.definitions();
         final LinkedHashMap<String, Map<String, Object>> schemas = new LinkedHashMap<>();
         for (Map<String, Object> definition : definitions) {
-            final LinkedHashMap<String, Object> checked = new LinkedHashMap<>(
-                Objects.requireNonNull(definition, "definition")
-            );
-            final Object nameValue = checked.get("name");
-            if (!(nameValue instanceof String name) || name.isBlank()) {
-                throw new IllegalArgumentException("MCP tool definition requires a name");
-            }
-            if (!discoveredNames.add(name)) {
-                throw new IllegalArgumentException("Duplicate MCP tool: " + name);
-            }
-            checked.putIfAbsent("outputSchema", DEFAULT_OUTPUT_SCHEMA);
-            final Object schemaValue = checked.get("outputSchema");
+            final String name = (String) definition.get("name");
+            final Object schemaValue = definition.get("outputSchema");
             if (!(schemaValue instanceof Map<?, ?> rawSchema)) {
                 throw new IllegalArgumentException("MCP tool outputSchema must be an object: " + name);
             }
-            final LinkedHashMap<String, Object> schema = stringMap(rawSchema, "outputSchema");
-            checked.put("outputSchema", Map.copyOf(schema));
-            schemas.put(name, Map.copyOf(schema));
-            normalized.add(Map.copyOf(checked));
+            schemas.put(name, Map.copyOf(stringMap(rawSchema, "outputSchema")));
         }
-        this.definitions = List.copyOf(normalized);
-        this.names = Set.copyOf(discoveredNames);
         this.outputSchemas = Map.copyOf(schemas);
-        this.caller = Objects.requireNonNull(caller, "caller");
+    }
+
+    static McpToolCatalog of(final List<McpRegisteredTool> registrations) {
+        return new McpToolCatalog(new McpToolRegistry(registrations));
     }
 
     static McpToolCatalog empty() {
@@ -82,34 +70,38 @@ final class McpToolCatalog {
         return definitions;
     }
 
+    List<McpRegisteredTool> registrations() {
+        return registry.registrations();
+    }
+
+    McpRegisteredTool registration(final String name) {
+        return registry.registration(name);
+    }
+
     static McpToolCatalog combine(final McpToolCatalog... catalogs) {
         Objects.requireNonNull(catalogs, "catalogs");
-        final ArrayList<Map<String, Object>> definitions = new ArrayList<>();
-        final LinkedHashMap<String, McpToolCatalog> owners = new LinkedHashMap<>();
+        final ArrayList<McpRegisteredTool> registrations = new ArrayList<>();
         for (McpToolCatalog catalog : catalogs) {
-            final McpToolCatalog checked = Objects.requireNonNull(catalog, "catalog");
-            definitions.addAll(checked.definitions());
-            for (String name : checked.names) {
-                if (owners.putIfAbsent(name, checked) != null) {
-                    throw new IllegalArgumentException("Duplicate MCP tool: " + name);
-                }
-            }
+            registrations.addAll(Objects.requireNonNull(catalog, "catalog").registrations());
         }
-        return new McpToolCatalog(
-            definitions,
-            (name, arguments) -> owners.get(name).call(name, arguments)
-        );
+        return of(registrations);
     }
 
     Map<String, Object> call(final String name, final Map<String, Object> arguments) {
-        if (!names.contains(name)) {
-            throw new IllegalArgumentException("Unknown MCP tool: " + name);
-        }
-        final Map<String, Object> envelope = Objects.requireNonNull(
-            caller.call(name, arguments), "MCP tool envelope"
-        );
-        final String violation = validateEnvelope(envelope, outputSchemas.get(name));
-        return violation == null ? envelope : invalidOutput(violation);
+        return validate(name, registry.call(name, arguments));
+    }
+
+    Map<String, Object> callRaw(final String name, final Map<String, Object> arguments) {
+        return validate(name, registry.callRaw(name, arguments));
+    }
+
+    private Map<String, Object> validate(
+        final String name,
+        final Map<String, Object> envelope
+    ) {
+        final Map<String, Object> checked = Objects.requireNonNull(envelope, "MCP tool envelope");
+        final String violation = validateEnvelope(checked, outputSchemas.get(name));
+        return violation == null ? checked : invalidOutput(violation);
     }
 
     private static String validateEnvelope(
@@ -170,6 +162,35 @@ final class McpToolCatalog {
             "structuredContent", output,
             "isError", true
         );
+    }
+
+    private static McpToolRegistry legacyRegistry(
+        final List<Map<String, Object>> definitions,
+        final Caller caller
+    ) {
+        Objects.requireNonNull(definitions, "definitions");
+        final Caller checkedCaller = Objects.requireNonNull(caller, "caller");
+        final ArrayList<McpRegisteredTool> registrations = new ArrayList<>(definitions.size());
+        for (Map<String, Object> definition : definitions) {
+            final LinkedHashMap<String, Object> checked = new LinkedHashMap<>(
+                Objects.requireNonNull(definition, "definition")
+            );
+            final Object nameValue = checked.get("name");
+            if (!(nameValue instanceof String name) || name.isBlank()) {
+                throw new IllegalArgumentException("MCP tool definition requires a name");
+            }
+            checked.putIfAbsent("outputSchema", DEFAULT_OUTPUT_SCHEMA);
+            final Object schemaValue = checked.get("outputSchema");
+            if (!(schemaValue instanceof Map<?, ?> rawSchema)) {
+                throw new IllegalArgumentException("MCP tool outputSchema must be an object: " + name);
+            }
+            checked.put("outputSchema", Map.copyOf(stringMap(rawSchema, "outputSchema")));
+            registrations.add(McpRegisteredTool.legacy(
+                Map.copyOf(checked),
+                arguments -> checkedCaller.call(name, arguments)
+            ));
+        }
+        return new McpToolRegistry(registrations);
     }
 
     private static LinkedHashMap<String, Object> stringMap(

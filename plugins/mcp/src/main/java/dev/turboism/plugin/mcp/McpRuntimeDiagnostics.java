@@ -57,16 +57,32 @@ final class McpRuntimeDiagnostics {
 
     McpToolCatalog observe(final McpToolCatalog delegate) {
         final McpToolCatalog checked = Objects.requireNonNull(delegate, "delegate");
-        return new McpToolCatalog(checked.definitions(), (name, arguments) -> {
-            try {
-                final Map<String, Object> envelope = checked.call(name, arguments);
-                recordStructuredOutcomes(name, envelope.get("structuredContent"));
-                return envelope;
-            } catch (RuntimeException failure) {
-                recordFailure(name, failure);
-                throw failure;
-            }
-        });
+        return McpToolCatalog.of(checked.registrations().stream()
+            .map(registration -> registration.withHandlers(
+                arguments -> observeInvocation(
+                    registration.name(),
+                    () -> checked.call(registration.name(), arguments)
+                ),
+                arguments -> observeInvocation(
+                    registration.name(),
+                    () -> checked.callRaw(registration.name(), arguments)
+                )
+            ))
+            .toList());
+    }
+
+    private Map<String, Object> observeInvocation(
+        final String name,
+        final java.util.function.Supplier<Map<String, Object>> invocation
+    ) {
+        try {
+            final Map<String, Object> envelope = invocation.get();
+            recordStructuredOutcomes(name, envelope.get("structuredContent"));
+            return envelope;
+        } catch (RuntimeException failure) {
+            recordFailure(name, failure);
+            throw failure;
+        }
     }
 
     McpResourceCatalog observe(final McpResourceCatalog delegate) {
