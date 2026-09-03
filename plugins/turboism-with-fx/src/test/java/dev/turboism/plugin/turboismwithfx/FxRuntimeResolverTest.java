@@ -1,6 +1,7 @@
 package dev.turboism.plugin.turboismwithfx;
 
 import dev.turboism.sdk.plugin.PluginPaths;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -101,6 +102,9 @@ final class FxRuntimeResolverTest {
 
     @Test
     void exactWindowsProductPayloadResolvesAsManaged() throws Exception {
+        final Path fixture = Path.of(System.getProperty("turboism.windowsFxFixture"));
+        Assumptions.assumeTrue(Files.isRegularFile(fixture),
+            "Windows managed fx product payload fixture is absent");
         final FxRuntimeManifest.Entry entry = FxRuntimeManifest.allEntries().get(
             "windows-x86_64"
         );
@@ -109,7 +113,6 @@ final class FxRuntimeResolverTest {
             "runtimes/fx/0.0.5/windows-x86_64/fx.exe"
         );
         Files.createDirectories(executable.getParent());
-        final Path fixture = Path.of(System.getProperty("turboism.windowsFxFixture"));
         Files.copy(fixture, executable);
         final FxRuntimeResolver resolver = new FxRuntimeResolver(
             paths(),
