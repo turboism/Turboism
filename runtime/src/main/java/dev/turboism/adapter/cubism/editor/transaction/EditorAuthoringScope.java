@@ -20,6 +20,7 @@ final class EditorAuthoringScope {
     private final EnumSet<EditorRefreshRequirement> refreshRequirements =
         EnumSet.noneOf(EditorRefreshRequirement.class);
     private Object edit;
+    private boolean editEndAttempted;
     private boolean editClosed;
 
     EditorAuthoringScope(
@@ -78,12 +79,26 @@ final class EditorAuthoringScope {
             : Set.copyOf(EnumSet.copyOf(refreshRequirements));
     }
 
+    boolean editEndAttempted() {
+        return editEndAttempted;
+    }
+
+    void markEditEndAttempted() {
+        if (edit == null) throw new IllegalStateException("no native edit is open");
+        if (editEndAttempted) {
+            throw new IllegalStateException("native edit end was already attempted");
+        }
+        editEndAttempted = true;
+    }
+
     boolean editClosed() {
         return editClosed;
     }
 
     void markEditClosed() {
-        if (edit == null) throw new IllegalStateException("no native edit is open");
+        if (!editEndAttempted) {
+            throw new IllegalStateException("native edit end was not attempted");
+        }
         if (editClosed) throw new IllegalStateException("native edit is already closed");
         editClosed = true;
     }

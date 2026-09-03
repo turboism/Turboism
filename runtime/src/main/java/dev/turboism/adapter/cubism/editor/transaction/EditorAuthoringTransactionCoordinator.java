@@ -199,6 +199,7 @@ public final class EditorAuthoringTransactionCoordinator {
             if (!current(scope.binding())) {
                 throw new ScopeRejectedException("authoring binding changed before native commit");
             }
+            scope.markEditEndAttempted();
             host.endEdit(scope.binding(), scope.edit(), false);
             scope.markEditClosed();
         } catch (ScopeRejectedException failure) {
@@ -279,13 +280,21 @@ public final class EditorAuthoringTransactionCoordinator {
         final boolean scopeRejected
     ) {
         RuntimeException recoveryFailure = null;
-        if (scope.edit() != null && !scope.editClosed()) {
+        if (scope.edit() != null && !scope.editEndAttempted()) {
             try {
+                scope.markEditEndAttempted();
                 host.endEdit(scope.binding(), scope.edit(), true);
                 scope.markEditClosed();
             } catch (RuntimeException abortFailure) {
                 recoveryFailure = append(recoveryFailure, abortFailure);
             }
+        } else if (scope.edit() != null && !scope.editClosed()) {
+            recoveryFailure = append(
+                recoveryFailure,
+                new IllegalStateException(
+                    "native edit end outcome is uncertain; a second close was not attempted"
+                )
+            );
         }
 
         final List<EditorUndoContribution> contributions = scope.contributions();
@@ -434,7 +443,12 @@ public final class EditorAuthoringTransactionCoordinator {
         }
 
         boolean sameScope(final Binding other) {
-            return equals(Objects.requireNonNull(other, "other"));
+            final Binding checked = Objects.requireNonNull(other, "other");
+            return documentGeneration == checked.documentGeneration
+                && modelGeneration == checked.modelGeneration
+                && documentIdentity.equals(checked.documentIdentity)
+                && modelIdentity.equals(checked.modelIdentity)
+                && hostThread == checked.hostThread;
         }
 
         boolean isCurrentThread() {
@@ -453,7 +467,10 @@ public final class EditorAuthoringTransactionCoordinator {
     /** Verified host operations used by the transaction coordinator. */
     public interface Host {
 
-        /** Returns whether the supplied binding still names the active plugin/document/model scope. */
+        /**
+         * Returns whether the supplied document/model/generation/thread binding is still active.
+         * The plugin id is a root authorization identity and is not part of native host identity.
+         */
         boolean isCurrent(Binding binding);
 
         /** Captures the active native Undo history for the binding. */
