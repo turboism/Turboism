@@ -110,6 +110,10 @@ settings.cubism-jvm.graalvm-install-unsupported
 settings.cubism-jvm.graalvm-install-verifying
 settings.cubism-jvm.graalvm-open-download
 settings.cubism-jvm.graalvm-open-failed
+settings.cubism-jvm.graalvm-path
+settings.cubism-jvm.graalvm-path-invalid
+settings.cubism-jvm.graalvm-path-invalid-title
+settings.cubism-jvm.graalvm-path-placeholder
 settings.cubism-jvm.graalvm-required
 settings.cubism-jvm.graalvm-required-managed
 settings.cubism-jvm.graalvm-required-title
