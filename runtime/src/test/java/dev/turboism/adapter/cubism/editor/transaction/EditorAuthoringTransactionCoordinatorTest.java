@@ -194,13 +194,45 @@ final class EditorAuthoringTransactionCoordinatorTest {
     }
 
     @Test
-    void mismatchedParticipationRejectsAndDoesNotOpenAnotherEdit() {
+    void providerParticipationMayUseAnInternalOwnerInsideThePluginRoot() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final EditorAuthoringTransactionCoordinator.Binding provider =
+            new EditorAuthoringTransactionCoordinator.Binding(
+                "runtime.editor-model",
+                fixture.binding.documentIdentity(),
+                fixture.binding.documentGeneration(),
+                fixture.binding.modelIdentity(),
+                fixture.binding.modelGeneration(),
+                Thread.currentThread()
+            );
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Provider child"),
+            () -> {
+                fixture.coordinator.mutate(
+                    provider,
+                    contribution("provider", value, 0, 1, new ArrayList<>(), true)
+                );
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(1, value.get());
+        assertEquals(1, fixture.host.beginCount);
+        assertEquals(1, fixture.host.commitCount);
+    }
+
+    @Test
+    void mismatchedDocumentParticipationRejectsAndDoesNotOpenAnotherEdit() {
         final BindingFixture fixture = new BindingFixture();
         final AtomicInteger value = new AtomicInteger();
         final EditorAuthoringTransactionCoordinator.Binding other =
             new EditorAuthoringTransactionCoordinator.Binding(
-                "other-plugin",
-                fixture.binding.documentIdentity(),
+                "runtime.editor-model",
+                "document-2",
                 fixture.binding.documentGeneration(),
                 fixture.binding.modelIdentity(),
                 fixture.binding.modelGeneration(),
@@ -222,6 +254,28 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertEquals(AuthoringTransactionOutcome.REJECTED_SCOPE, result.outcome());
         assertEquals(0, value.get());
         assertEquals(0, fixture.host.beginCount);
+    }
+
+    @Test
+    void uncertainNativeEndFailureIsNeverRetried() {
+        final BindingFixture fixture = new BindingFixture();
+        fixture.host.failEnd = true;
+        final AtomicInteger value = new AtomicInteger();
+
+        final AuthoringTransactionResult<Void> result = fixture.coordinator.execute(
+            fixture.binding,
+            AuthoringTransactionOptions.of("Uncertain native close"),
+            () -> {
+                fixture.coordinator.mutate(
+                    fixture.binding,
+                    contribution("changed", value, 0, 1, new ArrayList<>(), true)
+                );
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.RECOVERY_FAILED, result.outcome());
+        assertEquals(1, fixture.host.endAttempts);
     }
 
     @Test
@@ -310,6 +364,8 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private int beginCount;
         private int commitCount;
         private int abortCount;
+        private int endAttempts;
+        private boolean failEnd;
         private int refreshCount;
         private int entriesPerCommit = 1;
         private Set<EditorRefreshRequirement> lastRefresh = Set.of();
@@ -320,7 +376,11 @@ final class EditorAuthoringTransactionCoordinatorTest {
 
         @Override
         public boolean isCurrent(final EditorAuthoringTransactionCoordinator.Binding expected) {
-            return binding.equals(expected);
+            return binding.documentGeneration() == expected.documentGeneration()
+                && binding.modelGeneration() == expected.modelGeneration()
+                && binding.documentIdentity().equals(expected.documentIdentity())
+                && binding.modelIdentity().equals(expected.modelIdentity())
+                && binding.hostThread() == expected.hostThread();
         }
 
         @Override
@@ -360,6 +420,8 @@ final class EditorAuthoringTransactionCoordinatorTest {
             final Object edit,
             final boolean abort
         ) {
+            endAttempts++;
+            if (failEnd) throw new IllegalStateException("native end uncertain");
             if (abort) {
                 abortCount++;
                 return;

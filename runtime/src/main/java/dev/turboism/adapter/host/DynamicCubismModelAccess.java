@@ -2,6 +2,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.adapter.cubism.model.ModelObjectProviderUnavailableException;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -33,6 +34,10 @@ import dev.turboism.sdk.cubism.model.ParameterGroups;
 import dev.turboism.sdk.cubism.model.Parameters;
 import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.sdk.cubism.model.Parts;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
@@ -50,7 +55,8 @@ import java.util.function.Function;
 
 /** Stable plugin-facing model access whose delegate follows one HostSession connection. */
 final class DynamicCubismModelAccess implements CubismModelAccess,
-    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider {
+    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
+    RuntimeAuthoringTransactionProvider {
 
     private final Object callGate = new Object();
     private CubismModelAccess current = UnavailableCubismModelAccess.INSTANCE;
@@ -92,6 +98,48 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         return modelAccess instanceof DynamicCubismModelAccess nested
             ? nested.generation()
             : fallback;
+    }
+
+    @Override
+    public AuthoringTransactionService authoringTransactions(final String pluginId) {
+        final String owner = Objects.requireNonNull(pluginId, "pluginId").strip();
+        if (owner.isEmpty()) {
+            throw new IllegalArgumentException("pluginId must not be blank");
+        }
+        return new AuthoringTransactionService() {
+            @Override
+            public <T> AuthoringTransactionResult<T> execute(
+                final AuthoringTransactionOptions options,
+                final AuthoringTransactionWork<T> work
+            ) {
+                final AuthoringTransactionOptions checkedOptions = Objects.requireNonNull(
+                    options,
+                    "options"
+                );
+                final AuthoringTransactionWork<T> checkedWork = Objects.requireNonNull(work, "work");
+                final AccessLease lease;
+                try {
+                    lease = acquireActiveLease();
+                } catch (IllegalStateException unavailable) {
+                    return AuthoringTransactionResult.unavailable(
+                        "cubism.authoring.transactions.host-unavailable"
+                    );
+                }
+                try {
+                    if (!(lease.modelAccess() instanceof RuntimeAuthoringTransactionProvider provider)) {
+                        return AuthoringTransactionResult.unavailable(
+                            "cubism.authoring.transactions.provider-unavailable"
+                        );
+                    }
+                    return provider.authoringTransactions(owner).execute(
+                        checkedOptions,
+                        checkedWork
+                    );
+                } finally {
+                    release(lease);
+                }
+            }
+        };
     }
 
     @Override
