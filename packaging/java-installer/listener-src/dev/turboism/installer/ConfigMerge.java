@@ -15,15 +15,14 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.regex.Pattern;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 
 /**
  * config.json read/merge/write for the Java installer (frozen spec
@@ -33,10 +32,11 @@ import java.util.TreeSet;
  *  - absent config: seed from the canonical runtime-config v1 template
  *    (bundled as a resource at /turboism/config.template.json) and apply the
  *    initial plugin selection;
- *  - existing current-schema config: validate its bounded identity, then leave
- *    its bytes untouched regardless of installation mode or plugin selection;
+ *  - existing current-schema config: validate the complete v1 value contract,
+ *    then update only disabledPlugins when the installer selection changed;
  *  - existing legacy v0 config: migrate the explicit known field set to v1,
- *    preserving user settings and moving legacy launcher fields into launcher;
+ *    validate the result, preserve user settings, move legacy launcher fields
+ *    into launcher, and then apply the installer plugin selection;
  *  - unknown/future schemas, invalid, oversized (> 64 KiB), symlinked, or
  *    escaping config targets fail closed without truncating the original;
  *  - the read is bounded on the actual bytes (not a raceable size check) and
@@ -822,31 +822,44 @@ final class ConfigMerge {
         }
     }
 
+    private static final String RUNTIME_CONFIG_FORMAT = "turboism.runtime.config";
     private static final long CURRENT_SCHEMA_VERSION = 1L;
     private static final Set<String> V0_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
             "hooks", "launcher", "cubismJvm", "graalVmPath");
+    private static final Set<String> V1_FIELDS = Set.of(
+            "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+            "hooks", "launcher");
+    private static final Set<String> LOG_LEVELS = Set.of(
+            "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
+    private static final Set<String> LOCALES = Set.of(
+            "system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
+    private static final Set<String> HOOK_FIELDS = Set.of(
+            "disabledIds", "denylistedClasses", "startup");
+    private static final Set<String> STARTUP_FIELDS = Set.of(
+            "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
     private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
+    private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");
+    private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 
     /**
-     * Admits the current schema without rewriting it and the single explicit legacy v0 shape for
-     * migration. Missing schemaVersion means v0. Future schemas fail closed rather than being
-     * downgraded by an older installer.
+     * Admits the current schema and the single explicit legacy v0 shape. Current documents are
+     * validated with the same value rules as the runtime before an installer operation may use
+     * them. Missing schemaVersion means v0; future schemas fail closed.
      */
     private static void requireCanonical(Map<String, Object> map) throws ConfigException {
         final long schema = schemaVersion(map);
         final Object format = map.get("format");
         if (schema == CURRENT_SCHEMA_VERSION) {
-            if (!"turboism.runtime.config".equals(format)) {
-                throw new ConfigException("existing config.json format does not match schemaVersion 1: " + format);
-            }
+            validateCurrent(map);
             return;
         }
         if (schema != 0L) {
             throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
         }
-        if (format != null && !"turboism.runtime.config".equals(format)) {
+        if (format != null && !RUNTIME_CONFIG_FORMAT.equals(format)) {
             throw new ConfigException("legacy config.json format is unsupported: " + format);
         }
     }
@@ -854,27 +867,156 @@ final class ConfigMerge {
     static long schemaVersion(Map<String, Object> map) throws ConfigException {
         final Object schema = map.get("schemaVersion");
         if (schema == null) return 0L;
-        final java.math.BigInteger integral;
-        if (schema instanceof Long) {
-            integral = java.math.BigInteger.valueOf((Long) schema);
-        } else if (schema instanceof java.math.BigDecimal) {
-            try {
-                integral = ((java.math.BigDecimal) schema).toBigIntegerExact();
-            } catch (ArithmeticException e) {
-                throw new ConfigException("existing config.json schemaVersion is not integral: " + schema);
-            }
-        } else {
-            throw new ConfigException("existing config.json schemaVersion is not a number: " + schema);
+        if (!(schema instanceof Long)) {
+            throw new ConfigException(
+                    "existing config.json schemaVersion must be an integer token: " + schema);
         }
-        if (integral.signum() < 0 || integral.bitLength() > 63) {
+        final long value = (Long) schema;
+        if (value < 0L) {
             throw new ConfigException("existing config.json schemaVersion is out of range: " + schema);
         }
-        return integral.longValueExact();
+        return value;
+    }
+
+    /** Validates a parsed runtime-config v1 document using the runtime's persisted value rules. */
+    static void validateCurrent(Map<String, Object> map) throws ConfigException {
+        requireAllowedFields(map, V1_FIELDS, "root");
+        if (!RUNTIME_CONFIG_FORMAT.equals(map.get("format"))) {
+            throw new ConfigException(
+                    "existing config.json format does not match schemaVersion 1: " + map.get("format"));
+        }
+        if (schemaVersion(map) != CURRENT_SCHEMA_VERSION) {
+            throw new ConfigException("existing config.json schemaVersion must be 1");
+        }
+
+        final Object worktree = map.get("worktreeId");
+        if (!(worktree instanceof String)
+                || !WORKTREE_ID_PATTERN.matcher((String) worktree).matches()) {
+            throw new ConfigException("existing config.json worktreeId is invalid");
+        }
+
+        if (map.containsKey("pluginDirs")) {
+            final List<String> directories = requireStringList(map.get("pluginDirs"), "pluginDirs");
+            for (String path : directories) {
+                if (path.startsWith("/") || path.startsWith("\\\\") || path.contains("..")) {
+                    throw new ConfigException(
+                            "existing config.json pluginDirs contains an unsafe path: " + path);
+                }
+            }
+        }
+        if (map.containsKey("disabledPlugins")) {
+            requireStringList(map.get("disabledPlugins"), "disabledPlugins");
+        }
+
+        if (map.containsKey("logLevel") && map.get("logLevel") != null) {
+            final Object level = map.get("logLevel");
+            if (!(level instanceof String) || !LOG_LEVELS.contains(level)) {
+                throw new ConfigException("existing config.json logLevel is invalid: " + level);
+            }
+        }
+        if (map.containsKey("maxLogStorageMiB")) {
+            final Object limit = map.get("maxLogStorageMiB");
+            if (!(limit instanceof Long) || (Long) limit < 1L || (Long) limit > 4_096L) {
+                throw new ConfigException(
+                        "existing config.json maxLogStorageMiB must be an integer from 1 to 4096");
+            }
+        }
+        if (map.containsKey("locale")) {
+            final Object locale = map.get("locale");
+            if (!(locale instanceof String) || !LOCALES.contains(locale)) {
+                throw new ConfigException("existing config.json locale is invalid: " + locale);
+            }
+        }
+        if (map.containsKey("safeMode") && !(map.get("safeMode") instanceof Boolean)) {
+            throw new ConfigException("existing config.json safeMode must be a boolean");
+        }
+
+        if (map.containsKey("hooks")) {
+            final Map<?, ?> hooks = requireObject(map.get("hooks"), "hooks");
+            requireAllowedFields(hooks, HOOK_FIELDS, "hooks");
+            if (hooks.containsKey("disabledIds")) {
+                requireStringList(hooks.get("disabledIds"), "hooks.disabledIds");
+            }
+            if (hooks.containsKey("denylistedClasses")) {
+                requireStringList(hooks.get("denylistedClasses"), "hooks.denylistedClasses");
+            }
+            if (hooks.containsKey("startup")) {
+                final Map<?, ?> startup = requireObject(hooks.get("startup"), "hooks.startup");
+                requireAllowedFields(startup, STARTUP_FIELDS, "hooks.startup");
+                for (String field : STARTUP_FIELDS) {
+                    if (startup.containsKey(field) && !(startup.get(field) instanceof Boolean)) {
+                        throw new ConfigException(
+                                "existing config.json hooks.startup." + field + " must be a boolean");
+                    }
+                }
+            }
+        }
+
+        if (map.containsKey("launcher")) {
+            final Map<?, ?> launcher = requireObject(map.get("launcher"), "launcher");
+            requireAllowedFields(launcher, LAUNCHER_FIELDS, "launcher");
+            if (launcher.containsKey("cubismJvm")) {
+                final Object cubismJvm = launcher.get("cubismJvm");
+                if (!(cubismJvm instanceof String) || !CUBISM_JVMS.contains(cubismJvm)) {
+                    throw new ConfigException(
+                            "existing config.json launcher.cubismJvm is invalid: " + cubismJvm);
+                }
+            }
+            if (launcher.containsKey("graalVmPath")) {
+                final Object path = launcher.get("graalVmPath");
+                if (!(path instanceof String)
+                        || ((String) path).isBlank()
+                        || ((String) path).length() > 4_096
+                        || ((String) path).chars().anyMatch(character -> character < 0x20)) {
+                    throw new ConfigException(
+                            "existing config.json launcher.graalVmPath is invalid");
+                }
+            }
+        }
+    }
+
+    private static Map<?, ?> requireObject(Object value, String field) throws ConfigException {
+        if (!(value instanceof Map<?, ?>)) {
+            throw new ConfigException("existing config.json " + field + " must be an object");
+        }
+        return (Map<?, ?>) value;
+    }
+
+    private static List<String> requireStringList(Object value, String field)
+            throws ConfigException {
+        if (!(value instanceof List<?>)) {
+            throw new ConfigException(
+                    "existing config.json " + field + " must be an array of strings");
+        }
+        final List<String> strings = new ArrayList<>();
+        for (Object entry : (List<?>) value) {
+            if (!(entry instanceof String)) {
+                throw new ConfigException(
+                        "existing config.json " + field + " must be an array of strings");
+            }
+            strings.add((String) entry);
+        }
+        return strings;
+    }
+
+    private static void requireAllowedFields(
+            Map<?, ?> map,
+            Set<String> allowed,
+            String field) throws ConfigException {
+        for (Object key : map.keySet()) {
+            if (!(key instanceof String) || !allowed.contains(key)) {
+                throw new ConfigException(
+                        "existing config.json " + field + " contains an unsupported field: " + key);
+            }
+        }
     }
 
     static Map<String, Object> migrateToCurrent(Map<String, Object> legacy) throws ConfigException {
         final long schema = schemaVersion(legacy);
-        if (schema == CURRENT_SCHEMA_VERSION) return legacy;
+        if (schema == CURRENT_SCHEMA_VERSION) {
+            validateCurrent(legacy);
+            return legacy;
+        }
         if (schema != 0L) {
             throw new ConfigException("no runtime config migration is available from schemaVersion " + schema);
         }
@@ -884,7 +1026,7 @@ final class ConfigMerge {
             }
         }
         final Map<String, Object> migrated = new LinkedHashMap<>();
-        migrated.put("format", "turboism.runtime.config");
+        migrated.put("format", RUNTIME_CONFIG_FORMAT);
         migrated.put("schemaVersion", CURRENT_SCHEMA_VERSION);
         migrated.put("worktreeId", WORKTREE_ID);
         migrated.put("pluginDirs", List.of(PLUGIN_DIR));
@@ -920,9 +1062,8 @@ final class ConfigMerge {
             }
             launcher.put(field, legacy.get(field));
         }
-        migrated.put("format", "turboism.runtime.config");
-        migrated.put("schemaVersion", CURRENT_SCHEMA_VERSION);
         migrated.put("launcher", launcher);
+        validateCurrent(migrated);
         return migrated;
     }
     /**
@@ -942,6 +1083,7 @@ final class ConfigMerge {
             }
             @SuppressWarnings("unchecked")
             Map<String, Object> map = (Map<String, Object>) parsed;
+            validateCurrent(map);
             return map;
         } catch (IOException e) {
             throw new ConfigException("cannot read bundled config template: " + e.getMessage(), e);
@@ -990,19 +1132,27 @@ final class ConfigMerge {
         return new ArrayList<>(disabled);
     }
 
+    /** True when the persisted disabled plugin set already equals the requested selection. */
+    static boolean disabledSelectionMatches(Map<String, Object> seed, List<String> disabled)
+            throws ConfigException {
+        final TreeSet<String> current = new TreeSet<>();
+        if (seed.containsKey("disabledPlugins")) {
+            current.addAll(requireStringList(seed.get("disabledPlugins"), "disabledPlugins"));
+        }
+        return current.equals(new TreeSet<>(disabled));
+    }
+
     /**
-     * Builds the final config object: preserves every field of the seed that
-     * is not owned by plugin selection, forces the installer-owned fields,
-     * and writes the merged disabledPlugins (omitted when empty).
+     * Builds the final config object by preserving every user-owned field and
+     * changing only the installer selection field. An empty disabled set is
+     * represented by omission, matching the canonical fresh template.
      */
     static Map<String, Object> applyPolicy(Map<String, Object> seed, List<String> disabled) {
         Map<String, Object> merged = new LinkedHashMap<>(seed);
-        merged.put("worktreeId", WORKTREE_ID);
-        merged.put("pluginDirs", Arrays.asList(PLUGIN_DIR));
         if (disabled.isEmpty()) {
             merged.remove("disabledPlugins");
         } else {
-            merged.put("disabledPlugins", disabled);
+            merged.put("disabledPlugins", List.copyOf(disabled));
         }
         return merged;
     }
@@ -1018,10 +1168,14 @@ final class ConfigMerge {
         if (home == null) {
             throw new ConfigException("install path is not set");
         }
-        Files.createDirectories(home);
-        Path target = configPath(home);
+        validateCurrent(config);
         String json = BoundedJson.serialize(config) + "\n";
         byte[] bytes = json.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length > MAX_CONFIG_BYTES) {
+            throw new ConfigException("updated config.json exceeds 64 KiB");
+        }
+        Files.createDirectories(home);
+        Path target = configPath(home);
         Path tmp = home.resolve(".config.json.tmp" + Long.toHexString(System.nanoTime()));
         try {
             Files.write(tmp, bytes, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);

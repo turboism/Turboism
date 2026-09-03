@@ -1,5 +1,5 @@
-Turboism Java Installer (macOS / Linux)
-=========================================
+Turboism Java Installer (Windows / macOS / Linux)
+===================================================
 
 This directory is the Turboism home. It contains the Turboism agent
 (turboism-agent.jar), this README, LICENSE.txt, and (Full installs) the
@@ -12,20 +12,23 @@ Run the installer with a Java 17+ runtime:
     java -jar TurboismInstaller-<version>.jar
 
 Full mode installs the agent, every approved release plugin, and the matching
-offline managed fx runtime on reviewed macOS/Linux OS and CPU pairs. It rejects
-Windows before changing config or payload files. Thin mode installs the same
-approved plugins without native fx bytes. The development-only Turboism with fx
-plugin is not included in Full, Thin, or Lite release packages.
-On Windows, Thin installation remains structurally accepted. The first-party
-loopback MCP server is available with
-bearer authentication and per-user, owner/file-type, reparse-point,
-secure-temporary-file, and post-move publication checks, but no managed native
-fx runtime is shipped for Windows. Both plugin modes let you deselect
-individual plugins. Lite mode installs only the agent and common
-files. On update, an existing current-schema config.json is left byte-for-byte
-unchanged. A recognized legacy schema is migrated atomically; unknown or future
-schemas fail closed without modifying the original. Use configure_turboism.ps1
-when you intentionally want to change the selected plugin set.
+reviewed managed fx runtime. Linux and macOS use their reviewed OS/CPU payloads.
+Windows x64 Full installs the reviewed fx product payload; unsupported Windows
+architectures fail before config or payload mutation. Thin mode installs the
+same approved plugins without native fx bytes. The development-only Turboism
+with fx plugin is not included in Full, Thin, or Lite release packages. The
+first-party Windows loopback MCP server uses bearer authentication and per-user,
+owner/file-type, reparse-point, secure-temporary-file, and post-move publication
+checks. Both plugin modes let you deselect individual plugins. Lite mode installs
+only the agent and common files.
+
+On update, the installer changes only disabledPlugins in a valid current-schema
+config.json and preserves all other settings. When the selected state is already
+current, the original config bytes remain unchanged. A recognized legacy schema
+is migrated, validated as v1, and receives the selected plugin state in one
+atomic publication; malformed, runtime-invalid, unknown, or future schemas fail
+closed before payload mutation. Rerun the installer to apply a different plugin
+selection.
 
 On Windows, configure_turboism.ps1 opens after installation and can be run
 again later. It lists only exact supported Cubism Editor 5.2.03, 5.3.02, and

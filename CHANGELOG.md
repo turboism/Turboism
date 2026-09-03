@@ -6,6 +6,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Made Windows and Java installers validate or migrate `config.json` before payload mutation, require an integer schema token and runtime-valid v1 values, and apply upgrade plugin selections without overwriting unrelated settings.
+- Corrected Java-installer documentation for the reviewed Windows x64 fx payload and made the optional Windows fx resolver test skip safely when its private fixture path is absent.
+
 ## [0.43.3] - 2026-09-03
 
 ### Added

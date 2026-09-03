@@ -102,7 +102,12 @@ final class FxRuntimeResolverTest {
 
     @Test
     void exactWindowsProductPayloadResolvesAsManaged() throws Exception {
-        final Path fixture = Path.of(System.getProperty("turboism.windowsFxFixture"));
+        final String fixtureProperty = System.getProperty("turboism.windowsFxFixture");
+        Assumptions.assumeTrue(
+            fixtureProperty != null && !fixtureProperty.isBlank(),
+            "Windows managed fx product payload fixture path is absent"
+        );
+        final Path fixture = Path.of(fixtureProperty);
         Assumptions.assumeTrue(Files.isRegularFile(fixture),
             "Windows managed fx product payload fixture is absent");
         final FxRuntimeManifest.Entry entry = FxRuntimeManifest.allEntries().get(

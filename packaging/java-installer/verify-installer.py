@@ -13,17 +13,17 @@ the frozen acceptance conditions, including the R2 repairs:
       per non-core plugin, plus the complete Windows launch-helper payload.
   4.  Fresh Full installs every bundled JAR while disabledPlugins reflects the
       initial deselection; fresh Lite writes all bundled ids to disabledPlugins.
-      Updates leave an existing current-schema config byte-for-byte unchanged,
-      while explicit legacy v0 is migrated atomically to v1.
+      Updates apply the new selection by changing only disabledPlugins and keep
+      exact current-schema bytes when that selection is already unchanged.
   5.  Config handling never damages the source on malformed, strict-number,
       oversized (including the exact MAX+1 consumed-byte boundary), symlink,
-      non-regular, future-schema, or malformed-escape cases. A deterministic
-      Java regression additionally covers strict number lexing, current-schema
-      byte preservation, v0 migration, bounded reads with concurrent growth,
-      and atomic REPLACE_EXISTING replacement. Preserved retired ids are harmless:
-      retired descriptors are denied by the runtime's shared PluginJarContract
-      boundary before entrypoint loading; the installer removes only JARs whose
-      embedded descriptor proves an exact retired id.
+      non-regular, future-schema, malformed-value, or malformed-escape cases. A
+      deterministic Java regression additionally covers strict number lexing,
+      current-schema selection updates, validated v0 migration, bounded reads
+      with concurrent growth, and atomic REPLACE_EXISTING replacement. Retired
+      descriptors are denied by the runtime's shared PluginJarContract boundary
+      before entrypoint loading; the installer removes only JARs whose embedded
+      descriptor proves an exact retired id.
   6.  Locale probes (eng/chn/jpn) observe the translated Turboism-owned
       common-pack label, the localized wizard headline, and the localized
       Full and Lite mode names/descriptions emitted live by the installer.
@@ -838,7 +838,7 @@ def assert_full_defaults_all(jar, payload_plugins):
 
 
 def assert_reselection(jar, payload_plugins):
-    """A Full update installs payload but never rewrites current-schema config."""
+    """A Full update applies the current checkbox selection to disabledPlugins only."""
     bundled = [p["id"] for p in payload_plugins]
     first = bundled[0]
     unrelated = "dev.turboism.plugin.not-bundled"
@@ -863,25 +863,52 @@ def assert_reselection(jar, payload_plugins):
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
     check("reselection installs every bundled jar",
           installed == sorted(p["module"] + ".jar" for p in payload_plugins), str(installed))
-    check("reselection preserves current config bytes",
-          open(config_path, "rb").read() == config_before)
+    check("reselection rewrites config when the enabled set changes",
+          open(config_path, "rb").read() != config_before)
     config = json.load(open(config_path))
     disabled = config.get("disabledPlugins", [])
-    check("reselection keeps existing bundled plugin setting", first in disabled, str(disabled))
-    check("reselection keeps unrelated disabled id", unrelated in disabled, str(disabled))
+    check("reselection enables previously disabled bundled plugin", first not in disabled,
+          str(disabled))
+    check("reselection preserves unrelated disabled id", unrelated in disabled, str(disabled))
     check("reselection preserves other fields", config.get("logLevel") == "DEBUG")
+    check("reselection preserves worktree and plugin paths",
+          config.get("worktreeId") == "old-worktree"
+          and config.get("pluginDirs") == ["plugins"])
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_legacy_config_migration(jar):
-    """The actual installer listener migrates the explicit schema-less v0 shape."""
+def assert_noop_selection_preserves_bytes(jar, payload_plugins):
+    """A current v1 document is not reformatted when selection is already identical."""
+    unrelated = "dev.turboism.plugin.not-bundled"
+    base = tempfile.mkdtemp(prefix="turboism-noop-selection ")
+    target = os.path.join(base, "home")
+    os.makedirs(target)
+    config_path = os.path.join(target, "config.json")
+    original = ("{\n  \"format\": \"turboism.runtime.config\",\n"
+                "  \"schemaVersion\": 1,\n"
+                "  \"worktreeId\": \"noop-runtime\",\n"
+                "  \"disabledPlugins\": [\"" + unrelated + "\"]\n}\n")
+    with open(config_path, "w", encoding="utf-8", newline="") as stream:
+        stream.write(original)
+    clear_task_lock()
+    rc, out = run_console(jar, install_answers(
+        "full", target, deselect=(), payload_plugins=payload_plugins))
+    check("no-op selection install exit 0", rc == 0, "rc=%s" % rc)
+    check("no-op selection preserves current config bytes",
+          open(config_path, "rb").read() == original.encode("utf-8"))
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def assert_legacy_config_migration(jar, payload_plugins):
+    """The listener migrates v0, validates v1, then applies the selected mode."""
+    unrelated = "dev.turboism.plugin.not-bundled"
     base = tempfile.mkdtemp(prefix="turboism-legacy-config ")
     target = os.path.join(base, "home")
     os.makedirs(target)
     legacy = {
         "worktreeId": "legacy-runtime",
         "pluginDirs": ["custom-plugins"],
-        "disabledPlugins": ["dev.turboism.plugin.not-bundled"],
+        "disabledPlugins": [unrelated],
         "logLevel": "DEBUG",
         "cubismJvm": "bundled",
     }
@@ -889,7 +916,8 @@ def assert_legacy_config_migration(jar):
     with open(config_path, "w") as f:
         json.dump(legacy, f, indent=2)
     clear_task_lock()
-    rc, out = run_console(jar, install_answers("lite", target))
+    rc, out = run_console(jar, install_answers(
+        "lite", target, payload_plugins=payload_plugins))
     check("legacy config migration exit 0", rc == 0, "rc=%s" % rc)
     migrated = json.load(open(config_path))
     check("legacy config migrated to v1",
@@ -898,14 +926,19 @@ def assert_legacy_config_migration(jar):
     check("legacy migration preserves user settings",
           migrated.get("worktreeId") == "legacy-runtime"
           and migrated.get("pluginDirs") == ["custom-plugins"]
-          and migrated.get("disabledPlugins") == ["dev.turboism.plugin.not-bundled"]
           and migrated.get("logLevel") == "DEBUG")
+    disabled = migrated.get("disabledPlugins", [])
+    check("legacy Lite migration disables every bundled plugin",
+          all(p["id"] in disabled for p in payload_plugins), str(disabled))
+    check("legacy migration preserves unrelated disabled plugin",
+          unrelated in disabled, str(disabled))
     check("legacy migration moves JVM choice",
           migrated.get("launcher", {}).get("cubismJvm") == "bundled")
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_config_merge(jar):
+def assert_config_merge(jar, payload_plugins):
+    unrelated = "dev.turboism.plugin.other"
     base = tempfile.mkdtemp(prefix="turboism-merge ")
     target = os.path.join(base, "home")
     os.makedirs(target)
@@ -914,23 +947,34 @@ def assert_config_merge(jar):
         "schemaVersion": 1,
         "worktreeId": "old-worktree",
         "pluginDirs": ["plugins"],
-        "disabledPlugins": ["dev.turboism.plugin.mesh-edit-mirror-axis-enhance", "dev.turboism.plugin.other"],
+        "disabledPlugins": [payload_plugins[0]["id"], unrelated],
         "logLevel": "DEBUG",
         "maxLogStorageMiB": 128,
-        "hooks": {"enabled": True, "names": ["a", "b"]},
-        "nested": {"deep": {"deeper": [1, 2, 3]}},
+        "hooks": {
+            "disabledIds": ["cubism.mesh.mirror-axis"],
+            "denylistedClasses": [],
+            "startup": {"skipSplash": True},
+        },
+        "diagnostics": {"enabled": True, "outputPath": "diagnostics/"},
     }
     config_path = os.path.join(target, "config.json")
     with open(config_path, "w") as f:
         json.dump(existing, f, indent=2)
     config_before = open(config_path, "rb").read()
     clear_task_lock()
-    rc, out = run_console(jar, install_answers("lite", target))
+    rc, out = run_console(jar, install_answers(
+        "lite", target, payload_plugins=payload_plugins))
     check("current-config update exit 0", rc == 0, "rc=%s" % rc)
-    check("current-config update preserves exact bytes",
-          open(config_path, "rb").read() == config_before)
+    check("current-config selection change rewrites bytes",
+          open(config_path, "rb").read() != config_before)
     config = json.load(open(config_path))
-    check("current-config update preserves all fields", config == existing)
+    disabled = config.get("disabledPlugins", [])
+    check("current-config Lite disables every bundled plugin",
+          all(p["id"] in disabled for p in payload_plugins), str(disabled))
+    check("current-config preserves unrelated disabled plugin",
+          unrelated in disabled, str(disabled))
+    for field in ("worktreeId", "pluginDirs", "logLevel", "maxLogStorageMiB", "hooks", "diagnostics"):
+        check("current-config preserves " + field, config.get(field) == existing[field])
     shutil.rmtree(base, ignore_errors=True)
 
 
@@ -1005,62 +1049,67 @@ def assert_retired_upgrade(jar, payload_plugins):
           "console:%s" % [l for l in out.splitlines() if "retired" in l][:4])
     check("preservation diagnostics emitted", "is not retired" in out,
           "console:%s" % [l for l in out.splitlines() if "retired" in l][:4])
-    check("retired upgrade preserves current config bytes",
-          open(config_path, "rb").read() == config_before)
+    check("retired upgrade updates current config selection",
+          open(config_path, "rb").read() != config_before)
     config = json.load(open(config_path))
     disabled = config.get("disabledPlugins", [])
-    check("retired ids remain user-owned config data",
-          all(d in disabled for d in RETIRED_PLUGIN_IDS), str(disabled))
+    check("retired ids are pruned from disabledPlugins",
+          not any(d in disabled for d in RETIRED_PLUGIN_IDS), str(disabled))
     check("unrelated disabled id preserved", unrelated in disabled, str(disabled))
     check("retired upgrade preserves other fields", config.get("logLevel") == "DEBUG")
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_number_preservation(jar):
-    """Large integers and exponent numbers must round-trip through the bounded
-    parser without becoming non-finite values or invalid JSON."""
+def assert_number_preservation(jar, payload_plugins):
+    """Opaque diagnostics numbers survive a selection rewrite without precision loss."""
     base = tempfile.mkdtemp(prefix="turboism-numbers ")
     target = os.path.join(base, "home")
     os.makedirs(target)
     existing = ('{"format":"turboism.runtime.config","schemaVersion":1,'
-                '"bigInt":123456789012345678901234567890,'
-                '"hugeExp":1e400,'
-                '"exp":1.5e10,'
-                '"tiny":0.0000001,'
-                '"negExp":-2.5e-300,'
-                '"disabledPlugins":["dev.turboism.plugin.mesh-edit-mirror-axis-enhance"]}')
-    with open(os.path.join(target, "config.json"), "w") as f:
+                '"worktreeId":"number-runtime","pluginDirs":["plugins"],'
+                '"diagnostics":{"bigInt":123456789012345678901234567890,'
+                '"hugeExp":1e400,"exp":1.5e10,"tiny":0.0000001,'
+                '"negExp":-2.5e-300},'
+                '"disabledPlugins":["' + payload_plugins[0]["id"] + '"]}')
+    config_path = os.path.join(target, "config.json")
+    with open(config_path, "w") as f:
         f.write(existing)
     clear_task_lock()
-    rc, out = run_console(jar, install_answers("lite", target))
+    rc, out = run_console(jar, install_answers(
+        "lite", target, payload_plugins=payload_plugins))
     check("number-preservation install exit 0", rc == 0, "rc=%s" % rc)
-    text = open(os.path.join(target, "config.json")).read()
-    check("current config numeric bytes remain unchanged", text == existing, text[:200])
+    text = open(config_path).read()
     check("numbers never serialized as Infinity/NaN",
-          "Infinity" not in text and "NaN" not in text, text[:200])
-    check("exponent number remains in original spelling", "1e400" in text, text[:200])
+          "Infinity" not in text and "NaN" not in text, text[:240])
+    check("large exponent remains valid JSON", "1E+400" in text, text[:240])
     parsed = json.loads(text)
+    diagnostics = parsed.get("diagnostics", {})
     check("big integer preserved exactly",
-          parsed.get("bigInt") == 123456789012345678901234567890, str(parsed.get("bigInt")))
-    check("exponent value survives", math.isinf(parsed.get("hugeExp")))
-    check("decimal exponent preserved", parsed.get("exp") == 1.5e10)
-    check("tiny decimal preserved", parsed.get("tiny") == 0.0000001)
-    check("negative exponent preserved", parsed.get("negExp") == -2.5e-300)
+          diagnostics.get("bigInt") == 123456789012345678901234567890,
+          str(diagnostics.get("bigInt")))
+    check("exponent value survives", math.isinf(diagnostics.get("hugeExp")))
+    check("decimal exponent preserved", diagnostics.get("exp") == 1.5e10)
+    check("tiny decimal preserved", diagnostics.get("tiny") == 0.0000001)
+    check("negative exponent preserved", diagnostics.get("negExp") == -2.5e-300)
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_size_boundary(jar):
-    """Exactly MAX_CONFIG_BYTES of current config is preserved; one more byte
-    fails closed from the bytes actually consumed, leaving the source intact."""
+def assert_size_boundary(jar, payload_plugins):
+    """Exactly MAX_CONFIG_BYTES of valid v1 is accepted; one more byte fails closed."""
     base = tempfile.mkdtemp(prefix="turboism-size ")
     target = os.path.join(base, "home")
     os.makedirs(target)
-    # valid JSON of exactly MAX bytes: three strings at the parser's string
-    # bound (16 KiB each) plus trailing whitespace (legal JSON)
-    parts = ['{"format":"turboism.runtime.config","schemaVersion":1']
-    for i in range(3):
-        parts.append(',"p%d":"%s"' % (i, "x" * (16 * 1024)))
-    body = "".join(parts) + "}"
+    # Valid JSON of exactly MAX bytes: opaque diagnostics holds three strings at
+    # the parser's per-string bound, followed by legal trailing whitespace.
+    parts = [
+        '{"format":"turboism.runtime.config","schemaVersion":1,'
+        '"worktreeId":"size-runtime","diagnostics":{'
+    ]
+    for index in range(3):
+        if index:
+            parts.append(",")
+        parts.append('"p%d":"%s"' % (index, "x" * (16 * 1024)))
+    body = "".join(parts) + "}}"
     spaces = 64 * 1024 - len(body)
     check("size boundary construction fits with padding", spaces >= 0)
     exact = body + " " * spaces
@@ -1070,15 +1119,19 @@ def assert_size_boundary(jar):
     with open(cfg, "wb") as f:
         f.write(exact.encode("utf-8"))
     clear_task_lock()
-    rc, out = run_console(jar, install_answers("lite", target))
+    rc, out = run_console(jar, install_answers(
+        "lite", target, payload_plugins=payload_plugins))
     check("exact MAX-byte current config is admitted (exit 0)", rc == 0, "rc=%s" % rc)
-    check("exact MAX-byte current config preserves bytes",
-          open(cfg, "rb").read() == exact.encode("utf-8"))
+    config = json.load(open(cfg))
+    check("exact MAX-byte config preserves diagnostics",
+          config.get("diagnostics", {}).get("p0") == "x" * (16 * 1024)
+          and config.get("diagnostics", {}).get("p2") == "x" * (16 * 1024))
     maxPlusOne = exact.encode("utf-8") + b" "
     with open(cfg, "wb") as f:
         f.write(maxPlusOne)
     clear_task_lock()
-    rc, out = run_console(jar, install_answers("lite", target))
+    rc, out = run_console(jar, install_answers(
+        "lite", target, payload_plugins=payload_plugins))
     check("MAX+1-byte config aborts install", rc != 0, "rc=%s" % rc)
     check("MAX+1-byte config source intact", open(cfg, "rb").read() == maxPlusOne,
           "content changed")
@@ -1168,12 +1221,39 @@ def assert_canonical_identity_fail_closed(jar):
         "missing-format": '{"schemaVersion":1}',
         "wrong-format": '{"format":"other.runtime.config","schemaVersion":1}',
         "schema-version-string": '{"format":"turboism.runtime.config","schemaVersion":"1"}',
+        "schema-version-decimal": '{"format":"turboism.runtime.config","schemaVersion":1.0}',
         "schema-version-two": '{"format":"turboism.runtime.config","schemaVersion":2}',
         "legacy-unknown-field": '{"legacyUnknown":true}',
     }
     for name, text in cases.items():
         assert_fail_closed(jar, "canonical-" + name,
                            lambda t, text=text: open(os.path.join(t, "config.json"), "w").write(text))
+
+
+def assert_invalid_runtime_values_fail_closed(jar):
+    """Known fields with runtime-invalid values are rejected before any rewrite."""
+    current_prefix = ('{"format":"turboism.runtime.config","schemaVersion":1,'
+                      '"worktreeId":"invalid-runtime",')
+    cases = {
+        "current-plugin-dirs-scalar": current_prefix + '"pluginDirs":"plugins"}',
+        "current-log-level": current_prefix + '"logLevel":"BOGUS"}',
+        "current-log-limit-type": current_prefix + '"maxLogStorageMiB":"128"}',
+        "current-safe-mode-type": current_prefix + '"safeMode":"false"}',
+        "current-hooks-type": current_prefix + '"hooks":{"startup":{"skipSplash":"false"}}}',
+        "current-launcher-enum": current_prefix + '"launcher":{"cubismJvm":"other"}}',
+        "legacy-log-level": '{"logLevel":"BOGUS"}',
+        "legacy-safe-mode-type": '{"safeMode":"false"}',
+        "legacy-plugin-dirs-scalar": '{"pluginDirs":"plugins"}',
+        "legacy-launcher-enum": '{"cubismJvm":"other"}',
+    }
+    for name, text in cases.items():
+        assert_fail_closed(
+            jar,
+            "runtime-value-" + name,
+            lambda target, text=text: open(
+                os.path.join(target, "config.json"), "w"
+            ).write(text),
+        )
 
 
 def run_shipped_uninstaller(uninstaller_jar, delete_config, timeout=120):
@@ -1747,12 +1827,13 @@ def main():
             assert_nonfull_transitions_from_full_rejected(jar, payload_plugins)
             assert_selected_fx_platform_symlink_rejected(jar, payload_plugins)
             assert_reselection(jar, payload_plugins)
-        assert_config_merge(jar)
-        assert_legacy_config_migration(jar)
+            assert_noop_selection_preserves_bytes(jar, payload_plugins)
+        assert_config_merge(jar, payload_plugins)
+        assert_legacy_config_migration(jar, payload_plugins)
         if supported_fx:
             assert_retired_upgrade(jar, payload_plugins)
-        assert_number_preservation(jar)
-        assert_size_boundary(jar)
+        assert_number_preservation(jar, payload_plugins)
+        assert_size_boundary(jar, payload_plugins)
 
         def malformed_setup(t):
             open(os.path.join(t, "config.json"), "w").write("{broken json!!!")
@@ -1774,6 +1855,7 @@ def main():
                                ).write(source))
         assert_strict_numbers_fail_closed(jar)
         assert_canonical_identity_fail_closed(jar)
+        assert_invalid_runtime_values_fail_closed(jar)
         assert_malformed_utf8_fail_closed(jar)
 
         def symlink_setup(t):

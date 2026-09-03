@@ -115,15 +115,23 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
             }
         }
 
-        if (node.has("pluginDirs") && node.get("pluginDirs").isArray()) {
-            node.get("pluginDirs").forEach(dir -> {
-                if (dir.isTextual()) {
+        if (node.has("pluginDirs")) {
+            final JsonNode directories = node.get("pluginDirs");
+            if (directories == null || !directories.isArray() || !allTextual(directories)) {
+                errors.add(error(
+                    "RUNTIME_CONFIG_BAD_TYPE",
+                    "pluginDirs must be an array of strings",
+                    "pluginDirs",
+                    source
+                ));
+            } else {
+                directories.forEach(dir -> {
                     String path = dir.asText();
                     if (path.startsWith("/") || path.contains("..") || path.startsWith("\\\\")) {
                         errors.add(error("RUNTIME_CONFIG_BAD_PLUGIN_DIR", "pluginDirs must be relative paths without ..: " + path, "pluginDirs[]", source));
                     }
-                }
-            });
+                });
+            }
         }
 
         validateStringArray(node, "disabledPlugins", "disabledPlugins", errors, source);
