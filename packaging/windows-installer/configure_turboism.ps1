@@ -11,6 +11,9 @@ param(
     [switch]$DisableShortcuts,
     [switch]$InitializeSelection,
     [switch]$MigrateConfig,
+    [switch]$ApplyInstallerSelection,
+    [string]$BundledPluginIds = "",
+    [string]$DisabledPluginIds = "",
     [switch]$Elevated,
     [string]$InstallerDiscoveryOutput = "",
     [switch]$InstallerDiscoveryWorker
@@ -96,7 +99,6 @@ $configPath = Join-Path $turboismHome "config.json"
 $pluginDir = Join-Path $turboismHome "plugins"
 $installerLogDir = Join-Path $turboismHome "logs\installer"
 $installerLogPath = Join-Path $installerLogDir "configure-turboism.log"
-try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
 function Write-InstallerLog {
     param([string]$Event, [string]$Message = "")
     try {
@@ -105,18 +107,27 @@ function Write-InstallerLog {
     }
     catch { }
 }
-Write-InstallerLog "CONFIGURATOR_START"
+
+function Test-RuntimeConfigIntegerToken {
+    param([object]$Value)
+
+    return $Value -is [byte] -or $Value -is [sbyte] `
+        -or $Value -is [int16] -or $Value -is [uint16] `
+        -or $Value -is [int32] -or $Value -is [uint32] `
+        -or $Value -is [int64] -or $Value -is [uint64]
+}
 
 function Get-RuntimeConfigSchemaVersion {
     param([object]$Document)
 
     $property = $Document.PSObject.Properties["schemaVersion"]
-    if ($null -eq $property -or $null -eq $property.Value) { return 0L }
+    if ($null -eq $property) { return 0L }
+    if ($null -eq $property.Value -or -not (Test-RuntimeConfigIntegerToken $property.Value)) {
+        throw "config.json schemaVersion must be an integer token"
+    }
     try {
-        $number = [decimal]$property.Value
-        if ($number -ne [decimal]::Truncate($number) -or $number -lt 0 -or $number -gt [long]::MaxValue) {
-            throw "schemaVersion must be a non-negative integer"
-        }
+        $number = [uint64]$property.Value
+        if ($number -gt [long]::MaxValue) { throw "schemaVersion is out of range" }
         return [long]$number
     }
     catch { throw "config.json schemaVersion is invalid" }
@@ -129,6 +140,12 @@ function Read-RuntimeConfigForMigration {
     try {
         $utf8 = New-Object System.Text.UTF8Encoding($false, $true)
         $text = $utf8.GetString($bytes)
+        if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+            $text = $text.Substring(1)
+        }
+        if ($text.Length -gt 0 -and $text[0] -eq [char]0xFEFF) {
+            throw "config.json contains more than one UTF-8 BOM"
+        }
         $document = $text | ConvertFrom-Json -ErrorAction Stop
     }
     catch { throw "config.json is not valid UTF-8 JSON" }
@@ -136,6 +153,156 @@ function Read-RuntimeConfigForMigration {
         throw "config.json root must be an object"
     }
     return $document
+}
+
+function Assert-RuntimeAllowedProperties {
+    param(
+        [object]$Document,
+        [string[]]$Allowed,
+        [string]$Path
+    )
+
+    if ($null -eq $Document -or $Document -isnot [pscustomobject]) {
+        throw "$Path must be an object"
+    }
+    $allowedSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($name in $Allowed) { [void]$allowedSet.Add($name) }
+    foreach ($property in $Document.PSObject.Properties) {
+        if (-not $allowedSet.Contains($property.Name)) {
+            throw "$Path contains an unsupported field: $($property.Name)"
+        }
+    }
+}
+
+function Assert-RuntimeStringArray {
+    param(
+        [object]$Value,
+        [string]$Path
+    )
+
+    if ($Value -is [string] -or $Value -isnot [System.Collections.IList]) {
+        throw "$Path must be an array of strings"
+    }
+    foreach ($item in @($Value)) {
+        if ($item -isnot [string]) { throw "$Path must be an array of strings" }
+    }
+}
+
+function Assert-RuntimeConfigV1 {
+    param([object]$Document)
+
+    Assert-RuntimeAllowedProperties $Document @(
+        "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+        "hooks", "launcher"
+    ) "config.json"
+
+    $format = $Document.PSObject.Properties["format"]
+    if ($null -eq $format -or $format.Value -isnot [string] `
+        -or $format.Value -cne "turboism.runtime.config") {
+        throw "config.json format does not match schemaVersion 1"
+    }
+    if ((Get-RuntimeConfigSchemaVersion $Document) -ne 1) {
+        throw "config.json schemaVersion must be 1"
+    }
+
+    $worktree = $Document.PSObject.Properties["worktreeId"]
+    if ($null -eq $worktree -or $worktree.Value -isnot [string] `
+        -or $worktree.Value -cnotmatch '^[a-z][a-z0-9-]{2,63}$') {
+        throw "config.json worktreeId is invalid"
+    }
+
+    $pluginDirs = $Document.PSObject.Properties["pluginDirs"]
+    if ($null -ne $pluginDirs) {
+        Assert-RuntimeStringArray $pluginDirs.Value "pluginDirs"
+        foreach ($path in @($pluginDirs.Value)) {
+            if ($path.StartsWith("/") -or $path.StartsWith("\\") -or $path.Contains("..")) {
+                throw "pluginDirs contains an unsafe path"
+            }
+        }
+    }
+    $disabled = $Document.PSObject.Properties["disabledPlugins"]
+    if ($null -ne $disabled) {
+        Assert-RuntimeStringArray $disabled.Value "disabledPlugins"
+    }
+
+    $logLevel = $Document.PSObject.Properties["logLevel"]
+    if ($null -ne $logLevel -and $null -ne $logLevel.Value) {
+        if ($logLevel.Value -isnot [string] -or @(
+            "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"
+        ) -cnotcontains $logLevel.Value) {
+            throw "config.json logLevel is invalid"
+        }
+    }
+    $maxLogStorage = $Document.PSObject.Properties["maxLogStorageMiB"]
+    if ($null -ne $maxLogStorage) {
+        if (-not (Test-RuntimeConfigIntegerToken $maxLogStorage.Value)) {
+            throw "config.json maxLogStorageMiB must be an integer"
+        }
+        try { $limit = [int64]$maxLogStorage.Value }
+        catch { throw "config.json maxLogStorageMiB is out of range" }
+        if ($limit -lt 1 -or $limit -gt 4096) {
+            throw "config.json maxLogStorageMiB is out of range"
+        }
+    }
+    $locale = $Document.PSObject.Properties["locale"]
+    if ($null -ne $locale) {
+        if ($locale.Value -isnot [string] -or @(
+            "system", "en", "ja", "ko", "zh-Hans", "zh-Hant"
+        ) -cnotcontains $locale.Value) {
+            throw "config.json locale is invalid"
+        }
+    }
+    $safeMode = $Document.PSObject.Properties["safeMode"]
+    if ($null -ne $safeMode -and $safeMode.Value -isnot [bool]) {
+        throw "config.json safeMode must be a boolean"
+    }
+
+    $hooksProperty = $Document.PSObject.Properties["hooks"]
+    if ($null -ne $hooksProperty) {
+        $hooks = $hooksProperty.Value
+        Assert-RuntimeAllowedProperties $hooks @(
+            "disabledIds", "denylistedClasses", "startup"
+        ) "hooks"
+        foreach ($name in @("disabledIds", "denylistedClasses")) {
+            $property = $hooks.PSObject.Properties[$name]
+            if ($null -ne $property) {
+                Assert-RuntimeStringArray $property.Value ("hooks." + $name)
+            }
+        }
+        $startupProperty = $hooks.PSObject.Properties["startup"]
+        if ($null -ne $startupProperty) {
+            $startup = $startupProperty.Value
+            Assert-RuntimeAllowedProperties $startup @(
+                "skipUpdateCheck", "skipSplash", "skipInformation",
+                "separateExportSaveDirectory"
+            ) "hooks.startup"
+            foreach ($property in $startup.PSObject.Properties) {
+                if ($property.Value -isnot [bool]) {
+                    throw "hooks.startup.$($property.Name) must be a boolean"
+                }
+            }
+        }
+    }
+
+    $launcherProperty = $Document.PSObject.Properties["launcher"]
+    if ($null -ne $launcherProperty) {
+        $launcher = $launcherProperty.Value
+        Assert-RuntimeAllowedProperties $launcher @("cubismJvm", "graalVmPath") "launcher"
+        $cubismJvm = $launcher.PSObject.Properties["cubismJvm"]
+        if ($null -ne $cubismJvm -and ($cubismJvm.Value -isnot [string] `
+            -or @("graalvm", "bundled") -cnotcontains $cubismJvm.Value)) {
+            throw "launcher.cubismJvm is invalid"
+        }
+        $graalVmPath = $launcher.PSObject.Properties["graalVmPath"]
+        if ($null -ne $graalVmPath) {
+            $path = $graalVmPath.Value
+            if ($path -isnot [string] -or [string]::IsNullOrWhiteSpace($path) `
+                -or $path.Length -gt 4096 -or [regex]::IsMatch($path, '[\x00-\x1f]')) {
+                throw "launcher.graalVmPath is invalid"
+            }
+        }
+    }
 }
 
 function Convert-RuntimeConfigV0ToV1 {
@@ -194,26 +361,42 @@ function Convert-RuntimeConfigV0ToV1 {
             $launcher[$name] = $legacy.Value
         }
     }
-    $migrated["launcher"] = $launcher
-    return [pscustomobject]$migrated
+    $migrated["launcher"] = [pscustomobject]$launcher
+    $result = [pscustomobject]$migrated
+    Assert-RuntimeConfigV1 $result
+    return $result
 }
 
-function Write-RuntimeConfigMigrationAtomic {
+function Write-RuntimeConfigAtomic {
     param([object]$Document)
 
     $json = $Document | ConvertTo-Json -Depth 16
     $encoding = New-Object System.Text.UTF8Encoding($false)
     $bytes = $encoding.GetBytes($json + "`r`n")
-    if ($bytes.Length -gt 65536) { throw "migrated config.json exceeds 64 KiB" }
-    $temporary = Join-Path $turboismHome (".config-migrate-{0}-{1}.tmp" -f $PID, [guid]::NewGuid().ToString("N"))
+    if ($bytes.Length -gt 65536) { throw "updated config.json exceeds 64 KiB" }
+    $nonce = "{0}-{1}" -f $PID, [guid]::NewGuid().ToString("N")
+    $temporary = Join-Path $turboismHome (".config-update-{0}.tmp" -f $nonce)
+    $backup = Join-Path $turboismHome (".config-update-{0}.bak" -f $nonce)
+    $published = $false
     try {
         [System.IO.File]::WriteAllBytes($temporary, $bytes)
-        if (-not (Test-CubismNormalFile $temporary)) { throw "temporary migrated config was not created" }
-        [System.IO.File]::Replace($temporary, $configPath, $null, $true)
+        if (-not (Test-CubismNormalFile $temporary)) { throw "temporary updated config was not created" }
+        if (Test-Path -LiteralPath $configPath) {
+            if (-not (Test-CubismNormalFile $configPath)) { throw "config.json is not a normal file" }
+            [System.IO.File]::Replace($temporary, $configPath, $backup, $true)
+        }
+        else {
+            [System.IO.File]::Move($temporary, $configPath)
+        }
+        if (-not (Test-CubismNormalFile $configPath)) { throw "updated config.json was not published" }
+        $published = $true
     }
     finally {
         if (Test-Path -LiteralPath $temporary -PathType Leaf) {
             Remove-Item -LiteralPath $temporary -Force -ErrorAction SilentlyContinue
+        }
+        if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf)) {
+            Remove-Item -LiteralPath $backup -Force -ErrorAction SilentlyContinue
         }
     }
 }
@@ -226,18 +409,137 @@ function Invoke-RuntimeConfigMigration {
     $document = Read-RuntimeConfigForMigration
     $schema = Get-RuntimeConfigSchemaVersion $document
     if ($schema -eq 1) {
-        $format = $document.PSObject.Properties["format"]
-        if ($null -eq $format -or $format.Value -ne "turboism.runtime.config") {
-            throw "config.json format does not match schemaVersion 1"
-        }
+        Assert-RuntimeConfigV1 $document
         Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1"
         return
     }
     if ($schema -ne 0) { throw "no runtime config migration is available from schemaVersion $schema" }
     $migrated = Convert-RuntimeConfigV0ToV1 $document
-    Write-RuntimeConfigMigrationAtomic $migrated
-    Write-InstallerLog "CONFIG_MIGRATED" "from=0 to=1"
+    Assert-RuntimeConfigV1 $migrated
+    Write-RuntimeConfigAtomic $migrated
     Write-Host "TURBOISM_CONFIG migrated from=0 to=1"
+}
+
+function Convert-InstallerPluginIdList {
+    param(
+        [string]$Text,
+        [string]$Name
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Text)) { return @() }
+    $seen = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $result = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($raw in $Text.Split(';')) {
+        $id = $raw.Trim()
+        if ([string]::IsNullOrWhiteSpace($id) `
+            -or $id -cnotmatch '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$') {
+            throw "$Name contains an invalid plugin id"
+        }
+        if ($seen.Add($id)) { [void]$result.Add($id) }
+    }
+    return $result.ToArray()
+}
+
+function Test-RuntimeStringSetEquals {
+    param(
+        [string[]]$First,
+        [string[]]$Second
+    )
+
+    $left = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    $right = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($value in @($First)) { [void]$left.Add($value) }
+    foreach ($value in @($Second)) { [void]$right.Add($value) }
+    return $left.SetEquals($right)
+}
+
+function Invoke-InstallerPluginSelection {
+    $bundled = @(Convert-InstallerPluginIdList $BundledPluginIds "BundledPluginIds")
+    $requestedDisabled = @(Convert-InstallerPluginIdList $DisabledPluginIds "DisabledPluginIds")
+    if ($bundled.Count -eq 0) { throw "BundledPluginIds is empty" }
+
+    $bundledSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($id in $bundled) { [void]$bundledSet.Add($id) }
+    foreach ($id in $requestedDisabled) {
+        if (-not $bundledSet.Contains($id)) {
+            throw "DisabledPluginIds contains a plugin that is not bundled: $id"
+        }
+    }
+
+    $hadConfig = Test-Path -LiteralPath $configPath
+    $schema = 0L
+    if ($hadConfig) {
+        $document = Read-RuntimeConfigForMigration
+        $schema = Get-RuntimeConfigSchemaVersion $document
+        if ($schema -eq 1) {
+            Assert-RuntimeConfigV1 $document
+        }
+        elseif ($schema -eq 0) {
+            $document = Convert-RuntimeConfigV0ToV1 $document
+        }
+        else {
+            throw "no runtime config migration is available from schemaVersion $schema"
+        }
+    }
+    else {
+        $document = [pscustomobject][ordered]@{
+            format = "turboism.runtime.config"
+            schemaVersion = 1
+            worktreeId = "turboism-runtime"
+            pluginDirs = @("plugins")
+            launcher = [pscustomobject][ordered]@{ cubismJvm = "graalvm" }
+        }
+        Assert-RuntimeConfigV1 $document
+    }
+
+    $existing = @()
+    $existingProperty = $document.PSObject.Properties["disabledPlugins"]
+    if ($null -ne $existingProperty) {
+        Assert-RuntimeStringArray $existingProperty.Value "disabledPlugins"
+        $existing = @($existingProperty.Value)
+    }
+
+    $retired = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($id in @(
+        "dev.turboism.plugin.logfilter",
+        "dev.turboism.plugin.clipmask",
+        "dev.turboism.plugin.perfopt",
+        "dev.turboism.plugin.renderopt"
+    )) { [void]$retired.Add($id) }
+    $desiredSet = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
+    foreach ($id in $existing) {
+        if (-not $bundledSet.Contains($id) -and -not $retired.Contains($id)) {
+            [void]$desiredSet.Add($id)
+        }
+    }
+    foreach ($id in $requestedDisabled) { [void]$desiredSet.Add($id) }
+    $desiredList = New-Object 'System.Collections.Generic.List[string]'
+    foreach ($id in $desiredSet) { [void]$desiredList.Add($id) }
+    $desiredList.Sort([System.StringComparer]::Ordinal)
+    $desired = [string[]]$desiredList.ToArray()
+
+    if ($hadConfig -and $schema -eq 1 `
+        -and (Test-RuntimeStringSetEquals ([string[]]$existing) $desired)) {
+        Write-Host "TURBOISM_CONFIG unchanged schemaVersion=1 selection=current"
+        return
+    }
+
+    if ($desired.Count -eq 0) {
+        if ($null -ne $existingProperty) {
+            $document.PSObject.Properties.Remove("disabledPlugins")
+        }
+    }
+    elseif ($null -ne $existingProperty) {
+        $existingProperty.Value = $desired
+    }
+    else {
+        Add-Member -InputObject $document -MemberType NoteProperty `
+            -Name "disabledPlugins" -Value $desired
+    }
+
+    Assert-RuntimeConfigV1 $document
+    Write-RuntimeConfigAtomic $document
+    Write-Host "TURBOISM_CONFIG selection-applied disabled=$($desired.Count)"
 }
 
 function Test-CurrentProcessElevated {
@@ -261,8 +563,18 @@ function Invoke-ElevatedConfiguratorMode {
     return [int]$process.ExitCode
 }
 
-if (@(@($Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts, $DisableShortcuts, $InitializeSelection, $MigrateConfig) | Where-Object { $_ }).Count -gt 1) {
-    Write-Error "Cleanup, RetirePlugins, IntegrateBat, DisableBat, EnableShortcuts, DisableShortcuts, InitializeSelection, and MigrateConfig are mutually exclusive"
+if (@(@(
+    $Cleanup, $RetirePlugins, $IntegrateBat, $DisableBat, $EnableShortcuts,
+    $DisableShortcuts, $InitializeSelection, $MigrateConfig, $ApplyInstallerSelection
+) | Where-Object { $_ }).Count -gt 1) {
+    Write-Error "Configurator operation switches are mutually exclusive"
+    exit 1
+}
+if (-not $ApplyInstallerSelection -and (
+    -not [string]::IsNullOrWhiteSpace($BundledPluginIds) `
+    -or -not [string]::IsNullOrWhiteSpace($DisabledPluginIds)
+)) {
+    Write-Error "Installer plugin id arguments require ApplyInstallerSelection"
     exit 1
 }
 if ($MigrateConfig) {
@@ -271,11 +583,24 @@ if ($MigrateConfig) {
         exit 0
     }
     catch {
-        Write-InstallerLog "CONFIG_MIGRATION_FAILED" $_.Exception.Message
-        Write-Error $_.Exception.Message
+        Write-Error ("CONFIG_MIGRATION_FAILED " + $_.Exception.Message)
         exit 1
     }
 }
+if ($ApplyInstallerSelection) {
+    try {
+        Invoke-InstallerPluginSelection
+        exit 0
+    }
+    catch {
+        Write-Error ("CONFIG_SELECTION_FAILED " + $_.Exception.Message)
+        exit 1
+    }
+}
+
+try { New-Item -ItemType Directory -Path $installerLogDir -Force | Out-Null } catch { }
+Write-InstallerLog "CONFIGURATOR_START"
+
 if ($Cleanup) {
     try {
         if (Test-Path -LiteralPath $statePath) {
@@ -642,8 +967,8 @@ $saveButton.Add_Click({
         if ($unchecked.Count -gt 0) { $config.disabledPlugins = $unchecked } else { $config.Remove("disabledPlugins") }
         $json = $config | ConvertTo-Json -Depth 8
         $json = $json -replace '"disabledPlugins":\s*"([^"]+)"', '"disabledPlugins": ["$1"]'
-        # 无 BOM UTF-8 写入（PowerShell 5.1 的 Set-Content -Encoding UTF8 会写 BOM，
-        # 导致 Java 安装器 BoundedJson.parse 拒绝 config.json）。UTF8Encoding(false) 为 PS 5.1 兼容。
+        # 无 BOM UTF-8 写入；读取路径仅为旧 PowerShell 5.1 文件兼容而容忍一个 BOM。
+        # UTF8Encoding(false) 保持后续 Java 与 PowerShell 读取的规范字节形式。
         [System.IO.File]::WriteAllText($configPath, $json, [System.Text.UTF8Encoding]::new($false))
         $state = Read-CubismInstallationState -StatePath $statePath
         Write-InstallerLog "CONFIGURATION_SAVED" ("selected={0} shortcuts={1} mode={2} bat={3}" -f $selectedCount, [bool]$shortcutCheck.Checked, $mode, [bool]$batCheck.Checked)

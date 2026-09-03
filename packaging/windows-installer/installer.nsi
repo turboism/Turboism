@@ -318,12 +318,9 @@ LangString StartMenuLaunchName ${LANG_ENGLISH} "Turboism_Launch_Cubism"
 LangString StartMenuLaunchName ${LANG_SIMPCHINESE} "Turboism_Launch_Cubism"
 LangString StartMenuLaunchName ${LANG_JAPANESE} "Turboism_Launch_Cubism"
 
-LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
-LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
-LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
-LangString ConfigMigrationError ${LANG_ENGLISH} "The existing config.json could not be migrated safely. The original file was left unchanged."
-LangString ConfigMigrationError ${LANG_SIMPCHINESE} "无法安全迁移既有 config.json，原文件保持不变。"
-LangString ConfigMigrationError ${LANG_JAPANESE} "既存の config.json を安全に移行できませんでした。元のファイルは変更されていません。"
+LangString ConfigMigrationError ${LANG_ENGLISH} "config.json could not be validated or updated safely. No Turboism payload was changed."
+LangString ConfigMigrationError ${LANG_SIMPCHINESE} "无法安全校验或更新 config.json；Turboism 载荷未发生变化。"
+LangString ConfigMigrationError ${LANG_JAPANESE} "config.json を安全に検証または更新できませんでした。Turboism ペイロードは変更されていません。"
 LangString PluginRetireError ${LANG_ENGLISH} "Cannot retire an obsolete Turboism plugin JAR. Close Cubism and retry the upgrade."
 LangString PluginRetireError ${LANG_SIMPCHINESE} "无法移除旧版 Turboism 插件 JAR。请关闭 Cubism 后重试升级。"
 LangString PluginRetireError ${LANG_JAPANESE} "旧版 Turboism プラグイン JAR を削除できません。Cubism を終了してアップグレードを再試行してください。"
@@ -391,14 +388,7 @@ Var StartMenuCheckbox
 Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
 Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
-Var disabledFinal        ; 排序、去重后的列表，';' 分隔
-Var configHandle
-Var json                 ; 待写入的 config.json 内容
-Var sorted
-Var head
-Var walk
-Var id
-Var cand
+Var bundledPluginIds     ; 当前发布包内的全部插件 id，';' 分隔
 Var pos
 Var ch
 Var len
@@ -862,6 +852,26 @@ Function .onInstSuccess
 FunctionEnd
 
 ; ---------- Section 声明 ----------
+; 配置必须在任何永久载荷、托管运行时或插件 JAR 写入前完成。这里只将当前
+; helper 解压到 NSIS 私有临时目录；无效/未来配置会在安装树变化前失败关闭。
+Section "-写入配置" SecConfig
+  CreateDirectory "$INSTDIR"
+  StrCpy $uncheckedPluginIds ""
+  StrCpy $bundledPluginIds ""
+  Call CollectUncheckedPluginIds
+  Call SetBundledPluginIds
+  SetOutPath "$PLUGINSDIR\Turboism-config"
+  File "/oname=configure_turboism.ps1" "${STAGING_DIR}/configure_turboism.ps1"
+  File "/oname=cubism-launch-common.ps1" "${STAGING_DIR}/cubism-launch-common.ps1"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-config\configure_turboism.ps1" -Home "$INSTDIR" -ApplyInstallerSelection -BundledPluginIds "$bundledPluginIds" -DisabledPluginIds "$uncheckedPluginIds"'
+  Pop $0
+  RMDir /r "$PLUGINSDIR\Turboism-config"
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(ConfigMigrationError)"
+    Abort
+  ${EndIf}
+SectionEnd
+
 ; 插件 Section 由 plugin-sections.nsh 提供（见文件头注释）
 Section "-核心文件" SecCore
   SetOverwrite on
@@ -940,150 +950,6 @@ SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
 !include "plugin-sections.nsh"
-
-Section "-写入配置" SecConfig
-  ${If} ${FileExists} "$INSTDIR\config.json"
-    ; 更新安装不覆盖当前 schema 的用户配置。旧 schema 只通过显式、原子迁移升级；
-    ; 未知或损坏的配置失败关闭，原始字节保持不变。
-    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -MigrateConfig'
-    Pop $0
-    ${If} $0 != 0
-      MessageBox MB_ICONSTOP "$(ConfigMigrationError)"
-      Abort
-    ${EndIf}
-  ${Else}
-    ; 全新安装才根据本次插件选择创建 config.json。Lite 下 ModeLeave 已取消全部
-    ; 插件 Section，因此 fresh config 会禁用全部捆绑插件。
-    StrCpy $uncheckedPluginIds ""
-    Call CollectUncheckedPluginIds
-    Call MergeAndWriteConfig
-  ${EndIf}
-SectionEnd
-
-; ---------- 全新配置生成 ----------
-; 已有 config.json 在 SecConfig 中交给 configure_turboism.ps1：current schema 原字节跳过，
-; 显式 legacy v0 原子迁移，未知/未来 schema 失败关闭。以下列表辅助只服务于全新安装，
-; 根据本次选择生成排序、去重的 disabledPlugins；Lite 下为全部捆绑 id。
-; 注意：fresh config 内容为纯 ASCII，FileWrite（Unicode 安装器下按 ACP 转换）安全。
-
-; 输入: $0 = ';' 分隔列表；输出: $0 = 首段, $1 = 剩余（无 ';' 时 $0 保持整表、$1 为空）
-; 仅使用 scratch 寄存器 $pos/$len/$ch/$next，不改写其它共享寄存器。
-Function SplitFirst
-  StrCpy $1 ""
-  StrCpy $pos 0
-  StrLen $len $0
-  ${Do}
-    ${If} $pos >= $len
-      ${ExitDo}
-    ${EndIf}
-    StrCpy $ch "$0" 1 $pos
-    ${If} $ch == ";"
-      IntOp $next $pos + 1
-      StrCpy $1 "$0" "" $next
-      StrCpy $0 "$0" $pos
-      ${ExitDo}
-    ${EndIf}
-    IntOp $pos $pos + 1
-  ${Loop}
-FunctionEnd
-
-; $uncheckedPluginIds → $disabledFinal（去重、升序）；仅用于全新 config.json。
-Function MergeAndWriteConfig
-  StrCpy $disabledFinal "$uncheckedPluginIds"
-  ; 插入排序 + 去重
-  StrCpy $sorted ""
-  ${Do}
-    ${If} $disabledFinal == ""
-      ${ExitDo}
-    ${EndIf}
-    StrCpy $0 "$disabledFinal"
-    Call SplitFirst
-    StrCpy $id $0
-    StrCpy $disabledFinal $1
-    StrCpy $head ""
-    StrCpy $walk "$sorted"
-    ${Do}
-      ${If} $walk == ""
-        ${If} $head == ""
-          StrCpy $head "$id"
-        ${Else}
-          StrCpy $head "$head;$id"
-        ${EndIf}
-        ${ExitDo}
-      ${EndIf}
-      StrCpy $0 "$walk"
-      Call SplitFirst
-      StrCpy $cand $0
-      StrCpy $walk $1
-      ${If} $cand == $id
-        ; 重复：保留既有项，跳过 $id
-        ${If} $head == ""
-          StrCpy $head "$cand"
-        ${Else}
-          StrCpy $head "$head;$cand"
-        ${EndIf}
-        ${If} $walk != ""
-          StrCpy $head "$head;$walk"
-        ${EndIf}
-        ${ExitDo}
-      ${EndIf}
-      ${If} $cand S> $id          ; 插件 id 均为小写，lstrcmpi 排序与字节序一致
-        Goto InsertBefore
-      ${EndIf}
-      ; $cand < $id：保留 $cand，继续
-      ${If} $head == ""
-        StrCpy $head "$cand"
-      ${Else}
-        StrCpy $head "$head;$cand"
-      ${EndIf}
-      ${Continue}
-    InsertBefore:
-      ; $cand > $id：在 $cand 前插入 $id
-      ${If} $head == ""
-        StrCpy $head "$id"
-      ${Else}
-        StrCpy $head "$head;$id"
-      ${EndIf}
-      StrCpy $head "$head;$cand"
-      ${If} $walk != ""
-        StrCpy $head "$head;$walk"
-      ${EndIf}
-      ${ExitDo}
-    ${Loop}
-    StrCpy $sorted "$head"
-  ${Loop}
-  StrCpy $disabledFinal "$sorted"
-  ; 组 JSON（模板 + 可选 disabledPlugins；空列表不写出该字段）
-  StrCpy $json '{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"],"launcher":{"cubismJvm":"graalvm"}'
-  ${If} $disabledFinal != ""
-    StrCpy $json '$json,"disabledPlugins":['
-    StrCpy $head ""
-    StrCpy $walk "$disabledFinal"
-    ${Do}
-      ${If} $walk == ""
-        ${ExitDo}
-      ${EndIf}
-      StrCpy $0 "$walk"
-      Call SplitFirst
-      StrCpy $walk $1
-      ${If} $head != ""
-        StrCpy $head '$head","'
-      ${EndIf}
-      StrCpy $head '$head"$0"'
-    ${Loop}
-    StrCpy $json "$json$head"
-    StrCpy $json '$json]'
-  ${EndIf}
-  StrCpy $json '$json}$\r$\n'
-  ; 写入
-  FileOpen $configHandle "$INSTDIR\config.json" w
-  ${If} $configHandle == ""
-    MessageBox MB_ICONSTOP "$(ConfigWriteError)"
-    Abort
-  ${EndIf}
-  FileWrite $configHandle $json
-  FileClose $configHandle
-FunctionEnd
 
 ; ---------- 卸载器 ----------
 ; 独立隐藏 Section：安装时写入 uninstall.exe

@@ -2,11 +2,13 @@
 """config.json 生命周期 + Full/Lite 插件载荷语义的单元验证。
 
 本脚本镜像 installer.nsi 与 configure_turboism.ps1 的配置策略：
-  - 全新安装才从当前模板创建 config.json，并由插件选择生成 disabledPlugins；
-  - 已有当前 schema 的 config.json 按原始字节跳过，不因重装或模式选择被覆盖；
-  - 显式 legacy v0（无 schemaVersion）仅通过受限迁移升级到 v1，保留已知用户设置；
-  - 未知旧字段、未来 schema、损坏或超限配置失败关闭，不降级也不截断原文件；
-  - Full 安装始终携带全部捆绑插件 JAR；Lite 不写任何插件 JAR；
+  - 配置校验、迁移和插件选择提交必须先于任何永久载荷写入；
+  - 全新安装从当前模板创建 config.json，并由插件选择生成 disabledPlugins；
+  - 已有 current v1 仅更新 disabledPlugins，其他有效用户字段保持不变；
+  - 显式 legacy v0（无 schemaVersion）先受限迁移到 v1，再应用本次插件选择；
+  - schemaVersion 必须是 JSON 整数 token，迁移结果必须满足完整 v1 约束；
+  - 未知字段、未来 schema、损坏或超限配置失败关闭，不降级也不截断原文件；
+  - Full 安装始终携带全部捆绑插件 JAR；Lite 不写新 JAR 并禁用全部捆绑插件；
   - 卸载失败关闭后置顺序和精确 LICENSE 删除仍保持不变。
 
 packaging/release-plugins.txt 仍是发布载荷的唯一权威清单：本脚本将其作为显式
@@ -18,6 +20,7 @@ META-INF/turboism/plugin.json 读取并逐一校验（见 SPEC.md）。
 """
 
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -28,6 +31,10 @@ EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 FX_RUNTIME_DIR = (Path(__file__).resolve().parent.parent / "fx-runtime" /
                   "windows-x86_64")
+FX_RUNTIME_EXECUTABLE = Path(os.environ.get(
+    "TURBOISM_WINDOWS_FX_FIXTURE",
+    str(FX_RUNTIME_DIR / "fx.exe"),
+))
 
 # 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -104,90 +111,6 @@ RETIRED_MODULES = ["clip-mask", "log-filter", "perf-opt", "render-opt"]
 REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
 
-def split_first(lst: str):
-    """镜像 NSIS SplitFirst：$0 = ';' 分隔列表 → 首段 + 剩余。"""
-    if ";" in lst:
-        i = lst.index(";")
-        return lst[:i], lst[i + 1:]
-    return lst, ""
-
-
-def extract_existing_disabled(text: str):
-    """镜像 NSIS ReadExistingDisabledPlugins 的字符串扫描（含 \\" 与 \\\\ 转义跳过）。"""
-    needle = '"disabledPlugins"'
-    pos = text.find(needle)
-    if pos == -1:
-        return []
-    pos += len(needle)
-    while pos < len(text) and text[pos] != "[":
-        pos += 1
-    if pos >= len(text):
-        return []
-    pos += 1
-    ids = []
-    while pos < len(text):
-        ch = text[pos]
-        if ch == "]":
-            break
-        if ch == '"':
-            pos += 1
-            buf = ""
-            while pos < len(text):
-                ch = text[pos]
-                if ch == "\\":          # 跳过转义字符
-                    pos += 2
-                    continue
-                if ch == '"':
-                    pos += 1
-                    break
-                buf += ch
-                pos += 1
-            if buf:
-                ids.append(buf)
-        else:
-            pos += 1
-    return ids
-
-
-def remove_item(lst, item):
-    """镜像 NSIS RemoveItemFromList：删除全部匹配项，其余保持原序（逐 id 调用）。"""
-    return [x for x in lst if x != item]
-
-
-def nsis_merge(unchecked, existing):
-    """镜像 NSIS MergeAndWriteConfig：拼接 → 逐项插入排序（升序、去重）。"""
-    combined = list(unchecked) + list(existing)   # NSIS: $unchecked;$existing
-    sorted_list = []
-    while combined:
-        ident = combined.pop(0)                   # NSIS: SplitFirst $disabledFinal
-        head = []
-        walk = list(sorted_list)
-        while True:
-            if not walk:
-                head.append(ident)
-                break
-            cand = walk.pop(0)
-            if cand == ident:                     # 重复：保留既有项
-                head.append(cand)
-                head.extend(walk)
-                break
-            if cand > ident:                      # StrCmp greater → 插到 cand 前
-                head.append(ident)
-                head.append(cand)
-                head.extend(walk)
-                break
-            head.append(cand)                     # cand < ident：继续
-        sorted_list = head
-    return sorted_list
-
-
-def build_config_json(disabled):
-    parts = ['{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"turboism-runtime","pluginDirs":["plugins"],"launcher":{"cubismJvm":"graalvm"}']
-    if disabled:
-        parts.append(',"disabledPlugins":["' + '","'.join(disabled) + '"]')
-    parts.append("}\r\n")
-    return "".join(parts)
-
 
 CURRENT_SCHEMA = 1
 V0_FIELDS = {
@@ -195,6 +118,85 @@ V0_FIELDS = {
     "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
     "hooks", "launcher", "cubismJvm", "graalVmPath",
 }
+V1_FIELDS = {
+    "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
+    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+    "hooks", "launcher",
+}
+LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
+LOCALES = {"system", "en", "ja", "ko", "zh-Hans", "zh-Hant"}
+HOOK_FIELDS = {"disabledIds", "denylistedClasses", "startup"}
+STARTUP_FIELDS = {
+    "skipUpdateCheck", "skipSplash", "skipInformation",
+    "separateExportSaveDirectory",
+}
+LAUNCHER_FIELDS = {"cubismJvm", "graalVmPath"}
+CUBISM_JVMS = {"graalvm", "bundled"}
+
+
+def require_string_array(value, name):
+    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
+        raise ValueError(f"{name} must be an array of strings")
+
+
+def validate_v1(doc):
+    if not isinstance(doc, dict):
+        raise ValueError("runtime config root must be an object")
+    unknown = set(doc) - V1_FIELDS
+    if unknown:
+        raise ValueError("unknown v1 fields: " + ",".join(sorted(unknown)))
+    if doc.get("format") != "turboism.runtime.config":
+        raise ValueError("current schema format mismatch")
+    if type(doc.get("schemaVersion")) is not int or doc["schemaVersion"] != CURRENT_SCHEMA:
+        raise ValueError("schemaVersion must be the JSON integer 1")
+    worktree = doc.get("worktreeId")
+    if not isinstance(worktree, str) or not re.fullmatch(r"[a-z][a-z0-9-]{2,63}", worktree):
+        raise ValueError("worktreeId is invalid")
+    if "pluginDirs" in doc:
+        require_string_array(doc["pluginDirs"], "pluginDirs")
+        for path in doc["pluginDirs"]:
+            if path.startswith("/") or path.startswith("\\\\") or ".." in path:
+                raise ValueError("pluginDirs contains an unsafe path")
+    if "disabledPlugins" in doc:
+        require_string_array(doc["disabledPlugins"], "disabledPlugins")
+    if "logLevel" in doc and doc["logLevel"] is not None:
+        if not isinstance(doc["logLevel"], str) or doc["logLevel"] not in LOG_LEVELS:
+            raise ValueError("logLevel is invalid")
+    if "maxLogStorageMiB" in doc:
+        value = doc["maxLogStorageMiB"]
+        if type(value) is not int or not 1 <= value <= 4096:
+            raise ValueError("maxLogStorageMiB is invalid")
+    if "locale" in doc:
+        if not isinstance(doc["locale"], str) or doc["locale"] not in LOCALES:
+            raise ValueError("locale is invalid")
+    if "safeMode" in doc and type(doc["safeMode"]) is not bool:
+        raise ValueError("safeMode must be boolean")
+    if "hooks" in doc:
+        hooks = doc["hooks"]
+        if not isinstance(hooks, dict) or set(hooks) - HOOK_FIELDS:
+            raise ValueError("hooks is invalid")
+        for field in ("disabledIds", "denylistedClasses"):
+            if field in hooks:
+                require_string_array(hooks[field], "hooks." + field)
+        if "startup" in hooks:
+            startup = hooks["startup"]
+            if not isinstance(startup, dict) or set(startup) - STARTUP_FIELDS:
+                raise ValueError("hooks.startup is invalid")
+            if any(type(value) is not bool for value in startup.values()):
+                raise ValueError("hooks.startup values must be boolean")
+    if "launcher" in doc:
+        launcher = doc["launcher"]
+        if not isinstance(launcher, dict) or set(launcher) - LAUNCHER_FIELDS:
+            raise ValueError("launcher is invalid")
+        if "cubismJvm" in launcher:
+            if not isinstance(launcher["cubismJvm"], str) or launcher["cubismJvm"] not in CUBISM_JVMS:
+                raise ValueError("launcher.cubismJvm is invalid")
+        if "graalVmPath" in launcher:
+            path = launcher["graalVmPath"]
+            if (not isinstance(path, str) or not path.strip() or len(path) > 4096
+                    or any(ord(character) < 0x20 for character in path)):
+                raise ValueError("launcher.graalVmPath is invalid")
+    return doc
 
 
 def migrate_v0(doc):
@@ -216,7 +218,7 @@ def migrate_v0(doc):
         if field in doc:
             migrated[field] = doc[field]
     launcher = dict(doc.get("launcher", {"cubismJvm": "graalvm"}))
-    if set(launcher) - {"cubismJvm", "graalVmPath"}:
+    if set(launcher) - LAUNCHER_FIELDS:
         raise ValueError("unsupported legacy launcher field")
     for field in ("cubismJvm", "graalVmPath"):
         if field in doc:
@@ -224,24 +226,54 @@ def migrate_v0(doc):
                 raise ValueError("duplicate legacy launcher field")
             launcher[field] = doc[field]
     migrated["launcher"] = launcher
-    return migrated
+    return validate_v1(migrated)
+
+
+def desired_disabled(doc, mode, unchecked, bundled_ids):
+    existing = list(doc.get("disabledPlugins", []))
+    require_string_array(existing, "disabledPlugins")
+    bundled = set(bundled_ids)
+    requested = set(bundled_ids if mode == "lite" else unchecked)
+    if not requested <= bundled:
+        raise ValueError("unchecked plugin is not bundled")
+    return sorted((set(existing) - bundled - set(RETIRED_IDS)) | requested)
 
 
 def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_IDS):
-    """镜像 SecConfig：current v1 原字节跳过，v0 迁移，缺失时按选择新建。"""
-    if existing_text is not None:
-        existing = json.loads(existing_text)
-        schema = existing.get("schemaVersion", 0)
+    """镜像前置 SecConfig：校验/迁移后应用选择，仅 disabledPlugins 由安装器更新。"""
+    current = None
+    if existing_text is None:
+        document = {
+            "format": "turboism.runtime.config",
+            "schemaVersion": CURRENT_SCHEMA,
+            "worktreeId": "turboism-runtime",
+            "pluginDirs": ["plugins"],
+            "launcher": {"cubismJvm": "graalvm"},
+        }
+    else:
+        document = json.loads(existing_text)
+        schema = document.get("schemaVersion", 0)
+        if type(schema) is not int:
+            raise ValueError("schemaVersion must be an integer token")
         if schema == CURRENT_SCHEMA:
-            if existing.get("format") != "turboism.runtime.config":
-                raise ValueError("current schema format mismatch")
-            return existing_text
-        if schema != 0:
+            validate_v1(document)
+            current = document
+        elif schema == 0:
+            document = migrate_v0(document)
+        else:
             raise ValueError("unsupported schema migration")
-        return json.dumps(migrate_v0(existing), ensure_ascii=False, separators=(",", ":")) + "\r\n"
-    if mode == "lite":
-        unchecked = list(bundled_ids)
-    return build_config_json(nsis_merge(unchecked, []))
+
+    disabled = desired_disabled(document, mode, unchecked, bundled_ids)
+    updated = dict(document)
+    if disabled:
+        updated["disabledPlugins"] = disabled
+    else:
+        updated.pop("disabledPlugins", None)
+    validate_v1(updated)
+
+    if current is not None and sorted(set(current.get("disabledPlugins", []))) == disabled:
+        return existing_text
+    return json.dumps(updated, ensure_ascii=False, separators=(",", ":")) + "\r\n"
 
 
 def nsis_jars_after(mode, prev_jars):
@@ -298,27 +330,104 @@ def check_nsis_retirement_contract():
 
 
 def check_config_migration_contract():
-    """Updates preserve current config bytes and migrate only the explicit v0 shape."""
+    """Config validation, migration, and plugin selection commit precede every payload write."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     configure = (INSTALLER_NSI.parent / "configure_turboism.ps1").read_text(encoding="utf-8")
-    section = text[text.index('Section "-写入配置" SecConfig'):
-                   text.index("SectionEnd", text.index('Section "-写入配置" SecConfig'))]
-    check("CM1 current config enters migration gate instead of NSIS rewrite",
-          '${FileExists} "$INSTDIR\\config.json"' in section
-          and "-MigrateConfig" in section
-          and section.index("-MigrateConfig") < section.index("Call MergeAndWriteConfig"))
-    check("CM2 same schema is explicitly left unchanged",
-          "TURBOISM_CONFIG unchanged schemaVersion=1" in configure
-          and "if ($schema -eq 1)" in configure)
-    check("CM3 v0 migration is explicit and bounded",
-          "Convert-RuntimeConfigV0ToV1" in configure
-          and "if ($schema -ne 0)" in configure
-          and "config.json exceeds 64 KiB" in configure)
-    check("CM4 migration publishes atomically and fails closed",
-          "[System.IO.File]::Replace($temporary, $configPath, $null, $true)" in configure
-          and "CONFIG_MIGRATION_FAILED" in configure
-          and "ConfigMigrationError" in section
-          and "Abort" in section)
+    generated = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
+    config_start = text.index('Section "-写入配置" SecConfig')
+    config_end = text.index("SectionEnd", config_start)
+    section = text[config_start:config_end]
+    first_payload = min(
+        text.index('Section "-核心文件" SecCore'),
+        text.index('Section "-托管 GraalVM" SecManagedGraal'),
+        text.index('Section /o "$(ManagedFxSection)" SecManagedFx'),
+    )
+    check("CM1 config commit precedes every permanent payload section",
+          config_start < first_payload
+          and config_start < text.index('!include "plugin-sections.nsh"')
+          and 'Section "-插件载荷" SecPluginPayload' in generated)
+    check("CM2 NSIS uses the current staged helper rather than an installed prior version",
+          '$PLUGINSDIR\\Turboism-config\\configure_turboism.ps1' in section
+          and '${STAGING_DIR}/configure_turboism.ps1' in section
+          and '${STAGING_DIR}/cubism-launch-common.ps1' in section)
+    check("CM3 installer selection is explicit and complete",
+          "Call CollectUncheckedPluginIds" in section
+          and "Call SetBundledPluginIds" in section
+          and "-ApplyInstallerSelection" in section
+          and '-BundledPluginIds "$bundledPluginIds"' in section
+          and '-DisabledPluginIds "$uncheckedPluginIds"' in section
+          and "Function SetBundledPluginIds" in generated)
+    exported = re.search(
+        r'Function SetBundledPluginIds\s+StrCpy \$bundledPluginIds "([^"]+)"',
+        generated,
+    )
+    collected = re.findall(
+        r'StrCpy \$uncheckedPluginIds "(dev\.turboism\.plugin\.[^"]+)"',
+        generated,
+    )
+    check("CM3b bundled selection inventory exactly matches visible plugin sections",
+          exported is not None
+          and exported.group(1).split(";") == collected
+          and len(collected) == len(set(collected)) == len(REAL_MODULES))
+    check("CM4 config failure aborts before payload mutation",
+          "ConfigMigrationError" in section and "Abort" in section
+          and "-RetirePlugins" not in section)
+    check("CM5 schemaVersion requires a JSON integer token",
+          "function Get-RuntimeConfigSchemaVersion" in configure
+          and "schemaVersion must be an integer token" in configure
+          and "[decimal]$property.Value" not in configure)
+    check("CM5b one legacy UTF-8 BOM is tolerated but a second is rejected",
+          "$text[0] -eq [char]0xFEFF" in configure
+          and "config.json contains more than one UTF-8 BOM" in configure)
+    check("CM6 current and migrated documents use full v1 validation",
+          "function Assert-RuntimeConfigV1" in configure
+          and configure.count("Assert-RuntimeConfigV1") >= 3
+          and "launcher.cubismJvm is invalid" in configure
+          and "hooks.startup" in configure
+          and 'Assert-RuntimeStringArray $pluginDirs.Value "pluginDirs"' in configure
+          and "must be an array of strings" in configure)
+    check("CM7 migration/selection publish atomically and fail closed",
+          "[System.IO.File]::Replace($temporary, $configPath, $backup, $true)" in configure
+          and "if ($published -and (Test-Path -LiteralPath $backup -PathType Leaf))" in configure
+          and "CONFIG_SELECTION_FAILED" in configure
+          and "ConfigMigrationError" in section)
+
+
+def check_windows_fx_docs_contract():
+    """Windows x64 Full support must be described consistently in shipped Java-installer docs."""
+    markdown = (INSTALLER_NSI.parents[1] / "java-installer" /
+                "README-java-installer.md").read_text(encoding="utf-8")
+    installed = (INSTALLER_NSI.parents[1] / "java-installer" /
+                 "README.java-installer.txt").read_text(encoding="utf-8")
+    combined = re.sub(r"\s+", " ", markdown + "\n" + installed)
+    markdown_flat = re.sub(r"\s+", " ", markdown)
+    installed_flat = re.sub(r"\s+", " ", installed)
+    stale = (
+        "Windows Full fails before",
+        "It rejects Windows before changing config or payload files",
+        "no managed native fx runtime is shipped for Windows",
+    )
+    check("DOC1 Java-installer docs remove obsolete Windows rejection claims",
+          all(fragment not in combined for fragment in stale))
+    check("DOC2 Java-installer docs describe the reviewed Windows x64 Full payload",
+          "Windows x64 Full installs the reviewed fx product payload" in markdown_flat
+          and "Windows x64 Full installs the reviewed fx product payload" in installed_flat)
+    check("DOC3 rerunning the installer is documented as applying plugin selection",
+          "Rerun the installer to apply a different plugin selection." in markdown_flat
+          and "Rerun the installer to apply a different plugin selection." in installed_flat)
+
+
+def check_fx_fixture_guard_contract():
+    """The optional Windows fx test fixture must be checked before Path.of is called."""
+    source = (INSTALLER_NSI.parents[2] / "plugins" / "turboism-with-fx" / "src" /
+              "test" / "java" / "dev" / "turboism" / "plugin" /
+              "turboismwithfx" / "FxRuntimeResolverTest.java").read_text(encoding="utf-8")
+    property_read = 'final String fixtureProperty = System.getProperty("turboism.windowsFxFixture");'
+    path_read = "final Path fixture = Path.of(fixtureProperty);"
+    check("FXT1 missing fixture property is guarded before Path.of",
+          property_read in source and path_read in source
+          and source.index(property_read) < source.index("Assumptions.assumeTrue")
+          < source.index(path_read))
 
 
 def check_managed_graal_installer_contract():
@@ -343,8 +452,8 @@ def check_managed_graal_installer_contract():
           and "DetailPrint" in graal_section
           and "MB_ICONEXCLAMATION" in graal_section
           and "Abort" not in graal_section)
-    check("GI4b remaining configuration follows optional Graal section",
-          graal_end < text.index('Section "-写入配置"'))
+    check("GI4b config preflight precedes optional Graal payload mutation",
+          text.index('Section "-写入配置"') < graal_start)
     check("GI5 bridge invokes only the managed runtime CLI",
           "dev.turboism.graal.ManagedGraalRuntimeCli install" in bridge
           and "https://" not in bridge and "sha256" not in bridge.lower())
@@ -559,7 +668,7 @@ def check_configurator_flow_contract():
 def check_managed_fx_contract():
     """The exact Windows fx payload is visible but unselected by default."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
-    fx = FX_RUNTIME_DIR / "fx.exe"
+    fx = FX_RUNTIME_EXECUTABLE
     import hashlib
     check("FX1 exact Windows executable exists",
           fx.is_file() and fx.stat().st_size == 11144192)
@@ -1069,16 +1178,25 @@ def main():
     check('T2b JSON 数组形状（无多余引号、"," 分隔）', expected_fragment in out,
           "fragment=%s" % expected_fragment + " out=%s" % out[:160])
 
-    # T3: 已有 current v1 时，无论本次插件选择如何都保持原始字节。
+    # T3: current v1 更新只改 disabledPlugins，并让本次勾选真正生效。
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "user-runtime", "pluginDirs": ["custom"],
                            "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG"}, indent=2)
     out = installer_write_config("full", [b], existing)
-    check("T3 current schema 原字节跳过", out == existing)
+    doc = json.loads(out)
+    check("T3 current schema 应用本次插件选择",
+          doc["disabledPlugins"] == [b, UNRELATED], str(doc.get("disabledPlugins")))
+    check("T3 current schema 保留其他用户字段",
+          doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"]
+          and doc["logLevel"] == "DEBUG")
 
-    # T4: Lite 更新也不能以模式选择覆盖已有 current config。
+    # T4: Lite 更新禁用全部捆绑插件，同时保留无关禁用项和其他字段。
     out = installer_write_config("lite", BUNDLED_IDS, existing)
-    check("T4 current schema 不受 Lite 更新覆盖", out == existing)
+    doc = json.loads(out)
+    check("T4 Lite 更新禁用全部捆绑插件",
+          doc["disabledPlugins"] == sorted(BUNDLED_IDS + [UNRELATED]))
+    check("T4 Lite 更新保留其他用户字段",
+          doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"])
 
     # T5: Lite 全新安装仍写入全部捆绑 id。
     out = installer_write_config("lite", [a, b], None)
@@ -1086,7 +1204,7 @@ def main():
     check("T5 fresh lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS,
           str(doc.get("disabledPlugins")))
 
-    # T6: schema-less v0 迁移到 v1，并保留已知用户设置而不套用本次选择。
+    # T6: schema-less v0 迁移到 v1，保留已知设置并应用本次插件选择。
     legacy = json.dumps({"worktreeId": "legacy-runtime", "pluginDirs": ["custom"],
                          "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG",
                          "cubismJvm": "bundled"})
@@ -1096,7 +1214,8 @@ def main():
           doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
     check("T6 v0 保留用户设置",
           doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
-          and doc["disabledPlugins"] == [a, UNRELATED] and doc["logLevel"] == "DEBUG")
+          and doc["logLevel"] == "DEBUG")
+    check("T6 v0 应用插件选择", doc["disabledPlugins"] == [b, UNRELATED])
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
     # T7: 未知 legacy 字段失败关闭。
@@ -1114,11 +1233,35 @@ def main():
     except ValueError:
         check("T8 future schema 禁止降级", True)
 
-    # T9: current schema 可以包含安装器不理解的新字段，仍按字节跳过。
-    existing = ('{\n  "format":"turboism.runtime.config",\n  "schemaVersion":1,\n'
-                '  "futureCurrentField":{"ownedBy":"runtime"}\n}')
-    check("T9 current schema 未知字段仍不覆盖",
-          installer_write_config("full", [a], existing) == existing)
+    for label, schema in (("字符串", '"1"'), ("小数", "1.0")):
+        try:
+            installer_write_config(
+                "full", [],
+                '{"format":"turboism.runtime.config","schemaVersion":' + schema
+                + ',"worktreeId":"token-test"}')
+            check("T8 schemaVersion " + label + " token 被拒绝", False)
+        except ValueError:
+            check("T8 schemaVersion " + label + " token 被拒绝", True)
+
+    # T9: current v1 未知字段和迁移后的非法已知值都失败关闭。
+    invalid_current = ('{"format":"turboism.runtime.config","schemaVersion":1,'
+                       '"worktreeId":"current-test","futureCurrentField":true}')
+    try:
+        installer_write_config("full", [a], invalid_current)
+        check("T9 current schema 未知字段失败关闭", False)
+    except ValueError:
+        check("T9 current schema 未知字段失败关闭", True)
+    for label, legacy_invalid in (
+        ("日志级别", '{"logLevel":"BOGUS"}'),
+        ("安全模式类型", '{"safeMode":"false"}'),
+        ("启动器枚举", '{"cubismJvm":"other"}'),
+        ("插件目录类型", '{"pluginDirs":"plugins"}'),
+    ):
+        try:
+            installer_write_config("full", [], legacy_invalid)
+            check("T9 v0 非法" + label + "失败关闭", False)
+        except ValueError:
+            check("T9 v0 非法" + label + "失败关闭", True)
 
     # ---- 插件载荷库存模拟（隐藏载荷 Section + 勾选语义）----
     # TI1: 全新部分 Full（未勾选 {a, c}）→ JAR 全量安装；disabledPlugins=[a,c]
@@ -1128,19 +1271,18 @@ def main():
     doc = json.loads(out)
     check("TI1 disabledPlugins == 未勾选", doc["disabledPlugins"] == [a, c], str(doc.get("disabledPlugins")))
 
-    # TI2: 后续 Full 更新仍铺设完整 JAR，但 current config 保持原始选择。
-    original = out
+    # TI2: 后续 Full 更新仍铺设完整 JAR，并应用新的选择。
     out = installer_write_config("full", [b], out)
     doc = json.loads(out)
     jars = nsis_jars_after("full", jars)
     check("TI2 更新后 JAR 库存完整", jars == BUNDLED_MODULES, str(jars))
-    check("TI2 更新不覆盖 current config", out == original and doc["disabledPlugins"] == [a, c])
+    check("TI2 更新应用新的插件选择", doc["disabledPlugins"] == [b])
 
-    # TI2b: legacy v0 迁移保留它原有的 disabledPlugins，不套用安装页重选。
+    # TI2b: legacy v0 迁移后同样应用安装页选择并保留无关禁用项。
     existing = '{"disabledPlugins": ["' + a + '","' + UNRELATED + '"]}'
     out = installer_write_config("full", [b], existing)
     doc = json.loads(out)
-    check("TI2b v0 迁移保留插件设置", doc["disabledPlugins"] == [a, UNRELATED],
+    check("TI2b v0 迁移应用插件设置", doc["disabledPlugins"] == [b, UNRELATED],
           str(doc.get("disabledPlugins")))
 
     # TI3: 全新 Lite → 无插件 JAR；禁用全部捆绑 id
@@ -1150,7 +1292,7 @@ def main():
     doc = json.loads(out)
     check("TI3 Lite 禁用全部捆绑 id", doc["disabledPlugins"] == BUNDLED_IDS, str(doc.get("disabledPlugins")))
 
-    # TI4: Full→Lite 更新不写新 JAR，也不覆盖已有 current config。
+    # TI4: Full→Lite 不写新 JAR，但会禁用全部仍留盘的捆绑插件。
     jars = nsis_jars_after("lite", BUNDLED_MODULES)
     check("TI4 Full→Lite 不写新 JAR（当前旧 JAR 留盘）", jars == BUNDLED_MODULES, str(jars))
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
@@ -1158,7 +1300,7 @@ def main():
                            "disabledPlugins": [a]})
     out = installer_write_config("lite", [], existing)
     doc = json.loads(out)
-    check("TI4 Full→Lite 保持 current config", out == existing and doc["disabledPlugins"] == [a])
+    check("TI4 Full→Lite 禁用全部捆绑插件", doc["disabledPlugins"] == BUNDLED_IDS)
 
     # TI5: NSIS 升级先删除受控历史模块，再根据当前模式铺设 payload。
     jars = nsis_jars_after("lite", RETIRED_MODULES + BUNDLED_MODULES + ["third-party"])
@@ -1175,6 +1317,8 @@ def main():
 
     check_nsis_retirement_contract()
     check_config_migration_contract()
+    check_windows_fx_docs_contract()
+    check_fx_fixture_guard_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
     check_managed_fx_contract()

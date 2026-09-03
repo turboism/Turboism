@@ -1,6 +1,6 @@
 ﻿; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。
-; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只为
-; 全新 config.json 收集 disabledPlugins；更新时 current schema 配置保持不变。
+; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section
+; 为全新安装和升级收集 disabledPlugins，其他有效用户配置保持不变。
 
 Section "-插件载荷" SecPluginPayload
   ${If} $Mode == 1
@@ -350,6 +350,11 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_uitheme} $1
+FunctionEnd
+
+; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
+Function SetBundledPluginIds
+  StrCpy $bundledPluginIds "dev.turboism.plugin.backup;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme"
 FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
