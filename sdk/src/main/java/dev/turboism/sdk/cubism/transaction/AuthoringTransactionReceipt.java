@@ -6,14 +6,17 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Immutable evidence captured around one synchronous authoring transaction attempt.
+ * Immutable receipt for one attempted synchronous authoring transaction.
+ *
+ * <p>The receipt exposes only Turboism-owned identities and immutable history snapshots. Native
+ * Editor edit objects, history-manager objects, and transaction handles never cross the SDK
+ * boundary.</p>
  *
  * @param transactionId opaque Turboism transaction identity
- * @param label user-visible history label requested by the caller
- * @param historyBefore native history snapshot captured before the callback
+ * @param label user-visible transaction label
+ * @param historyBefore native history snapshot captured before authoring work
  * @param historyAfter native history snapshot captured after commit or recovery
- * @param historyEntryId opaque Turboism identity associated with the committed native entry, when
- *     a changed transaction committed
+ * @param historyEntryId stable Turboism identity of the committed history entry, when one exists
  */
 public record AuthoringTransactionReceipt(
     String transactionId,
@@ -23,31 +26,32 @@ public record AuthoringTransactionReceipt(
     Optional<String> historyEntryId
 ) {
 
-    /** Validates and defensively normalizes the receipt. */
+    /** Maximum length of opaque transaction and history-entry identities. */
+    public static final int MAX_ID_LENGTH = 128;
+
+    /** Validates and defensively normalizes receipt values. */
     public AuthoringTransactionReceipt {
-        transactionId = requireText(transactionId, "transactionId", 128);
-        label = new AuthoringTransactionOptions(label).label();
+        transactionId = normalizedId(transactionId, "transactionId");
+        label = AuthoringTransactionOptions.of(label).label();
         historyBefore = Objects.requireNonNull(historyBefore, "historyBefore");
         historyAfter = Objects.requireNonNull(historyAfter, "historyAfter");
         historyEntryId = Objects.requireNonNull(historyEntryId, "historyEntryId")
-            .map(value -> requireText(value, "historyEntryId", 128));
+            .map(value -> normalizedId(value, "historyEntryId"));
     }
 
-    private static String requireText(
-        final String value,
-        final String name,
-        final int maximumLength
-    ) {
-        final String checked = Objects.requireNonNull(value, name).strip();
-        if (checked.isEmpty()) throw new IllegalArgumentException(name + " must not be blank");
-        if (checked.length() > maximumLength) {
+    private static String normalizedId(final String value, final String field) {
+        final String normalized = Objects.requireNonNull(value, field).strip();
+        if (normalized.isEmpty()) {
+            throw new IllegalArgumentException(field + " must not be blank");
+        }
+        if (normalized.length() > MAX_ID_LENGTH) {
             throw new IllegalArgumentException(
-                name + " must not exceed " + maximumLength + " characters"
+                field + " must not exceed " + MAX_ID_LENGTH + " characters"
             );
         }
-        if (checked.chars().anyMatch(character -> Character.isISOControl(character))) {
-            throw new IllegalArgumentException(name + " must not contain control characters");
+        if (normalized.chars().anyMatch(Character::isISOControl)) {
+            throw new IllegalArgumentException(field + " must not contain control characters");
         }
-        return checked;
+        return normalized;
     }
 }
