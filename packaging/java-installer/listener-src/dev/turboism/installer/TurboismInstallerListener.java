@@ -29,10 +29,10 @@ import java.util.Set;
  * Responsibilities (frozen spec):
  *  - set the per-OS default install path before the target-directory panel;
  *  - handle config.json before any payload file is copied: seed from the
- *    canonical template on fresh targets, preserve current-schema bytes
- *    exactly, or atomically migrate the explicit legacy schema; fail closed
- *    (abort before mutation) on invalid, future, oversized, symlinked, or
- *    escaping config targets;
+ *    canonical template on fresh targets, update only disabledPlugins on a
+ *    valid current document, or atomically migrate the explicit legacy schema
+ *    before applying selection; fail closed before payload mutation on invalid,
+ *    future, oversized, symlinked, or escaping config targets;
  *  - mark the bundled uninstall.command executable on macOS, only after the
  *    file has been copied (afterPacks).
  *
@@ -241,19 +241,25 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         boolean lite = "lite".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR));
 
         Map<String, Object> seed = ConfigMerge.loadExisting(home);
-        // Managed-upgrade retirement is independent of config ownership. Existing current-schema
-        // config bytes are never rewritten; an explicit old schema is migrated atomically, while a
-        // fresh install alone applies installer plugin-selection defaults.
-        ConfigMerge.retireManagedPlugins(home);
-        if (seed != null) {
-            if (ConfigMerge.schemaVersion(seed) == 1L) return;
-            ConfigMerge.write(home, ConfigMerge.migrateToCurrent(seed));
-            return;
+        final boolean current = seed != null && ConfigMerge.schemaVersion(seed) == 1L;
+        if (seed == null) {
+            seed = ConfigMerge.loadTemplate();
+        } else if (!current) {
+            seed = ConfigMerge.migrateToCurrent(seed);
         }
-        seed = ConfigMerge.loadTemplate();
+
         List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
         disabled = closeRequiredPluginDependencies(disabled, bundled);
-        ConfigMerge.write(home, ConfigMerge.applyPolicy(seed, disabled));
+        final boolean selectionChanged = !ConfigMerge.disabledSelectionMatches(seed, disabled);
+        final Map<String, Object> updated = ConfigMerge.applyPolicy(seed, disabled);
+        ConfigMerge.validateCurrent(updated);
+        if (!current || selectionChanged) {
+            ConfigMerge.write(home, updated);
+        }
+
+        // Config validation and any required atomic publication complete before managed files are
+        // retired. An invalid/future config therefore cannot mutate the installation tree.
+        ConfigMerge.retireManagedPlugins(home);
     }
 
     private void installManagedGraalIfSelected() throws IOException {

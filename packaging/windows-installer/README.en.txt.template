@@ -54,10 +54,11 @@ Turboism; this is explicit, hash-guarded, idempotent, and restored on uninstall.
   pluginDirs:       ["plugins"]
   disabledPlugins:  ids of disabled plugins (unchecked ones, ascending; optional)
 
-On update, a current-schema config.json is left byte-for-byte unchanged. A
-recognized legacy schema is migrated atomically; unknown/future schemas stop
-the update without modifying the original. Use the configurator to change
-plugin enablement intentionally.
+Before any payload update, config.json is validated. The installer changes only
+disabledPlugins to apply the current checkbox selection and preserves every
+other valid setting; when selection is already current, the original bytes stay
+unchanged. A recognized legacy schema is migrated and validated atomically;
+invalid, unknown, or future schemas stop the update without changing payload.
 
 4. Uninstall
 ------------

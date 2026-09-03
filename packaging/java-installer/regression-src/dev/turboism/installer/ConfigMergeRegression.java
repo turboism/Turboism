@@ -17,6 +17,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -28,8 +29,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *    digits, malformed spellings) while preserving valid large
  *    integer/decimal/exponent values via Long/BigDecimal without non-finite
  *    output;
- *  - canonical runtime-config v1 identity (exact format, integral
- *    schemaVersion == 1) failing closed without source mutation;
+ *  - canonical runtime-config v1 identity and values, including an exact JSON
+ *    integer schemaVersion token, failing closed without source mutation;
+ *  - legacy migration validation plus plugin-selection updates that preserve
+ *    every user-owned field outside disabledPlugins;
  *  - the consumed-bytes size cap: exactly MAX bytes load, MAX+1 bytes fail
  *    closed, and concurrent growth is detected deterministically from bytes
  *    actually consumed (the same branch a grown file always trips once it
@@ -50,6 +53,10 @@ public final class ConfigMergeRegression {
         managedFxPlatformPolicy();
         canonicalIdentity();
         runtimeConfigMigration();
+        runtimeConfigValidation();
+        pluginSelectionUpdatesCurrentConfig();
+        listenerAppliesSelectionAndPreservesNoOpBytes();
+        invalidConfigBlocksManagedRetirement();
         malformedUtf8();
         sizeBoundary();
         concurrentGrowth();
@@ -75,6 +82,8 @@ public final class ConfigMergeRegression {
         Map<String, Object> seed = new LinkedHashMap<>();
         seed.put("format", "turboism.runtime.config");
         seed.put("schemaVersion", 1L);
+        seed.put("worktreeId", "installer-seed");
+        seed.put("pluginDirs", List.of("plugins"));
         seed.put("logLevel", "DEBUG");
         return seed;
     }
@@ -242,7 +251,9 @@ public final class ConfigMergeRegression {
 
     private static String validConfig(String marker) {
         return "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
-                + "\"marker\":\"" + marker + "\"}";
+                + "\"worktreeId\":\"policy-" + marker + "\","
+                + "\"pluginDirs\":[\"plugins\"],"
+                + "\"disabledPlugins\":[\"dev.turboism.plugin.fixture\"]}";
     }
 
     private static void restoreSystemProperty(String name, String value) {
@@ -258,7 +269,8 @@ public final class ConfigMergeRegression {
         Path dir = Files.createTempDirectory("cfg-merge-canon-");
         Path cfg = dir.resolve("config.json");
         try {
-            Files.write(cfg, "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,\"logLevel\":\"DEBUG\"}"
+            Files.write(cfg, ("{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                    + "\"worktreeId\":\"canonical-test\",\"logLevel\":\"DEBUG\"}")
                     .getBytes(StandardCharsets.UTF_8));
             Map<String, Object> loaded = ConfigMerge.loadExisting(dir);
             check("valid v1 loads and preserves unrelated fields",
@@ -281,10 +293,14 @@ public final class ConfigMergeRegression {
                 }
                 check("rejection never mutated the source", text.equals(Files.readString(cfg)));
             }
-            // integral 1.0 is accepted as schemaVersion 1
             Files.write(cfg, "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.0}"
                     .getBytes(StandardCharsets.UTF_8));
-            check("integral 1.0 schemaVersion accepted", ConfigMerge.loadExisting(dir) != null);
+            try {
+                ConfigMerge.loadExisting(dir);
+                check("decimal schemaVersion token is rejected", false);
+            } catch (ConfigMerge.ConfigException expected) {
+                check("decimal schemaVersion token is rejected", true);
+            }
         } finally {
             deleteTree(dir);
         }
@@ -316,6 +332,15 @@ public final class ConfigMergeRegression {
             check("v0 migration moves legacy JVM choice into launcher",
                     "bundled".equals(launcher.get("cubismJvm")));
 
+            Map<String, Object> invalidKnownValue = new LinkedHashMap<>();
+            invalidKnownValue.put("logLevel", "BOGUS");
+            try {
+                ConfigMerge.migrateToCurrent(invalidKnownValue);
+                check("v0 migration rejects values invalid under v1", false);
+            } catch (ConfigMerge.ConfigException expected) {
+                check("v0 migration rejects values invalid under v1", true);
+            }
+
             Map<String, Object> unknown = new LinkedHashMap<>();
             unknown.put("legacyUnknown", true);
             try {
@@ -326,6 +351,191 @@ public final class ConfigMergeRegression {
             }
         } finally {
             deleteTree(dir);
+        }
+    }
+
+    private static Map<String, Object> validRuntimeConfig() {
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("format", "turboism.runtime.config");
+        config.put("schemaVersion", 1L);
+        config.put("worktreeId", "installer-test");
+        config.put("pluginDirs", List.of("plugins"));
+        config.put("logLevel", "INFO");
+        config.put("maxLogStorageMiB", 100L);
+        config.put("safeMode", Boolean.FALSE);
+        config.put("hooks", Map.of(
+                "disabledIds", List.of(),
+                "denylistedClasses", List.of(),
+                "startup", Map.of("skipSplash", Boolean.FALSE)));
+        config.put("launcher", Map.of("cubismJvm", "graalvm"));
+        return config;
+    }
+
+    /** Installer-side validation must accept exactly the runtime-config v1 value contract. */
+    private static void runtimeConfigValidation() throws Exception {
+        ConfigMerge.validateCurrent(validRuntimeConfig());
+        check("valid runtime config passes installer validation", true);
+
+        List<Map<String, Object>> invalid = new java.util.ArrayList<>();
+        Map<String, Object> unknown = validRuntimeConfig();
+        unknown.put("unknownField", true);
+        invalid.add(unknown);
+        Map<String, Object> badWorktree = validRuntimeConfig();
+        badWorktree.put("worktreeId", "Bad");
+        invalid.add(badWorktree);
+        Map<String, Object> scalarPluginDirs = validRuntimeConfig();
+        scalarPluginDirs.put("pluginDirs", "plugins");
+        invalid.add(scalarPluginDirs);
+        Map<String, Object> nonTextPluginDir = validRuntimeConfig();
+        nonTextPluginDir.put("pluginDirs", List.of(42L));
+        invalid.add(nonTextPluginDir);
+        Map<String, Object> badLogLevel = validRuntimeConfig();
+        badLogLevel.put("logLevel", "BOGUS");
+        invalid.add(badLogLevel);
+        Map<String, Object> badLogLimitType = validRuntimeConfig();
+        badLogLimitType.put("maxLogStorageMiB", "128");
+        invalid.add(badLogLimitType);
+        Map<String, Object> badLogLimitRange = validRuntimeConfig();
+        badLogLimitRange.put("maxLogStorageMiB", 0L);
+        invalid.add(badLogLimitRange);
+        Map<String, Object> badLocale = validRuntimeConfig();
+        badLocale.put("locale", "xx");
+        invalid.add(badLocale);
+        Map<String, Object> badSafeMode = validRuntimeConfig();
+        badSafeMode.put("safeMode", "false");
+        invalid.add(badSafeMode);
+        Map<String, Object> badHooks = validRuntimeConfig();
+        badHooks.put("hooks", Map.of("startup", Map.of("skipSplash", "false")));
+        invalid.add(badHooks);
+        Map<String, Object> badLauncher = validRuntimeConfig();
+        badLauncher.put("launcher", Map.of("cubismJvm", "other"));
+        invalid.add(badLauncher);
+
+        for (int index = 0; index < invalid.size(); index++) {
+            try {
+                ConfigMerge.validateCurrent(invalid.get(index));
+                check("invalid runtime config fixture " + index + " is rejected", false);
+            } catch (ConfigMerge.ConfigException expected) {
+                check("invalid runtime config fixture " + index + " is rejected", true);
+            }
+        }
+    }
+
+    /** Installer selection updates only disabledPlugins and retains every other valid user field. */
+    private static void pluginSelectionUpdatesCurrentConfig() throws Exception {
+        Map<String, Object> current = validRuntimeConfig();
+        current.put("worktreeId", "user-runtime");
+        current.put("pluginDirs", List.of("custom-plugins"));
+        current.put("logLevel", "DEBUG");
+        current.put("disabledPlugins", List.of(
+                "dev.turboism.plugin.alpha",
+                "dev.turboism.plugin.unrelated"));
+
+        List<String> disabled = ConfigMerge.mergeDisabled(
+                current,
+                Set.of("dev.turboism.plugin.alpha", "dev.turboism.plugin.beta"),
+                Set.of("dev.turboism.plugin.alpha"),
+                false);
+        Map<String, Object> updated = ConfigMerge.applyPolicy(current, disabled);
+
+        check("selection enables a reselected bundled plugin",
+                !((List<?>) updated.get("disabledPlugins")).contains("dev.turboism.plugin.alpha"));
+        check("selection disables an unchecked bundled plugin",
+                ((List<?>) updated.get("disabledPlugins")).contains("dev.turboism.plugin.beta"));
+        check("selection preserves unrelated disabled plugins",
+                ((List<?>) updated.get("disabledPlugins")).contains("dev.turboism.plugin.unrelated"));
+        check("selection preserves user-owned worktree and plugin paths",
+                "user-runtime".equals(updated.get("worktreeId"))
+                        && List.of("custom-plugins").equals(updated.get("pluginDirs")));
+        check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel")));
+        ConfigMerge.validateCurrent(updated);
+
+        Map<String, Object> sameSetDifferentOrder = new LinkedHashMap<>(updated);
+        sameSetDifferentOrder.put("disabledPlugins", List.of(
+                "dev.turboism.plugin.unrelated",
+                "dev.turboism.plugin.beta"));
+        check("selection no-op comparison ignores disabled plugin order",
+                ConfigMerge.disabledSelectionMatches(sameSetDifferentOrder, disabled));
+
+        Path oversizedHome = Files.createTempDirectory("cfg-write-limit-").resolve("new-home");
+        Map<String, Object> oversized = validRuntimeConfig();
+        oversized.put("diagnostics", Map.of("blob", "x".repeat(65_536)));
+        try {
+            ConfigMerge.write(oversizedHome, oversized);
+            check("oversized updated config is rejected before home creation", false);
+        } catch (ConfigMerge.ConfigException expected) {
+            check("oversized updated config is rejected before home creation",
+                    !Files.exists(oversizedHome));
+        } finally {
+            deleteTree(oversizedHome.getParent());
+        }
+    }
+
+    /** The actual listener applies selection and preserves bytes for a semantic no-op. */
+    private static void listenerAppliesSelectionAndPreservesNoOpBytes() throws Exception {
+        final Path home = Files.createTempDirectory("listener-selection-");
+        final Path config = home.resolve("config.json");
+        try {
+            final String original = "{\n"
+                    + "  \"format\": \"turboism.runtime.config\",\n"
+                    + "  \"schemaVersion\": 1,\n"
+                    + "  \"worktreeId\": \"listener-selection\",\n"
+                    + "  \"pluginDirs\": [\"custom-plugins\"],\n"
+                    + "  \"logLevel\": \"DEBUG\"\n"
+                    + "}\n";
+            Files.writeString(config, original, StandardCharsets.UTF_8);
+            listener(home, "lite").beforePacks(List.of());
+            Map<String, Object> updated = ConfigMerge.loadExisting(home);
+            check("listener Lite disables the bundled plugin",
+                    updated != null
+                            && List.of("dev.turboism.plugin.fixture")
+                                    .equals(updated.get("disabledPlugins")));
+            check("listener selection preserves unrelated current fields",
+                    "listener-selection".equals(updated.get("worktreeId"))
+                            && List.of("custom-plugins").equals(updated.get("pluginDirs"))
+                            && "DEBUG".equals(updated.get("logLevel")));
+
+            final String semanticNoOp = "{\n"
+                    + "  \"format\": \"turboism.runtime.config\",\n"
+                    + "  \"schemaVersion\": 1,\n"
+                    + "  \"worktreeId\": \"listener-selection\",\n"
+                    + "  \"disabledPlugins\": [\n"
+                    + "    \"dev.turboism.plugin.unrelated\",\n"
+                    + "    \"dev.turboism.plugin.fixture\"\n"
+                    + "  ]\n"
+                    + "}\n";
+            Files.writeString(config, semanticNoOp, StandardCharsets.UTF_8);
+            listener(home, "lite").beforePacks(List.of());
+            check("listener preserves exact bytes for a semantic selection no-op",
+                    semanticNoOp.equals(Files.readString(config, StandardCharsets.UTF_8)));
+        } finally {
+            deleteTree(home);
+        }
+    }
+
+    /** Invalid config must stop before identity-proven managed JAR retirement. */
+    private static void invalidConfigBlocksManagedRetirement() throws Exception {
+        final Path home = Files.createTempDirectory("listener-invalid-config-");
+        final Path plugins = Files.createDirectories(home.resolve("plugins"));
+        final Path retired = plugins.resolve("retired.jar");
+        final Path config = home.resolve("config.json");
+        final String invalid = "{\"format\":\"turboism.runtime.config\","
+                + "\"schemaVersion\":1,\"worktreeId\":\"listener-invalid\","
+                + "\"logLevel\":\"BOGUS\"}";
+        try {
+            writePluginJar(retired, "dev.turboism.plugin.logfilter");
+            Files.writeString(config, invalid, StandardCharsets.UTF_8);
+            try {
+                listener(home, "lite").beforePacks(List.of());
+                check("invalid current config aborts listener", false);
+            } catch (RuntimeException expected) {
+                check("invalid current config aborts listener", true);
+            }
+            check("invalid config leaves retired managed JAR untouched", Files.exists(retired));
+            check("invalid config bytes remain unchanged",
+                    invalid.equals(Files.readString(config, StandardCharsets.UTF_8)));
+        } finally {
+            deleteTree(home);
         }
     }
 
@@ -357,12 +567,14 @@ public final class ConfigMergeRegression {
                     java.util.Arrays.equals(Files.readAllBytes(cfg), malformed));
             // contrast: the same document with valid UTF-8 loads and preserves
             // the unrelated field
-            byte[] valid = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,\"note\":\"ab\"}"
+            byte[] valid = ("{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                    + "\"worktreeId\":\"utf8-test\",\"diagnostics\":{\"note\":\"ab\"}}")
                     .getBytes(StandardCharsets.UTF_8);
             Files.write(cfg, valid);
             Map<String, Object> m = ConfigMerge.loadExisting(dir);
             check("valid UTF-8 loads and preserves field",
-                    m != null && "ab".equals(m.get("note")));
+                    m != null && m.get("diagnostics") instanceof Map<?, ?>
+                            && "ab".equals(((Map<?, ?>) m.get("diagnostics")).get("note")));
         } finally {
             deleteTree(dir);
         }
@@ -376,7 +588,8 @@ public final class ConfigMergeRegression {
      * BOM-less file.
      */
     private static void bomHandling() throws Exception {
-        String doc = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,\"logLevel\":\"DEBUG\"}";
+        String doc = "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,"
+                + "\"worktreeId\":\"bom-test\",\"logLevel\":\"DEBUG\"}";
         Object v = BoundedJson.parse("\uFEFF" + doc);
         check("BOM-prefixed document parses", v instanceof Map);
         String s = BoundedJson.serialize(v);
@@ -432,19 +645,23 @@ public final class ConfigMergeRegression {
             // valid JSON of exactly MAX bytes: three strings at the parser's
             // string bound plus trailing whitespace (legal JSON)
             StringBuilder sb = new StringBuilder();
-            sb.append("{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1");
+            sb.append("{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1,")
+                    .append("\"worktreeId\":\"boundary-test\",\"diagnostics\":{");
             int padLen = (int) BoundedJson.MAX_STRING_LEN;
             for (int i = 0; i < 3; i++) {
-                sb.append(",\"p").append(i).append("\":\"").append("x".repeat(padLen)).append("\"");
+                if (i > 0) sb.append(',');
+                sb.append("\"p").append(i).append("\":\"").append("x".repeat(padLen)).append("\"");
             }
-            sb.append("}");
+            sb.append("}}");
             int spaces = (int) ConfigMerge.MAX_CONFIG_BYTES - sb.length();
             check("boundary construction fits with padding", spaces >= 0);
             byte[] maxBytes = (sb + " ".repeat(spaces)).getBytes(StandardCharsets.UTF_8);
             check("boundary file is exactly MAX bytes", maxBytes.length == ConfigMerge.MAX_CONFIG_BYTES);
             Files.write(cfg, maxBytes);
             Map<String, Object> m = ConfigMerge.loadExisting(dir);
-            check("exactly MAX bytes still loads", m != null && m.containsKey("p2"));
+            check("exactly MAX bytes still loads",
+                    m != null && m.get("diagnostics") instanceof Map<?, ?>
+                            && ((Map<?, ?>) m.get("diagnostics")).containsKey("p2"));
             // one more byte: the consumed-byte cap must fail closed, source intact
             Files.write(cfg, (new String(maxBytes, StandardCharsets.UTF_8) + " ")
                     .getBytes(StandardCharsets.UTF_8));

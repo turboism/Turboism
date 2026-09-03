@@ -191,8 +191,8 @@ write_checksum_manifest("payload-fx.sha256", fx_payload)
 
 lines = []
 lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。")
-lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section 只为")
-lines.append("; 全新 config.json 收集 disabledPlugins；更新时 current schema 配置保持不变。")
+lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section")
+lines.append("; 为全新安装和升级收集 disabledPlugins，其他有效用户配置保持不变。")
 lines.append("")
 
 # 每项永久载荷都先按目标 SHA-256 生成计划；NSIS 只把缺失或变更项解压到私有临时目录。
@@ -228,7 +228,7 @@ append_extractor(
 
 # 隐藏载荷 Section：Full 模式安装全部插件 JAR；Lite 模式不写任何 JAR（$Mode 守卫）。
 # 先用内嵌 SHA-256 清单生成计划，再只解压需要替换的条目；写入前仍校验源和目标。
-# 隐藏 Section 不出现在组件页；可见勾选只影响全新安装的 disabledPlugins。
+# 隐藏 Section 不出现在组件页；可见勾选在配置前置阶段更新 disabledPlugins。
 lines.append('Section "-插件载荷" SecPluginPayload')
 lines.append("  ${If} $Mode == 1")
 lines.append("    nsExec::ExecToLog '\"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"$INSTDIR\\install-jar-payload.ps1\" -ManifestPath \"$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256\" -DestinationRoot \"$INSTDIR\" -PlanRoot \"$PLUGINSDIR\\Turboism-plugin-plan\" -PlanOnly'")
@@ -295,6 +295,12 @@ for p in plugins:
     lines.append("    IntOp $1 $1 | ${SF_SELECTED}")
     lines.append("  ${EndIf}")
     lines.append(f"  SectionSetFlags ${{{sec}}} $1")
+lines.append("FunctionEnd")
+lines.append("")
+
+lines.append("; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。")
+lines.append("Function SetBundledPluginIds")
+lines.append(f'  StrCpy $bundledPluginIds "{";".join(p["id"] for p in plugins)}"')
 lines.append("FunctionEnd")
 lines.append("")
 

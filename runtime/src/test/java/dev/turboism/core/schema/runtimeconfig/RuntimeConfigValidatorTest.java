@@ -120,4 +120,15 @@ class RuntimeConfigValidatorTest {
         root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", "yes");
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
     }
+
+    @Test
+    void rejectsPluginDirectoriesThatAreNotStringArrays() {
+        final ObjectNode scalar = base();
+        scalar.put("pluginDirs", "plugins");
+        final ObjectNode nonTextEntry = base();
+        nonTextEntry.putArray("pluginDirs").add(42);
+
+        assertTrue(codes(scalar).contains("RUNTIME_CONFIG_BAD_TYPE"));
+        assertTrue(codes(nonTextEntry).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
 }

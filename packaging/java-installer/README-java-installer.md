@@ -42,17 +42,17 @@ java -jar TurboismInstaller-<version>.jar
 ```
 
 Flow: Welcome -> MIT License -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
-every first-party plugin to selected and installs the matching managed fx
-payload only on reviewed Linux/macOS OS/CPU pairs. Windows Full fails before
-config or payload mutation because no reviewed Windows fx executable exists.
-Thin installs the complete plugin roster without native fx bytes and can be
-installed on Windows; it also accepts an explicit custom executable path. The
-first-party loopback MCP server is available on supported Windows hosts with
-bearer authentication and per-user, owner/file-type, reparse-point,
+every first-party plugin to selected and installs the matching reviewed managed
+fx runtime. Linux and macOS use their reviewed OS/CPU payloads. Windows x64 Full
+installs the reviewed fx product payload; other Windows architectures fail
+closed before config or payload mutation. Thin installs the complete plugin
+roster without native fx bytes and also accepts an explicit custom executable
+path. The first-party loopback MCP server is available on supported Windows
+hosts with bearer authentication and per-user, owner/file-type, reparse-point,
 secure-temporary-file, and post-move publication checks. Verified online fx
-repair and managed native fx payloads remain limited to the reviewed
-Linux/macOS platforms. Lite installs the agent and common files with
-no plugin JAR or fx runtime. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
+repair remains limited to the reviewed Linux/macOS platforms. Lite installs the
+agent and common files with no plugin JAR or fx runtime. Default home:
+`%LOCALAPPDATA%\Turboism` (Windows),
 `~/Library/Application Support/Turboism` (macOS),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
@@ -60,21 +60,23 @@ be chosen.
 The declaration gate is the same contract in GUI, console, and automated modes: all four acknowledgements must be explicit before the full localized declaration is accepted. The acknowledgements cover Turboism's independent third-party identity, lawful Cubism authorization, independent backups before authorized content-changing automation, and open-source as-is operation without compatibility or recovery guarantees.
 
 `config.json` has explicit update ownership. A fresh installation creates the
-current schema from the bundled template and initial plugin selection. An
-existing current-schema file is left byte-for-byte unchanged, regardless of
-installation mode or plugin selection. A recognized legacy v0 document is
-migrated atomically to v1 while preserving its known user settings; malformed,
-unknown, or future schemas fail closed without modifying the original. Use the
-installed configurator when intentionally changing plugin enablement. Retired
-JAR cleanup remains identity-verified and independent of config migration; any
-leftover retired JAR is denied by the runtime PluginJarContract boundary,
-since the installer deletes only identity-proven retired JARs and never deletes
-unverifiable entries). Invalid, oversized (> 64 KiB), symlinked, escaping,
-or non-regular config targets fail closed without truncating the original;
-reads are bounded and never follow symlinks, writes are atomic-only. Unknown
-or third-party plugin files are never deleted.
+current schema from the bundled template and initial plugin selection. On an
+existing valid v1 document, the installer changes only `disabledPlugins`; all
+other user settings remain intact, and a selection that is already current
+leaves the original bytes untouched. A recognized legacy v0 document is
+migrated to v1, validated against the complete runtime schema, and then receives
+the selected plugin state in the same atomic publication. Malformed, unknown,
+future-schema, or runtime-invalid documents fail closed before payload mutation
+without modifying the original. Retired JAR cleanup remains identity-verified
+and independent of config migration; any leftover retired JAR is denied by the
+runtime `PluginJarContract` boundary because the installer deletes only
+identity-proven retired JARs and never deletes unverifiable entries. Invalid,
+oversized (> 64 KiB), symlinked, escaping, or non-regular config targets fail
+closed without truncating the original; reads are bounded and never follow
+symlinks, and writes use atomic replacement only. Unknown or third-party plugin
+files are never deleted.
 
-Rerun the installer to change the selected plugin set.
+Rerun the installer to apply a different plugin selection.
 
 On Windows, the staged payload also includes `configure_turboism.ps1` and `cubism-launch-common.ps1`. After installation the configurator opens automatically, lists only exact supported Cubism Editor 5.2.03, 5.3.02, and 5.3.03 installations, and presents independent controls for Turboism-owned shortcuts and official Cubism BAT integration. BAT integration runs only for exact installations selected by the user, records a hash-guarded backup, and cleanup restores only hash-matching managed files; user edits or malformed state are conflicts and preserve state/backups for retry. The configurator writes actionable diagnostics under `logs/installer/`.
 
@@ -116,10 +118,11 @@ Deterministic, non-GUI (console mode), runnable on Linux/macOS/Windows with
 Java 17. It builds the installer and verifies: JAR layout (en/zh/ja
 langpacks, uninstaller, one required common pack, one optional pack per
 non-core plugin), Lite and Thin installs, Full install with deselects on a
-reviewed platform, compiled listener policy behavior for Windows Full
-rejection and Windows Thin/Lite admission, config merge and fail-closed cases
-(strict numbers, ASCII-only Unicode escapes, canonical v1 identity, malformed
-UTF-8, size boundary), and both uninstall branches with a synthetic
+reviewed platform, compiled listener policy behavior for Windows x64 Full and
+unsupported Windows architectures, config selection/migration and fail-closed
+cases (strict numbers, ASCII-only Unicode escapes, canonical v1 identity,
+invalid v1 values, malformed UTF-8, size boundary), and both uninstall branches
+with a synthetic
 third-party plugin file preserved. Every captured
 JVM runs with a task-owned `java.io.tmpdir` and `-Dfile.encoding=UTF-8`;
 all subprocess text is decoded with explicit UTF-8, so the live en/zh/ja
