@@ -2,7 +2,7 @@
 ; Turboism Windows 安装器 — NSIS MUI2（Unicode）
 ;
 ; 构建（由 assemble-release.sh 调用，也可手动）：
-;   makensis -WX -DVER=<ver> -DSTAGING_DIR=<abs> -DOUT_DIR=<abs> installer.nsi
+;   makensis -WX -DVER=<ver> -DSTAGING_DIR=<abs> -DGENERATED_DIR=<abs> -DOUT_DIR=<abs> installer.nsi
 ;
 ; 依赖：
 ;   - plugin-sections.nsh 由 assemble-release.sh 从插件 jar 的
@@ -12,7 +12,7 @@
 ;
 ; 插件 Section 通过 ${SEC_<id>} 编译期常量（Section 索引）访问，与声明顺序无关；
 ; 生成文件内含隐藏载荷 Section（$Mode==1 时安装全部插件 JAR）与
-; SetPluginSectionsSelected / CollectUncheckedPluginIds / RemoveBundledFromExistingDisabled 三个函数。
+; SetPluginSectionsSelected / CollectUncheckedPluginIds 两个函数。
 
 Unicode true
 
@@ -31,6 +31,9 @@ Unicode true
 !ifndef STAGING_DIR
   !define STAGING_DIR "../../build/windows-installer/staging"
 !endif
+!ifndef GENERATED_DIR
+  !define GENERATED_DIR "../../build/windows-installer/generated"
+!endif
 !ifndef OUT_DIR
   !define OUT_DIR "../../build/windows-installer/dist"
 !endif
@@ -45,7 +48,7 @@ Unicode true
 !endif
 
 ; ---------- 基本属性 ----------
-Name "Turboism"
+Name "Turboism ${VER}"
 OutFile "${OUT_DIR}/TurboismInstaller-${VER}.exe"
 Icon "${ICON_FILE}"
 UninstallIcon "${ICON_FILE}"
@@ -91,6 +94,9 @@ SetFont "MS Shell Dlg" 12
 !define MUI_FINISHPAGE_SHOWREADME
 !define MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(FinishOpenFolderText)"
+
+; 安装前哈希计划对应的条件解压函数（由 assemble-release.sh 生成）。
+!include "${GENERATED_DIR}/payload-extract.nsh"
 
 ; ---------- 页面流程：Welcome → MIT License → EULA 正文 → 四项确认 → 模式 → Components → Graal → Directory → Cubism 扫描 → 启动选项 → 安装 → Finish ----------
 !insertmacro MUI_PAGE_WELCOME
@@ -315,12 +321,15 @@ LangString StartMenuLaunchName ${LANG_JAPANESE} "Turboism_Launch_Cubism"
 LangString ConfigWriteError ${LANG_ENGLISH} "Cannot write config.json: $INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_SIMPCHINESE} "无法写入 config.json：$INSTDIR\config.json"
 LangString ConfigWriteError ${LANG_JAPANESE} "config.json を書き込めません：$INSTDIR\config.json"
+LangString ConfigMigrationError ${LANG_ENGLISH} "The existing config.json could not be migrated safely. The original file was left unchanged."
+LangString ConfigMigrationError ${LANG_SIMPCHINESE} "无法安全迁移既有 config.json，原文件保持不变。"
+LangString ConfigMigrationError ${LANG_JAPANESE} "既存の config.json を安全に移行できませんでした。元のファイルは変更されていません。"
 LangString PluginRetireError ${LANG_ENGLISH} "Cannot retire an obsolete Turboism plugin JAR. Close Cubism and retry the upgrade."
 LangString PluginRetireError ${LANG_SIMPCHINESE} "无法移除旧版 Turboism 插件 JAR。请关闭 Cubism 后重试升级。"
 LangString PluginRetireError ${LANG_JAPANESE} "旧版 Turboism プラグイン JAR を削除できません。Cubism を終了してアップグレードを再試行してください。"
-LangString JarPayloadInstallError ${LANG_ENGLISH} "Cannot install the Turboism JAR payload. Close Cubism and retry the installation."
-LangString JarPayloadInstallError ${LANG_SIMPCHINESE} "无法安装 Turboism JAR 载荷。请关闭 Cubism 后重试安装。"
-LangString JarPayloadInstallError ${LANG_JAPANESE} "Turboism JAR ペイロードをインストールできません。Cubism を終了してインストールを再試行してください。"
+LangString PayloadInstallError ${LANG_ENGLISH} "Cannot install the Turboism payload. Close Cubism and retry the installation."
+LangString PayloadInstallError ${LANG_SIMPCHINESE} "无法安装 Turboism 载荷。请关闭 Cubism 后重试安装。"
+LangString PayloadInstallError ${LANG_JAPANESE} "Turboism ペイロードをインストールできません。Cubism を終了してインストールを再試行してください。"
 LangString ShortcutCleanupFailure ${LANG_ENGLISH} "Turboism shortcut restoration/cleanup failed. Nothing else was removed; retry uninstall after resolving the conflict."
 LangString ShortcutCleanupFailure ${LANG_SIMPCHINESE} "Turboism 快捷方式恢复/清理失败。未删除其他内容；解决冲突后请重试卸载。"
 LangString ShortcutCleanupFailure ${LANG_JAPANESE} "Turboism のショートカットの復元/クリーンアップに失敗しました。他の項目は削除していません。競合を解決してからアンインストールを再試行してください。"
@@ -382,9 +391,7 @@ Var StartMenuCheckbox
 Var DesktopShortcutCheckbox
 Var IntegrateBatCheckbox
 Var uncheckedPluginIds   ; 本次未勾选的插件 id，';' 分隔（Full 模式）
-Var existingDisabled     ; 既有 config.json 的 disabledPlugins，';' 分隔
-Var disabledFinal        ; 合并排序后的列表，';' 分隔
-Var configBuffer         ; 既有 config.json 全文（≤64KB）
+Var disabledFinal        ; 排序、去重后的列表，';' 分隔
 Var configHandle
 Var json                 ; 待写入的 config.json 内容
 Var sorted
@@ -392,12 +399,7 @@ Var head
 Var walk
 Var id
 Var cand
-Var needle
-Var needleLen
-Var cfgLen
-Var found
 Var pos
-Var chunk
 Var ch
 Var len
 Var line
@@ -430,13 +432,15 @@ Function .onInit
   StrCpy $CubismDiscoveryPollCount 0
   StrCpy $CubismDiscoveryComplete 0
   StrCpy $createStartMenu 1
-  StrCpy $createDesktopShortcut 0
+  StrCpy $createDesktopShortcut 1
   StrCpy $integrateCubismBat 0
   StrCpy $INSTDIR "$LOCALAPPDATA\Turboism"
 FunctionEnd
 
 Function LaunchTurboism
-  ExecShell "" "$INSTDIR\launch-cubism-turboism.bat" "" SW_SHOWNORMAL
+  ; Finish 页回调运行在安装器 UI 线程。避免 ShellExecute 在关闭窗口时同步完成
+  ; 文件关联/安全扫描；Exec 只创建 cmd 进程即返回，由 cmd 异步运行启动脚本。
+  Exec '"$SYSDIR\cmd.exe" /D /S /C ""$INSTDIR\launch-cubism-turboism.bat""'
 FunctionEnd
 
 Function OpenInstallDirectory
@@ -821,6 +825,13 @@ Function LaunchOptionsLeave
 FunctionEnd
 
 Function .onInstSuccess
+  ; 预安装扫描目录包含 agent JAR。若留到 Finish 按钮关闭安装器时由 NSIS
+  ; 自动清理，会表现为点击“完成”后的短暂卡顿；在进入 Finish 页前主动释放。
+  ${If} $CubismDiscoveryWorkDir != ""
+    RMDir /r "$CubismDiscoveryWorkDir"
+    StrCpy $CubismDiscoveryWorkDir ""
+    StrCpy $CubismDiscoveryResult ""
+  ${EndIf}
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -InitializeSelection'
   Pop $0
   ${If} $0 != 0
@@ -853,7 +864,6 @@ FunctionEnd
 ; ---------- Section 声明 ----------
 ; 插件 Section 由 plugin-sections.nsh 提供（见文件头注释）
 Section "-核心文件" SecCore
-  SetOutPath "$INSTDIR"
   SetOverwrite on
   ; Managed-upgrade retirement: run the CURRENT staged helper from NSIS's
   ; temporary directory, never an older installed configurator that may not
@@ -868,33 +878,33 @@ Section "-核心文件" SecCore
     MessageBox MB_ICONSTOP "$(PluginRetireError)"
     Abort
   ${EndIf}
-  SetOutPath "$INSTDIR"
-  File "${STAGING_DIR}/install-jar-payload.ps1"
-  SetOutPath "$PLUGINSDIR\Turboism-core-jars"
-  File /oname=turboism-agent.jar "${STAGING_DIR}/turboism-agent.jar"
-  SetOutPath "$PLUGINSDIR\Turboism-core-jars\graal\lib"
-  File "${STAGING_DIR}/graal/lib/*.jar"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-core-jars" -DestinationRoot "$INSTDIR"'
+  RMDir /r "$PLUGINSDIR\Turboism-retire"
+
+  ; 清单和校验 helper 是很小的临时引导载荷。永久核心文件先逐项检查目标 SHA-256，
+  ; 仅将缺失或不同的条目解压到私有临时目录，再按同一清单校验源、复制并复核目标。
+  SetOutPath "$PLUGINSDIR\Turboism-payload-bootstrap"
+  File "/oname=install-jar-payload.ps1" "${STAGING_DIR}/install-jar-payload.ps1"
+  SetOutPath "$PLUGINSDIR\Turboism-payload-manifests"
+  File "${GENERATED_DIR}/payload-core.sha256"
+  File "${GENERATED_DIR}/payload-plugins.sha256"
+  File "${GENERATED_DIR}/payload-fx.sha256"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-payload-bootstrap\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-core-plan" -PlanOnly'
   Pop $0
   ${If} $0 != 0
-    MessageBox MB_ICONSTOP "$(JarPayloadInstallError)"
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
     Abort
   ${EndIf}
-  SetOutPath "$INSTDIR"
-  File "${STAGING_DIR}/launch-cubism-turboism.bat"
-  File "${STAGING_DIR}/launch-cubism-turboism.ps1"
-  File "${STAGING_DIR}/configure_turboism.ps1"
-  File "${STAGING_DIR}/cubism-launch-common.ps1"
-  File "${STAGING_DIR}/install-managed-graal.ps1"
-  File "${STAGING_DIR}/turboism.ico"
-  File "${STAGING_DIR}/turboism.png"
-  File "${STAGING_DIR}/README.txt"
-  File "${STAGING_DIR}/README.zh.txt"
-  File "${STAGING_DIR}/README.ja.txt"
-  File "${LICENSE_FILE}"
-  File "${STAGING_DIR}/EULA.en.txt"
-  File "${STAGING_DIR}/EULA.zh-Hans.txt"
-  File "${STAGING_DIR}/EULA.ja.txt"
+  Call ExtractCorePayload
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-payload-bootstrap\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-core-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256" -DestinationRoot "$INSTDIR"'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
+  ${EndIf}
+  RMDir /r "$PLUGINSDIR\Turboism-core-payload"
+  RMDir /r "$PLUGINSDIR\Turboism-core-plan"
+  RMDir /r "$PLUGINSDIR\Turboism-payload-bootstrap"
+  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256"
 SectionEnd
 
 Section "-托管 GraalVM" SecManagedGraal
@@ -910,36 +920,51 @@ Section "-托管 GraalVM" SecManagedGraal
 SectionEnd
 
 Section /o "$(ManagedFxSection)" SecManagedFx
-  SetOutPath "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
-  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/fx.exe"
-  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/LICENSE"
-  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/THIRD_PARTY_NOTICES.md"
-  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/TURBOISM-DISTRIBUTION-NOTICE.txt"
-  File "${STAGING_DIR}/runtimes/fx/0.0.5/windows-x86_64/manifest.properties"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-fx-plan" -PlanOnly'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
+  ${EndIf}
+  Call ExtractManagedFxPayload
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-fx-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256" -DestinationRoot "$INSTDIR"'
+  Pop $0
+  ${If} $0 != 0
+    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
+    Abort
+  ${EndIf}
+  RMDir /r "$PLUGINSDIR\Turboism-fx-payload"
+  RMDir /r "$PLUGINSDIR\Turboism-fx-plan"
+  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256"
 SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
 !include "plugin-sections.nsh"
 
 Section "-写入配置" SecConfig
-  ; 收集本次未勾选的插件 id（两种模式都收集：Lite 下 ModeLeave 已取消全部
-  ; 插件 Section，因此收集到全部捆绑 id —— 防止 Full→Lite 后陈旧 JAR 加载）
-  StrCpy $uncheckedPluginIds ""
-  Call CollectUncheckedPluginIds
-  ; 读取既有 config.json 的 disabledPlugins（合并时保留）
-  StrCpy $existingDisabled ""
-  Call ReadExistingDisabledPlugins
-  ; 合并 + 排序 + 写回（从模板重建；worktreeId/pluginDirs 固定覆盖）
-  Call MergeAndWriteConfig
+  ${If} ${FileExists} "$INSTDIR\config.json"
+    ; 更新安装不覆盖当前 schema 的用户配置。旧 schema 只通过显式、原子迁移升级；
+    ; 未知或损坏的配置失败关闭，原始字节保持不变。
+    nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\configure_turboism.ps1" -Home "$INSTDIR" -MigrateConfig'
+    Pop $0
+    ${If} $0 != 0
+      MessageBox MB_ICONSTOP "$(ConfigMigrationError)"
+      Abort
+    ${EndIf}
+  ${Else}
+    ; 全新安装才根据本次插件选择创建 config.json。Lite 下 ModeLeave 已取消全部
+    ; 插件 Section，因此 fresh config 会禁用全部捆绑插件。
+    StrCpy $uncheckedPluginIds ""
+    Call CollectUncheckedPluginIds
+    Call MergeAndWriteConfig
+  ${EndIf}
 SectionEnd
 
-; ---------- 配置合并 ----------
-; 语义（与 SPEC.md 一致）：先从既有 disabledPlugins 移除全部当前捆绑插件 id
-; （重选已捆绑插件即启用），再合并本次未勾选插件（Lite 下为全部捆绑 id）；
-; 无关 id 保留；worktreeId 覆盖为 turboism-runtime，pluginDirs 覆盖为 ["plugins"]。
-; 其它字段（logLevel/hooks 等）不保留，由运行时默认值补全；
-; 需要完整保留既有配置的字段时请使用 configure_turboism.ps1。
-; 注意：config.json 内容为纯 ASCII，FileWrite（Unicode 安装器下按 ACP 转换）安全。
+; ---------- 全新配置生成 ----------
+; 已有 config.json 在 SecConfig 中交给 configure_turboism.ps1：current schema 原字节跳过，
+; 显式 legacy v0 原子迁移，未知/未来 schema 失败关闭。以下列表辅助只服务于全新安装，
+; 根据本次选择生成排序、去重的 disabledPlugins；Lite 下为全部捆绑 id。
+; 注意：fresh config 内容为纯 ASCII，FileWrite（Unicode 安装器下按 ACP 转换）安全。
 
 ; 输入: $0 = ';' 分隔列表；输出: $0 = 首段, $1 = 剩余（无 ';' 时 $0 保持整表、$1 为空）
 ; 仅使用 scratch 寄存器 $pos/$len/$ch/$next，不改写其它共享寄存器。
@@ -962,158 +987,9 @@ Function SplitFirst
   ${Loop}
 FunctionEnd
 
-; 通用列表项删除：$0 = ';' 分隔列表，$1 = 要删除的项（删除全部精确匹配）
-; 输出：$0 = 删除后的列表（其余项保持原序）；$1 = 要删除的项（原样返回）。
-; 调用方通过 SplitFirst 约定共享 $0/$1，本函数仅使用 $3/$5。
-Function RemoveItemFromList
-  StrCpy $5 "$1"          ; 备份待删除项（SplitFirst 会改写 $0/$1）
-  StrCpy $3 ""            ; 结果
-  ${Do}
-    ${If} $0 == ""
-      ${ExitDo}
-    ${EndIf}
-    Call SplitFirst         ; $0 = 首段, $1 = 剩余
-    ${If} $0 != $5
-      ${If} $3 == ""
-        StrCpy $3 "$0"
-      ${Else}
-        StrCpy $3 "$3;$0"
-      ${EndIf}
-    ${EndIf}
-    StrCpy $0 "$1"          ; 继续处理剩余列表
-  ${Loop}
-  StrCpy $0 "$3"
-  StrCpy $1 "$5"
-FunctionEnd
-
-; 读取 $INSTDIR\config.json 的 disabledPlugins 到 $existingDisabled（';' 分隔）
-Function ReadExistingDisabledPlugins
-  ${IfNot} ${FileExists} "$INSTDIR\config.json"
-    Return
-  ${EndIf}
-  FileOpen $configHandle "$INSTDIR\config.json" r
-  ${If} $configHandle == ""
-    Return
-  ${EndIf}
-  StrCpy $configBuffer ""
-  ${Do}
-    FileRead $configHandle $line
-    ${If} ${Errors}
-      ${ExitDo}
-    ${EndIf}
-    StrCpy $configBuffer "$configBuffer$line"
-    StrLen $len $configBuffer
-    ${If} $len > 65536
-      ${ExitDo}
-    ${EndIf}
-  ${Loop}
-  FileClose $configHandle
-  ; 查找 "disabledPlugins"
-  StrCpy $needle '"disabledPlugins"'
-  StrLen $needleLen $needle
-  StrLen $cfgLen $configBuffer
-  StrCpy $pos 0
-  StrCpy $found -1
-  ${Do}
-    ${If} $pos >= $cfgLen
-      ${ExitDo}
-    ${EndIf}
-    StrCpy $chunk "$configBuffer" $needleLen $pos
-    ${If} $chunk == $needle
-      StrCpy $found $pos
-      ${ExitDo}
-    ${EndIf}
-    IntOp $pos $pos + 1
-  ${Loop}
-  ${If} $found == -1
-    Return
-  ${EndIf}
-  ; 定位数组 '['（跳过键名与冒号、空白）
-  IntOp $pos $found + $needleLen
-  ${Do}
-    ${If} $pos >= $cfgLen
-      Return
-    ${EndIf}
-    StrCpy $ch "$configBuffer" 1 $pos
-    ${If} $ch == "["
-      ${ExitDo}
-    ${EndIf}
-    IntOp $pos $pos + 1
-  ${Loop}
-  ; 解析引号字符串直到 ']'（处理 \" 与 \\ 转义）
-  IntOp $pos $pos + 1
-  ${Do}
-    ${If} $pos >= $cfgLen
-      ${ExitDo}
-    ${EndIf}
-    StrCpy $ch "$configBuffer" 1 $pos
-    ${If} $ch == "]"
-      ${ExitDo}
-    ${EndIf}
-    ${If} $ch == '"'
-      IntOp $pos $pos + 1
-      StrCpy $id ""
-      ${Do}
-        ${If} $pos >= $cfgLen
-          ${ExitDo}
-        ${EndIf}
-        StrCpy $ch "$configBuffer" 1 $pos
-        ${If} $ch == '\'
-          IntOp $pos $pos + 2
-          ${Continue}
-        ${EndIf}
-        ${If} $ch == '"'
-          IntOp $pos $pos + 1
-          ${ExitDo}
-        ${EndIf}
-        StrCpy $id "$id$ch"
-        IntOp $pos $pos + 1
-      ${Loop}
-      ${If} $id != ""
-        ${If} $existingDisabled == ""
-          StrCpy $existingDisabled "$id"
-        ${Else}
-          StrCpy $existingDisabled "$existingDisabled;$id"
-        ${EndIf}
-      ${EndIf}
-    ${Else}
-      IntOp $pos $pos + 1
-    ${EndIf}
-  ${Loop}
-FunctionEnd
-
-; $uncheckedPluginIds + $existingDisabled → $disabledFinal（合并、去重、升序）
-; 先由生成函数 RemoveBundledFromExistingDisabled 逐 id 移除 $existingDisabled 中的
-; 当前捆绑 id（通用 RemoveItemFromList 辅助，无长度受限的合并 id 字符串），
-; 再合并本次未勾选插件。
+; $uncheckedPluginIds → $disabledFinal（去重、升序）；仅用于全新 config.json。
 Function MergeAndWriteConfig
-  ; Retire four historical official ids before applying current selection.
-  ; Unknown ids remain untouched.
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.logfilter"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.clipmask"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.perfopt"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  StrCpy $0 "$existingDisabled"
-  StrCpy $1 "dev.turboism.plugin.renderopt"
-  Call RemoveItemFromList
-  StrCpy $existingDisabled "$0"
-  Call RemoveBundledFromExistingDisabled
   StrCpy $disabledFinal "$uncheckedPluginIds"
-  ${If} $existingDisabled != ""
-    ${If} $disabledFinal != ""
-      StrCpy $disabledFinal "$disabledFinal;$existingDisabled"
-    ${Else}
-      StrCpy $disabledFinal "$existingDisabled"
-    ${EndIf}
-  ${EndIf}
   ; 插入排序 + 去重
   StrCpy $sorted ""
   ${Do}

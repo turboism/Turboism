@@ -49,6 +49,7 @@ public final class ConfigMergeRegression {
         unicodeEscapeUsesAsciiHexOnly();
         managedFxPlatformPolicy();
         canonicalIdentity();
+        runtimeConfigMigration();
         malformedUtf8();
         sizeBoundary();
         concurrentGrowth();
@@ -160,9 +161,8 @@ public final class ConfigMergeRegression {
                 Files.writeString(fullConfig, validConfig("full"), StandardCharsets.UTF_8);
                 listener(fullHome, "full").beforePacks(List.of());
                 check("Windows x64 Full admits the managed fx product payload", true);
-                check("Windows x64 Full reaches config merge",
-                        Files.readString(fullConfig, StandardCharsets.UTF_8)
-                                .contains("\"worktreeId\":\"turboism-runtime\""));
+                check("Windows x64 Full preserves current-schema config bytes",
+                        validConfig("full").equals(Files.readString(fullConfig, StandardCharsets.UTF_8)));
             } finally {
                 deleteTree(fullHome);
             }
@@ -196,9 +196,8 @@ public final class ConfigMergeRegression {
                     Files.writeString(config, validConfig(mode), StandardCharsets.UTF_8);
                     listener(home, mode).beforePacks(List.of());
                     check("Windows " + mode + " proceeds without managed fx platform", true);
-                    check("Windows " + mode + " reaches config merge",
-                            Files.readString(config, StandardCharsets.UTF_8)
-                                    .contains("\"worktreeId\":\"turboism-runtime\""));
+                    check("Windows " + mode + " preserves current-schema config bytes",
+                            validConfig(mode).equals(Files.readString(config, StandardCharsets.UTF_8)));
                 } finally {
                     deleteTree(home);
                 }
@@ -267,7 +266,6 @@ public final class ConfigMergeRegression {
             String[] bad = {
                     "{\"schemaVersion\":1}",
                     "{\"format\":\"other.runtime.config\",\"schemaVersion\":1}",
-                    "{\"format\":\"turboism.runtime.config\"}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":\"1\"}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":2}",
                     "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.5}",
@@ -287,6 +285,45 @@ public final class ConfigMergeRegression {
             Files.write(cfg, "{\"format\":\"turboism.runtime.config\",\"schemaVersion\":1.0}"
                     .getBytes(StandardCharsets.UTF_8));
             check("integral 1.0 schemaVersion accepted", ConfigMerge.loadExisting(dir) != null);
+        } finally {
+            deleteTree(dir);
+        }
+    }
+
+    /** Current schema is byte-preserved; the explicit legacy v0 shape migrates to v1. */
+    private static void runtimeConfigMigration() throws Exception {
+        Path dir = Files.createTempDirectory("cfg-migrate-");
+        Path cfg = dir.resolve("config.json");
+        try {
+            String legacyText = "{\"worktreeId\":\"legacy-runtime\","
+                    + "\"pluginDirs\":[\"custom-plugins\"],\"logLevel\":\"DEBUG\","
+                    + "\"disabledPlugins\":[\"dev.turboism.plugin.fixture\"],"
+                    + "\"cubismJvm\":\"bundled\"}";
+            Files.writeString(cfg, legacyText, StandardCharsets.UTF_8);
+            Map<String, Object> legacy = ConfigMerge.loadExisting(dir);
+            check("schema-less legacy config is admitted as v0",
+                    legacy != null && ConfigMerge.schemaVersion(legacy) == 0L);
+            Map<String, Object> migrated = ConfigMerge.migrateToCurrent(legacy);
+            check("v0 migration publishes current identity",
+                    Long.valueOf(1L).equals(migrated.get("schemaVersion"))
+                            && "turboism.runtime.config".equals(migrated.get("format")));
+            check("v0 migration preserves user settings",
+                    "DEBUG".equals(migrated.get("logLevel"))
+                            && List.of("custom-plugins").equals(migrated.get("pluginDirs"))
+                            && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins")));
+            @SuppressWarnings("unchecked")
+            Map<String, Object> launcher = (Map<String, Object>) migrated.get("launcher");
+            check("v0 migration moves legacy JVM choice into launcher",
+                    "bundled".equals(launcher.get("cubismJvm")));
+
+            Map<String, Object> unknown = new LinkedHashMap<>();
+            unknown.put("legacyUnknown", true);
+            try {
+                ConfigMerge.migrateToCurrent(unknown);
+                check("unknown v0 field fails closed", false);
+            } catch (ConfigMerge.ConfigException expected) {
+                check("unknown v0 field fails closed", true);
+            }
         } finally {
             deleteTree(dir);
         }

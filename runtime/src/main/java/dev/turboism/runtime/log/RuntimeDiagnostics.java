@@ -25,30 +25,37 @@ public final class RuntimeDiagnostics {
     private RuntimeDiagnostics() {
     }
 
+    /** Replaces the process-wide diagnostics sink; rejects a null sink. */
     public static void install(final Sink sink) {
         SINK.set(Objects.requireNonNull(sink, "sink"));
     }
 
+    /** Resets the process-wide diagnostics sink to the no-op default. */
     public static void clear() {
         SINK.set(NONE);
     }
 
+    /** Routes a TRACE diagnostic for the given component; skips on blank text. */
     public static void trace(final String component, final String message) {
         write(Level.TRACE, component, message, null);
     }
 
+    /** Routes a DEBUG diagnostic for the given component; skips on blank text. */
     public static void debug(final String component, final String message) {
         write(Level.DEBUG, component, message, null);
     }
 
+    /** Routes an INFO diagnostic for the given component; skips on blank text. */
     public static void info(final String component, final String message) {
         write(Level.INFO, component, message, null);
     }
 
+    /** Routes a WARN diagnostic for the given component; skips on blank text. */
     public static void warn(final String component, final String message) {
         write(Level.WARN, component, message, null);
     }
 
+    /** Routes an ERROR diagnostic with the optional failure for the given component. */
     public static void error(
         final String component,
         final String message,

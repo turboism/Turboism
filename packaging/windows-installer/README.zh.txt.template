@@ -46,6 +46,10 @@ Turboism 自有快捷方式；NSIS 安装器可在用户明确选择后备份并
   pluginDirs:       ["plugins"]
   disabledPlugins:  被禁用的插件 id 列表（未勾选的插件，升序；可选字段）
 
+更新安装时，当前 schema 的 config.json 保持原始字节不变；可识别的旧 schema
+会以原子方式迁移，未知或未来 schema 会中止更新且不修改原文件。需要主动更改
+插件启用状态时，请运行配置器。
+
 四、卸载
 --------
 - 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home

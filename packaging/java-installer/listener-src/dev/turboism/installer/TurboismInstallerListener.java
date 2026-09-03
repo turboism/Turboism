@@ -28,11 +28,11 @@ import java.util.Set;
  *
  * Responsibilities (frozen spec):
  *  - set the per-OS default install path before the target-directory panel;
- *  - write config.json before any payload file is copied: seed from the
- *    canonical template on fresh targets, otherwise preserve the existing
- *    valid config and merge only installer-owned fields; fail closed
- *    (abort before mutation) on invalid, oversized, symlinked, or escaping
- *    config targets;
+ *  - handle config.json before any payload file is copied: seed from the
+ *    canonical template on fresh targets, preserve current-schema bytes
+ *    exactly, or atomically migrate the explicit legacy schema; fail closed
+ *    (abort before mutation) on invalid, future, oversized, symlinked, or
+ *    escaping config targets;
  *  - mark the bundled uninstall.command executable on macOS, only after the
  *    file has been copied (afterPacks).
  *
@@ -241,19 +241,18 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
         boolean lite = "lite".equalsIgnoreCase(installData.getVariable(INSTALL_GROUP_VAR));
 
         Map<String, Object> seed = ConfigMerge.loadExisting(home);
-        if (seed == null) {
-            seed = ConfigMerge.loadTemplate();
-        }
-        List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
-        disabled = closeRequiredPluginDependencies(disabled);
-        // Managed-upgrade retirement: remove identity-proven retired official
-        // JARs, then write the merged config. Deletion and the config write are
-        // two separate steps, not one transaction: a later config-write failure
-        // does not restore already-deleted JARs. Deletion runs first so a proven
-        // deletion failure aborts before any config mutation; leftovers that
-        // cannot be verified are preserved and are denied by the runtime's
-        // PluginJarContract boundary (PLUGIN_RETIRED_ID), not by config.
+        // Managed-upgrade retirement is independent of config ownership. Existing current-schema
+        // config bytes are never rewritten; an explicit old schema is migrated atomically, while a
+        // fresh install alone applies installer plugin-selection defaults.
         ConfigMerge.retireManagedPlugins(home);
+        if (seed != null) {
+            if (ConfigMerge.schemaVersion(seed) == 1L) return;
+            ConfigMerge.write(home, ConfigMerge.migrateToCurrent(seed));
+            return;
+        }
+        seed = ConfigMerge.loadTemplate();
+        List<String> disabled = ConfigMerge.mergeDisabled(seed, bundled, selected, lite);
+        disabled = closeRequiredPluginDependencies(disabled, bundled);
         ConfigMerge.write(home, ConfigMerge.applyPolicy(seed, disabled));
     }
 
@@ -312,10 +311,11 @@ public final class TurboismInstallerListener extends AbstractInstallerListener {
     }
 
     private static List<String> closeRequiredPluginDependencies(
-        final List<String> disabled
+        final List<String> disabled,
+        final Set<String> bundled
     ) {
         final java.util.TreeSet<String> closed = new java.util.TreeSet<>(disabled);
-        if (closed.contains(MCP_PLUGIN_ID)) {
+        if (bundled.contains(FX_PLUGIN_ID) && closed.contains(MCP_PLUGIN_ID)) {
             closed.add(FX_PLUGIN_ID);
         }
         return List.copyOf(closed);

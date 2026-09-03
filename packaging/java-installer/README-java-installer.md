@@ -59,17 +59,16 @@ be chosen.
 
 The declaration gate is the same contract in GUI, console, and automated modes: all four acknowledgements must be explicit before the full localized declaration is accepted. The acknowledgements cover Turboism's independent third-party identity, lawful Cubism authorization, independent backups before authorized content-changing automation, and open-source as-is operation without compatibility or recovery guarantees.
 
-`config.json` is never overwritten blindly: an existing valid config is
-parsed with a bounded JSON parser, unrelated fields are preserved, and only
-`worktreeId` (`turboism-runtime`), `pluginDirs` (`["plugins"]`) and
-`disabledPlugins` are installer-owned. Reselection semantics: start from
-the existing disabled ids, remove every current bundled id (so reselecting
-a previously disabled bundled plugin enables it), then add the sorted
-bundled-but-unselected ids; unrelated disabled ids remain. Lite treats every
-bundled plugin id as unselected so stale official JARs from a prior Full
-install stay inactive (retired ids are additionally pruned here; any leftover
-retired JAR is denied by the runtime PluginJarContract boundary, since the
-installer deletes only identity-proven retired JARs and never deletes
+`config.json` has explicit update ownership. A fresh installation creates the
+current schema from the bundled template and initial plugin selection. An
+existing current-schema file is left byte-for-byte unchanged, regardless of
+installation mode or plugin selection. A recognized legacy v0 document is
+migrated atomically to v1 while preserving its known user settings; malformed,
+unknown, or future schemas fail closed without modifying the original. Use the
+installed configurator when intentionally changing plugin enablement. Retired
+JAR cleanup remains identity-verified and independent of config migration; any
+leftover retired JAR is denied by the runtime PluginJarContract boundary,
+since the installer deletes only identity-proven retired JARs and never deletes
 unverifiable entries). Invalid, oversized (> 64 KiB), symlinked, escaping,
 or non-regular config targets fail closed without truncating the original;
 reads are bounded and never follow symlinks, writes are atomic-only. Unknown
