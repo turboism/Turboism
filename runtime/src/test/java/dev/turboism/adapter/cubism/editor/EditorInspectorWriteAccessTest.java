@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspector52SelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartInspectorSelectorContract;
@@ -16,6 +17,9 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -192,6 +196,80 @@ class EditorInspectorWriteAccessTest {
     }
 
     @Test
+    void authoringTransactionGroupsGlueWritesIntoOneNativeEditAndHistoryEntry() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Adjust eye glues"),
+            () -> {
+                final var glue = access.active().glues().find(new GlueId("Glue1"));
+                glue.setName("MainGlue");
+                glue.setIntensity(0.75F);
+                glue.setDrawableA(new ArtMeshId("ArtB"));
+                glue.setDrawableB(new ArtMeshId("ArtA"));
+                glue.setId(new GlueId("GlueRenamed"));
+                return "GlueRenamed";
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(Optional.of("GlueRenamed"), result.value());
+        assertTrue(result.receipt().orElseThrow().historyEntryId().isPresent());
+        assertEquals("MainGlue", fixture.glue.source.localName);
+        assertEquals(0.75F, fixture.glue.form.intensity);
+        assertEquals(fixture.artB.guid, fixture.glue.source.targetAGuid);
+        assertEquals(fixture.artA.guid, fixture.glue.source.targetBGuid);
+        assertEquals("GlueRenamed", fixture.glue.source.id.value());
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(List.of("Adjust eye glues"), fixture.editMode.edits);
+        assertEquals(5, fixture.editMode.groups.get(0).undoAddCount);
+        assertEquals(1, fixture.document.undoManager.entries.size());
+        assertEquals("Adjust eye glues", fixture.document.undoManager.entries.get(0).presentationName());
+        assertEquals(1, fixture.source.updateCount);
+        assertEquals(1, fixture.pack.partRefreshCount);
+        assertEquals(1, fixture.pack.deformerRefreshCount);
+        assertEquals(1, fixture.pack.repaintCount);
+        assertTrue(fixture.document.dirty);
+        assertFalse(fixture.editMode.aborted);
+    }
+
+    @Test
+    void failedGlueTransactionAbortsAndRestoresTheEarlierContribution() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var access = new EditorBackedCubismModelAccess(resolver(false), "session-a");
+        final var service = ((RuntimeAuthoringTransactionProvider) access)
+            .authoringTransactions("plugin.test");
+
+        final var result = service.execute(
+            AuthoringTransactionOptions.of("Invalid eye glue update"),
+            () -> {
+                final var glue = access.active().glues().find(new GlueId("Glue1"));
+                glue.setName("TemporaryGlue");
+                glue.setIntensity(2.0F);
+                return null;
+            }
+        );
+
+        assertEquals(AuthoringTransactionOutcome.ROLLED_BACK, result.outcome());
+        assertEquals(null, fixture.glue.source.localName);
+        assertEquals(0.5F, fixture.glue.form.intensity);
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(1, fixture.editMode.groups.get(0).undoAddCount);
+        assertTrue(fixture.editMode.aborted);
+        assertEquals(0, fixture.document.undoManager.entries.size());
+        assertEquals(0, fixture.source.updateCount);
+        assertEquals(0, fixture.pack.partRefreshCount);
+        assertEquals(0, fixture.pack.deformerRefreshCount);
+        assertEquals(0, fixture.pack.repaintCount);
+        assertFalse(fixture.document.dirty);
+    }
+
+    @Test
     void glueNameIdIntensityAndDrawableWritesUseNativeUndoEnvelope() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
@@ -267,6 +345,15 @@ class EditorInspectorWriteAccessTest {
         selectors.add(method("cubism.editor-model.modeling-document.model-source", Document.class, "modelSource", desc(ModelSource.class)));
         selectors.add(method("cubism.editor-model.modeling-document.edit-mode", Document.class, "editMode", desc(EditMode.class)));
         selectors.add(method("cubism.editor-model.modeling-document.mark-dirty", Document.class, "markDirty", "()V"));
+        selectors.add(method("cubism.editor-history.document.undo-manager", Document.class, "undoManager", desc(UndoManager.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.manager.class", internal(UndoManager.class)));
+        selectors.add(method("cubism.editor-history.manager.entries", UndoManager.class, "entries", "()Ljava/util/List;"));
+        selectors.add(method("cubism.editor-history.manager.position", UndoManager.class, "position", "()I"));
+        selectors.add(method("cubism.editor-history.manager.can-undo", UndoManager.class, "canUndo", "()Z"));
+        selectors.add(method("cubism.editor-history.manager.can-redo", UndoManager.class, "canRedo", "()Z"));
+        selectors.add(StaticSelector.classSelector("cubism.editor-history.entry.class", internal(UndoEntry.class)));
+        selectors.add(method("cubism.editor-history.entry.presentation-name", UndoEntry.class, "presentationName", "()Ljava/lang/String;"));
+        selectors.add(method("cubism.editor-history.entry.significant", UndoEntry.class, "significant", "()Z"));
         selectors.add(method("cubism.editor-model.edit-mode.begin", EditMode.class, "begin", "(Ljava/lang/String;)" + type(GroupUndo.class)));
         selectors.add(method("cubism.editor-model.edit-mode.end", EditMode.class, "end", "(ZLjava/lang/Object;)V"));
         selectors.add(method("cubism.editor-model.undo.add", GroupUndo.class, "add", "(" + type(Undo.class) + "Z)Z"));
@@ -414,7 +501,8 @@ class EditorInspectorWriteAccessTest {
             EditorObjectReadSelectorContract.CAPABILITY_ID,
             EditorPartInspectorSelectorContract.CAPABILITY_ID,
             EditorDeformerInspectorSelectorContract.CAPABILITY_ID,
-            EditorGlueInspectorSelectorContract.CAPABILITY_ID
+            EditorGlueInspectorSelectorContract.CAPABILITY_ID,
+            EditorHistoryReadSelectorContract.CAPABILITY_ID
         ));
         if (cubism52) {
             capabilities.remove(EditorPartInspectorSelectorContract.CAPABILITY_ID);
@@ -477,12 +565,14 @@ class EditorInspectorWriteAccessTest {
 
     public static final class Document {
         final ModelSource source;
-        final EditMode editMode = new EditMode();
+        final UndoManager undoManager = new UndoManager();
+        final EditMode editMode = new EditMode(undoManager);
         final CompletePack pack = new CompletePack();
         boolean dirty;
         Document(final ModelSource source) { this.source = source; }
         public ModelSource modelSource() { return source; }
         public EditMode editMode() { return editMode; }
+        public UndoManager undoManager() { return undoManager; }
         public void markDirty() { dirty = true; }
     }
 
@@ -565,8 +655,8 @@ class EditorInspectorWriteAccessTest {
     public static final class GlueSource extends ParamSource {
         Object targetAGuid;
         Object targetBGuid;
-        final ArtMeshSource targetA;
-        final ArtMeshSource targetB;
+        ArtMeshSource targetA;
+        ArtMeshSource targetB;
         GlueSource(final String id, final ArtMeshSource targetA, final ArtMeshSource targetB) {
             super(id);
             this.targetA = targetA;
@@ -577,8 +667,14 @@ class EditorInspectorWriteAccessTest {
         public void setId(final Id newId) { id.value = newId.value; }
         public ArtMeshSource targetArtMeshA() { return targetA; }
         public ArtMeshSource targetArtMeshB() { return targetB; }
-        public void setTargetArtMeshA_guid(final Object guid) { targetAGuid = guid; }
-        public void setTargetArtMeshB_guid(final Object guid) { targetBGuid = guid; }
+        public void setTargetArtMeshA_guid(final Object guid) {
+            targetAGuid = guid;
+            targetA = Fixture.current.artMeshSource(guid);
+        }
+        public void setTargetArtMeshB_guid(final Object guid) {
+            targetBGuid = guid;
+            targetB = Fixture.current.artMeshSource(guid);
+        }
     }
 
     public static final class ParamHandler {
@@ -688,7 +784,13 @@ class EditorInspectorWriteAccessTest {
     }
 
     public static final class GroupUndo {
-        public boolean add(final Undo undo, final boolean redoable) { return true; }
+        final String label;
+        int undoAddCount;
+        GroupUndo(final String label) { this.label = label; }
+        public boolean add(final Undo undo, final boolean redoable) {
+            undoAddCount++;
+            return true;
+        }
     }
 
     public static final class Undo {
@@ -700,10 +802,42 @@ class EditorInspectorWriteAccessTest {
     }
 
     public static final class EditMode {
+        final UndoManager manager;
         final List<String> edits = new ArrayList<>();
+        final List<GroupUndo> groups = new ArrayList<>();
+        GroupUndo current;
         boolean aborted;
-        public GroupUndo begin(final String action) { edits.add(action); return new GroupUndo(); }
-        public void end(final boolean aborted, final Object unused) { this.aborted = aborted; }
+        EditMode(final UndoManager manager) { this.manager = manager; }
+        public GroupUndo begin(final String action) {
+            edits.add(action);
+            final GroupUndo group = new GroupUndo(action);
+            groups.add(group);
+            current = group;
+            return group;
+        }
+        public void end(final boolean aborted, final Object unused) {
+            this.aborted = aborted;
+            if (!aborted && current != null) manager.commit(current.label);
+            current = null;
+        }
+    }
+
+    public static final class UndoManager {
+        final List<UndoEntry> entries = new ArrayList<>();
+        int position;
+        public List<UndoEntry> entries() { return entries; }
+        public int position() { return position; }
+        public boolean canUndo() { return position > 0; }
+        public boolean canRedo() { return position < entries.size(); }
+        void commit(final String label) {
+            while (entries.size() > position) entries.remove(entries.size() - 1);
+            entries.add(new UndoEntry(label));
+            position = entries.size();
+        }
+    }
+
+    public record UndoEntry(String presentationName) {
+        public boolean significant() { return true; }
     }
 
     public static final class CompletePack {
@@ -757,6 +891,12 @@ class EditorInspectorWriteAccessTest {
             // hierarchy: Warp1 -> Warp2 (parent); Rotation1 is Warp1's ancestor target
             warpSource.targetDeformer = warp2Source;
             rotationSource.targetDeformer = warpSource;
+        }
+
+        ArtMeshSource artMeshSource(final Object guid) {
+            if (artA.guid == guid) return artA;
+            if (artB.guid == guid) return artB;
+            throw new IllegalArgumentException("Unknown ArtMesh guid");
         }
     }
 }
