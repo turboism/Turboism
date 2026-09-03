@@ -3,21 +3,22 @@ package dev.turboism.sdk.cubism.transaction;
 import java.util.Objects;
 
 /**
- * Synchronous callback boundary for one Editor-owned authoring transaction.
+ * Executes one synchronous callback inside a Runtime-owned Editor authoring transaction.
  *
- * <p>Runtime owns the native edit lifetime, host-thread confinement, document and model generation
- * checks, grouped Undo, commit verification, and recovery. Callers receive only immutable evidence;
- * no transaction handle escapes the callback.</p>
+ * <p>The implementation owns host-thread admission, active document/model binding, native Undo
+ * grouping, abort and recovery, and transaction diagnostics. The callback receives no transaction
+ * handle and may interact only through normal SDK services available to the plugin.</p>
  */
 public interface AuthoringTransactionService {
 
     /**
-     * Executes work synchronously in one authoring transaction scope.
+     * Executes authoring work synchronously.
      *
-     * @param options immutable transaction options
-     * @param work synchronous callback using the natural Cubism object API
-     * @param <T> callback value type
-     * @return typed outcome and immutable transaction evidence
+     * @param options validated transaction options
+     * @param work synchronous callback; never invoked when the service is unavailable or preflight
+     *     rejects the request
+     * @param <T> callback result type
+     * @return typed terminal result and immutable history evidence
      */
     <T> AuthoringTransactionResult<T> execute(
         AuthoringTransactionOptions options,
@@ -25,15 +26,15 @@ public interface AuthoringTransactionService {
     );
 
     /**
-     * Returns the fail-closed implementation used when no verified Runtime coordinator is installed.
+     * Returns the fail-closed implementation used when Runtime has no verified transaction backend.
      *
-     * @return unavailable service that never invokes the callback
+     * @return shared unavailable service
      */
     static AuthoringTransactionService unavailable() {
         return Unavailable.INSTANCE;
     }
 
-    /** Fail-closed singleton used by default facade implementations. */
+    /** Fail-closed implementation that never invokes authoring work. */
     enum Unavailable implements AuthoringTransactionService {
         INSTANCE;
 
