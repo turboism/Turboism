@@ -118,29 +118,17 @@ public final class BatchTransferDialog extends JDialog {
     }
 
     private JScrollPane buildRows(final ParameterBatchTransferService.Session session) {
-        final JPanel rows = new JPanel(new GridBagLayout());
-        final GridBagConstraints constraints = new GridBagConstraints();
-        constraints.fill = GridBagConstraints.HORIZONTAL;
-        constraints.insets = new Insets(2, 0, 2, 0);
-        constraints.weightx = 1.0;
+        final List<RowComponents> components = new ArrayList<>(session.bound().size());
         for (final BoundParameterSnapshot source : session.bound()) {
-            constraints.gridx = 0;
-            constraints.weightx = 0.46;
-            rows.add(sourceView(source), constraints);
-            constraints.gridx = 1;
-            constraints.weightx = 0.40;
             final JComboBox<BoundParameterSnapshot> combo = targetCombo(source);
-            rows.add(combo, constraints);
             targetCombos.add(combo);
             combo.addActionListener(event -> refreshTargetCombos());
-            constraints.gridx = 2;
-            constraints.weightx = 0.14;
             final JCheckBox invert = new JCheckBox();
             invert.setHorizontalAlignment(SwingConstants.CENTER);
-            rows.add(invert, constraints);
             invertChecks.add(invert);
-            constraints.gridy++;
+            components.add(new RowComponents(sourceView(source), combo, invert));
         }
+        final JPanel rows = layoutRows(components);
         refreshTargetCombos();
         final JScrollPane scroll = new JScrollPane(rows);
         scroll.setBorder(BorderFactory.createEmptyBorder());
@@ -149,6 +137,31 @@ public final class BatchTransferDialog extends JDialog {
             Math.min(SCROLL_MAX_HEIGHT, Math.max(SCROLL_MIN_HEIGHT, session.bound().size() * ROW_HEIGHT))
         ));
         return scroll;
+    }
+
+    static JPanel layoutRows(final List<RowComponents> components) {
+        final JPanel rows = new JPanel(new GridBagLayout());
+        final GridBagConstraints constraints = new GridBagConstraints();
+        constraints.gridy = 0;
+        constraints.fill = GridBagConstraints.HORIZONTAL;
+        constraints.insets = new Insets(2, 0, 2, 0);
+        constraints.weightx = 1.0;
+        for (final RowComponents row : components) {
+            constraints.gridx = 0;
+            constraints.weightx = 0.46;
+            rows.add(row.source(), constraints);
+            constraints.gridx = 1;
+            constraints.weightx = 0.40;
+            rows.add(row.target(), constraints);
+            constraints.gridx = 2;
+            constraints.weightx = 0.14;
+            rows.add(row.invert(), constraints);
+            constraints.gridy++;
+        }
+        return rows;
+    }
+
+    record RowComponents(JComponent source, JComponent target, JComponent invert) {
     }
 
     private JPanel buildActions() {
