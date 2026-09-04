@@ -489,6 +489,29 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
+val buildBoundingBoxOverlayHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only SDK bounding-box overlay exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/bounding-box-overlay-host-probe/build.sh")
+}
+
+fun registerBoundingBoxOverlayHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $displayVersion bounding-box overlay matrix."
+        dependsOn("previewBundle", ":sdk:jar", buildBoundingBoxOverlayHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-bounding-box-overlay-host-validation.sh", version)
+    }
+}
+
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5203", "5203", "5.2.03")
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5302", "5302", "5.3.02")
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5303", "5303", "5.3.03")
+
 val buildFpsHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK FPS counting host exerciser."
