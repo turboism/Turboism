@@ -287,8 +287,8 @@ run_label="$(safe_label "$run_label")"
 
 case "$version" in
   5303)
-    cubism_win='C:\Program Files\Live2D Cubism 5.3'
-    cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3'
+    cubism_win='C:\Program Files\Live2D Cubism 5.3.03'
+    cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3.03'
     reviewed_jar_sha256='bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166'
     ;;
   5302)
