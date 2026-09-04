@@ -14,30 +14,27 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class McpConnectionWindowTest {
 
     @Test
-    void codingAgentPromptIncludesEndpointAndCompleteAuthorizationHeader() {
+    void codingAgentPromptNeedsOnlyTheLoopbackEndpoint() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
             URI.create("http://127.0.0.1:43123/mcp"),
-            "Bearer local-token",
             List.of()
         );
 
         final String prompt = McpConnectionWindow.codingAgentPrompt(
-            localization("连接到 {0}，并设置 Authorization: {1}。"),
+            localization("连接到 {0}。无需认证。"),
             snapshot
         );
 
-        assertEquals(
-            "连接到 http://127.0.0.1:43123/mcp，并设置 Authorization: Bearer local-token。",
-            prompt
-        );
-        assertFalse(prompt.contains("Bearer Bearer"));
+        assertEquals("连接到 http://127.0.0.1:43123/mcp。无需认证。", prompt);
+        assertFalse(prompt.contains("Authorization"));
+        assertFalse(prompt.contains("Bearer"));
+        assertFalse(prompt.contains("local-token"));
     }
 
     @Test
     void codingAgentPromptFallsBackToACompleteEnglishInstruction() {
         final var snapshot = new McpConnectionWindow.McpConnectionSnapshot(
             URI.create("http://127.0.0.1:43123/mcp"),
-            "Bearer local-token",
             List.of()
         );
 
@@ -48,8 +45,10 @@ final class McpConnectionWindowTest {
 
         assertTrue(prompt.startsWith("This is the Turboism MCP server."));
         assertTrue(prompt.contains("http://127.0.0.1:43123/mcp"));
-        assertTrue(prompt.contains("Authorization: Bearer local-token"));
-        assertFalse(prompt.contains("Bearer Bearer"));
+        assertTrue(prompt.contains("No authentication is required"));
+        assertFalse(prompt.contains("Authorization"));
+        assertFalse(prompt.contains("Bearer"));
+        assertFalse(prompt.contains("local-token"));
     }
 
     private static PluginLocalization localization(final String pattern) {

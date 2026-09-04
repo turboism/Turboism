@@ -3,7 +3,7 @@
 set -euo pipefail
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-mcp-host-validation.sh <5302|5203> [run-label] [runner-options...]" >&2
+  echo "usage: run-mcp-host-validation.sh <5203|5302|5303> [run-label] [runner-options...]" >&2
   exit 2
 fi
 version="$1"
@@ -15,7 +15,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$version" in
-  5302)
+  5302|5303)
     fixture_src='/home/local-user/Documents/测试 混合模式.cmo3'
     fixture_sha256='57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4'
     ;;
@@ -24,7 +24,7 @@ case "$version" in
     fixture_sha256='331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028'
     ;;
   *)
-    echo "error: version must be 5302 or 5203" >&2
+    echo "error: version must be 5203, 5302, or 5303" >&2
     exit 2
     ;;
 esac

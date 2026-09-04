@@ -15,17 +15,38 @@ require_nonempty_classes() {
   find "$directory" -type f -name '*.class' -print -quit | grep -q . \
     || fail "$label compiled classes are empty: $directory"
 }
-reject_compiled_distribution_refs() {
+scan_compiled_class_batch() {
   local label="$1" directory="$2"
+  shift 2
+  (( $# > 0 )) || return 0
+  local report offending
+  report="$(mktemp)"
+  if ! javap -classpath "$directory" -verbose "$@" >"$report" 2>/dev/null; then
+    rm -f "$report"
+    fail "$label compiled class inspection failed: $directory"
+  fi
+  offending="$(awk '
+    /^Classfile / { current=$0; sub(/^Classfile /, "", current) }
+    /dev\/turboism\/distribution/ { print current; exit }
+  ' "$report")"
+  rm -f "$report"
+  [[ -z "$offending" ]] \
+    || fail "$label compiled class references distribution internals: $offending"
+}
+reject_compiled_distribution_refs() {
+  local label="$1" directory="$2" class_file class_name
+  local -a batch=()
   while IFS= read -r -d '' class_file; do
-    local class_name="${class_file#"$directory"/}"
+    class_name="${class_file#"$directory"/}"
     class_name="${class_name%.class}"
     class_name="${class_name//\//.}"
-    if javap -classpath "$directory" -verbose "$class_name" 2>/dev/null \
-      | grep -q 'dev/turboism/distribution'; then
-      fail "$label compiled class references distribution internals: $class_file"
+    batch+=("$class_name")
+    if (( ${#batch[@]} >= 128 )); then
+      scan_compiled_class_batch "$label" "$directory" "${batch[@]}"
+      batch=()
     fi
   done < <(find "$directory" -type f -name '*.class' -print0)
+  scan_compiled_class_batch "$label" "$directory" "${batch[@]}"
 }
 
 [[ -d "$PRODUCTION" ]] || fail "missing production protocol package"

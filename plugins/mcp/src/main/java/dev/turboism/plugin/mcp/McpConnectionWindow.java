@@ -35,7 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-/** User-controlled view of the current local MCP endpoint, bearer, and connection history. */
+/** User-controlled view of the current local MCP endpoint and connection history. */
 final class McpConnectionWindow {
 
     private static final DateTimeFormatter TIME = DateTimeFormatter
@@ -46,13 +46,12 @@ final class McpConnectionWindow {
     private final PluginLogger logger;
     private final JFrame frame;
     private final JTextField endpoint = new JTextField();
-    private final JTextField token = new JTextField();
     private final JTextArea agentPrompt = new JTextArea(3, 20);
     private final HistoryModel history = new HistoryModel();
     private final JTable historyTable = new JTable(history);
     private final JButton refresh = new JButton();
     private java.util.function.Supplier<McpConnectionSnapshot> snapshot =
-        () -> new McpConnectionSnapshot(null, "", List.of());
+        () -> new McpConnectionSnapshot(null, List.of());
 
     McpConnectionWindow(
         final PluginLocalization localization,
@@ -93,12 +92,10 @@ final class McpConnectionWindow {
         frame.pack();
         frame.setLocationByPlatform(true);
         endpoint.setEditable(false);
-        token.setEditable(false);
         agentPrompt.setEditable(false);
         agentPrompt.setLineWrap(true);
         agentPrompt.setWrapStyleWord(true);
         endpoint.setFont(new Font(Font.MONOSPACED, Font.PLAIN, endpoint.getFont().getSize()));
-        token.setFont(new Font(Font.MONOSPACED, Font.PLAIN, token.getFont().getSize()));
         historyTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         historyTable.setFillsViewportHeight(true);
         historyTable.getTableHeader().setReorderingAllowed(false);
@@ -125,15 +122,6 @@ final class McpConnectionWindow {
             endpoint,
             text("button.copy-endpoint", "Copy address"),
             () -> copy(endpoint.getText(), "status.endpoint-copied")
-        );
-        constraints.gridy++;
-        addRow(
-            credentials,
-            constraints,
-            text("label.token", "Bearer token"),
-            token,
-            text("button.copy-token", "Copy token"),
-            () -> copy(token.getText(), "status.token-copied")
         );
         constraints.gridy++;
         constraints.gridx = 0;
@@ -196,10 +184,8 @@ final class McpConnectionWindow {
     private void refresh() {
         final McpConnectionSnapshot current = snapshot.get();
         endpoint.setText(current.endpoint() == null ? "" : current.endpoint().toString());
-        token.setText(current.authorization());
         agentPrompt.setText(codingAgentPrompt(localization, current));
         endpoint.setCaretPosition(0);
-        token.setCaretPosition(0);
         agentPrompt.setCaretPosition(0);
         history.replace(current.history());
     }
@@ -219,7 +205,6 @@ final class McpConnectionWindow {
         return text(key, switch (key) {
             case "status.agent-prompt-copied" -> "MCP coding-agent prompt copied by explicit user action";
             case "status.endpoint-copied" -> "MCP address copied by explicit user action";
-            case "status.token-copied" -> "MCP bearer token copied by explicit user action";
             default -> "MCP connection value copied by explicit user action";
         });
     }
@@ -231,20 +216,18 @@ final class McpConnectionWindow {
         final PluginLocalization messages = Objects.requireNonNull(localization, "localization");
         final McpConnectionSnapshot current = Objects.requireNonNull(snapshot, "snapshot");
         final String address = current.endpoint() == null ? "" : current.endpoint().toString();
-        final String authorization = current.authorization();
         final String key = "prompt.coding-agent";
         try {
             if (!messages.contains(key)) throw new IllegalStateException("missing localization key");
-            final String value = messages.format(key, address, authorization);
+            final String value = messages.format(key, address);
             if (value != null && !value.isBlank()
                 && !key.equals(value) && !("⟦" + key + "⟧").equals(value)) return value;
         } catch (RuntimeException unavailable) {
             // Use the bundled English instruction below.
         }
         return MessageFormat.format(
-            "This is the Turboism MCP server. Connect to {0} and configure it with the HTTP header Authorization: {1}.",
-            address,
-            authorization
+            "This is the Turboism MCP server. Connect to {0}. No authentication is required.",
+            address
         );
     }
 
@@ -259,11 +242,9 @@ final class McpConnectionWindow {
 
     record McpConnectionSnapshot(
         URI endpoint,
-        String authorization,
         List<McpConnectionHistory.Entry> history
     ) {
         McpConnectionSnapshot {
-            authorization = Objects.requireNonNullElse(authorization, "");
             history = List.copyOf(Objects.requireNonNull(history, "history"));
         }
     }

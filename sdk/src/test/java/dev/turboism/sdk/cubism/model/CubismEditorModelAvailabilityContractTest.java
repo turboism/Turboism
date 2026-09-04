@@ -49,6 +49,16 @@ class CubismEditorModelAvailabilityContractTest {
     }
 
     @Test
+    void glueReadsAndWritesDeclareAllThreeExactReviewedVersions() throws Exception {
+        assertArrayEquals(ALL_DECLARED, Glue.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(ALL_DECLARED, Glues.class.getAnnotation(CubismEditor.class).value());
+        assertArrayEquals(
+            ALL_DECLARED,
+            CubismModel.class.getMethod("glues").getAnnotation(CubismEditor.class).value()
+        );
+    }
+
+    @Test
     void drawableAndTextureOverridesIncludeTheDeclared5303Contract() throws Exception {
         assertArrayEquals(
             EXACT_5_3,

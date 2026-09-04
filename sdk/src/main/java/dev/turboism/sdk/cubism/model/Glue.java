@@ -1,11 +1,13 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 
 import java.util.List;
 
 /** One Cubism Glue relation. */
+@CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public interface Glue {
 
     GlueId id();

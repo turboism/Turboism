@@ -3,6 +3,7 @@ package dev.turboism.sdk.cubism;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import java.util.Optional;
 
@@ -75,7 +76,25 @@ public interface CubismFacade {
         return CubismHistory.unavailable();
     }
 
-    /** Returns the legacy transaction manager for Preview compatibility. */
+    /**
+     * Returns the synchronous Editor-owned authoring transaction service.
+     *
+     * <p>The default fails closed and never executes work outside a verified transaction scope.</p>
+     *
+     * @return synchronous authoring transaction service
+     */
+    @dev.turboism.sdk.CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
+    default AuthoringTransactionService authoringTransactions() {
+        return AuthoringTransactionService.unavailable();
+    }
+
+    /**
+     * Returns the legacy queued command transaction manager for Preview compatibility.
+     *
+     * <p>This queue is not the implementation of {@link #authoringTransactions()}.</p>
+     *
+     * @return legacy queued transaction manager
+     */
     TransactionManager transactionManager();
 
     /** Returns complete texture-atlas authoring layout access when installed. */

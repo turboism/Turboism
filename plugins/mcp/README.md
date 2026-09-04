@@ -16,13 +16,13 @@ interface: swing
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback interface.
+Runs a credential-free MCP Streamable HTTP server on the local loopback interface.
 
 | Detail | Value |
 |---|---|
 | Version | `0.1.0` |
 | Plugin ID | `dev.turboism.plugin.mcp` |
-| Public catalog | 5 tools · 13 resources · 2 templates · 8 prompts |
+| Public catalog | 11 tools · 15 resources · 2 templates · 8 prompts |
 | Turboism API | `[0.1.0,0.2.0)` |
 | Requires Cubism | Yes |
 | Interface | `swing` |
@@ -32,7 +32,7 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 - Exposes typed, domain-level model-object, parameter, binding, history, and Editor-command tools.
 - Exposes active-document, model, workspace, Cubism Core, and sanitized runtime diagnostics as JSON resources.
 - Provides workflow prompts for inspection, diagnostics, editing, recovery, and bounded Editor automation.
-- Serves only authenticated loopback clients and enforces origin, body-size, protocol, session, and rate limits.
+- Serves only loopback clients and enforces origin, body-size, protocol, session, and rate limits.
 
 ## Requirements and compatibility
 
@@ -45,28 +45,25 @@ Runs a bearer-token-protected MCP Streamable HTTP server on the local loopback i
 ## Install and enable
 
 1. Install and enable the plugin through Turboism's official release packaging and **Plugin Management**.
-2. Open **Turboism → MCP Connection**. This window shows the current local address, Bearer token, and bounded process-local connection/request history.
-3. Use the explicit copy buttons to configure a trusted local coding agent. The default address is `http://127.0.0.1:43123/mcp`.
+2. Open **Turboism → MCP Connection**. This window shows the current local address and bounded process-local connection/request history.
+3. Copy the address into a local coding agent. The default is `http://127.0.0.1:43123/mcp`; no authentication header is required.
 4. Keep the window open when diagnosing a client connection; use **Refresh** to load the newest history entries.
 5. Programmatic local consumers may still read the owner-protected `mcp-connection.json` from the per-user plugin state directory.
 6. Complete `initialize`, retain `MCP-Session-Id`, send `notifications/initialized`, and include the negotiated protocol version on later requests.
 
-The window and connection file contain a local secret. Copy the token only into a trusted local client; do not log it or include it in validation evidence. Turboism binds the transport to loopback, rejects unsafe connection-file paths, verifies owner and file type, avoids following symbolic links, and uses owner-only permissions where the platform exposes them. The visible history never includes the bearer token or MCP session IDs and is discarded when the process exits.
+Turboism binds the transport to loopback, rejects unsafe connection-file paths, verifies owner and file type, avoids following symbolic links, and uses owner-only permissions where the platform exposes them. The visible history never includes MCP session IDs and is discarded when the process exits.
 
 ## How to use
 
-Connect a trusted local MCP client with the address and token shown in **Turboism → MCP Connection**, initialize the session, then use the catalog below. Start with read resources and prompts; invoke write tools only after reviewing the requested operations and their permission scope.
+Connect a local MCP client with the address shown in **Turboism → MCP Connection**, initialize the session, then use the catalog below. Start with read resources and prompts; invoke write tools only after reviewing the requested operations and their permission scope.
 
 ### Common coding agents
-
-Replace `<token>` with the value copied from the MCP Connection window.
 
 **Claude Code**
 
 ```bash
 claude mcp add --transport http turboism \
-  http://127.0.0.1:43123/mcp \
-  --header "Authorization: Bearer <token>"
+  http://127.0.0.1:43123/mcp
 ```
 
 Equivalent Claude Code JSON configuration:
@@ -76,10 +73,7 @@ Equivalent Claude Code JSON configuration:
   "mcpServers": {
     "turboism": {
       "type": "http",
-      "url": "http://127.0.0.1:43123/mcp",
-      "headers": {
-        "Authorization": "Bearer <token>"
-      }
+      "url": "http://127.0.0.1:43123/mcp"
     }
   }
 }
@@ -92,25 +86,19 @@ Equivalent Claude Code JSON configuration:
   "servers": {
     "turboism": {
       "type": "http",
-      "url": "http://127.0.0.1:43123/mcp",
-      "headers": {
-        "Authorization": "Bearer ${input:turboism-token}"
-      }
+      "url": "http://127.0.0.1:43123/mcp"
     }
   }
 }
 ```
 
-Define the corresponding `turboism-token` input as a password prompt in the same VS Code MCP configuration.
-
 **Codex CLI**
 
-Set `TURBOISM_MCP_TOKEN` in the environment that launches Codex, then add:
+Add:
 
 ```toml
 [mcp_servers.turboism]
 url = "http://127.0.0.1:43123/mcp"
-bearer_token_env_var = "TURBOISM_MCP_TOKEN"
 ```
 
 ## Public MCP catalog
@@ -122,7 +110,13 @@ bearer_token_env_var = "TURBOISM_MCP_TOKEN"
 | `turboism.model_objects.apply` | Applies ordered create, rename, reparent, and delete operations. |
 | `turboism.parameters.apply` | Applies typed parameter value and definition operations. |
 | `turboism.parameter_bindings.apply` | Applies typed parameter-binding operations and native atomic transfers. |
-| `turboism.history.move` | Moves native Undo history with generation/revision guards. |
+| `turboism.glues.read` | Lists or reads exact-version Glue authoring state. |
+| `turboism.glues.write` | Applies one Undo-aware Glue mutation. |
+| `turboism.history.read` | Reads the immutable native Undo-history snapshot. |
+| `turboism.history.undo` | Performs guarded Undo with generation, revision, and optional entry identities. |
+| `turboism.history.redo` | Performs guarded Redo with generation, revision, and optional entry identities. |
+| `turboism.transaction.execute` | Groups eligible reads and Undo-aware writes into one authoring transaction. |
+| `turboism.capabilities.read` | Reads operation effects, version support, transaction eligibility, and SDK coverage. |
 | `turboism.editor_commands.execute` | Executes discoverable direct and typed non-file Editor commands. |
 
 Writes run after runtime permission and argument checks. Mixed batches can partially succeed and report per-operation results; they are not presented as transactions unless the underlying SDK batch is atomic.
@@ -138,11 +132,13 @@ Writes run after runtime permission and argument checks. Mixed batches can parti
 | `turboism://active/model/parameters` | Actual active-model parameter state. |
 | `turboism://active/model/statistics` | Structural, geometry, texture, mask, and optional offscreen counts. |
 | `turboism://active/model/textures` | Raw-image, model-image-group, and texture-atlas metadata without paths or bytes. |
+| `turboism://active/model/parameter-bindings` | Aggregated parameter-binding state for the active model. |
 | `turboism://active/document/history` | Native Undo availability, entries, generation, revision, and position. |
 | `turboism://environment/cubism-core` | Admitted Cubism Core version and public capability flags. |
 | `turboism://environment/workspace` | Current and available workspaces with typed availability. |
 | `turboism://environment/workspace/layout` | Ordered read-only dock-layout tree with typed availability. |
-| `turboism://environment/diagnostics` | Bounded, path-redacted Turboism diagnostic problems. |
+| `turboism://environment/diagnostics` | Bounded, path-redacted Turboism startup diagnostic problems. |
+| `turboism://environment/runtime-diagnostics` | Recent bounded and sanitized MCP runtime outcomes. |
 | `turboism://host/editor-commands` | Currently available supported Editor commands and typed request schemas. |
 
 Resources are point-in-time snapshots. The server does not currently declare subscriptions or resource-update notifications.
@@ -171,8 +167,8 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 
 | Capability | User effect |
 |---|---|
-| `mcp.streamable-http` | Serves authenticated MCP Streamable HTTP on numeric loopback. |
-| `mcp.tools` | Publishes the five typed tool workflows. |
+| `mcp.streamable-http` | Serves credential-free MCP Streamable HTTP on numeric loopback. |
+| `mcp.tools` | Publishes the eleven typed tool workflows. |
 | `mcp.resources` | Publishes static and templated JSON resources. |
 | `mcp.prompts` | Publishes user-controlled workflow prompts. |
 | `cubism.workspace.read` | Reads typed workspace status and dock-layout snapshots. |
@@ -197,7 +193,7 @@ Prompts accept no arguments. The two diagnostic prompts explicitly prohibit muta
 | `turboism.file.write` | `application` | Allows the direct Editor `SAVE` command. |
 | `turboism.network.fetch` | `application` | Allows the typed external-application settings command. |
 | `turboism.process.run` | `application` | Allows the typed external-application settings command. |
-| `turboism.mcp.connection.publish` | `application` | Publishes the active authenticated loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
+| `turboism.mcp.connection.publish` | `application` | Publishes the active loopback endpoint to permission-approved automation plugins through the process-local runtime exchange. |
 | `turboism.action.register` | `application` | Registers the local MCP Connection window action. |
 | `turboism.ui.menu.contribute` | `application` | Adds **MCP Connection** to the Turboism menu. |
 
@@ -207,11 +203,11 @@ The diagnostic expansion adds no `host.unsafe`, performance, file-read, config, 
 
 ### Network
 
-The server listens only on `127.0.0.1`. Every request requires the generated or configured bearer token, an accepted loopback origin, a body no larger than 1 MiB, and the configured rate limit. It is not designed for remote access.
+The server listens only on `127.0.0.1`. Requests require an accepted loopback origin, a body no larger than 1 MiB, the negotiated MCP session/protocol headers, and the configured rate limit. No authentication header is required. It is not designed for remote access.
 
 ### Local data
 
-The plugin writes only its connection metadata in plugin state storage. The bounded connection/request history is process-local and is not persisted. On POSIX systems it attempts owner-only permissions. Diagnostic and model resources do not expose raw filesystem paths, native host objects, image bytes, or the bearer token.
+The plugin writes only its connection metadata in plugin state storage. The bounded connection/request history is process-local and is not persisted. On POSIX systems it attempts owner-only permissions. Diagnostic and model resources do not expose raw filesystem paths, native host objects, or image bytes.
 
 `turboism://environment/diagnostics` omits `DiagnosticReport.Problem.path()`, bounds the problem list, converts messages to one line, caps message length, and redacts Unix paths, Windows paths, and `file:` URIs.
 
@@ -222,7 +218,7 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 ## Status and limitations
 
 - **Status:** Preview.
-- The stable default port is `43123`. Set `turboism.mcp.port=0` explicitly for an ephemeral port. `turboism.mcp.token` and `turboism.mcp.requestsPerMinute` are advanced system-property overrides.
+- The stable default port is `43123`. Set `turboism.mcp.port=0` explicitly for an ephemeral port. `turboism.mcp.requestsPerMinute` is the advanced rate-limit system-property override.
 - GET SSE, resource subscriptions, list-changed notifications, progress notifications, and MCP Tasks are not implemented.
 - Workspace switching and default-layout mutation are intentionally unavailable because the runtime currently gates them with `turboism.host.unsafe`.
 - `EditorFileCommandRequest`, import/export, save-as, backup, and other handle-based file workflows remain unavailable until an MCP session can receive a real `UserFileHandle` authorization without accepting raw paths.
@@ -235,7 +231,6 @@ No telemetry is sent by this plugin. Plugin lifecycle and failure records can ap
 | Symptom | What to check |
 |---|---|
 | MCP client cannot connect | Open **Turboism → MCP Connection**, confirm the process is running, and use the exact displayed loopback address. If port `43123` is occupied, stop the conflicting process or set an explicit advanced port override. |
-| Request is unauthorized | Copy the current Bearer token again from **Turboism → MCP Connection**. Tokens change when the MCP server restarts unless explicitly configured. |
 | Request is rejected before dispatch | Check method, origin, session, MCP protocol version, body size, content type, and rate limit. |
 | Resource returns `UNAVAILABLE` | Check active document/model state and exact-host capability admission; do not treat it as an empty successful value. |
 | Resource returns permission denied | Check the plugin descriptor grant and the specific runtime permission named above. |
