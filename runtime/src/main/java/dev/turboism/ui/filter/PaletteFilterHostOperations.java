@@ -5,10 +5,14 @@ import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.ui.palette.LogPaletteHostStructure;
+import dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry;
+import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
+import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
 import javax.swing.JButton;
+import javax.swing.ImageIcon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -33,6 +37,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.FlowLayout;
 import java.awt.FontMetrics;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
@@ -42,8 +47,10 @@ import java.awt.RenderingHints;
 import java.awt.Window;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -78,7 +85,7 @@ import java.util.function.Function;
  * Real-host readiness is not claimed here; reflective host paths remain
  * pending exact-version validation.</p>
  */
-public final class PaletteFilterHostOperations implements PaletteFilterVisibilitySink, AutoCloseable {
+public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink, PaletteToolbarHostOperations, AutoCloseable {
 
     private static final int CONNECT_ATTEMPTS = 300;
     /** Debounce window for deformer-tree filter keystrokes (continuous typing rebuilds once). */
@@ -101,6 +108,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private static final String WRAPPER_MARKER_KEY = LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY;
     private static final String SCENE_PALETTE_PROPERTY = "dev.turboism.scenePalette";
     private static final String TOOLBAR_ROW_MARKER_KEY = "turboism.paletteFilter.toolbarRow";
+    private static final String TOOLBAR_BUTTON_NAME = "turboismPaletteToolbarButton";
+    private static final String TOOLBAR_BUTTON_MARKER_KEY = "turboism.paletteToolbar.button";
     private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
     private static final String APP_MAIN_FRAME = "cubism.editor-model.app-controller.main-frame";
     private static final String MAIN_FRAME_PARAMETER_PALETTE =
@@ -128,6 +137,9 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private final Map<PaletteKind, PaletteFilterState> states = new ConcurrentHashMap<>();
     private final Map<String, List<PaletteFilterRegistry.PaletteFilterContribution>> contributionsByPlugin =
         new ConcurrentHashMap<>();
+    private final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> toolbarContributions =
+        new ConcurrentHashMap<>();
+    private final EditorUiPluginResourceRegistry resources;
     private final PaletteControllerResolver controllerResolver;
     private final Map<PaletteKind, String> lastAttachStatus = new ConcurrentHashMap<>();
     private volatile SceneFilterSink sceneFilterSink;
@@ -161,13 +173,26 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     }
 
     public PaletteFilterHostOperations() {
-        this(null);
+        this(null, null);
+    }
+
+    public PaletteFilterHostOperations(final EditorUiPluginResourceRegistry resources) {
+        this(resources, null);
     }
 
     PaletteFilterHostOperations(final PaletteControllerResolver controllerResolver) {
+        this(null, controllerResolver);
+    }
+
+    PaletteFilterHostOperations(
+        final EditorUiPluginResourceRegistry resources,
+        final PaletteControllerResolver controllerResolver
+    ) {
+        this.resources = resources;
         this.controllerResolver = controllerResolver;
         for (PaletteKind kind : PaletteKind.values()) {
             states.put(kind, new PaletteFilterState(kind));
+            toolbarContributions.put(kind, List.of());
         }
     }
 
@@ -250,16 +275,100 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         onEdt(this::reconcilePalettes);
     }
 
+    /** Replaces the authority-owned filter snapshot for the shared Palette surface. */
+    public void setFilterContributions(
+        final List<PaletteFilterRegistry.PaletteFilterContribution> contributions
+    ) {
+        final List<PaletteFilterRegistry.PaletteFilterContribution> requested = List.copyOf(
+            Objects.requireNonNull(contributions, "contributions")
+        );
+        for (PaletteFilterRegistry.PaletteFilterContribution contribution : requested) {
+            paletteKind(contribution.paletteId());
+        }
+        if (requested.isEmpty()) {
+            contributionsByPlugin.remove("__authority__");
+        } else {
+            contributionsByPlugin.put("__authority__", requested);
+        }
+        onEdt(this::reconcilePalettes);
+    }
+
+    @Override
+    public void setContributions(final List<PaletteToolbarHostOperations.ButtonContribution> contributions) {
+        final Map<PaletteKind, List<PaletteToolbarHostOperations.ButtonContribution>> next =
+            new java.util.EnumMap<>(PaletteKind.class);
+        for (PaletteKind kind : PaletteKind.values()) {
+            next.put(kind, new ArrayList<>());
+        }
+        final Set<String> nativeIds = new java.util.HashSet<>();
+        for (PaletteToolbarHostOperations.ButtonContribution contribution : List.copyOf(
+            Objects.requireNonNull(contributions, "contributions")
+        )) {
+            final PaletteKind kind = paletteKind(contribution.descriptor().paletteId());
+            toolbarAlignment(contribution.descriptor().anchor());
+            if (!nativeIds.add(contribution.descriptor().nativeId())) {
+                throw new IllegalArgumentException(
+                    "duplicate palette toolbar contribution: " + contribution.descriptor().nativeId()
+                );
+            }
+            next.get(kind).add(contribution);
+        }
+        for (PaletteKind kind : PaletteKind.values()) {
+            toolbarContributions.put(kind, List.copyOf(next.get(kind)));
+        }
+        onEdt(this::reconcilePalettes);
+    }
+
+    @Override
+    public void reconcileNow() {
+        onEdt(this::reconcilePalettes);
+    }
+
+    @Override
+    public void clearContributions() {
+        for (PaletteKind kind : PaletteKind.values()) {
+            toolbarContributions.put(kind, List.of());
+        }
+        onEdt(this::reconcilePalettes);
+    }
+
+    @Override
+    public boolean hasLiveButtons() {
+        for (PaletteFilterState state : states.values()) {
+            if (!state.toolbarButtons.isEmpty()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static PaletteKind paletteKind(final String paletteId) {
+        try {
+            return PaletteKind.valueOf(Objects.requireNonNull(paletteId, "paletteId").toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException failure) {
+            throw new IllegalArgumentException("unsupported palette id: " + paletteId, failure);
+        }
+    }
+
+    private static int toolbarAlignment(final String anchor) {
+        return switch (anchor) {
+            case "start", "first" -> FlowLayout.LEFT;
+            case "end", "last" -> FlowLayout.RIGHT;
+            default -> throw new IllegalStateException("palette toolbar anchor is unsupported: " + anchor);
+        };
+    }
+
     private boolean reconcilePalettes() {
         boolean allAttached = true;
         for (PaletteKind kind : PaletteKind.values()) {
-            final PaletteFilterRegistry.PaletteFilterContribution contribution = highestOrderContribution(kind);
+            final PaletteFilterRegistry.PaletteFilterContribution filter = highestOrderContribution(kind);
+            final List<PaletteToolbarHostOperations.ButtonContribution> buttons = toolbarContributions.get(kind);
             final PaletteFilterState state = states.get(kind);
-            if (contribution == null) {
+            if (filter == null && (buttons == null || buttons.isEmpty())) {
                 detach(state);
                 continue;
             }
-            if (!attach(state, contribution)) {
+            if (!attach(state, filter)) {
                 allAttached = false;
             }
         }
@@ -290,9 +399,16 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         return Map.copyOf(lastAttachStatus);
     }
 
+    int filterContributionCount(final PaletteKind kind) {
+        return highestOrderContribution(kind) == null ? 0 : 1;
+    }
+
     // ------------------------------------------------------------------ attach
 
-    private boolean attach(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+    private boolean attach(
+        final PaletteFilterState state,
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
         if (!bindingIsCurrent(state)) {
             resetBinding(state, true);
         }
@@ -386,6 +502,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
      */
     private static void resetBinding(final PaletteFilterState state, final boolean preserveFilterText) {
         restoreParameterRows(state);
+        detachToolbarButtons(state);
         final String filterText = preserveFilterText ? state.filterText : "";
         detachFilterBox(state);
         if (state.sourceDocumentListener != null && state.sourceDoc != null) {
@@ -715,93 +832,89 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
 
     // ------------------------------------------------------------ attach kinds
 
-    private boolean attachScene(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+    private boolean attachScene(
+        final PaletteFilterState state,
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
         final JComponent component = state.root;
-        if (component == null) {
-            return false;
-        }
+        if (component == null) return false;
         final JTable table = component instanceof JTable tableValue ? tableValue : findTable(component);
         if (table == null) {
             lastAttachStatus.put(state.kind, "scene-table-not-found root=" + component.getClass().getName());
             return false;
         }
-        final Object palette = reverseResolvePalette(table);
-        if (palette == null) {
-            lastAttachStatus.put(state.kind, "scene-palette-not-found table=" + table.getClass().getName());
+        final Container toolbar = findToolbarContainer(table);
+        if (toolbar == null) {
+            lastAttachStatus.put(state.kind, "scene-toolbar-not-found table=" + table.getClass().getName());
             return false;
         }
         state.table = table;
-        state.scenePalette = palette;
         state.root = table;
-        final Container toolbar = findToolbarContainer(table);
-        if (toolbar == null) {
-            lastAttachStatus.put(state.kind, "scene-toolbar-not-found table=" + table.getClass().getName()
-                + " palette=" + palette.getClass().getName());
-            return false;
-        }
         state.toolbar = toolbar;
-        ensureFilterBox(state, toolbar, contribution, text -> {
-            state.filterText = normalize(text);
-            if (sceneFilterSink != null) {
-                sceneFilterSink.setSceneFilter(state.filterText);
+        if (contribution != null) {
+            final Object palette = reverseResolvePalette(table);
+            if (palette == null) {
+                lastAttachStatus.put(state.kind, "scene-palette-not-found table=" + table.getClass().getName());
+                return false;
             }
-        });
-        if (sceneFilterSink != null) {
-            sceneFilterSink.setSceneFilter(state.filterText);
+            state.scenePalette = palette;
+            ensureFilterBox(state, toolbar, contribution, text -> {
+                state.filterText = normalize(text);
+                if (sceneFilterSink != null) sceneFilterSink.setSceneFilter(state.filterText);
+            });
+            if (sceneFilterSink != null) sceneFilterSink.setSceneFilter(state.filterText);
+        } else {
+            detachFilterBox(state);
         }
+        syncToolbarButtons(state, toolbar);
         lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName() + " palette=" + palette.getClass().getName()
-            + " sink=" + (sceneFilterSink != null));
+            + " toolbar=" + toolbar.getClass().getName());
         return true;
     }
 
-    private boolean attachDeformer(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+    private boolean attachDeformer(
+        final PaletteFilterState state,
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
         final JComponent component = state.root;
-        if (component == null) {
-            return false;
-        }
+        if (component == null) return false;
         final JTable table = component instanceof JTable tableValue ? tableValue : findTable(component);
         if (table == null) {
             lastAttachStatus.put(state.kind, "deformer-table-not-found root=" + component.getClass().getName());
             return false;
         }
-        state.table = table;
         final Container toolbar = findToolbarContainer(table);
         if (toolbar == null) {
             lastAttachStatus.put(state.kind, "deformer-toolbar-not-found table=" + table.getClass().getName());
             return false;
         }
-        final JTree tree = extractTree(table);
-        if (tree == null) {
-            lastAttachStatus.put(state.kind, "deformer-tree-not-found table=" + table.getClass().getName());
-            return false;
-        }
+        state.table = table;
         state.toolbar = toolbar;
-        state.tree = tree;
-        if (state.treeModel == null) {
-            state.treeModel = tree.getModel();
+        if (contribution != null) {
+            final JTree tree = extractTree(table);
+            if (tree == null) {
+                lastAttachStatus.put(state.kind, "deformer-tree-not-found table=" + table.getClass().getName());
+                return false;
+            }
+            state.tree = tree;
+            if (state.treeModel == null) state.treeModel = tree.getModel();
+            final String nodeSourceUnavailable = nodeSourceUnavailableDiagnostic();
+            if (nodeSourceUnavailable != null) {
+                lastAttachStatus.put(state.kind, nodeSourceUnavailable);
+                return false;
+            }
+            ensureFilterBox(state, toolbar, contribution, text -> {
+                state.filterText = normalize(text);
+                scheduleTreeFilter(state, text);
+            });
+            applyTreeFilter(state, tree, state.filterText);
+        } else {
+            if (state.tree != null) restoreOriginalDeformerTree(state, state.tree);
+            detachFilterBox(state);
         }
-        // Exact-version node→source accessor guard: without a resolvable accessor every search
-        // text would be empty and the whole tree would silently collapse (the 5.2.03 regression
-        // this guard exists for). Fail closed instead of installing a filter that cannot work.
-        final String nodeSourceUnavailable = nodeSourceUnavailableDiagnostic();
-        if (nodeSourceUnavailable != null) {
-            lastAttachStatus.put(state.kind, nodeSourceUnavailable);
-            return false;
-        }
-        // Keystrokes are debounced so continuous typing rebuilds the tree at most once per window;
-        // the attach-time application below still runs synchronously with the initial keyword.
-        ensureFilterBox(state, toolbar, contribution, text -> {
-            state.filterText = normalize(text);
-            scheduleTreeFilter(state, text);
-        });
-        applyTreeFilter(state, tree, state.filterText);
+        syncToolbarButtons(state, toolbar);
         lastAttachStatus.put(state.kind, "attached table=" + table.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName() + " tree=" + tree.getClass().getName()
-            + " treeModel=" + tree.getModel().getClass().getName()
-            + " tableModel=" + table.getModel().getClass().getName()
-            + " treeRows=" + tree.getRowCount() + " tableRows=" + table.getRowCount()
-            + " filterText=[" + state.filterText + "]");
+            + " toolbar=" + toolbar.getClass().getName());
         return true;
     }
 
@@ -822,35 +935,40 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         state.treeFilterTimer.restart();
     }
 
-    private boolean attachParameter(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
+    private boolean attachParameter(
+        final PaletteFilterState state,
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
         final JComponent component = state.root;
-        if (component == null) {
-            return false;
-        }
+        if (component == null) return false;
         final Container toolbar = findParameterToolbar(component);
         if (toolbar == null) {
             lastAttachStatus.put(state.kind, "parameter-toolbar-not-found root=" + component.getClass().getName());
             return false;
         }
-        final List<ParameterFilterRow> rows = parameterFilterRows(component);
-        if (rows.isEmpty()) {
-            lastAttachStatus.put(state.kind, "parameter-rows-not-found root=" + component.getClass().getName());
-            return false;
-        }
         state.toolbar = toolbar;
-        state.rows = rows;
-        final Set<JComponent> live = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
-        for (ParameterFilterRow row : rows) {
-            live.add(row.component());
-            state.originalRowVisibility.putIfAbsent(row.component(), row.component().isVisible());
+        if (contribution != null) {
+            final List<ParameterFilterRow> rows = parameterFilterRows(component);
+            if (rows.isEmpty()) {
+                lastAttachStatus.put(state.kind, "parameter-rows-not-found root=" + component.getClass().getName());
+                return false;
+            }
+            state.rows = rows;
+            final Set<JComponent> live = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            for (ParameterFilterRow row : rows) {
+                live.add(row.component());
+                state.originalRowVisibility.putIfAbsent(row.component(), row.component().isVisible());
+            }
+            restoreDiscardedParameterRows(state.originalRowVisibility, live);
+            ensureFilterBox(state, toolbar, contribution, text -> applyParameterFilter(state, text));
+            applyParameterFilter(state, state.filterText);
+        } else {
+            restoreParameterRows(state);
+            detachFilterBox(state);
         }
-        restoreDiscardedParameterRows(state.originalRowVisibility, live);
-        ensureFilterBox(state, toolbar, contribution, text -> applyParameterFilter(state, text));
-        applyParameterFilter(state, state.filterText);
-        lastAttachStatus.put(state.kind, "attached rows=" + rows.size()
-            + " root=" + component.getClass().getName()
-            + " toolbar=" + toolbar.getClass().getName()
-            + " filterText=[" + state.filterText + "]");
+        syncToolbarButtons(state, toolbar);
+        lastAttachStatus.put(state.kind, "attached root=" + component.getClass().getName()
+            + " toolbar=" + toolbar.getClass().getName());
         return true;
     }
 
@@ -989,48 +1107,47 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     }
 
 
-    private boolean attachLog(final PaletteFilterState state, final PaletteFilterRegistry.PaletteFilterContribution contribution) {
-        // Installed fast path: keep identity stable across reconciles.
-        if (state.filteredDoc != null && state.sourceTextPane != null
+    private boolean attachLog(
+        final PaletteFilterState state,
+        final PaletteFilterRegistry.PaletteFilterContribution contribution
+    ) {
+        if (contribution == null && state.filteredDoc != null) {
+            resetBinding(state, true);
+            return false;
+        }
+        if (contribution != null && state.filteredDoc != null && state.sourceTextPane != null
             && state.sourceTextPane.getDocument() == state.filteredDoc
             && state.sourceTextPane.isDisplayable()) {
+            syncToolbarButtons(state, state.toolbarPanel);
             refreshFilteredLogText(state);
-            lastAttachStatus.put(state.kind, "attached(installed) pane="
-                + state.sourceTextPane.getClass().getName()
-                + " scrollShell=" + state.scrollShell.getClass().getName());
             return true;
         }
         final JComponent component = state.root;
-        if (component == null) {
-            return false;
-        }
+        if (component == null) return false;
         final JTextPane textPane = component instanceof JTextPane pane ? pane : findTextPane(component);
         if (textPane == null) {
             lastAttachStatus.put(state.kind, "log-textpane-not-found root=" + component.getClass().getName());
             return false;
         }
         final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(textPane);
-        if (viewport == null) {
-            lastAttachStatus.put(state.kind, "log-viewport-not-found pane=" + textPane.getClass().getName());
-            return false;
-        }
-        final Container scrollShell = viewport.getParent();
-        if (scrollShell == null) {
+        if (viewport == null || viewport.getParent() == null) {
             lastAttachStatus.put(state.kind, "log-scrollshell-not-found");
             return false;
         }
+        final Container scrollShell = viewport.getParent();
         state.sourceTextPane = textPane;
         state.viewport = viewport;
         state.scrollShell = scrollShell;
         ensureLogToolbar(state, scrollShell, contribution);
-        // Pre-render filtering: keep the native JTextPane and its viewport untouched;
-        // filter the data at the Document layer instead of swapping the view.
-        state.sourceDoc = textPane.getDocument();
-        installFilteredDocument(state);
-        refreshFilteredLogText(state);
+        syncToolbarButtons(state, state.toolbarPanel);
+        if (contribution != null) {
+            state.sourceDoc = textPane.getDocument();
+            installFilteredDocument(state);
+            refreshFilteredLogText(state);
+        }
         lastAttachStatus.put(state.kind, "attached pane=" + textPane.getClass().getName()
             + " scrollShell=" + scrollShell.getClass().getName()
-            + " documentFiltered=" + (textPane.getDocument() != state.sourceDoc));
+            + " filter=" + (contribution != null));
         return true;
     }
 
@@ -1272,6 +1389,96 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         state.filterBox = null;
     }
 
+    private void syncToolbarButtons(final PaletteFilterState state, final Container toolbar) {
+        final List<PaletteToolbarHostOperations.ButtonContribution> requested =
+            toolbarContributions.getOrDefault(state.kind, List.of());
+        final boolean current = state.toolbarSnapshot.equals(requested)
+            && state.toolbarButtons.values().stream().allMatch(button -> button.getParent() != null);
+        if (current) return;
+        detachToolbarButtons(state);
+        state.toolbarSnapshot = requested;
+        if (requested.isEmpty()) return;
+
+        if (state.kind == PaletteKind.LOG) {
+            if (state.toolbarButtonPanel == null) {
+                state.toolbarButtonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
+                state.toolbarButtonPanel.setOpaque(false);
+            }
+            if (state.levelPanel == null) {
+                state.levelPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+                state.levelPanel.setOpaque(false);
+            }
+            if (state.toolbarButtonPanel.getParent() != state.toolbarPanel) {
+                state.toolbarPanel.add(state.toolbarButtonPanel, BorderLayout.WEST);
+            }
+            if (state.levelPanel.getParent() != state.toolbarPanel) {
+                state.toolbarPanel.add(state.levelPanel, BorderLayout.EAST);
+            }
+            for (PaletteToolbarHostOperations.ButtonContribution contribution : requested) {
+                final JButton button = createToolbarButton(contribution);
+                state.toolbarButtons.put(contribution.descriptor().nativeId(), button);
+                final Container target = toolbarAlignment(contribution.descriptor().anchor()) == FlowLayout.LEFT
+                    ? state.toolbarButtonPanel
+                    : state.levelPanel;
+                target.add(button, target == state.levelPanel
+                    ? Math.max(0, target.getComponentCount() - logLevelButtonCount(state))
+                    : target.getComponentCount());
+            }
+            state.toolbarPanel.revalidate();
+            state.toolbarPanel.repaint();
+            return;
+        }
+
+        int startIndex = 0;
+        for (PaletteToolbarHostOperations.ButtonContribution contribution : requested) {
+            final JButton button = createToolbarButton(contribution);
+            state.toolbarButtons.put(contribution.descriptor().nativeId(), button);
+            if (toolbarAlignment(contribution.descriptor().anchor()) == FlowLayout.LEFT) {
+                toolbar.add(button, Math.min(startIndex++, toolbar.getComponentCount()));
+            } else {
+                toolbar.add(button);
+            }
+        }
+        toolbar.revalidate();
+        toolbar.repaint();
+    }
+
+    private static int logLevelButtonCount(final PaletteFilterState state) {
+        return state.infoButton == null ? 0 : 3;
+    }
+
+    private JButton createToolbarButton(final PaletteToolbarHostOperations.ButtonContribution contribution) {
+        final PaletteToolbarContributionDescriptor descriptor = contribution.descriptor();
+        ImageIcon icon = null;
+        if (resources != null) {
+            final URL url = resources.resource(descriptor.pluginId(), descriptor.iconResourcePath()).orElse(null);
+            if (url != null) icon = new ImageIcon(url);
+        }
+        final JButton button = new JButton(descriptor.label(), icon);
+        button.setName(TOOLBAR_BUTTON_NAME);
+        button.putClientProperty(TOOLBAR_BUTTON_MARKER_KEY, descriptor.nativeId());
+        button.setToolTipText(descriptor.label());
+        button.setFocusable(false);
+        button.addActionListener(ignored -> contribution.action().run());
+        return button;
+    }
+
+    private static void detachToolbarButtons(final PaletteFilterState state) {
+        for (JButton button : state.toolbarButtons.values()) {
+            final Container parent = button.getParent();
+            if (parent != null) parent.remove(button);
+        }
+        state.toolbarButtons.clear();
+        if (state.toolbarButtonPanel != null && state.toolbarButtonPanel.getParent() != null) {
+            final Container parent = state.toolbarButtonPanel.getParent();
+            parent.remove(state.toolbarButtonPanel);
+            parent.revalidate();
+            parent.repaint();
+        }
+        state.toolbarButtonPanel = null;
+        state.toolbarSnapshot = List.of();
+    }
+
     // ------------------------------------------------------- scene filtering
 
     private void applySceneFilter(final PaletteFilterState state, final String text) {
@@ -1389,61 +1596,58 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         final Container scrollShell,
         final PaletteFilterRegistry.PaletteFilterContribution contribution
     ) {
-        if (state.toolbarPanel != null && state.wrapper != null && state.wrapper.getParent() != null) {
-            return;
-        }
         if (state.toolbarPanel == null) {
             state.toolbarPanel = new JPanel(new BorderLayout(4, 0));
             state.toolbarPanel.setOpaque(false);
             state.toolbarPanel.setBorder(BorderFactory.createEmptyBorder(2, 4, 2, 4));
         }
-        if (state.filterBox == null) {
-            state.filterBox = createFilterBox(contribution.placeholderKey(), state.filterText, text -> {
-                state.filterText = normalize(text);
-                refreshFilteredLogText(state);
-                publishLogFilter(state);
-            });
-        }
-        if (state.filterBox.panel.getParent() != state.toolbarPanel) {
-            state.toolbarPanel.add(state.filterBox.panel, BorderLayout.CENTER);
-        }
-        if (state.levelPanel == null) {
-            state.levelPanel = new JPanel(new java.awt.FlowLayout(java.awt.FlowLayout.RIGHT, 2, 0));
-            state.levelPanel.setOpaque(false);
-            state.infoButton = createLogLevelButton("info", LOG_INFO_ON, () -> {
-                state.showInfo = !state.showInfo;
+        if (contribution != null) {
+            if (state.filterBox == null) {
+                state.filterBox = createFilterBox(contribution.placeholderKey(), state.filterText, text -> {
+                    state.filterText = normalize(text);
+                    refreshFilteredLogText(state);
+                    publishLogFilter(state);
+                });
+            }
+            if (state.filterBox.panel.getParent() != state.toolbarPanel) {
+                state.toolbarPanel.add(state.filterBox.panel, BorderLayout.CENTER);
+            }
+            if (state.levelPanel == null) {
+                state.levelPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
+                state.levelPanel.setOpaque(false);
+            }
+            if (state.infoButton == null) {
+                state.infoButton = createLogLevelButton("info", LOG_INFO_ON, () -> {
+                    state.showInfo = !state.showInfo;
+                    refreshLogLevelButtons(state);
+                    refreshFilteredLogText(state);
+                    publishLogFilter(state);
+                });
+                state.warnButton = createLogLevelButton("warn", LOG_WARN_ON, () -> {
+                    state.showWarn = !state.showWarn;
+                    refreshLogLevelButtons(state);
+                    refreshFilteredLogText(state);
+                    publishLogFilter(state);
+                });
+                state.errorButton = createLogLevelButton("error", LOG_ERROR_ON, () -> {
+                    state.showError = !state.showError;
+                    refreshLogLevelButtons(state);
+                    refreshFilteredLogText(state);
+                    publishLogFilter(state);
+                });
+                state.levelPanel.add(state.infoButton);
+                state.levelPanel.add(state.warnButton);
+                state.levelPanel.add(state.errorButton);
                 refreshLogLevelButtons(state);
-                refreshFilteredLogText(state);
-                publishLogFilter(state);
-            });
-            state.warnButton = createLogLevelButton("warn", LOG_WARN_ON, () -> {
-                state.showWarn = !state.showWarn;
-                refreshLogLevelButtons(state);
-                refreshFilteredLogText(state);
-                publishLogFilter(state);
-            });
-            state.errorButton = createLogLevelButton("error", LOG_ERROR_ON, () -> {
-                state.showError = !state.showError;
-                refreshLogLevelButtons(state);
-                refreshFilteredLogText(state);
-                publishLogFilter(state);
-            });
-            state.levelPanel.add(state.infoButton);
-            state.levelPanel.add(state.warnButton);
-            state.levelPanel.add(state.errorButton);
-            refreshLogLevelButtons(state);
+            }
+            if (state.levelPanel.getParent() != state.toolbarPanel) {
+                state.toolbarPanel.add(state.levelPanel, BorderLayout.EAST);
+            }
         }
-        if (state.levelPanel.getParent() != state.toolbarPanel) {
-            state.toolbarPanel.add(state.levelPanel, BorderLayout.EAST);
-        }
-        if (state.wrapper != null && state.wrapper.getParent() == scrollShell.getParent()) {
-            return;
-        }
+        if (state.wrapper != null && state.wrapper.getParent() == scrollShell.getParent()) return;
         final Container parent = scrollShell.getParent();
-        if (parent == null) {
-            return;
-        }
-        final JPanel wrapper = new JPanel(new BorderLayout(0, 0));
+        if (parent == null) return;
+        final JPanel wrapper = new JPanel(new BorderLayout());
         wrapper.setOpaque(false);
         wrapper.putClientProperty(WRAPPER_MARKER_KEY, Boolean.TRUE);
         final LayoutManager parentLayout = parent.getLayout();
@@ -1454,12 +1658,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         parent.remove(scrollShell);
         wrapper.add(state.toolbarPanel, BorderLayout.NORTH);
         wrapper.add(scrollShell, BorderLayout.CENTER);
-        if (constraint != null) {
-            parent.add(wrapper, constraint);
-        } else {
-            final int safeIndex = zOrder < 0 ? parent.getComponentCount() : Math.min(zOrder, parent.getComponentCount());
-            parent.add(wrapper, safeIndex);
-        }
+        if (constraint != null) parent.add(wrapper, constraint);
+        else parent.add(wrapper, zOrder < 0 ? parent.getComponentCount() : Math.min(zOrder, parent.getComponentCount()));
         parent.revalidate();
         parent.repaint();
         state.wrapper = wrapper;
@@ -2288,6 +2488,9 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         volatile Container toolbar;
         volatile FilterBox filterBox;
         volatile ToolbarPlacement toolbarPlacement;
+        volatile JPanel toolbarButtonPanel;
+        volatile List<PaletteToolbarHostOperations.ButtonContribution> toolbarSnapshot = List.of();
+        final Map<String, JButton> toolbarButtons = new LinkedHashMap<>();
         volatile JPanel levelPanel;
         volatile JButton infoButton;
         volatile JButton warnButton;

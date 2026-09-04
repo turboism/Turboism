@@ -101,8 +101,8 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private final dev.turboism.ui.table.RuntimeSceneTableService sceneTable = sceneTableHost.service();
     private final PaletteAppearanceCoordinator paletteAppearanceCoordinator =
         new PaletteAppearanceCoordinator();
-    private final dev.turboism.ui.filter.PaletteFilterHostOperations paletteFilterHost =
-        new dev.turboism.ui.filter.PaletteFilterHostOperations();
+    private final dev.turboism.ui.palette.PaletteSurfaceCoordinator paletteSurfaceCoordinator =
+        new dev.turboism.ui.palette.PaletteSurfaceCoordinator(editorUiPluginResources);
     private final dev.turboism.sdk.runtime.CubismLogService cubismLog =
         new dev.turboism.runtime.log.CubismLogServiceHost();
     private final dev.turboism.ui.workspace.WorkspaceCoordinator workspaceCoordinator =
@@ -222,10 +222,10 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
                 host.connect(descriptor.verificationEvidence().projectWorkspace().hostClassLoader());
             }
-            paletteFilterHost.bindSceneFilterSink(sceneTableHost);
-            paletteFilterHost.bindCubismLogService(cubismLog);
-            paletteFilterHost.bindParameterRows(paletteAppearanceCoordinator);
-            paletteFilterHost.connect(
+            paletteSurfaceCoordinator.bindSceneFilterSink(sceneTableHost);
+            paletteSurfaceCoordinator.bindCubismLogService(cubismLog);
+            paletteSurfaceCoordinator.bindParameterRows(paletteAppearanceCoordinator);
+            paletteSurfaceCoordinator.connect(
                 descriptor.verificationEvidence().projectWorkspace().hostClassLoader()
             );
             final ConnectionKey connectionKey;
@@ -299,18 +299,43 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             activeConnection = candidate;
             workspaceLayoutCoordinator = candidate.workspaceLayoutCoordinator();
             try {
-                paletteFilterHost.bindParameterRowsResolver(candidate.editorModelResolver());
+                paletteSurfaceCoordinator.bindParameterRowsResolver(candidate.editorModelResolver());
             } catch (IllegalStateException unavailable) {
-                paletteFilterHost.clearParameterRowsResolver();
+                paletteSurfaceCoordinator.clearParameterRowsResolver();
             }
             objectContextMenuHandler = candidate.objectContextMenuHandler(editorUiGeneration);
             parameterPointMenuHandler = candidate.parameterPointMenuHandler(editorUiGeneration);
             final EditorUiProviderInstaller.Installation candidateEditorUiProviders;
             try {
+                final java.util.List<dev.turboism.ui.contribution.EditorUiContributionProvider> providers =
+                    new java.util.ArrayList<>(candidate.editorUiProviders(editorUiGeneration));
+                final java.util.Optional<dev.turboism.ui.contribution.EditorUiContributionProvider> paletteEvidenceProvider =
+                    providers.stream()
+                        .filter(provider -> provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_TOOLBAR)
+                        .findFirst();
+                if (paletteEvidenceProvider.isPresent()) {
+                    final dev.turboism.ui.contribution.EditorUiProviderAdmission toolbarAdmission =
+                        paletteEvidenceProvider.get().admission();
+                    providers.removeIf(provider -> provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_TOOLBAR
+                        || provider.family() == dev.turboism.ui.host.EditorUiFamily.PALETTE_FILTER);
+                    providers.add(new dev.turboism.ui.toolbar.PaletteToolbarContributionProvider(
+                        toolbarAdmission,
+                        paletteSurfaceCoordinator,
+                        editorUiActionRouter
+                    ));
+                    providers.add(new dev.turboism.ui.filter.PaletteFilterContributionProvider(
+                        dev.turboism.ui.contribution.EditorUiProviderAdmission.admitted(
+                            dev.turboism.ui.host.EditorUiFamily.PALETTE_FILTER,
+                            editorUiGeneration,
+                            toolbarAdmission.verificationEvidence().orElseThrow()
+                        ),
+                        paletteSurfaceCoordinator
+                    ));
+                }
                 candidateEditorUiProviders = EditorUiProviderInstaller.install(
                     editorUiGeneration,
                     editorUiContributions,
-                    candidate.editorUiProviders(editorUiGeneration)
+                    providers
                 );
             } catch (Throwable throwable) {
                 final CleanupOutcome candidateCleanup = cleanupOwnedResources();
@@ -515,7 +540,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     @Override
     public dev.turboism.ui.filter.PaletteFilterVisibilitySink paletteFilterSink() {
-        return paletteFilterHost;
+        return paletteSurfaceCoordinator;
     }
 
     @Override
@@ -652,7 +677,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator,
             sceneTable,
             cubismLog,
-            paletteFilterHost,
+            paletteSurfaceCoordinator,
             paletteAppearanceCoordinator,
             workspaceCoordinator,
             workspaceLayoutCoordinator,
@@ -680,7 +705,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             appearanceCoordinator.close();
             paletteAppearanceCoordinator.close();
             sceneTableHost.disconnect();
-            paletteFilterHost.close();
+            paletteSurfaceCoordinator.close();
             if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
                 host.close();
             }
@@ -749,7 +774,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
-        paletteFilterHost.clearParameterRowsResolver();
+        paletteSurfaceCoordinator.clearParameterRowsResolver();
         if (activeConnection != null && activeConnection.workspaceProvider() != null) {
             workspaceCoordinator.disconnect(activeConnection.workspaceProvider());
         }
