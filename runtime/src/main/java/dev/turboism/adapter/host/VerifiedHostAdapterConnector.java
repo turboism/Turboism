@@ -453,7 +453,8 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
             && topMenu == null
             && overlay == null
             && workspace == null
-            && textureAtlasProvider == null) {
+            && textureAtlasProvider == null
+            && (editorUiPluginResources == null || editorUiActionRouter == null)) {
             return HostAdapterConnection.of(
                 adapters,
                 modelAccess,
@@ -829,6 +830,23 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     (dev.turboism.ui.context.ContextMenuHostOperations) menuHandler,
                     editorUiActionRouter,
                     panelTabMenus
+                ));
+                providers.add(new dev.turboism.ui.toolbar.PaletteToolbarContributionProvider(
+                    EditorUiProviderAdmission.admitted(
+                        EditorUiFamily.PALETTE_TOOLBAR,
+                        hostGeneration,
+                        new EditorUiProviderAdmission.VerificationEvidence(
+                            editorAdmission.cubismVersion(),
+                            editorAdmission.artifactSize(),
+                            editorAdmission.artifactSha256(),
+                            editorAdmission.adapterSliceId(),
+                            editorAdmission.recordSha256()
+                        )
+                    ),
+                    new dev.turboism.ui.toolbar.VerifiedPaletteToolbarHostOperations(
+                        editorUiPluginResources
+                    ),
+                    editorUiActionRouter
                 ));
                 if (toolbar != null) {
                     diag("installing MAIN/VERTICAL/HORIZONTAL toolbar providers");
