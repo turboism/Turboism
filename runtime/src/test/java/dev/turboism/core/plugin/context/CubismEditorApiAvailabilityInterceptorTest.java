@@ -10,6 +10,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.lang.reflect.Proxy;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,6 +134,82 @@ class CubismEditorApiAvailabilityInterceptorTest {
             CubismEditorApiUnavailableException.class,
             () -> proxy.stage().toCompletableFuture().join().only5302()
         );
+    }
+
+    @Test
+    void unannotatedModelAccessCarrierStillWrapsAnnotatedDescendants() {
+        final AtomicInteger activeCalls = new AtomicInteger();
+        final AtomicInteger idCalls = new AtomicInteger();
+        final dev.turboism.sdk.cubism.model.CubismModel model = recordingDelegate(
+            dev.turboism.sdk.cubism.model.CubismModel.class,
+            idCalls
+        );
+        final dev.turboism.sdk.cubism.model.CubismModelAccess access = () -> {
+            activeCalls.incrementAndGet();
+            return model;
+        };
+        final dev.turboism.sdk.cubism.model.CubismModelAccess proxy = proxy(
+            access,
+            dev.turboism.sdk.cubism.model.CubismModelAccess.class,
+            Optional.empty()
+        );
+
+        final dev.turboism.sdk.cubism.model.CubismModel wrapped = proxy.active();
+        assertEquals(1, activeCalls.get());
+        assertThrows(CubismEditorApiUnavailableException.class, wrapped::id);
+        assertEquals(0, idCalls.get());
+    }
+
+    @Test
+    void unannotatedPartsCarrierStillWrapsAnnotatedPartListElements() {
+        final AtomicInteger allCalls = new AtomicInteger();
+        final AtomicInteger idCalls = new AtomicInteger();
+        final dev.turboism.sdk.cubism.model.Part part = recordingDelegate(
+            dev.turboism.sdk.cubism.model.Part.class,
+            idCalls
+        );
+        final dev.turboism.sdk.cubism.model.Parts parts = new dev.turboism.sdk.cubism.model.Parts() {
+            @Override public java.util.List<dev.turboism.sdk.cubism.model.Part> all() {
+                allCalls.incrementAndGet();
+                return List.of(part);
+            }
+            @Override public dev.turboism.sdk.cubism.model.Part find(
+                final dev.turboism.sdk.cubism.model.PartId id
+            ) {
+                throw new UnsupportedOperationException("not exercised");
+            }
+        };
+        final dev.turboism.sdk.cubism.model.Parts proxy = proxy(
+            parts,
+            dev.turboism.sdk.cubism.model.Parts.class,
+            Optional.of("5.2.03")
+        );
+
+        final dev.turboism.sdk.cubism.model.Part wrapped = proxy.all().get(0);
+        assertEquals(1, allCalls.get());
+        // Part is restricted to {5.2.03, 5.3.02}; a 5.2.03 host is admitted.
+        assertDoesNotThrow(() -> wrapped.id());
+        assertEquals(1, idCalls.get());
+
+        final dev.turboism.sdk.cubism.model.Parts onUnknownHost = proxy(
+            parts,
+            dev.turboism.sdk.cubism.model.Parts.class,
+            Optional.of("5.2.04")
+        );
+        final dev.turboism.sdk.cubism.model.Part wrappedUnknown = onUnknownHost.all().get(0);
+        assertThrows(CubismEditorApiUnavailableException.class, wrappedUnknown::id);
+        assertEquals(1, idCalls.get());
+    }
+
+    private static <T> T recordingDelegate(final Class<T> type, final AtomicInteger calls) {
+        return type.cast(Proxy.newProxyInstance(
+            type.getClassLoader(),
+            new Class<?>[] {type},
+            (proxy, method, arguments) -> {
+                calls.incrementAndGet();
+                return null;
+            }
+        ));
     }
 
     @Test
