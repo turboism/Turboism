@@ -12,10 +12,9 @@ import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-/** Reversible typed palette-toolbar provider for the verified Log palette host surface. */
+/** Reversible typed palette-toolbar provider for the shared four-Palette host surface. */
 public final class PaletteToolbarContributionProvider implements EditorUiContributionProvider {
 
-    private static final String LOG_PALETTE_ID = "LOG";
 
     private final EditorUiProviderAdmission admission;
     private final PaletteToolbarHostOperations host;
@@ -47,6 +46,11 @@ public final class PaletteToolbarContributionProvider implements EditorUiContrib
     }
 
     @Override
+    public boolean supportsIncrementalReconcile() {
+        return true;
+    }
+
+    @Override
     public Registration apply(
         final long hostGeneration,
         final List<EditorUiContribution<?>> contributions
@@ -58,14 +62,6 @@ public final class PaletteToolbarContributionProvider implements EditorUiContrib
         for (EditorUiContribution<?> contribution : contributions) {
             final PaletteToolbarContributionDescriptor descriptor =
                 PaletteToolbarContributionDescriptor.from(contribution);
-            if (!LOG_PALETTE_ID.equalsIgnoreCase(descriptor.paletteId())) {
-                System.getLogger(getClass().getName()).log(
-                    System.Logger.Level.WARNING,
-                    "Skipping unsupported palette toolbar contribution "
-                        + descriptor.nativeId() + " for palette " + descriptor.paletteId()
-                );
-                continue;
-            }
             buttons.add(new PaletteToolbarHostOperations.ButtonContribution(
                 descriptor,
                 () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())
@@ -87,5 +83,30 @@ public final class PaletteToolbarContributionProvider implements EditorUiContrib
                 host.clearContributions();
             }
         };
+    }
+
+    @Override
+    public Registration reconcile(
+        final long hostGeneration,
+        final List<EditorUiContribution<?>> contributions,
+        final Registration existing
+    ) {
+        if (!admission.isAdmittedTo(hostGeneration)) {
+            throw new IllegalStateException("palette-toolbar provider admission is stale");
+        }
+        if (existing == null) {
+            return apply(hostGeneration, contributions);
+        }
+        final List<PaletteToolbarHostOperations.ButtonContribution> buttons = new ArrayList<>();
+        for (EditorUiContribution<?> contribution : contributions) {
+            final PaletteToolbarContributionDescriptor descriptor =
+                PaletteToolbarContributionDescriptor.from(contribution);
+            buttons.add(new PaletteToolbarHostOperations.ButtonContribution(
+                descriptor,
+                () -> actionRouter.invoke(descriptor.pluginId(), descriptor.actionId())
+            ));
+        }
+        host.setContributions(List.copyOf(buttons));
+        return existing;
     }
 }

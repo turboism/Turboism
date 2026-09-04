@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class PaletteToolbarContributionProviderTest {
 
     @Test
-    void routesLogActionsSkipsUnsupportedPalettesAndCleansIdempotently() {
+    void routesActionsForEverySupportedPaletteAndCleansIdempotently() {
         final RecordingHost host = new RecordingHost();
         final List<String> actions = new ArrayList<>();
         final PaletteToolbarContributionProvider provider = new PaletteToolbarContributionProvider(
@@ -35,9 +35,11 @@ class PaletteToolbarContributionProviderTest {
             contribution("plugin-demo", "parameter", "parameters", 10)
         ));
 
-        assertEquals(List.of("plugin-a:log"), host.nativeIds());
+        assertEquals(List.of("plugin-a:log", "plugin-demo:parameter"), host.nativeIds());
         host.buttons.get(0).action().run();
         assertEquals(List.of("plugin-a:action.log"), actions);
+        host.buttons.get(1).action().run();
+        assertEquals(List.of("plugin-a:action.log", "plugin-demo:action.parameter"), actions);
         registration.close();
         registration.close();
         assertEquals(1, host.clearCount);
