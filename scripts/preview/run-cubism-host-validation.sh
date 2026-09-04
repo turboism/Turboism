@@ -18,7 +18,7 @@ usage() {
 Usage:
   run-cubism-host-validation.sh \
     --name <validation-name> \
-    --version <5203|5302> \
+    --version <5203|5302|5303> \
     --bundle-root <local-directory> \
     --agent <local-agent.jar> \
     --home-config <local-config.json> \
@@ -286,6 +286,11 @@ run_label="$(safe_label "$run_label")"
 [ -n "$run_label" ] || fail "run label becomes empty after sanitization"
 
 case "$version" in
+  5303)
+    cubism_win='C:\Program Files\Live2D Cubism 5.3'
+    cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3'
+    reviewed_jar_sha256='bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166'
+    ;;
   5302)
     cubism_win='C:\Program Files\Live2D Cubism 5.3'
     cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.3'
@@ -296,7 +301,7 @@ case "$version" in
     cubism_rel='pfx/drive_c/Program Files/Live2D Cubism 5.2'
     reviewed_jar_sha256='bcc6e34f448be33d8964f2e17f4eb7fd3780e4a9b7f60525da377c9f35d2b3dd'
     ;;
-  *) fail "--version must be 5203 or 5302" ;;
+  *) fail "--version must be 5203, 5302, or 5303" ;;
 esac
 
 for numeric in "$agent_timeout" "$ready_timeout" "$result_timeout" "$exit_timeout" "$poll_seconds"; do
@@ -543,6 +548,7 @@ if [ "$dry_run" = 1 ]; then
     "windowsEnvironmentCount=${#windows_environment[@]}" \
     "goldenCubism=$golden_cubism" \
     "clonedCubism=$cloned_cubism" \
+    "expectedJarSha256=$reviewed_jar_sha256" \
     "resultMarker=$result_marker" \
     "resultFile=$result_file" \
     "trigger=$trigger_path" \
@@ -620,7 +626,7 @@ REMOTE
 
 remote_normal_exit_evidence_seen() {
   case "$version" in
-    5302)
+    5302|5303)
       remote_args_bash "$evidence_dir/cubism-console.txt" <<'REMOTE'
 set -euo pipefail
 remote_args

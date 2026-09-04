@@ -39,10 +39,7 @@ import java.nio.file.attribute.AclFileAttributeView;
 import java.nio.file.attribute.PosixFileAttributeView;
 import java.nio.file.attribute.PosixFilePermission;
 import java.nio.file.attribute.PosixFilePermissions;
-import java.security.MessageDigest;
-import java.security.SecureRandom;
 import java.time.Instant;
-import java.util.Base64;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -72,7 +69,6 @@ final class McpHttpServer implements AutoCloseable {
     private final ExecutorService executor;
     private final PluginLogger logger;
     private final McpProtocol protocol;
-    private final String token;
     private final Path connectionFile;
     private final URI endpoint;
     private final WindowRateLimiter rateLimiter;
@@ -85,7 +81,6 @@ final class McpHttpServer implements AutoCloseable {
         final ExecutorService executor,
         final PluginLogger logger,
         final McpProtocol protocol,
-        final String token,
         final Path connectionFile,
         final URI endpoint,
         final WindowRateLimiter rateLimiter,
@@ -96,7 +91,6 @@ final class McpHttpServer implements AutoCloseable {
         this.executor = executor;
         this.logger = logger;
         this.protocol = protocol;
-        this.token = token;
         this.connectionFile = connectionFile;
         this.endpoint = endpoint;
         this.rateLimiter = rateLimiter;
@@ -142,8 +136,6 @@ final class McpHttpServer implements AutoCloseable {
             final int port = integerProperty(
                 "turboism.mcp.port", DEFAULT_PORT, 0, 65535
             );
-            stage.enter("configured token");
-            final String token = configuredToken();
             stage.enter("requests-per-minute property");
             final int requestsPerMinute =
                 integerProperty("turboism.mcp.requestsPerMinute", 120, 10, 6000);
@@ -165,7 +157,6 @@ final class McpHttpServer implements AutoCloseable {
                 uiScheduler,
                 stateDir,
                 port,
-                token,
                 requestsPerMinute
             ), stage);
         } catch (McpStartupFailure failure) {
@@ -225,8 +216,11 @@ final class McpHttpServer implements AutoCloseable {
                 checked.cubism(), execution
             );
             final McpResourceCatalog parameterResources = parameters.resourceCatalog();
+            final McpGlueDomain glues = new McpGlueDomain(checked.cubism(), execution);
             final McpHistoryCommandDomain historyCommands = new McpHistoryCommandDomain(
-                checked.history(), checked.editorCommands()
+                checked.history(),
+                checked.editorCommands(),
+                execution
             );
             final McpRuntimeDiagnostics runtimeDiagnostics = new McpRuntimeDiagnostics();
             final McpDiagnosticsDomain diagnostics = new McpDiagnosticsDomain(
@@ -238,11 +232,17 @@ final class McpHttpServer implements AutoCloseable {
                 parameterResources,
                 execution
             );
-            final McpToolCatalog tools = runtimeDiagnostics.observe(McpToolCatalog.combine(
-                production.tools(),
-                parameters.toolCatalog(),
-                historyCommands.tools()
-            ));
+            final McpToolCatalog tools = McpTransactionDomain.attach(
+                McpToolCatalog.combine(
+                    production.tools(),
+                    parameters.toolCatalog(),
+                    historyCommands.tools(),
+                    glues.tools()
+                ),
+                checked.cubism().authoringTransactions(),
+                execution,
+                runtimeDiagnostics::observe
+            );
             final McpResourceCatalog resources = runtimeDiagnostics.observe(
                 McpResourceCatalog.combine(
                     production.resourceCatalog(),
@@ -261,7 +261,6 @@ final class McpHttpServer implements AutoCloseable {
                     resources,
                     McpPromptCatalog.defaults()
                 ),
-                checked.token(),
                 connectionFile,
                 endpoint,
                 new WindowRateLimiter(checked.requestsPerMinute()),
@@ -339,14 +338,6 @@ final class McpHttpServer implements AutoCloseable {
         return connectionFile;
     }
 
-    /**
-     * Returns the sensitive bearer value for process-local publication through the runtime MCP
-     * connection service. Callers must never log or persist the returned value.
-     */
-    String authorization() {
-        return "Bearer " + token;
-    }
-
     List<McpConnectionHistory.Entry> connectionHistory() {
         return history.snapshot();
     }
@@ -359,11 +350,6 @@ final class McpHttpServer implements AutoCloseable {
 
             if (!originAllowed(exchange.getRequestHeaders().getFirst("Origin"))) {
                 sendEmpty(exchange, 403);
-                return;
-            }
-            if (!authorized(exchange.getRequestHeaders().getFirst("Authorization"))) {
-                responseHeaders.set("WWW-Authenticate", "Bearer");
-                sendEmpty(exchange, 401);
                 return;
             }
             if (!rateLimiter.acquire()) {
@@ -547,7 +533,6 @@ final class McpHttpServer implements AutoCloseable {
         content.put("transport", "streamable-http");
         content.put("endpoint", endpoint.toString());
         content.put("protocolVersion", McpProtocol.VERSION);
-        content.put("authorization", "Bearer " + token);
         content.put("pid", ProcessHandle.current().pid());
         content.put("startedAt", Instant.now().toString());
         final byte[] bytes = StrictJson.bytes(content);
@@ -696,14 +681,6 @@ final class McpHttpServer implements AutoCloseable {
     private static final Set<PosixFilePermission> DIRECTORY_OWNER_ONLY =
         PosixFilePermissions.fromString("rwx------");
 
-    private boolean authorized(final String authorization) {
-        if (authorization == null || !authorization.startsWith("Bearer ")) return false;
-        final byte[] expected = token.getBytes(StandardCharsets.UTF_8);
-        final byte[] supplied = authorization.substring("Bearer ".length())
-            .getBytes(StandardCharsets.UTF_8);
-        return MessageDigest.isEqual(expected, supplied);
-    }
-
     private static boolean originAllowed(final String origin) {
         if (origin == null || origin.isBlank()) return true;
         try {
@@ -807,22 +784,6 @@ final class McpHttpServer implements AutoCloseable {
         }
     }
 
-    private static String configuredToken() {
-        final String configured = System.getProperty("turboism.mcp.token");
-        if (configured != null && !configured.isBlank()) {
-            final String value = configured.strip();
-            if (value.length() < 24 || value.length() > 512) {
-                throw new IllegalArgumentException(
-                    "turboism.mcp.token must contain between 24 and 512 characters"
-                );
-            }
-            return value;
-        }
-        final byte[] random = new byte[32];
-        new SecureRandom().nextBytes(random);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(random);
-    }
-
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
@@ -920,7 +881,6 @@ final class McpHttpServer implements AutoCloseable {
         UiScheduler uiScheduler,
         Path stateDir,
         int port,
-        String token,
         int requestsPerMinute
     ) {
         Dependencies(
@@ -934,7 +894,6 @@ final class McpHttpServer implements AutoCloseable {
             final UiScheduler uiScheduler,
             final Path stateDir,
             final int port,
-            final String token,
             final int requestsPerMinute
         ) {
             this(
@@ -954,7 +913,6 @@ final class McpHttpServer implements AutoCloseable {
                 uiScheduler,
                 stateDir,
                 port,
-                token,
                 requestsPerMinute
             );
         }
@@ -1015,10 +973,6 @@ final class McpHttpServer implements AutoCloseable {
             stateDir = Objects.requireNonNull(stateDir, "stateDir").toAbsolutePath().normalize();
             if (port < 0 || port > 65535) {
                 throw new IllegalArgumentException("port must be between 0 and 65535");
-            }
-            token = Objects.requireNonNull(token, "token").strip();
-            if (token.length() < 24 || token.length() > 512) {
-                throw new IllegalArgumentException("token must contain between 24 and 512 characters");
             }
             if (requestsPerMinute < 1 || requestsPerMinute > 6000) {
                 throw new IllegalArgumentException(

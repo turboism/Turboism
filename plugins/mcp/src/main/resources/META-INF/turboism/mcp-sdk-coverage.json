@@ -1,0 +1,393 @@
+{
+  "schemaVersion": 1,
+  "trackedOwners": [
+    "dev.turboism.sdk.cubism.model.Glue",
+    "dev.turboism.sdk.cubism.model.Glues",
+    "dev.turboism.sdk.cubism.history.CubismHistory",
+    "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService",
+    "dev.turboism.sdk.cubism.service.query.SelectionQueryService",
+    "dev.turboism.sdk.cubism.command.EditorCommandService"
+  ],
+  "entries": [
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#id()Ldev/turboism/sdk/cubism/model/GlueId;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "id",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#name()Ljava/lang/String;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "name",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#intensity()F",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "intensity",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#index()I",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "index",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#drawableA()I",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "drawable_a_index",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#drawableB()I",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "drawable_b_index",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#parameters()Ldev/turboism/sdk/cubism/model/IntSequence;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "parameter_indices",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#drawableAId()Ldev/turboism/sdk/cubism/id/ArtMeshId;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "drawable_a_id",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#drawableBId()Ldev/turboism/sdk/cubism/id/ArtMeshId;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "drawable_b_id",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#parameterIds()Ljava/util/List;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "parameter_ids",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the exact-version Glue read domain."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#setName(Ljava/lang/String;)V",
+      "classification": "MCP_WRITE_UNDOABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "set_name",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": true,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Uses the Runtime-owned native Undo envelope and grouped authoring transaction tests; exact-host readiness is tracked separately."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#setId(Ldev/turboism/sdk/cubism/model/GlueId;)V",
+      "classification": "MCP_WRITE_UNDOABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "set_id",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": true,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Uses the Runtime-owned native Undo envelope and grouped authoring transaction tests; exact-host readiness is tracked separately."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#setIntensity(F)V",
+      "classification": "MCP_WRITE_UNDOABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "set_intensity",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": true,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Uses the Runtime-owned native Undo envelope and grouped authoring transaction tests; exact-host readiness is tracked separately."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#setDrawableA(Ldev/turboism/sdk/cubism/id/ArtMeshId;)V",
+      "classification": "MCP_WRITE_UNDOABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "set_drawable_a",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": true,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Uses the Runtime-owned native Undo envelope and grouped authoring transaction tests; exact-host readiness is tracked separately."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glue#setDrawableB(Ldev/turboism/sdk/cubism/id/ArtMeshId;)V",
+      "classification": "MCP_WRITE_UNDOABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "set_drawable_b",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": true,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Uses the Runtime-owned native Undo envelope and grouped authoring transaction tests; exact-host readiness is tracked separately."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glues#all()Ljava/util/List;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "list",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by turboism.glues.read list."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glues#find(Ldev/turboism/sdk/cubism/model/GlueId;)Ldev/turboism/sdk/cubism/model/Glue;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.glues.read",
+      "operation": "get",
+      "effect": "READ",
+      "transactionEligible": true,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by turboism.glues.read get."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.model.Glues#providerVersion()Ljava/util/Optional;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.capabilities.read",
+      "operation": "provider_versions",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Exposed as exact provider-version metadata without range inference."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#snapshot()Ldev/turboism/sdk/cubism/history/HistorySnapshot;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism.history.read",
+      "operation": "snapshot",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by explicit immutable history read."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#moveTo(JJI)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "HISTORY_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "UNVERIFIED",
+      "supportedVersions": [],
+      "reason": "Arbitrary cursor movement is intentionally not a public MCP operation; only guarded undo/redo are exposed."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#moveTo(Ldev/turboism/sdk/cubism/history/HistorySnapshot;I)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "HISTORY_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "UNVERIFIED",
+      "supportedVersions": [],
+      "reason": "Arbitrary cursor movement is intentionally not a public MCP operation; only guarded undo/redo are exposed."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#isCurrentBinding(Ldev/turboism/sdk/cubism/history/HistorySnapshot;)Z",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": [],
+      "reason": "Runtime-internal stale-binding proof used by guarded history control."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#undo(I)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;",
+      "classification": "MCP_COMMAND_NON_UNDOABLE",
+      "endpoint": "turboism.history.undo",
+      "operation": "undo",
+      "effect": "HISTORY_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Explicit generation/revision and optional entry/transaction guards; excluded from authoring transactions."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.history.CubismHistory#redo(I)Ldev/turboism/sdk/cubism/history/HistoryMoveResult;",
+      "classification": "MCP_COMMAND_NON_UNDOABLE",
+      "endpoint": "turboism.history.redo",
+      "operation": "redo",
+      "effect": "HISTORY_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Explicit generation/revision and optional entry/transaction guards; excluded from authoring transactions."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.transaction.AuthoringTransactionService#execute(Ldev/turboism/sdk/cubism/transaction/AuthoringTransactionOptions;Ldev/turboism/sdk/cubism/transaction/AuthoringTransactionWork;)Ldev/turboism/sdk/cubism/transaction/AuthoringTransactionResult;",
+      "classification": "MCP_COMMAND_NON_UNDOABLE",
+      "endpoint": "turboism.transaction.execute",
+      "operation": "execute",
+      "effect": "TRANSACTION_CONTROL",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "One-request synchronous root transaction; the transaction controller cannot be nested as a child operation."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.service.query.SelectionQueryService#currentSelection()Ldev/turboism/sdk/cubism/service/query/SelectionSummary;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism://active/model/overview",
+      "operation": "current_selection",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected in the active model overview resource."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.service.query.SelectionQueryService#selectedIds(Ldev/turboism/sdk/cubism/service/query/HierarchyNode$Kind;)Ljava/util/List;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism://active/model/overview",
+      "operation": "selected_ids",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by kind in the current selection summary."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#available()Ljava/util/Set;",
+      "classification": "MCP_READ",
+      "endpoint": "turboism://host/editor-commands",
+      "operation": "available",
+      "effect": "READ",
+      "transactionEligible": false,
+      "undoVerification": "NOT_APPLICABLE",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Projected by the typed Editor command inventory resource."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#execute(Ldev/turboism/sdk/cubism/command/EditorCommand;)Ldev/turboism/sdk/cubism/command/EditorCommandResult;",
+      "classification": "MCP_COMMAND_NON_UNDOABLE",
+      "endpoint": "turboism.editor_commands.execute",
+      "operation": "direct",
+      "effect": "EXTERNAL_SIDE_EFFECT",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Executes only commands present in the exact-version typed command inventory."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#execute(Ldev/turboism/sdk/cubism/command/EditorFileCommandRequest;)Ldev/turboism/sdk/cubism/command/EditorCommandResult;",
+      "classification": "EXCLUDED_WITH_REASON",
+      "endpoint": "",
+      "operation": "",
+      "effect": "EXTERNAL_SIDE_EFFECT",
+      "transactionEligible": false,
+      "undoVerification": "UNVERIFIED",
+      "supportedVersions": [],
+      "reason": "File commands are excluded from MCP to avoid exposing raw path or unrestricted file-operation authority."
+    },
+    {
+      "sdkMethod": "dev.turboism.sdk.cubism.command.EditorCommandService#execute(Ldev/turboism/sdk/cubism/command/EditorParameterizedRequest;)Ldev/turboism/sdk/cubism/command/EditorCommandResult;",
+      "classification": "MCP_COMMAND_NON_UNDOABLE",
+      "endpoint": "turboism.editor_commands.execute",
+      "operation": "typed",
+      "effect": "EXTERNAL_SIDE_EFFECT",
+      "transactionEligible": false,
+      "undoVerification": "RUNTIME_VERIFIED",
+      "supportedVersions": ["5.2.03", "5.3.02", "5.3.03"],
+      "reason": "Executes only the closed typed parameterized command contracts advertised by the inventory."
+    },
+    {
+      "semanticCapability": "glues.create",
+      "classification": "RUNTIME_UNAVAILABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "create",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "UNVERIFIED",
+      "supportedVersions": [],
+      "reason": "No verified Editor provider exists for Glue create."
+    },
+    {
+      "semanticCapability": "glues.delete",
+      "classification": "RUNTIME_UNAVAILABLE",
+      "endpoint": "turboism.glues.write",
+      "operation": "delete",
+      "effect": "UNDOABLE_WRITE",
+      "transactionEligible": false,
+      "undoVerification": "UNVERIFIED",
+      "supportedVersions": [],
+      "reason": "No verified Editor provider exists for Glue delete."
+    }
+  ],
+  "temporaryPublicExceptions": [
+    {
+      "endpoint": "turboism.model_objects.apply",
+      "replacement": "turboism.model_objects.read/write",
+      "reason": "Temporary Preview exception until the model-object domain migration lands with native Undo and transaction evidence."
+    },
+    {
+      "endpoint": "turboism.parameters.apply",
+      "replacement": "turboism.parameters.write",
+      "reason": "Temporary Preview exception until the parameter domain is converted without breaking the existing binding workflow."
+    },
+    {
+      "endpoint": "turboism.parameter_bindings.apply",
+      "replacement": "turboism.parameter_bindings.write",
+      "reason": "Temporary Preview exception until parameter-binding writes join the Runtime authoring transaction boundary."
+    }
+  ]
+}

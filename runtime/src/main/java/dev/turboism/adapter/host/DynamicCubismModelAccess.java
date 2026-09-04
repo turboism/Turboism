@@ -1867,6 +1867,9 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public Glue find(final GlueId id) {
             return guarded(generation, () -> new SessionGlue(generation, delegate.find(id)));
         }
+        @Override public java.util.Optional<String> providerVersion() {
+            return guarded(generation, delegate::providerVersion);
+        }
     }
 
     private final class SessionGlue implements Glue {

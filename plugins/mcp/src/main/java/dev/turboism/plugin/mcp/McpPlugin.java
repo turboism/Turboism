@@ -46,8 +46,7 @@ public final class McpPlugin implements TurboismPlugin {
         try {
             publication = context.mcpConnections().publish(new McpHttpConnection(
                 started.endpoint(),
-                McpProtocol.VERSION,
-                started.authorization()
+                McpProtocol.VERSION
             ));
             action = context.actions().register(CONNECTION_ACTION_ID, connectionAction());
             menu = context.menus().contribute(connectionMenu());
@@ -122,11 +121,10 @@ public final class McpPlugin implements TurboismPlugin {
     private synchronized McpConnectionWindow.McpConnectionSnapshot connectionSnapshot() {
         final McpHttpServer current = server;
         if (current == null) {
-            return new McpConnectionWindow.McpConnectionSnapshot(null, "", java.util.List.of());
+            return new McpConnectionWindow.McpConnectionSnapshot(null, java.util.List.of());
         }
         return new McpConnectionWindow.McpConnectionSnapshot(
             current.endpoint(),
-            current.authorization(),
             current.connectionHistory()
         );
     }
