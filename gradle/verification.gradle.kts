@@ -256,7 +256,7 @@ val checkDuplicateJavaImports by tasks.registering {
         val duplicates = mutableListOf<String>()
         fileTree(rootDir) {
             include("**/src/**/*.java")
-            exclude(".worktrees/**")
+            exclude(".worktrees/**", ".claude/**", "**/build/**")
         }.files
             .sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }
             .forEach { source ->

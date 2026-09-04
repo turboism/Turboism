@@ -24,12 +24,10 @@ A release build retains (all under `build/windows-installer/dist/`):
 The installer.xml is generated at build time from each plugin JAR's
 `META-INF/turboism/plugin.json` (missing, malformed, duplicate, or
 runtime-owned `turboism.core` metadata fails the build; order is stable by
-plugin id). `stageInstallerPayload` assembles the runtime-free shared Windows
+plugin id). `stageInstallerPayload` assembles the shared Windows
 source at `build/windows-installer/staging` for the NSIS installer and ZIPs.
 `stageJavaInstallerPayload` copies that source to
-`build/java-installer/staging` and adds only the reviewed Linux/macOS managed
-fx payloads for the Java installer. No Windows ZIP or NSIS payload contains
-`runtimes/fx/**`.
+`build/java-installer/staging` for the Java installer payload.
 
 Pinned toolchain (no dynamic versions): Gradle plugin `org.izpack.gradle`
 3.2.3 and `org.codehaus.izpack:izpack-ant` 5.2.6. Their SHA-256 entries live
@@ -42,17 +40,13 @@ java -jar TurboismInstaller-<version>.jar
 ```
 
 Flow: Welcome -> MIT License -> four required Turboism runtime-declaration acknowledgements -> full localized runtime declaration -> Full/Thin/Lite -> optional plugins (Full and Thin) -> target directory -> summary -> install -> finish. Full defaults
-every first-party plugin to selected and installs the matching reviewed managed
-fx runtime. Linux and macOS use their reviewed OS/CPU payloads. Windows x64 Full
-installs the reviewed fx product payload; other Windows architectures fail
-closed before config or payload mutation. Thin installs the complete plugin
-roster without native fx bytes and also accepts an explicit custom executable
-path. The first-party loopback MCP server is available on supported Windows
-hosts with bearer authentication and per-user, owner/file-type, reparse-point,
-secure-temporary-file, and post-move publication checks. Verified online fx
-repair remains limited to the reviewed Linux/macOS platforms. Lite installs the
-agent and common files with no plugin JAR or fx runtime. Default home:
-`%LOCALAPPDATA%\Turboism` (Windows),
+every first-party plugin to selected. Thin installs the complete plugin roster
+without an additional native runtime payload; it also accepts an explicit
+custom executable path. The first-party loopback MCP server is available on
+supported Windows hosts with bearer authentication and per-user,
+owner/file-type, reparse-point, secure-temporary-file, and post-move
+publication checks. Lite installs the agent and common files with
+no plugin JAR. Default home: `%LOCALAPPDATA%\Turboism` (Windows),
 `~/Library/Application Support/Turboism` (macOS),
 `${XDG_DATA_HOME:-~/.local/share}/Turboism` (Linux); another directory may
 be chosen.
@@ -118,10 +112,10 @@ Deterministic, non-GUI (console mode), runnable on Linux/macOS/Windows with
 Java 17. It builds the installer and verifies: JAR layout (en/zh/ja
 langpacks, uninstaller, one required common pack, one optional pack per
 non-core plugin), Lite and Thin installs, Full install with deselects on a
-reviewed platform, compiled listener policy behavior for Windows x64 Full and
-unsupported Windows architectures, config selection/migration and fail-closed
-cases (strict numbers, ASCII-only Unicode escapes, canonical v1 identity,
-invalid v1 values, malformed UTF-8, size boundary), and both uninstall branches
+reviewed platform, compiled listener policy behavior for Full installs on
+Windows and for Thin/Lite admission, config selection/migration and
+fail-closed cases (strict numbers, ASCII-only Unicode escapes, canonical v1
+identity, invalid v1 values, malformed UTF-8, size boundary), and both uninstall branches
 with a synthetic
 third-party plugin file preserved. Every captured
 JVM runs with a task-owned `java.io.tmpdir` and `-Dfile.encoding=UTF-8`;

@@ -20,7 +20,6 @@ META-INF/turboism/plugin.json 读取并逐一校验（见 SPEC.md）。
 """
 
 import json
-import os
 import re
 import sys
 from pathlib import Path
@@ -29,12 +28,6 @@ MANIFEST_PATH = Path(__file__).resolve().parent.parent / "release-plugins.txt"
 INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
-FX_RUNTIME_DIR = (Path(__file__).resolve().parent.parent / "fx-runtime" /
-                  "windows-x86_64")
-FX_RUNTIME_EXECUTABLE = Path(os.environ.get(
-    "TURBOISM_WINDOWS_FX_FIXTURE",
-    str(FX_RUNTIME_DIR / "fx.exe"),
-))
 
 # 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 EXPECTED_PATHS = [
@@ -340,7 +333,6 @@ def check_config_migration_contract():
     first_payload = min(
         text.index('Section "-核心文件" SecCore'),
         text.index('Section "-托管 GraalVM" SecManagedGraal'),
-        text.index('Section /o "$(ManagedFxSection)" SecManagedFx'),
     )
     check("CM1 config commit precedes every permanent payload section",
           config_start < first_payload
@@ -393,8 +385,8 @@ def check_config_migration_contract():
           and "ConfigMigrationError" in section)
 
 
-def check_windows_fx_docs_contract():
-    """Windows x64 Full support must be described consistently in shipped Java-installer docs."""
+def check_java_installer_docs_contract():
+    """Shipped docs describe plugin-only packages and the installer-owned selection update."""
     markdown = (INSTALLER_NSI.parents[1] / "java-installer" /
                 "README-java-installer.md").read_text(encoding="utf-8")
     installed = (INSTALLER_NSI.parents[1] / "java-installer" /
@@ -403,15 +395,16 @@ def check_windows_fx_docs_contract():
     markdown_flat = re.sub(r"\s+", " ", markdown)
     installed_flat = re.sub(r"\s+", " ", installed)
     stale = (
-        "Windows Full fails before",
-        "It rejects Windows before changing config or payload files",
-        "no managed native fx runtime is shipped for Windows",
+        "Windows x64 Full installs the reviewed fx product payload",
+        "matching reviewed managed fx runtime",
+        "required plugin and managed fx payload packs",
     )
-    check("DOC1 Java-installer docs remove obsolete Windows rejection claims",
+    check("DOC1 Java-installer docs contain no bundled managed-fx publication claim",
           all(fragment not in combined for fragment in stale))
-    check("DOC2 Java-installer docs describe the reviewed Windows x64 Full payload",
-          "Windows x64 Full installs the reviewed fx product payload" in markdown_flat
-          and "Windows x64 Full installs the reviewed fx product payload" in installed_flat)
+    check("DOC2 Java-installer docs describe plugin-only Full and Thin modes",
+          "Thin installs the complete plugin roster" in markdown_flat
+          and "Full mode installs the agent and every approved release plugin" in installed_flat
+          and "without an additional native runtime payload" in installed_flat)
     check("DOC3 rerunning the installer is documented as applying plugin selection",
           "Rerun the installer to apply a different plugin selection." in markdown_flat
           and "Rerun the installer to apply a different plugin selection." in installed_flat)
@@ -610,7 +603,7 @@ def check_configurator_flow_contract():
           "ExecWait" not in text
           and "ExecShell \"\" \"$SYSDIR\\WindowsPowerShell\\v1.0\\powershell.exe\"" in scanner_exec
           and "SW_HIDE" in scanner_exec
-          and text.count("nsExec::ExecToLog") == 13)
+          and text.count("nsExec::ExecToLog") == 11)
     check("CF2b BAT integration elevates only the selected helper operation",
           "RequestExecutionLevel user" in text
           and "Start-Process" in configure
@@ -663,52 +656,6 @@ def check_configurator_flow_contract():
           and "-javaagent:$Agent=home=$canonicalHome;timeoutSeconds=120" in common)
 
 
-
-
-def check_managed_fx_contract():
-    """The exact Windows fx payload is visible but unselected by default."""
-    text = INSTALLER_NSI.read_text(encoding="utf-8")
-    fx = FX_RUNTIME_EXECUTABLE
-    import hashlib
-    check("FX1 exact Windows executable exists",
-          fx.is_file() and fx.stat().st_size == 11144192)
-    check("FX1 exact Windows executable hash is pinned",
-          hashlib.sha256(fx.read_bytes()).hexdigest()
-          == "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2")
-    section_start = text.index('Section /o "$(ManagedFxSection)"')
-    section_end = text.index("SectionEnd", section_start)
-    section = text[section_start:section_end]
-    check("FX2 managed fx is optional and unselected by default",
-          text[section_start:].startswith('Section /o "$(ManagedFxSection)"')
-          and "${If} $Mode == 1" not in section
-          and '-DestinationRoot "$INSTDIR"' in section)
-    check("FX2b managed fx has localized component labels",
-          all(f"LangString ManagedFxSection ${{{language}}}" in text
-              for language in ("LANG_ENGLISH", "LANG_SIMPCHINESE", "LANG_JAPANESE")))
-    expected = (
-        "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
-        "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties"
-    )
-    generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
-    check("FX3 NSIS carries the exact Windows managed runtime inventory",
-          all(name in generator[generator.index("fx_payload = ["):
-                                generator.index("def write_checksum_manifest")]
-              for name in expected)
-          and 'write_checksum_manifest("payload-fx.sha256", fx_payload)' in generator)
-    check("FX3b managed fx checks destination hashes before extraction",
-          "payload-fx.sha256" in section
-          and "-PlanOnly" in section
-          and "Call ExtractManagedFxPayload" in section
-          and section.index("-PlanOnly") < section.index("Call ExtractManagedFxPayload")
-          and '-SourceRoot "$PLUGINSDIR\\Turboism-fx-payload"' in section)
-    uninstall = text[text.index('Section "Uninstall"'):
-                     text.index("SectionEnd", text.index('Section "Uninstall"'))]
-    check("FX4 uninstall removes only the installer-owned Windows runtime files",
-          all(('Delete "$INSTDIR\\runtimes\\fx\\0.0.5\\windows-x86_64\\'
-               + name + '"') in uninstall for name in expected)
-          and 'RMDir /r "$INSTDIR\\runtimes"' not in uninstall)
-
-
 def check_jar_payload_contract():
     """Every permanent static NSIS payload entry is extracted only when SHA-256 differs."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
@@ -729,9 +676,9 @@ def check_jar_payload_contract():
           and "Installer payload manifest contains a duplicate path" in helper
           and "Installer payload path escapes its root" in helper
           and "Installer payload destination is a reparse point" in helper)
-    check("PAY3 generator creates core, plugin, and fx checksum manifests",
+    check("PAY3 generator creates core and plugin checksum manifests",
           all(('write_checksum_manifest("payload-%s.sha256"' % category) in generator
-              for category in ("core", "plugins", "fx"))
+              for category in ("core", "plugins"))
           and "f'plugins/{p[\"module\"]}.jar'" in generator)
     permanent_core = (
         "turboism-agent.jar", "install-jar-payload.ps1",
@@ -776,8 +723,7 @@ def check_jar_payload_contract():
           "def append_extractor" in generator
           and "Path(relative).name" in generator
           and '${{FileExists}}' in generator
-          and "ExtractCorePayload" in generator
-          and "ExtractManagedFxPayload" in generator)
+          and "ExtractCorePayload" in generator)
     check("PAY9 checksum helper is staged and uninstalled",
           gradle.count('from("packaging/windows-installer/install-jar-payload.ps1")') == 1
           and '"packaging/windows-installer/install-jar-payload.ps1"' in gradle
@@ -785,9 +731,7 @@ def check_jar_payload_contract():
     check("PAY10 temporary extracted payloads are removed before finish",
           all(path in text for path in (
               'RMDir /r "$PLUGINSDIR\\Turboism-core-payload"',
-              'RMDir /r "$PLUGINSDIR\\Turboism-core-plan"',
-              'RMDir /r "$PLUGINSDIR\\Turboism-fx-payload"',
-              'RMDir /r "$PLUGINSDIR\\Turboism-fx-plan"'))
+              'RMDir /r "$PLUGINSDIR\\Turboism-core-plan"'))
           and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"' in generated_plugins
           and 'RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"' in generated_plugins)
 
@@ -1317,11 +1261,10 @@ def main():
 
     check_nsis_retirement_contract()
     check_config_migration_contract()
-    check_windows_fx_docs_contract()
+    check_java_installer_docs_contract()
     check_fx_fixture_guard_contract()
     check_managed_graal_installer_contract()
     check_configurator_flow_contract()
-    check_managed_fx_contract()
     check_jar_payload_contract()
     check_icon_contract()
     check_launcher_and_shortcut_contract()

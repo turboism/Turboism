@@ -11,23 +11,22 @@ Run the installer with a Java 17+ runtime:
 
     java -jar TurboismInstaller-<version>.jar
 
-Full mode installs the agent, every approved release plugin, and the matching
-reviewed managed fx runtime. Linux and macOS use their reviewed OS/CPU payloads.
-Windows x64 Full installs the reviewed fx product payload; unsupported Windows
-architectures fail before config or payload mutation. Thin mode installs the
-same approved plugins without native fx bytes. The development-only Turboism
-with fx plugin is not included in Full, Thin, or Lite release packages. The
-first-party Windows loopback MCP server uses bearer authentication and per-user,
-owner/file-type, reparse-point, secure-temporary-file, and post-move publication
-checks. Both plugin modes let you deselect individual plugins. Lite mode installs
-only the agent and common files.
+Full mode installs the agent and every approved release plugin. Thin mode
+installs the same approved plugins without an additional native runtime
+payload. The development-only Turboism with fx plugin is not included in
+Full, Thin, or Lite release packages. Both plugin modes let you deselect
+individual plugins. Lite mode installs only the agent and common files. The
+first-party loopback MCP server is available on Windows with bearer
+authentication and per-user, owner/file-type, reparse-point,
+secure-temporary-file, and post-move publication checks.
 
-On update, the installer changes only disabledPlugins in a valid current-schema
-config.json and preserves all other settings. When the selected state is already
-current, the original config bytes remain unchanged. A recognized legacy schema
-is migrated, validated as v1, and receives the selected plugin state in one
-atomic publication; malformed, runtime-invalid, unknown, or future schemas fail
-closed before payload mutation. Rerun the installer to apply a different plugin
+Before any payload changes, the installer validates an existing config.json.
+For a valid current-schema document, it changes only disabledPlugins and
+preserves all other settings; if the selected state is already current, the
+original bytes remain unchanged. A recognized legacy schema is migrated,
+validated as v1, and receives the selected plugin state in one atomic
+publication. Malformed, runtime-invalid, unknown, or future schemas fail closed
+before payload mutation. Rerun the installer to apply a different plugin
 selection.
 
 On Windows, configure_turboism.ps1 opens after installation and can be run
