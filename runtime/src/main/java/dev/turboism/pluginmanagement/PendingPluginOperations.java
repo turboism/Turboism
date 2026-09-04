@@ -4,10 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import dev.turboism.distribution.LocalPluginPackageInspector;
-import dev.turboism.distribution.PluginInstallPlan;
+import dev.turboism.distribution.LocalPluginJarPreparer;
 import dev.turboism.distribution.PluginJarPreflight;
-import dev.turboism.distribution.PreparedPluginPackage;
+import dev.turboism.distribution.PreparedPluginJar;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -50,24 +49,24 @@ public final class PendingPluginOperations {
     }
 
     synchronized StagedInstall stage(final Path source) {
-        final LocalPluginPackageInspector.Preparation result = new LocalPluginPackageInspector().prepare(source, packages);
-        if (result instanceof LocalPluginPackageInspector.PreparationRejected rejected) {
+        final LocalPluginJarPreparer.Preparation result = new LocalPluginJarPreparer().prepare(source, packages);
+        if (result instanceof LocalPluginJarPreparer.PreparationRejected rejected) {
             return new StagedInstall(false, rejected.code(), null);
         }
-        final PreparedPluginPackage prepared = ((LocalPluginPackageInspector.Prepared) result).value();
-        if (CORE_ID.equals(prepared.plan().descriptor().id())) {
+        final PreparedPluginJar prepared = ((LocalPluginJarPreparer.Prepared) result).value();
+        if (CORE_ID.equals(prepared.descriptor().id())) {
             deleteQuietly(prepared.stagedJar());
             return new StagedInstall(false, "PLUGIN_RESERVED_ID", null);
         }
         try {
             final List<Operation> previous = readOperations();
-            final List<Operation> operations = withoutPlugin(previous, prepared.plan().descriptor().id());
+            final List<Operation> operations = withoutPlugin(previous, prepared.descriptor().id());
             operations.add(Operation.install(prepared));
             writeOperations(operations);
-            previous.stream().filter(operation -> operation.pluginId.equals(prepared.plan().descriptor().id()))
+            previous.stream().filter(operation -> operation.pluginId.equals(prepared.descriptor().id()))
                 .filter(operation -> operation.type.equals("INSTALL"))
                 .forEach(operation -> deleteQuietly(Path.of(operation.stagedJar)));
-            return new StagedInstall(true, "PLUGIN_INSTALL_PENDING", prepared.plan());
+            return new StagedInstall(true, "PLUGIN_INSTALL_PENDING", prepared);
         } catch (PendingJournalInvalidException failure) {
             deleteQuietly(prepared.stagedJar());
             return new StagedInstall(false, "PLUGIN_PENDING_RECOVERY_REQUIRED", null);
@@ -336,7 +335,7 @@ public final class PendingPluginOperations {
         void copy(Path source, Path snapshot, ConfinedPluginFiles.ParentIdentity parent) throws IOException;
     }
 
-    record StagedInstall(boolean accepted, String code, PluginInstallPlan plan) { }
+    record StagedInstall(boolean accepted, String code, PreparedPluginJar prepared) { }
     record StagedUninstall(boolean accepted, String code) { }
     public enum Status { APPLIED, ROLLED_BACK, RECOVERY_REQUIRED }
     /**
@@ -353,11 +352,12 @@ public final class PendingPluginOperations {
 
     record Operation(String type, String pluginId, String stagedJar, String version,
         String rawSha256, String descriptorSha256, String jarSha256, long jarSize) {
-        static Operation install(final PreparedPluginPackage prepared) {
-            final var plan = prepared.plan();
-            final var jar = plan.files().stream().filter(file -> file.role().equals("PLUGIN_JAR")).findFirst().orElseThrow();
-            return new Operation("INSTALL", plan.descriptor().id(), prepared.stagedJar().toString(), plan.descriptor().version(),
-                plan.packageIdentity().rawArchiveSha256(), plan.descriptorSha256(), jar.sha256(), jar.size());
+        static Operation install(final PreparedPluginJar prepared) {
+            return new Operation(
+                "INSTALL", prepared.descriptor().id(), prepared.stagedJar().toString(),
+                prepared.descriptor().version(), prepared.jarSha256(), prepared.descriptorSha256(),
+                prepared.jarSha256(), prepared.jarSize()
+            );
         }
         static Operation uninstall(final String id) { return new Operation("UNINSTALL", id, "", "", "", "", "", 0); }
         ObjectNode json() {

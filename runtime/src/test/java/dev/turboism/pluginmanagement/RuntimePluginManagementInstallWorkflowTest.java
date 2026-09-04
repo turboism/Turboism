@@ -32,9 +32,25 @@ class RuntimePluginManagementInstallWorkflowTest {
     @TempDir Path home;
 
     @Test
+    void chooserAcceptsOnlyPluginJars() {
+        final javax.swing.JFileChooser chooser = new javax.swing.JFileChooser();
+
+        RuntimePluginManagementService.configurePluginJarChooser(chooser);
+
+        final javax.swing.filechooser.FileNameExtensionFilter filter =
+            org.junit.jupiter.api.Assertions.assertInstanceOf(
+                javax.swing.filechooser.FileNameExtensionFilter.class, chooser.getFileFilter());
+        assertEquals("Turboism plugin JAR (*.jar)", filter.getDescription());
+        org.junit.jupiter.api.Assertions.assertArrayEquals(new String[]{"jar"}, filter.getExtensions());
+        assertFalse(chooser.isAcceptAllFileFilterUsed());
+        assertTrue(filter.accept(Path.of("sample.JAR").toFile()));
+        assertFalse(filter.accept(Path.of("sample.tplugin").toFile()));
+    }
+
+    @Test
     void chooserMayOutliveLightweightBudgetBeforeBoundedInstallRuns() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final List<dev.turboism.core.diagnostics.PluginWorkBudgetEvent> events = new CopyOnWriteArrayList<>();
         final RuntimeScheduler scheduler = new RuntimeScheduler(
@@ -107,8 +123,8 @@ class RuntimePluginManagementInstallWorkflowTest {
 
     @Test
     void closeCancelsPendingChooserAndFencesLateSelection() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
@@ -127,8 +143,8 @@ class RuntimePluginManagementInstallWorkflowTest {
 
     @Test
     void closeFencesEdtChooserBetweenActiveCheckAndDialogPublication() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final CountDownLatch passedActiveCheck = new CountDownLatch(1);
         final CountDownLatch allowPublication = new CountDownLatch(1);
         final CountDownLatch closeDeactivated = new CountDownLatch(1);
@@ -170,8 +186,8 @@ class RuntimePluginManagementInstallWorkflowTest {
 
     @Test
     void executorRejectionSettlesAcceptedInstallExactlyOnce() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.shutdownNow();
@@ -198,8 +214,8 @@ class RuntimePluginManagementInstallWorkflowTest {
 
     @Test
     void closeBeforeBackgroundCompletionSettlesAcceptedInstallExactlyOnce() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final HoldingExecutor executor = new HoldingExecutor();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
