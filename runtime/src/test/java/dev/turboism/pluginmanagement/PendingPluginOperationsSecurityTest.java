@@ -21,8 +21,8 @@ final class PendingPluginOperationsSecurityTest {
         final Path plugins = home.resolve("plugins");
         Files.createDirectories(plugins);
         Files.writeString(plugins.resolve("example.plugin.jar"), "old");
-        final Path packageFile = home.resolve("update.turboism-plugin");
-        Files.write(packageFile, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final Path packageFile = home.resolve("update.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, () -> Optional.of(packageFile), List::of
         );
@@ -45,8 +45,8 @@ final class PendingPluginOperationsSecurityTest {
         Files.createDirectories(plugins);
         Files.write(plugins.resolve("a.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         Files.write(plugins.resolve("b.jar"), PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
-        final Path packageFile = home.resolve("update.turboism-plugin");
-        Files.write(packageFile, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final Path packageFile = home.resolve("update.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, () -> Optional.of(packageFile), List::of
         );
@@ -68,8 +68,8 @@ final class PendingPluginOperationsSecurityTest {
         final Path installed = plugins.resolve("example.plugin.jar");
         Files.write(installed, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final String installedHash = hash(installed);
-        final Path packageFile = home.resolve("update.tplugin");
-        Files.write(packageFile, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final Path packageFile = home.resolve("update.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, () -> Optional.of(packageFile), List::of
         );
@@ -100,8 +100,8 @@ final class PendingPluginOperationsSecurityTest {
         final Path outside = Files.createTempDirectory("plugin-outside-");
         Files.createDirectories(home.resolve("state/runtime"));
         Files.createSymbolicLink(home.resolve("state/runtime/plugin-management"), outside);
-        final Path packageFile = home.resolve("sample.tplugin");
-        Files.write(packageFile, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path packageFile = home.resolve("sample.jar");
+        Files.write(packageFile, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
 
         final var result = new RuntimePluginManagementService(
             home, () -> Optional.of(packageFile), List::of
@@ -150,10 +150,10 @@ final class PendingPluginOperationsSecurityTest {
 
     @Test
     void replacingPendingInstallDeletesOldStagedArtifact() throws Exception {
-        final Path first = home.resolve("first.tplugin");
-        final Path second = home.resolve("second.tplugin");
-        Files.write(first, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
-        Files.write(second, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final Path first = home.resolve("first.jar");
+        final Path second = home.resolve("second.jar");
+        Files.write(first, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
+        Files.write(second, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
         final RuntimePluginManagementService firstService = new RuntimePluginManagementService(
             home, () -> Optional.of(first), List::of
         );
