@@ -6,6 +6,10 @@ import dev.turboism.mapping.verification.selector.EditorParameterValueWriteSelec
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
+import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.DeformerId;
@@ -33,6 +37,7 @@ import dev.turboism.sdk.cubism.model.RotationDeformers;
 import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.FloatSequence;
 import dev.turboism.sdk.cubism.model.ParameterDefinitions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
@@ -44,7 +49,8 @@ import java.util.Optional;
 
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
-    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider {
+    NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
+    RuntimeAuthoringTransactionProvider {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -61,6 +67,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
     private final EditorModelStatisticsAccess statisticsAccess;
     private final EditorPsdSnapshotAccess psdSnapshotAccess;
+    private final VerifiedEditorAuthoringTransactionHost authoringHost;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Object generationLock = new Object();
     private String lazyPublishAttemptedIdentity;
     private Object activeDocument;
@@ -88,6 +96,12 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.sessionIdentity = requireText(sessionIdentity, "sessionIdentity");
+        this.authoringHost = new VerifiedEditorAuthoringTransactionHost(
+            resolver,
+            this::authoringNativeBinding,
+            this::authoringGeneration
+        );
+        this.authoringCoordinator = new EditorAuthoringTransactionCoordinator(authoringHost);
         this.combinedAccess = new EditorParameterCombinedAccess(
             resolver,
             this::requireCurrent,
@@ -153,7 +167,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             this.morphTargetAccess,
             this.evaluatedJoin,
             this::lazyPublishOnce,
-            this.hierarchyEditAccess
+            this.hierarchyEditAccess,
+            this.authoringCoordinator,
+            this::authoringParticipationBinding
         );
         this.statisticsAccess = new EditorModelStatisticsAccess(
             resolver,
@@ -168,6 +184,14 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             () -> binding()
         );
 
+    }
+
+    @Override
+    public AuthoringTransactionService authoringTransactions(final String pluginId) {
+        return new RuntimeAuthoringTransactionService(
+            authoringCoordinator,
+            () -> authoringHost.binding(pluginId)
+        );
     }
 
     @Override
@@ -298,9 +322,43 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         }
         final Object guid = resolver.invoke("cubism.editor-model.model-source.guid", source);
         final String id = text(resolver.invoke("cubism.editor-model.guid.value", guid));
+        final String identity = bindingIdentity(id, document, source, model);
+        final long currentGeneration;
+        synchronized (generationLock) {
+            currentGeneration = generation;
+        }
         return new Binding(
-            bindingIdentity(id, document, source, model), id, document, source, model
+            identity,
+            currentGeneration,
+            id,
+            document,
+            source,
+            model
         );
+    }
+
+    private EditorAuthoringTransactionCoordinator.Binding authoringParticipationBinding() {
+        return authoringHost.binding("runtime.editor-model")
+            .orElseThrow(() -> new IllegalStateException(
+                "Editor authoring binding is unavailable"
+            ));
+    }
+
+    private VerifiedEditorAuthoringTransactionHost.NativeBinding authoringNativeBinding() {
+        final Binding binding = binding();
+        return new VerifiedEditorAuthoringTransactionHost.NativeBinding(
+            binding.identity(),
+            binding.generation(),
+            binding.document(),
+            binding.source(),
+            binding.model()
+        );
+    }
+
+    private long authoringGeneration() {
+        synchronized (generationLock) {
+            return generation;
+        }
     }
 
     private String bindingIdentity(
@@ -1228,6 +1286,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     record Binding(
         String identity,
+        long generation,
         String modelId,
         Object document,
         Object source,

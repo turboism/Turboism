@@ -76,6 +76,7 @@ import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -108,7 +109,45 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
-    void servesLifecycleAndObjectToolsOverAuthenticatedLoopbackHttp() throws Exception {
+    void acceptsCredentialFreeLoopbackClientsAndPublishesNoAuthorizationMaterial() throws Exception {
+        final McpHttpServer server = McpHttpServer.start(dependencies(
+            new CapturingLogger(), new MutableObjects(), new FakeReadServices()
+        ));
+        try {
+            final Map<String, Object> connection = object(StrictJson.parse(
+                Files.readAllBytes(server.connectionFile())
+            ));
+            assertFalse(connection.containsKey("authorization"));
+
+            final HttpRequest request = HttpRequest.newBuilder(server.endpoint())
+                .timeout(Duration.ofSeconds(10))
+                .header("Accept", "application/json, text/event-stream")
+                .header("Content-Type", "application/json")
+                .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(Map.of(
+                    "jsonrpc", "2.0",
+                    "id", 1,
+                    "method", "initialize",
+                    "params", Map.of(
+                        "protocolVersion", McpProtocol.VERSION,
+                        "capabilities", Map.of(),
+                        "clientInfo", Map.of("name", "no-auth-agent", "version", "1.0")
+                    )
+                ))))
+                .build();
+            final HttpResponse<byte[]> response = HttpClient.newHttpClient().send(
+                request,
+                HttpResponse.BodyHandlers.ofByteArray()
+            );
+
+            assertEquals(200, response.statusCode());
+            assertEquals(McpProtocol.VERSION, result(response).get("protocolVersion"));
+        } finally {
+            server.close();
+        }
+    }
+
+    @Test
+    void servesLifecycleAndObjectToolsOverCredentialFreeLoopbackHttp() throws Exception {
         final MutableObjects objects = new MutableObjects();
         objects.put(new ModelObjectDescriptor(
             new ModelObjectReference(ModelObjectKind.PART, "PartHead"),
@@ -123,7 +162,7 @@ final class McpHttpServerIntegrationTest {
             assertTrue(Files.isRegularFile(connectionFile));
             final Map<String, Object> connection = object(StrictJson.parse(Files.readAllBytes(connectionFile)));
             assertEquals(server.endpoint().toString(), connection.get("endpoint"));
-            assertEquals("Bearer " + TOKEN, connection.get("authorization"));
+            assertFalse(connection.containsKey("authorization"));
             assertEquals(McpProtocol.VERSION, connection.get("protocolVersion"));
 
             final HttpResponse<byte[]> initialized = request(server.endpoint(), TOKEN, null, false, Map.of(
@@ -158,11 +197,25 @@ final class McpHttpServerIntegrationTest {
             ));
             assertEquals(200, tools.statusCode());
             final List<Object> toolDefinitions = array(result(tools).get("tools"));
-            assertEquals(5, toolDefinitions.size());
+            assertEquals(11, toolDefinitions.size());
             assertEquals(
                 McpProductionDomainCatalog.APPLY,
                 object(toolDefinitions.get(0)).get("name")
             );
+            final Set<Object> toolNames = toolDefinitions.stream()
+                .map(McpHttpServerIntegrationTest::object)
+                .map(definition -> definition.get("name"))
+                .collect(java.util.stream.Collectors.toSet());
+            assertTrue(toolNames.containsAll(Set.of(
+                McpGlueDomain.GLUES_READ,
+                McpGlueDomain.GLUES_WRITE,
+                McpHistoryCommandDomain.HISTORY_READ,
+                McpHistoryCommandDomain.HISTORY_UNDO,
+                McpHistoryCommandDomain.HISTORY_REDO,
+                McpTransactionDomain.TRANSACTION_EXECUTE,
+                McpCapabilitiesDomain.CAPABILITIES_READ
+            )));
+            assertFalse(toolNames.contains("turboism.history.move"));
 
             final Map<String, Object> applied = structuredResult(toolCall(
                 server.endpoint(),
@@ -290,7 +343,6 @@ final class McpHttpServerIntegrationTest {
             final HttpResponse<byte[]> get = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder(server.endpoint())
                     .header("Accept", "text/event-stream")
-                    .header("Authorization", "Bearer " + TOKEN)
                     .GET()
                     .build(),
                 HttpResponse.BodyHandlers.ofByteArray()
@@ -327,7 +379,6 @@ final class McpHttpServerIntegrationTest {
 
             final HttpResponse<byte[]> deleted = HttpClient.newHttpClient().send(
                 HttpRequest.newBuilder(server.endpoint())
-                    .header("Authorization", "Bearer " + TOKEN)
                     .header("MCP-Session-Id", sessionId)
                     .DELETE()
                     .build(),
@@ -459,7 +510,7 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
-    void pluginLifecyclePublishesAndRevokesTheAuthenticatedConnection() throws Exception {
+    void pluginLifecyclePublishesAndRevokesTheCredentialFreeConnection() throws Exception {
         final RecordingConnections connections = new RecordingConnections();
         final RecordingUi ui = new RecordingUi();
         final CapturingLogger logger = new CapturingLogger();
@@ -474,8 +525,6 @@ final class McpHttpServerIntegrationTest {
         final Path connectionFile = plugin.serverForTests().connectionFile();
         assertEquals(plugin.serverForTests().endpoint(), published.endpoint());
         assertEquals(McpProtocol.VERSION, published.protocolVersion());
-        assertEquals(plugin.serverForTests().authorization(), published.authorization());
-        assertTrue(published.authorization().startsWith("Bearer "));
         assertTrue(Files.isRegularFile(connectionFile));
         assertEquals(List.of(McpPlugin.CONNECTION_ACTION_ID), ui.actions.keySet().stream().toList());
         assertEquals(List.of("Turboism/MCP Connection"), ui.menus.stream()
@@ -532,7 +581,7 @@ final class McpHttpServerIntegrationTest {
     }
 
     @Test
-    void rejectsMissingTokenAndNonLoopbackOrigin() throws Exception {
+    void ignoresAuthorizationHeadersAndRejectsNonLoopbackOrigin() throws Exception {
         final McpHttpServer server = McpHttpServer.start(dependencies(
             new CapturingLogger(),
             new MutableObjects(),
@@ -542,17 +591,27 @@ final class McpHttpServerIntegrationTest {
             final Map<String, Object> ping = Map.of(
                 "jsonrpc", "2.0", "id", 1, "method", "ping"
             );
+            ensureSession(server.endpoint());
             assertEquals(
-                401,
-                request(server.endpoint(), "wrong-token-0123456789-abcdef", null, true, ping)
-                    .statusCode()
+                200,
+                requestWithAuthorization(
+                    server.endpoint(),
+                    "Bearer ignored-authorization-value",
+                    SESSIONS.get(server.endpoint()),
+                    ping
+                ).statusCode()
             );
             assertEquals(
                 403,
-                request(server.endpoint(), TOKEN, "https://attacker.example", true, ping)
-                    .statusCode()
+                request(
+                    server.endpoint(),
+                    TOKEN,
+                    "https://attacker.example",
+                    true,
+                    SESSIONS.get(server.endpoint()),
+                    ping
+                ).statusCode()
             );
-            ensureSession(server.endpoint());
             assertEquals(
                 200,
                 request(
@@ -988,7 +1047,6 @@ final class McpHttpServerIntegrationTest {
             .timeout(Duration.ofSeconds(10))
             .header("Accept", "application/json, text/event-stream")
             .header("Content-Type", "application/json")
-            .header("Authorization", "Bearer " + token)
             .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)));
         if (origin != null) builder.header("Origin", origin);
         if (protocolVersion != null) {
@@ -997,6 +1055,27 @@ final class McpHttpServerIntegrationTest {
         if (sessionId != null) builder.header("MCP-Session-Id", sessionId);
         return HttpClient.newHttpClient().send(
             builder.build(),
+            HttpResponse.BodyHandlers.ofByteArray()
+        );
+    }
+
+    private static HttpResponse<byte[]> requestWithAuthorization(
+        final URI endpoint,
+        final String authorization,
+        final String sessionId,
+        final Map<String, Object> body
+    ) throws Exception {
+        final HttpRequest request = HttpRequest.newBuilder(endpoint)
+            .timeout(Duration.ofSeconds(10))
+            .header("Accept", "application/json, text/event-stream")
+            .header("Content-Type", "application/json")
+            .header("Authorization", authorization)
+            .header("MCP-Protocol-Version", McpProtocol.VERSION)
+            .header("MCP-Session-Id", sessionId)
+            .POST(HttpRequest.BodyPublishers.ofByteArray(StrictJson.bytes(body)))
+            .build();
+        return HttpClient.newHttpClient().send(
+            request,
             HttpResponse.BodyHandlers.ofByteArray()
         );
     }
@@ -1088,7 +1167,6 @@ final class McpHttpServerIntegrationTest {
             immediateUi(),
             temporaryDirectory,
             0,
-            TOKEN,
             120
         );
     }

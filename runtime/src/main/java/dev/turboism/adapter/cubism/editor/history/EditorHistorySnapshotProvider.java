@@ -325,11 +325,15 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             if (!(label instanceof String text) || !(significant instanceof Boolean flag)) {
                 return HistorySnapshot.unavailable();
             }
+            final EditorHistoryMetadataRegistry.EntryMetadata metadata =
+                EditorHistoryMetadataRegistry.metadata(entry);
             entries.add(new HistoryEntry(
                 index,
                 text,
                 flag,
-                EditorHistoryMetadataRegistry.action(entry)
+                metadata.action(),
+                Optional.of(metadata.entryId()),
+                metadata.transactionId()
             ));
         }
         final int position = number(resolver.invoke("cubism.editor-history.manager.position", manager));

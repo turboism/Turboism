@@ -54,13 +54,34 @@ final class McpHistoryCommandDomainTest {
     }
 
     @Test
-    void rejectsStaleHistoryBeforeCallingHostAndTranslatesUndoRedoFromCurrentSnapshot() {
+    void historyReadToolReturnsTheCurrentImmutableSnapshot() {
+        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(
+            new FakeHistory(snapshot(3, 4, 2, 5)),
+            EditorCommandService.unavailable()
+        );
+
+        final McpHistoryCommandDomain.ToolCallResult read = domain.call(
+            McpHistoryCommandDomain.HISTORY_READ,
+            Map.of()
+        );
+
+        assertFalse(read.isError());
+        assertEquals(Boolean.TRUE, read.structuredContent().get("ok"));
+        final Map<String, Object> projected = object(read.structuredContent().get("snapshot"));
+        assertEquals("AVAILABLE", projected.get("availability"));
+        assertEquals(3L, projected.get("generation"));
+        assertEquals(4L, projected.get("revision"));
+        assertEquals(5, ((List<?>) projected.get("entries")).size());
+    }
+
+    @Test
+    void rejectsStaleHistoryBeforeCallingHostAndTranslatesExplicitUndoRedo() {
         final FakeHistory history = new FakeHistory(snapshot(3, 4, 2, 5));
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, EditorCommandService.unavailable());
 
         final McpHistoryCommandDomain.ToolCallResult stale = domain.call(
-            McpHistoryCommandDomain.HISTORY_MOVE,
-            Map.of("operation", "move_to", "expectedGeneration", 2L, "expectedRevision", 4L, "position", 1)
+            McpHistoryCommandDomain.HISTORY_UNDO,
+            Map.of("expectedGeneration", 2L, "expectedRevision", 4L, "steps", 1)
         );
         assertFalse(stale.isError());
         assertEquals(Boolean.FALSE, stale.structuredContent().get("ok"));
@@ -68,16 +89,16 @@ final class McpHistoryCommandDomainTest {
         assertEquals(0, history.moves.size());
 
         final McpHistoryCommandDomain.ToolCallResult undo = domain.call(
-            McpHistoryCommandDomain.HISTORY_MOVE,
-            Map.of("operation", "undo", "expectedGeneration", 3L, "expectedRevision", 4L, "steps", 2)
+            McpHistoryCommandDomain.HISTORY_UNDO,
+            Map.of("expectedGeneration", 3L, "expectedRevision", 4L, "steps", 2)
         );
         assertFalse(undo.isError());
         assertEquals(new Move(3, 4, 0), history.moves.get(0));
 
         history.current = snapshot(3, 5, 1, 5);
         final McpHistoryCommandDomain.ToolCallResult redo = domain.call(
-            McpHistoryCommandDomain.HISTORY_MOVE,
-            Map.of("operation", "redo", "expectedGeneration", 3L, "expectedRevision", 5L, "steps", 9)
+            McpHistoryCommandDomain.HISTORY_REDO,
+            Map.of("expectedGeneration", 3L, "expectedRevision", 5L, "steps", 9)
         );
         assertFalse(redo.isError());
         assertEquals(new Move(3, 5, 5), history.moves.get(1));
@@ -89,8 +110,8 @@ final class McpHistoryCommandDomainTest {
         final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(history, EditorCommandService.unavailable());
 
         final McpHistoryCommandDomain.ToolCallResult result = domain.call(
-            McpHistoryCommandDomain.HISTORY_MOVE,
-            Map.of("operation", "undo", "expectedGeneration", 3L, "steps", 1)
+            McpHistoryCommandDomain.HISTORY_UNDO,
+            Map.of("expectedGeneration", 3L, "steps", 1)
         );
 
         assertTrue(result.isError());
@@ -152,9 +173,81 @@ final class McpHistoryCommandDomainTest {
             domain.resourceDefinitions().stream().map(McpHistoryCommandDomain.ResourceDefinition::uri).toList()
         );
         assertEquals(
-            List.of(McpHistoryCommandDomain.HISTORY_MOVE, McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE),
+            List.of(
+                McpHistoryCommandDomain.HISTORY_READ,
+                McpHistoryCommandDomain.HISTORY_UNDO,
+                McpHistoryCommandDomain.HISTORY_REDO,
+                McpHistoryCommandDomain.EDITOR_COMMANDS_EXECUTE
+            ),
             domain.toolDefinitions().stream().map(McpHistoryCommandDomain.ToolDefinition::name).toList()
         );
+        assertFalse(domain.tools().definitions().stream().anyMatch(definition ->
+            "turboism.history.move".equals(definition.get("name"))
+        ));
+    }
+
+    @Test
+    void undoAndRedoOptionalEntryGuardsRejectMismatchesBeforeHostMutation() {
+        final List<HistoryEntry> entries = List.of(
+            new HistoryEntry(
+                0,
+                "Transaction A",
+                true,
+                Optional.empty(),
+                Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-a")),
+                Optional.of("transaction-a")
+            ),
+            new HistoryEntry(
+                1,
+                "Transaction B",
+                true,
+                Optional.empty(),
+                Optional.of(new dev.turboism.sdk.cubism.history.HistoryEntryId("history-entry-b")),
+                Optional.of("transaction-b")
+            )
+        );
+        final FakeHistory history = new FakeHistory(new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            7,
+            9,
+            1,
+            entries,
+            true,
+            true
+        ));
+        final McpHistoryCommandDomain domain = new McpHistoryCommandDomain(
+            history,
+            EditorCommandService.unavailable()
+        );
+
+        final McpHistoryCommandDomain.ToolCallResult undoMismatch = domain.call(
+            McpHistoryCommandDomain.HISTORY_UNDO,
+            Map.of(
+                "expectedGeneration", 7,
+                "expectedRevision", 9,
+                "steps", 1,
+                "expectedTopEntryId", "history-entry-b"
+            )
+        );
+        assertEquals("REJECTED_STALE", undoMismatch.structuredContent().get("outcome"));
+        assertEquals(0, history.moves.size());
+
+        final McpHistoryCommandDomain.ToolCallResult redoMismatch = domain.call(
+            McpHistoryCommandDomain.HISTORY_REDO,
+            Map.of(
+                "expectedGeneration", 7,
+                "expectedRevision", 9,
+                "steps", 1,
+                "expectedTransactionId", "transaction-a"
+            )
+        );
+        assertEquals("REJECTED_STALE", redoMismatch.structuredContent().get("outcome"));
+        assertEquals(0, history.moves.size());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> object(final Object value) {
+        return (Map<String, Object>) value;
     }
 
     private static String errorCode(final McpHistoryCommandDomain.ToolCallResult result) {

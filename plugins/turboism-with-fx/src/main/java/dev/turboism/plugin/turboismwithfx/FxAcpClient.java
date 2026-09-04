@@ -36,7 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>One daemon reader owns stdout parsing, one daemon reader drains stderr, and all writes are
  * serialized under a private lock. Response correlation is bounded by the client's pending map;
  * EOF, malformed UTF-8, invalid JSON, oversized lines, and process closure fail every pending
- * request. The client never logs protocol lines and redacts the current MCP bearer value from
+ * request. The client never logs protocol lines and redacts credential-shaped material from
  * forwarded stderr.</p>
  */
 final class FxAcpClient implements AutoCloseable {
@@ -50,6 +50,13 @@ final class FxAcpClient implements AutoCloseable {
     private static final int MAX_PENDING_REQUESTS = 64;
     private static final java.util.regex.Pattern GRAPHEME =
         java.util.regex.Pattern.compile("\\X");
+    private static final java.util.regex.Pattern CREDENTIAL_ASSIGNMENT =
+        java.util.regex.Pattern.compile(
+            "(?i)(\\b(?:authorization|token|secret|credential|password)\\s*[:=]\\s*)"
+                + "(?:bearer\\s+)?[^\\s,;]+"
+        );
+    private static final java.util.regex.Pattern BEARER_VALUE =
+        java.util.regex.Pattern.compile("(?i)\\bbearer\\s+[^\\s,;]+");
     private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(15);
 
     private final FxAcpTransport transport;
@@ -61,7 +68,6 @@ final class FxAcpClient implements AutoCloseable {
     private final AtomicLong requestIds = new AtomicLong();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean terminationReported = new AtomicBoolean();
-    private final java.util.Set<String> authorizations = ConcurrentHashMap.newKeySet();
     private final AtomicReference<String> protocolFailureHint = new AtomicReference<>();
     private final AtomicReference<String> protocolFailurePreview = new AtomicReference<>();
     private final AtomicReference<String> stderrFailureHint = new AtomicReference<>();
@@ -648,10 +654,8 @@ final class FxAcpClient implements AutoCloseable {
         }
     }
 
-    private McpHttpConnection remember(final McpHttpConnection connection) {
-        final McpHttpConnection value = Objects.requireNonNull(connection, "connection");
-        authorizations.add(value.authorization());
-        return value;
+    private static McpHttpConnection remember(final McpHttpConnection connection) {
+        return Objects.requireNonNull(connection, "connection");
     }
 
     private static Map<String, Object> mcpServer(final McpHttpConnection connection) {
@@ -659,10 +663,6 @@ final class FxAcpClient implements AutoCloseable {
         server.put("type", "http");
         server.put("name", "turboism");
         server.put("url", connection.endpoint().toString());
-        server.put("headers", List.of(Map.of(
-            "name", "Authorization",
-            "value", connection.authorization()
-        )));
         return server;
     }
 
@@ -687,26 +687,17 @@ final class FxAcpClient implements AutoCloseable {
         return bounded(json, MAX_PERMISSION_DETAILS_CHARS);
     }
 
-    private String redact(final String text) {
-        String redacted = text;
-        for (String secret : authorizations) {
-            if (secret == null || secret.isEmpty()) continue;
-            redacted = redacted.replace(secret, "<redacted>");
-            if (secret.startsWith("Bearer ")) {
-                redacted = redacted.replace(
-                    secret.substring("Bearer ".length()),
-                    "<redacted>"
-                );
-            }
-        }
-        return redacted;
+    private static String redact(final String text) {
+        final String assignments = CREDENTIAL_ASSIGNMENT.matcher(text)
+            .replaceAll("$1<redacted>");
+        return BEARER_VALUE.matcher(assignments).replaceAll("<redacted>");
     }
 
-    private boolean unsafeTruncatedSecret(
+    private static boolean unsafeTruncatedSecret(
         final String redacted,
         final boolean truncated
     ) {
-        return truncated && !authorizations.isEmpty();
+        return truncated && redacted.contains("<redacted>");
     }
 
     private String redactedUi(final String text, final int maximum) {
