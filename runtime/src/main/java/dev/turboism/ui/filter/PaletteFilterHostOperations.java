@@ -4,6 +4,7 @@ import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.ui.palette.LogPaletteHostStructure;
 
 import javax.swing.AbstractButton;
 import javax.swing.BorderFactory;
@@ -96,8 +97,8 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
     private static final int TEXT_RIGHT_INSET = 28;
 
     private static final String PALETTE_PROPERTY = "dev.turboism.paletteFilter";
-    private static final String FILTERED_TEXT_PANE_KEY = "turboism.paletteFilter.filteredTextPane";
-    private static final String WRAPPER_MARKER_KEY = "turboism.paletteFilter.wrapper";
+    private static final String FILTERED_TEXT_PANE_KEY = LogPaletteHostStructure.FILTERED_TEXT_PANE_KEY;
+    private static final String WRAPPER_MARKER_KEY = LogPaletteHostStructure.FILTER_WRAPPER_MARKER_KEY;
     private static final String SCENE_PALETTE_PROPERTY = "dev.turboism.scenePalette";
     private static final String TOOLBAR_ROW_MARKER_KEY = "turboism.paletteFilter.toolbarRow";
     private static final String APP_INSTANCE = "cubism.editor-model.app-controller.instance";
@@ -397,7 +398,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         if (state.wrapper != null && state.scrollShell != null) {
             final Container parent = state.wrapper.getParent();
             if (parent != null) {
-                replaceComponent(parent, state.wrapper, state.scrollShell);
+                LogPaletteHostStructure.replaceComponent(parent, state.wrapper, state.scrollShell);
             }
         }
         if (state.filteredTreeModel != null) {
@@ -450,23 +451,6 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         state.filterText = filterText;
     }
 
-    /** Replaces {@code component} with {@code replacement} preserving layout constraint and z-order. */
-    private static void replaceComponent(final Container parent, final Component component, final Component replacement) {
-        final LayoutManager layout = parent.getLayout();
-        final Object constraint = layout instanceof BorderLayout
-            ? ((BorderLayout) layout).getConstraints(component)
-            : null;
-        final int index = parent.getComponentZOrder(component);
-        parent.remove(component);
-        if (constraint != null) {
-            parent.add(replacement, constraint);
-        } else {
-            final int safeIndex = index < 0 ? parent.getComponentCount() : Math.min(index, parent.getComponentCount());
-            parent.add(replacement, safeIndex);
-        }
-        parent.revalidate();
-        parent.repaint();
-    }
 
     // ------------------------------------------------------- palette resolution
 
@@ -495,7 +479,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
                 }
             }
             case LOG -> {
-                final JTextPane pane = findLogTextPane();
+                final JTextPane pane = LogPaletteHostStructure.findLogTextPane();
                 if (pane != null) {
                     return pane;
                 }
@@ -641,7 +625,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             if (!label.isDisplayable() || !isInVisibleCubismWindow(label)) {
                 continue;
             }
-            final JViewport viewport = findAncestorViewport(label);
+            final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(label);
             if (viewport != null && viewport.getView() instanceof JComponent root
                 && findParameterToolbar(root) != null) {
                 return root;
@@ -728,49 +712,6 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
         }
     }
 
-    /** Finds the LOG palette text pane: visible main frame, non-editable JTextPane with viewport scroll shell. */
-    private static JTextPane findLogTextPane() {
-        for (Window window : Window.getWindows()) {
-            if (!window.isVisible() || !window.getClass().getName().startsWith("com.live2d.ui.window.CFrame")) {
-                continue;
-            }
-            final JTextPane pane = findLogTextPane(window);
-            if (pane != null) {
-                return pane;
-            }
-        }
-        return null;
-    }
-
-    private static JTextPane findLogTextPane(final Component component) {
-        if (component instanceof JTextPane pane
-            && !pane.isEditable()
-            && !Boolean.TRUE.equals(pane.getClientProperty(FILTERED_TEXT_PANE_KEY))
-            && pane.isDisplayable()
-            && findAncestorViewport(pane) != null) {
-            return pane;
-        }
-        if (component instanceof Container container) {
-            for (Component child : container.getComponents()) {
-                final JTextPane found = findLogTextPane(child);
-                if (found != null) {
-                    return found;
-                }
-            }
-        }
-        return null;
-    }
-
-    private static JViewport findAncestorViewport(final Component component) {
-        Component current = component == null ? null : component.getParent();
-        while (current != null) {
-            if (current instanceof JViewport viewport) {
-                return viewport;
-            }
-            current = current.getParent();
-        }
-        return null;
-    }
 
     // ------------------------------------------------------------ attach kinds
 
@@ -1068,7 +1009,7 @@ public final class PaletteFilterHostOperations implements PaletteFilterVisibilit
             lastAttachStatus.put(state.kind, "log-textpane-not-found root=" + component.getClass().getName());
             return false;
         }
-        final JViewport viewport = findAncestorViewport(textPane);
+        final JViewport viewport = LogPaletteHostStructure.findAncestorViewport(textPane);
         if (viewport == null) {
             lastAttachStatus.put(state.kind, "log-viewport-not-found pane=" + textPane.getClass().getName());
             return false;
