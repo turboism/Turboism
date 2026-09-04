@@ -3,6 +3,7 @@ package dev.turboism.adapter.host;
 import dev.turboism.adapter.RuntimeHostAdapters;
 import dev.turboism.mapping.verification.EditorModelVerificationManifest;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.ui.host.EditorUiFamily;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Path;
@@ -11,6 +12,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class VerifiedHostAdapterConnectorEditorModelTest {
 
@@ -35,7 +37,10 @@ class VerifiedHostAdapterConnectorEditorModelTest {
             },
             (verified, sessionId, core) -> () -> {
                 throw new IllegalStateException(sessionId);
-            }
+            },
+            null,
+            new dev.turboism.ui.toolbar.EditorUiPluginResourceRegistry(),
+            new dev.turboism.ui.action.RuntimeEditorUiActionRouter()
         );
         HostVerificationEvidence.Slice project = slice("project");
         HostVerificationEvidence.Slice editor = slice("editor");
@@ -56,6 +61,9 @@ class VerifiedHostAdapterConnectorEditorModelTest {
         assertEquals("session-a", org.junit.jupiter.api.Assertions.assertThrows(
             IllegalStateException.class, () -> connection.modelAccess().active()
         ).getMessage());
+        assertTrue(connection.editorUiProviders(17).stream().anyMatch(provider ->
+            provider.family() == EditorUiFamily.PALETTE_TOOLBAR
+                && provider.admission().isAdmittedTo(17)));
     }
 
     @Test
