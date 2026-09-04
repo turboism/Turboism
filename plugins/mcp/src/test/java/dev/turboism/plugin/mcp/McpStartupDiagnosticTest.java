@@ -47,7 +47,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 final class McpStartupDiagnosticTest {
 
-    private static final String TOKEN = "test-token-0123456789-abcdef";
 
     @TempDir
     Path temporaryDirectory;
@@ -211,7 +210,6 @@ final class McpStartupDiagnosticTest {
             immediateUi(),
             temporaryDirectory,
             port,
-            TOKEN,
             120
         );
     }

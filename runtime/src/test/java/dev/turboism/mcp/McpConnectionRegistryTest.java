@@ -15,8 +15,8 @@ final class McpConnectionRegistryTest {
     @Test
     void staleRevocationCannotClearReplacementPublication() {
         final McpConnectionRegistry registry = new McpConnectionRegistry();
-        final Registration first = registry.publish("mcp", connection(41001, "one"));
-        final Registration replacement = registry.publish("mcp", connection(41002, "two"));
+        final Registration first = registry.publish("mcp", connection(41001));
+        final Registration replacement = registry.publish("mcp", connection(41002));
 
         first.close();
 
@@ -28,14 +28,14 @@ final class McpConnectionRegistryTest {
     @Test
     void rejectsPublicationAfterTerminalClose() {
         final McpConnectionRegistry registry = new McpConnectionRegistry();
-        registry.publish("mcp", connection(41001, "one"));
+        registry.publish("mcp", connection(41001));
 
         registry.close();
 
         assertTrue(registry.current().isEmpty());
         assertThrows(
             IllegalStateException.class,
-            () -> registry.publish("mcp", connection(41002, "two"))
+            () -> registry.publish("mcp", connection(41002))
         );
         assertTrue(registry.current().isEmpty());
     }
@@ -43,19 +43,18 @@ final class McpConnectionRegistryTest {
     @Test
     void rejectsPublicationFromAnotherPlugin() {
         final McpConnectionRegistry registry = new McpConnectionRegistry();
-        registry.publish("mcp", connection(41001, "one"));
+        registry.publish("mcp", connection(41001));
 
         assertThrows(
             IllegalStateException.class,
-            () -> registry.publish("other", connection(41002, "two"))
+            () -> registry.publish("other", connection(41002))
         );
     }
 
-    private static McpHttpConnection connection(final int port, final String token) {
+    private static McpHttpConnection connection(final int port) {
         return new McpHttpConnection(
             URI.create("http://127.0.0.1:" + port + "/mcp"),
-            "2025-11-25",
-            "Bearer " + token
+            "2025-11-25"
         );
     }
 }

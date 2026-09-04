@@ -189,6 +189,7 @@ public interface CubismModel {
         throw new UnsupportedOperationException("Cubism Rotation Deformer access is unavailable.");
     }
 
+    @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
     Glues glues();
 
     void update();

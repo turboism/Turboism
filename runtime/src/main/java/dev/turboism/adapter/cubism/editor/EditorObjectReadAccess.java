@@ -2957,6 +2957,10 @@ final class EditorObjectReadAccess {
         EditorGlues(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
         @Override public List<Glue> all() { return glueRefs(identity, source, model).stream().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).toList(); }
         @Override public Glue find(final GlueId id) { Objects.requireNonNull(id, "id"); return glueRefs(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism Glue is absent: " + id.value())); }
+        @Override public Optional<String> providerVersion() {
+            currentGuard.requireCurrent(identity, model);
+            return Optional.of(resolver.cubismVersion());
+        }
     }
 
     private static Object nativeSourceOf(final Object view, final String label) {

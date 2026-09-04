@@ -53,6 +53,17 @@ final class McpOutputSchemas {
         ));
     }
 
+    static Map<String, Object> historyRead() {
+        return successOrFailure(object(
+            properties(
+                entry("ok", booleanSchema()),
+                entry("snapshot", historySnapshot()),
+                entry("diagnosticId", nullableString())
+            ),
+            List.of("ok", "snapshot", "diagnosticId")
+        ));
+    }
+
     static Map<String, Object> historyMove() {
         return successOrFailure(object(
             properties(
@@ -405,9 +416,14 @@ final class McpOutputSchemas {
                 entry("label", stringSchema()),
                 entry("significant", booleanSchema()),
                 entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
+                entry("entryId", nullableString()),
+                entry("transactionId", nullableString()),
                 entry("action", nullableObject(historyAction()))
             ),
-            List.of("index", "label", "significant", "detailLevel", "action")
+            List.of(
+                "index", "label", "significant", "detailLevel",
+                "entryId", "transactionId", "action"
+            )
         );
     }
 

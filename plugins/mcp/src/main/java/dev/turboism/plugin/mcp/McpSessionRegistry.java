@@ -9,7 +9,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
-/** In-memory Streamable HTTP session lifecycle, bound to the server bearer context. */
+/** In-memory Streamable HTTP session lifecycle for the loopback server. */
 final class McpSessionRegistry {
 
     private static final Duration DEFAULT_IDLE_TIMEOUT = Duration.ofMinutes(30);
