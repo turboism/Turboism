@@ -32,6 +32,7 @@ import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyStatus;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem;
@@ -233,7 +234,8 @@ class HostSessionPluginContextIntegrationTest {
             () -> Optional.ofNullable(current.get()),
             descriptor -> HostAdapterConnection.of(
                 RuntimeHostAdapters.safeMode(),
-                fixedModelAccess(descriptor.sessionId())
+                fixedModelAccess(descriptor.sessionId()),
+                connectionResolver()
             )
         );
         RuntimeScheduler scheduler = scheduler();
@@ -277,7 +279,8 @@ class HostSessionPluginContextIntegrationTest {
             () -> Optional.ofNullable(current.get()),
             descriptor -> HostAdapterConnection.of(
                 RuntimeHostAdapters.safeMode(),
-                fixedModelAccess(descriptor.sessionId())
+                fixedModelAccess(descriptor.sessionId()),
+                connectionResolver()
             )
         );
         final RuntimeScheduler firstScheduler = scheduler();
@@ -506,6 +509,19 @@ class HostSessionPluginContextIntegrationTest {
             session.close();
             scheduler.shutdown();
         }
+    }
+
+    private static VerifiedMemberResolver connectionResolver() {
+        return dev.turboism.mapping.verification.TestVerifiedResolvers.create(
+            "5.3.02",
+            "fixture.connection",
+            java.util.Set.of("fixture.connection"),
+            List.of(dev.turboism.mapping.verification.StaticSelector.classSelector(
+                "fixture.connection.class",
+                HostSessionPluginContextIntegrationTest.class.getName().replace('.', '/')
+            )),
+            HostSessionPluginContextIntegrationTest.class.getClassLoader()
+        );
     }
 
     private static HostAdapterConnection connectionWithAtlasProvider(

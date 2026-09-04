@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import dev.turboism.sdk.CubismEditor;
 
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
@@ -241,7 +242,30 @@ final class CubismEditorApiAvailabilityInterceptor {
     }
 
     private static boolean isInterceptableSdkInterface(final Class<?> type) {
-        return type.isInterface() && CubismEditorAvailabilityPolicy.restricts(type);
+        if (!type.isInterface()) return false;
+        final Package typePackage = type.getPackage();
+        // Every SDK interface is part of the plugin object graph.  Unannotated
+        // carriers (CubismModelAccess, Parts, Parameters, Drawables, ...) would
+        // otherwise let annotated descendants escape exact-version enforcement.
+        return (typePackage != null && typePackage.getName().startsWith("dev.turboism.sdk."))
+            || hasTypeAvailability(type, new LinkedHashSet<>())
+            || declaresAnnotatedMethod(type);
+    }
+
+    private static boolean declaresAnnotatedMethod(final Class<?> type) {
+        for (Method method : type.getMethods()) {
+            if (method.isAnnotationPresent(CubismEditor.class)) return true;
+        }
+        return false;
+    }
+
+    private static boolean hasTypeAvailability(final Class<?> type, final Set<Class<?>> visited) {
+        if (!visited.add(type)) return false;
+        if (type.isAnnotationPresent(CubismEditor.class)) return true;
+        for (Class<?> parent : type.getInterfaces()) {
+            if (hasTypeAvailability(parent, visited)) return true;
+        }
+        return false;
     }
 
     private static Class<?> rawClass(final Type type) {
