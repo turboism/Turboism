@@ -29,8 +29,8 @@ class RuntimePluginManagementServiceTest {
 
     @Test
     void installIsStagedAndAppliedOnlyBeforeNextDiscovery() throws Exception {
-        final Path source = home.resolve("sample.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final Path source = home.resolve("sample.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final RuntimePluginManagementService service = service(() -> Optional.of(source));
 
         final var installed = service.install();
@@ -42,6 +42,22 @@ class RuntimePluginManagementServiceTest {
         final var applied = RuntimePluginManagementService.applyPending(home);
         assertTrue(applied.applied(), applied.code());
         assertTrue(Files.isRegularFile(home.resolve("plugins/example.plugin.jar")));
+    }
+
+    @Test
+    void rejectsLegacyDistributionPackageAndInvalidJar() throws Exception {
+        final Path legacy = home.resolve("legacy.tplugin");
+        Files.write(legacy, PluginManagementPackageFixture.packageBytes("example.plugin", "1.0.0"));
+        final var legacyResult = service(() -> Optional.of(legacy)).install();
+
+        final Path invalid = home.resolve("invalid.jar");
+        Files.writeString(invalid, "not-a-jar");
+        final var invalidResult = service(() -> Optional.of(invalid)).install();
+
+        assertFalse(legacyResult.accepted());
+        assertFalse(invalidResult.accepted());
+        assertFalse(Files.exists(home.resolve("state/runtime/plugin-management/pending.json")));
+        assertFalse(Files.exists(home.resolve("plugins/example.plugin.jar")));
     }
 
     @Test
@@ -70,8 +86,8 @@ class RuntimePluginManagementServiceTest {
     @Test
     void repeatedInstallAndUninstallReplaceTheSamePendingIntent() throws Exception {
         installNow("example.plugin", "1.0.0");
-        final Path update = home.resolve("update.tplugin");
-        Files.write(update, PluginManagementPackageFixture.packageBytes("example.plugin", "2.0.0"));
+        final Path update = home.resolve("update.jar");
+        Files.write(update, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "2.0.0"));
         final RuntimePluginManagementService service = service(() -> Optional.of(update));
 
         assertEquals("PLUGIN_INSTALL_PENDING", service.install().code());
@@ -89,8 +105,8 @@ class RuntimePluginManagementServiceTest {
 
     @Test
     void rejectsReservedCorePackage() throws Exception {
-        final Path source = home.resolve("core.tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes(CorePluginManagement.CORE_PLUGIN_ID, "1.0.0"));
+        final Path source = home.resolve("core.jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes(CorePluginManagement.CORE_PLUGIN_ID, "1.0.0"));
         final var result = service(() -> Optional.of(source)).install();
         assertFalse(result.accepted());
         assertEquals("PLUGIN_RESERVED_ID", result.code());
@@ -104,8 +120,8 @@ class RuntimePluginManagementServiceTest {
     }
 
     private void installNow(final String id, final String version) throws Exception {
-        final Path source = home.resolve(id + ".tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes(id, version));
+        final Path source = home.resolve(id + ".jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes(id, version));
         assertTrue(service(() -> Optional.of(source)).install().accepted());
         assertTrue(RuntimePluginManagementService.applyPending(home).applied());
     }

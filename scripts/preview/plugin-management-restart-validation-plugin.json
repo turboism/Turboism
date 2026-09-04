@@ -1,0 +1,29 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.plugin-management-restart",
+  "name": "Plugin Management Restart Validation Probe",
+  "version": "0.1.0",
+  "description": "Manual-test-only verifier for restart-applied direct plugin JAR installation and discovery.",
+  "entrypoints": [
+    "dev.turboism.tests.plugin.PluginManagementRestartValidationProbe"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "none"
+  }
+}

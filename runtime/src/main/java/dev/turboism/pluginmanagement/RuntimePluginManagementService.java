@@ -472,12 +472,18 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
         ));
     }
 
+    static void configurePluginJarChooser(final JFileChooser chooser) {
+        chooser.setDialogTitle("Install Turboism plugin");
+        chooser.resetChoosableFileFilters();
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter("Turboism plugin JAR (*.jar)", "jar"));
+    }
+
     private static Optional<Path> choosePluginPackage() {
         @SuppressWarnings("unchecked") final Optional<Path>[] selected = new Optional[]{Optional.empty()};
         final Runnable choose = () -> {
             final JFileChooser chooser = new JFileChooser();
-            chooser.setDialogTitle("Install Turboism plugin");
-            chooser.setFileFilter(new FileNameExtensionFilter("Turboism plugin package (*.tplugin)", "tplugin"));
+            configurePluginJarChooser(chooser);
             if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
                 selected[0] = Optional.of(chooser.getSelectedFile().toPath());
             }
@@ -557,10 +563,7 @@ public final class RuntimePluginManagementService implements CorePluginManagemen
                     chooser = chooserFactory.get();
                     visible = chooser;
                 }
-                chooser.setDialogTitle("Install Turboism plugin");
-                chooser.setFileFilter(new FileNameExtensionFilter(
-                    "Turboism plugin package (*.tplugin)", "tplugin"
-                ));
+                configurePluginJarChooser(chooser);
                 final Optional<Path> selected = chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION
                     ? Optional.of(chooser.getSelectedFile().toPath())
                     : Optional.empty();
