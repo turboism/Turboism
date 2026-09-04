@@ -36,18 +36,32 @@ final class McpHistoryCommandDomain {
 
     static final String HISTORY_RESOURCE = "turboism://active/document/history";
     static final String EDITOR_COMMANDS_RESOURCE = "turboism://host/editor-commands";
-    static final String HISTORY_MOVE = "turboism.history.move";
+    static final String HISTORY_READ = "turboism.history.read";
+    static final String HISTORY_UNDO = "turboism.history.undo";
+    static final String HISTORY_REDO = "turboism.history.redo";
     static final String EDITOR_COMMANDS_EXECUTE = "turboism.editor_commands.execute";
 
     private static final String JSON_MIME_TYPE = "application/json";
     private static final int MAX_ARGUMENT_STRING_LENGTH = 256;
+    private static final List<String> HISTORY_SUPPORTED_VERSIONS =
+        List.of("5.2.03", "5.3.02", "5.3.03");
 
     private final CubismHistory history;
     private final EditorCommandService editorCommands;
+    private final McpExecutionBridge execution;
 
     McpHistoryCommandDomain(final CubismHistory history, final EditorCommandService editorCommands) {
+        this(history, editorCommands, immediateExecution());
+    }
+
+    McpHistoryCommandDomain(
+        final CubismHistory history,
+        final EditorCommandService editorCommands,
+        final McpExecutionBridge execution
+    ) {
         this.history = Objects.requireNonNull(history, "history");
         this.editorCommands = Objects.requireNonNull(editorCommands, "editorCommands");
+        this.execution = Objects.requireNonNull(execution, "execution");
     }
 
     List<ResourceDefinition> resourceDefinitions() {
@@ -68,20 +82,69 @@ final class McpHistoryCommandDomain {
     }
 
     McpToolCatalog tools() {
-        final List<Map<String, Object>> definitions = toolDefinitions().stream()
-            .map(definition -> immutableMap(
-                entry("name", definition.name()),
-                entry("title", definition.title()),
-                entry("description", definition.description()),
-                entry("inputSchema", definition.inputSchema()),
-                entry("outputSchema", HISTORY_MOVE.equals(definition.name())
-                    ? McpOutputSchemas.historyMove() : McpOutputSchemas.editorCommand()),
-                entry("annotations", definition.annotations())
+        return McpToolCatalog.of(toolDefinitions().stream()
+            .map(definition -> McpRegisteredTool.typed(
+                publicDefinition(definition),
+                effect(definition.name()),
+                McpExecutionAffinity.UI_THREAD,
+                false,
+                versionSupport(definition.name()),
+                execution,
+                arguments -> toolEnvelope(call(definition.name(), arguments))
             ))
-            .toList();
-        return new McpToolCatalog(definitions, (name, arguments) -> {
-            final ToolCallResult result = call(name, arguments);
-            return toolEnvelope(result);
+            .toList());
+    }
+
+    private static Map<String, Object> publicDefinition(final ToolDefinition definition) {
+        return immutableMap(
+            entry("name", definition.name()),
+            entry("title", definition.title()),
+            entry("description", definition.description()),
+            entry("inputSchema", definition.inputSchema()),
+            entry("outputSchema", outputSchema(definition.name())),
+            entry("annotations", definition.annotations())
+        );
+    }
+
+    private static McpOperationEffect effect(final String name) {
+        if (HISTORY_READ.equals(name)) return McpOperationEffect.READ;
+        if (HISTORY_UNDO.equals(name) || HISTORY_REDO.equals(name)) {
+            return McpOperationEffect.HISTORY_CONTROL;
+        }
+        return McpOperationEffect.EXTERNAL_SIDE_EFFECT;
+    }
+
+    private static McpVersionSupport versionSupport(final String name) {
+        if (HISTORY_READ.equals(name)) {
+            return McpVersionSupport.exact(
+                "cubism.editor-history.read",
+                HISTORY_SUPPORTED_VERSIONS
+            );
+        }
+        if (HISTORY_UNDO.equals(name) || HISTORY_REDO.equals(name)) {
+            return McpVersionSupport.exact(
+                "cubism.editor-history.move",
+                HISTORY_SUPPORTED_VERSIONS
+            );
+        }
+        return McpVersionSupport.unscoped();
+    }
+
+    private static McpExecutionBridge immediateExecution() {
+        return new McpExecutionBridge(new dev.turboism.sdk.ui.UiScheduler() {
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThread(final Runnable work) {
+                work.run();
+                return () -> { };
+            }
+
+            @Override
+            public dev.turboism.sdk.plugin.Registration runOnUiThreadLater(
+                final Runnable work,
+                final java.time.Duration delay
+            ) {
+                throw new UnsupportedOperationException();
+            }
         });
     }
 
@@ -95,7 +158,7 @@ final class McpHistoryCommandDomain {
                 entry("mimeType", definition.mimeType())
             ))
             .toList();
-        return new McpResourceCatalog(definitions, List.of(), uri -> {
+        return new McpResourceCatalog(definitions, List.of(), uri -> execution.ui(() -> {
             final ResourceReadResult result;
             try {
                 result = read(uri);
@@ -107,17 +170,41 @@ final class McpHistoryCommandDomain {
                 entry("mimeType", result.mimeType()),
                 entry("text", Json.stringify(result.content()))
             ));
-        });
+        }));
     }
 
     List<ToolDefinition> toolDefinitions() {
         return List.of(
             new ToolDefinition(
-                HISTORY_MOVE,
-                "Move active document history",
-                "Moves the active document Undo cursor using required generation and revision preconditions. "
-                    + "undo and redo are translated to a guarded move_to from a freshly read snapshot.",
-                historyMoveSchema(),
+                HISTORY_READ,
+                "Read active document history",
+                "Returns the current immutable Undo-history snapshot, including stable Turboism "
+                    + "entry identities and transaction identities when available.",
+                emptyObjectSchema(),
+                immutableMap(
+                    entry("readOnlyHint", true),
+                    entry("destructiveHint", false),
+                    entry("idempotentHint", true)
+                )
+            ),
+            new ToolDefinition(
+                HISTORY_UNDO,
+                "Undo active document history",
+                "Moves the active document Undo cursor backward by a positive number of steps. "
+                    + "The required generation and revision must match a freshly read history snapshot.",
+                historyStepSchema(),
+                immutableMap(
+                    entry("readOnlyHint", false),
+                    entry("destructiveHint", false),
+                    entry("idempotentHint", true)
+                )
+            ),
+            new ToolDefinition(
+                HISTORY_REDO,
+                "Redo active document history",
+                "Moves the active document Undo cursor forward by a positive number of steps. "
+                    + "The required generation and revision must match a freshly read history snapshot.",
+                historyStepSchema(),
                 immutableMap(
                     entry("readOnlyHint", false),
                     entry("destructiveHint", false),
@@ -136,6 +223,54 @@ final class McpHistoryCommandDomain {
                     entry("idempotentHint", false)
                 )
             )
+        );
+    }
+
+    private static Map<String, Object> outputSchema(final String name) {
+        if (HISTORY_READ.equals(name)) return McpOutputSchemas.historyRead();
+        if (HISTORY_UNDO.equals(name) || HISTORY_REDO.equals(name)) {
+            return McpOutputSchemas.historyMove();
+        }
+        return McpOutputSchemas.editorCommand();
+    }
+
+    private static Map<String, Object> emptyObjectSchema() {
+        return immutableMap(
+            entry("type", "object"),
+            entry("properties", Map.of()),
+            entry("additionalProperties", false)
+        );
+    }
+
+    private static Map<String, Object> historyStepSchema() {
+        return immutableMap(
+            entry("type", "object"),
+            entry("properties", immutableMap(
+                entry("expectedGeneration", immutableMap(
+                    entry("type", "integer"),
+                    entry("minimum", 0)
+                )),
+                entry("expectedRevision", immutableMap(
+                    entry("type", "integer"),
+                    entry("minimum", 0)
+                )),
+                entry("steps", immutableMap(
+                    entry("type", "integer"),
+                    entry("minimum", 1)
+                )),
+                entry("expectedTopEntryId", immutableMap(
+                    entry("type", "string"),
+                    entry("minLength", 1),
+                    entry("maxLength", 128)
+                )),
+                entry("expectedTransactionId", immutableMap(
+                    entry("type", "string"),
+                    entry("minLength", 1),
+                    entry("maxLength", 128)
+                ))
+            )),
+            entry("required", List.of("expectedGeneration", "expectedRevision", "steps")),
+            entry("additionalProperties", false)
         );
     }
 
@@ -160,7 +295,9 @@ final class McpHistoryCommandDomain {
         final Map<String, Object> checked = immutableArguments(arguments);
         try {
             return switch (requested) {
-                case HISTORY_MOVE -> ToolCallResult.success(moveHistory(checked));
+                case HISTORY_READ -> ToolCallResult.success(readHistory(checked));
+                case HISTORY_UNDO -> ToolCallResult.success(moveHistory(checked, true));
+                case HISTORY_REDO -> ToolCallResult.success(moveHistory(checked, false));
                 case EDITOR_COMMANDS_EXECUTE -> ToolCallResult.success(executeEditorCommand(checked));
                 default -> ToolCallResult.failure("INVALID_ARGUMENT", "Unknown MCP tool: " + requested);
             };
@@ -171,41 +308,71 @@ final class McpHistoryCommandDomain {
         }
     }
 
-    private Map<String, Object> moveHistory(final Map<String, Object> arguments) {
-        only(arguments, "operation", "expectedGeneration", "expectedRevision", "position", "steps");
-        final String operation = requiredString(arguments, "operation");
+    private Map<String, Object> readHistory(final Map<String, Object> arguments) {
+        only(arguments);
+        final HistorySnapshot snapshot = history.snapshot();
+        return immutableMap(
+            entry("ok", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE),
+            entry("snapshot", historySnapshot(snapshot)),
+            entry("diagnosticId", snapshot.availability() == HistorySnapshot.Availability.AVAILABLE
+                ? null : "mcp.history.unavailable")
+        );
+    }
+
+    private Map<String, Object> moveHistory(
+        final Map<String, Object> arguments,
+        final boolean undo
+    ) {
+        only(
+            arguments,
+            "expectedGeneration",
+            "expectedRevision",
+            "steps",
+            "expectedTopEntryId",
+            "expectedTransactionId"
+        );
         final long expectedGeneration = requiredNonNegativeLong(arguments, "expectedGeneration");
         final long expectedRevision = requiredNonNegativeLong(arguments, "expectedRevision");
+        final int steps = requiredPositiveInteger(arguments, "steps");
         final HistorySnapshot current = history.snapshot();
         final HistoryMoveResult result;
         if (current.availability() != HistorySnapshot.Availability.AVAILABLE) {
             result = unavailable(current, "mcp.history.unavailable");
         } else if (current.generation() != expectedGeneration || current.revision() != expectedRevision) {
             result = stale(current);
+        } else if (!guardMatches(current, undo, arguments)) {
+            result = stale(current);
         } else {
-            result = switch (operation) {
-                case "move_to" -> history.moveTo(
-                    expectedGeneration,
-                    expectedRevision,
-                    requiredInteger(arguments, "position")
-                );
-                case "undo" -> history.moveTo(
-                    expectedGeneration,
-                    expectedRevision,
-                    Math.max(0, current.position() - requiredPositiveInteger(arguments, "steps"))
-                );
-                case "redo" -> history.moveTo(
-                    expectedGeneration,
-                    expectedRevision,
-                    Math.min(
-                        current.entries().size(),
-                        current.position() + requiredPositiveInteger(arguments, "steps")
-                    )
-                );
-                default -> throw new InputException("operation must be move_to, undo, or redo");
-            };
+            final int target = undo
+                ? Math.max(0, current.position() - steps)
+                : Math.min(current.entries().size(), current.position() + steps);
+            result = history.moveTo(expectedGeneration, expectedRevision, target);
         }
         return historyMoveResult(result);
+    }
+
+    private static boolean guardMatches(
+        final HistorySnapshot current,
+        final boolean undo,
+        final Map<String, Object> arguments
+    ) {
+        final Optional<String> expectedEntryId = optionalString(arguments, "expectedTopEntryId");
+        final Optional<String> expectedTransactionId = optionalString(
+            arguments,
+            "expectedTransactionId"
+        );
+        if (expectedEntryId.isEmpty() && expectedTransactionId.isEmpty()) return true;
+        final int guardedIndex = undo ? current.position() - 1 : current.position();
+        if (guardedIndex < 0 || guardedIndex >= current.entries().size()) return false;
+        final HistoryEntry guarded = current.entries().get(guardedIndex);
+        return expectedEntryId.map(expected -> guarded.entryId()
+                .map(id -> expected.equals(id.value()))
+                .orElse(false))
+            .orElse(true)
+            && expectedTransactionId.map(expected -> guarded.transactionId()
+                .map(expected::equals)
+                .orElse(false))
+            .orElse(true);
     }
 
     private Map<String, Object> executeEditorCommand(final Map<String, Object> arguments) {
@@ -347,6 +514,8 @@ final class McpHistoryCommandDomain {
             entry("label", value.label()),
             entry("significant", value.significant()),
             entry("detailLevel", value.detailLevel().name()),
+            entry("entryId", value.entryId().map(id -> id.value()).orElse(null)),
+            entry("transactionId", value.transactionId().orElse(null)),
             entry("action", value.action().map(McpHistoryCommandDomain::historyAction).orElse(null))
         );
     }
@@ -392,19 +561,6 @@ final class McpHistoryCommandDomain {
             requiredFloat(values, "green"),
             requiredFloat(values, "blue"),
             requiredFloat(values, "alpha")
-        );
-    }
-
-    private static Map<String, Object> historyMoveSchema() {
-        return objectSchema(
-            immutableMap(
-                entry("operation", enumSchema("The requested history operation.", List.of("move_to", "undo", "redo"))),
-                entry("expectedGeneration", nonNegativeLongSchema("Generation obtained from the history resource.")),
-                entry("expectedRevision", nonNegativeLongSchema("Revision obtained from the history resource.")),
-                entry("position", integerSchema("Target cursor position for move_to.", 0, Integer.MAX_VALUE)),
-                entry("steps", integerSchema("Positive number of entries for undo or redo.", 1, Integer.MAX_VALUE))
-            ),
-            List.of("operation", "expectedGeneration", "expectedRevision")
         );
     }
 
@@ -569,6 +725,14 @@ final class McpHistoryCommandDomain {
             throw new InputException(key + " must not exceed " + MAX_ARGUMENT_STRING_LENGTH + " characters");
         }
         return normalized;
+    }
+
+    private static Optional<String> optionalString(
+        final Map<String, Object> values,
+        final String key
+    ) {
+        if (!values.containsKey(key)) return Optional.empty();
+        return Optional.of(requiredString(values, key));
     }
 
     private static boolean requiredBoolean(final Map<String, Object> values, final String key) {

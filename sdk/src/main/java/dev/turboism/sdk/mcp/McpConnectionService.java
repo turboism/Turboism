@@ -5,18 +5,18 @@ import dev.turboism.sdk.plugin.Registration;
 import java.util.Optional;
 
 /**
- * Process-local publication boundary for the current authenticated Turboism MCP endpoint.
+ * Process-local publication boundary for the current loopback Turboism MCP endpoint.
  *
  * <p>The runtime supplies a permission-scoped view to each plugin. A server plugin publishes one
  * connection for the lifetime of its returned registration; an automation plugin reads a detached
- * immutable snapshot. The service never persists authorization material.</p>
+ * immutable snapshot.</p>
  */
 public interface McpConnectionService {
 
     /**
      * Returns the currently published connection when the caller has read permission.
      *
-     * @return the current authenticated connection, or empty while no MCP server is enabled
+     * @return the current loopback connection, or empty while no MCP server is enabled
      */
     Optional<McpHttpConnection> current();
 

@@ -58,6 +58,14 @@ grep -Fq "cubismJava=$cubism_java" "$tmp/good.out" || fail 'valid Cubism Java ov
 grep -Fq 'cubismJavaConsoleMarker=GraalVM Community' "$tmp/good.out" \
   || fail 'Cubism Java console marker was not accepted'
 
+base_5303=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
+  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
+  --result-file state/result.txt "${host_args[@]}" --dry-run)
+"${base_5303[@]}" > "$tmp/good-5303.out"
+grep -Fq 'version=5303' "$tmp/good-5303.out" || fail 'exact 5.3.03 version was not accepted'
+grep -Fq 'expectedJarSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166' \
+  "$tmp/good-5303.out" || fail 'exact 5.3.03 reviewed artifact was not pinned'
+
 expect_rejected result-traversal 'result file must be a normalized relative Unix path' \
   "${base[@]}" --result-file '../outside'
 expect_rejected result-metachar 'result file must contain only ASCII' \

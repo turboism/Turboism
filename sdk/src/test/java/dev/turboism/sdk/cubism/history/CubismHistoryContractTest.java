@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,6 +55,30 @@ class CubismHistoryContractTest {
         assertEquals(HistoryAction.DetailLevel.FULL, turboismEntry.detailLevel());
         assertEquals("ParamAngleX", turboismEntry.action().orElseThrow().targetId());
         assertEquals("-19.8", turboismEntry.action().orElseThrow().after().orElseThrow());
+    }
+
+    @Test
+    void historyEntriesCarryValidatedStableIdsAndOptionalTransactionIds() {
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Adjust eye glues",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("history-entry-1")),
+            Optional.of("transaction-1")
+        );
+
+        assertEquals("history-entry-1", entry.entryId().orElseThrow().value());
+        assertEquals("transaction-1", entry.transactionId().orElseThrow());
+        assertThrows(IllegalArgumentException.class, () -> new HistoryEntryId(" "));
+        assertThrows(IllegalArgumentException.class, () -> new HistoryEntry(
+            0,
+            "Invalid",
+            true,
+            Optional.empty(),
+            Optional.empty(),
+            Optional.of("transaction-without-entry")
+        ));
     }
 
     @Test

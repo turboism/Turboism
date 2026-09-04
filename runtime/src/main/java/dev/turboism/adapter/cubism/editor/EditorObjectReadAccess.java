@@ -9,6 +9,9 @@ import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContra
 import dev.turboism.mapping.verification.selector.EditorObjectWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorParameterBindingReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
@@ -44,10 +47,13 @@ import dev.turboism.sdk.cubism.model.WarpDeformers;
 import dev.turboism.sdk.cubism.model.WarpGrid;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 
 /** Exact-version Editor projection for ArtMesh, Deformer, and Glue authoring reads. */
@@ -72,6 +78,8 @@ final class EditorObjectReadAccess {
     private final java.util.function.Function<String, Boolean> lazyPublish;
 
     private final EditorObjectHierarchyEditAccess hierarchyEditAccess;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectReadAccess(
         final VerifiedMemberResolver resolver,
@@ -79,7 +87,7 @@ final class EditorObjectReadAccess {
         final EditorMorphTargetAccess morphTargetAccess,
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin
     ) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null);
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, null, null, null, null);
     }
 
     EditorObjectReadAccess(
@@ -89,7 +97,7 @@ final class EditorObjectReadAccess {
         final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
         final java.util.function.Function<String, Boolean> lazyPublish
     ) {
-        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, lazyPublish, null);
+        this(resolver, currentGuard, morphTargetAccess, evaluatedJoin, lazyPublish, null, null, null);
     }
 
     EditorObjectReadAccess(
@@ -100,12 +108,41 @@ final class EditorObjectReadAccess {
         final java.util.function.Function<String, Boolean> lazyPublish,
         final EditorObjectHierarchyEditAccess hierarchyEditAccess
     ) {
+        this(
+            resolver,
+            currentGuard,
+            morphTargetAccess,
+            evaluatedJoin,
+            lazyPublish,
+            hierarchyEditAccess,
+            null,
+            null
+        );
+    }
+
+    EditorObjectReadAccess(
+        final VerifiedMemberResolver resolver,
+        final CurrentGuard currentGuard,
+        final EditorMorphTargetAccess morphTargetAccess,
+        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin evaluatedJoin,
+        final java.util.function.Function<String, Boolean> lazyPublish,
+        final EditorObjectHierarchyEditAccess hierarchyEditAccess,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator,
+        final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
         this.morphTargetAccess = Objects.requireNonNull(morphTargetAccess, "morphTargetAccess");
         this.evaluatedJoin = evaluatedJoin;
         this.lazyPublish = lazyPublish;
         this.hierarchyEditAccess = hierarchyEditAccess;
+        this.authoringCoordinator = authoringCoordinator;
+        this.authoringBinding = authoringBinding;
+        if ((authoringCoordinator == null) != (authoringBinding == null)) {
+            throw new IllegalArgumentException(
+                "authoringCoordinator and authoringBinding must be supplied together"
+            );
+        }
     }
 
     Drawables drawables(final String identity, final Object source, final Object model) {
@@ -1183,10 +1220,32 @@ final class EditorObjectReadAccess {
         final String requested = Objects.requireNonNull(name, "name");
         if (requested.isEmpty()) throw new IllegalArgumentException("name must not be empty");
         if (requested.equals(glueName(value))) return;
-        writeInspector(modelSource, value.source(), "Turboism: Set Glue Name", () -> {
-            resolver.invoke("cubism.editor-model.glue-source.set-local-name", value.source(), requested);
-            verifyModel(modelSource);
-        });
+        final Object original = rawGlueName(value.source());
+        writeGlueContribution(
+            identity,
+            modelSource,
+            model,
+            value.source(),
+            "Turboism: Set Glue Name",
+            () -> {
+                resolver.invoke(
+                    "cubism.editor-model.glue-source.set-local-name",
+                    value.source(),
+                    requested
+                );
+                verifyModel(modelSource);
+            },
+            () -> requested.equals(rawGlueName(value.source())),
+            () -> {
+                resolver.invoke(
+                    "cubism.editor-model.glue-source.set-local-name",
+                    value.source(),
+                    original
+                );
+                verifyModel(modelSource);
+            },
+            () -> Objects.equals(original, rawGlueName(value.source()))
+        );
     }
 
     void setGlueId(
@@ -1207,11 +1266,24 @@ final class EditorObjectReadAccess {
         if (duplicateObjectId(identity, modelSource, model, newId)) {
             throw new IllegalArgumentException("Cubism object ID is already present: " + newId);
         }
-        writeInspector(modelSource, value.source(), "Turboism: Set Glue ID", () -> {
-            final Object hostId = resolver.construct("cubism.editor-model.glue-id.create", newId);
-            resolver.invoke("cubism.editor-model.glue-source.set-id", value.source(), hostId);
-            verifyModel(modelSource);
-        });
+        final String original = value.id();
+        writeGlueContribution(
+            identity,
+            modelSource,
+            model,
+            value.source(),
+            "Turboism: Set Glue ID",
+            () -> {
+                setGlueIdValue(value.source(), newId);
+                verifyModel(modelSource);
+            },
+            () -> newId.equals(objectId(value.source())),
+            () -> {
+                setGlueIdValue(value.source(), original);
+                verifyModel(modelSource);
+            },
+            () -> original.equals(objectId(value.source()))
+        );
     }
 
     void setGlueIntensity(
@@ -1227,13 +1299,36 @@ final class EditorObjectReadAccess {
         if (intensity < 0.0F || intensity > 1.0F) {
             throw new IllegalArgumentException("intensity must be within [0,1]");
         }
-        if (Float.compare(glueIntensity(identity, modelSource, model, value), intensity) == 0) return;
-        writeInspector(modelSource, value.source(), "Turboism: Set Glue Intensity", () ->
-            resolver.invoke(
+        final Object form = glueForm(identity, modelSource, model, value);
+        final float original = number(
+            resolver.invoke("cubism.editor-model.glue-form.intensity", form),
+            "Glue intensity"
+        );
+        if (Float.compare(original, intensity) == 0) return;
+        writeGlueContribution(
+            identity,
+            modelSource,
+            model,
+            value.source(),
+            "Turboism: Set Glue Intensity",
+            () -> resolver.invoke(
                 "cubism.editor-model.glue-form.set-intensity",
-                glueForm(identity, modelSource, model, value),
+                form,
                 Float.valueOf(intensity)
-            )
+            ),
+            () -> Float.compare(number(
+                resolver.invoke("cubism.editor-model.glue-form.intensity", form),
+                "Glue intensity"
+            ), intensity) == 0,
+            () -> resolver.invoke(
+                "cubism.editor-model.glue-form.set-intensity",
+                form,
+                Float.valueOf(original)
+            ),
+            () -> Float.compare(number(
+                resolver.invoke("cubism.editor-model.glue-form.intensity", form),
+                "Glue intensity"
+            ), original) == 0
         );
     }
 
@@ -1274,12 +1369,32 @@ final class EditorObjectReadAccess {
     }
 
     String glueName(final GlueRef ref) {
-        final Object value = resolver.invoke(
-            "cubism.editor-model.glue-source.local-name", ref.source()
-        );
+        final Object value = rawGlueName(ref.source());
         if (value == null) return ref.id();
-        if (!(value instanceof String name)) throw unavailable("Editor Glue name is invalid.");
+        final String name = (String) value;
         return name.isBlank() ? ref.id() : name;
+    }
+
+    private Object rawGlueName(final Object source) {
+        final Object value = resolver.invoke(
+            "cubism.editor-model.glue-source.local-name", source
+        );
+        if (value != null && !(value instanceof String)) {
+            throw unavailable("Editor Glue name is invalid.");
+        }
+        return value;
+    }
+
+    private void setGlueIdValue(final Object source, final String id) {
+        final Object hostId = resolver.construct(
+            "cubism.editor-model.glue-id.create",
+            id
+        );
+        resolver.invoke(
+            "cubism.editor-model.glue-source.set-id",
+            source,
+            hostId
+        );
     }
 
     private void setDeformerColor(
@@ -1345,15 +1460,131 @@ final class EditorObjectReadAccess {
         final Object targetGuid = resolver.invoke(
             "cubism.editor-model.art-mesh-source.guid", targetSource
         );
-        writeInspector(modelSource, value.source(),
+        final Object originalGuid = resolver.invoke(
+            "cubism.editor-model.art-mesh-source.guid", current
+        );
+        final String readAlias = targetA
+            ? "cubism.editor-model.glue-source.target-art-mesh-a"
+            : "cubism.editor-model.glue-source.target-art-mesh-b";
+        final String writeAlias = targetA
+            ? "cubism.editor-model.glue-source.set-target-art-mesh-a"
+            : "cubism.editor-model.glue-source.set-target-art-mesh-b";
+        writeGlueContribution(
+            identity,
+            modelSource,
+            model,
+            value.source(),
             targetA ? "Turboism: Set Glue Drawable A" : "Turboism: Set Glue Drawable B",
-            () -> resolver.invoke(
-                targetA
-                    ? "cubism.editor-model.glue-source.set-target-art-mesh-a"
-                    : "cubism.editor-model.glue-source.set-target-art-mesh-b",
-                value.source(),
-                targetGuid
+            () -> resolver.invoke(writeAlias, value.source(), targetGuid),
+            () -> resolver.invoke(readAlias, value.source()) == targetSource,
+            () -> resolver.invoke(writeAlias, value.source(), originalGuid),
+            () -> resolver.invoke(readAlias, value.source()) == current
+        );
+    }
+
+    private void writeGlueContribution(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object objectSource,
+        final String action,
+        final Runnable mutation,
+        final BooleanSupplier applied,
+        final Runnable compensation,
+        final BooleanSupplier restored
+    ) {
+        currentGuard.requireCurrent(identity, model);
+        if (authoringCoordinator == null) {
+            writeInspector(modelSource, objectSource, action, mutation);
+            if (!applied.getAsBoolean()) {
+                throw new IllegalStateException(action + " postcondition failed.");
+            }
+            return;
+        }
+        final EditorAuthoringTransactionCoordinator.Binding binding =
+            Objects.requireNonNull(authoringBinding.get(), "authoringBinding");
+        if (!identity.equals(binding.modelIdentity())) {
+            throw new IllegalStateException(
+                "Glue reference is stale for the active authoring binding."
+            );
+        }
+        authoringCoordinator.mutate(
+            binding,
+            new EditorUndoContribution(
+                "turboism.cubism.glue.write",
+                identity + ":glue:" + objectId(objectSource),
+                action,
+                (edit, transactionLabel) -> admitGlueUndo(
+                    edit,
+                    modelSource,
+                    objectSource,
+                    transactionLabel
+                ),
+                mutation,
+                applied,
+                compensation,
+                restored,
+                EnumSet.of(
+                    EditorRefreshRequirement.MODEL_INSTANCES,
+                    EditorRefreshRequirement.PART_PALETTE,
+                    EditorRefreshRequirement.DEFORMER_PALETTE,
+                    EditorRefreshRequirement.CANVAS,
+                    EditorRefreshRequirement.MARK_DIRTY
+                )
             )
+        );
+    }
+
+    private void admitGlueUndo(
+        final Object edit,
+        final Object modelSource,
+        final Object objectSource,
+        final String transactionLabel
+    ) {
+        final Object handler = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.handler",
+            objectSource
+        );
+        if (!resolver.isInstance(
+            "cubism.editor-model.parameter-controllable-handler.class",
+            handler
+        )) {
+            throw unavailable("Editor object Undo handler is unavailable.");
+        }
+        final Object objectUndo = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+            handler,
+            transactionLabel
+        );
+        final Object accepted = resolver.invoke(
+            "cubism.editor-model.undo.add",
+            edit,
+            objectUndo,
+            Boolean.TRUE
+        );
+        if (!(accepted instanceof Boolean value) || !value) {
+            throw new IllegalStateException(
+                "Cubism rejected the Editor Glue Undo entry."
+            );
+        }
+        final Object app = resolver.invokeStatic(
+            "cubism.editor-model.app-controller.instance"
+        );
+        final Object listener = resolver.createFunctionalProxy(
+            "cubism.editor-model.undo-listener.class",
+            ignored -> {
+                resolver.invoke(
+                    "cubism.editor-model.model-source.update-instances",
+                    modelSource
+                );
+                refreshBoth(app);
+                return null;
+            }
+        );
+        resolver.invoke(
+            "cubism.editor-model.undo.add-listener",
+            objectUndo,
+            listener
         );
     }
 
@@ -2726,6 +2957,10 @@ final class EditorObjectReadAccess {
         EditorGlues(final String identity, final Object source, final Object model) { this.identity = identity; this.source = source; this.model = model; }
         @Override public List<Glue> all() { return glueRefs(identity, source, model).stream().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).toList(); }
         @Override public Glue find(final GlueId id) { Objects.requireNonNull(id, "id"); return glueRefs(identity, source, model).stream().filter(ref -> ref.id().equals(id.value())).findFirst().map(ref -> (Glue) new EditorGlue(identity, source, model, ref)).orElseThrow(() -> new NoSuchElementException("Cubism Glue is absent: " + id.value())); }
+        @Override public Optional<String> providerVersion() {
+            currentGuard.requireCurrent(identity, model);
+            return Optional.of(resolver.cubismVersion());
+        }
     }
 
     private static Object nativeSourceOf(final Object view, final String label) {

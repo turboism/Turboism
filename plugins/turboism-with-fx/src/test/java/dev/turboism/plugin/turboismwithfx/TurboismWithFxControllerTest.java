@@ -965,8 +965,7 @@ final class TurboismWithFxControllerTest {
             set(controller, "client", source);
             set(controller, "mcpConnection", new dev.turboism.sdk.mcp.McpHttpConnection(
                 java.net.URI.create("http://127.0.0.1:41234/mcp"),
-                "2025-06-18",
-                "Bearer test"
+                "2025-06-18"
             ));
             set(controller, "session", new FxAcpSession(
                 "old-session",
@@ -1517,8 +1516,7 @@ final class TurboismWithFxControllerTest {
     private static dev.turboism.sdk.mcp.McpHttpConnection testMcpConnection() {
         return new dev.turboism.sdk.mcp.McpHttpConnection(
             java.net.URI.create("http://127.0.0.1:41234/mcp"),
-            "2025-06-18",
-            "Bearer test"
+            "2025-06-18"
         );
     }
 

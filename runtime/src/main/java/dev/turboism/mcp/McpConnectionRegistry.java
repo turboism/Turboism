@@ -5,7 +5,7 @@ import dev.turboism.sdk.plugin.Registration;
 
 import java.util.Optional;
 
-/** Process-owned, non-persistent authenticated MCP connection slot. */
+/** Process-owned, non-persistent loopback MCP connection slot. */
 public final class McpConnectionRegistry implements AutoCloseable {
 
     private long generation;
@@ -51,7 +51,7 @@ public final class McpConnectionRegistry implements AutoCloseable {
         return published == null ? Optional.empty() : Optional.of(published.connection());
     }
 
-    /** Clears all process-local authorization material. */
+    /** Clears the current process-local endpoint publication. */
     @Override
     public synchronized void close() {
         if (closed) return;

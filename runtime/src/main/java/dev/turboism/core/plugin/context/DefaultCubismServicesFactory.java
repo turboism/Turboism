@@ -208,6 +208,11 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
         final PermissionChecker permissionChecker = PermissionChecker.from(permissionGate);
         final AtomicBoolean activeScope = new AtomicBoolean(true);
         dependencies.disposableScope().register(() -> activeScope.set(false));
+        final dev.turboism.sdk.cubism.transaction.AuthoringTransactionService
+            authoringTransactions =
+            modelAccess instanceof dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider provider
+                ? provider.authoringTransactions(dependencies.descriptor().id())
+                : dev.turboism.sdk.cubism.transaction.AuthoringTransactionService.unavailable();
         final CubismModelAccess pluginModelAccess = PluginScopedCubismModelAccess.bind(
             modelAccess,
             dependencies.disposableScope(),
@@ -233,7 +238,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
-            history
+            history,
+            authoringTransactions
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,

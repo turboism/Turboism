@@ -12,7 +12,13 @@ const EXPECTED_TOOLS = new Set([
   'turboism.model_objects.apply',
   'turboism.parameters.apply',
   'turboism.parameter_bindings.apply',
-  'turboism.history.move',
+  'turboism.glues.read',
+  'turboism.glues.write',
+  'turboism.history.read',
+  'turboism.history.undo',
+  'turboism.history.redo',
+  'turboism.transaction.execute',
+  'turboism.capabilities.read',
   'turboism.editor_commands.execute',
 ]);
 const EXPECTED_RESOURCES = new Set([
@@ -23,11 +29,13 @@ const EXPECTED_RESOURCES = new Set([
   'turboism://active/model/parameters',
   'turboism://active/model/statistics',
   'turboism://active/model/textures',
+  'turboism://active/model/parameter-bindings',
   'turboism://active/document/history',
   'turboism://environment/cubism-core',
   'turboism://environment/workspace',
   'turboism://environment/workspace/layout',
   'turboism://environment/diagnostics',
+  'turboism://environment/runtime-diagnostics',
   'turboism://host/editor-commands',
 ]);
 const EXPECTED_TEMPLATES = new Set([
@@ -70,11 +78,8 @@ function readConnection(home) {
       && value.endpoint.endsWith('/mcp'),
     'connection endpoint is not numeric loopback /mcp',
   );
-  requireCondition(
-    typeof value.authorization === 'string'
-      && value.authorization.startsWith('Bearer '),
-    'connection authorization is malformed',
-  );
+  requireCondition(!Object.hasOwn(value, 'authorization'),
+    'connection file contains authorization material');
   return value;
 }
 
@@ -100,9 +105,7 @@ async function main() {
     { name: 'turboism-standard-sdk-validation', version: '1' },
     { capabilities: {} },
   );
-  const transport = new StreamableHTTPClientTransport(new URL(connection.endpoint), {
-    requestInit: { headers: { Authorization: connection.authorization } },
-  });
+  const transport = new StreamableHTTPClientTransport(new URL(connection.endpoint));
 
   try {
     await client.connect(transport);
@@ -114,6 +117,18 @@ async function main() {
     );
     equalSet(new Set(tools.map(value => value.name)), EXPECTED_TOOLS, 'tools');
     requireCondition(tools.every(value => value.outputSchema), 'tool outputSchema missing');
+
+    const capabilityResult = await client.callTool({
+      name: 'turboism.capabilities.read',
+      arguments: {},
+    });
+    requireCondition(capabilityResult.isError !== true, 'capability ledger failed');
+    requireCondition(capabilityResult.structuredContent?.ok === true,
+      'capability ledger output mismatch');
+    requireCondition(Array.isArray(capabilityResult.structuredContent.operations),
+      'capability operation ledger missing');
+    requireCondition(capabilityResult.structuredContent.coverage?.schemaVersion === 1,
+      'SDK coverage ledger missing');
 
     const resources = await collectPages(
       cursor => client.listResources(cursor ? { cursor } : {}),
@@ -155,8 +170,10 @@ async function main() {
       'turboism://environment/workspace',
       'turboism://environment/workspace/layout',
       'turboism://environment/diagnostics',
+      'turboism://environment/runtime-diagnostics',
       'turboism://active/model/statistics',
       'turboism://active/model/textures',
+      'turboism://active/model/parameter-bindings',
     ]) {
       const resource = await client.readResource({ uri });
       requireCondition(resource.contents.length === 1, `${uri} content mismatch`);
@@ -176,20 +193,33 @@ async function main() {
     }
 
     const history = await client.readResource({ uri: 'turboism://active/document/history' });
-    const snapshot = JSON.parse(history.contents[0].text);
-    if (snapshot.availability === 'AVAILABLE') {
-      const result = await client.callTool({
-        name: 'turboism.history.move',
-        arguments: {
-          operation: 'move_to',
-          expectedGeneration: snapshot.generation,
-          expectedRevision: snapshot.revision,
-          position: snapshot.position,
-        },
-      });
-      requireCondition(result.isError !== true, 'history no-op failed through standard SDK');
-      requireCondition(result.structuredContent?.ok === true, 'history no-op output mismatch');
-    }
+    const resourceSnapshot = JSON.parse(history.contents[0].text);
+    const historyRead = await client.callTool({
+      name: 'turboism.history.read',
+      arguments: {},
+    });
+    requireCondition(historyRead.isError !== true, 'history.read failed through standard SDK');
+    requireCondition(historyRead.structuredContent?.ok === true,
+      'history.read output mismatch');
+    const snapshot = historyRead.structuredContent.snapshot;
+    requireCondition(snapshot.generation === resourceSnapshot.generation,
+      'history resource generation differs from history.read');
+    requireCondition(snapshot.revision === resourceSnapshot.revision,
+      'history resource revision differs from history.read');
+    requireCondition(snapshot.position === resourceSnapshot.position,
+      'history resource position differs from history.read');
+    const stale = await client.callTool({
+      name: 'turboism.history.undo',
+      arguments: {
+        expectedGeneration: snapshot.generation + 1,
+        expectedRevision: snapshot.revision,
+        steps: 1,
+      },
+    });
+    requireCondition(stale.structuredContent?.ok === false,
+      'stale history guard unexpectedly succeeded');
+    requireCondition(stale.structuredContent?.outcome === 'REJECTED_STALE',
+      'stale history guard output mismatch');
 
     await transport.terminateSession();
     const result = JSON.stringify({
@@ -200,7 +230,7 @@ async function main() {
       resourceCount: resources.length,
       templateCount: templates.length,
       promptCount: prompts.length,
-      authorizationPersisted: false,
+      authentication: 'NONE',
     });
     if (resultFile) {
       const temporary = `${resultFile}.tmp`;

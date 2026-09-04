@@ -19,6 +19,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -45,6 +46,8 @@ final class FxAcpClientTest {
                 assertEquals(1, servers.size());
                 final Map<String, Object> server = object(servers.get(0));
                 assertEquals("http://127.0.0.1:43123/mcp", server.get("url"));
+                assertEquals(Set.of("type", "name", "url"), server.keySet());
+                assertFalse(server.containsKey("headers"));
                 output.response(id, Map.of(
                     "sessionId", "sess-1",
                     "configOptions", options("gateway", "model-a")
@@ -211,11 +214,7 @@ final class FxAcpClientTest {
             client.initialize(Duration.ofSeconds(2));
             final FxAcpSession session = client.newSession(
                 Path.of("."),
-                new McpHttpConnection(
-                    URI.create("http://127.0.0.1:43123/mcp"),
-                    "2025-11-25",
-                    secret
-                ),
+                connection(),
                 Duration.ofSeconds(2)
             );
             final FxAcpConfigOption option = session.option("provider");
@@ -232,7 +231,7 @@ final class FxAcpClientTest {
     }
 
     @Test
-    void rejectsAuthorizationMaterialReturnedAsSessionId() throws Exception {
+    void rejectsCredentialMaterialReturnedAsSessionId() throws Exception {
         final String secret = "Bearer persisted-secret";
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
             final String method = string(request.get("method"));
@@ -251,11 +250,7 @@ final class FxAcpClientTest {
                 IllegalArgumentException.class,
                 () -> client.newSession(
                     Path.of("."),
-                    new McpHttpConnection(
-                        URI.create("http://127.0.0.1:43123/mcp"),
-                        "2025-11-25",
-                        secret
-                    ),
+                    connection(),
                     Duration.ofSeconds(2)
                 )
             );
@@ -624,8 +619,7 @@ final class FxAcpClientTest {
     }
 
     @Test
-    void redactsKnownBearerFromInvalidAcpStdoutPreview() throws Exception {
-        final String secret = "Bearer stdout-secret";
+    void redactsBearerFromInvalidAcpStdoutPreview() throws Exception {
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
             final String method = string(request.get("method"));
             if ("initialize".equals(method)) {
@@ -636,14 +630,12 @@ final class FxAcpClientTest {
                     "configOptions", options("gateway", "model-a")
                 ));
             } else if ("session/list".equals(method)) {
-                output.stdout("launch failed: stdout-secret");
+                output.stdout("launch failed: Bearer stdout-secret");
             }
         });
              FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { })) {
             client.initialize(Duration.ofSeconds(2));
-            client.newSession(Path.of("."), new McpHttpConnection(
-                URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", secret
-            ), Duration.ofSeconds(2));
+            client.newSession(Path.of("."), connection(), Duration.ofSeconds(2));
             final FxAcpException failure = assertThrows(
                 FxAcpException.class,
                 () -> client.listSessions(Duration.ofSeconds(2))
@@ -670,7 +662,7 @@ final class FxAcpClientTest {
     }
 
     @Test
-    void redactsKnownBearerFromSessionListMetadata() throws Exception {
+    void redactsBearerFromSessionListMetadata() throws Exception {
         final String secret = "Bearer session-secret";
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
             final String method = string(request.get("method"));
@@ -685,16 +677,14 @@ final class FxAcpClientTest {
                 output.response((Long) request.get("id"), Map.of(
                     "sessions", List.of(Map.of(
                         "sessionId", "sess-1",
-                        "updatedAt", "session-secret"
+                        "updatedAt", secret
                     ))
                 ));
             }
         });
              FxAcpClient client = new FxAcpClient(transport, new FxAcpListener() { })) {
             client.initialize(Duration.ofSeconds(2));
-            client.newSession(Path.of("."), new McpHttpConnection(
-                URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", secret
-            ), Duration.ofSeconds(2));
+            client.newSession(Path.of("."), connection(), Duration.ofSeconds(2));
             final List<FxAcpSessionSummary> sessions =
                 client.listSessions(Duration.ofSeconds(2));
             assertEquals("<redacted>", sessions.get(0).updatedAt());
@@ -702,7 +692,7 @@ final class FxAcpClientTest {
     }
 
     @Test
-    void redactsMcpBearerMaterialFromForwardedStderr() throws Exception {
+    void redactsCredentialMaterialFromForwardedStderr() throws Exception {
         final AtomicReference<String> stderr = new AtomicReference<>();
         final String secret = "Bearer local-secret";
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
@@ -726,11 +716,7 @@ final class FxAcpClientTest {
             client.initialize(Duration.ofSeconds(2));
             client.newSession(
                 Path.of("."),
-                new McpHttpConnection(
-                    URI.create("http://127.0.0.1:43123/mcp"),
-                    "2025-11-25",
-                    secret
-                ),
+                connection(),
                 Duration.ofSeconds(2)
             );
             for (int count = 0; stderr.get() == null && count < 200; count++) {
@@ -746,13 +732,12 @@ final class FxAcpClientTest {
     void redactsTruncatedStderrWhenItMayEndInsideTheBearer() throws Exception {
         final AtomicReference<String> stderr = new AtomicReference<>();
         final String token = "s".repeat(128);
-        final String secret = "Bearer " + token;
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
             final String method = string(request.get("method"));
             if ("initialize".equals(method)) {
                 output.response((Long) request.get("id"), initializeResult());
             } else if ("session/new".equals(method)) {
-                output.stderr("x".repeat(16 * 1024 - 32) + "Bearer " + token);
+                output.stderr("x".repeat(16 * 1024 - 33) + " Bearer " + token);
                 output.response((Long) request.get("id"), Map.of(
                     "sessionId", "sess-1",
                     "configOptions", options("gateway", "model-a")
@@ -768,11 +753,7 @@ final class FxAcpClientTest {
             client.initialize(Duration.ofSeconds(2));
             client.newSession(
                 Path.of("."),
-                new McpHttpConnection(
-                    URI.create("http://127.0.0.1:43123/mcp"),
-                    "2025-11-25",
-                    secret
-                ),
+                connection(),
                 Duration.ofSeconds(2)
             );
             for (int count = 0; stderr.get() == null && count < 200; count++) {
@@ -784,10 +765,8 @@ final class FxAcpClientTest {
     }
 
     @Test
-    void retainsPreviousBearerValuesForDelayedRedaction() throws Exception {
+    void redactsMultipleBearerValuesWithoutConnectionCredentials() throws Exception {
         final AtomicReference<String> stderr = new AtomicReference<>();
-        final String previous = "Bearer previous-secret";
-        final String current = "Bearer current-secret";
         final AtomicInteger sessions = new AtomicInteger();
         try (ScriptedTransport transport = new ScriptedTransport((request, output) -> {
             final String method = string(request.get("method"));
@@ -799,7 +778,7 @@ final class FxAcpClientTest {
                     "configOptions", options("gateway", "model-a")
                 ));
                 if (sessions.get() == 2) {
-                    output.stderr("old=previous-secret new=current-secret");
+                    output.stderr("old=Bearer previous-secret new=Bearer current-secret");
                 }
             }
         });
@@ -810,12 +789,8 @@ final class FxAcpClientTest {
                  }
              })) {
             client.initialize(Duration.ofSeconds(2));
-            client.newSession(Path.of("."), new McpHttpConnection(
-                URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", previous
-            ), Duration.ofSeconds(2));
-            client.newSession(Path.of("."), new McpHttpConnection(
-                URI.create("http://127.0.0.1:43123/mcp"), "2025-11-25", current
-            ), Duration.ofSeconds(2));
+            client.newSession(Path.of("."), connection(), Duration.ofSeconds(2));
+            client.newSession(Path.of("."), connection(), Duration.ofSeconds(2));
             for (int count = 0; stderr.get() == null && count < 200; count++) {
                 Thread.sleep(1L);
             }
@@ -839,11 +814,7 @@ final class FxAcpClientTest {
             final FxAcpException failure = assertThrows(FxAcpException.class, () ->
                 client.newSession(
                     Path.of("."),
-                    new McpHttpConnection(
-                        URI.create("http://127.0.0.1:43123/mcp"),
-                        "2025-11-25",
-                        secret
-                    ),
+                    connection(),
                     Duration.ofSeconds(2)
                 )
             );
@@ -893,11 +864,7 @@ final class FxAcpClientTest {
             client.initialize(Duration.ofSeconds(2));
             client.newSession(
                 Path.of("."),
-                new McpHttpConnection(
-                    URI.create("http://127.0.0.1:43123/mcp"),
-                    "2025-11-25",
-                    secret
-                ),
+                connection(),
                 Duration.ofSeconds(2)
             );
             client.prompt("sess-1", "work").get(2, TimeUnit.SECONDS);
@@ -1018,11 +985,7 @@ final class FxAcpClientTest {
             client.initialize(Duration.ofSeconds(2));
             client.newSession(
                 Path.of("."),
-                new McpHttpConnection(
-                    URI.create("http://127.0.0.1:43123/mcp"),
-                    "2025-11-25",
-                    secret
-                ),
+                connection(),
                 Duration.ofSeconds(2)
             );
             assertEquals("end_turn", client.prompt("sess-1", "work").get(2, TimeUnit.SECONDS));
@@ -1076,8 +1039,7 @@ final class FxAcpClientTest {
     private static McpHttpConnection connection() {
         return new McpHttpConnection(
             URI.create("http://127.0.0.1:43123/mcp"),
-            "2025-11-25",
-            "Bearer secret"
+            "2025-11-25"
         );
     }
 

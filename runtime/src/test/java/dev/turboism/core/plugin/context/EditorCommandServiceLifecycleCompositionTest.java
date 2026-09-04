@@ -9,6 +9,7 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
@@ -27,6 +28,15 @@ import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorSession;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasEditorUi;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.PluginLogger;
@@ -48,6 +58,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -98,6 +109,47 @@ class EditorCommandServiceLifecycleCompositionTest {
             assertThrows(IllegalStateException.class, panel::close);
             assertThrows(IllegalStateException.class, () -> algorithms.find("missing"));
             assertThrows(IllegalStateException.class, algorithms::algorithms);
+        } finally {
+            scope.close();
+            if (!scheduler.isClosed()) scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void productionFactoryInjectsModelAuthoringProviderUsingTheDescriptorIdentity() throws Exception {
+        final AtomicReference<String> owner = new AtomicReference<>();
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final DefaultCubismServicesFactory factory =
+                DefaultCubismServicesFactoryTestSupport.withModelAccess(
+                    RuntimeHostAdapters.safeMode(),
+                    new AuthoringProviderModelAccess(owner)
+                );
+            final CorePluginContext.Dependencies dependencies =
+                new CorePluginContext.Dependencies(
+                    descriptor(),
+                    logger(),
+                    paths(),
+                    uiScheduler(),
+                    scheduler,
+                    diagnostics(),
+                    scope,
+                    noopHostSnapshotSource(),
+                    ignored -> { },
+                    CLOCK
+                );
+            final CubismFacade facade = factory.create(dependencies).cubismFacade();
+
+            final AuthoringTransactionResult<String> result =
+                facade.authoringTransactions().execute(
+                    AuthoringTransactionOptions.of("Factory transaction"),
+                    () -> "done"
+                );
+
+            assertEquals("test.command-lifecycle", owner.get());
+            assertEquals(AuthoringTransactionOutcome.NO_CHANGE, result.outcome());
+            assertEquals(Optional.of("done"), result.value());
         } finally {
             scope.close();
             if (!scheduler.isClosed()) scheduler.shutdown();
@@ -291,6 +343,61 @@ class EditorCommandServiceLifecycleCompositionTest {
             @Override public boolean isHostPresent() { return false; }
             @Override public long invalidationToken() { return 0; }
         };
+    }
+
+    private static final class AuthoringProviderModelAccess
+        implements CubismModelAccess, RuntimeAuthoringTransactionProvider {
+
+        private final AtomicReference<String> owner;
+
+        AuthoringProviderModelAccess(final AtomicReference<String> owner) {
+            this.owner = owner;
+        }
+
+        @Override
+        public CubismModel active() {
+            throw new UnsupportedOperationException("not used");
+        }
+
+        @Override
+        public AuthoringTransactionService authoringTransactions(final String pluginId) {
+            owner.set(pluginId);
+            return new AuthoringTransactionService() {
+                @Override
+                public <T> AuthoringTransactionResult<T> execute(
+                    final AuthoringTransactionOptions options,
+                    final AuthoringTransactionWork<T> work
+                ) {
+                    final T value;
+                    try {
+                        value = work.run();
+                    } catch (Exception failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                    final HistorySnapshot history = new HistorySnapshot(
+                        HistorySnapshot.Availability.AVAILABLE,
+                        1,
+                        1,
+                        0,
+                        List.of(),
+                        false,
+                        false,
+                        "document-binding-1",
+                        "manager-binding-1"
+                    );
+                    return AuthoringTransactionResult.noChange(
+                        value,
+                        new AuthoringTransactionReceipt(
+                            "transaction-1",
+                            options.label(),
+                            history,
+                            history,
+                            Optional.empty()
+                        )
+                    );
+                }
+            };
+        }
     }
 
     private static UserFileHandle handle(final UserFileMode mode) {
