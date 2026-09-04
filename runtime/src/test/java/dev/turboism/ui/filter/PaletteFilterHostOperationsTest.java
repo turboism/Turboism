@@ -4,6 +4,8 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
+import dev.turboism.ui.toolbar.PaletteToolbarContributionDescriptor;
+import dev.turboism.ui.toolbar.PaletteToolbarHostOperations;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.JButton;
@@ -195,6 +197,118 @@ class PaletteFilterHostOperationsTest {
         SwingUtilities.invokeAndWait(() -> { });
         assertEquals(dev.turboism.sdk.runtime.CubismLogService.LogFilter.all(), logService.filter());
         assertEquals("INFO alpha\nWARN beta", source.getText());
+    }
+
+    @Test
+    void logSurfaceKeepsFilterAndToolbarLifecycleIndependent() throws Exception {
+        final JTextPane source = new JTextPane();
+        source.setEditable(false);
+        source.setText("INFO alpha\nWARN beta");
+        final JScrollPane scroll = new JScrollPane(source);
+        final JPanel parent = new JPanel(new BorderLayout());
+        parent.add(scroll, BorderLayout.CENTER);
+        final JPanel paletteRoot = new JPanel(new BorderLayout());
+        paletteRoot.add(parent, BorderLayout.CENTER);
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(
+            kind -> kind == PaletteFilterHostOperations.PaletteKind.LOG ? paletteRoot : null
+        );
+        final PaletteToolbarContributionDescriptor descriptor = new PaletteToolbarContributionDescriptor(
+            "plugin-a", "inspect", "action.inspect", "Inspect", "icons/inspect.png", "LOG", "start", 0
+        );
+        host.onPaletteFilterVisibilityChanged("plugin-filter", List.of(contribution("log", "LOG")));
+        SwingUtilities.invokeAndWait(() -> { });
+        host.setContributions(List.of(new PaletteToolbarHostOperations.ButtonContribution(descriptor, () -> { })));
+        SwingUtilities.invokeAndWait(() -> { });
+
+        final JTextField field = findFilterField(paletteRoot);
+        assertNotNull(field, host.attachStatus().toString());
+        assertEquals(1, countNamed(paletteRoot, "turboismPaletteToolbarButton"));
+        onEdt(() -> field.setText("alpha"));
+
+        host.clearContributions();
+        SwingUtilities.invokeAndWait(() -> { });
+        assertEquals(0, countNamed(paletteRoot, "turboismPaletteToolbarButton"));
+        assertEquals("alpha", findFilterField(paletteRoot).getText());
+
+        host.setContributions(List.of(new PaletteToolbarHostOperations.ButtonContribution(descriptor, () -> { })));
+        host.onPaletteFilterVisibilityChanged("plugin-filter", List.of());
+        SwingUtilities.invokeAndWait(() -> { });
+        host.reconcileNow();
+        SwingUtilities.invokeAndWait(() -> { });
+        assertNull(findFilterField(paletteRoot));
+        assertEquals(1, countNamed(paletteRoot, "turboismPaletteToolbarButton"));
+
+        host.onPaletteFilterVisibilityChanged("plugin-filter", List.of(contribution("log", "LOG")));
+        SwingUtilities.invokeAndWait(() -> { });
+        assertNotNull(findFilterField(paletteRoot));
+        assertEquals(1, countNamed(paletteRoot, "turboismPaletteToolbarButton"));
+    }
+
+    @Test
+    void toolbarOnlySurfaceCoversAllFourExistingPaletteIds() throws Exception {
+        final java.util.Map<PaletteFilterHostOperations.PaletteKind, JComponent> roots =
+            new java.util.EnumMap<>(PaletteFilterHostOperations.PaletteKind.class);
+
+        final JPanel parameterHost = new JPanel(new BorderLayout());
+        final JPanel parameterContent = new JPanel();
+        final JPanel parameterToolbar = new JPanel();
+        for (String command : List.of(
+            "CMD_PARAMETER_PALETTE_ADD_NEW_PARAMETER",
+            "CMD_PARAMETER_PALETTE_NEW_FOLDER",
+            "CMD_PARAMETER_PALETTE_DELETE_OBJECT"
+        )) {
+            final JButton button = new JButton();
+            button.setActionCommand(command);
+            parameterToolbar.add(button);
+        }
+        parameterHost.add(parameterToolbar, BorderLayout.NORTH);
+        parameterHost.add(parameterContent, BorderLayout.CENTER);
+        roots.put(PaletteFilterHostOperations.PaletteKind.PARAMETER, parameterContent);
+
+        for (PaletteFilterHostOperations.PaletteKind kind : List.of(
+            PaletteFilterHostOperations.PaletteKind.DEFORMER,
+            PaletteFilterHostOperations.PaletteKind.SCENE
+        )) {
+            final JPanel hostPanel = new JPanel(new BorderLayout());
+            final JPanel nativeToolbar = new JPanel();
+            nativeToolbar.add(new JButton("native"));
+            hostPanel.add(nativeToolbar, BorderLayout.NORTH);
+            hostPanel.add(new JScrollPane(new JTable()), BorderLayout.CENTER);
+            roots.put(kind, hostPanel);
+        }
+
+        final JTextPane logText = new JTextPane();
+        logText.setEditable(false);
+        final JPanel logRoot = new JPanel(new BorderLayout());
+        logRoot.add(new JScrollPane(logText), BorderLayout.CENTER);
+        roots.put(PaletteFilterHostOperations.PaletteKind.LOG, logRoot);
+
+        final PaletteFilterHostOperations host = new PaletteFilterHostOperations(roots::get);
+        final List<PaletteToolbarHostOperations.ButtonContribution> buttons =
+            java.util.Arrays.stream(PaletteFilterHostOperations.PaletteKind.values())
+                .map(kind -> new PaletteToolbarHostOperations.ButtonContribution(
+                    new PaletteToolbarContributionDescriptor(
+                        "plugin-a", kind.name().toLowerCase(), "action." + kind.name().toLowerCase(),
+                        kind.name(), "icons/test.png", kind.name(), "start", kind.ordinal()
+                    ),
+                    () -> { }
+                ))
+                .toList();
+        host.setContributions(buttons);
+        SwingUtilities.invokeAndWait(() -> { });
+
+        assertEquals(1, countNamed(parameterHost, "turboismPaletteToolbarButton"));
+        assertEquals(1, countNamed(roots.get(PaletteFilterHostOperations.PaletteKind.DEFORMER), "turboismPaletteToolbarButton"));
+        assertEquals(1, countNamed(roots.get(PaletteFilterHostOperations.PaletteKind.SCENE), "turboismPaletteToolbarButton"));
+        assertEquals(1, countNamed(logRoot, "turboismPaletteToolbarButton"));
+    }
+
+    private static int countNamed(final Component root, final String name) {
+        int count = name.equals(root.getName()) ? 1 : 0;
+        if (root instanceof Container container) {
+            for (Component child : container.getComponents()) count += countNamed(child, name);
+        }
+        return count;
     }
 
     private static JTextField findFilterField(final Component root) {

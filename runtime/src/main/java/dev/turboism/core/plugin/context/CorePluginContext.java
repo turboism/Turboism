@@ -744,9 +744,6 @@ public final class CorePluginContext implements PluginContext {
                 this.contextMenuRegistry,
                 hostAccess.editorUiContributions()
             );
-            if (this.paletteFilterRegistry instanceof RuntimePaletteFilterRegistry runtimePaletteFilter) {
-                runtimePaletteFilter.bindVisibilitySink(hostAccess.paletteFilterSink());
-            }
             this.dependencies.disposableScope().register(
                 hostAccess.editorUiActionRouter().register(
                     this.dependencies.descriptor().id(),
