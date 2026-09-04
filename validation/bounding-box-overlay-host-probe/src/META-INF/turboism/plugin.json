@@ -1,0 +1,42 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.boundingbox",
+  "name": "Bounding Box Overlay Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for native red-box overlay buttons on an exact Cubism host: registers two SDK buttons, verifies both are visibly installed, clicks both through real Robot gestures, and verifies both disappear after their registrations close.",
+  "entrypoints": [
+    "dev.turboism.validation.boundingbox.BoundingBoxOverlayHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [
+    "icons/"
+  ],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.overlay.contribute",
+      "scope": "application",
+      "reason": "Registers and closes two task-local bounding-box overlay buttons and records real click evidence on the exact host."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Reads the public Turboism runtime/selection snapshot for diagnostic-only selection-state telemetry on the exact host; never mutates selection or model."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
