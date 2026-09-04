@@ -164,15 +164,6 @@ plugin_payload = [
     (f'plugins/{p["module"]}.jar', stage / "plugins" / f'{p["module"]}.jar')
     for p in plugins
 ]
-fx_root = "runtimes/fx/0.0.5/windows-x86_64"
-fx_payload = [
-    (f"{fx_root}/{name}", stage / fx_root / name)
-    for name in (
-        "fx.exe", "LICENSE", "THIRD_PARTY_NOTICES.md",
-        "TURBOISM-DISTRIBUTION-NOTICE.txt", "manifest.properties",
-    )
-]
-
 def write_checksum_manifest(name: str, payload):
     target = generated / name
     missing = [str(path) for _, path in payload if not path.is_file()]
@@ -187,8 +178,6 @@ def write_checksum_manifest(name: str, payload):
 
 write_checksum_manifest("payload-core.sha256", core_payload)
 write_checksum_manifest("payload-plugins.sha256", plugin_payload)
-write_checksum_manifest("payload-fx.sha256", fx_payload)
-
 lines = []
 lines.append("; 由 assemble-release.sh 按 release-plugins.txt 权威清单生成，勿手改。")
 lines.append("; Full($Mode==1) 由隐藏载荷 Section 安装全部插件 JAR；可见 Section")
@@ -217,10 +206,6 @@ extract_lines = [
 append_extractor(
     extract_lines, "ExtractCorePayload", core_payload,
     "Turboism-core-plan", "Turboism-core-payload",
-)
-append_extractor(
-    extract_lines, "ExtractManagedFxPayload", fx_payload,
-    "Turboism-fx-plan", "Turboism-fx-payload",
 )
 (generated / "payload-extract.nsh").write_bytes(
     b"\xef\xbb\xbf" + ("\n".join(extract_lines) + "\n").encode("utf-8")
@@ -253,7 +238,6 @@ lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-payload"')
 lines.append('    RMDir /r "$PLUGINSDIR\\Turboism-plugin-plan"')
 lines.append("  ${EndIf}")
 lines.append('  Delete "$PLUGINSDIR\\Turboism-payload-manifests\\payload-plugins.sha256"')
-lines.append('  Delete "$PLUGINSDIR\\Turboism-payload-manifests\\payload-fx.sha256"')
 lines.append('  RMDir "$PLUGINSDIR\\Turboism-payload-manifests"')
 lines.append("SectionEnd")
 lines.append("")
@@ -330,10 +314,10 @@ PYEOF
 
 # ---------- 4. ZIP + sha256 ----------
 # 使用 python3 zipfile（避免依赖 zip CLI）。
-# 两种 zip 都携带顶层公共文件和 graal/lib；Lite 排除 plugins/ 与
-# runtimes/fx/，Full 额外携带获批插件 JAR 和 Windows 托管 fx。config.json 由共享 payload 的
-# config.template.json 生成；Java 安装器专属文件（config.template.json、
-# README.java-installer.txt、uninstall.command）不进入 Windows zip。
+# 两种 zip 都携带顶层公共文件和 graal/lib；Lite 排除 plugins/。
+# Full 携带获批插件 JAR。config.json 由共享 payload 的 config.template.json 生成；
+# Java 安装器专属文件（config.template.json、README.java-installer.txt、
+# uninstall.command）不进入 Windows zip。
 zip_dir() {
   local src="$1" out="$2" lite="$3"
   python3 - "$src" "$out" "$lite" <<'PYEOF'
@@ -341,17 +325,6 @@ import hashlib, os, stat, sys, zipfile
 src, out, lite = sys.argv[1], sys.argv[2], sys.argv[3] == "1"
 EXCLUDED = {"config.template.json", "README.java-installer.txt", "uninstall.command", "install-managed-graal.ps1"}
 TIMESTAMP = (1980, 1, 1, 0, 0, 0)
-FX_ROOT = "runtimes/fx/0.0.5/windows-x86_64/"
-FX_FILES = {
-    FX_ROOT + "fx.exe",
-    FX_ROOT + "LICENSE",
-    FX_ROOT + "THIRD_PARTY_NOTICES.md",
-    FX_ROOT + "TURBOISM-DISTRIBUTION-NOTICE.txt",
-    FX_ROOT + "manifest.properties",
-}
-FX_SIZE = 11144192
-FX_SHA256 = "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2"
-
 def write_bytes(archive, name, data, mode):
     info = zipfile.ZipInfo(name, TIMESTAMP)
     info.compress_type = zipfile.ZIP_DEFLATED
@@ -367,8 +340,8 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
                 continue
             full = os.path.join(root, f)
             arc = os.path.relpath(full, src).replace(os.sep, "/")
-            if lite and (arc.startswith("plugins/") or arc.startswith("runtimes/fx/")):
-                continue  # Lite excludes plugins and managed fx but keeps common Graal libraries.
+            if lite and arc.startswith("plugins/"):
+                continue  # Lite excludes plugins but keeps common Graal libraries.
             write_bytes(z, arc, open(full, "rb").read(), stat.S_IMODE(os.stat(full).st_mode))
     names = set(z.namelist())
     graal = [name for name in names if name.startswith("graal/lib/") and name.endswith(".jar")]
@@ -376,17 +349,8 @@ with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         raise SystemExit("error: Windows zip is missing the common Graal host closure")
     if lite and any(name.startswith("plugins/") for name in names):
         raise SystemExit("error: Lite zip unexpectedly contains plugin payload")
-    if lite and any(name.startswith("runtimes/fx/") for name in names):
-        raise SystemExit("error: Lite zip unexpectedly contains managed fx payload")
     if not lite and not any(name.startswith("plugins/") and name.endswith(".jar") for name in names):
         raise SystemExit("error: Full zip is missing plugin payload")
-    if not lite:
-        actual_fx = {name for name in names if name.startswith("runtimes/fx/")}
-        if actual_fx != FX_FILES:
-            raise SystemExit("error: Full zip managed fx inventory differs: " + repr(sorted(actual_fx)))
-        fx = z.read(FX_ROOT + "fx.exe")
-        if len(fx) != FX_SIZE or hashlib.sha256(fx).hexdigest() != FX_SHA256:
-            raise SystemExit("error: Full zip managed fx identity mismatch")
     # 历史契约：zip 内含 config.json（模板内容）
     config = os.path.join(src, "config.template.json")
     write_bytes(z, "config.json", open(config, "rb").read(), stat.S_IMODE(os.stat(config).st_mode))

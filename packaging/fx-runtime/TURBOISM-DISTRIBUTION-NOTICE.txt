@@ -1,16 +1,15 @@
 Turboism managed fx runtime distribution notice
 
-Turboism distributes fx version 0.0.5 runtime assets for use by the
-Turboism with fx plugin.
+fx version 0.0.5 runtime assets are kept in this repository as a
+repository-local development, review, and test fixture for the development-only
+Turboism with fx plugin. They are not part of any release package.
 
 Upstream source commit:
 df7e6245e1992758d4060c97477ceafa27770551
 
 The Linux and macOS payloads are unmodified official Vercel upstream release
 assets. The Windows x86-64 executable is a Turboism product build of that
-upstream source, not an official Vercel Windows asset. It is distributed only
-inside Turboism Full products and is verified by exact size and SHA-256 before
-launch:
+upstream source, not an official Vercel Windows asset. It is verified by exact size and SHA-256 when exercised locally:
 
 size: 11144192 bytes
 SHA-256: a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2
@@ -19,9 +18,7 @@ The current Windows candidate intentionally provides a narrower feature set.
 It admits only the exact authenticated numeric-loopback HTTP MCP server supplied
 by Turboism ACP, and Windows ACP sessions remain ephemeral. It does not claim
 durable-session, native-tool, general networking, process, or persistence
-parity with the official Linux and macOS assets. Windows repair is performed by
-repairing or reinstalling Turboism Full; there is no upstream Windows archive
-for online repair.
+parity with the official Linux and macOS assets. There is no upstream Windows archive for online repair.
 
 fx is an independent project from Vercel, Inc. and is licensed under the
 Apache License, Version 2.0. Every platform payload retains the upstream

@@ -220,9 +220,6 @@ LangString ModeLiteLabel ${LANG_ENGLISH} "Lite installation (Lite) — installs 
 LangString ModeLiteLabel ${LANG_SIMPCHINESE} "精简安装（Lite）—— 仅安装核心运行时，不安装任何插件"
 LangString ModeLiteLabel ${LANG_JAPANESE} "ライトインストール（Lite）—— コアランタイムのみインストールし、プラグインはインストールしません"
 
-LangString ManagedFxSection ${LANG_ENGLISH} "Bundled fx runtime (optional)"
-LangString ManagedFxSection ${LANG_SIMPCHINESE} "捆绑的 fx 运行时（可选）"
-LangString ManagedFxSection ${LANG_JAPANESE} "同梱 fx ランタイム（任意）"
 
 LangString ManagedGraalLabel ${LANG_ENGLISH} "Download and install Turboism-managed GraalVM (optional; about 326 MiB)"
 LangString ManagedGraalLabel ${LANG_SIMPCHINESE} "下载并安装 Turboism 托管的 GraalVM（可选；约 326 MiB）"
@@ -897,7 +894,6 @@ Section "-核心文件" SecCore
   SetOutPath "$PLUGINSDIR\Turboism-payload-manifests"
   File "${GENERATED_DIR}/payload-core.sha256"
   File "${GENERATED_DIR}/payload-plugins.sha256"
-  File "${GENERATED_DIR}/payload-fx.sha256"
   nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\Turboism-payload-bootstrap\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-core.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-core-plan" -PlanOnly'
   Pop $0
   ${If} $0 != 0
@@ -927,25 +923,6 @@ Section "-托管 GraalVM" SecManagedGraal
       MessageBox MB_ICONEXCLAMATION|MB_OK "$(ManagedGraalInstallError)"
     ${EndIf}
   ${EndIf}
-SectionEnd
-
-Section /o "$(ManagedFxSection)" SecManagedFx
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256" -DestinationRoot "$INSTDIR" -PlanRoot "$PLUGINSDIR\Turboism-fx-plan" -PlanOnly'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
-    Abort
-  ${EndIf}
-  Call ExtractManagedFxPayload
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-fx-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256" -DestinationRoot "$INSTDIR"'
-  Pop $0
-  ${If} $0 != 0
-    MessageBox MB_ICONSTOP "$(PayloadInstallError)"
-    Abort
-  ${EndIf}
-  RMDir /r "$PLUGINSDIR\Turboism-fx-payload"
-  RMDir /r "$PLUGINSDIR\Turboism-fx-plan"
-  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256"
 SectionEnd
 
 ; 插件 Section + 描述 + 选择状态函数（由 assemble-release.sh 生成，勿手改）
@@ -1031,14 +1008,6 @@ Section "Uninstall"
   ; 运行时数据目录
   RMDir /r "$INSTDIR\plugins"
   RMDir /r "$INSTDIR\graal"
-  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\fx.exe"
-  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\LICENSE"
-  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\THIRD_PARTY_NOTICES.md"
-  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\TURBOISM-DISTRIBUTION-NOTICE.txt"
-  Delete "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64\manifest.properties"
-  RMDir "$INSTDIR\runtimes\fx\0.0.5\windows-x86_64"
-  RMDir "$INSTDIR\runtimes\fx\0.0.5"
-  RMDir "$INSTDIR\runtimes\fx"
   RMDir "$INSTDIR\runtimes"
   RMDir /r "$INSTDIR\logs"
   RMDir /r "$INSTDIR\state"

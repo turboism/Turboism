@@ -11,8 +11,8 @@
 
     <str id="InstallationGroupPanel.group.full" txt="フルインストール（公開対象プラグイン）"/>
     <str id="InstallationGroupPanel.description.full" txt="Turboism エージェントと公開が承認された全プラグインをインストールします。次のページで個別に選択を解除できます。"/>
-    <str id="InstallationGroupPanel.group.thin" txt="Thin インストール（公開対象プラグイン、fx ランタイムなし）"/>
-    <str id="InstallationGroupPanel.description.thin" txt="公開が承認された全プラグインをインストールしますが、fx ネイティブランタイムは含みません。"/>
+    <str id="InstallationGroupPanel.group.thin" txt="Thin インストール（公開対象プラグイン）"/>
+    <str id="InstallationGroupPanel.description.thin" txt="Turboism エージェントと公開が承認された全プラグインをインストールします。追加のネイティブランタイムペイロードは含まれません。"/>
     <str id="InstallationGroupPanel.group.lite" txt="ライトインストール（プラグインなし）"/>
     <str id="InstallationGroupPanel.description.lite" txt="Turboism エージェントと共通ファイルのみをインストールします。ファーストパーティプラグインの JAR はコピーされません。"/>
     <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
