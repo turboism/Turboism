@@ -1,5 +1,6 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
@@ -240,8 +241,30 @@ public final class VerifiedEditorAuthoringTransactionHost
             if (!prior.get(index).equals(committed.get(index))) return Optional.empty();
         }
         final HistoryEntry appended = committed.get(expectedPosition - 1);
-        if (!label.equals(appended.label())) return Optional.empty();
-        return Optional.of(transactionId);
+        if (!label.equals(appended.label()) || appended.entryId().isEmpty()) {
+            return Optional.empty();
+        }
+        final NativeBinding active = currentFor(binding);
+        final Object manager = resolver.invoke(
+            "cubism.editor-history.document.undo-manager",
+            active.document()
+        );
+        final Object rawEntries = resolver.invoke(
+            "cubism.editor-history.manager.entries",
+            manager
+        );
+        if (!(rawEntries instanceof List<?> nativeEntries)
+            || nativeEntries.size() != committed.size()) {
+            return Optional.empty();
+        }
+        final Object nativeEntry = nativeEntries.get(expectedPosition - 1);
+        final Object nativeLabel = resolver.invoke(
+            "cubism.editor-history.entry.presentation-name",
+            nativeEntry
+        );
+        if (!label.equals(nativeLabel)) return Optional.empty();
+        EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId);
+        return Optional.of(appended.entryId().orElseThrow().value());
     }
 
     @Override

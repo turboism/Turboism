@@ -1808,6 +1808,10 @@ public final class CubismFacadeImpl implements CubismFacade {
                         values.find(Objects.requireNonNull(id, "id"))
                     );
                 }
+                @Override public java.util.Optional<String> providerVersion() {
+                    requireModelRead("model.glues.providerVersion");
+                    return values.providerVersion();
+                }
             };
         }
         @Override public void update() {

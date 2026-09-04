@@ -19,6 +19,7 @@ final class McpRegisteredTool {
     private final McpOperationEffect effect;
     private final McpExecutionAffinity affinity;
     private final boolean transactionEligible;
+    private final McpVersionSupport versionSupport;
     private final boolean exactOutputSchema;
     private final Handler rawHandler;
     private final Handler publicHandler;
@@ -28,6 +29,7 @@ final class McpRegisteredTool {
         final McpOperationEffect effect,
         final McpExecutionAffinity affinity,
         final boolean transactionEligible,
+        final McpVersionSupport versionSupport,
         final boolean exactOutputSchema,
         final Handler rawHandler,
         final Handler publicHandler
@@ -37,6 +39,7 @@ final class McpRegisteredTool {
         this.effect = Objects.requireNonNull(effect, "effect");
         this.affinity = Objects.requireNonNull(affinity, "affinity");
         this.transactionEligible = transactionEligible;
+        this.versionSupport = Objects.requireNonNull(versionSupport, "versionSupport");
         this.exactOutputSchema = exactOutputSchema;
         this.rawHandler = Objects.requireNonNull(rawHandler, "rawHandler");
         this.publicHandler = Objects.requireNonNull(publicHandler, "publicHandler");
@@ -48,6 +51,26 @@ final class McpRegisteredTool {
         final McpOperationEffect effect,
         final McpExecutionAffinity affinity,
         final boolean transactionEligible,
+        final McpExecutionBridge execution,
+        final Handler rawHandler
+    ) {
+        return typed(
+            publicDefinition,
+            effect,
+            affinity,
+            transactionEligible,
+            McpVersionSupport.unscoped(),
+            execution,
+            rawHandler
+        );
+    }
+
+    static McpRegisteredTool typed(
+        final Map<String, Object> publicDefinition,
+        final McpOperationEffect effect,
+        final McpExecutionAffinity affinity,
+        final boolean transactionEligible,
+        final McpVersionSupport versionSupport,
         final McpExecutionBridge execution,
         final Handler rawHandler
     ) {
@@ -71,6 +94,7 @@ final class McpRegisteredTool {
             effect,
             affinity,
             transactionEligible,
+            Objects.requireNonNull(versionSupport, "versionSupport"),
             isExactSchema(definition.get("outputSchema"), 0),
             checkedRaw,
             standalone
@@ -88,6 +112,7 @@ final class McpRegisteredTool {
             inferLegacyEffect(definition),
             McpExecutionAffinity.DIRECT,
             false,
+            McpVersionSupport.unscoped(),
             false,
             checked,
             checked
@@ -107,6 +132,7 @@ final class McpRegisteredTool {
             effect,
             affinity,
             transactionEligible,
+            versionSupport,
             exactOutputSchema,
             Objects.requireNonNull(inProcessHandler, "inProcessHandler"),
             Objects.requireNonNull(standaloneHandler, "standaloneHandler")
@@ -131,6 +157,10 @@ final class McpRegisteredTool {
 
     boolean transactionEligible() {
         return transactionEligible;
+    }
+
+    McpVersionSupport versionSupport() {
+        return versionSupport;
     }
 
     boolean exactOutputSchema() {
@@ -167,11 +197,13 @@ final class McpRegisteredTool {
 
     private static McpOperationEffect inferLegacyEffect(final Map<String, Object> definition) {
         final String name = requiredText(definition, "name");
-        if (name.startsWith("turboism.history.")) return McpOperationEffect.HISTORY_CONTROL;
         final Object annotationsValue = definition.get("annotations");
         if (annotationsValue instanceof Map<?, ?> annotations
             && Boolean.TRUE.equals(annotations.get("readOnlyHint"))) {
             return McpOperationEffect.READ;
+        }
+        if (name.startsWith("turboism.history.")) {
+            return McpOperationEffect.HISTORY_CONTROL;
         }
         return McpOperationEffect.EXTERNAL_SIDE_EFFECT;
     }

@@ -59,13 +59,13 @@ public final class EditorAuthoringTransactionCoordinator {
         if (ambient.get() != null) {
             return AuthoringTransactionResult.rejectedScope(
                 Optional.empty(),
-                Optional.of(diagnostic("authoring.scope-rejected", null))
+                diagnostic("authoring.scope-rejected", null)
             );
         }
         if (!checkedBinding.isCurrentThread() || !current(checkedBinding)) {
             return AuthoringTransactionResult.rejectedScope(
                 Optional.empty(),
-                Optional.of(diagnostic("authoring.scope-rejected", null))
+                diagnostic("authoring.scope-rejected", null)
             );
         }
 
@@ -170,14 +170,14 @@ public final class EditorAuthoringTransactionCoordinator {
                 Optional.empty()
             );
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt),
+                receipt,
                 diagnostic("authoring.no-change-history-unavailable", failure)
             );
         }
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
         if (!scope.historyBefore().equals(after)) {
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt),
+                receipt,
                 diagnostic("authoring.no-change-history-mutated", null)
             );
         }
@@ -213,7 +213,7 @@ public final class EditorAuthoringTransactionCoordinator {
             after = Objects.requireNonNull(host.history(scope.binding()), "history");
         } catch (RuntimeException failure) {
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt(scope, HistorySnapshot.unavailable(), Optional.empty())),
+                receipt(scope, HistorySnapshot.unavailable(), Optional.empty()),
                 diagnostic("authoring.history-unverified", failure)
             );
         }
@@ -231,14 +231,14 @@ public final class EditorAuthoringTransactionCoordinator {
             );
         } catch (RuntimeException failure) {
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt(scope, after, Optional.empty())),
+                receipt(scope, after, Optional.empty()),
                 diagnostic("authoring.history-unverified", failure)
             );
         }
         final AuthoringTransactionReceipt receipt = receipt(scope, after, entryId);
         if (entryId.isEmpty()) {
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt),
+                receipt,
                 diagnostic("authoring.history-unverified", null)
             );
         }
@@ -327,7 +327,7 @@ public final class EditorAuthoringTransactionCoordinator {
         } catch (RuntimeException historyFailure) {
             recoveryFailure = append(recoveryFailure, historyFailure);
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt(scope, HistorySnapshot.unavailable(), Optional.empty())),
+                receipt(scope, HistorySnapshot.unavailable(), Optional.empty()),
                 diagnostic("authoring.recovery-failed", recoveryFailure)
             );
         }
@@ -335,7 +335,7 @@ public final class EditorAuthoringTransactionCoordinator {
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
         if (recoveryFailure != null) {
             return AuthoringTransactionResult.recoveryFailed(
-                Optional.of(receipt),
+                receipt,
                 diagnostic("authoring.recovery-failed", recoveryFailure)
             );
         }
@@ -346,12 +346,12 @@ public final class EditorAuthoringTransactionCoordinator {
         if (scopeRejected && !scope.changed()) {
             return AuthoringTransactionResult.rejectedScope(
                 Optional.of(receipt),
-                Optional.of(diagnostic)
+                diagnostic
             );
         }
         return AuthoringTransactionResult.rolledBack(
             receipt,
-            Optional.of(diagnostic)
+            diagnostic
         );
     }
 

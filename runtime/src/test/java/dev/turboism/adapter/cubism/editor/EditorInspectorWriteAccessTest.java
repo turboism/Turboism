@@ -17,6 +17,7 @@ import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.GlueId;
 import dev.turboism.sdk.cubism.model.PartId;
+import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
@@ -229,12 +230,63 @@ class EditorInspectorWriteAccessTest {
         assertEquals(5, fixture.editMode.groups.get(0).undoAddCount);
         assertEquals(1, fixture.document.undoManager.entries.size());
         assertEquals("Adjust eye glues", fixture.document.undoManager.entries.get(0).presentationName());
+        final var projectedHistory = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver(false)),
+            () -> 1
+        ).snapshot();
+        assertEquals(
+            result.receipt().orElseThrow().historyEntryId().orElseThrow(),
+            projectedHistory.entries().get(0).entryId().orElseThrow().value()
+        );
+        assertEquals(
+            result.receipt().orElseThrow().transactionId(),
+            projectedHistory.entries().get(0).transactionId().orElseThrow()
+        );
         assertEquals(1, fixture.source.updateCount);
         assertEquals(1, fixture.pack.partRefreshCount);
         assertEquals(1, fixture.pack.deformerRefreshCount);
         assertEquals(1, fixture.pack.repaintCount);
         assertTrue(fixture.document.dirty);
         assertFalse(fixture.editMode.aborted);
+    }
+
+    @Test
+    void glueTransactionRoutesTheSameFiveWritesAcrossEveryReviewedEditorVersion() {
+        for (String version : List.of("5.2.03", "5.3.02", "5.3.03")) {
+            final Fixture fixture = new Fixture();
+            Host.document = fixture.document;
+            final var access = new EditorBackedCubismModelAccess(
+                resolver(version),
+                "session-" + version
+            );
+            final var service = ((RuntimeAuthoringTransactionProvider) access)
+                .authoringTransactions("plugin.test");
+
+            assertEquals(Optional.of(version), access.active().glues().providerVersion());
+            final var result = service.execute(
+                AuthoringTransactionOptions.of("Adjust Glue on " + version),
+                () -> {
+                    final var glue = access.active().glues().find(new GlueId("Glue1"));
+                    glue.setName("MainGlue");
+                    glue.setIntensity(0.75F);
+                    glue.setDrawableA(new ArtMeshId("ArtB"));
+                    glue.setDrawableB(new ArtMeshId("ArtA"));
+                    glue.setId(new GlueId("GlueRenamed"));
+                    // The original wrapper is intentionally stale after an ID change; readback must
+                    // resolve the new identity rather than reusing that wrapper.
+                    return access.active().glues().find(new GlueId("GlueRenamed")).id().value();
+                }
+            );
+
+            assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome(), version);
+            assertEquals(Optional.of("GlueRenamed"), result.value(), version);
+            assertEquals(1, fixture.editMode.edits.size(), version);
+            assertEquals(5, fixture.editMode.groups.get(0).undoAddCount, version);
+            assertEquals(1, fixture.document.undoManager.entries.size(), version);
+            assertEquals("GlueRenamed", fixture.glue.source.id.value(), version);
+            assertEquals(0.75F, fixture.glue.form.intensity, version);
+            assertFalse(fixture.editMode.aborted, version);
+        }
     }
 
     @Test
@@ -333,7 +385,14 @@ class EditorInspectorWriteAccessTest {
     // ------------------------------------------------------------------
 
     private static VerifiedMemberResolver resolver(final boolean cubism52) {
-        final String version = cubism52 ? "5.2.03" : "5.3.02";
+        return resolver(cubism52 ? "5.2.03" : "5.3.02");
+    }
+
+    private static VerifiedMemberResolver resolver(final String version) {
+        if (!List.of("5.2.03", "5.3.02", "5.3.03").contains(version)) {
+            throw new IllegalArgumentException("unsupported fixture version: " + version);
+        }
+        final boolean cubism52 = "5.2.03".equals(version);
         final List<StaticSelector> selectors = new ArrayList<>();
         selectors.add(StaticSelector.classSelector("cubism.editor-model.app-controller.class", internal(Host.class)));
         selectors.add(StaticSelector.staticMethod(

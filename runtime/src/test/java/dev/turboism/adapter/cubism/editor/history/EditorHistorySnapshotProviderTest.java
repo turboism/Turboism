@@ -84,6 +84,28 @@ class EditorHistorySnapshotProviderTest {
     }
 
     @Test
+    void assignsStableEntryIdsAndProjectsRegisteredTransactionMetadata() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Adjust eye glues", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 6
+        );
+
+        final HistorySnapshot first = provider.snapshot();
+        final String entryId = first.entries().get(0).entryId().orElseThrow().value();
+        EditorHistoryMetadataRegistry.registerTransaction(entry, "transaction-1");
+        final HistorySnapshot enriched = provider.snapshot();
+
+        assertTrue(entryId.startsWith("history-entry-"));
+        assertEquals(entryId, enriched.entries().get(0).entryId().orElseThrow().value());
+        assertEquals("transaction-1", enriched.entries().get(0).transactionId().orElseThrow());
+    }
+
+    @Test
     void movesToRequestedPositionAndReturnsTheObservedSnapshot() {
         final Manager manager = new Manager();
         manager.entries.add(new Entry("First", true));

@@ -34,8 +34,7 @@ final class RuntimeMcpConnectionServiceTest {
     private static McpHttpConnection connection() {
         return new McpHttpConnection(
             URI.create("http://127.0.0.1:43123/mcp"),
-            "2025-11-25",
-            "Bearer token"
+            "2025-11-25"
         );
     }
 }

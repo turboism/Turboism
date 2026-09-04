@@ -1,6 +1,5 @@
 button.copy-agent-prompt
 button.copy-endpoint
-button.copy-token
 button.refresh
 history.client
 history.detail
@@ -13,7 +12,6 @@ history.event.session-initialized
 history.time
 label.agent-prompt
 label.endpoint
-label.token
 menu.connection
 plugin.description
 plugin.name
@@ -22,5 +20,4 @@ section.connection
 section.history
 status.agent-prompt-copied
 status.endpoint-copied
-status.token-copied
 window.connection-title

@@ -81,9 +81,10 @@ final class McpPromptCatalog {
                     + "parameterId as one URI segment. Apply the smallest binding change, then re-read the "
                     + "aggregate and affected template resources to verify."),
             prompt("recover_document_history", "Recover document history",
-                "Move the native Undo history to a requested safe state.",
-                "Read the history resource, retain generation and revision, choose move/undo/redo, call "
-                    + "turboism.history.move, then verify the returned snapshot."),
+                "Undo or redo the native document history with stale-state guards.",
+                "Call turboism.history.read, retain generation, revision, and the relevant entry or "
+                    + "transaction identity, then call turboism.history.undo or turboism.history.redo. "
+                    + "Verify the returned snapshot before making another history change."),
             prompt("run_editor_command", "Run editor command",
                 "Discover and execute one available non-file Cubism Editor command.",
                 "Read turboism://host/editor-commands, select only a listed command, provide exactly its "
