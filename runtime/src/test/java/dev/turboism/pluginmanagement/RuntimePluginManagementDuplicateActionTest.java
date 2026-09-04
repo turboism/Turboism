@@ -101,8 +101,8 @@ class RuntimePluginManagementDuplicateActionTest {
     }
 
     private void installNow(final String id) throws Exception {
-        final Path source = home.resolve(id + ".tplugin");
-        Files.write(source, PluginManagementPackageFixture.packageBytes(id, "1.0.0"));
+        final Path source = home.resolve(id + ".jar");
+        Files.write(source, PluginManagementPackageFixture.pluginJarBytes(id, "1.0.0"));
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, () -> Optional.of(source), List::of
         );

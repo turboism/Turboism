@@ -3,8 +3,11 @@ package dev.turboism.distribution;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.zip.ZipFile;
 
@@ -16,7 +19,9 @@ interface PackageAccess {
     }
 
     default InputStream open(Path path) throws IOException {
-        return Files.newInputStream(path, LinkOption.NOFOLLOW_LINKS);
+        // Windows rejects NOFOLLOW_LINKS on the stream factory; FileChannel preserves the guard.
+        return Channels.newInputStream(FileChannel.open(
+            path, StandardOpenOption.READ, LinkOption.NOFOLLOW_LINKS));
     }
 
     default ZipFile openZip(Path path) throws IOException {

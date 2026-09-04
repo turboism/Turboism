@@ -2,6 +2,8 @@ package dev.turboism.distribution;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -26,8 +28,9 @@ final class ConfinedStagingFiles {
         final Path target = directory.resolve(targetName).normalize();
         if (!target.getParent().equals(directory)) throw new IOException("staging target escaped");
         final Path temporary = directory.resolve("." + targetName + "-" + UUID.randomUUID() + ".tmp");
-        final var output = Files.newOutputStream(temporary, StandardOpenOption.CREATE_NEW,
-            StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+        // Windows rejects NOFOLLOW_LINKS on the stream factory; FileChannel preserves the guard.
+        final var output = Channels.newOutputStream(FileChannel.open(
+            temporary, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS));
         return new Target(directory, identity, temporary, target, output, reader);
     }
 
