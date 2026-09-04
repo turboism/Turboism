@@ -1,27 +1,28 @@
-# Managed fx runtime payload
+# Managed fx runtime fixture
 
-Turboism distributes fx `0.0.5` as a product payload outside the plugin JAR.
+fx `0.0.5` runtime assets are kept in this repository as a
+repository-local development, review, and test fixture for the
+development-only `turboism-with-fx` plugin; they are not staged into any
+release package.
 
 - Upstream source commit: `df7e6245e1992758d4060c97477ceafa27770551`
 - Runtime destination: `runtimes/fx/0.0.5/<platform>/`
 - Normal launch verifies the installed executable size and SHA-256 from the closed plugin manifest.
 - Every platform directory includes `LICENSE`, `THIRD_PARTY_NOTICES.md`, `TURBOISM-DISTRIBUTION-NOTICE.txt`, and `manifest.properties` beside the executable.
-- Provider credentials, MCP bearer material, and fx durable data are never part of this payload.
+- Provider credentials, MCP bearer material, and fx durable data are never part of these fixtures.
 
-## Delivery
+## Platforms
 
-The exact supported platforms are Linux x86-64, Linux ARM64, macOS x86-64,
+The exact fixture platforms are Linux x86-64, Linux ARM64, macOS x86-64,
 macOS ARM64, and Windows x86-64.
 
 The four Linux/macOS executables are unmodified official upstream release
 assets. Their archive names, sizes, SHA-256 values, reviewed GitHub release
 asset paths, installed executable identities, and legal-file identities are
-pinned in `manifest.properties`. Java Full installs only the host's matching
-platform. On explicit user request, supported Linux/macOS Thin installations
-can download that exact pinned archive and activate it atomically.
+pinned in `manifest.properties`.
 
-Windows x86-64 uses a Turboism product payload because upstream fx v0.0.5 has
-no Windows release archive. Windows NSIS Full, Full ZIP, and Java Full carry:
+Windows x86-64 uses a Turboism product build because upstream fx v0.0.5 has
+no Windows release archive:
 
 ```text
 runtimes/fx/0.0.5/windows-x86_64/
@@ -35,8 +36,14 @@ runtimes/fx/0.0.5/windows-x86_64/
 The executable identity is fixed at `11,144,192` bytes and SHA-256
 `a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2`.
 It is labeled as a Turboism build of upstream fx v0.0.5, not as an official
-Vercel Windows asset. There is no online Windows repair archive; product repair
-or reinstall restores it. Lite remains plugin-free and runtime-free.
+Vercel Windows asset.
+
+This directory is a repository-local source of review and plugin-test
+fixtures. The development-only `turboism-with-fx` plugin is not part of any
+Turboism release roster, and the runtime payloads here are not staged into any
+release archive (Java installer, NSIS, or ZIP). The plugin JAR embeds the
+closed identity manifest and legal files for self-verification, but the
+runtime itself is only ever used from a developer/validation workspace.
 
 ## Windows candidate limits
 

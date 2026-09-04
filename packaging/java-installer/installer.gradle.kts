@@ -1,10 +1,5 @@
 import groovy.json.JsonSlurper
 import org.gradle.api.tasks.SourceSetContainer
-import java.net.HttpURLConnection
-import java.net.URI
-import java.nio.file.AtomicMoveNotSupportedException
-import java.nio.file.Files
-import java.nio.file.StandardCopyOption
 import java.nio.ByteBuffer
 import java.nio.charset.CodingErrorAction
 import java.nio.charset.StandardCharsets
@@ -23,9 +18,8 @@ import java.util.zip.ZipFile
  *                          plugin JAR are declared as Gradle inputs so an
  *                          up-to-date decision can never retain stale payload
  *                          bytes after an input changes.
- *   stageJavaInstallerPayload copies the Windows-safe stage into a Java-only
- *                          stage and adds reviewed Linux/macOS managed fx
- *                          payloads; Windows artifacts never consume it.
+ *   stageJavaInstallerPayload copies the shared payload into the Java
+ *                          installer payload (config template + common files).
  *   izPackCreateInstaller  builds build/windows-installer/dist/
  *                          TurboismInstaller-<version>.jar (+ .sha256) with
  *                          the pinned IzPack toolchain. Both the JAR and its
@@ -192,232 +186,7 @@ val customLangPackFiles = listOf(
     "CustomLangPack.xml_eng",
     "CustomLangPack.xml_chn",
     "CustomLangPack.xml_jpn"
-)
-
-val fxRuntimeRoot = rootProject.file("packaging/fx-runtime")
-val fxRuntimeManifestFile = fxRuntimeRoot.resolve("manifest.properties")
-val fxRuntimePlatforms = listOf(
-    "linux-x86_64",
-    "linux-aarch64",
-    "macos-x86_64",
-    "macos-aarch64"
-)
-val windowsFxRuntimePlatform = "windows-x86_64"
-val windowsFxRuntimeExecutable = fxRuntimeRoot.resolve("$windowsFxRuntimePlatform/fx.exe")
-val fxRuntimeCache = layout.buildDirectory.dir("fx-runtime/cache")
-val fxRuntimeStage = layout.buildDirectory.dir("fx-runtime/staging")
-val fxReleaseHost = "github.com"
-val fxReleaseAssetHost = "release-assets.githubusercontent.com"
-val fxDownloadConnectTimeoutMs = 15_000
-val fxDownloadReadTimeoutMs = 60_000
-val fxArchiveMaxBytes = 64L * 1024L * 1024L
-
-fun sha256(file: File): String {
-    val digest = MessageDigest.getInstance("SHA-256")
-    file.inputStream().use { input ->
-        val buffer = ByteArray(64 * 1024)
-        while (true) {
-            val read = input.read(buffer)
-            if (read < 0) break
-            digest.update(buffer, 0, read)
-        }
-    }
-    return HexFormat.of().formatHex(digest.digest())
-}
-
-fun loadFxRuntimeManifest(): Properties {
-    if (!fxRuntimeManifestFile.isFile) {
-        throw GradleException("managed fx manifest missing: ${fxRuntimeManifestFile.path}")
-    }
-    return Properties().apply {
-        fxRuntimeManifestFile.inputStream().use(::load)
-    }
-}
-
-fun openFxDownload(source: URI, approvedHost: String): HttpURLConnection {
-    if (source.scheme != "https" || source.host != approvedHost) {
-        throw GradleException("managed fx download source is not approved: $source")
-    }
-    return (source.toURL().openConnection() as HttpURLConnection).apply {
-        instanceFollowRedirects = false
-        connectTimeout = fxDownloadConnectTimeoutMs
-        readTimeout = fxDownloadReadTimeoutMs
-        requestMethod = "GET"
-        setRequestProperty("Accept", "application/octet-stream")
-    }
-}
-
-fun downloadFxArchive(
-    source: URI,
-    target: File,
-    expectedBytes: Long,
-    expectedReleaseAssetPath: String
-) {
-    if (expectedBytes <= 0L || expectedBytes > fxArchiveMaxBytes) {
-        throw GradleException("managed fx archive size is outside the reviewed limit: $expectedBytes")
-    }
-    var connection = openFxDownload(source, fxReleaseHost)
-    try {
-        var status = connection.responseCode
-        if (status in 300..399) {
-            val location = connection.getHeaderField("Location")
-                ?: throw GradleException("managed fx redirect has no Location header")
-            val redirected = source.resolve(location)
-            if (redirected.scheme != "https"
-                || redirected.host != fxReleaseAssetHost
-                || redirected.port != -1
-                || redirected.userInfo != null
-                || redirected.fragment != null
-                || redirected.rawPath != expectedReleaseAssetPath) {
-                throw GradleException("managed fx redirect is not the reviewed release asset")
-            }
-            connection.disconnect()
-            connection = openFxDownload(redirected, fxReleaseAssetHost)
-            status = connection.responseCode
-        }
-        if (status != HttpURLConnection.HTTP_OK) {
-            throw GradleException("managed fx download failed with HTTP $status: $source")
-        }
-        val contentLength = connection.contentLengthLong
-        if (contentLength != expectedBytes) {
-            throw GradleException(
-                "managed fx archive content length mismatch: $contentLength != $expectedBytes"
-            )
-        }
-        connection.inputStream.use { input ->
-            target.outputStream().use { output ->
-                val buffer = ByteArray(64 * 1024)
-                var copied = 0L
-                while (true) {
-                    val read = input.read(buffer)
-                    if (read < 0) break
-                    copied += read
-                    if (copied > expectedBytes) {
-                        throw GradleException("managed fx archive exceeds its reviewed size")
-                    }
-                    output.write(buffer, 0, read)
-                }
-                if (copied != expectedBytes) {
-                    throw GradleException(
-                        "managed fx archive size mismatch: $copied != $expectedBytes"
-                    )
-                }
-            }
-        }
-    } finally {
-        connection.disconnect()
-    }
-}
-
-fun activateFxArchive(temporary: File, archive: File) {
-    try {
-        Files.move(
-            temporary.toPath(),
-            archive.toPath(),
-            StandardCopyOption.ATOMIC_MOVE,
-            StandardCopyOption.REPLACE_EXISTING
-        )
-    } catch (exception: AtomicMoveNotSupportedException) {
-        throw GradleException("managed fx cache does not support atomic activation: $archive", exception)
-    }
-}
-
-val stageFxRuntimePayload by tasks.registering {
-    group = "packaging"
-    description = "Downloads, verifies and stages the reviewed offline fx runtime payloads."
-    inputs.file(fxRuntimeManifestFile)
-    inputs.file(fxRuntimeRoot.resolve("LICENSE"))
-    inputs.file(fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md"))
-    inputs.file(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
-    outputs.dir(fxRuntimeStage)
-    doLast {
-        val manifest = loadFxRuntimeManifest()
-        val fxVersion = manifest.getProperty("fxVersion")
-            ?: throw GradleException("managed fx manifest has no fxVersion")
-        if (fxVersion != "0.0.5") {
-            throw GradleException("managed fx manifest version is unsupported: $fxVersion")
-        }
-        val sourceCommit = manifest.getProperty("sourceCommit")
-        if (sourceCommit != "df7e6245e1992758d4060c97477ceafa27770551") {
-            throw GradleException("managed fx source commit is not the reviewed v0.0.5 commit")
-        }
-        val license = fxRuntimeRoot.resolve("LICENSE")
-        val notices = fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md")
-        if (sha256(license) != manifest.getProperty("licenseSha256")) {
-            throw GradleException("managed fx LICENSE hash mismatch")
-        }
-        if (sha256(notices) != manifest.getProperty("thirdPartyNoticesSha256")) {
-            throw GradleException("managed fx THIRD_PARTY_NOTICES.md hash mismatch")
-        }
-
-        val cache = fxRuntimeCache.get().asFile
-        val stage = fxRuntimeStage.get().asFile
-        cache.mkdirs()
-        delete(stage)
-        stage.mkdirs()
-        fxRuntimePlatforms.forEach { platform ->
-            val archiveName = manifest.getProperty("$platform.archive")
-                ?: throw GradleException("managed fx manifest is missing $platform.archive")
-            if (!Regex("^fx-(?:linux|macos)-(?:x86_64|aarch64)\\.tar\\.gz$")
-                    .matches(archiveName)) {
-                throw GradleException("managed fx archive name is invalid: $archiveName")
-            }
-            val archiveSha256 = manifest.getProperty("$platform.archiveSha256")
-                ?: throw GradleException("managed fx manifest is missing $platform.archiveSha256")
-            val archiveSize = manifest.getProperty("$platform.archiveSize")?.toLongOrNull()
-                ?: throw GradleException("managed fx manifest has invalid $platform.archiveSize")
-            val releaseAssetPath = manifest.getProperty("$platform.releaseAssetPath")
-                ?: throw GradleException("managed fx manifest is missing $platform.releaseAssetPath")
-            val executableSha256 = manifest.getProperty("$platform.executableSha256")
-                ?: throw GradleException("managed fx manifest is missing $platform.executableSha256")
-            val executableSize = manifest.getProperty("$platform.executableSize")?.toLongOrNull()
-                ?: throw GradleException("managed fx manifest has invalid $platform.executableSize")
-            val archive = cache.resolve(archiveName)
-            if (!archive.isFile || sha256(archive) != archiveSha256) {
-                val temporary = cache.resolve(".$archiveName.part")
-                temporary.delete()
-                try {
-                    downloadFxArchive(
-                        URI("https://github.com/vercel-labs/fx/releases/download/v$fxVersion/$archiveName"),
-                        temporary,
-                        archiveSize,
-                        releaseAssetPath
-                    )
-                    if (sha256(temporary) != archiveSha256) {
-                        throw GradleException("managed fx archive hash mismatch: $archiveName")
-                    }
-                    activateFxArchive(temporary, archive)
-                } finally {
-                    temporary.delete()
-                }
-            }
-
-            val target = stage.resolve(platform)
-            target.mkdirs()
-            copy {
-                from(tarTree(resources.gzip(archive))) {
-                    include("fx", "LICENSE", "THIRD_PARTY_NOTICES.md")
-                }
-                into(target)
-            }
-            val executable = target.resolve("fx")
-            if (!executable.isFile || executable.length() != executableSize
-                || sha256(executable) != executableSha256) {
-                throw GradleException("managed fx executable verification failed for $platform")
-            }
-            executable.setExecutable(true, true)
-            copy {
-                from(fxRuntimeManifestFile)
-                from(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
-                into(target)
-            }
-        }
-        logger.lifecycle("staged managed fx runtimes: ${stage.absolutePath}")
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Plugin metadata parser contract and shared Windows payload staging
+)// Plugin metadata parser contract and shared Windows payload staging
 // ---------------------------------------------------------------------------
 
 val checkInstallerPluginJsonUnicodeEscapes by tasks.registering {
@@ -466,11 +235,6 @@ val stageInstallerPayload by tasks.registering {
         inputs.files(project(":plugins:$module").tasks.named("jar"))
     }
     installerTemplateFiles.forEach { inputs.file(it) }
-    inputs.file(fxRuntimeManifestFile)
-    inputs.file(windowsFxRuntimeExecutable)
-    inputs.file(fxRuntimeRoot.resolve("LICENSE"))
-    inputs.file(fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md"))
-    inputs.file(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
     outputs.dir(payloadDir)
     dependsOn(project(":bootstrap").tasks.named("jar"))
     dependsOn(project(":graal-host").tasks.named("windowsPreviewDist"))
@@ -545,45 +309,6 @@ val stageInstallerPayload by tasks.registering {
                 .replace("__VERSION__", version)
             file("$stage/$target").writeText(text)
         }
-        val fxManifest = loadFxRuntimeManifest()
-        val fxVersion = fxManifest.getProperty("fxVersion")
-            ?: throw GradleException("managed fx manifest has no fxVersion")
-        val fxDelivery = fxManifest.getProperty("$windowsFxRuntimePlatform.delivery")
-        val fxExecutableSize = fxManifest.getProperty(
-            "$windowsFxRuntimePlatform.executableSize"
-        )?.toLongOrNull()
-        val fxExecutableSha256 = fxManifest.getProperty(
-            "$windowsFxRuntimePlatform.executableSha256"
-        )
-        if (fxDelivery != "product-payload" || fxVersion != "0.0.5"
-            || fxExecutableSize != 11_144_192L
-            || fxExecutableSha256 != "a36b0b209d933e4757d7e1a961d259d39a8d370b68cbde8e9cba227603ac63c2"
-            || !windowsFxRuntimeExecutable.isFile
-            || Files.isSymbolicLink(windowsFxRuntimeExecutable.toPath())
-            || windowsFxRuntimeExecutable.length() != fxExecutableSize
-            || sha256(windowsFxRuntimeExecutable) != fxExecutableSha256) {
-            throw GradleException("Windows managed fx product payload identity mismatch")
-        }
-        val windowsFxTarget = stage.resolve(
-            "runtimes/fx/$fxVersion/$windowsFxRuntimePlatform"
-        )
-        copy {
-            from(windowsFxRuntimeExecutable)
-            from(fxRuntimeRoot.resolve("LICENSE"))
-            from(fxRuntimeRoot.resolve("THIRD_PARTY_NOTICES.md"))
-            from(fxRuntimeRoot.resolve("TURBOISM-DISTRIBUTION-NOTICE.txt"))
-            from(fxRuntimeManifestFile)
-            into(windowsFxTarget)
-        }
-        if (windowsFxTarget.listFiles()?.map { it.name }?.sorted() != listOf(
-                "LICENSE",
-                "THIRD_PARTY_NOTICES.md",
-                "TURBOISM-DISTRIBUTION-NOTICE.txt",
-                "fx.exe",
-                "manifest.properties"
-            )) {
-            throw GradleException("Windows managed fx product payload inventory mismatch")
-        }
         // OS-appropriate launcher/configuration files
         copy {
             from("packaging/windows-installer/launch-cubism-turboism.bat")
@@ -637,17 +362,6 @@ val installerListenerJarTask = tasks.register<Jar>("installerListenerJar") {
         include("config.template.json")
         into("turboism")
     }
-    from(fxRuntimeManifestFile) {
-        into("turboism/fx-runtime")
-    }
-    from(rootProject.file("packaging/fx-runtime")) {
-        include(
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "TURBOISM-DISTRIBUTION-NOTICE.txt"
-        )
-        into("turboism/fx-runtime")
-    }
 }
 
 // Test-only regression harness for the bounded config merge and listener
@@ -681,19 +395,6 @@ val installerRegressionJarTask = tasks.register<Jar>("installerRegressionJar") {
     // test-only API classes so the verifier remains a one-jar executable.
     from(installerRegressionSourceSet.compileClasspath.files.map { zipTree(it) })
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    // The behavioral listener regression initializes the same managed-fx
-    // identity table as the shipped listener, so include its exact resources.
-    from(fxRuntimeManifestFile) {
-        into("turboism/fx-runtime")
-    }
-    from(rootProject.file("packaging/fx-runtime")) {
-        include(
-            "LICENSE",
-            "THIRD_PARTY_NOTICES.md",
-            "TURBOISM-DISTRIBUTION-NOTICE.txt"
-        )
-        into("turboism/fx-runtime")
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -705,10 +406,9 @@ val javaInstallerPayloadDir = layout.buildDirectory.dir("java-installer/staging"
 
 val stageJavaInstallerPayload by tasks.registering {
     group = "packaging"
-    description = "Adds the exact platform-specific managed fx runtimes to the Java installer payload."
-    dependsOn(stageInstallerPayload, stageFxRuntimePayload)
+    description = "Copies the shared Turboism payload into the Java installer payload."
+    dependsOn(stageInstallerPayload)
     inputs.dir(payloadDir)
-    inputs.dir(fxRuntimeStage)
     outputs.dir(javaInstallerPayloadDir)
     doLast {
         val target = javaInstallerPayloadDir.get().asFile
@@ -716,10 +416,6 @@ val stageJavaInstallerPayload by tasks.registering {
         copy {
             from(payloadDir)
             into(target)
-        }
-        copy {
-            from(fxRuntimeStage)
-            into(target.resolve("runtimes/fx/0.0.5"))
         }
     }
 }
@@ -859,39 +555,7 @@ val generateInstallerXml by tasks.registering {
                 append("        </pack>")
             }
         }
-        val runtimePack = buildString {
-            append("        <pack id=\"turboism-fx-runtime\" name=\"Managed fx Runtime\" required=\"true\" installGroups=\"full\">\n")
-            append("            <description>Reviewed platform-specific fx v0.0.5 runtime for Turboism with fx.</description>\n")
-            append("            <fileset dir=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/linux-x86_64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/linux-x86_64\" override=\"true\" os=\"unix\">\n")
-            append("                <exclude name=\"fx\"/>\n")
-            append("            </fileset>\n")
-            append("            <file src=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/linux-x86_64/fx\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/linux-x86_64\" override=\"true\" os=\"unix\"/>")
-            append("\n")
-            append("            <fileset dir=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/linux-aarch64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/linux-aarch64\" override=\"true\" os=\"unix\">\n")
-            append("                <exclude name=\"fx\"/>\n")
-            append("            </fileset>\n")
-            append("            <file src=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/linux-aarch64/fx\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/linux-aarch64\" override=\"true\" os=\"unix\"/>\n")
-            append("            <fileset dir=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/macos-x86_64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/macos-x86_64\" override=\"true\" os=\"mac\">\n")
-            append("                <exclude name=\"fx\"/>\n")
-            append("            </fileset>\n")
-            append("            <file src=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/macos-x86_64/fx\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/macos-x86_64\" override=\"true\" os=\"mac\"/>\n")
-            append("            <fileset dir=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/macos-aarch64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/macos-aarch64\" override=\"true\" os=\"mac\">\n")
-            append("                <exclude name=\"fx\"/>\n")
-            append("            </fileset>\n")
-            append("            <file src=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/macos-aarch64/fx\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/macos-aarch64\" override=\"true\" os=\"mac\"/>\n")
-            append("            <fileset dir=\"").append(stageRel)
-                .append("/runtimes/fx/0.0.5/windows-x86_64\" targetdir=\"\$INSTALL_PATH/runtimes/fx/0.0.5/windows-x86_64\" override=\"true\" os=\"windows\"/>\n")
-            append("        </pack>")
-        }
-        val pluginPacks = payloadPack + "\n" + runtimePack + "\n" + selectionPacks
+        val pluginPacks = payloadPack + "\n" + selectionPacks
         val bundled = plugins.joinToString(",") { it.id }
 
         val xml = file("packaging/java-installer/installer.xml.template").readText()
@@ -928,7 +592,7 @@ val generateInstallerXml by tasks.registering {
             }
             target.writeText(target.readText().replace("</izpack:langpack>", entries + "\n</izpack:langpack>"))
         }
-        logger.lifecycle("installer.xml: ${plugins.size} plugin selection packs + required plugin and managed fx payload packs")
+        logger.lifecycle("installer.xml: ${plugins.size} plugin selection packs + required plugin payload pack")
     }
 }
 

@@ -84,7 +84,6 @@ Section "-插件载荷" SecPluginPayload
     RMDir /r "$PLUGINSDIR\Turboism-plugin-plan"
   ${EndIf}
   Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256"
-  Delete "$PLUGINSDIR\Turboism-payload-manifests\payload-fx.sha256"
   RMDir "$PLUGINSDIR\Turboism-payload-manifests"
 SectionEnd
 
