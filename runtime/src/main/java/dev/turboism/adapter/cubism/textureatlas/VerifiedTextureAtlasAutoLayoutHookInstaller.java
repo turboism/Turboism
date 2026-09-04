@@ -81,7 +81,8 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
             algorithmRegistry, Objects.requireNonNull(effectiveLocale, "effectiveLocale")
         );
         this.dialogIngress = dialogContributor.ingress();
-        if (resolverForConstructor.isExactCubismVersion("5.3.02")) {
+        if (resolverForConstructor.isExactCubismVersion("5.3.02")
+            || resolverForConstructor.isExactCubismVersion("5.3.03")) {
             final StaticSelector statisticsEntry =
                 resolverForConstructor.verifiedSelector(STATISTICS_VIEW_INIT_ALIAS);
             this.statisticsIngress = editorUi.ingress();
@@ -108,7 +109,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param resolver the verified member resolver for the running Cubism version
      * @param hostClassLoader the loader that owns the host classes to transform
      * @return a configured, not-yet-installed hook installer
-     * @throws IllegalArgumentException if the host is not Cubism 5.3.02 or 5.2.0, if the
+     * @throws IllegalArgumentException if the host is not Cubism 5.3.03, 5.3.02 or 5.2.03, if the
      *                                  capability is not authorized, or if the verified
      *                                  automatic-layout selector is not a boolean-returning
      *                                  instance method
@@ -164,11 +165,11 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
     /**
      * Builds an installer from explicit collaborators and an explicit dialog locale.
      *
-     * <p>This is the verification gate for the whole feature: it admits exactly Cubism 5.3.02 and
-     * 5.2.0, checks the alias set for that version against the authorization contract, and
+     * <p>This is the verification gate for the whole feature: it admits exact Cubism 5.3.03,
+     * 5.3.02 and 5.2.03, checks the alias set for that version against the authorization contract, and
      * rejects a selector that is not a boolean-returning instance method. Nothing is instrumented
-     * until {@link #install()} is called. The statistics transformer exists only on 5.3.02; on
-     * 5.2.0 the editor UI ingress is still wired but no statistics class is transformed.
+     * until {@link #install()} is called. The statistics transformer exists on both 5.3 profiles; on
+     * 5.2.03 the editor UI ingress is still wired but no statistics class is transformed.
      *
      * @param instrumentation the JVM instrumentation used to retransform the host class
      * @param resolver the verified member resolver for the running Cubism version; must not be null
@@ -180,7 +181,7 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
      * @param algorithmRegistry supplies the layout algorithms offered in the injected dialog
      * @param effectiveLocale the locale the injected dialog labels use; must not be null
      * @return a configured, not-yet-installed hook installer
-     * @throws IllegalArgumentException if the host is neither Cubism 5.3.02 nor 5.2.0, if the
+     * @throws IllegalArgumentException if the host is not one of exact Cubism 5.3.03, 5.3.02 and 5.2.03, if the
      *                                  capability is not authorized for that adapter slice, or if
      *                                  the verified automatic-layout selector is not a
      *                                  boolean-returning instance method
@@ -199,7 +200,19 @@ public final class VerifiedTextureAtlasAutoLayoutHookInstaller implements AutoCl
         final VerifiedMemberResolver verified = Objects.requireNonNull(resolver, "resolver");
         final Set<String> aliases;
         final String adapterSliceId;
-        if (verified.isExactCubismVersion("5.3.02")) {
+        if (verified.isExactCubismVersion("5.3.03")) {
+            aliases = union(
+                union(
+                    union(
+                        VerifiedCubism5303TextureAtlasSelectorContract.AUTO_LAYOUT_HOOK_ALIASES,
+                        VerifiedCubism5303TextureAtlasSelectorContract.NATIVE_INVOCATION_ALIASES
+                    ),
+                    VerifiedCubism5303TextureAtlasSelectorContract.DIALOG_INJECTION_ALIASES
+                ),
+                VerifiedCubism5303TextureAtlasSelectorContract.STATISTICS_ALIASES
+            );
+            adapterSliceId = VerifiedCubism5303TextureAtlasSelectorContract.ADAPTER_SLICE_ID;
+        } else if (verified.isExactCubismVersion("5.3.02")) {
             aliases = union(
                 union(
                     union(
