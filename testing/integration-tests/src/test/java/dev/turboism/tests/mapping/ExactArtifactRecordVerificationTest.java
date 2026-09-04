@@ -8,6 +8,7 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.VerifiedProjectWorkspaceResolverFactory;
 import dev.turboism.mapping.verification.VerifiedTopMenuResolverFactory;
 import dev.turboism.mapping.verification.VerifiedWorkspaceControlResolverFactory;
+import dev.turboism.ui.overlay.BoundingBoxOverlayButtonUpdateTransformer;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
@@ -16,12 +17,14 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.charset.StandardCharsets;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 /**
  * Runs the complete production resolver workflow (record load, static selector verification
@@ -30,10 +33,9 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  *
  * <p>The exact artifacts are not committed to this repository. The test activates when
  * {@code TURBOISM_EXACT_ARTIFACTS_DIR} (or the {@code turboism.exactArtifactsDir} system
- * property) points at the reviewed reference {@code cubism-ref} root that contains the
- * {@code Cubism-5.2/jars} and {@code Cubism-5.3.02/jars} directories; it is skipped with a
- * documented reason otherwise. Skipping is not readiness: the authoritative exact-host gate
- * remains the reviewed real-host matrix.</p>
+ * property) points at a reviewed reference root containing versioned Cubism jars directories.
+ * directories. Skipping is not readiness: the authoritative exact-host gate remains the
+ * reviewed real-host matrix.</p>
  */
 class ExactArtifactRecordVerificationTest {
 
@@ -48,7 +50,7 @@ class ExactArtifactRecordVerificationTest {
         System.getProperty("projectRoot", System.getProperty("user.dir"))
     );
 
-    private static final Path RECORDS = PROJECT_ROOT.resolve("docs/migration/verification/static");
+    private static final Path RECORDS = PROJECT_ROOT.resolve("compatibility/cubism/verification");
 
     private record Slice(String recordFile, ResolverFactory factory) {
     }
@@ -89,6 +91,22 @@ class ExactArtifactRecordVerificationTest {
                 (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
             new Slice("cubism-5.3.02-workspace-control.json",
                 (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))
+        ),
+        "5.3.03", List.of(
+            new Slice("cubism-5.3.03-project-workspace.json",
+                (r, a, l) -> new VerifiedProjectWorkspaceResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-editor-model.json",
+                (r, a, l) -> new VerifiedEditorModelResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-ui-main-toolbar.json",
+                (r, a, l) -> new VerifiedMainToolbarResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-ui-embedded-panel.json",
+                (r, a, l) -> new VerifiedEmbeddedPanelResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-ui-top-menu.json",
+                (r, a, l) -> new VerifiedTopMenuResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-ui-bounding-box-overlay.json",
+                (r, a, l) -> new VerifiedBoundingBoxOverlayButtonResolverFactory().create(r, a, l)),
+            new Slice("cubism-5.3.03-workspace-control.json",
+                (r, a, l) -> new VerifiedWorkspaceControlResolverFactory().create(r, a, l))
         )
     );
 
@@ -114,9 +132,44 @@ class ExactArtifactRecordVerificationTest {
                     final VerifiedMemberResolver resolver = slice.factory()
                         .create(record, artifact, hostLoader);
                     assertNotNull(resolver, "resolver must be created for " + slice.recordFile());
+                    if (slice.recordFile().endsWith("-ui-bounding-box-overlay.json")) {
+                        verifyOverlayTransformation(hostLoader, resolver);
+                    }
                 }
             }
         }
+    }
+
+    private static void verifyOverlayTransformation(
+        final URLClassLoader hostLoader,
+        final VerifiedMemberResolver resolver
+    ) throws IOException {
+        final var update = resolver.verifiedSelector(
+            "cubism.ui-bounding-box-overlay.bounding-box.update"
+        );
+        final var setup = resolver.verifiedSelector(
+            "cubism.ui-bounding-box-overlay.bounding-box.setup-button"
+        );
+        final var times = resolver.verifiedSelector(
+            "cubism.ui-bounding-box-overlay.vector.times"
+        );
+        final var plus = resolver.verifiedSelector(
+            "cubism.ui-bounding-box-overlay.vector.plus"
+        );
+        final String classResource = update.ownerInternalName() + ".class";
+        final byte[] original;
+        try (var input = hostLoader.getResourceAsStream(classResource)) {
+            assertNotNull(input, "exact overlay owner bytes must be readable");
+            original = input.readAllBytes();
+        }
+        final byte[] transformed = new BoundingBoxOverlayButtonUpdateTransformer(
+            hostLoader, update, setup, times, plus
+        ).transform(null, hostLoader, update.ownerInternalName(), null, null, original);
+        assertNotNull(transformed, "exact overlay owner must match the reviewed native setup shape");
+        assertFalse(
+            new String(transformed, StandardCharsets.ISO_8859_1).contains("dev/turboism/"),
+            "transformed host bytecode must remain loader-neutral"
+        );
     }
 
     private static URLClassLoader hostClassLoader(final Path jars) throws IOException {
