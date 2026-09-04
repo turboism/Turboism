@@ -656,6 +656,29 @@ jobs:
           test "$(jq -r .version build/release-publisher/public-stable.json)" = "${TAG#v}"
           test "$(jq -r .releaseManifestSha256 build/release-publisher/public-stable.json)" = "$MANIFEST_SHA"
 
+      - name: Dispatch exact SDK documentation synchronization
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_RELEASE_DISPATCH_TOKEN }}
+          DOCS_REPOSITORY: ${{ vars.DOCS_REPOSITORY || 'turboism/turboism-docs' }}
+          SOURCE_SHA: ${{ needs.preflight.outputs.source_sha }}
+          SOURCE_RUN_ID: ${{ needs.preflight.outputs.run_id }}
+          SOURCE_RUN_ATTEMPT: ${{ needs.preflight.outputs.run_attempt }}
+          VERSION: ${{ steps.framework.outputs.version }}
+          TAG: ${{ steps.framework.outputs.tag }}
+        run: |
+          set -euo pipefail
+          test -n "$GH_TOKEN"
+          test -n "$DOCS_REPOSITORY"
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$TAG" = "v$VERSION"
+          gh api --method POST "repos/$DOCS_REPOSITORY/dispatches" \
+            -f event_type=sdk-release-published \
+            -f "client_payload[source_sha]=$SOURCE_SHA" \
+            -f "client_payload[source_run_id]=$SOURCE_RUN_ID" \
+            -f "client_payload[source_run_attempt]=$SOURCE_RUN_ATTEMPT" \
+            -f "client_payload[version]=$VERSION" \
+            -f "client_payload[tag]=$TAG"
+
   publish-plugin-pointer:
     needs: [preflight, publish-plugins, publish-framework]
     if: >-

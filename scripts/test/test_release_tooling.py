@@ -197,6 +197,25 @@ class ReleaseWorkflowTest(unittest.TestCase):
             r".*?build/windows-installer/staging",
         )
 
+    def test_release_stages_and_dispatches_exact_sdk_documentation(self):
+        workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        publisher = (ROOT / ".github/workflows/release-publisher.yml").read_text(encoding="utf-8")
+        fallback = (ROOT / ".github/workflows/release-github-only.yml").read_text(encoding="utf-8")
+        gradle = (ROOT / "gradle/sdk-docs.gradle.kts").read_text(encoding="utf-8")
+        verification = (ROOT / "gradle/verification.gradle.kts").read_text(encoding="utf-8")
+
+        self.assertIn('tasks.registering(Zip::class)', gradle)
+        self.assertIn('"sdkDocsBundle"', verification)
+        self.assertIn("build/release/sdk-docs", workflow)
+        self.assertIn("build/release/sdk-docs-bundle", workflow)
+        for dispatch_workflow in (publisher, fallback):
+            self.assertIn("DOCS_RELEASE_DISPATCH_TOKEN", dispatch_workflow)
+            self.assertIn("sdk-release-published", dispatch_workflow)
+            self.assertIn('client_payload[source_sha]', dispatch_workflow)
+            self.assertIn('client_payload[version]', dispatch_workflow)
+        self.assertIn("needs.preflight.outputs.source_sha", publisher)
+        self.assertIn("inputs.source_sha", fallback)
+
     def test_product_candidate_is_tag_only_and_can_publish_plugins_too(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
         self.assertNotIn("workflow_dispatch:", workflow)

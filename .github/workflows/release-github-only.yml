@@ -128,3 +128,33 @@ jobs:
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
           fi
           test "$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq .isDraft)" = false
+
+      - name: Dispatch exact SDK documentation synchronization
+        env:
+          GH_TOKEN: ${{ secrets.DOCS_RELEASE_DISPATCH_TOKEN }}
+          DOCS_REPOSITORY: ${{ vars.DOCS_REPOSITORY || 'turboism/turboism-docs' }}
+          SOURCE_SHA: ${{ inputs.source_sha }}
+          SOURCE_RUN_ID: ${{ inputs.candidate_run_id }}
+        run: |
+          set -euo pipefail
+          VERSION="$(python3 - <<'PY'
+          import re
+          from pathlib import Path
+          text = Path("gradle/common-java.gradle.kts").read_text(encoding="utf-8")
+          match = re.search(r'turboismFrameworkVersion"\]\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"', text)
+          if match is None:
+              raise SystemExit("framework version is unavailable")
+          print(match.group(1))
+          PY
+          )"
+          test -n "$GH_TOKEN"
+          test -n "$DOCS_REPOSITORY"
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test -n "$VERSION"
+          gh api --method POST "repos/$DOCS_REPOSITORY/dispatches" \
+            -f event_type=sdk-release-published \
+            -f "client_payload[source_sha]=$SOURCE_SHA" \
+            -f "client_payload[source_run_id]=$SOURCE_RUN_ID" \
+            -f "client_payload[source_run_attempt]=fallback" \
+            -f "client_payload[version]=$VERSION" \
+            -f "client_payload[tag]=v$VERSION"

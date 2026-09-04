@@ -134,6 +134,16 @@ Full automated verification for a coherent completed change:
 
 `checkCompletedCommit` includes ordinary tests, integration, documentation and metadata checks, API-tool selftests, and repository hygiene selftests. It is the normal completed-change gate.
 
+Generate and stage the public SDK reference independently:
+
+```bash
+./gradlew sdkDocs -PturboismRelease=true
+./gradlew verifySdkDocs -PturboismRelease=true
+./gradlew sdkDocsBundle -PturboismRelease=true
+```
+
+The staged site and immutable source metadata are written under `build/release/sdk-docs/`; the reproducible handoff archive is written under `build/release/sdk-docs-bundle/`. Release verification builds this handoff from the exact tagged source revision.
+
 Release-oriented verification:
 
 ```bash

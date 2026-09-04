@@ -755,6 +755,7 @@ tasks.register("checkRelease") {
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV5ExactApiCompatibility",
         "checkSdkV6ExactApiCompatibility",
+        "sdkDocsBundle",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",

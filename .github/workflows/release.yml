@@ -160,6 +160,8 @@ jobs:
             build/release-orchestrator/candidate.json
             build/release-orchestrator/framework-artifacts.json
             build/release-orchestrator/release-notes.md
+            build/release/sdk-docs
+            build/release/sdk-docs-bundle
           retention-days: 7
           if-no-files-found: error
 

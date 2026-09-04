@@ -3,29 +3,43 @@ package dev.turboism.sdk.cubism;
 import java.util.Optional;
 
 /**
- * Shared active-document projection helpers.
+ * Projection helpers for deriving typed active-document views from SDK snapshots.
  *
- * <p>Internal contract helpers used by {@link CubismFacade} and
- * {@link dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService}
- * default methods so the derived-read logic has a single source of truth.
- * Not part of the stable plugin API surface.</p>
+ * <p>These methods preserve empty-state semantics while avoiding repeated
+ * snapshot navigation in plugins and SDK default methods.</p>
  */
 public final class ActiveReadProjections {
 
     private ActiveReadProjections() {
     }
 
-    /** Animation file owning the active ANIMATION_SCENE document, when present. */
+    /**
+     * Resolves the animation owned by an active animation-scene document.
+     *
+     * @param document active document snapshot, when available
+     * @return the owning animation snapshot, or empty when the document is absent or not an animation scene
+     */
     public static Optional<AnimationSnapshot> animationOf(final Optional<DocumentSnapshot> document) {
         return document.flatMap(DocumentSnapshot::animation);
     }
 
-    /** The active document only when it is a layered image/PSD document. */
+    /**
+     * Restricts the active document to layered image and PSD document kinds.
+     *
+     * @param document active document snapshot, when available
+     * @return the image document, or empty when the document is absent or has another kind
+     */
     public static Optional<DocumentSnapshot> imageDocumentOf(final Optional<DocumentSnapshot> document) {
         return document.filter(DocumentSnapshot::isImageDocument);
     }
 
-    /** Project entry owning the active document, when both are present and linked. */
+    /**
+     * Resolves the project entry that owns the active document.
+     *
+     * @param project active project snapshot, when available
+     * @param document active document snapshot, when available
+     * @return the owning project entry, or empty when either snapshot or their link is absent
+     */
     public static Optional<ProjectContentSnapshot> projectContentOf(
         final Optional<ProjectSnapshot> project,
         final Optional<DocumentSnapshot> document

@@ -112,6 +112,10 @@ python3 scripts/release/verify-release.py \
   --windows-stage build/windows-installer/staging
 ```
 
+`checkRelease` also runs `sdkDocsBundle`, which stages Javadoc plus the exact source SHA and framework version under `build/release/sdk-docs/` and creates a reproducible archive under `build/release/sdk-docs-bundle/`. The candidate workflow retains both in its audit artifact; they are not added to the fixed eight GitHub Release assets.
+
+After the framework release and stable pointer are publicly verified, the protected publisher dispatches `sdk-release-published` to `turboism/turboism-docs`. The payload binds documentation generation to the released source SHA, tag, and version. The fallback GitHub-only publisher performs the same dispatch.
+
 Release notes are always extracted from the exact version section of `CHANGELOG.md`.
 
 ## Credentials and repository hygiene
@@ -119,3 +123,5 @@ Release notes are always extracted from the exact version section of `CHANGELOG.
 Core release behavior belongs in tracked scripts, tests, and workflows. Do not place release decisions or credentials in `AGENTS.md`, `.claude/`, local specifications, or operator prompts. Optional user-level automation may only invoke this CLI.
 
 The framework workflow never receives the Plugin Directory signing key or Cloudflare credentials. The signing key remains in the Plugin Directory signing environment; Cloudflare credentials remain in the Updates service environment.
+
+The protected publisher requires `DOCS_RELEASE_DISPATCH_TOKEN` with permission to dispatch workflows in `turboism/turboism-docs`. `DOCS_REPOSITORY` may override that repository through an Actions variable. The token is used only after public release verification and is never exposed to candidate builds.
