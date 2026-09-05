@@ -17,6 +17,8 @@ import java.util.concurrent.atomic.AtomicLong;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorHistorySnapshotProviderTest {
@@ -48,6 +50,7 @@ class EditorHistorySnapshotProviderTest {
         assertFalse(first.managerBindingId().isBlank());
         assertTrue(provider.isCurrentBinding(first));
         assertEquals(first.revision(), same.revision());
+        assertSame(first, same, "unchanged history should reuse its immutable projection");
         assertEquals(first.revision() + 1, undone.revision());
         assertFalse(undone.canUndo());
         assertTrue(undone.canRedo());
@@ -103,6 +106,45 @@ class EditorHistorySnapshotProviderTest {
         assertTrue(entryId.startsWith("history-entry-"));
         assertEquals(entryId, enriched.entries().get(0).entryId().orElseThrow().value());
         assertEquals("transaction-1", enriched.entries().get(0).transactionId().orElseThrow());
+    }
+
+    @Test
+    void mutableLabelsAndSameSizedHistoryReplacementStillAdvanceRevision() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Before", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        final var provider = new EditorHistorySnapshotProvider(() -> Optional.of(resolver()), () -> 1);
+        final var before = provider.snapshot();
+        entry.label = "After";
+        final var renamed = provider.snapshot();
+        assertEquals("Before", before.entries().get(0).label());
+        assertEquals("After", renamed.entries().get(0).label());
+        assertEquals(before.revision() + 1, renamed.revision());
+        manager.entries.set(0, new Entry("After", true));
+        final var replaced = provider.snapshot();
+        assertNotEquals(renamed.entries().get(0).entryId(), replaced.entries().get(0).entryId());
+        assertEquals(renamed.revision() + 1, replaced.revision());
+        assertSame(replaced, provider.snapshot());
+    }
+
+    @Test
+    void metadataReusesImmutableValuesAndNeverUsesNativeEquality() {
+        final Object first = new Object() {
+            @Override public int hashCode() { throw new AssertionError("native hashCode"); }
+            @Override public boolean equals(final Object other) { throw new AssertionError("native equals"); }
+        };
+        final Object second = new Object();
+        final var original = EditorHistoryMetadataRegistry.metadata(first);
+        assertSame(original, EditorHistoryMetadataRegistry.metadata(first));
+        assertNotEquals(original.entryId(), EditorHistoryMetadataRegistry.metadata(second).entryId());
+        EditorHistoryMetadataRegistry.registerTransaction(first, "transaction-updated");
+        final var updated = EditorHistoryMetadataRegistry.metadata(first);
+        assertEquals(original.entryId(), updated.entryId());
+        assertEquals(Optional.empty(), original.transactionId());
+        assertEquals(Optional.of("transaction-updated"), updated.transactionId());
+        assertSame(updated, EditorHistoryMetadataRegistry.metadata(first));
     }
 
     @Test
@@ -373,7 +415,7 @@ class EditorHistorySnapshotProviderTest {
     }
 
     public static final class Entry {
-        private final String label;
+        private String label;
         private final boolean significant;
         Entry(final String label, final boolean significant) {
             this.label = label;
