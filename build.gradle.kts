@@ -69,6 +69,7 @@ apply(from = "gradle/runtime-verification.gradle.kts")
 apply(from = "gradle/sdk-api.gradle.kts")
 apply(from = "gradle/distribution-preview.gradle.kts")
 apply(from = "gradle/verification.gradle.kts")
+apply(from = "gradle/image-archive-validation.gradle.kts")
 apply(from = "packaging/java-installer/installer.gradle.kts")
 
 // ---------------------------------------------------------------------------
