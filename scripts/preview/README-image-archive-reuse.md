@@ -1,6 +1,6 @@
 # Native PNG archive reuse (experimental)
 
-**Status: implemented and offline-tested, but not real-host validated.** The attempted official-runner launch was blocked by the execution tool. No Cubism process was started for this change, and no real performance gain has been measured. Keep the feature disabled for ordinary work until exact-host validation succeeds.
+**Status: exact-host controlled validation passed on 2026-09-05; still experimental, not validated for ordinary work.** Two complete isolated official Editor runs demonstrated decode/archive round trips and controlled savings. A 660-second passive initial-load/idle window observed two archive checks but **zero reuse selections**. Do not infer everyday UI, FPS or retained-memory improvements from the forced-cycle results.
 
 ## Scope and activation
 
@@ -36,12 +36,35 @@ The optional actual-JAR transformation test accepts the local test JVM property 
 
 `buildImageArchiveHostProbe` builds `build/image-archive-host-validation-exerciser.jar`. `checkImageArchiveValidationBundle` checks that the production agent contains the optimization and excludes this auxiliary agent.
 
-## Pending exact-host validation
+## Exact-host validation and current limitations
 
-The feature wrapper is `scripts/preview/run-image-archive-host-validation.sh`, which delegates all identity checks, official BAT launch, task-local prefix/home/fixture handling and cleanup to the existing generic runner. It uses the standard ignored `.env` configuration; an isolated worktree can use `TURBOISM_ENV_FILE` to point to its operator-selected configuration. `--dry-run` checks setup without starting the host. Do not bypass an execution-tool denial through another launch mechanism.
+The feature wrapper is `scripts/preview/run-image-archive-host-validation.sh`; it delegates identity checks, official BAT launch, task-local CoW prefix/home/fixture and cleanup to the generic runner. Configuration comes from the ignored `.env`, or the operator-selected `TURBOISM_ENV_FILE`. When running directly on the Cubism machine, explicitly select `--transport local`: no SSH credentials or network transport are used. SSH remains the default for remote operators; local execution is never an automatic authentication fallback.
 
-The validator performs alternating disabled/enabled decode-plus-archive measurements, includes fingerprint cost, checks a synthetic alpha image and up to two images from the active fixture, tests raw pixel mutation and normal invalidation, and checks decoded-image release and pixel round trips. Where supported it measures per-thread CPU time and cumulative temporary allocation, which are not peak or retained memory measurements.
+```sh
+# Build first using the commands above. All commands below run from this worktree.
+TURBOISM_ENV_FILE=/path/to/operator.env \
+  bash scripts/preview/run-image-archive-host-validation.sh png-r1 --transport local --dry-run
+TURBOISM_ENV_FILE=/path/to/operator.env \
+  bash scripts/preview/run-image-archive-host-validation.sh png-r1 --transport local
+# Optional passive observation BEFORE any validator-driven image access or archive:
+TURBOISM_ENV_FILE=/path/to/operator.env \
+  bash scripts/preview/run-image-archive-host-validation.sh png-idle --transport local \
+  --jvm-option '-Dturboism.validation.imageArchive.naturalIdleSeconds=660' --result-timeout 900
+```
 
-It also disables the feature and verifies original class bytes are restored before attempting a normal task-window close. The runner separately checks process termination and unchanged source/fixture hashes. Results are in the task-local `state/image-archive/result.properties`, with intermediate progress in `progress.properties`.
+This machine runs the reviewed 5.3.02 JAR (`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`), bundled Windows Java `17.0.3.1+2-LTS`, through DW-Proton 11.0-9, with Mesa Intel UHD 630 rendering. The fixture source SHA-256 is `57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4`. These are Proton results, not native Windows results.
 
-A PASS result alone checks behavior; measured benefit must also be reviewed, including the added initial decode cost. Until both the actual-host checks and performance review pass, this is an experimental candidate, not a ready-to-enable optimization.
+Complete runs, each using the same production agent with alternating property off/on:
+
+| Run | Real fixture image | Off/on median decode + archive | Off/on median thread allocation | Reuse selections |
+| --- | --- | --- | --- | --- |
+| `pi-local-r2-20260905T062004Z-1758975` | 1000 x 1000, 8 pairs | 85.214 / 57.761 ms | 20,721,008 / 12,218,472 bytes | 26 including synthetic checks |
+| `pi-local-natural-r4-20260905T062725Z-1771260` | 1000 x 1000, 8 pairs | 81.303 / 55.139 ms | 20,721,128 / 12,218,552 bytes | 26 including synthetic checks |
+
+The 1024 x 1024 synthetic image used 12 pairs per run. The real fixture has seven model images; only one satisfied this validator's size selection. Each measured operation includes native decoding and the added fingerprint work as well as archive. The validator actively invokes these operations: **controlled forced-cycle benchmark**, not a native UI interaction benchmark. Allocation is cumulative allocation on the executing thread, not peak/retained memory. CPU timing is coarse on this Windows JVM. Schema 2 retains ordered off/on wall/CPU/allocation samples rather than only sorted aggregates. No official-without-Turboism baseline, GPU timing, upload-byte measurement or whole-application latency comparison exists yet.
+
+Both complete runs verified unmodified pixels, raw-pixel mutation fallback, `setUpdated` invalidation, live disable, decoded-image release, zero callback failures, callback removal and original class-byte restoration. The runner verified unchanged source/fixture and official JAR/BAT hashes and normal launcher exit. Results are local under `build/host-validation/image-archive-reuse/5302/image-archive-reuse-5302-<run>/`; `result/result.properties` is the auxiliary result and `final-hashes.properties` contains the runner identity/exit evidence. The passive window in r4 had 2 archive checks, 0 decode observations and 0 reuse selections; native timers were not altered.
+
+Failure evidence is retained, not relabeled: `pi-local-r1-20260905T061649Z-1753195` produced a passing Windows CRLF result but the runner failed to recognize its exact terminal line. A regression-tested line-ending fix preceded r2. `pi-local-natural-r3-20260905T062530Z-1767117` exited before readiness, with no terminal validation result; its startup failure remains unexplained. The same configuration passed in r4. A crash log inherited from the golden prefix dated August 3 is not evidence of a crash in this run.
+
+Still required before normal-use readiness: repeatable benefit in a representative native UI workflow, saved/reopened/exported image equivalence and Undo/Redo coverage, full failure/lifecycle review, native Windows verification if claimed, and attribution of subsequent atlas/upload/model-update hotspots. These are not covered merely because the hook leaves authoring code unchanged. Keep the product opt-in experimental and off by default. Local transport and terminal parsing are usable runner improvements, not native-performance optimizations themselves.
