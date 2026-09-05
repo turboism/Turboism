@@ -197,7 +197,20 @@ final class CubismEditorApiAvailabilityInterceptor {
             return ((Optional<?>) value).map(item -> wrapValue(item, types[0]));
         }
         if (raw == List.class || raw == Collection.class) {
-            return ((Collection<?>) value).stream().map(item -> wrapValue(item, types[0])).toList();
+            final Collection<?> source = (Collection<?>) value;
+            ArrayList<Object> mapped = null;
+            int index = 0;
+            for (Object item : source) {
+                final Object wrapped = wrapValue(item, types[0]);
+                if (wrapped != item) {
+                    if (mapped == null) mapped = new ArrayList<>(source);
+                    mapped.set(index, wrapped);
+                }
+                index++;
+            }
+            // Preserve immutable value/snapshot caches when there is nothing to proxy.
+            // Lists containing restricted SDK objects still get a wrapped, read-only copy.
+            return mapped == null ? value : Collections.unmodifiableList(mapped);
         }
         if (raw == Set.class) {
             final LinkedHashSet<Object> mapped = new LinkedHashSet<>();

@@ -640,6 +640,92 @@ class PaletteFilterHostOperationsTest {
         assertTrue(sibling.isVisible());
     }
 
+    @Test
+    void matchingEveryParameterUsesLinearRowVisits() {
+        final java.util.List<PaletteFilterHostOperations.ParameterFilterRow> values = new java.util.ArrayList<>();
+        final JPanel root = new JPanel();
+        for (int i = 0; i < 128; i++) {
+            final JPanel row = new JPanel();
+            root.add(row);
+            values.add(new PaletteFilterHostOperations.ParameterFilterRow(row, "Param" + i, false));
+        }
+        final java.util.concurrent.atomic.AtomicInteger visits = new java.util.concurrent.atomic.AtomicInteger();
+        final List<PaletteFilterHostOperations.ParameterFilterRow> counted = new java.util.AbstractList<>() {
+            @Override public PaletteFilterHostOperations.ParameterFilterRow get(final int index) {
+                visits.incrementAndGet();
+                return values.get(index);
+            }
+            @Override public int size() { return values.size(); }
+        };
+        onEdt(() -> PaletteFilterHostOperations.applyParameterRows(counted, java.util.Map.of(), "Param"));
+        assertTrue(visits.get() <= 4 * values.size(), "row visits=" + visits.get());
+        assertTrue(values.stream().allMatch(row -> row.component().isVisible()));
+    }
+
+    @Test
+    void unchangedParameterVisibilityDoesNotRequestLayoutOrPaint() {
+        final CountingParent parent = new CountingParent();
+        final JPanel row = new JPanel();
+        parent.add(row);
+        final var rows = List.of(new PaletteFilterHostOperations.ParameterFilterRow(row, "ParamA", false));
+        onEdt(() -> {
+            parent.layouts = 0;
+            parent.paints = 0;
+            for (int i = 0; i < 10; i++) {
+                PaletteFilterHostOperations.applyParameterRows(rows, java.util.Map.of(row, true), "");
+            }
+            assertEquals(0, parent.layouts);
+            assertEquals(0, parent.paints);
+        });
+    }
+
+    @Test
+    void unchangedFilterStillDetectsReparentingLabelChangesAndExternalVisibility() {
+        onEdt(() -> {
+            final JPanel root = new JPanel();
+            final JPanel first = new JPanel();
+            final JPanel second = new JPanel();
+            final JPanel child = new JPanel();
+            root.add(first);
+            root.add(second);
+            first.add(child);
+            final var state = new PaletteFilterHostOperations.PaletteFilterState(
+                PaletteFilterHostOperations.PaletteKind.PARAMETER);
+            state.rows = List.of(
+                new PaletteFilterHostOperations.ParameterFilterRow(first, "first", true),
+                new PaletteFilterHostOperations.ParameterFilterRow(second, "second", true),
+                new PaletteFilterHostOperations.ParameterFilterRow(child, "needle", false));
+            state.rows.forEach(row -> state.originalRowVisibility.put(row.component(), true));
+            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            assertTrue(first.isVisible());
+            assertFalse(second.isVisible());
+            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            second.add(child);
+            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            assertFalse(first.isVisible());
+            assertTrue(second.isVisible());
+            child.setVisible(false);
+            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            assertTrue(child.isVisible());
+            state.rows = List.of(state.rows.get(0), state.rows.get(1),
+                new PaletteFilterHostOperations.ParameterFilterRow(child, "renamed", false));
+            PaletteFilterHostOperations.applyParameterFilter(state, "needle");
+            assertFalse(child.isVisible());
+            assertFalse(second.isVisible());
+            PaletteFilterHostOperations.applyParameterFilter(state, "");
+            assertTrue(first.isVisible());
+            assertTrue(second.isVisible());
+            assertTrue(child.isVisible());
+        });
+    }
+
+    private static final class CountingParent extends JPanel {
+        private int layouts;
+        private int paints;
+        @Override public void revalidate() { layouts++; }
+        @Override public void repaint() { paints++; }
+    }
+
     private static final class DeformerNode extends javax.swing.tree.DefaultMutableTreeNode {
         private final DeformerSource hSource;
         private final DeformerSource iSource;
