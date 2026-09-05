@@ -63,6 +63,9 @@ public final class ImageArchiveReuseHostAgent {
             pngField=field(resourceType,"imageFileBuf");
             Object diagnostics=System.getProperties().get(STATS);
             require(diagnostics instanceof Supplier<?>,"production optimization not installed"); stats=(Supplier<?>)diagnostics;
+            RESULT.setProperty("schemaVersion","2");
+            RESULT.setProperty("benchmarkScenario","controlled-forced-decode-archive");
+            observeNaturalIdle(home);
             long beforeReuse=count("reused");
             phase(home,"synthetic-roundtrip-and-timing");
             ownedImageChecks(1024,home);
@@ -95,6 +98,29 @@ public final class ImageArchiveReuseHostAgent {
             root.printStackTrace(System.err);
             try{store(result,RESULT);}catch(Exception ignored){ /* runner treats a missing result as failure */ }
         }
+    }
+
+    /** Passive initial-load/idle observation: never calls getImage/archive or changes native timers. */
+    private static void observeNaturalIdle(Path home) throws Exception {
+        int seconds = Integer.getInteger("turboism.validation.imageArchive.naturalIdleSeconds",0);
+        require(seconds >= 0 && seconds <= 1200,"natural idle window must be between 0 and 1200 seconds");
+        RESULT.setProperty("naturalIdle.seconds",Integer.toString(seconds));
+        if (seconds == 0) {
+            RESULT.setProperty("naturalIdle.status","NOT_MEASURED");
+            return;
+        }
+        long beforeReuse=count("reused"), beforeChecks=count("archiveChecks"), beforeDecode=count("decodeObservations");
+        long start=System.nanoTime(), deadline=start+seconds*1_000_000_000L;
+        phase(home,"passive-native-idle");
+        while (System.nanoTime()<deadline) {
+            Thread.sleep(Math.min(1000,Math.max(1,(deadline-System.nanoTime())/1_000_000L)));
+        }
+        RESULT.setProperty("naturalIdle.elapsedNs",Long.toString(System.nanoTime()-start));
+        RESULT.setProperty("naturalIdle.reuseSelections",Long.toString(count("reused")-beforeReuse));
+        RESULT.setProperty("naturalIdle.archiveChecks",Long.toString(count("archiveChecks")-beforeChecks));
+        RESULT.setProperty("naturalIdle.decodeObservations",Long.toString(count("decodeObservations")-beforeDecode));
+        RESULT.setProperty("naturalIdle.status","OBSERVED");
+        phase(home,"passive-native-idle-complete");
     }
 
     private static void ownedImageChecks(int size,Path home) throws Exception {
@@ -169,6 +195,7 @@ public final class ImageArchiveReuseHostAgent {
     private static void benchmark(Object resource,String prefix,int pairs,Path home) throws Exception {
         for(int i=0;i<4;i++) {System.setProperty(ENABLE,Boolean.toString((i&1)!=0));getImage.invoke(resource);archive.invoke(resource);}
         List<Long> baseline=new ArrayList<>(),optimized=new ArrayList<>();
+        StringBuilder orderedSamples=new StringBuilder();
         List<Long> baselineCpu=new ArrayList<>(),optimizedCpu=new ArrayList<>();
         List<Long> baselineBytes=new ArrayList<>(),optimizedBytes=new ArrayList<>();
         for(int i=0;i<pairs;i++) for(int phase=0;phase<2;phase++) {
@@ -178,11 +205,15 @@ public final class ImageArchiveReuseHostAgent {
             long start=System.nanoTime();getImage.invoke(resource);archive.invoke(resource);long elapsed=System.nanoTime()-start;
             long cpu=threadMetrics==null?0:threadMetrics.getCurrentThreadCpuTime()-cpuBefore;
             long allocated=threadMetrics==null?0:threadMetrics.getThreadAllocatedBytes(Thread.currentThread().getId())-allocatedBefore;
+            if (orderedSamples.length()>0) orderedSamples.append(';');
+            orderedSamples.append(enabled?"on":"off").append(',').append(elapsed)
+                .append(',').append(cpu).append(',').append(allocated);
             (enabled?optimizedCpu:baselineCpu).add(cpu);(enabled?optimizedBytes:baselineBytes).add(allocated);
             require(decodedField.get(resource)==null,"native archive no longer releases decoded image");
             require(pngField.get(resource) instanceof byte[],"native archive did not preserve encoded representation");
             (enabled?optimized:baseline).add(elapsed);
         }
+        RESULT.setProperty(prefix+".orderedSamples.mode-wallNs-cpuNs-allocatedBytes",orderedSamples.toString());
         baseline.sort(Long::compare);optimized.sort(Long::compare);
         baselineCpu.sort(Long::compare);optimizedCpu.sort(Long::compare);
         baselineBytes.sort(Long::compare);optimizedBytes.sort(Long::compare);
