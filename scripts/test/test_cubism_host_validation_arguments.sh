@@ -165,4 +165,6 @@ if '"${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[1
     raise SystemExit(1)
 PY
 
+bash "$script_dir/test_cubism_host_validation_local_transport.sh"
+python3 "$script_dir/test_cubism_host_validation_result.py"
 echo 'PASS: Cubism host-validation argument hardening'

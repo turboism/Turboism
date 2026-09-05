@@ -65,6 +65,7 @@ Common options:
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
+  --transport <ssh|local, default ssh>      local runs on this machine without SSH credentials
   --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
   --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
   --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
@@ -208,6 +209,7 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
+transport=ssh
 ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
 ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
 golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
@@ -257,6 +259,7 @@ while [ "$#" -gt 0 ]; do
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
+    --transport) require_value "$@"; transport="$2"; shift 2 ;;
     --ssh-host) require_value "$@"; ssh_host="$2"; shift 2 ;;
     --ssh-key) require_value "$@"; ssh_key="$2"; shift 2 ;;
     --golden-prefix) require_value "$@"; golden_prefix="$2"; shift 2 ;;
@@ -275,8 +278,14 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
-[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
-[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+case "$transport" in
+  ssh)
+    [ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
+    [ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+    ;;
+  local) ssh_host=local; ssh_key='' ;;
+  *) fail "unsupported transport: $transport (expected ssh or local)" ;;
+esac
 [ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
 [ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
 [ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
@@ -522,6 +531,7 @@ local_evidence_dir="${local_evidence_dir:-$repo_root/build/host-validation/$name
 if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
+    "transport=$transport" \
     "version=$version" \
     "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
@@ -604,10 +614,15 @@ if [ "$dry_run" = 1 ]; then
   exit 0
 fi
 
-[ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
-
-ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
-scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
+if [[ "$transport" == local ]]; then
+  source "$repo_root/scripts/preview/host-validation-local-transport.sh"
+  ssh_cmd=(host_validation_local_shell)
+  scp_cmd=(host_validation_local_copy)
+else
+  [ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
+  ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
+  scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
+fi
 local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
@@ -801,7 +816,19 @@ result_file_contains() {
   remote_args_bash "$home_dir/$relative" "$line" <<'REMOTE'
 set -euo pipefail
 remote_args
-[ -f "${REMOTE_ARGS[0]}" ] && grep -Fxq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
+[ -f "${REMOTE_ARGS[0]}" ] || exit 1
+# Properties.store on Windows emits CRLF. Normalize only the line ending,
+# retaining exact marker matching (not whitespace/substrings or embedded CRs).
+python3 - "${REMOTE_ARGS[0]}" "${REMOTE_ARGS[1]}" <<'PY'
+import os
+import sys
+with open(sys.argv[1], 'rb') as result:
+    for line in result:
+        line = line.removesuffix(b'\n').removesuffix(b'\r')
+        if line == os.fsencode(sys.argv[2]):
+            sys.exit(0)
+sys.exit(1)
+PY
 REMOTE
 }
 
@@ -939,7 +966,7 @@ on_exit() {
 }
 trap on_exit EXIT
 
-log "preflight exact host identity"
+log "preflight exact host identity (transport=$transport)"
 identity_before="$local_tmp/identity-before.properties"
 "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$golden_cubism' '$reviewed_jar_sha256' '$fixture_remote' '$fixture_sha256' '$golden_prefix' '$task_id'" > "$identity_before" <<'REMOTE'
 set -euo pipefail
