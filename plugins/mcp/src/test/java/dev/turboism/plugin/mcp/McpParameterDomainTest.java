@@ -98,6 +98,17 @@ final class McpParameterDomainTest {
     }
 
     @Test
+    void fullParameterProjectionUsesBulkCollectionsInsteadOfRepeatedIdLookups() {
+        final FakeModel model = new FakeModel();
+        for (int i = 0; i < 100; i++) model.add("Param" + i, "P" + i, i, 0, 100, ParameterType.NORMAL);
+        final var resource = domain(model).read(McpParameterDomain.PARAMETERS_URI);
+        assertEquals(100, list(resource.get("parameters")).size());
+        assertEquals("Param99", object(list(resource.get("parameters")).get(99)).get("id"));
+        assertEquals(0, model.findCalls, "a full read already has the parameter references");
+        assertEquals(1, model.definitionAllCalls, "definitions are joined once per bulk read");
+    }
+
+    @Test
     void parameterResourceTemplatesReadDetailAndBindingsThroughCatalog() {
         final FakeModel model = new FakeModel();
         model.add("Param A+B", "Encoded", 2, 0, 10, ParameterType.NORMAL);
@@ -655,6 +666,8 @@ final class McpParameterDomainTest {
     private static final class FakeModel implements CubismModel {
         private final LinkedHashMap<String, FakeParameter> values = new LinkedHashMap<>();
         private final List<String> order = new ArrayList<>();
+        private int findCalls;
+        private int definitionAllCalls;
         private int createManyCalls;
         private int removeManyCalls;
         private int bindCalls;
@@ -672,6 +685,7 @@ final class McpParameterDomainTest {
             return new Parameters() {
                 @Override public List<Parameter> all() { return order.stream().map(values::get).map(value -> (Parameter) value).toList(); }
                 @Override public Parameter find(final ParameterId id) {
+                    findCalls++;
                     final FakeParameter result = values.get(id.value());
                     if (result == null) throw new NoSuchElementException(id.value());
                     return result;
@@ -700,7 +714,10 @@ final class McpParameterDomainTest {
         }
         @Override public ParameterDefinitions parameterDefinitions() {
             return new ParameterDefinitions() {
-                @Override public List<ParameterDefinition> all() { return order.stream().map(id -> values.get(id).definition).toList(); }
+                @Override public List<ParameterDefinition> all() {
+                    definitionAllCalls++;
+                    return order.stream().map(id -> values.get(id).definition).toList();
+                }
                 @Override public ParameterDefinition find(final ParameterId id) { return ((FakeParameter) parameters().find(id)).definition; }
             };
         }
