@@ -15,7 +15,12 @@ public enum PerformanceProbeMetric {
     SCENE_TRAVERSAL(16),
     RENDERER_DISPATCH(64),
     UPDATE_MODEL_INSTANCES(1),
-    REINIT_MODEL_INSTANCE_EXE(1);
+    REINIT_MODEL_INSTANCE_EXE(1),
+    IMAGE_DECODE(1),
+    PNG_ENCODE(1),
+    IMAGE_ARCHIVE(1),
+    ATLAS_REBUILD(1),
+    TEXTURE_REDRAW(1);
 
     private static final PerformanceProbeMetric[] ALL = values();
 

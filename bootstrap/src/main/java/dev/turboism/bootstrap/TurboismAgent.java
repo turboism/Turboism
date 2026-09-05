@@ -734,7 +734,8 @@ public final class TurboismAgent {
                 instrumentation,
                 host.artifact(),
                 host.classLoader(),
-                options.home().resolve("lib/performance-probe-carrier.jar")
+                options.home().resolve("lib/performance-probe-carrier.jar"),
+                options.performanceProbeScenario()
             );
             installer.install(
                 options.performanceProbeCapture(),

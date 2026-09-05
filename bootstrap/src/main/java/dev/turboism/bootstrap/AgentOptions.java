@@ -135,8 +135,9 @@ record AgentOptions(
         detectionTimeout = Objects.requireNonNull(detectionTimeout, "detectionTimeout");
         performanceProbeOutput = Objects.requireNonNull(performanceProbeOutput, "performanceProbeOutput");
         performanceProbeScenario = Objects.requireNonNull(performanceProbeScenario, "performanceProbeScenario");
-        if (!performanceProbeScenario.equals("camera") && !performanceProbeScenario.equals("edit")) {
-            throw new IllegalArgumentException("performanceProbeScenario must be camera or edit");
+        if (!performanceProbeScenario.equals("camera") && !performanceProbeScenario.equals("edit")
+            && !performanceProbeScenario.equals("images")) {
+            throw new IllegalArgumentException("performanceProbeScenario must be camera, edit or images");
         }
         performanceProbeAgentSha256 = Objects.requireNonNull(performanceProbeAgentSha256, "performanceProbeAgentSha256");
         performanceProbeFixtureSha256 = Objects.requireNonNull(performanceProbeFixtureSha256, "performanceProbeFixtureSha256");

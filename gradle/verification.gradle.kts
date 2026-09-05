@@ -718,6 +718,17 @@ tasks.register("checkIntegration") {
     )
 }
 
+val checkPerformanceProbeReports by tasks.registering(Exec::class) {
+    group = "verification"
+    description = "Checks legacy and image-pipeline diagnostic evidence without launching Cubism."
+    workingDir(rootDir)
+    inputs.files(
+        "scripts/preview/verify-cubism-performance-probe.py",
+        "scripts/test/test_image_performance_probe.py"
+    )
+    commandLine("python3", "-m", "unittest", "-v", "scripts/test/test_image_performance_probe.py")
+}
+
 val ordinaryTestTasks = subprojects
     .filter { it.tasks.findByName("test") != null }
     .map { "${it.path}:test" }
@@ -736,6 +747,7 @@ val checkCompletedCommit by tasks.registering {
         checkCodeQualitySelfTest,
         checkRemoteHygieneSelfTest,
         checkPluginEventReference,
+        checkPerformanceProbeReports,
         "generateSdkApiReport"
     )
 }
