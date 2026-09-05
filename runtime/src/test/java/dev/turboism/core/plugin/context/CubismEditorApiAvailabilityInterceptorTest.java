@@ -27,6 +27,37 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class CubismEditorApiAvailabilityInterceptorTest {
 
     @Test
+    void immutableAvailabilityResolutionIsReusedButActiveVersionIsAlwaysRechecked() throws Exception {
+        final var method = Example.class.getMethod("only5302");
+        assertSame(CubismEditorAvailabilityPolicy.resolve(method), CubismEditorAvailabilityPolicy.resolve(method));
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final AtomicInteger calls = new AtomicInteger();
+        final var interceptor = new CubismEditorApiAvailabilityInterceptor(version::get);
+        final Example proxy = interceptor.wrapForTesting(new ExampleImpl(calls), Example.class);
+        proxy.only5302();
+        version.set(Optional.of("5.2.03"));
+        assertThrows(CubismEditorApiUnavailableException.class, proxy::only5302);
+        version.set(Optional.empty());
+        assertThrows(CubismEditorApiUnavailableException.class, proxy::only5302);
+        version.set(Optional.of("5.3.02"));
+        proxy.only5302();
+        assertEquals(2, calls.get());
+    }
+
+    @Test
+    void unchangedValueListsPreserveTheProvidersCachedIdentity() {
+        final List<String> values = List.of("first", "second");
+        final ValueList proxy = proxy((ValueList) () -> values, ValueList.class, Optional.of("5.3.02"));
+        assertSame(values, proxy.values());
+        assertSame(proxy.values(), proxy.values());
+    }
+
+    @CubismEditor("5.3.02")
+    interface ValueList {
+        List<String> values();
+    }
+
+    @Test
     void reviewed5303IdentityEntersTheSdkAvailabilitySet() {
         assertEquals(
             List.of("5.2.03", "5.3.02", "5.3.03"),

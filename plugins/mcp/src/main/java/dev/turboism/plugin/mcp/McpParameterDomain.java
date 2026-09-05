@@ -638,8 +638,13 @@ final class McpParameterDomain {
     }
 
     private static Map<String, Object> parameter(final CubismModel model, final ParameterId id) {
-        final Parameter value = model.parameters().find(id);
-        final ParameterDefinition definition = model.parameterDefinitions().find(id);
+        return parameter(model.parameters().find(id), model.parameterDefinitions().find(id));
+    }
+
+    private static Map<String, Object> parameter(
+        final Parameter value,
+        final ParameterDefinition definition
+    ) {
         return linked(
             entry("id", value.id().value()),
             entry("name", definition.name()),
@@ -653,7 +658,23 @@ final class McpParameterDomain {
     }
 
     private static List<Map<String, Object>> parameters(final CubismModel model) {
-        return model.parameters().all().stream().map(value -> parameter(model, value.id())).toList();
+        final List<Parameter> values = model.parameters().all();
+        final Map<ParameterId, ParameterDefinition> definitions = new LinkedHashMap<>();
+        for (ParameterDefinition definition : model.parameterDefinitions().all()) {
+            definitions.putIfAbsent(definition.id(), definition);
+        }
+        final Map<ParameterId, Parameter> firstById = new LinkedHashMap<>();
+        final List<Map<String, Object>> result = new ArrayList<>(values.size());
+        for (Parameter value : values) {
+            final ParameterId id = value.id();
+            final ParameterDefinition definition = definitions.get(id);
+            if (definition == null) {
+                throw new java.util.NoSuchElementException("Parameter definition is absent: " + id.value());
+            }
+            // Preserve the existing first-match lookup semantics for duplicate IDs.
+            result.add(parameter(firstById.computeIfAbsent(id, ignored -> value), definition));
+        }
+        return List.copyOf(result);
     }
 
     private static List<Map<String, Object>> bindings(final CubismModel model, final ParameterId id) {
