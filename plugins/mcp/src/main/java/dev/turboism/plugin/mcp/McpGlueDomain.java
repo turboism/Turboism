@@ -573,14 +573,8 @@ final class McpGlueDomain {
         final HistorySnapshot before,
         final HistorySnapshot after
     ) {
-        final int entriesAdded = before.generation() == after.generation()
-            ? Math.max(0, after.entries().size() - before.entries().size())
-            : 0;
-        final HistoryEntry appended = entriesAdded == 1
-            && after.position() > 0
-            && after.position() <= after.entries().size()
-            ? after.entries().get(after.position() - 1)
-            : null;
+        final HistoryEntry appended = newHistoryEntry(before, after);
+        final int entriesAdded = appended == null ? 0 : 1;
         final String label = appended == null ? null : appended.label();
         return linked(
             entry("availability", after.availability().name()),
@@ -596,6 +590,36 @@ final class McpGlueDomain {
                 ? null : appended.transactionId().orElse(null)),
             entry("label", label)
         );
+    }
+
+    private static HistoryEntry newHistoryEntry(
+        final HistorySnapshot before,
+        final HistorySnapshot after
+    ) {
+        if (before.availability() != HistorySnapshot.Availability.AVAILABLE
+            || after.availability() != HistorySnapshot.Availability.AVAILABLE
+            || before.generation() != after.generation()
+            || after.revision() <= before.revision()
+            || !before.documentBindingId().equals(after.documentBindingId())
+            || !before.managerBindingId().equals(after.managerBindingId())) {
+            return null;
+        }
+        // A new edit preserves the applied prefix and replaces any redo tail with one entry.
+        // Net list growth is not an entry count when the old history contains redo entries.
+        final int index = before.position();
+        if (after.position() != index + 1 || after.entries().size() != after.position()
+            || !before.entries().subList(0, index).equals(after.entries().subList(0, index))) {
+            return null;
+        }
+        final HistoryEntry appended = after.entries().get(index);
+        for (HistoryEntry existing : before.entries()) {
+            if (appended.entryId().isPresent()
+                ? appended.entryId().equals(existing.entryId())
+                : appended.equals(existing)) {
+                return null; // Moving onto an existing redo entry is not a new commit.
+            }
+        }
+        return appended;
     }
 
     private static Map<String, Object> target(final Object id) {

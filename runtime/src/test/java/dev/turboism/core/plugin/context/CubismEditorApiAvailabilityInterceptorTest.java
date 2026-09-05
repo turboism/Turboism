@@ -4,7 +4,11 @@ import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import org.junit.jupiter.api.Test;
 
+import java.lang.ref.Reference;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
@@ -18,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CubismEditorApiAvailabilityInterceptorTest {
 
@@ -199,6 +204,87 @@ class CubismEditorApiAvailabilityInterceptorTest {
         final dev.turboism.sdk.cubism.model.Part wrappedUnknown = onUnknownHost.all().get(0);
         assertThrows(CubismEditorApiUnavailableException.class, wrappedUnknown::id);
         assertEquals(1, idCalls.get());
+    }
+
+    @Test
+    void discardedModelWrappersAndDelegatesCanBeCollectedWhileRootRemainsLive() throws Exception {
+        final List<WeakReference<?>> references = new ArrayList<>();
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+            new CubismEditorApiAvailabilityInterceptor(() -> Optional.of("5.3.02"));
+        final dev.turboism.sdk.cubism.model.CubismModelAccess access = () -> {
+            final dev.turboism.sdk.cubism.model.CubismModel model = recordingDelegate(
+                dev.turboism.sdk.cubism.model.CubismModel.class, new AtomicInteger()
+            );
+            references.add(new WeakReference<>(model));
+            return model;
+        };
+        final dev.turboism.sdk.cubism.model.CubismModelAccess root = interceptor.wrapForTesting(
+            access, dev.turboism.sdk.cubism.model.CubismModelAccess.class
+        );
+        for (int index = 0; index < 64; index++) {
+            references.add(new WeakReference<>(root.active()));
+        }
+        try {
+            assertCollected(references);
+            // Exercise lookup after collection too: stale cache keys must not break new wrapping.
+            assertDoesNotThrow(() -> root.active().id());
+        } finally {
+            Reference.reachabilityFence(root);
+            Reference.reachabilityFence(interceptor);
+        }
+    }
+
+    @Test
+    void discardedProxyCanBeCollectedEvenWhenDelegateRemainsLive() throws Exception {
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+            new CubismEditorApiAvailabilityInterceptor(() -> Optional.of("5.3.02"));
+        final Example delegate = new ExampleImpl(new AtomicInteger());
+        final WeakReference<Example> discarded = new WeakReference<>(
+            interceptor.wrapForTesting(delegate, Example.class)
+        );
+        try {
+            assertCollected(List.of(discarded));
+            final Example recreated = interceptor.wrapForTesting(delegate, Example.class);
+            assertSame(recreated, recreated.optional().orElseThrow());
+            assertDoesNotThrow(recreated::only5302);
+        } finally {
+            Reference.reachabilityFence(delegate);
+            Reference.reachabilityFence(interceptor);
+        }
+    }
+
+    @Test
+    void liveProxiesKeepIdentityWithoutCallingDelegateEqualityAndStillCheckVersions() {
+        final AtomicReference<Optional<String>> version = new AtomicReference<>(Optional.of("5.3.02"));
+        final CubismEditorApiAvailabilityInterceptor interceptor =
+            new CubismEditorApiAvailabilityInterceptor(version::get);
+        final Example delegate = new ExampleImpl(new AtomicInteger()) {
+            @Override public boolean equals(final Object other) {
+                throw new AssertionError("cache must use identity, not delegate equality");
+            }
+            @Override public int hashCode() {
+                throw new AssertionError("cache must not call delegate hashCode");
+            }
+        };
+        final Example live = interceptor.wrapForTesting(delegate, Example.class);
+        System.gc();
+        assertSame(live, interceptor.wrapForTesting(delegate, Example.class));
+        assertSame(live, live.optional().orElseThrow());
+        assertNotSame(live, interceptor.wrapForTesting(new ExampleImpl(new AtomicInteger()), Example.class));
+        version.set(Optional.of("5.2.03"));
+        assertThrows(CubismEditorApiUnavailableException.class, live::only5302);
+        assertSame(live, interceptor.wrapForTesting(delegate, Example.class));
+    }
+
+    private static void assertCollected(final List<WeakReference<?>> references) throws Exception {
+        final long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        while (references.stream().anyMatch(reference -> !reference.refersTo(null))
+            && System.nanoTime() < deadline) {
+            System.gc();
+            Thread.sleep(10);
+        }
+        assertTrue(references.stream().allMatch(reference -> reference.refersTo(null)),
+            "the live interceptor must not retain discarded proxies or delegates");
     }
 
     private static <T> T recordingDelegate(final Class<T> type, final AtomicInteger calls) {

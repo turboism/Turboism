@@ -3,6 +3,9 @@ package dev.turboism.core.plugin.context;
 import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
 import dev.turboism.sdk.CubismEditor;
 
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.Array;
 import java.lang.reflect.GenericArrayType;
 import java.lang.reflect.InvocationHandler;
@@ -14,7 +17,6 @@ import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -29,7 +31,10 @@ import java.util.function.Supplier;
 final class CubismEditorApiAvailabilityInterceptor {
 
     private final Supplier<Optional<String>> activeVersion;
-    private final Map<Object, Map<Class<?>, Object>> proxies = new IdentityHashMap<>();
+    // Both sides must be weak: a strongly cached proxy retains its delegate through Handler.
+    private final ReferenceQueue<Object> collectedDelegates = new ReferenceQueue<>();
+    private final Map<IdentityWeakReference, Map<Class<?>, WeakReference<Object>>> proxies =
+        new LinkedHashMap<>();
 
     CubismEditorApiAvailabilityInterceptor(final Supplier<Optional<String>> activeVersion) {
         this.activeVersion = Objects.requireNonNull(activeVersion, "activeVersion");
@@ -69,14 +74,45 @@ final class CubismEditorApiAvailabilityInterceptor {
             return value;
         }
         synchronized (proxies) {
-            final Map<Class<?>, Object> byInterface = proxies.computeIfAbsent(
-                value, ignored -> new LinkedHashMap<>()
-            );
-            return byInterface.computeIfAbsent(sdkInterface, ignored -> Proxy.newProxyInstance(
+            for (Reference<?> collected; (collected = collectedDelegates.poll()) != null;) {
+                proxies.remove(collected);
+            }
+            final IdentityWeakReference lookup = new IdentityWeakReference(value, null);
+            Map<Class<?>, WeakReference<Object>> byInterface = proxies.get(lookup);
+            if (byInterface == null) {
+                byInterface = new LinkedHashMap<>();
+                proxies.put(new IdentityWeakReference(value, collectedDelegates), byInterface);
+            }
+            final WeakReference<Object> cached = byInterface.get(sdkInterface);
+            final Object existing = cached == null ? null : cached.get();
+            if (existing != null) return existing;
+            final Object created = Proxy.newProxyInstance(
                 sdkInterface.getClassLoader(),
                 new Class<?>[] {sdkInterface},
                 new Handler(value, sdkInterface)
-            ));
+            );
+            byInterface.put(sdkInterface, new WeakReference<>(created));
+            return created;
+        }
+    }
+
+    private static final class IdentityWeakReference extends WeakReference<Object> {
+        private final int identityHash;
+
+        private IdentityWeakReference(final Object value, final ReferenceQueue<Object> queue) {
+            super(value, queue);
+            identityHash = System.identityHashCode(value);
+        }
+
+        @Override public int hashCode() {
+            return identityHash;
+        }
+
+        @Override public boolean equals(final Object other) {
+            if (this == other) return true;
+            final Object value = get();
+            return value != null && other instanceof IdentityWeakReference reference
+                && value == reference.get();
         }
     }
 
