@@ -74,6 +74,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<PerformanceFpsHook> FPS_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedImageArchiveReuseInstaller> IMAGE_ARCHIVE_REUSE =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -355,6 +357,7 @@ public final class TurboismAgent {
                 installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
             }
             if (fullRuntimeAdmission) {
+                installImageArchiveReuse(options, instrumentation, host);
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
                     embeddedPanelVerificationRecord,
@@ -407,6 +410,32 @@ public final class TurboismAgent {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
 
+        }
+    }
+
+    private static void installImageArchiveReuse(
+        final AgentOptions options,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.image
+            .ImageArchiveReuseBridge.ENABLE_PROPERTY)) return;
+        VerifiedImageArchiveReuseInstaller installer = null;
+        try {
+            if (!VerifiedImageArchiveReuseInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                dev.turboism.config.RuntimeStartupConfig.load(options.home()), true)) {
+                runtimeInfo("TURBOISM_IMAGE_ARCHIVE_REUSE installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedImageArchiveReuseInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!IMAGE_ARCHIVE_REUSE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_IMAGE_ARCHIVE_REUSE installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_IMAGE_ARCHIVE_REUSE installation=FAILED " + failure.getClass().getName());
         }
     }
 
@@ -1218,6 +1247,11 @@ public final class TurboismAgent {
             }
         }
 
+        final VerifiedImageArchiveReuseInstaller imageArchiveReuse = IMAGE_ARCHIVE_REUSE.getAndSet(null);
+        if (imageArchiveReuse != null) {
+            try { imageArchiveReuse.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism image archive reuse cleanup failed safely"); }
+        }
         final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
         if (fpsHook != null) {
             try {
