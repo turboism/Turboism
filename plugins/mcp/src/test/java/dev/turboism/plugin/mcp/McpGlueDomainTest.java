@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
@@ -40,6 +41,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class McpGlueDomainTest {
@@ -171,6 +173,111 @@ final class McpGlueDomainTest {
             tools.registration(McpGlueDomain.GLUES_WRITE).affinity()
         );
         assertEquals(true, tools.registration(McpGlueDomain.GLUES_WRITE).transactionEligible());
+    }
+
+    @Test
+    void writesAfterUndoIdentifyNewEntriesWhenRedoReplacementShrinksOrPreservesLength() {
+        final List<HistoryEntry> prior = List.of(
+            identifiedEntry(0, "A"), identifiedEntry(1, "B"), identifiedEntry(2, "C")
+        );
+        for (int position : List.of(0, 1, 2)) {
+            final List<HistoryEntry> committed = new ArrayList<>(prior.subList(0, position));
+            committed.add(identifiedEntry(position, "D"));
+            final Map<String, Object> history = writeHistoryTransition(
+                historySnapshot(prior, position, 11, "document", "manager"),
+                historySnapshot(committed, position + 1, 12, "document", "manager"),
+                0.8F
+            );
+            assertEquals(1, history.get("entriesAdded"));
+            assertEquals("entry-D", history.get("entryId"));
+            assertEquals("transaction-D", history.get("transactionId"));
+            assertEquals("D", history.get("label"));
+            assertEquals(position, history.get("positionBefore"));
+            assertEquals(position + 1, history.get("positionAfter"));
+        }
+    }
+
+    @Test
+    void doesNotAttributeHistoryFromAnotherDocumentOrManager() {
+        final HistorySnapshot before = historySnapshot(List.of(), 0, 11, "document", "manager");
+        for (HistorySnapshot after : List.of(
+            historySnapshot(List.of(identifiedEntry(0, "D")), 1, 12, "other-document", "manager"),
+            historySnapshot(List.of(identifiedEntry(0, "D")), 1, 12, "document", "other-manager")
+        )) {
+            assertNoAttributedEntry(writeHistoryTransition(before, after, 0.8F));
+        }
+    }
+
+    @Test
+    void doesNotAttributeHistoryWithAChangedRetainedPrefix() {
+        assertNoAttributedEntry(writeHistoryTransition(
+            historySnapshot(List.of(identifiedEntry(0, "A")), 1, 11, "document", "manager"),
+            historySnapshot(List.of(identifiedEntry(0, "X"), identifiedEntry(1, "D")),
+                2, 12, "document", "manager"),
+            0.8F
+        ));
+    }
+
+    @Test
+    void doesNotReportAnExistingRedoEntryAsANewWrite() {
+        final List<HistoryEntry> entries = List.of(identifiedEntry(0, "A"), identifiedEntry(1, "B"));
+        assertNoAttributedEntry(writeHistoryTransition(
+            historySnapshot(entries, 1, 11, "document", "manager"),
+            historySnapshot(entries, 2, 12, "document", "manager"),
+            0.8F
+        ));
+    }
+
+    @Test
+    void noChangeAfterUndoDoesNotInventAnEntry() {
+        final HistorySnapshot unchanged = historySnapshot(
+            List.of(identifiedEntry(0, "A"), identifiedEntry(1, "B")),
+            1, 11, "document", "manager"
+        );
+        assertNoAttributedEntry(writeHistoryTransition(unchanged, unchanged, 0.5F));
+    }
+
+    private static HistoryEntry identifiedEntry(final int index, final String label) {
+        return new HistoryEntry(index, label, true, Optional.empty(),
+            Optional.of(new HistoryEntryId("entry-" + label)), Optional.of("transaction-" + label));
+    }
+
+    private static HistorySnapshot historySnapshot(
+        final List<HistoryEntry> entries,
+        final int position,
+        final long revision,
+        final String document,
+        final String manager
+    ) {
+        return new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE, 7, revision, position,
+            entries, position > 0, position < entries.size(), document, manager);
+    }
+
+    private static Map<String, Object> writeHistoryTransition(
+        final HistorySnapshot before,
+        final HistorySnapshot after,
+        final float intensity
+    ) {
+        final FakeGlue glue = new FakeGlue("GlueA", "Glue", 0, 0.5F,
+            "ArtA", "ArtB", List.of("ParamA"));
+        final FakeFacade facade = new FakeFacade(List.of(glue));
+        facade.history = before;
+        glue.onChanged = () -> facade.history = after;
+        final McpToolCatalog tools = new McpGlueDomain(
+            facade, new McpExecutionBridge(immediateScheduler())
+        ).tools();
+        final Map<String, Object> result = output(tools.call(McpGlueDomain.GLUES_WRITE,
+            Map.of("operation", "set_intensity", "id", "GlueA", "intensity", intensity)));
+        assertEquals(true, result.get("ok"));
+        assertEquals(intensity == 0.5F ? "NO_CHANGE" : "APPLIED", result.get("outcome"));
+        return object(result.get("history"));
+    }
+
+    private static void assertNoAttributedEntry(final Map<String, Object> history) {
+        assertEquals(0, history.get("entriesAdded"));
+        assertNull(history.get("entryId"));
+        assertNull(history.get("transactionId"));
+        assertNull(history.get("label"));
     }
 
     @Test

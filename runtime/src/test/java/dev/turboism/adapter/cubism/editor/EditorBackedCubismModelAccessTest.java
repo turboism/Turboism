@@ -322,6 +322,86 @@ class EditorBackedCubismModelAccessTest {
             .getMessage().contains("active model"));
     }
 
+    @Test
+    void retainedParameterReferencesReadInLinearWorkWithoutRebuildingTheCollection() {
+        final CountingParameters values = new CountingParameters();
+        for (int i = 0; i < 128; i++) values.values.add(new Parameter("Param" + i, i));
+        final var model = installParameters(values);
+        final var references = model.parameters().all();
+        values.visits = 0;
+        for (int i = 0; i < references.size(); i++) {
+            final var reference = references.get(i);
+            assertEquals((float) i, reference.getValue());
+            assertEquals(-30.0F, reference.getMinimumValue());
+            assertEquals(Optional.of("Angle X"), reference.name());
+            assertEquals(i, reference.index());
+        }
+        assertTrue(values.visits <= 8L * values.size(),
+            "reading retained references must not rescan the table: " + values.visits);
+    }
+
+    @Test
+    void retainedParameterRejectsSameIdReplacementButFollowsItsOwnReorderedIdentity() {
+        final CountingParameters values = new CountingParameters();
+        final Parameter original = new Parameter("ParamA", 1.0F);
+        values.values.add(original);
+        values.values.add(new Parameter("ParamB", 2.0F));
+        final var model = installParameters(values);
+        final var reference = model.parameters().find(new ParameterId("ParamA"));
+        java.util.Collections.swap(values.values, 0, 1);
+        assertEquals(1.0F, reference.getValue());
+        assertEquals(1, reference.index());
+        original.value = 3.0F;
+        assertEquals(3.0F, reference.getValue(), "values must remain live, not cached");
+        values.values.set(1, new Parameter("ParamA", 9.0F));
+        assertThrows(IllegalStateException.class, reference::getValue);
+        assertEquals(9.0F, model.parameters().find(new ParameterId("ParamA")).getValue());
+    }
+
+    @Test
+    void parameterEvaluationRefreshPreservesReferencesToTheSameAuthoringSource() {
+        final CountingParameters values = new CountingParameters();
+        final Parameter original = new Parameter("ParamA", 1.0F);
+        values.values.add(original);
+        final var reference = installParameters(values).parameters().find(new ParameterId("ParamA"));
+        values.values.set(0, new Parameter("ParamA", 4.0F, original.source));
+        assertEquals(4.0F, reference.getValue());
+        values.values.set(0, new Parameter("ParamA", 9.0F));
+        assertThrows(IllegalStateException.class, reference::getValue);
+    }
+
+    @Test
+    void firstDuplicateLookupIsPreservedAndDeletedReferencesDoNotRetarget() {
+        final CountingParameters values = new CountingParameters();
+        values.values.add(new Parameter("ParamA", 1.0F));
+        values.values.add(new Parameter("ParamA", 2.0F));
+        final var model = installParameters(values);
+        final var first = model.parameters().find(new ParameterId("ParamA"));
+        assertEquals(1.0F, first.getValue());
+        assertEquals(2, model.parameters().all().size());
+        values.values.remove(0);
+        assertThrows(IllegalStateException.class, first::getValue);
+        assertEquals(2.0F, model.parameters().find(new ParameterId("ParamA")).getValue());
+    }
+
+    private static dev.turboism.sdk.cubism.model.CubismModel installParameters(
+        final List<Parameter> values
+    ) {
+        final Model nativeModel = new Model(new ParameterSet(values));
+        final ModelSource source = new ModelSource("performance-model", nativeModel);
+        nativeModel.source = source;
+        Host.currentDocument = new Document(source);
+        return new EditorBackedCubismModelAccess(resolver(), "performance-session").active();
+    }
+
+    private static final class CountingParameters extends java.util.AbstractList<Parameter>
+        implements java.util.RandomAccess {
+        private final java.util.ArrayList<Parameter> values = new java.util.ArrayList<>();
+        private long visits;
+        @Override public Parameter get(final int index) { visits++; return values.get(index); }
+        @Override public int size() { return values.size(); }
+    }
+
     private static VerifiedMemberResolver resolverWithoutDefaultKeyformLock() {
         return resolver(java.util.Set.of(
             "cubism.editor-model.read",
@@ -556,7 +636,10 @@ class EditorBackedCubismModelAccessTest {
     }
     public static final class Parameter {
         final Id id; final ParameterSource source; float value;
-        Parameter(String id, float value) { this.id = new Id(id); this.source = new ParameterSource(); this.value = value; }
+        Parameter(String id, float value) { this(id, value, new ParameterSource()); }
+        Parameter(String id, float value, ParameterSource source) {
+            this.id = new Id(id); this.source = source; this.value = value;
+        }
         public Id id() { return id; }
         public float value() { return value; }
         public ParameterSource source() { return source; }
