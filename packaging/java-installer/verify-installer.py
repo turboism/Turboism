@@ -571,30 +571,31 @@ def assert_lite_install(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_windows_full_install(jar, payload_plugins):
-    """Windows x64 Full is admitted on every supported host: release payloads
-    no longer carry a platform-specific managed runtime, so Full must not be
-    rejected for the Windows platform and must install the full plugin roster."""
-    java_flags = ("-Dos.name=Windows 11", "-Dos.arch=amd64")
-    base = tempfile.mkdtemp(prefix="turboism-windows-full ")
+def assert_full_payload_install(jar, payload_plugins):
+    """Verify Full extraction on the native JVM and filesystem.
+
+    ConfigMergeRegression.platformPolicy separately exercises Windows x64
+    admission. Spoofing os.name for a whole IzPack process breaks JLine and
+    target-path validation on non-Windows hosts; it is not Windows evidence.
+    """
+    base = tempfile.mkdtemp(prefix="turboism-full-payload ")
     target = os.path.join(base, "home")
     clear_task_lock()
     rc, out = run_console(
         jar,
         install_answers("full", target, payload_plugins=payload_plugins),
-        java_flags=java_flags,
     )
-    check("Windows full install exit 0", rc == 0, "rc=%s" % rc)
-    check("Windows full writes config",
+    check("Full payload install exit 0", rc == 0, "rc=%s output=%s" % (rc, out[-2000:]))
+    check("Full payload writes config",
           os.path.isfile(os.path.join(target, "config.json")))
-    check("Windows full installs agent",
+    check("Full payload installs agent",
           os.path.isfile(os.path.join(target, "turboism-agent.jar")))
     expected = sorted(p["module"] + ".jar" for p in payload_plugins)
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
-    check("Windows full installs every bundled plugin jar", installed == expected,
+    check("Full payload installs every bundled plugin jar", installed == expected,
           str(installed))
     config = json.load(open(os.path.join(target, "config.json")))
-    check("Windows full all-selected omits empty disabledPlugins",
+    check("Full payload all-selected omits empty disabledPlugins",
           config.get("disabledPlugins") in (None, []),
           str(config.get("disabledPlugins")))
     shutil.rmtree(base, ignore_errors=True)
@@ -1625,7 +1626,7 @@ def main():
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_install_home_symlink_rejected(jar)
-        assert_windows_full_install(jar, payload_plugins)
+        assert_full_payload_install(jar, payload_plugins)
         assert_thin_install(jar, payload_plugins)
         assert_full_defaults_all(jar, payload_plugins)
         assert_full_install(jar, args.payload, payload_plugins)
