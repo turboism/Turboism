@@ -6,6 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.5] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4 candidate and includes its changes below.
+
+### Added
+
+- Added synchronous authoring transaction scopes, grouped Glue writes, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar and filter contributions with production host lifecycle handling and reduced repeated model and history scans.
+- Changed the local loopback MCP server to operate without bearer authentication.
+- Removed managed fx runtime bytes and the development-only Turboism with fx plugin from all release packages.
+
+### Fixed
+
+- Made the snapshot-copy ABA regression tests independent of filesystem timestamp resolution, covering both observable file changes and corrupt snapshots with unchanged timestamps without weakening production validation.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
 ## [0.43.4] - 2026-09-06
 
 ### Added
