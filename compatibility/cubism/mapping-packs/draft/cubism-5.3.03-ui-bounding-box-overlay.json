@@ -13,6 +13,9 @@
       "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
         "requiredAccessFlags": 17,
@@ -27,6 +30,9 @@
       "descriptor": "(Lcom/live2d/cubism/view/context/actionManager/N;Lcom/live2d/cubism/view/context/boundingBox/ACBoundingBox;Ljava/util/List;Lcom/live2d/graphics3d/sceneGraph/GSceneGraph;Lcom/live2d/cubism/view/context/guiEntity/GIconButtonEntity;Lcom/live2d/graphics3d/type/GVector2;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
         "requiredAccessFlags": 26,
@@ -41,6 +47,9 @@
       "descriptor": "(Lcom/live2d/cubism/view/context/guiEntity/q;Lkotlin/jvm/functions/Function0;)Lcom/live2d/cubism/view/context/guiEntity/GIconButtonEntity;",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/context/boundingBox/BoundingBoxDrawEntity",
         "requiredAccessFlags": 17,
@@ -55,6 +64,9 @@
       "descriptor": "(F)Lcom/live2d/graphics3d/type/GVector2;",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
         "requiredAccessFlags": 17,
@@ -69,6 +81,9 @@
       "descriptor": "(Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/graphics3d/type/GVector2;",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
         "requiredAccessFlags": 17,
@@ -83,6 +98,9 @@
       "descriptor": "(Z)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
         "requiredAccessFlags": 17,
@@ -97,6 +115,9 @@
       "descriptor": "()Lcom/live2d/graphics3d/entity/GEntity;",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
         "requiredAccessFlags": 17,
@@ -111,6 +132,9 @@
       "descriptor": "()Lcom/live2d/graphics3d/entity/Entities;",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/entity/GEntity",
         "requiredAccessFlags": 17,
@@ -125,6 +149,9 @@
       "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/sceneGraph/GSceneGraph",
         "requiredAccessFlags": 17,
@@ -139,6 +166,9 @@
       "descriptor": "(Lcom/live2d/graphics3d/entity/GEntity;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics3d/entity/Entities",
         "requiredAccessFlags": 17,
@@ -153,6 +183,9 @@
       "descriptor": "(Ljava/awt/image/BufferedImage;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/graphics/CWritableImage",
         "requiredAccessFlags": 1,
@@ -167,6 +200,9 @@
       "descriptor": "(Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;Lcom/live2d/graphics/CWritableImage;)V",
       "profile": "cubism-5.3.03",
       "status": "DRAFT",
+      "confidence": "high",
+      "verifiedBy": "none",
+      "verifiedAt": null,
       "x.verification": {
         "ownerInternalName": "com/live2d/cubism/view/context/guiEntity/q",
         "requiredAccessFlags": 1,
@@ -174,5 +210,8 @@
       }
     }
   ],
-  "description": "Exact Cubism 5.3.03 red-box overlay native setup and cleanup selector evidence."
+  "metadata": {
+    "description": "Exact Cubism 5.3.03 red-box overlay native setup and cleanup selector evidence.",
+    "inventoryRef": "compatibility/cubism/verification/cubism-5.3.03-ui-bounding-box-overlay.json"
+  }
 }
