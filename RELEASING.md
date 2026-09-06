@@ -1,6 +1,47 @@
 # Releasing Turboism
 
-Turboism releases are planned by one public command and published by protected CI. The planner distinguishes four outcomes:
+## Product release: build first, tag only on promotion
+
+Do **not** push an official version tag to start a build. Choose the next version once in `gradle/common-java.gradle.kts` and prepare its dated `CHANGELOG.md` section, then merge the intended source to `main` through normal review.
+
+### 1. Build a candidate (no publication)
+
+```bash
+SOURCE_SHA=$(git rev-parse main)
+gh workflow run release.yml --ref main -f expected_source_sha="$SOURCE_SHA"
+```
+
+CI refuses a different SHA if main advanced before dispatch. It runs the complete release gate, builds the installer/archives, verifies checksums and retains the candidate artifact. Its token is read-only and has no production secrets. After verification, a disposable **local-only** annotated tag lets the existing candidate serializer record the intended tag; it is never pushed. Candidate completion does not publish automatically.
+
+The candidate identity is **source SHA + workflow run ID + run attempt**. If a candidate fails, fix the source and retry with the **same intended product version**. Do not increment patch versions, create public RC tags or add separate changelog release headings for failed attempts. Keep the pending version's notes accurate across fixes.
+
+### 2. Review and explicitly promote the successful candidate
+
+Find the candidate run and its successful attempt in Actions. Review the eight verified assets and source identity, then dispatch:
+
+```bash
+gh workflow run release-github-only.yml --ref main \
+  -f candidate_run_id=<completed-actions-run-id> \
+  -f candidate_run_attempt=<successful-attempt-number> \
+  -f source_sha="$SOURCE_SHA" \
+  -f confirmation="publish-github-only:$SOURCE_SHA"
+```
+
+The protected `production-release` environment and shared publication concurrency apply. Trusted publisher code is checked out separately from candidate source. Before creating any remote ref, CI revalidates the successful run, repository/workflow/ref/SHA/attempt, source version/changelog, all eight artifact bytes and existing remote identities. It then creates the annotated `vMAJOR.MINOR.PATCH` tag at the **built SHA**, creates/resumes the draft and publishes the same files **without rebuilding**. Main advancing cannot retarget the release.
+
+This path publishes **GitHub only**. It does not update Updates service pointers or independently publish bundled plugins. New manual product candidates are deliberately excluded from automatic coordinated publication.
+
+### 3. Retry publication without changing version or bytes
+
+Use the same promotion command and original candidate attempt after interrupted tag creation/upload. Identical tag/assets resume or become a no-op; conflicting tag targets, lightweight tags, different bytes and incomplete already-published Releases fail closed. Never delete/move a tag or use `--clobber` to force progress. Candidate artifacts expire after seven days: promote/resume while the exact successful attempt is retained; expired evidence is not permission to bypass validation.
+
+The no-version-consumption guarantee covers **candidate validation failures**. Once publication creates an official tag, that version is bound; a later publication failure must resume that identity rather than allocate another patch version automatically.
+
+## Legacy coordinated and independent plugin publication
+
+Existing successful product **push-tag** candidate runs can still be resumed through the protected publishers (the explicit attempt is optional for legacy GitHub-only calls). Plugin-only orchestration remains unchanged. The coordinated route below requires its external service credentials/contracts; it does not accept new manually dispatched product candidates. Do not manually tag a new product to use this legacy route.
+
+The legacy orchestrator is planned by one public command and published by protected CI. The planner distinguishes four outcomes:
 
 - `none`: published state already matches the candidate;
 - `framework`: only the framework release changes;

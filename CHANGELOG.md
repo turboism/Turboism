@@ -6,6 +6,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
+
 ## [0.43.9] - 2026-09-06
 
 This release supersedes the unpublished 0.43.4–0.43.8 candidates.
