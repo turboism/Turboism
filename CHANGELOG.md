@@ -6,6 +6,26 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.9] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4–0.43.8 candidates.
+
+### Added
+
+- Synchronous authoring transactions, grouped Glue writes, stable history entry/transaction identity, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Adopted the reviewed SDK v7 exact release baseline while preserving v2–v6 historical baselines. **Plugin API migration may be required:** `McpHttpConnection` now takes endpoint/protocol only and no longer exposes `authorization()`; `HistoryEntry` carries additional identity fields; exception enum ordinals changed. See the [SDK v7 review](sdk/api-contracts/sdk-api-v7-review.md).
+- Unified palette toolbar/filter contributions and reduced repeated model and history scans.
+- The local loopback MCP server operates without bearer authentication.
+- Release packages exclude managed fx runtime bytes and the development-only Turboism with fx plugin.
+
+### Fixed
+
+- Stabilized snapshot-race and asynchronous plugin-disable regression tests, corrected bounding-box draft metadata, and separated native Java installer Full payload testing from Windows policy coverage without weakening production validation.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
 ## [0.43.8] - 2026-09-06
 
 This release supersedes the unpublished 0.43.4–0.43.7 candidates.
