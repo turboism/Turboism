@@ -750,18 +750,24 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
         "scripts/release/turboism-release.py",
+        "scripts/release/promote-github-release.py",
         "scripts/release/verify-github-assets.py",
         "scripts/release/verify-plugin-publication.py",
         fileTree("scripts/release/turboism_release") { include("*.py") },
         "scripts/test/test_release_tooling.py",
         "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py",
+        ".github/workflows/release-github-only.yml",
+        ".github/workflows/release-publisher.yml",
+        "RELEASING.md",
         "CHANGELOG.md",
         ".github/workflows/release.yml"
     )
     commandLine(
         "python3", "-m", "unittest", "-v",
         "scripts/test/test_release_tooling.py",
-        "scripts/test/test_release_orchestrator.py"
+        "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py"
     )
 }
 
