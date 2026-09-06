@@ -6,10 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.4] - 2026-09-06
+
+### Added
+
+- Added synchronous authoring transaction scopes, including grouped Glue writes, and expanded typed MCP read/write operations.
+- Added direct plugin installation from JAR files and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar and filter contributions with production host lifecycle handling.
+- Changed the local loopback MCP server to operate without bearer authentication.
+- Reduced repeated model and history scans in runtime hot paths.
+
 ### Fixed
 
 - Made Windows and Java installers validate or migrate `config.json` before payload mutation, require an integer schema token and runtime-valid v1 values, and apply upgrade plugin selections without overwriting unrelated settings.
 - Removed the managed fx runtime payload from every release channel and documented that the development-only Turboism with fx plugin ships in no release package; made the optional Windows fx resolver test skip safely when its private fixture path is absent.
+- Fixed overlapping parameter batch-transfer binding rows, SDK interface proxy coverage, and Cubism 5.3.03 texture-atlas auto-layout hook selection.
+- Addressed MCP and runtime review findings around transaction outcomes and lifecycle handling.
 
 ## [0.43.3] - 2026-09-03
 
