@@ -23,7 +23,7 @@ unsigned; verify the accompanying `.sha256` files after downloading.
 
 ## Current capabilities
 
-The 0.43.6 release includes:
+The 0.43.7 release includes:
 
 - a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
   configuration, localization, tasks, events, actions, menus, toolbars,
@@ -62,7 +62,7 @@ Each artifact has a sibling SHA-256 sidecar. After downloading both files,
 verify from their directory, for example:
 
 ```bash
-sha256sum -c TurboismInstaller-0.43.6.exe.sha256
+sha256sum -c TurboismInstaller-0.43.7.exe.sha256
 ```
 
 During a successful Windows installation, the installer scans for exact supported Cubism Editor 5.2.03 / 5.3.02 / 5.3.03 installations, selects every compatible installation found, and applies the chosen shortcut and official-BAT options headlessly. The Start-menu configurator remains available for later changes. BAT integration is attempted only for exact selected installations, preserves a hash-guarded backup for restoration, and writes actionable diagnostics under `logs/installer/`.
