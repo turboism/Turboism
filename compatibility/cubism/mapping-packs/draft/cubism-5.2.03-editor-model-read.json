@@ -6,6 +6,616 @@
   "cubismVersion": "5.2.03",
   "entries": [
     {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.group_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.group.class",
+      "runtime": "com/live2d/undo/GroupUndo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.group_edits",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.group.edits",
+      "runtime": "getEditList",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.group_count",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.group.count",
+      "runtime": "getEditCount",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/GroupUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.property_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.property.class",
+      "runtime": "com/live2d/undo/PropertyUndo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.property_name",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.property.name",
+      "runtime": "getName",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/String;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.property_object",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.property.object",
+      "runtime": "getObj",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/Object;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.property_previous",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.property.previous",
+      "runtime": "getPrevValue",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/Object;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.property_post",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.property.post",
+      "runtime": "getPostValue",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/PropertyUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/Object;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.simple_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.simple.class",
+      "runtime": "com/live2d/undo/SimpleUndo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.simple_target",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.simple.target",
+      "runtime": "getTargetData",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/core/ICopyable;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.simple_undo",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.simple.undo",
+      "runtime": "getUndoData",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/core/ICopyable;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.simple_redo",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.simple.redo",
+      "runtime": "getRedoData",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/SimpleUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/core/ICopyable;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.list_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.list.class",
+      "runtime": "com/live2d/undo/ListUndo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ListUndo",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.list_target",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.list.target",
+      "runtime": "getTargetList",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ListUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/ArrayList;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.list_undo",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.list.undo",
+      "runtime": "getTargetListEntriesForUndo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ListUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.list_redo",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.list.redo",
+      "runtime": "getTargetListEntriesForRedo",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/ListUndo",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.class",
+      "runtime": "com/live2d/undo/Undo_AddOrRemove",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/Undo_AddOrRemove",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_owner",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.owner",
+      "runtime": "getOwnerObject",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/Undo_AddOrRemove",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/Object;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_index",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.index",
+      "runtime": "getInsertIndex",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/Undo_AddOrRemove",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_is_add",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.is-add",
+      "runtime": "isAdd",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/Undo_AddOrRemove",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_parameter_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.parameter.class",
+      "runtime": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Parameter_",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Parameter_",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_parameter_item",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.parameter.item",
+      "runtime": "getChildItem",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Parameter_",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/param/CParameterSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_part_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.part.class",
+      "runtime": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Part",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Part",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_part_item",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.part.item",
+      "runtime": "getItem",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Part",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_drawable_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.drawable.class",
+      "runtime": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Drawable",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Drawable",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_drawable_item",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.drawable.item",
+      "runtime": "getItem",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Drawable",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/ACDrawableSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_deformer_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.deformer.class",
+      "runtime": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Deformer",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Deformer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_deformer_item",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.deformer.item",
+      "runtime": "getItem",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_Deformer",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/deformer/ACDeformerSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.add_remove_parameter_group_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.parameter-group.class",
+      "runtime": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_ParameterGroup",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_ParameterGroup",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.add_remove_parameter_group_item",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.add-remove.parameter-group.item",
+      "runtime": "getChildGroup",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ModelHandler$Undo_AddOrRemove_ParameterGroup",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;"
+    },
+    {
       "semanticName": "cubism.mapping.v5_2_03.editor_model.class.app_ctrl",
       "kind": "class",
       "owner": "editor-model-read",
@@ -11780,6 +12390,250 @@
       },
       "intermediary": "",
       "descriptor": "()F"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.art_mesh_form_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.art-mesh-form.class",
+      "runtime": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.art_mesh_form_source",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.art-mesh-form.source",
+      "runtime": "getSource",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/drawable/artMesh/CArtMeshForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.form_guid",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.form.guid",
+      "runtime": "getGuid",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/ACForm",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CFormGuid;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.keyform_grid_forms_for_guid",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-grid.forms-for-guid",
+      "runtime": "getKeyformOnGridFor",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/type/CFormGuid;)Ljava/util/List;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.keyform_on_grid_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-on-grid.class",
+      "runtime": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.keyform_on_grid_access_key",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-on-grid.access-key",
+      "runtime": "a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformOnGrid",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformGridAccessKey;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.keyform_access_key_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-access-key.class",
+      "runtime": "com/live2d/cubism/doc/model/interpolator/KeyformGridAccessKey",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridAccessKey",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.keyform_access_key_coordinates",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-access-key.coordinates",
+      "runtime": "a",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformGridAccessKey",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/util/List;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.key_on_parameter_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.key-on-parameter.class",
+      "runtime": "com/live2d/cubism/doc/model/interpolator/KeyOnParameter",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyOnParameter",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.key_on_parameter_binding",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.key-on-parameter.binding",
+      "runtime": "getBinding",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyOnParameter",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/interpolator/KeyformBindingSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.key_on_parameter_value",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.key-on-parameter.value",
+      "runtime": "getValue",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyOnParameter",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()F"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.method.keyform_binding_parameter",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.keyform-binding.parameter",
+      "runtime": "getParameter",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/interpolator/KeyformBindingSource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/param/CParameterSource;"
     }
   ],
   "metadata": {

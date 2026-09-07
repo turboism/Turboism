@@ -9,6 +9,7 @@ import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelecto
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorModelEditLevelReadSelectorContract;
@@ -65,7 +66,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "0b6767554352851c035de65caf7ed18d2d12210fb419cf762067f2f6053a6df3",
+        "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -74,7 +75,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "422eb72d76b7030d1603b76cf8aaca7dc5fa6a2a4faeb596717742180067f281",
+        "20d08f6d03a77ab7312d597cfe5b9b80723220d0bdf459f4ee6788fd75cc92fd",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -122,6 +123,7 @@ public final class EditorModelVerificationManifest {
         EditorObjectWriteSelectorContract.WARP_CAPABILITY_ID,
         EditorObjectWriteSelectorContract.ROTATION_CAPABILITY_ID,
         EditorHistoryReadSelectorContract.CAPABILITY_ID,
+        EditorHistorySemanticSelectorContract.CAPABILITY_ID,
             EditorHistoryMoveSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
         EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID,
@@ -525,6 +527,48 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.entry.presentation-name",
         "cubism.editor-history.entry.significant",
         "cubism.editor-history.manager.move-to",
+        "cubism.editor-history.semantic.group.class",
+        "cubism.editor-history.semantic.group.edits",
+        "cubism.editor-history.semantic.group.count",
+        "cubism.editor-history.semantic.property.class",
+        "cubism.editor-history.semantic.property.name",
+        "cubism.editor-history.semantic.property.object",
+        "cubism.editor-history.semantic.property.previous",
+        "cubism.editor-history.semantic.property.post",
+        "cubism.editor-history.semantic.simple.class",
+        "cubism.editor-history.semantic.simple.target",
+        "cubism.editor-history.semantic.simple.undo",
+        "cubism.editor-history.semantic.simple.redo",
+        "cubism.editor-history.semantic.list.class",
+        "cubism.editor-history.semantic.list.target",
+        "cubism.editor-history.semantic.list.undo",
+        "cubism.editor-history.semantic.list.redo",
+        "cubism.editor-history.semantic.art-mesh-form.class",
+        "cubism.editor-history.semantic.art-mesh-form.source",
+        "cubism.editor-history.semantic.form.guid",
+        "cubism.editor-history.semantic.keyform-grid.forms-for-guid",
+        "cubism.editor-history.semantic.keyform-on-grid.class",
+        "cubism.editor-history.semantic.keyform-on-grid.access-key",
+        "cubism.editor-history.semantic.keyform-access-key.class",
+        "cubism.editor-history.semantic.keyform-access-key.coordinates",
+        "cubism.editor-history.semantic.key-on-parameter.class",
+        "cubism.editor-history.semantic.key-on-parameter.binding",
+        "cubism.editor-history.semantic.key-on-parameter.value",
+        "cubism.editor-history.semantic.keyform-binding.parameter",
+        "cubism.editor-history.semantic.add-remove.class",
+        "cubism.editor-history.semantic.add-remove.owner",
+        "cubism.editor-history.semantic.add-remove.index",
+        "cubism.editor-history.semantic.add-remove.is-add",
+        "cubism.editor-history.semantic.add-remove.parameter.class",
+        "cubism.editor-history.semantic.add-remove.parameter.item",
+        "cubism.editor-history.semantic.add-remove.part.class",
+        "cubism.editor-history.semantic.add-remove.part.item",
+        "cubism.editor-history.semantic.add-remove.drawable.class",
+        "cubism.editor-history.semantic.add-remove.drawable.item",
+        "cubism.editor-history.semantic.add-remove.deformer.class",
+        "cubism.editor-history.semantic.add-remove.deformer.item",
+        "cubism.editor-history.semantic.add-remove.parameter-group.class",
+        "cubism.editor-history.semantic.add-remove.parameter-group.item",
         "object-context-menu.parameter.group-row.class",
         "object-context-menu.parameter.group-row.source",
         "object-context-menu.parameter.row-parameters",
@@ -673,7 +717,7 @@ public final class EditorModelVerificationManifest {
         final ReviewedSliceRecord record =
             ReviewedSliceRecord.requireReviewed(RECORDS, artifact, "Editor model");
         // Each exact record owns its capability and alias scope. 5.3.03 reuses the mature
-        // 5.3.02 surface while resolving against its independently reviewed selector tuples.
+        // non-semantic 5.3.02 surface but does not claim unreviewed native semantic history.
         if (RECORD_5_2_03.equals(record)) {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
@@ -684,7 +728,7 @@ public final class EditorModelVerificationManifest {
         if (RECORD_5_3_03.equals(record)) {
             return record.toManifest(
                 ADAPTER_SLICE_ID,
-                ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+                ObjectContextMenuVerificationManifest.capabilities(cubism5303Capabilities()),
                 ObjectContextMenuVerificationManifest.aliases(cubism5303StaticAliases())
             );
         }
@@ -698,6 +742,12 @@ public final class EditorModelVerificationManifest {
     private static Set<String> union(final Set<String> left, final Set<String> right) {
         final java.util.HashSet<String> values = new java.util.HashSet<>(left);
         values.addAll(right);
+        return Set.copyOf(values);
+    }
+
+    static Set<String> cubism5303Capabilities() {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(CAPABILITY_IDS);
+        values.remove(EditorHistorySemanticSelectorContract.CAPABILITY_ID);
         return Set.copyOf(values);
     }
 
@@ -721,7 +771,9 @@ public final class EditorModelVerificationManifest {
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
-        return union(REQUIRED_ALIASES, Set.of(
+        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
+        values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
             "cubism.editor-model.modeling-view.model",
@@ -735,17 +787,21 @@ public final class EditorModelVerificationManifest {
             "cubism.editor-model.part.id",
             "cubism.editor-model.update-manager.selection-guid-list"
         ));
+        return Set.copyOf(values);
     }
 
     /**
-     * Returns the complete mature Editor runtime scope for exact Cubism 5.3.03.
+     * Returns the mature Editor runtime scope for exact Cubism 5.3.03.
      *
-     * <p>The capability set is identical to 5.3.02. The alias set deliberately excludes the
-     * 5.3.03-only host helpers that are recorded for future compatibility work but are not required
-     * by any established Turboism capability.</p>
+     * <p>The native semantic-history capability and aliases remain deliberately absent until
+     * exact-host evidence for that version is reviewed. Other 5.3.03-only helper aliases remain
+     * recorded but are not required by mature feature contracts.</p>
      */
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
-        return new PinnedVerifiedResolverWorkflow.RuntimeScope(CAPABILITY_IDS, REQUIRED_ALIASES);
+        return new PinnedVerifiedResolverWorkflow.RuntimeScope(
+            cubism5303Capabilities(),
+            cubism5303StaticAliases()
+        );
     }
 
     /** Read-only baseline shared by the task-scoped exact-host validation candidates. */

@@ -1,12 +1,21 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionReceipt;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionWork;
 
 import java.util.List;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -22,6 +31,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public final class EditorAuthoringTransactionCoordinator {
 
+    private static final int MAX_SEMANTIC_ITEMS = 64;
     private final Host host;
     private final ThreadLocal<EditorAuthoringScope> ambient = new ThreadLocal<>();
     private final AtomicLong transactionSequence = new AtomicLong();
@@ -188,6 +198,8 @@ public final class EditorAuthoringTransactionCoordinator {
         final EditorAuthoringScope scope,
         final T value
     ) {
+        final AggregatedSemantic semantic;
+        Optional<String> preparedEntryId = Optional.empty();
         try {
             if (!current(scope.binding())) {
                 throw new ScopeRejectedException("authoring binding changed before refresh");
@@ -199,6 +211,9 @@ public final class EditorAuthoringTransactionCoordinator {
             if (!current(scope.binding())) {
                 throw new ScopeRejectedException("authoring binding changed before native commit");
             }
+            semantic = aggregateSemantic(scope);
+            preparedEntryId = host.prepareHistoryMetadata(scope.binding(), scope.edit(),
+                scope.transactionId(), semantic.detail(), semantic.action());
             scope.markEditEndAttempted();
             host.endEdit(scope.binding(), scope.edit(), false);
             scope.markEditClosed();
@@ -217,6 +232,13 @@ public final class EditorAuthoringTransactionCoordinator {
                 diagnostic("authoring.history-unverified", failure)
             );
         }
+        if (preparedEntryId.isPresent() && (after.entries().isEmpty()
+            || after.position() != after.entries().size()
+            || !after.entries().get(after.entries().size() - 1).entryId()
+                .map(id -> id.value()).equals(preparedEntryId))) {
+            return AuthoringTransactionResult.recoveryFailed(
+                receipt(scope, after, Optional.empty()), diagnostic("authoring.history-unverified", null));
+        }
         final Optional<String> entryId;
         try {
             entryId = Objects.requireNonNull(
@@ -225,7 +247,9 @@ public final class EditorAuthoringTransactionCoordinator {
                     scope.historyBefore(),
                     after,
                     scope.transactionId(),
-                    scope.options().label()
+                    scope.options().label(),
+                    semantic.detail(),
+                    semantic.action()
                 ),
                 "committedHistoryEntryId"
             );
@@ -236,7 +260,7 @@ public final class EditorAuthoringTransactionCoordinator {
             );
         }
         final AuthoringTransactionReceipt receipt = receipt(scope, after, entryId);
-        if (entryId.isEmpty()) {
+        if (entryId.isEmpty() || (preparedEntryId.isPresent() && !preparedEntryId.equals(entryId))) {
             return AuthoringTransactionResult.recoveryFailed(
                 receipt,
                 diagnostic("authoring.history-unverified", null)
@@ -272,6 +296,7 @@ public final class EditorAuthoringTransactionCoordinator {
                 "Authoring postcondition failed: " + contribution.operationId()
             );
         }
+        scope.captureActual(contribution);
     }
 
     private <T> AuthoringTransactionResult<T> recover(
@@ -384,6 +409,119 @@ public final class EditorAuthoringTransactionCoordinator {
         );
     }
 
+    private static AggregatedSemantic aggregateSemantic(final EditorAuthoringScope scope) {
+        final List<EditorUndoContribution> contributions = scope.contributions();
+        if (contributions.isEmpty()) {
+            throw new IllegalStateException("changed transaction has no semantic contributions");
+        }
+        if (contributions.size() == 1) {
+            final HistoryEntryDetail detail = contributions.get(0).semanticDetail();
+            return new AggregatedSemantic(detail, compatibilityAction(detail));
+        }
+
+        final ArrayList<HistoryEntryDetail> children = new ArrayList<>();
+        final ArrayList<HistoryTarget> targets = new ArrayList<>();
+        final ArrayList<HistoryChange> changes = new ArrayList<>();
+        final Map<String, Integer> targetIndexes = new LinkedHashMap<>();
+        boolean truncated = false;
+        for (final EditorUndoContribution contribution : contributions) {
+            if (children.size() >= MAX_SEMANTIC_ITEMS) {
+                truncated = true;
+                break;
+            }
+            final HistoryEntryDetail child = contribution.semanticDetail();
+            children.add(child);
+            final int[] remapped = new int[child.targets().size()];
+            for (int index = 0; index < child.targets().size(); index++) {
+                final HistoryTarget target = child.targets().get(index);
+                final String key = contribution.targetIdentity() + "\u0000" + index;
+                final Integer existing = targetIndexes.get(key);
+                if (existing != null) {
+                    remapped[index] = existing;
+                } else if (targets.size() < MAX_SEMANTIC_ITEMS) {
+                    remapped[index] = targets.size();
+                    targetIndexes.put(key, remapped[index]);
+                    targets.add(target);
+                } else {
+                    remapped[index] = -1;
+                    truncated = true;
+                }
+            }
+            for (final HistoryChange change : child.changes()) {
+                if (changes.size() >= MAX_SEMANTIC_ITEMS) {
+                    truncated = true;
+                    break;
+                }
+                final Optional<Integer> targetIndex = change.targetIndex()
+                    .map(index -> remapped[index])
+                    .filter(index -> index >= 0);
+                if (change.targetIndex().isPresent() && targetIndex.isEmpty()) {
+                    truncated = true;
+                    continue;
+                }
+                changes.add(new HistoryChange(
+                    change.operation(),
+                    targetIndex,
+                    change.property(),
+                    change.before(),
+                    change.after(),
+                    change.context()
+                ));
+            }
+        }
+        final boolean complete = !truncated
+            && children.size() == contributions.size()
+            && children.stream().allMatch(child ->
+                child.detailLevel() == HistoryAction.DetailLevel.FULL);
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            scope.options().label(),
+            complete ? HistoryAction.DetailLevel.FULL : HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.turboism(scope.binding().pluginId(), "authoring.transaction"),
+            targets,
+            changes,
+            Optional.of(new HistoryGroup(
+                Optional.of(scope.transactionId()),
+                contributions.size(),
+                children,
+                truncated
+            )),
+            complete ? Optional.empty() : Optional.of(
+                truncated ? "history.detail.transaction-limit" : "history.detail.transaction-partial"
+            )
+        );
+        return new AggregatedSemantic(detail, Optional.empty());
+    }
+
+    private static Optional<HistoryAction> compatibilityAction(final HistoryEntryDetail detail) {
+        if (detail.targets().size() != 1 || detail.changes().size() != 1) {
+            return Optional.empty();
+        }
+        final HistoryTarget target = detail.targets().get(0);
+        final HistoryChange change = detail.changes().get(0);
+        if (!"PARAMETER".equals(target.type())
+            || target.id().isEmpty()
+            || change.operation() != HistoryChange.Operation.SET
+            || change.targetIndex().filter(index -> index == 0).isEmpty()
+            || change.property().isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(new HistoryAction(
+            HistoryAction.Kind.SET_PARAMETER_VALUE,
+            target.type(),
+            target.id().orElseThrow(),
+            change.property().orElseThrow(),
+            change.before(),
+            change.after(),
+            detail.detailLevel()
+        ));
+    }
+
+    private record AggregatedSemantic(
+        HistoryEntryDetail detail,
+        Optional<HistoryAction> action
+    ) {
+    }
+
     private String diagnostic(final String code, final Throwable failure) {
         try {
             final String value = host.diagnosticId(code, failure);
@@ -485,6 +623,17 @@ public final class EditorAuthoringTransactionCoordinator {
         /** Performs coalesced model update, refresh, repaint, and dirty-state work. */
         void refresh(Binding binding, Set<EditorRefreshRequirement> requirements);
 
+        /** Prepares finalized detail on a root; presence is identity, not proof of admission. */
+        default Optional<String> prepareHistoryMetadata(
+            final Binding binding,
+            final Object edit,
+            final String transactionId,
+            final HistoryEntryDetail detail,
+            final Optional<HistoryAction> action
+        ) {
+            return Optional.empty();
+        }
+
         /**
          * Returns the opaque identity of exactly one history entry attributable to this commit.
          * Empty means attribution could not be proven.
@@ -496,6 +645,21 @@ public final class EditorAuthoringTransactionCoordinator {
             String transactionId,
             String label
         );
+
+        /** Registers semantic metadata for the exact committed entry. */
+        default Optional<String> committedHistoryEntryId(
+            final Binding binding,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label,
+            final HistoryEntryDetail detail,
+            final Optional<HistoryAction> action
+        ) {
+            Objects.requireNonNull(detail, "detail");
+            Objects.requireNonNull(action, "action");
+            return committedHistoryEntryId(binding, before, after, transactionId, label);
+        }
 
         /** Records or derives an opaque diagnostic identity for a terminal outcome. */
         String diagnosticId(String code, Throwable failure);

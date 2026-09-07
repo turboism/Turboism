@@ -1,48 +1,70 @@
 #!/usr/bin/env bash
-# Thin wrapper: launch Cubism 5.3.02 with the production history-panel
-# plugin plus the test-only history probes, via the generic host-validation
-# runner (official BAT only). Probes live outside the formal bundle.
+# Semantic-history adapter for the generic exact-host runner (official BAT only).
 set -euo pipefail
+
 # Machine-specific fixture paths come from the ignored repository `.env`.
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-cd "$repo_root"
 
-worktree_id="research-cubism-history-manager-20260801"
-bundle="$repo_root/build/manual-test/$worktree_id/windows-history-baseline"
-run_label="${1:-history-baseline-r1}"
-extra_flags=()
-if [ "${1:-}" = "--dry-run" ]; then
-  run_label="history-baseline-r1"
-  extra_flags=(--dry-run)
+if [ "$#" -lt 1 ]; then
+  echo "usage: run-history-baseline-validation.sh <5203|5302> [run-label] [runner-options...]" >&2
+  exit 2
 fi
-local_evidence="$repo_root/build/host-validation/history-baseline/5302"
+version="$1"
+shift
+run_label='semantic-history-r1'
+if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
+  run_label="$1"
+  shift
+fi
 
-[ -f "$bundle/turboism-agent.jar" ] || { echo "bundle missing: $bundle" >&2; exit 1; }
-turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302 \
-  "Cubism 5.3.02 history fixture path" || exit 2
+turboism_select_fixture "$version" || exit 2
 
-args=(--name history-baseline --version 5302
-  --bundle-root "$bundle"
-  --agent "$bundle/turboism-agent.jar"
-  --home-config "$bundle/home-config.json"
-  --fixture-remote "$TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302"
-  --fixture-sha256 57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4
-  --require-fixture-unchanged
-  --ready-marker "Plugin load complete"
-  --result-file data/dev.turboism.validation.history-float/history-float.txt
-  --run-label "$run_label"
-  --local-evidence-dir "$local_evidence"
-  --result-timeout 420
-  --agent-host-class com.live2d.cubism.view.CEMainFrameCtrl
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
+bundle_root="$repo_root/build/manual-test/$worktree_id/windows-history-panel-validation"
+runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
+local_evidence="$repo_root/build/host-validation/semantic-history/$version"
+evidence_hook="$repo_root/scripts/preview/collect-history-validation-evidence.sh"
+
+required=(
+  "$bundle_root/turboism-agent.jar"
+  "$bundle_root/config.json"
+  "$bundle_root/plugins/history-panel.jar"
+  "$bundle_root/plugins/history-seed-validation-probe.jar"
+  "$bundle_root/plugins/history-validation-probe.jar"
+  "$evidence_hook"
 )
-for plugin in "$bundle"/plugins/*.jar; do
-  args+=(--plugin "$plugin")
+for artifact in "${required[@]}"; do
+  [ -f "$artifact" ] || {
+    printf 'error: history validation bundle artifact missing: %s\n' "$artifact" >&2
+    exit 1
+  }
 done
-# Test-only validation probes are injected at run time; they are not part
-# of the formal bundle (never shipped with production plugins).
-for probe in "$repo_root/build/manual-test/$worktree_id/validation-probes"/*.jar; do
-  args+=(--plugin "$probe")
-done
-exec bash scripts/preview/run-cubism-host-validation.sh "${args[@]}" "${extra_flags[@]}"
+
+exec bash "$runner" \
+  --name semantic-history \
+  --execution-mode "${TURBOISM_HOST_VALIDATION_EXECUTION_MODE:-local}" \
+  --version "$version" \
+  --run-label "$run_label" \
+  --bundle-root "$bundle_root" \
+  --agent "$bundle_root/turboism-agent.jar" \
+  --home-config "$bundle_root/config.json" \
+  --plugin "$bundle_root/plugins/history-panel.jar:history-panel.jar" \
+  --plugin "$bundle_root/plugins/history-seed-validation-probe.jar:history-seed-validation-probe.jar" \
+  --plugin "$bundle_root/plugins/history-validation-probe.jar:history-validation-probe.jar" \
+  --fixture-remote "$fixture_src" \
+  --fixture-sha256 "$fixture_sha256" \
+  --require-fixture-unchanged \
+  --ready-marker 'History seed validation probe initialized' \
+  --ready-marker 'Read-only history manager validation probe initialized' \
+  --ready-marker 'Plugin load complete' \
+  --remote-pre-cleanup "$evidence_hook" \
+  --result-file 'data/dev.turboism.validation.history-seed/history-seed.jsonl' \
+  --result-pass-line '{"type":"summary","status":"PASS"}' \
+  --result-fail-line '{"type":"summary","status":"FAIL"}' \
+  --ready-timeout 300 \
+  --result-timeout 600 \
+  --exit-timeout 300 \
+  --local-evidence-dir "$local_evidence" \
+  "$@"
