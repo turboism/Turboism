@@ -43,3 +43,62 @@ tasks.register("checkImageArchiveValidationBundle") {
         }
     }
 }
+
+
+val buildFloatArrayHostProbe by tasks.registering(Jar::class) {
+    group = "host verification"
+    description = "Builds the test-only native float parser load/differential validator."
+    dependsOn(compileImageArchiveHostProbe)
+    archiveFileName.set("float-array-host-validation-exerciser.jar")
+    destinationDirectory.set(layout.buildDirectory)
+    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeFloatArrayHostAgent") }
+}
+
+tasks.register("checkFloatArrayValidationBundle") {
+    group = "verification"
+    description = "Checks the production native float cache and excludes all test-only parser/UI agents."
+    dependsOn("previewBundle", buildFloatArrayHostProbe)
+    doLast {
+        val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        JarFile(agent).use { jar ->
+            check(jar.getJarEntry("dev/turboism/adapter/cubism/optimization/serialization/FloatArrayParseBridge.class") != null)
+            check(jar.getJarEntry("dev/turboism/bootstrap/VerifiedFloatArrayParseCacheInstaller.class") != null)
+            check(jar.entries().asSequence().none { it.name.startsWith("dev/turboism/validation/NativeFloatArrayHostAgent")
+                || it.name.startsWith("dev/turboism/validation/NativeAtlasWorkflow") })
+        }
+        JarFile(buildFloatArrayHostProbe.get().archiveFile.get().asFile).use { jar ->
+            check(jar.manifest.mainAttributes.getValue("Premain-Class") == "dev.turboism.validation.NativeFloatArrayHostAgent")
+        }
+    }
+}
+
+
+val buildTextureUploadHostProbe by tasks.registering(Jar::class) {
+    group = "host verification"
+    description = "Builds the test-only native texture-data differential/load validator."
+    dependsOn(compileImageArchiveHostProbe)
+    archiveFileName.set("texture-upload-host-validation-exerciser.jar")
+    destinationDirectory.set(layout.buildDirectory)
+    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeTextureUploadHostAgent") }
+}
+
+tasks.register("checkTextureUploadValidationBundle") {
+    group = "verification"
+    description = "Checks production texture preparation and excludes the validation-only agents."
+    dependsOn("previewBundle", buildTextureUploadHostProbe)
+    doLast {
+        val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        JarFile(agent).use { jar ->
+            check(jar.getJarEntry("dev/turboism/adapter/cubism/optimization/image/CanonicalRgbaImage.class") != null)
+            check(jar.getJarEntry("dev/turboism/bootstrap/VerifiedTextureUploadPreparationInstaller.class") != null)
+            check(jar.entries().asSequence().none { it.name.startsWith("dev/turboism/validation/NativeTextureUploadHostAgent")
+                || it.name.startsWith("dev/turboism/validation/NativeFloatArrayHostAgent")
+                || it.name.startsWith("dev/turboism/validation/NativeAtlasWorkflow") })
+        }
+        JarFile(buildTextureUploadHostProbe.get().archiveFile.get().asFile).use { jar ->
+            check(jar.manifest.mainAttributes.getValue("Premain-Class") == "dev.turboism.validation.NativeTextureUploadHostAgent")
+        }
+    }
+}

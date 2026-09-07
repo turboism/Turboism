@@ -39,6 +39,8 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
     private final LongAdder reused = new LongAdder();
     private final LongAdder fallback = new LongAdder();
     private final LongAdder failures = new LongAdder();
+    private final LongAdder decodedPixels = new LongAdder();
+    private final LongAdder fallbackWithoutPng = new LongAdder();
     private final BiFunction<Object,Object,Object> callback = this::invoke;
     private final Supplier<Map<String,Long>> counters = this::snapshot;
     private Properties installedProperties;
@@ -92,6 +94,7 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
             final int w = (int)width.invoke(currentImage), h = (int)height.invoke(currentImage);
             if (archiveImage == null) {
                 decoded.increment(); cache.remember(resource,currentImage,encoded,w,h,argb);
+                decodedPixels.add(argb.length);
                 if (!active.get()) cache.clear();
                 return null;
             }
@@ -100,6 +103,7 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
             if (result != null && active.get() && Boolean.getBoolean(ENABLE_PROPERTY)) {
                 reused.increment(); return result;
             }
+            if (encoded == null) fallbackWithoutPng.increment();
             fallback.increment(); return null;
         } catch (Throwable rejected) {
             failures.increment();
@@ -111,7 +115,8 @@ public final class ImageArchiveReuseBridge implements AutoCloseable {
     public Map<String,Long> snapshot() {
         return Map.of("active",active.get()?1L:0L,"decodeObservations",decoded.sum(),
             "archiveChecks",archiveChecks.sum(),"reused",reused.sum(),"fallback",fallback.sum(),
-            "failures",failures.sum(),"trackedProofs",(long)cache.size());
+            "failures",failures.sum(),"trackedProofs",(long)cache.size(),
+            "decodePixelsObserved",decodedPixels.sum(),"fallbackWithoutPng",fallbackWithoutPng.sum());
     }
 
     /** Makes callbacks inert, identity-removes this installation's slots and releases proofs. */
