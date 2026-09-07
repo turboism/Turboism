@@ -80,6 +80,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureUploadPreparationInstaller> TEXTURE_UPLOAD_PREPARATION =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedWarpPositionProjectionInstaller> WARP_POSITION_PROJECTION =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -326,6 +328,7 @@ public final class TurboismAgent {
             if (fullRuntimeAdmission) installImageArchiveReuse(options, instrumentation, host);
             if (fullRuntimeAdmission) installFloatArrayParseCache(options, instrumentation, host);
             if (fullRuntimeAdmission) installTextureUploadPreparation(options, instrumentation, host);
+            if (fullRuntimeAdmission) installWarpPositionProjection(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -349,6 +352,7 @@ public final class TurboismAgent {
                 closeImageArchiveReuse();
                 closeFloatArrayParseCache();
                 closeTextureUploadPreparation();
+                closeWarpPositionProjection();
                 throw failure;
             }
             if (!RUNTIME.compareAndSet(null, runtime)) {
@@ -378,6 +382,9 @@ public final class TurboismAgent {
                 }
                 if (TEXTURE_UPLOAD_PREPARATION.get() != null) {
                     runtimeInfo("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=COMPLETE phase=runtime-ready");
+                }
+                if (WARP_POSITION_PROJECTION.get() != null) {
+                    runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE phase=runtime-ready");
                 }
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
@@ -505,6 +512,37 @@ public final class TurboismAgent {
             }
             runtimeWarn("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=FAILED " + failure.getClass().getName()
                 + ": " + failure.getMessage());
+        }
+    }
+
+    private static void installWarpPositionProjection(AgentOptions options, Instrumentation instrumentation,
+                                                       HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.ENABLE_PROPERTY)) return;
+        VerifiedWarpPositionProjectionInstaller installer = null;
+        try {
+            if (!VerifiedWarpPositionProjectionInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedWarpPositionProjectionInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!WARP_POSITION_PROJECTION.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_WARP_POSITION_PROJECTION installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeWarpPositionProjection() {
+        VerifiedWarpPositionProjectionInstaller installation = WARP_POSITION_PROJECTION.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism warp position projection cleanup failed safely"); }
         }
     }
 
@@ -1343,6 +1381,7 @@ public final class TurboismAgent {
         closeImageArchiveReuse();
         closeFloatArrayParseCache();
         closeTextureUploadPreparation();
+        closeWarpPositionProjection();
         final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
         if (fpsHook != null) {
             try {
