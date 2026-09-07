@@ -1,10 +1,12 @@
 # Actual memory occupancy: texture preparation off/on
 
-## Conclusion — 2026-09-07
+## Original occupancy cohort — 2026-09-07 (retained)
 
 **Do not recommend the current texture-preparation option as a way to lower peak RAM usage.** It reduces cumulative allocation, but this controlled six-run Linux/Proton measurement observed a **higher loading RSS peak in every on run**. End-of-idle occupancy varies substantially and does not establish a repeatable reduction. The product flag remains default off; no product code, heap settings or collector policy was changed for this measurement.
 
 Fixture: the same 447,432,485-byte `heavy.cmo3`, SHA-256 `029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`. Exact Cubism 5.3.02 and bundled JVM 17 on the validated Proton host. Same product Agent in all runs: SHA-256 `469f322c1a8e9a56dfe9b43415b94bc99820b8c70ca4110f7e62247c008b5a13`. Same auxiliary observer: `5c1300e57207a8be54e7612e4dd742719c2eb1e7685871e61a987875a975f198`. Heap maximum is unchanged at 16,592,666,624 bytes in all six runs.
+
+Follow-up: the [unified experiment ledger](NATIVE-PERFORMANCE-EXPERIMENTS.md), E10, records six further runs with loading heap/GC, CPU and GPU counters. Their RSS ranges overlap and do not repeat this cohort's uniform peak direction. The added observer can itself perturb timing/GC, so do not merge the cohorts or silently replace this negative table with favorable samples. No stable primary-metric benefit or unique cause is established.
 
 ## Measurement
 
@@ -70,6 +72,7 @@ TURBOISM_ENV_FILE=/path/to/operator.env \
   --fixture-remote /path/to/heavy.cmo3 --fixture-sha256 <source-sha256> \
   --home-file "$PWD/scripts/test/measure-task-memory.py:validation/measure-task-memory.py" \
   --home-file "$PWD/scripts/preview/host-task-processes.py:validation/host-task-processes.py" \
+  --home-file "$PWD/scripts/test/host_resource_counters.py:validation/host_resource_counters.py" \
   --remote-pre-launch "$PWD/scripts/test/start-task-memory-observer.sh" \
   --jvm-option '-Dturboism.validation.textureUpload.memoryIdleSeconds=120' \
   --dry-run
