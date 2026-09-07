@@ -30,7 +30,7 @@ public final class CanonicalRgbaImage {
             || source.isAlphaPremultiplied() || !source.getColorModel().getColorSpace().isCS_sRGB()) return null;
         int width = source.getWidth(), height = source.getHeight();
         long pixels = (long) width * height;
-        if (width < 1 || height < 1 || width > 4096 || height > 4096 || pixels < 65536 || pixels > 16_777_216L) return null;
+        if (width < 1 || height < 1 || width > 8192 || height > 8192 || pixels < 4096 || pixels > 33_554_432L) return null;
         var raster = RGBA.createCompatibleWritableRaster(width, height);
         if (!(raster.getSampleModel() instanceof PixelInterleavedSampleModel model)
             || model.getPixelStride() != 4 || model.getScanlineStride() != width * 4

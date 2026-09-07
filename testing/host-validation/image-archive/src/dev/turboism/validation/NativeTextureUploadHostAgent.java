@@ -76,7 +76,15 @@ public final class NativeTextureUploadHostAgent {
                 RESULT.setProperty("shadow.comparedTextures",Long.toString(capture.compared.get()));
                 RESULT.setProperty("shadow.comparedBytes",Long.toString(capture.bytes.get()));
                 RESULT.setProperty("shadow.mismatches",Long.toString(capture.mismatches.get()));
-                if(shadow) require(capture.compared.get()>0&&capture.mismatches.get()==0,"native JOGL representation differs");
+                RESULT.setProperty("shadow.rejectedCalls",Long.toString(capture.rejected.get()));
+                RESULT.setProperty("shadow.rejectedMaxPixels",Long.toString(capture.rejectedPixels.get()));
+                RESULT.setProperty("shadow.rejectedMaxWidth",Long.toString(capture.rejectedWidth.get()));
+                RESULT.setProperty("shadow.rejectedMaxHeight",Long.toString(capture.rejectedHeight.get()));
+                if(shadow) {
+                    require(capture.callsBeforeAttach==0,"shadow missed initial texture calls");
+                    require(capture.compared.get()>0&&capture.mismatches.get()==0,"native JOGL representation differs");
+                    require(capture.compared.get()==number(stats,"prepared"),"shadow did not compare every preparation");
+                }
             } else {
                 require(stats==null&&System.getProperties().get(CALLBACK)==null,"off baseline installed a texture hook");
             }
@@ -139,6 +147,8 @@ public final class NativeTextureUploadHostAgent {
         final AtomicReference<Object> profile=new AtomicReference<>();
         final AtomicReference<Throwable> failure=new AtomicReference<>();
         final AtomicLong compared=new AtomicLong(), bytes=new AtomicLong(), mismatches=new AtomicLong();
+        final AtomicLong rejected=new AtomicLong(), rejectedPixels=new AtomicLong();
+        final AtomicLong rejectedWidth=new AtomicLong(), rejectedHeight=new AtomicLong();
         volatile long callsBeforeAttach=-1;
         volatile Object original;
         volatile BiFunction<Object,Object,Object> wrapper;
@@ -158,6 +168,12 @@ public final class NativeTextureUploadHostAgent {
                                 wrapper=(image,glProfile)->{
                                     try{
                                         Object prepared=delegate.apply(image,glProfile);
+                                        if(shadow&&prepared==null&&image instanceof BufferedImage rejectedSource) {
+                                            rejected.incrementAndGet();
+                                            rejectedPixels.accumulateAndGet((long)rejectedSource.getWidth()*rejectedSource.getHeight(),Math::max);
+                                            rejectedWidth.accumulateAndGet(rejectedSource.getWidth(),Math::max);
+                                            rejectedHeight.accumulateAndGet(rejectedSource.getHeight(),Math::max);
+                                        }
                                         if(prepared instanceof BufferedImage target&&image instanceof BufferedImage source){
                                             profile.compareAndSet(null,glProfile);
                                             if(shadow) compare(source,target,glProfile);
