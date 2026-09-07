@@ -3,7 +3,7 @@ package dev.turboism.sdk.cubism.textureatlas;
 
 import java.util.Objects;
 
-/** One immutable placement inside a complete atlas layout plan. */
+/** Final pixel bounds; rotated means a positive quarter-turn before translating into these bounds. */
 public record TextureAtlasPlacement(
     String textureId,
     int pageIndex,
@@ -21,9 +21,6 @@ public record TextureAtlasPlacement(
         }
         if (width < 1 || height < 1) {
             throw new IllegalArgumentException("Placement dimensions must be positive.");
-        }
-        if (rotated) {
-            throw new IllegalArgumentException("Rotated placements are not supported by this Preview tracer.");
         }
     }
 
