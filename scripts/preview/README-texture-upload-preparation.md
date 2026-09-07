@@ -1,6 +1,6 @@
 # Native texture-upload preparation
 
-Status: default-off, opt-in allocation optimization with exact-host equivalence evidence. The expanded-range matrix reduced observed temporary allocation by **13.9% (2.06 GB)**, but the subsequent actual-memory study found **32% higher loading RSS peaks**, not lower peak RAM. End-of-idle occupancy had no established repeatable improvement. **Not recommended as a memory-saving option**, especially on memory-constrained systems. See [actual memory occupancy results](README-native-memory-occupancy.md). CPU/load-time/FPS improvements remain unclaimed.
+Status: default-off, opt-in allocation optimization with exact-host equivalence evidence. The expanded-range matrix reduced observed temporary allocation by **13.9% (2.06 GB)**. The first occupancy cohort found **32% higher loading RSS peaks**; a later cohort with added loading/CPU/GPU instrumentation did not repeat that direction and found overlapping ranges. Neither establishes a stable memory/CPU/GPU benefit or the unique cause of the peak. **Not recommended as a memory-saving option.** Read the [unified experiment ledger, including retry conditions and contradictory results](NATIVE-PERFORMANCE-EXPERIMENTS.md) and the [original occupancy cohort](README-native-memory-occupancy.md).
 
 ## Supported boundary
 

@@ -14,6 +14,9 @@ SPEC = importlib.util.spec_from_file_location('memory_task_identity', HELPER)
 IDENTITY = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = IDENTITY
 SPEC.loader.exec_module(IDENTITY)
+COUNTER_SPEC = importlib.util.spec_from_file_location('task_resource_counters', Path(__file__).with_name('host_resource_counters.py'))
+COUNTERS = importlib.util.module_from_spec(COUNTER_SPEC)
+COUNTER_SPEC.loader.exec_module(COUNTERS)
 
 
 def kilobytes(text, required):
@@ -60,6 +63,10 @@ def sample(process):
     same_process(process, before)
     root = Path('/proc') / str(process.pid)
     started = time.monotonic_ns()
+    cpu = COUNTERS.cpu_snapshot((root / 'stat').read_text())
+    if cpu['started'] != process.started:
+        raise RuntimeError('CPU process identity changed')
+    gpu = COUNTERS.gpu_snapshot(root)
     status = kilobytes((root / 'status').read_text(), ('VmRSS', 'VmHWM', 'VmSwap'))
     rollup = kilobytes((root / 'smaps_rollup').read_text(),
                       ('Rss', 'Pss', 'Private_Clean', 'Private_Dirty', 'Swap', 'SwapPss'))
@@ -67,7 +74,7 @@ def sample(process):
     system = kilobytes(Path('/proc/meminfo').read_text(), ('MemAvailable', 'SwapFree'))
     return dict(epochMillis=time.time_ns() // 1_000_000, monotonicNs=time.monotonic_ns(),
                 readDurationNs=time.monotonic_ns() - started, pid=process.pid, started=process.started,
-                status=status, rollup=rollup, system=system)
+                status=status, rollup=rollup, system=system, cpu=cpu, gpu=gpu)
 
 
 def publish(path, text):
