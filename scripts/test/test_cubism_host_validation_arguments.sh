@@ -32,7 +32,7 @@ printf 'home-file\n' > "$tmp/home-file.txt"
 mkdir -p "$tmp/home-dir"
 printf 'home-dir\n' > "$tmp/home-dir/value.txt"
 printf 'key\n' > "$tmp/key"
-host_args=(--ssh-host test@example.invalid --ssh-key "$tmp/key"
+host_args=(--transport remote --ssh-host test@example.invalid --ssh-key "$tmp/key"
   --golden-prefix /tmp/turboism-golden --remote-root /tmp/turboism-validation
   --proton-runner /tmp/proton)
 
@@ -40,11 +40,26 @@ base=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
 
+# Remote dry-run must reject missing mandatory connection arguments before init.
+expect_rejected remote-missing-host 'validation SSH host is required' \
+  bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle" \
+  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3" \
+  --result-file state/result.txt --transport remote --ssh-key "$tmp/key" \
+  --golden-prefix /tmp/turboism-golden --remote-root /tmp/turboism-validation \
+  --proton-runner /tmp/proton --dry-run
+expect_rejected remote-missing-key 'validation SSH key is required' \
+  bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle" \
+  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3" \
+  --result-file state/result.txt --transport remote --ssh-host test@example.invalid \
+  --golden-prefix /tmp/turboism-golden --remote-root /tmp/turboism-validation \
+  --proton-runner /tmp/proton --dry-run
+
 cubism_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
 "${base[@]}" --home-file "$tmp/home-file.txt:scripts/input.txt" --home-dir "$tmp/home-dir:scripts" \
   --trigger state/trigger.flag --windows-env 'HOME={HOME}\\fx-home' \
   --windows-env 'USERPROFILE={HOME}\\fx-home' --cubism-java "$cubism_java" \
   --cubism-java-console-marker 'GraalVM Community' > "$tmp/good.out"
+grep -Fq 'transport=remote' "$tmp/good.out" || fail 'valid remote dry-run was not accepted'
 grep -Fq 'homeFileCount=1' "$tmp/good.out" || fail 'valid home-file was not accepted'
 grep -Fq 'homeDirCount=1' "$tmp/good.out" || fail 'valid home-dir was not accepted'
 grep -Fq 'trigger=state/trigger.flag' "$tmp/good.out" || fail 'valid trigger was not accepted'
