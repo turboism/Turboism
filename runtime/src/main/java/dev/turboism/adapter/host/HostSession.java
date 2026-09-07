@@ -709,9 +709,9 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             }
             appearanceCoordinator.close();
             paletteAppearanceCoordinator.close();
-            // close() keeps all palette cleanup (PaletteSurfaceCoordinator, which now owns the
-            // scene filter sink binding) under cleanupOwnedResources(), matching main's unified
-            // palette-surface path; sceneTableHost.disconnect() happens there exactly once.
+            paletteSurfaceCoordinator.close();
+            // close() keeps palette cleanup here (matching main's unified palette-surface path);
+            // sceneTableHost.disconnect() runs exactly once inside cleanupOwnedResources() above.
             if (cubismLog instanceof dev.turboism.runtime.log.CubismLogServiceHost host) {
                 host.close();
             }
