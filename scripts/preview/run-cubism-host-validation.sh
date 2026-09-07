@@ -66,6 +66,9 @@ Common options:
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
   --transport <ssh|local, default ssh>      local runs on this machine without SSH credentials
+  --interactive                           user session, not validation; no result/trigger/aux-agent
+      Keeps task prefix/home/model copy; waits for user close without exit timeout.
+      Interrupting the coordinator leaves an active Editor running, never kills unsaved work.
   --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
   --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
   --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
@@ -210,6 +213,7 @@ result_timeout=300
 exit_timeout=120
 poll_seconds=3
 transport=ssh
+interactive=0
 ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
 ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
 golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
@@ -260,6 +264,7 @@ while [ "$#" -gt 0 ]; do
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
     --transport) require_value "$@"; transport="$2"; shift 2 ;;
+    --interactive) interactive=1; shift ;;
     --ssh-host) require_value "$@"; ssh_host="$2"; shift 2 ;;
     --ssh-key) require_value "$@"; ssh_key="$2"; shift 2 ;;
     --golden-prefix) require_value "$@"; golden_prefix="$2"; shift 2 ;;
@@ -320,8 +325,14 @@ done
 bundle_root="$(cd "$bundle_root" 2>/dev/null && pwd)" || fail "bundle root does not exist: $bundle_root"
 agent="${agent:-$bundle_root/turboism-agent.jar}"
 [ -f "$agent" ] || fail "agent does not exist: $agent"
-[ "${#plugins[@]}" -gt 0 ] || [ "${#aux_agents[@]}" -gt 0 ] \
-  || fail "at least one --plugin or --aux-agent is required"
+if [ "$interactive" = 0 ]; then
+  [ "${#plugins[@]}" -gt 0 ] || [ "${#aux_agents[@]}" -gt 0 ] \
+    || fail "at least one --plugin or --aux-agent is required"
+else
+  [ "${#aux_agents[@]}" = 0 ] || fail "interactive mode cannot use auxiliary validation agents"
+  [ -z "$result_marker$result_file$trigger_path" ] || fail "interactive mode cannot claim a validation result or trigger"
+  keep_prefix=1
+fi
 
 if [ -n "$fixture_remote" ] && [ -n "$fixture_local" ]; then
   fail "use only one of --fixture-remote or --fixture-local"
@@ -344,7 +355,7 @@ fi
 if [ -n "$result_marker" ] && [ -n "$result_file" ]; then
   fail "use only one result mode: --result-marker or --result-file"
 fi
-if [ -z "$result_marker" ] && [ -z "$result_file" ]; then
+if [ "$interactive" = 0 ] && [ -z "$result_marker" ] && [ -z "$result_file" ]; then
   fail "one result mode is required"
 fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
@@ -532,6 +543,8 @@ if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
     "transport=$transport" \
+    "interactive=$interactive" \
+    "keepPrefix=$keep_prefix" \
     "version=$version" \
     "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
@@ -639,159 +652,18 @@ test ! -s "$exit_file" && test -s "$pid_file" && kill -0 "$(cat "$pid_file")" 2>
 REMOTE
 }
 
-remote_normal_exit_evidence_seen() {
-  case "$version" in
-    5302|5303)
-      remote_args_bash "$evidence_dir/cubism-console.txt" <<'REMOTE'
-set -euo pipefail
-remote_args
-grep -Eq -- '-- successfully exited pid:[0-9]+ --' "${REMOTE_ARGS[0]}"
-REMOTE
-      ;;
-    5203)
-      local log_file
-      log_file="$(latest_runtime_log)"
-      [ -n "$log_file" ] || return 1
-      runtime_log_contains "$log_file" 'Stopping Turboism Developer Preview' \
-        && runtime_log_contains "$log_file" 'Turboism core shutdown'
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
-remote_record_wrapper_cleanup() {
-  remote_args_bash "$evidence_dir/wrapper.cleanup" <<'REMOTE'
-set -euo pipefail
-remote_args
-printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > "${REMOTE_ARGS[0]}"
-REMOTE
-}
-
 remote_stop_process_tree() {
-  # Keep the task id out of this cleanup shell's process command line. Otherwise
-  # the task-name scan below can discover and terminate its own coordinator
-  # before it records cleanup evidence or reaches the final survivor check.
-  remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner" <<'REMOTE'
+  # Reuse one identity-safe implementation locally or over SSH. Arguments remain
+  # data, and the process selector never guesses ownership from command substrings.
+  {
+    cat <<'REMOTE'
 set -euo pipefail
 remote_args
-pid_file="${REMOTE_ARGS[0]}"
-wine_prefix="${REMOTE_ARGS[1]}"
-proton_runner="${REMOTE_ARGS[2]}"
-wineserver="$(dirname "$proton_runner")/files/bin/wineserver"
-[ ! -x "$wineserver" ] || WINEPREFIX="$wine_prefix" "$wineserver" -k 2>/dev/null || true
-processes=()
-if [ -s "$pid_file" ]; then
-  root="$(cat "$pid_file")"
-  [[ "$root" =~ ^[1-9][0-9]*$ ]] || {
-    printf '%s\n' 'invalid wrapper pid' > "$(dirname "$pid_file")/task-process-cleanup.properties"
-    exit 1
-  }
-  processes=("$root")
-fi
-for _ in $(seq 1 64); do
-  added=0
-  for parent in "${processes[@]}"; do
-    while read -r child; do
-      [ -n "$child" ] || continue
-      if [[ " ${processes[*]} " != *" $child "* ]]; then
-        processes+=("$child")
-        added=1
-      fi
-    done < <(ps -o pid= --ppid "$parent" 2>/dev/null | tr -d ' ' || true)
-  done
-  [ "$added" = 1 ] || break
-done
-task_dir="${wine_prefix%/prefix/pfx}"
-task_name="${task_dir##*/}"
-append_task_processes() {
-  local pid
-  while read -r pid; do
-    [ -n "$pid" ] || continue
-    [[ " ${processes[*]} " == *" $pid "* ]] || processes+=("$pid")
-  done < <(
-    python3 - "$task_dir" "$wine_prefix" <<'PY'
-from pathlib import Path
-import sys
-
-task = sys.argv[1]
-prefix = sys.argv[2]
-self_pid = str(Path('/proc/self').resolve().name)
-for proc in Path('/proc').iterdir():
-    if not proc.name.isdigit() or proc.name == self_pid:
-        continue
-    try:
-        raw = (proc / 'cmdline').read_bytes()
-        environ = (proc / 'environ').read_bytes()
-    except (OSError, PermissionError):
-        continue
-    owned = task.encode() in raw or prefix.encode() in raw
-    owned = owned or f'WINEPREFIX={prefix}'.encode() + b'\0' in environ
-    if owned:
-        print(proc.name)
-PY
-  )
-}
-append_task_processes
-for ((index=${#processes[@]} - 1; index >= 0; index--)); do
-  kill -TERM "${processes[$index]}" 2>/dev/null || true
-done
-for _ in $(seq 1 10); do
-  append_task_processes
-  alive=0
-  for pid in "${processes[@]}"; do
-    kill -0 "$pid" 2>/dev/null && alive=1
-  done
-  [ "$alive" = 1 ] || break
-  sleep 1
-done
-append_task_processes
-for ((index=${#processes[@]} - 1; index >= 0; index--)); do
-  kill -KILL "${processes[$index]}" 2>/dev/null || true
-done
-for _ in $(seq 1 10); do
-  alive=0
-  for pid in "${processes[@]}"; do
-    kill -0 "$pid" 2>/dev/null && alive=1
-  done
-  [ "$alive" = 1 ] || break
-  sleep 1
-done
-mapfile -t survivors < <(
-  python3 - "$task_dir" "$wine_prefix" "${processes[@]}" <<'PY'
-from pathlib import Path
-import sys
-
-task = sys.argv[1]
-prefix = sys.argv[2]
-tracked = set(sys.argv[3:])
-for proc in Path("/proc").iterdir():
-    if not proc.name.isdigit():
-        continue
-    try:
-        raw = (proc / "cmdline").read_bytes()
-        cmdline = raw.replace(b"\0", b" ").decode("utf-8", "replace")
-        environ = (proc / "environ").read_bytes()
-    except (OSError, PermissionError):
-        continue
-    owned = proc.name in tracked or task.encode() in raw or prefix.encode() in raw
-    owned = owned or f"WINEPREFIX={prefix}".encode() + b"\0" in environ
-    if owned and proc.name != str(Path('/proc/self').resolve().name):
-        print(f"{proc.name} {cmdline.strip()}")
-PY
-)
-{
-  printf 'taskDir=%s\n' "$task_dir"
-  printf 'trackedProcesses=%s\n' "${#processes[@]}"
-  printf 'survivors=%s\n' "${#survivors[@]}"
-} > "$(dirname "$pid_file")/task-process-cleanup.properties"
-if [ "${#survivors[@]}" -gt 0 ]; then
-  printf '%s\n' "${survivors[@]}" > "$(dirname "$pid_file")/task-process-survivors.txt"
-  return 1
-fi
-rm -f "$(dirname "$pid_file")/task-process-survivors.txt"
+python3 - "${REMOTE_ARGS[0]}" "${REMOTE_ARGS[1]}" <<'TASK_PROCESS_PY'
 REMOTE
+    cat "$repo_root/scripts/preview/host-task-processes.py"
+    printf '\nTASK_PROCESS_PY\n'
+  } | remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner"
 }
 
 latest_runtime_log() {
@@ -942,10 +814,10 @@ REMOTE
 on_exit() {
   local rc=$? cleanup_rc=0
   set +e
-  if [ "$launched" = 1 ] && [ "$success" = 0 ]; then
+  if [ "$interactive" = 0 ] && [ "$launched" = 1 ] && [ "$success" = 0 ]; then
     run_remote_hook "$remote_pre_cleanup" || cleanup_rc=1
   fi
-  if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
+  if [ "$interactive" = 0 ] && [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree || cleanup_rc=1
   fi
   collect_evidence
@@ -957,6 +829,9 @@ on_exit() {
     printf 'host validation: REMOTE CLEANUP FAILED task=%s remote=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
     rc=1
+  fi
+  if [ "$interactive" = 1 ] && [ "$launched" = 1 ] && [ "$success" = 0 ]; then
+    printf 'SESSION_DETACHED task=%s retained=%s; active Editor was not terminated; close it manually\n' "$task_id" "$task_dir" >&2
   fi
   if [ "$rc" -ne 0 ]; then
     printf 'host validation: FAILED task=%s remote=%s evidence=%s\n' \
@@ -1057,6 +932,7 @@ bat="$cubism/CubismEditor5.bat"
 REMOTE
 
 "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
+"${ssh_cmd[@]}" "$ssh_host" "printf 'interactive=%s\\nvalidationEvidence=%s\\n' '$interactive' '$((1 - interactive))' > '$evidence_dir/session-mode.properties'"
 "${scp_cmd[@]}" "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
   "$ssh_host:$task_dir/archive-cubism-host-evidence.sh"
 "${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/archive-cubism-host-evidence.sh'"
@@ -1263,6 +1139,7 @@ if [ -n "$client_script" ]; then
   fi
 fi
 
+if [ "$interactive" = 0 ]; then
 log "waiting for terminal validation result"
 deadline=$((SECONDS + result_timeout))
 result_passed=0
@@ -1291,18 +1168,21 @@ while [ "$SECONDS" -lt "$deadline" ]; do
   sleep "$poll_seconds"
 done
 [ "$result_passed" = 1 ] || fail "result timeout after ${result_timeout}s"
+else
+  log "INTERACTIVE_READY task=$task_id (not validation evidence)"
+  log "work on the copied model: $fixture_path"
+  log "task prefix/home/copy retained: $task_dir; close Cubism normally when finished"
+fi
 
-log "terminal PASS observed; waiting for graceful launcher exit"
+if [ "$interactive" = 0 ]; then
+  log "terminal PASS observed; waiting for graceful launcher exit"
+else
+  log "waiting for user-controlled Editor exit; no automatic exit timeout"
+fi
 deadline=$((SECONDS + exit_timeout))
-while [ "$SECONDS" -lt "$deadline" ]; do
-  if remote_normal_exit_evidence_seen; then
-    if remote_process_alive; then
-      remote_record_wrapper_cleanup
-      remote_stop_process_tree
-      wrapper_cleanup_done=1
-    fi
-    break
-  fi
+while [ "$interactive" = 1 ] || [ "$SECONDS" -lt "$deadline" ]; do
+  # Shutdown logs precede actual process exit. Never turn normal shutdown into
+  # a forced stop, especially during an interactive user's close sequence.
   remote_process_alive || break
   sleep "$poll_seconds"
 done
@@ -1312,15 +1192,12 @@ if remote_process_alive; then
     "printf '%s\n' 'terminal PASS observed; graceful close timed out; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
   remote_stop_process_tree
   wrapper_cleanup_done=1
+  fail "graceful launcher exit timed out; forced task cleanup is not validation PASS"
 fi
 
 wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
-if [ "$wrapper_cleanup_done" = 0 ]; then
-  [ -n "$wrapper_exit" ] || fail "official launcher exited with code missing"
-  [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
-elif [ -n "$wrapper_exit" ] && [ "$wrapper_exit" != 0 ] && [ "$wrapper_exit" != 1 ]; then
-  fail "official launcher cleanup exited with unexpected code $wrapper_exit"
-fi
+[ -n "$wrapper_exit" ] || fail "official launcher exited with code missing"
+[ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
 if [ -n "$cubism_java_console_marker" ]; then
   remote_args_bash "$evidence_dir/cubism-console.txt" "$cubism_java_console_marker" <<'REMOTE' \
     || fail "Cubism Java identity marker was not observed: $cubism_java_console_marker"
@@ -1362,6 +1239,10 @@ collect_evidence
 success=1
 cleanup_prefix
 
-log "PASS task=$task_id"
+if [ "$interactive" = 1 ]; then
+  log "SESSION_ENDED task=$task_id (not validation evidence; work copy retained)"
+else
+  log "PASS task=$task_id"
+fi
 log "remote task=$task_dir"
 log "local evidence=$local_evidence_dir"

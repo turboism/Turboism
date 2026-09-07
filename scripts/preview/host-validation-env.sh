@@ -48,6 +48,11 @@ if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
       fi
     done < "$_turboism_env_file"
   fi
+  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
+fi
+
+# Defaults belong to each sourcing shell, including an exec'd runner whose
+# environment already contains the loaded marker but omits optional SSH keys.
 
   : "${TURBOISM_HOST_VALIDATION_SSH_HOST:=}"
   : "${TURBOISM_HOST_VALIDATION_SSH_KEY:=}"
@@ -67,8 +72,6 @@ if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256:=27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302:=}"
 
-  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
-fi
 
 turboism_require_env() {
   local name=$1 description=${2:-$1}
