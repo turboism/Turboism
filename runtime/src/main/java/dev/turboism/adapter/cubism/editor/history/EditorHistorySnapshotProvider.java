@@ -37,7 +37,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private final BindingIdentityTracker managerIdentities;
     private long revisionGeneration = -1;
     private long revision;
-    private String lastFingerprint = "";
+    private HistorySnapshot lastSnapshot;
 
     public EditorHistorySnapshotProvider(
         final Supplier<Optional<VerifiedMemberResolver>> resolver,
@@ -368,17 +368,8 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final boolean canUndo = flag(resolver.invoke("cubism.editor-history.manager.can-undo", manager));
         final boolean canRedo = flag(resolver.invoke("cubism.editor-history.manager.can-redo", manager));
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();
-        return new HistorySnapshot(
-            HistorySnapshot.Availability.AVAILABLE,
-            expectedGeneration,
-            nextRevision(expectedGeneration, manager, position, entries, canUndo, canRedo),
-            position,
-            entries,
-            canUndo,
-            canRedo,
-            documentBindingId(document),
-            managerBindingId(manager)
-        );
+        return snapshotFor(expectedGeneration, position, entries, canUndo, canRedo,
+            documentBindingId(document), managerBindingId(manager));
     }
 
     private String documentBindingId(final Object document) {
@@ -456,27 +447,34 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         }
     }
 
-    private long nextRevision(
+    private HistorySnapshot snapshotFor(
         final long currentGeneration,
-        final Object manager,
         final int position,
         final List<HistoryEntry> entries,
         final boolean canUndo,
-        final boolean canRedo
+        final boolean canRedo,
+        final String documentId,
+        final String managerId
     ) {
-        final String fingerprint = System.identityHashCode(manager) + ":" + position + ":" + canUndo + ":" + canRedo
-            + ":" + entries;
         synchronized (revisionLock) {
             if (revisionGeneration != currentGeneration) {
                 revisionGeneration = currentGeneration;
                 revision = 0;
-                lastFingerprint = "";
+                lastSnapshot = null;
             }
-            if (!fingerprint.equals(lastFingerprint)) {
-                revision++;
-                lastFingerprint = fingerprint;
+            final HistorySnapshot previous = lastSnapshot;
+            if (previous != null && previous.position() == position
+                && previous.canUndo() == canUndo && previous.canRedo() == canRedo
+                && previous.documentBindingId().equals(documentId)
+                && previous.managerBindingId().equals(managerId)
+                && previous.entries().equals(entries)) {
+                return previous;
             }
-            return revision;
+            // Compare immutable values, not their formatted representation. Native objects are
+            // never retained here, and mutable host labels/metadata are still checked each read.
+            lastSnapshot = new HistorySnapshot(HistorySnapshot.Availability.AVAILABLE,
+                currentGeneration, ++revision, position, entries, canUndo, canRedo, documentId, managerId);
+            return lastSnapshot;
         }
     }
 

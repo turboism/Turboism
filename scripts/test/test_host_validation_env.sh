@@ -9,6 +9,7 @@ fail() { echo "host validation env test: $*" >&2; exit 1; }
 
 cat > "$tmp/.env" <<'ENV'
 # Local data only; values with spaces may be quoted.
+TURBOISM_HOST_VALIDATION_TRANSPORT=local
 TURBOISM_HOST_VALIDATION_SSH_HOST=env@example.invalid
 TURBOISM_HOST_VALIDATION_FIXTURE_5302='/remote/fixture with spaces.cmo3'
 TURBOISM_HOST_VALIDATION_REMOTE_ROOT=/remote/tasks
@@ -17,15 +18,17 @@ ENV
 result="$(
   TURBOISM_ENV_FILE="$tmp/.env" \
   TURBOISM_HOST_VALIDATION_SSH_HOST=exported@example.invalid \
-  bash -c 'source "$1"; printf "%s\n%s\n%s\n" \
+  bash -c 'source "$1"; printf "%s\n%s\n%s\n%s\n" \
     "$TURBOISM_HOST_VALIDATION_SSH_HOST" \
     "$TURBOISM_HOST_VALIDATION_FIXTURE_5302" \
-    "$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"' _ "$loader"
+    "$TURBOISM_HOST_VALIDATION_REMOTE_ROOT" \
+    "$TURBOISM_HOST_VALIDATION_TRANSPORT"' _ "$loader"
 )"
 mapfile -t values <<< "$result"
 [ "${values[0]}" = exported@example.invalid ] || fail "exported value did not override .env"
 [ "${values[1]}" = '/remote/fixture with spaces.cmo3' ] || fail "quoted path was not parsed as data"
 [ "${values[2]}" = /remote/tasks ] || fail "unquoted path was not parsed"
+[ "${values[3]}" = local ] || fail "transport value was not parsed"
 
 cat > "$tmp/no-exec.env" <<'ENV'
 TURBOISM_HOST_VALIDATION_SSH_HOST=$(:>/tmp/turboism-env-must-not-execute)

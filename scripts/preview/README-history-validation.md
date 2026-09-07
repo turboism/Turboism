@@ -34,7 +34,7 @@ Exact-host native-semantic readiness is in scope only for Cubism 5.2.03 and 5.3.
 
 ## Local-host execution
 
-The history wrapper defaults to local transport; no SSH key or SSH service is required. The generic Runner retains explicit `--execution-mode local|ssh` selection for compatibility. All identity, CoW prefix, official BAT, fixture and process-ownership gates remain unchanged. `--remote-*` option names refer to this machine's task paths in local mode.
+The history wrapper defaults to local transport; no SSH key or SSH service is required. The generic Runner uses shared `--transport local|remote` selection and accepts `--execution-mode local|ssh` as a compatibility alias. All identity, CoW prefix, official BAT, fixture and process-ownership gates remain unchanged. `--remote-*` option names refer to this machine's task paths in local mode.
 
 ```bash
 ./gradlew previewBundle :plugins:history-panel:jar :testing:integration-tests:testClasses
