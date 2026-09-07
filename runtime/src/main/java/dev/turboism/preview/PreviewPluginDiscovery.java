@@ -11,6 +11,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,7 +20,7 @@ import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
 
-/** Discovers valid preview plugin candidates in deterministic filename order. */
+/** Discovers valid preview plugin candidates with deterministic duplicate-ID selection. */
 final class PreviewPluginDiscovery {
 
     private static final String DESCRIPTOR_PATH = "META-INF/turboism/plugin.json";
@@ -36,16 +37,36 @@ final class PreviewPluginDiscovery {
     Map<String, PreviewPluginCandidate> discover(
         final List<LocalPluginRuntime.PluginFailure> failures
     ) {
-        final Map<String, PreviewPluginCandidate> candidates = new LinkedHashMap<>();
+        final Map<String, List<PreviewPluginCandidate>> grouped = new LinkedHashMap<>();
         try {
             for (Path jar : jarFiles()) {
-                addCandidate(candidates, jar, failures);
+                final PreviewPluginCandidate candidate = readCandidate(jar, failures);
+                if (candidate == null) {
+                    continue;
+                }
+                grouped.computeIfAbsent(candidate.descriptor().id(), id -> new ArrayList<>())
+                    .add(candidate);
             }
         } catch (IOException exception) {
             failures.add(new LocalPluginRuntime.PluginFailure(
                 "<discovery>", pluginDirectory, "PLUGIN_DIRECTORY_FAILED", exception.getMessage()
             ));
             log.error("plugin-loader", "Plugin discovery failed", exception);
+            return Map.of();
+        }
+
+        final Map<String, PreviewPluginCandidate> candidates = new LinkedHashMap<>();
+        for (Map.Entry<String, List<PreviewPluginCandidate>> entry : grouped.entrySet()) {
+            final List<PreviewPluginCandidate> versions = entry.getValue();
+            final PreviewPluginCandidate winner = preferred(versions);
+            candidates.put(entry.getKey(), winner);
+            for (PreviewPluginCandidate version : versions) {
+                if (version == winner) continue;
+                failures.add(new LocalPluginRuntime.PluginFailure(
+                    version.descriptor().id(), version.jar(), "DUPLICATE_PLUGIN_ID",
+                    "Plugin ID already provided by " + winner.jar().getFileName()
+                ));
+            }
         }
         return candidates;
     }
@@ -64,22 +85,28 @@ final class PreviewPluginDiscovery {
         return path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".jar");
     }
 
-    private void addCandidate(
-        final Map<String, PreviewPluginCandidate> candidates,
-        final Path jar,
-        final List<LocalPluginRuntime.PluginFailure> failures
+    private static PreviewPluginCandidate preferred(final List<PreviewPluginCandidate> versions) {
+        PreviewPluginCandidate best = versions.get(0);
+        for (int index = 1; index < versions.size(); index++) {
+            final PreviewPluginCandidate candidate = versions.get(index);
+            if (preferredOver(candidate, best)) {
+                best = candidate;
+            }
+        }
+        return best;
+    }
+
+    private static boolean preferredOver(
+        final PreviewPluginCandidate candidate,
+        final PreviewPluginCandidate previous
     ) {
-        final PreviewPluginCandidate candidate = readCandidate(jar, failures);
-        if (candidate == null) {
-            return;
+        final int versionComparison = PluginVersion.parse(candidate.descriptor().version())
+            .compareTo(PluginVersion.parse(previous.descriptor().version()));
+        if (versionComparison != 0) {
+            return versionComparison > 0;
         }
-        final PreviewPluginCandidate previous = candidates.putIfAbsent(candidate.descriptor().id(), candidate);
-        if (previous != null) {
-            failures.add(new LocalPluginRuntime.PluginFailure(
-                candidate.descriptor().id(), jar, "DUPLICATE_PLUGIN_ID",
-                "Plugin ID already provided by " + previous.jar().getFileName()
-            ));
-        }
+        return candidate.jar().getFileName().toString()
+            .compareTo(previous.jar().getFileName().toString()) < 0;
     }
 
     private PreviewPluginCandidate readCandidate(
