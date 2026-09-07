@@ -102,3 +102,31 @@ tasks.register("checkTextureUploadValidationBundle") {
         }
     }
 }
+
+
+val buildWarpPositionHostProbe by tasks.registering(Jar::class) {
+    group = "host verification"
+    description = "Builds the test-only actual native warp position differential validator."
+    dependsOn(compileImageArchiveHostProbe)
+    archiveFileName.set("warp-position-host-validation-exerciser.jar")
+    destinationDirectory.set(layout.buildDirectory)
+    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeWarpPositionHostAgent") }
+}
+
+tasks.register("checkWarpPositionValidationBundle") {
+    group = "verification"
+    description = "Checks guarded native projection packaging and excludes test-only helpers."
+    dependsOn("previewBundle", buildWarpPositionHostProbe)
+    doLast {
+        val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        JarFile(agent).use { jar ->
+            check(jar.getJarEntry("dev/turboism/adapter/cubism/optimization/geometry/WarpPositionProjectionBridge.class") != null)
+            check(jar.getJarEntry("dev/turboism/bootstrap/VerifiedWarpPositionProjectionInstaller.class") != null)
+            check(jar.entries().asSequence().none { it.name.startsWith("dev/turboism/validation/") })
+        }
+        JarFile(buildWarpPositionHostProbe.get().archiveFile.get().asFile).use { jar ->
+            check(jar.manifest.mainAttributes.getValue("Premain-Class") == "dev.turboism.validation.NativeWarpPositionHostAgent")
+        }
+    }
+}

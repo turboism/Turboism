@@ -27,7 +27,7 @@
 | E08 | 纹理准备：大图扩展 | ALLOCATION_ONLY，总分配约-13.9% | 432/432 输入已覆盖；不能因此推荐为省 RAM |
 | E09 | 真实 RSS/PSS 占用比较 | 原测量批次峰值增加约32%；稳态不确定 | 保留负面批次；不将分配下降说成占用下降 |
 | E10 | 三指标同步 + 加载堆/GC 轨迹 | INCONCLUSIVE；未见稳定三指标净收益 | 后续实验使用该口径，继续按峰值阶段定位 |
-| P01 | 变形器坐标只读投影 | PLANNED，用户已批准实施验证 | 尚未实现/验证，不得当成成功缓存 |
+| P01 | 变形器坐标只读投影 | 数值VALIDATION_PASS；NO_PRIMARY_BENEFIT | 三指标不支持启用；默认关闭，不重跑同一实现求好样本 |
 | P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
 
 ## 公共实验条件与工件
@@ -157,12 +157,34 @@
 - Float `heavy-shadow-r1-20260905T103014Z-2145739`：NPE（对null调用getClass）；r2 shadow通过。原始详细根因本轮未独立复核，不将r1称作数值不一致，也不覆盖其FAIL。
 - 初始handoff中的checkCompletedCommit曾因既有mapping草稿失败；后续最小schema修复后完整门禁通过。旧失败日志不是最新gate结果；不同批次的optional skip必须分别说明。
 
-## P01 — 已批准、尚未验证的下一个候选
+## P01 — 变形器坐标只读投影（已验证，未获主指标净收益）
 
 - 用户已批准实施并验证：只替换精确 `CExtendedInterpolationExtension.updateInterpolatedForms_common` 第一段只读 `getAllPointRef().map(getPos)`，直接创建同样的新native GVector2列表。
 - 不缓存WarpPointRef、不保留form/positions、不改第二段保留引用的写路径、插值数学、dirty、Undo或GL。默认关闭、精确版本/完整方法形状、异常回退和恢复必须保留。
 - 依据是已有JFR中的实际临时点引用成本及只读字节码调查；约846MB是采样权重，不是RAM节省预测。
-- 实现后须逐调用native坐标bit对照、fresh对象/错误语义/未改写路径验证，再做相同三指标实验。**目前PLANNED，不得填入成功数据。**
+- **离线批次P01-a**：实现 `WarpPositionProjectionBridge/Transformer`、`VerifiedWarpPositionProjectionInstaller` 和早期安装/失败恢复。只替换第一投影子循环；对纯getter/vector构造和实际加载依赖做原始方法形状比对。命令：`:runtime:test --tests '*WarpPositionProjection*Test' :bootstrap:test --tests '*VerifiedWarpPositionProjectionInstallerTest' devCheck`，提供精确5302 test JAR。Runtime8/Bootstrap2，零失败/错误/跳过，BUILD SUCCESSFUL；日志 `build/native-warp-offline.log`。覆盖原生第二写循环继续执行、回退/异常、位保持、新对象、边界、close及其他方法不变。**仅离线验证通过，尚无实机或三指标收益结论。**
+- **P01-b辅助件门禁**：新增JDK-only `NativeWarpPositionHostAgent`（不跨回调保留form/向量）、薄wrapper `run-warp-position-host-validation.sh`；复用既有内存/CPU/GPU采集和通用runner。`checkWarpPositionValidationBundle checkPreviewBundleLayout`通过，Bash语法及wp-s1 wrapper dry-run通过（`build/native-warp-bundle.log`、`build/native-warp-dry-run.log`）。没有以此宣称实机或性能成功；下一步独立untimed shadow。
+- **P01-s1实机shadow**：`warp-position-projection-5302-wp-s1-20260907T054216Z-1152727`完整runner PASS、wrapper_exit=0，原模型/官方工件hash不变。真实调用6930，符合窄范围并完成投影5166，比较3,784,560点（x/y raw float bits）零差异；0次初始漏观察、0生产失败；849 images/6 atlases，启停/回调清理/类字节恢复通过。**功能差分成功，不是性能成功**。可能获益机制为省掉只读中间引用/list；三指标尚未测量。接下来off/on性能模式不安装不必要的shadow包装回调，产品实现不变；两组使用相同采样辅助件。
+
+### P01-c — 三指标结果：不推荐启用
+
+产品Agent SHA `ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`，辅助Agent SHA `bd677b66a24ce3386886e55bc4a7793d3c9b68360829b83673e2267d10d3012c`。关闭纹理/浮点/PNG其他优化；同大模型、同三指标采集、250ms加载heap/GC轨迹、120秒自然空闲；off/on/on/off/off/on。性能模式没有shadow包装回调。六轮runner和采样均PASS、正常退出、无原模型或官方工件修改。
+
+| 完整run后缀（前缀warp-position-projection-5302-） | 模式 | RSS加载峰值GiB | 尾段RSS GiB | 加载CPU秒 | CPU整机均值 | GPU render有效区间均值 |
+|---|---|---:|---:|---:|---:|---:|
+| wp-n1-20260907T054951Z-1163472 | off | 3.772 | 3.280 | 229.15 | 13.22% | 0.100% |
+| wp-y1-20260907T055439Z-1173127 | on | 4.488 | 4.487 | 210.87 | 13.74% | 0.131% |
+| wp-y2-20260907T055912Z-1182627 | on | 3.663 | 3.629 | 223.27 | 12.89% | 0.138% |
+| wp-n2-20260907T060410Z-1194983 | off | 3.764 | 2.465 | 235.12 | 12.79% | 0.150% |
+| wp-n3-20260907T060915Z-1206823 | off | 4.340 | 3.046 | 225.32 | 13.72% | 0.140% |
+| wp-y3-20260907T061400Z-1217612 | on | 4.463 | 2.503 | 232.00 | 13.86% | 0.111% |
+
+- **判定**：没有稳定主指标净收益，不推荐启用。RSS峰值中位数3.772→4.463GiB（+18.3%），尾段3.046→3.629GiB（+19.1%）；两者都有明显波动。CPU总时间中位数229.15→223.27秒（约-2.6%），但范围重叠且CPU整机占用均值中位数反升约4%；GPU约0.14→0.13%的低负载差异不构成有用GPU优化，尾段均为0。
+- **次要计数**：观测分配14.8536→14.7620GB，仅少约91.6MB/0.62%；不能拿它抵销主指标失败。load ready中位数143.20→138.89秒也不足以作为稳定加速承诺。
+- **可能原因/限制**：只消除第一只读循环的符合条件引用，第二原生写路径及向量输出保留；调用路由/MethodHandle/准入开销、GC/堆时序可能抵销节省，未证明唯一根因。旧JFR约846MB是采样权重和更广调用归因，不能当本切片实际节省预测。此批系统MemAvailable最低1.25–2.42GiB，较此前批次更有压力；不能跨批次直接比较。六轮该进程Swap均为0。
+- **重试条件**：仅在真实热点/输入分布、具体算法、准入开销或堆/GC归因出现实质变化时重试，并先说明差异。不要重跑相同helper/模型/实现来筛选好样本。不扩大到第二写循环，不缓存可变点引用，不通过强制GC或降画质制造收益。
+- **保留策略**：实现仅作为隔离分支中的默认关闭实验和可复现证据；不是可推荐的产品优化，也未宣称完整交互/Undo/保存矩阵通过。后续完整自动门禁与本地提交单独记录。
+- **P01-d收口门禁**：`checkCompletedCommit checkWarpPositionValidationBundle checkTextureUploadValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL；日志`build/native-warp-completed-commit.log`。Runtime2537/0失败/39环境或optional跳过，Bootstrap92/0失败/0跳过，Integration367/0失败/1跳过；精确P01 artifact测试已在P01-a单独配置且零跳过。最终产品SHA仍等于P01-c实测Agent，最后无Cubism/Wine残留。门禁成功不改变NO_PRIMARY_BENEFIT结论。实现/复现细节：[README-warp-position-projection.md](README-warp-position-projection.md)。
 - 设计细节在当前任务本地冻结文档 `docs/agents/native-warp-position-projection-proposal-20260907.md`；该本地文档不构成构建依赖。实验完成立即追加本台账结果和重试条件。
 
 ## P02 — 尚不能宣称验证过的方向

@@ -18,7 +18,7 @@ final class NativeMemoryObservation {
             Files.createDirectories(directory);
             var out = Files.newBufferedWriter(directory.resolve("jvm-loading.csv"));
             long start = System.nanoTime();
-            out.write("elapsedSeconds,epochMillis,heapUsedBytes,heapCommittedBytes,nonHeapUsedBytes,gcCount,gcCollectionTimeMs,preparedCount,preparedBytes\n");
+            out.write("elapsedSeconds,epochMillis,heapUsedBytes,heapCommittedBytes,nonHeapUsedBytes,gcCount,gcCollectionTimeMs,preparedCount,preparedBytes,warpProjected,warpPoints\n");
             loadingRow(out, start);
             loadingThread = new Thread(() -> {
                 try (out) {
@@ -50,10 +50,16 @@ final class NativeMemoryObservation {
             prepared = ((Number)values.get("prepared")).longValue();
             bytes = ((Number)values.get("preparedBytes")).longValue();
         }
+        long projected = -1, points = -1;
+        Object warp = System.getProperties().get("turboism.warp-position-projection.stats");
+        if (warp instanceof java.util.function.Supplier<?> stats && stats.get() instanceof java.util.Map<?,?> values) {
+            projected = ((Number)values.get("projected")).longValue();
+            points = ((Number)values.get("points")).longValue();
+        }
         out.write((System.nanoTime()-start)/1e9 + "," + System.currentTimeMillis() + ","
             + heap.getUsed() + "," + heap.getCommitted() + ","
             + ManagementFactory.getMemoryMXBean().getNonHeapMemoryUsage().getUsed() + ","
-            + count + "," + millis + "," + prepared + "," + bytes + "\n");
+            + count + "," + millis + "," + prepared + "," + bytes + "," + projected + "," + points + "\n");
         out.flush();
     }
     static void observe(Path home) throws Exception {
