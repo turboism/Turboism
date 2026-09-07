@@ -561,6 +561,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         state.treeModel = null;
         state.tableModel = null;
         state.rows = List.of();
+        state.parameterFilterStamp = null;
         state.originalRowVisibility.clear();
         state.lastRawText = "";
         state.lastKeyword = "";
@@ -1025,9 +1026,34 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         return null;
     }
 
-    private static void applyParameterFilter(final PaletteFilterState state, final String text) {
+    static void applyParameterFilter(final PaletteFilterState state, final String text) {
         state.filterText = normalize(text);
+        final ParameterFilterStamp input = ParameterFilterStamp.capture(state.rows, state.filterText);
+        if (input.equals(state.parameterFilterStamp)) return;
         applyParameterRows(state.rows, state.originalRowVisibility, state.filterText);
+        state.parameterFilterStamp = ParameterFilterStamp.capture(state.rows, state.filterText);
+    }
+
+    private record ParameterFilterStamp(
+        List<ParameterFilterRow> rows,
+        String keyword,
+        Map<JComponent, Boolean> visibility,
+        Map<Component, Container> parents
+    ) {
+        static ParameterFilterStamp capture(final List<ParameterFilterRow> rows, final String keyword) {
+            final Map<JComponent, Boolean> visibility = new java.util.IdentityHashMap<>();
+            final Map<Component, Container> parents = new java.util.IdentityHashMap<>();
+            for (ParameterFilterRow row : rows) {
+                visibility.put(row.component(), row.component().isVisible());
+                Component component = row.component();
+                while (component != null && !parents.containsKey(component)) {
+                    final Container parent = component.getParent();
+                    parents.put(component, parent);
+                    component = parent;
+                }
+            }
+            return new ParameterFilterStamp(List.copyOf(rows), keyword, visibility, parents);
+        }
     }
 
     static void applyParameterRows(
@@ -1038,15 +1064,18 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         final String keyword = normalize(text);
         final Set<JComponent> visible = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
         if (!keyword.isEmpty()) {
+            final Set<JComponent> folders = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+            for (ParameterFilterRow row : rows) {
+                if (row.folder()) folders.add(row.component());
+            }
+            final Set<Component> visitedAncestors = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
             for (ParameterFilterRow row : rows) {
                 if (row.searchText().contains(keyword)) {
                     visible.add(row.component());
-                    // ponytail: O(n²) ancestor scan; index folder ancestry only if EDT typing becomes measurable.
-                    for (ParameterFilterRow candidate : rows) {
-                        if (candidate.folder() && (candidate.component() == row.component()
-                            || SwingUtilities.isDescendingFrom(row.component(), candidate.component()))) {
-                            visible.add(candidate.component());
-                        }
+                    Component ancestor = row.component().getParent();
+                    while (ancestor != null && visitedAncestors.add(ancestor)) {
+                        if (folders.contains(ancestor)) visible.add((JComponent) ancestor);
+                        ancestor = ancestor.getParent();
                     }
                 }
             }
@@ -1058,9 +1087,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 : visible.contains(row.component());
             if (row.component().isVisible() != next) {
                 row.component().setVisible(next);
-            }
-            if (row.component().getParent() != null) {
-                dirty.add(row.component().getParent());
+                if (row.component().getParent() != null) {
+                    dirty.add(row.component().getParent());
+                }
             }
         }
         for (Container container : dirty) {
@@ -1070,6 +1099,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     }
 
     private static void restoreParameterRows(final PaletteFilterState state) {
+        state.parameterFilterStamp = null;
         for (Map.Entry<JComponent, Boolean> entry : state.originalRowVisibility.entrySet()) {
             entry.getKey().setVisible(entry.getValue());
             if (entry.getKey().getParent() != null) {
@@ -2505,6 +2535,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         volatile Timer treeFilterTimer;
         volatile Object tableModel;
         volatile List<ParameterFilterRow> rows = List.of();
+        private ParameterFilterStamp parameterFilterStamp;
         final Map<JComponent, Boolean> originalRowVisibility = new java.util.IdentityHashMap<>();
         volatile String filterText = "";
         volatile boolean refreshScheduled;

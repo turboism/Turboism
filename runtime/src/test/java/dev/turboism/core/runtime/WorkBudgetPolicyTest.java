@@ -58,6 +58,17 @@ class WorkBudgetPolicyTest {
     }
 
     @Test
+    void overlayButtonClickIsLightweight() {
+        PluginTask task = new PluginTask(
+            "ui.overlay-button.click",
+            "demo.plugin",
+            "bounding-box-overlay:mirror",
+            "cubism.editor-ui.bounding-box-overlay-button"
+        );
+        assertEquals(WorkBudget.LIGHTWEIGHT, policy.classify(task));
+    }
+
+    @Test
     void sidecarCompletionIsLightweight() {
         PluginTask task = new PluginTask("sidecar.complete", "demo.plugin", "applySidecarResult", "sidecar");
         assertEquals(WorkBudget.LIGHTWEIGHT, policy.classify(task));

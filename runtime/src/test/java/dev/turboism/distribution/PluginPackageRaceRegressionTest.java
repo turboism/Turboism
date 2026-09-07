@@ -39,24 +39,55 @@ class PluginPackageRaceRegressionTest {
     }
 
     @Test void rejectsAbaReplacementDuringSnapshotCopy() throws Exception {
+        verifySnapshotCopyRace(false);
+    }
+
+    @Test void rejectsMixedSnapshotWhenAbaReplacementPreservesTimestamp() throws Exception {
+        verifySnapshotCopyRace(true);
+    }
+
+    private void verifySnapshotCopyRace(boolean preserveTimestamp) throws Exception {
         byte[] first = fixture("first");
         byte[] second = fixture("second");
+        byte[] mixed = java.util.Arrays.copyOf(first, first.length);
+        System.arraycopy(second, 0, mixed, 0, Math.min(mixed.length, second.length) / 2);
         Path input = tempDir.resolve("snapshot-race.tplugin");
         Files.write(input, first);
+        var initialTime = java.nio.file.attribute.FileTime.fromMillis(1_600_000_000_000L);
+        Files.setLastModifiedTime(input, initialTime);
+        var restoredTime = preserveTimestamp ? initialTime
+            : java.nio.file.attribute.FileTime.fromMillis(initialTime.toMillis() + 60_000L);
+        AtomicInteger opens = new AtomicInteger();
         PackageAccess access = new PackageAccess() {
             @Override public java.io.InputStream open(Path path) throws java.io.IOException {
-                byte[] mixed = java.util.Arrays.copyOf(first, first.length);
-                System.arraycopy(second, 0, mixed, 0, Math.min(mixed.length, second.length) / 2);
+                opens.incrementAndGet();
                 Files.write(input, second);
                 return new java.io.ByteArrayInputStream(mixed) {
                     @Override public void close() throws java.io.IOException {
                         super.close();
                         Files.write(input, first);
+                        // A/B/A writes may share a filesystem clock tick. Control drift explicitly.
+                        Files.setLastModifiedTime(input, restoredTime);
                     }
                 };
             }
         };
-        assertChanged(new LocalPluginPackageInspector(access).inspect(input));
+        PluginPackageInspector.Result result = new LocalPluginPackageInspector(access).inspect(input);
+        assertEquals(1, opens.get(), "only the private snapshot may be consumed");
+        assertEquals(restoredTime, Files.getLastModifiedTime(input));
+        assertInstanceOf(PluginPackageInspector.Accepted.class, new LocalPluginPackageInspector().inspect(input));
+        if (preserveTimestamp) {
+            // With no observable attribute drift, validation must still reject the mixed snapshot,
+            // not reopen and accept the restored (valid) source package.
+            Path corrupt = tempDir.resolve("mixed-snapshot.tplugin");
+            Files.write(corrupt, mixed);
+            PluginPackageInspector.Rejected expected = assertInstanceOf(PluginPackageInspector.Rejected.class,
+                new LocalPluginPackageInspector().inspect(corrupt));
+            PluginPackageInspector.Rejected rejected = assertInstanceOf(PluginPackageInspector.Rejected.class, result);
+            assertEquals(expected.problems().get(0).code(), rejected.problems().get(0).code());
+        } else {
+            assertChanged(result);
+        }
     }
 
     @Test void rejectsSymlinkWithoutFollowing() throws Exception {
