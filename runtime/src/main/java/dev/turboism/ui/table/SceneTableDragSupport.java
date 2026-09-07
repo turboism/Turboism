@@ -20,11 +20,6 @@ final class SceneTableDragSupport {
     private SceneTableDragSupport() {
     }
 
-    static boolean isNativeSceneRowListener(final Object listener) {
-        return listener != null
-            && "com.live2d.cubism.view.palette.scene.m".equals(listener.getClass().getName());
-    }
-
     static Rectangle getRowBounds(final JTable table, final int rowIndex) {
         if (table == null || rowIndex < 0 || rowIndex >= table.getRowCount() || table.getColumnCount() <= 0) {
             return null;
@@ -38,21 +33,6 @@ final class SceneTableDragSupport {
         final int row = table.rowAtPoint(point);
         if (row >= 0) return row;
         return point.y < 0 ? 0 : table.getRowCount() - 1;
-    }
-
-    static void removeNativeRowListeners(final JTable table) {
-        for (java.awt.event.MouseListener listener : table.getMouseListeners()) {
-            if (isNativeSceneRowListener(listener)) table.removeMouseListener(listener);
-        }
-    }
-
-    static void removeConflictingMouseMotionListeners(
-        final JTable table,
-        final java.awt.event.MouseMotionListener keep
-    ) {
-        for (java.awt.event.MouseMotionListener listener : table.getMouseMotionListeners()) {
-            if (listener != null && listener != keep) table.removeMouseMotionListener(listener);
-        }
     }
 
     static BufferedImage captureRowImage(final JTable table, final int rowIndex) {
@@ -150,6 +130,13 @@ final class SceneTableDragSupport {
             setVisible(false);
             timer.stop();
             repaint();
+        }
+
+        void detach() {
+            finish();
+            if (getParent() != null) {
+                getParent().remove(this);
+            }
         }
 
         private void animateStep() {
