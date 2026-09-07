@@ -100,6 +100,9 @@ class PluginManagerIsolationTest {
             assertTrue(firstDisableStarted.await(1, TimeUnit.SECONDS));
             releaseDisable.countDown();
             awaitDisableCount(disableCount, 1);
+            // The counter increments on callback entry, before the release latch;
+            // wait for asynchronous lifecycle completion, not merely callback entry.
+            awaitState(runtime, PluginLifecycleState.DISABLED);
 
             // Then
             assertEquals(1, disableCount.get());

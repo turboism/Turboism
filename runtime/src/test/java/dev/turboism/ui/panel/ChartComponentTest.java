@@ -190,9 +190,8 @@ class ChartComponentTest {
             assertTrue(text[1] - text[0] + 1 <= fontHeight + 2,
                 "the value block must be one text line");
             assertTrue(text[2] <= 40, "the value must be left-aligned (minX=" + text[2] + ")");
-            assertTrue(text[3] - text[2] + 1 >= 30,
-                "the block must be the formatted value text, not a short placeholder (width="
-                    + (text[3] - text[2] + 1) + ")");
+            assertEquals(textInkWidth(new java.text.DecimalFormat("0.0").format(2.5) + " %"),
+                text[3] - text[2] + 1, "the block must have the actual formatted text width for this platform font");
             assertEquals(66, baseline[0],
                 "the only other block must be the single baseline row at the bottom");
             assertEquals(66, baseline[1],
@@ -238,6 +237,21 @@ class ChartComponentTest {
                 .append(" x").append(block[2]).append("-").append(block[3]);
         }
         return builder.toString();
+    }
+
+    private static int textInkWidth(final String value) {
+        final java.awt.image.BufferedImage reference = new java.awt.image.BufferedImage(
+            340, 74, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+        final java.awt.Graphics2D graphics = reference.createGraphics();
+        try {
+            graphics.setFont(FONT);
+            graphics.setColor(java.awt.Color.BLACK);
+            graphics.setRenderingHint(java.awt.RenderingHints.KEY_ANTIALIASING,
+                java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
+            graphics.drawString(value, 4, 20);
+        } finally { graphics.dispose(); }
+        final int[] bounds = nonEmptyRowBlocks(reference).get(0);
+        return bounds[3] - bounds[2] + 1;
     }
 
     private static final java.awt.Font FONT =
