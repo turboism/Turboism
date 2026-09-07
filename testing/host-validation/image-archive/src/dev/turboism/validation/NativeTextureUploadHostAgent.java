@@ -30,6 +30,7 @@ public final class NativeTextureUploadHostAgent {
     public static void premain(String args, Instrumentation instrumentation) {
         long start = System.nanoTime(), cpuStart = NativeFloatArrayHostAgent.processCpu();
         var allocations = new NativeFloatArrayHostAgent.Allocations();
+        NativeMemoryObservation.startLoading(Path.of(System.getProperty("turboism.validation.textureUpload.home")));
         boolean enabled = Boolean.getBoolean(ENABLE), shadow = Boolean.getBoolean("turboism.validation.textureUpload.shadow");
         Capture capture = new Capture(shadow);
         if (enabled) capture.start();

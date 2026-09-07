@@ -67,6 +67,7 @@ class MemoryObserver(unittest.TestCase):
             driver.write_text('''package dev.turboism.validation;
 public class MemoryDriver {
   public static void main(String[] args) throws Exception {
+    NativeMemoryObservation.startLoading(java.nio.file.Path.of(args[0]));
     NativeMemoryObservation.observe(java.nio.file.Path.of(args[0]));
   }
 }''')
@@ -78,7 +79,7 @@ public class MemoryDriver {
             state = root / 'home/state/texture-upload/memory'
             state.mkdir(parents=True)
             (state / 'attached.properties').write_text('pid=test\n')
-            child = subprocess.Popen(command[:1] + ['-Dturboism.validation.textureUpload.memoryIdleSeconds=30'] + command[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            child = subprocess.Popen(command[:1] + ['-Dturboism.validation.textureUpload.memoryIdleSeconds=30', '-Dturboism.validation.textureUpload.loadingTrace=true'] + command[1:], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             deadline = time.monotonic() + 40
             while not (state / 'end.properties').exists() and child.poll() is None and time.monotonic() < deadline:
                 time.sleep(0.1)
@@ -88,6 +89,7 @@ public class MemoryDriver {
             self.assertTrue((state / 'ready.properties').is_file())
             self.assertTrue((state / 'end.properties').is_file())
             self.assertEqual(32, len((state / 'jvm.csv').read_text().splitlines()))
+            self.assertGreaterEqual(len((state / 'jvm-loading.csv').read_text().splitlines()), 2)
 
 
 if __name__ == '__main__':
