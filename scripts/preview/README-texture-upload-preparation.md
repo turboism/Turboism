@@ -1,6 +1,6 @@
 # Native texture-upload preparation
 
-Status: usable opt-in allocation optimization in the exact scope below, verified in official Cubism 5.3.02 on Proton. The final expanded-range matrix reduced observed temporary allocation by a median **13.9% (2.06 GB)**; the earlier narrower implementation measured 8.6%. CPU/load-time/FPS or peak-memory improvements are **not** claimed.
+Status: default-off, opt-in allocation optimization with exact-host equivalence evidence. The expanded-range matrix reduced observed temporary allocation by **13.9% (2.06 GB)**, but the subsequent actual-memory study found **32% higher loading RSS peaks**, not lower peak RAM. End-of-idle occupancy had no established repeatable improvement. **Not recommended as a memory-saving option**, especially on memory-constrained systems. See [actual memory occupancy results](README-native-memory-occupancy.md). CPU/load-time/FPS improvements remain unclaimed.
 
 ## Supported boundary
 
