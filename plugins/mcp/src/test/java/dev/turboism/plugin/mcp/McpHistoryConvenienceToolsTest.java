@@ -68,6 +68,34 @@ final class McpHistoryConvenienceToolsTest {
     }
 
     @Test
+    void historyReadSchemaIncludesClosedRecursiveSemanticDetail() {
+        final Map<String, Object> root = McpOutputSchemas.historyRead();
+        final Map<String, Object> success = object(((List<?>) root.get("oneOf")).get(0));
+        final Map<String, Object> successProperties = object(success.get("properties"));
+        final Map<String, Object> snapshot = object(successProperties.get("snapshot"));
+        final Map<String, Object> snapshotProperties = object(snapshot.get("properties"));
+        final Map<String, Object> entries = object(snapshotProperties.get("entries"));
+        final Map<String, Object> entrySchema = object(entries.get("items"));
+        final Map<String, Object> entryProperties = object(entrySchema.get("properties"));
+        final Map<String, Object> detail = object(entryProperties.get("detail"));
+        final Map<String, Object> detailProperties = object(detail.get("properties"));
+
+        assertEquals(false, detail.get("additionalProperties"));
+        assertTrue(((List<?>) detail.get("required")).containsAll(List.of(
+            "summary", "detailLevel", "origin", "targets", "changes", "group", "degradationCode"
+        )));
+        assertEquals(
+            List.of("FULL", "PARTIAL", "LABEL_ONLY"),
+            object(detailProperties.get("detailLevel")).get("enum")
+        );
+        final Map<String, Object> group = object(detailProperties.get("group"));
+        assertEquals(List.of("object", "null"), group.get("type"));
+        final Map<String, Object> groupChildren = object(object(group.get("properties")).get("children"));
+        final Map<String, Object> childDetail = object(groupChildren.get("items"));
+        assertTrue(object(childDetail.get("properties")).containsKey("group"));
+    }
+
+    @Test
     void standaloneHistoryToolsUseTheUiThreadAndCannotBecomeTransactionChildren() {
         final AtomicInteger dispatches = new AtomicInteger();
         final McpExecutionBridge execution = new McpExecutionBridge(new UiScheduler() {
