@@ -10,6 +10,29 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class TextureAtlasLayoutContractTest {
 
     @Test
+    void currentPagePolicyIsExplicitAndRetainsCompleteAtlasConstructorCompatibility() {
+        final var complete = new TextureAtlasLayoutConstraints(32, 32, 1, 2, 4, false, false);
+        assertEquals(null, complete.singlePageOptions());
+        final var nativePage = TextureAtlasLayoutConstraints.currentPage(32, 32, 2, true, 0);
+        assertEquals(1, nativePage.maxPages());
+        assertEquals(4, nativePage.itemPadding());
+        assertEquals(2, nativePage.edgeMargin());
+        assertEquals(0D, nativePage.singlePageOptions().requestedScale());
+        assertEquals(true, nativePage.allowRotation());
+        assertEquals(true, nativePage.allowScaling());
+        for (double scale : new double[]{Double.NaN, Double.POSITIVE_INFINITY, -1}) {
+            assertThrows(IllegalArgumentException.class, () -> TextureAtlasLayoutConstraints.currentPage(32, 32, 1, true, scale));
+        }
+        for (double scale : new double[]{Double.NaN, Double.POSITIVE_INFINITY, 0, -1}) {
+            assertThrows(IllegalArgumentException.class, () -> TextureAtlasLayoutPlan.currentPage(32, 32, List.of(), scale));
+        }
+        assertThrows(IllegalArgumentException.class, () -> new TextureAtlasLayoutConstraints(32, 32, 1, 2, 2,
+            true, true, new TextureAtlasSinglePageOptions(0)));
+        assertEquals(1D, new TextureAtlasLayoutPlan(32, 32, 1, List.of()).scale());
+        assertEquals(1D, new TextureAtlasLayoutPlan(32, 32, 1, List.of("page"), List.of()).scale());
+    }
+
+    @Test
     void planIsImmutableAndRejectsDuplicateTextureIds() {
         final TextureAtlasPlacement first = placement("texture-a", 0, 1, 1, 4, 4);
         final TextureAtlasLayoutPlan plan = new TextureAtlasLayoutPlan(
@@ -119,9 +142,8 @@ class TextureAtlasLayoutContractTest {
         assertThrows(IllegalArgumentException.class, () -> new TextureAtlasPlacement(
             "texture-a", 0, 0, 0, 0, 1, false
         ));
-        assertThrows(IllegalArgumentException.class, () -> new TextureAtlasPlacement(
-            "texture-a", 0, 0, 0, 1, 1, true
-        ));
+        final var rotated = new TextureAtlasPlacement("texture-a", 0, 0, 0, 2, 3, true);
+        assertEquals(List.of(rotated), TextureAtlasLayoutPlan.currentPage(10, 10, List.of(rotated), 0.5).placements());
     }
 
     private static TextureAtlasPlacement placement(
