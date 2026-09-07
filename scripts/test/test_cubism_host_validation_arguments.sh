@@ -58,6 +58,13 @@ grep -Fq "cubismJava=$cubism_java" "$tmp/good.out" || fail 'valid Cubism Java ov
 grep -Fq 'cubismJavaConsoleMarker=GraalVM Community' "$tmp/good.out" \
   || fail 'Cubism Java console marker was not accepted'
 
+"${base[@]}" \
+  --result-pass-line '{"type":"summary","status":"PASS"}' \
+  --result-fail-line '{"type":"summary","status":"FAIL"}' \
+  > "$tmp/good-json-marker.out"
+expect_rejected marker-control 'marker contains an unsupported control character' \
+  "${base[@]}" --result-pass-line $'status=PASS\nextra'
+
 base_5303=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
@@ -92,6 +99,8 @@ expect_rejected windows-env-duplicate-case 'duplicate Windows environment name' 
   "${base[@]}" --windows-env 'Path=first' --windows-env 'PATH=second'
 expect_rejected windows-env-command 'Windows environment value contains an unsupported command character' \
   "${base[@]}" --windows-env 'HOME=C:\\safe&whoami'
+expect_rejected jvm-option-quote 'JVM option contains an unsupported quote' \
+  "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
 # A non-dry run must not interpolate attacker-controlled path text into the SSH
 # command. The validation rejects it before trying either transport stub.
@@ -133,7 +142,7 @@ if '"${ssh_cmd[@]}" "$ssh_host" "bash -s --' in body:
     raise SystemExit(1)
 if "<<'REMOTE' || true" in body:
     raise SystemExit("process cleanup failure must propagate")
-for marker in ('WINEPREFIX={prefix}', 'Path("/proc").iterdir()', 'prefix.encode() in raw'):
+for marker in ('WINEPREFIX={prefix}', 'Path("/proc").iterdir()', 'prefix.encode() in raw', 'task_name.encode() in raw'):
     if marker not in body:
         raise SystemExit(marker)
 PY

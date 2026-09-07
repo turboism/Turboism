@@ -12,6 +12,8 @@ set -euo pipefail
 
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
+# shellcheck source=host-validation-transport.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-transport.sh"
 
 usage() {
   cat <<'EOF'
@@ -66,6 +68,9 @@ Common options:
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
   --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
+  --execution-mode <local|ssh>              default ssh; local needs no SSH credentials
+      Local mode runs the same isolated host lifecycle on this machine, without ssh/scp.
+      --remote-* hook/root/fixture options retain their names and refer to local host paths.
   --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
   --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
   --remote-root <host path, or TURBOISM_HOST_VALIDATION_REMOTE_ROOT>
@@ -125,6 +130,12 @@ require_safe_text() {
   case "$value" in
     *'"'*|*"'"*) fail "$label contains an unsupported quote" ;;
   esac
+}
+
+require_safe_marker() {
+  local value="$1" label="$2"
+  [[ ! "$value" =~ [[:cntrl:]] ]] || fail "$label contains an unsupported control character"
+  [ "${#value}" -le 1024 ] || fail "$label exceeds 1024 characters"
 }
 
 require_safe_remote_value() {
@@ -208,8 +219,10 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
-ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
-ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
+execution_mode="${TURBOISM_HOST_VALIDATION_EXECUTION_MODE:-ssh}"
+ssh_options_given=0
+ssh_host="${TURBOISM_HOST_VALIDATION_SSH_HOST:-}"
+ssh_key="${TURBOISM_HOST_VALIDATION_SSH_KEY:-}"
 golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
 remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
 local_evidence_dir=''
@@ -256,9 +269,10 @@ while [ "$#" -gt 0 ]; do
     --ready-timeout) require_value "$@"; ready_timeout="$2"; shift 2 ;;
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
+    --execution-mode) require_value "$@"; execution_mode="$2"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
-    --ssh-host) require_value "$@"; ssh_host="$2"; shift 2 ;;
-    --ssh-key) require_value "$@"; ssh_key="$2"; shift 2 ;;
+    --ssh-host) require_value "$@"; ssh_options_given=1; ssh_host="$2"; shift 2 ;;
+    --ssh-key) require_value "$@"; ssh_options_given=1; ssh_key="$2"; shift 2 ;;
     --golden-prefix) require_value "$@"; golden_prefix="$2"; shift 2 ;;
     --remote-root) require_value "$@"; remote_root="$2"; shift 2 ;;
     --local-evidence-dir) require_value "$@"; local_evidence_dir="$2"; shift 2 ;;
@@ -275,8 +289,18 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
-[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
-[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+case "$execution_mode" in
+  local)
+    [ "$ssh_options_given" -eq 0 ] || fail "local execution cannot be combined with SSH options"
+    ssh_host=local
+    ssh_key=''
+    ;;
+  ssh)
+    [ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
+    [ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+    ;;
+  *) fail "--execution-mode must be local or ssh" ;;
+esac
 [ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
 [ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
 [ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
@@ -357,7 +381,7 @@ if [ -n "$client_script" ]; then
 fi
 
 for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
-  [ -z "$marker" ] || require_safe_text "$marker" "marker"
+  [ -z "$marker" ] || require_safe_marker "$marker" "marker"
 done
 for option in "${jvm_options[@]}"; do
   require_safe_text "$option" "JVM option"
@@ -522,6 +546,7 @@ local_evidence_dir="${local_evidence_dir:-$repo_root/build/host-validation/$name
 if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
+    "executionMode=$execution_mode" \
     "version=$version" \
     "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
@@ -604,10 +629,14 @@ if [ "$dry_run" = 1 ]; then
   exit 0
 fi
 
-[ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
-
-ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
-scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
+if [ "$execution_mode" = local ]; then
+  ssh_cmd=(host_validation_local_shell)
+  scp_cmd=(host_validation_local_copy)
+else
+  [ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
+  ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
+  scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
+fi
 local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
@@ -696,12 +725,13 @@ append_task_processes() {
     [ -n "$pid" ] || continue
     [[ " ${processes[*]} " == *" $pid "* ]] || processes+=("$pid")
   done < <(
-    python3 - "$task_dir" "$wine_prefix" <<'PY'
+    python3 - "$task_dir" "$task_name" "$wine_prefix" <<'PY'
 from pathlib import Path
 import sys
 
 task = sys.argv[1]
-prefix = sys.argv[2]
+task_name = sys.argv[2]
+prefix = sys.argv[3]
 self_pid = str(Path('/proc/self').resolve().name)
 for proc in Path('/proc').iterdir():
     if not proc.name.isdigit() or proc.name == self_pid:
@@ -711,7 +741,7 @@ for proc in Path('/proc').iterdir():
         environ = (proc / 'environ').read_bytes()
     except (OSError, PermissionError):
         continue
-    owned = task.encode() in raw or prefix.encode() in raw
+    owned = task.encode() in raw or task_name.encode() in raw or prefix.encode() in raw
     owned = owned or f'WINEPREFIX={prefix}'.encode() + b'\0' in environ
     if owned:
         print(proc.name)
@@ -744,13 +774,14 @@ for _ in $(seq 1 10); do
   sleep 1
 done
 mapfile -t survivors < <(
-  python3 - "$task_dir" "$wine_prefix" "${processes[@]}" <<'PY'
+  python3 - "$task_dir" "$task_name" "$wine_prefix" "${processes[@]}" <<'PY'
 from pathlib import Path
 import sys
 
 task = sys.argv[1]
-prefix = sys.argv[2]
-tracked = set(sys.argv[3:])
+task_name = sys.argv[2]
+prefix = sys.argv[3]
+tracked = set(sys.argv[4:])
 for proc in Path("/proc").iterdir():
     if not proc.name.isdigit():
         continue
@@ -760,7 +791,7 @@ for proc in Path("/proc").iterdir():
         environ = (proc / "environ").read_bytes()
     except (OSError, PermissionError):
         continue
-    owned = proc.name in tracked or task.encode() in raw or prefix.encode() in raw
+    owned = proc.name in tracked or task.encode() in raw or task_name.encode() in raw or prefix.encode() in raw
     owned = owned or f"WINEPREFIX={prefix}".encode() + b"\0" in environ
     if owned and proc.name != str(Path('/proc/self').resolve().name):
         print(f"{proc.name} {cmdline.strip()}")
@@ -939,6 +970,7 @@ on_exit() {
 }
 trap on_exit EXIT
 
+if [ "$execution_mode" = local ]; then host_validation_local_idle; fi
 log "preflight exact host identity"
 identity_before="$local_tmp/identity-before.properties"
 "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$golden_cubism' '$reviewed_jar_sha256' '$fixture_remote' '$fixture_sha256' '$golden_prefix' '$task_id'" > "$identity_before" <<'REMOTE'
@@ -1200,6 +1232,7 @@ SH
 "${scp_cmd[@]}" "$local_tmp/launch.sh" "$ssh_host:$task_dir/launch.sh"
 "${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/launch.sh'"
 
+if [ "$execution_mode" = local ]; then host_validation_local_idle; fi
 log "launching exact Cubism $version through official BAT"
 "${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
 launched=1
