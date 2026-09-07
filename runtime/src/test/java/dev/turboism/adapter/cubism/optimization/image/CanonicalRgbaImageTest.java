@@ -44,10 +44,31 @@ class CanonicalRgbaImageTest {
         }
     }
 
+    @Test void smallerAndThinTranslatedInputsRemainEquivalentAndIndependent() {
+        for (int type : new int[]{BufferedImage.TYPE_INT_ARGB, BufferedImage.TYPE_4BYTE_ABGR}) {
+            for (int[] size : new int[][]{{64,64}, {65,64}, {1,8192}, {8192,1}, {4097,17}, {255,256}}) {
+                int width = size[0], height = size[1];
+                BufferedImage parent = new BufferedImage(width + 7, height + 3, type);
+                BufferedImage source = parent.getSubimage(3, 2, width, height);
+                for (int y = 0; y < height; y++) for (int x = 0; x < width; x++) {
+                    source.setRGB(x, y, ((x + y) & 255) << 24 | ((x * 17) & 255) << 16
+                        | ((y * 29) & 255) << 8 | ((x * y) & 255));
+                }
+                int[] before = source.getRGB(0, 0, width, height, null, 0, width);
+                BufferedImage prepared = CanonicalRgbaImage.prepare(source);
+                assertNotNull(prepared);
+                assertArrayEquals(reference(source), bytes(prepared));
+                assertArrayEquals(before, source.getRGB(0, 0, width, height, null, 0, width));
+                assertNotSame(bytes(prepared), bytes(CanonicalRgbaImage.prepare(source)));
+            }
+        }
+    }
+
     @Test void unsupportedTypesSizesAndSubclassesFallThroughWithoutForeignCalls() {
         assertNull(CanonicalRgbaImage.prepare(null));
-        assertNull(CanonicalRgbaImage.prepare(new BufferedImage(255,256,BufferedImage.TYPE_INT_ARGB)));
-        assertNull(CanonicalRgbaImage.prepare(new BufferedImage(4097,1,BufferedImage.TYPE_INT_ARGB)));
+        assertNull(CanonicalRgbaImage.prepare(new BufferedImage(63,65,BufferedImage.TYPE_INT_ARGB)));
+        assertNull(CanonicalRgbaImage.prepare(new BufferedImage(8193,1,BufferedImage.TYPE_INT_ARGB)));
+        assertNull(CanonicalRgbaImage.prepare(new BufferedImage(8192,4097,BufferedImage.TYPE_INT_ARGB)));
         assertNull(CanonicalRgbaImage.prepare(new BufferedImage(256,256,BufferedImage.TYPE_INT_ARGB_PRE)));
         assertNull(CanonicalRgbaImage.prepare(new BufferedImage(256,256,BufferedImage.TYPE_INT_RGB)));
         assertNull(CanonicalRgbaImage.prepare(new BufferedImage(256,256,BufferedImage.TYPE_BYTE_GRAY)));
