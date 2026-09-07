@@ -65,6 +65,8 @@ base_5303=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bun
 grep -Fq 'version=5303' "$tmp/good-5303.out" || fail 'exact 5.3.03 version was not accepted'
 grep -Fq 'expectedJarSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166' \
   "$tmp/good-5303.out" || fail 'exact 5.3.03 reviewed artifact was not pinned'
+grep -Fq 'Program Files/Live2D Cubism 5.3.03' "$tmp/good-5303.out" \
+  || fail 'exact 5.3.03 installation path was not selected'
 
 expect_rejected result-traversal 'result file must be a normalized relative Unix path' \
   "${base[@]}" --result-file '../outside'

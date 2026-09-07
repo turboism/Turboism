@@ -197,9 +197,18 @@ class ReleaseWorkflowTest(unittest.TestCase):
             r".*?build/windows-installer/staging",
         )
 
-    def test_product_candidate_is_tag_only_and_can_publish_plugins_too(self):
+    def test_product_candidate_is_read_only_dispatch_and_can_build_plugins_too(self):
         workflow = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-        self.assertNotIn("workflow_dispatch:", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertNotRegex(workflow, r"(?m)^  push:")
+        self.assertIn("expected_source_sha:", workflow)
+        self.assertIn('test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"', workflow)
+        self.assertRegex(workflow, r"(?m)^permissions:\n  contents: read$")
+        self.assertNotRegex(workflow, r"\$\{\{[^}]*\bsecrets[.\[]")
+        self.assertNotIn("git push", workflow)
+        self.assertNotIn("gh release create", workflow)
+        self.assertLess(workflow.index("Verify checksums and release metadata"),
+                        workflow.index("promote-github-release.py candidate-tag"))
         self.assertIn("Validate store eligibility policy", workflow)
         self.assertIn("Stage all eligible plugin candidates", workflow)
         self.assertIn("Upload market publication bundle", workflow)

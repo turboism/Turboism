@@ -16,6 +16,10 @@ public final class VerifiedMemberResolver {
 
     private final VerifiedAccessPlan accessPlan;
     private final ClassLoader hostClassLoader;
+    // The immutable access plan and defining loader belong to this resolver's lifetime.
+    // Do not make this process-global: provider replacement must release cached host members.
+    private final java.util.concurrent.ConcurrentMap<String, Method> invocationMethods =
+        new java.util.concurrent.ConcurrentHashMap<>();
 
     VerifiedMemberResolver(
         final VerifiedAccessPlan accessPlan,
@@ -576,32 +580,33 @@ public final class VerifiedMemberResolver {
         }
     }
 
+    private Method resolveInvocationMethod(final StaticSelector selector) {
+        try {
+            final Class<?> owner = Class.forName(selector.ownerInternalName().replace('/', '.'),
+                false, hostClassLoader);
+            final MethodType type = MethodType.fromMethodDescriptorString(selector.descriptor(), hostClassLoader);
+            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
+            if (!method.getDeclaringClass().equals(owner)
+                || !method.getReturnType().equals(type.returnType())
+                || !matchesAccess(method, selector)) {
+                throw resolutionFailure(selector.alias(), "Verified host selector no longer matches its runtime member.");
+            }
+            return method;
+        } catch (ClassNotFoundException | NoSuchMethodException | IllegalArgumentException
+                 | LinkageError | SecurityException failure) {
+            throw resolutionFailure(selector.alias(), "Verified host selector resolution failed safely.");
+        }
+    }
+
     private Object invokeResolved(
         final StaticSelector selector,
         final Object target,
         final Object[] arguments
     ) {
         try {
-            final Class<?> owner = Class.forName(
-                selector.ownerInternalName().replace('/', '.'),
-                false,
-                hostClassLoader
-            );
-            final MethodType type = MethodType.fromMethodDescriptorString(
-                selector.descriptor(),
-                hostClassLoader
-            );
-            final Method method = owner.getDeclaredMethod(selector.memberName(), type.parameterArray());
-            if (!method.getDeclaringClass().equals(owner)
-                || !method.getReturnType().equals(type.returnType())
-                || !matchesAccess(method, selector)) {
-                throw new VerifiedAccessException(
-                    selector.alias(),
-                    VerifiedAccessException.FailureKind.RESOLUTION,
-                    "Verified host selector no longer matches its runtime member.",
-                    null
-                );
-            }
+            final Method method = invocationMethods.computeIfAbsent(selector.alias(),
+                ignored -> resolveInvocationMethod(selector));
+            final Class<?> owner = method.getDeclaringClass();
             if (target != null && !owner.isInstance(target)) {
                 throw new VerifiedAccessException(
                     selector.alias(),
@@ -630,8 +635,7 @@ public final class VerifiedMemberResolver {
                 "Verified host method execution failed safely.",
                 null
             );
-        } catch (ClassNotFoundException | NoSuchMethodException | IllegalAccessException
-                 | IllegalArgumentException | LinkageError exception) {
+        } catch (IllegalAccessException | IllegalArgumentException | LinkageError exception) {
             throw new VerifiedAccessException(
                 selector.alias(),
                 VerifiedAccessException.FailureKind.RESOLUTION,

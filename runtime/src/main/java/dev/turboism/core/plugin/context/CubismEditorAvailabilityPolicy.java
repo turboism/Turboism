@@ -14,11 +14,25 @@ final class CubismEditorAvailabilityPolicy {
 
     private static final List<String> REVIEWED_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
     private static final Set<String> REVIEWED_VERSION_SET = Set.copyOf(REVIEWED_VERSIONS);
+    // ClassValue keeps the cache with the declaring class rather than retaining unloaded
+    // plugin classloaders in a global Method map. Only immutable declarations are cached.
+    private static final ClassValue<java.util.concurrent.ConcurrentMap<Method, Resolution>> RESOLUTIONS =
+        new ClassValue<>() {
+            @Override
+            protected java.util.concurrent.ConcurrentMap<Method, Resolution> computeValue(final Class<?> type) {
+                return new java.util.concurrent.ConcurrentHashMap<>();
+            }
+        };
 
     private CubismEditorAvailabilityPolicy() {
     }
 
     static Resolution resolve(final Method method) {
+        return RESOLUTIONS.get(method.getDeclaringClass())
+            .computeIfAbsent(method, CubismEditorAvailabilityPolicy::resolveUncached);
+    }
+
+    private static Resolution resolveUncached(final Method method) {
         final List<CubismEditor> declarations = declarations(method);
         if (declarations.isEmpty()) {
             return new Resolution(false, List.of());

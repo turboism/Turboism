@@ -19,6 +19,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EditorAuthoringTransactionCoordinatorTest {
@@ -168,6 +169,139 @@ final class EditorAuthoringTransactionCoordinatorTest {
         assertEquals(1, fixture.host.abortCount);
         assertEquals(0, fixture.host.commitCount);
         assertEquals(0, fixture.host.history().entries().size());
+    }
+
+    @Test
+    void callbackErrorAbortsCompensatesInReverseAndClearsAmbientScope() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<String> order = new ArrayList<>();
+        final AssertionError original = new AssertionError("callback failed");
+
+        assertSame(original, assertThrows(AssertionError.class, () -> fixture.coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Error recovery"), () -> {
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("first", value, 0, 1, new ArrayList<>(), true, order));
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("second", value, 1, 2, new ArrayList<>(), true, order));
+                throw original;
+            }
+        )));
+
+        assertEquals(0, value.get());
+        assertEquals(List.of("second", "first"), order);
+        assertEquals(1, fixture.host.abortCount);
+        assertEquals(1, fixture.host.endAttempts);
+        assertTrue(fixture.host.history().entries().isEmpty());
+        assertEquals(AuthoringTransactionOutcome.NO_CHANGE, fixture.coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Next root"), () -> 7
+        ).outcome());
+    }
+
+    @Test
+    void abortErrorDoesNotReplaceCallbackErrorOrSkipCompensation() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final AssertionError original = new AssertionError("callback failed");
+        final AssertionError abortFailure = new AssertionError("abort failed");
+        fixture.host.endError = abortFailure;
+
+        assertSame(original, assertThrows(AssertionError.class, () -> fixture.coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Abort error"), () -> {
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("changed", value, 0, 1, new ArrayList<>(), true));
+                throw original;
+            }
+        )));
+
+        assertEquals(0, value.get());
+        assertEquals(1, fixture.host.endAttempts);
+        assertEquals(List.of(abortFailure), List.of(original.getSuppressed()));
+    }
+
+    @Test
+    void compensationErrorDoesNotSkipEarlierTargetsOrReplaceCallbackError() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger first = new AtomicInteger();
+        final AtomicInteger second = new AtomicInteger();
+        final AssertionError original = new AssertionError("callback failed");
+        final AssertionError restoreFailure = new AssertionError("compensation failed");
+
+        assertSame(original, assertThrows(AssertionError.class, () -> fixture.coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Compensation error"), () -> {
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("first", first, 0, 1, new ArrayList<>(), true));
+                fixture.coordinator.mutate(fixture.binding, new EditorUndoContribution(
+                    "test.write.second", "second", "Second", (edit, label) -> { },
+                    () -> second.set(1), () -> second.get() == 1,
+                    () -> { throw restoreFailure; }, () -> second.get() == 0, Set.of()
+                ));
+                throw original;
+            }
+        )));
+
+        assertEquals(0, first.get());
+        assertEquals(1, second.get());
+        assertEquals(1, fixture.host.abortCount);
+        assertEquals(List.of(restoreFailure), List.of(original.getSuppressed()));
+    }
+
+    @Test
+    void refreshErrorAbortsBeforeNativeCommitAndRestoresMutation() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final AssertionError original = new AssertionError("refresh failed");
+        fixture.host.refreshError = original;
+
+        assertSame(original, assertThrows(AssertionError.class, () -> fixture.coordinator.mutate(
+            fixture.binding, contribution("changed", value, 0, 1, new ArrayList<>(), true)
+        )));
+
+        assertEquals(0, value.get());
+        assertEquals(1, fixture.host.abortCount);
+        assertEquals(0, fixture.host.commitCount);
+        assertEquals(1, fixture.host.endAttempts);
+    }
+
+    @Test
+    void nativeEndErrorIsNeverRetriedAndStillRestoresMutation() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final AssertionError original = new AssertionError("native close uncertain");
+        fixture.host.endError = original;
+
+        assertSame(original, assertThrows(AssertionError.class, () -> fixture.coordinator.mutate(
+            fixture.binding, contribution("changed", value, 0, 1, new ArrayList<>(), true)
+        )));
+
+        assertEquals(0, value.get());
+        assertEquals(1, fixture.host.endAttempts);
+        assertEquals(1, original.getSuppressed().length);
+        assertTrue(original.getSuppressed()[0].getMessage().contains("uncertain"));
+    }
+
+    @Test
+    void cleanupErrorAfterOrdinaryFailureIsPropagatedAfterOtherCompensations() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger first = new AtomicInteger();
+        final IllegalStateException original = new IllegalStateException("callback failed");
+        final AssertionError cleanup = new AssertionError("restore failed");
+
+        assertSame(cleanup, assertThrows(AssertionError.class, () -> fixture.coordinator.execute(
+            fixture.binding, AuthoringTransactionOptions.of("Fatal cleanup"), () -> {
+                fixture.coordinator.mutate(fixture.binding,
+                    contribution("first", first, 0, 1, new ArrayList<>(), true));
+                fixture.coordinator.mutate(fixture.binding, new EditorUndoContribution(
+                    "test.write.second", "second", "Second", (edit, label) -> { },
+                    () -> { }, () -> true, () -> { throw cleanup; }, () -> false, Set.of()
+                ));
+                throw original;
+            }
+        )));
+
+        assertEquals(0, first.get());
+        assertEquals(1, fixture.host.abortCount);
+        assertEquals(List.of(original), List.of(cleanup.getSuppressed()));
     }
 
     @Test
@@ -366,6 +500,8 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private int abortCount;
         private int endAttempts;
         private boolean failEnd;
+        private Error endError;
+        private Error refreshError;
         private int refreshCount;
         private int entriesPerCommit = 1;
         private Set<EditorRefreshRequirement> lastRefresh = Set.of();
@@ -421,6 +557,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
             final boolean abort
         ) {
             endAttempts++;
+            if (endError != null) throw endError;
             if (failEnd) throw new IllegalStateException("native end uncertain");
             if (abort) {
                 abortCount++;
@@ -439,6 +576,7 @@ final class EditorAuthoringTransactionCoordinatorTest {
             final Set<EditorRefreshRequirement> requirements
         ) {
             refreshCount++;
+            if (refreshError != null) throw refreshError;
             lastRefresh = Set.copyOf(requirements);
         }
 
