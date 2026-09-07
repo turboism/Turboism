@@ -17,7 +17,7 @@ printf 'x\n' > "$BUNDLE/source model.cmo3"
 printf 'x\n' > "$BUNDLE/source.psd"
 
 COMMON=(bash "$RUNNER" --version 5302 --bundle-root "$BUNDLE"
-  --agent "$BUNDLE/agent.jar" --plugin "$BUNDLE/plugin.jar" --result-marker never --dry-run
+  --agent "$BUNDLE/agent.jar" --plugin "$BUNDLE/plugin.jar" --result-marker never --dry-run --transport remote
   --ssh-host test@example.invalid --ssh-key "$BUNDLE/agent.jar"
   --golden-prefix /remote/golden --remote-root /remote/tasks --proton-runner /remote/proton)
 

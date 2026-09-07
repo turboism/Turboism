@@ -65,6 +65,7 @@ Common options:
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
+  --transport <local|remote, or TURBOISM_HOST_VALIDATION_TRANSPORT>
   --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
   --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
   --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
@@ -88,6 +89,9 @@ fail() {
   printf 'host validation: %s\n' "$*" >&2
   exit 1
 }
+
+# shellcheck source=host-validation-transport.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-transport.sh"
 
 log() {
   printf '[host-validation] %s\n' "$*"
@@ -135,22 +139,7 @@ require_safe_remote_value() {
   done
 }
 
-# Sends untrusted argument values only as a Base64 payload. Remote shell code
-# receives no interpolated path or marker values; it decodes the payload into
-# positional parameters before using them.
-remote_args_bash() {
-  local encoded
-  encoded="$(printf '%s\n' "$@" | base64 -w 0)"
-  {
-    cat <<'REMOTE_ARGS'
-remote_args() {
-  mapfile -t REMOTE_ARGS < <(printf '%s' "$TURBOISM_ARGS_B64" | base64 -d)
-}
-REMOTE_ARGS
-    cat
-  } | "${ssh_cmd[@]}" "$ssh_host" "TURBOISM_ARGS_B64=$encoded bash -s"
-}
-
+# Transport-specific argument decoding is provided by host-validation-transport.sh.
 sha256_file() {
   sha256sum "$1" | cut -d' ' -f1
 }
@@ -208,15 +197,16 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
-ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
-ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
-golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
-remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
+ssh_host="${TURBOISM_HOST_VALIDATION_SSH_HOST:-}"
+ssh_key="${TURBOISM_HOST_VALIDATION_SSH_KEY:-}"
+golden_prefix="${TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX:-}"
+remote_root="${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:-}"
 local_evidence_dir=''
 display=':0'
 proton_wrapper='shorin-proton-wrapper'
-proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
+proton_runner="${TURBOISM_HOST_VALIDATION_PROTON_RUNNER:-}"
 keep_prefix=0
+transport="${TURBOISM_HOST_VALIDATION_TRANSPORT:-remote}"
 dry_run=0
 
 while [ "$#" -gt 0 ]; do
@@ -257,6 +247,7 @@ while [ "$#" -gt 0 ]; do
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
+    --transport) require_value "$@"; transport="$2"; shift 2 ;;
     --ssh-host) require_value "$@"; ssh_host="$2"; shift 2 ;;
     --ssh-key) require_value "$@"; ssh_key="$2"; shift 2 ;;
     --golden-prefix) require_value "$@"; golden_prefix="$2"; shift 2 ;;
@@ -275,8 +266,7 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
-[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
-[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+host_validation_transport_validate
 [ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
 [ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
 [ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
@@ -403,8 +393,10 @@ if [ -n "$cubism_java" ]; then
       || fail "Cubism Java path contains an unsupported command character: $forbidden"
   done
 fi
-require_safe_remote_value "$ssh_host" "SSH host"
-[[ "$ssh_host" != -* ]] || fail "SSH host must not begin with an option prefix"
+if [ "$transport" = remote ]; then
+  require_safe_remote_value "$ssh_host" "SSH host"
+  [[ "$ssh_host" != -* ]] || fail "SSH host must not begin with an option prefix"
+fi
 for value in "$fixture_remote" "$golden_prefix" "$remote_root" "$display" "$proton_wrapper" "$proton_runner"; do
   [ -z "$value" ] || require_safe_remote_value "$value" "host path or executable"
 done
@@ -518,10 +510,23 @@ fixture_path="$task_dir/$fixture_name"
 golden_cubism="$golden_prefix/$cubism_rel"
 cloned_cubism="$prefix_dir/$cubism_rel"
 local_evidence_dir="${local_evidence_dir:-$repo_root/build/host-validation/$name/$version/$task_id}"
+if [ "$transport" = local ]; then
+  host_validation_transport_assert_destination_tree_safe "$task_dir"
+  host_validation_transport_assert_destination_tree_safe "$home_dir"
+  host_validation_transport_assert_destination_tree_safe "$evidence_dir"
+  host_validation_transport_assert_copy_safe "$golden_prefix" "$prefix_dir" 1
+  host_validation_transport_assert_copy_safe "$evidence_dir/." "$local_evidence_dir/" 1
+  if [ -n "$fixture_remote" ]; then
+    host_validation_transport_assert_copy_safe "$fixture_remote" "$fixture_path" 0
+  else
+    host_validation_transport_assert_copy_safe "$fixture_local" "$fixture_path" 0
+  fi
+fi
 
 if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
+    "transport=$transport" \
     "version=$version" \
     "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
@@ -604,10 +609,7 @@ if [ "$dry_run" = 1 ]; then
   exit 0
 fi
 
-[ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
-
-ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
-scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
+host_validation_transport_init
 local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
@@ -808,27 +810,27 @@ REMOTE
 verify_staged_artifacts() {
   local phase="$1" actual expected spec local_path remote_name
   expected="$(sha256_file "$agent")"
-  actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/turboism-agent.jar' | cut -d' ' -f1")"
+  actual="$(transport_command "sha256sum '$task_dir/turboism-agent.jar' | cut -d' ' -f1")"
   [ "$actual" = "$expected" ] || fail "staged agent hash mismatch"
   for spec in "${resolved_plugins[@]}"; do
     local_path="${spec%%:*}"
     remote_name="${spec#*:}"
     expected="$(sha256_file "$local_path")"
-    actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/plugins/$remote_name' | cut -d' ' -f1")"
+    actual="$(transport_command "sha256sum '$home_dir/plugins/$remote_name' | cut -d' ' -f1")"
     [ "$actual" = "$expected" ] || fail "staged plugin hash mismatch: $remote_name"
   done
   for spec in "${resolved_home_files[@]}"; do
     local_path="${spec%%:*}"
     relative_path="${spec#*:}"
     expected="$(sha256_file "$local_path")"
-    actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/$relative_path' | cut -d' ' -f1")"
+    actual="$(transport_command "sha256sum '$home_dir/$relative_path' | cut -d' ' -f1")"
     [ "$actual" = "$expected" ] || fail "staged home-file hash mismatch: $relative_path"
   done
   for spec in "${resolved_home_dirs[@]}"; do
     local_path="${spec%%:*}"
     relative_path="${spec#*:}"
     local_hash="$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
-    remote_hash="$("${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1")"
+    remote_hash="$(transport_command "tar -C '$home_dir/$relative_path' --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1")"
     [ "$remote_hash" = "$local_hash" ] || fail "staged home-dir hash mismatch: $relative_path"
   done
   if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
@@ -839,7 +841,7 @@ verify_staged_artifacts() {
       local_path="${resolved_aux_agents[$index]%%:*}"
       remote_name="${resolved_aux_agents[$index]#*:}"
       expected="$(sha256_file "$local_path")"
-      actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/agents/$remote_name' | cut -d' ' -f1")"
+      actual="$(transport_command "sha256sum '$task_dir/agents/$remote_name' | cut -d' ' -f1")"
       printf 'auxAgent.%s.name=%s\n' "$index" "$remote_name" >> "$aux_hash_file"
       printf 'auxAgent.%s.localSha256=%s\n' "$index" "$expected" >> "$aux_hash_file"
       printf 'auxAgent.%s.stagedSha256=%s\n' "$index" "$actual" >> "$aux_hash_file"
@@ -851,7 +853,7 @@ verify_staged_artifacts() {
 collect_evidence() {
   [ "$evidence_collected" = 0 ] || return 0
   evidence_collected=1
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$home_dir' '$evidence_dir' '$fixture_path' '$fixture_remote' '$golden_cubism' '$cloned_cubism' '$result_file'" <<'REMOTE' || true
+  transport_bash "$task_dir" "$home_dir" "$evidence_dir" "$fixture_path" "$fixture_remote" "$golden_cubism" "$cloned_cubism" "$result_file" <<'REMOTE' || true
 set -u
 task="$1"; home="$2"; evidence="$3"; fixture="$4"; source_fixture="$5"
 golden="$6"; cloned="$7"; result_file="$8"
@@ -878,13 +880,21 @@ fi
   echo "wrapper_exit=$(cat "$evidence/wrapper.exit" 2>/dev/null || true)"
 } > "$evidence/final-hashes.properties"
 REMOTE
-  mkdir -p "$local_evidence_dir"
-  "${scp_cmd[@]}" -r "$ssh_host:$evidence_dir/." "$local_evidence_dir/" >/dev/null 2>&1 || true
+  if [ "$transport" = local ]; then
+    if ! ( transport_prepare_directory "$local_evidence_dir" ); then
+      return 1
+    fi
+  else
+    mkdir -p "$local_evidence_dir" || return 1
+  fi
+  if ! ( transport_copy_from --recursive "$evidence_dir/." "$local_evidence_dir/" >/dev/null 2>&1 ); then
+    return 1
+  fi
 }
 
 cleanup_prefix() {
   [ "$keep_prefix" = 0 ] || return 0
-  "${ssh_cmd[@]}" "$ssh_host" "rm -rf -- '$prefix_dir'" || true
+  transport_remove_tree "$prefix_dir"
 }
 
 run_remote_hook() {
@@ -894,11 +904,12 @@ run_remote_hook() {
     return 0
   fi
   local remote_hook="$task_dir/$(basename "$hook")"
-  "${scp_cmd[@]}" "$hook" "$ssh_host:$remote_hook"
-  remote_args_bash \
-    "$task_dir" "$home_dir" "$evidence_dir" "$prefix_dir" "$fixture_path" "$task_id" \
-    "$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display" \
-    "$remote_hook" <<'REMOTE'
+  if ! (
+    transport_copy_to "$hook" "$remote_hook" || exit "$?"
+    remote_args_bash \
+      "$task_dir" "$home_dir" "$evidence_dir" "$prefix_dir" "$fixture_path" "$task_id" \
+      "$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display" \
+      "$remote_hook" <<'REMOTE'
 set -euo pipefail
 remote_args
 hook="${REMOTE_ARGS[11]}"
@@ -907,6 +918,9 @@ exec "$hook" "${REMOTE_ARGS[0]}" "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[2]}" \
   "${REMOTE_ARGS[3]}" "${REMOTE_ARGS[4]}" "${REMOTE_ARGS[5]}" "${REMOTE_ARGS[6]}" \
   "${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[10]}"
 REMOTE
+  ); then
+    return 1
+  fi
   if [ "$hook" = "$remote_pre_cleanup" ]; then
     pre_cleanup_hook_done=1
   fi
@@ -921,27 +935,27 @@ on_exit() {
   if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree || cleanup_rc=1
   fi
-  collect_evidence
-  if [ "$success" = 1 ]; then
-    cleanup_prefix
+  collect_evidence || cleanup_rc=1
+  if [ "$success" = 1 ] && [ "$cleanup_rc" = 0 ]; then
+    cleanup_prefix || cleanup_rc=1
   fi
   rm -rf "$local_tmp"
   if [ "$cleanup_rc" -ne 0 ]; then
     printf 'host validation: REMOTE CLEANUP FAILED task=%s remote=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
-    rc=1
+    [ "$rc" -ne 0 ] || rc=1
   fi
   if [ "$rc" -ne 0 ]; then
     printf 'host validation: FAILED task=%s remote=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
   fi
-  return "$rc"
+  exit "$rc"
 }
 trap on_exit EXIT
 
 log "preflight exact host identity"
 identity_before="$local_tmp/identity-before.properties"
-"${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$golden_cubism' '$reviewed_jar_sha256' '$fixture_remote' '$fixture_sha256' '$golden_prefix' '$task_id'" > "$identity_before" <<'REMOTE'
+transport_bash "$golden_cubism" "$reviewed_jar_sha256" "$fixture_remote" "$fixture_sha256" "$golden_prefix" "$task_id" > "$identity_before" <<'REMOTE'
 set -euo pipefail
 cubism="$1"; reviewed="$2"; fixture="$3"; fixture_expected="$4"; golden_prefix="$5"; task_id="$6"
 jar="$cubism/app/lib/Live2D_Cubism.jar"
@@ -1013,7 +1027,7 @@ agent_sha256="$(sha256_file "$agent")"
 } >> "$identity_before"
 
 log "creating task directory and CoW prefix clone"
-"${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$home_dir' '$evidence_dir' '$golden_prefix' '$prefix_dir' '$cloned_cubism' '$reviewed_jar_sha256'" <<'REMOTE'
+transport_bash "$task_dir" "$home_dir" "$evidence_dir" "$golden_prefix" "$prefix_dir" "$cloned_cubism" "$reviewed_jar_sha256" <<'REMOTE'
 set -euo pipefail
 task="$1"; home="$2"; evidence="$3"; golden="$4"; prefix="$5"; cubism="$6"; reviewed="$7"
 mkdir -p "$task" "$task/agents" "$home/plugins" "$home/state" "$home/logs" "$evidence"
@@ -1029,62 +1043,67 @@ bat="$cubism/CubismEditor5.bat"
 } > "$evidence/cloned-identity.properties"
 REMOTE
 
-"${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
-"${scp_cmd[@]}" "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
-  "$ssh_host:$task_dir/archive-cubism-host-evidence.sh"
-"${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/archive-cubism-host-evidence.sh'"
-"${scp_cmd[@]}" "$agent" "$ssh_host:$task_dir/turboism-agent.jar"
+transport_copy_to "$identity_before" "$evidence_dir/identity-before.properties"
+transport_copy_to "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
+  "$task_dir/archive-cubism-host-evidence.sh"
+transport_command "chmod 700 '$task_dir/archive-cubism-host-evidence.sh'"
+transport_copy_to "$agent" "$task_dir/turboism-agent.jar"
 if [ -n "$home_config" ]; then
-  "${scp_cmd[@]}" "$home_config" "$ssh_host:$home_dir/config.json"
+  transport_copy_to "$home_config" "$home_dir/config.json"
   staged_config_sha="$(sha256_file "$home_config")"
-  "${ssh_cmd[@]}" "$ssh_host" "test -s '$home_dir/config.json' && test \"\$(sha256sum '$home_dir/config.json' | cut -d' ' -f1)\" = '$staged_config_sha'"
+  transport_command "test -s '$home_dir/config.json' && test \"\$(sha256sum '$home_dir/config.json' | cut -d' ' -f1)\" = '$staged_config_sha'"
 fi
 for spec in "${resolved_plugins[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/plugins/$remote_name"
+  transport_copy_to "$local_path" "$home_dir/plugins/$remote_name"
 done
 for spec in "${resolved_home_files[@]}"; do
   local_path="${spec%%:*}"
   relative_path="${spec#*:}"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$relative_path")'"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/$relative_path"
+  destination="$home_dir/$relative_path"
+  if [ "$transport" = local ]; then
+    host_validation_transport_assert_destination_tree_safe "$destination"
+  fi
+  transport_prepare_directory "$home_dir/$(dirname "$relative_path")"
+  transport_copy_to "$local_path" "$destination"
 done
 for spec in "${resolved_home_dirs[@]}"; do
   local_path="${spec%%:*}"
   relative_path="${spec#*:}"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$relative_path'"
-  tar -C "$local_path" -cf - . | "${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' -xf -"
+  destination="$home_dir/$relative_path"
+  transport_prepare_directory "$destination"
+  transport_copy_dir_contents_to "$local_path" "$destination"
 done
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$task_dir/agents/$remote_name"
+  transport_copy_to "$local_path" "$task_dir/agents/$remote_name"
 done
 if [ -n "$client_script" ]; then
-  "${scp_cmd[@]}" "$client_script" "$ssh_host:$task_dir/$client_script_remote_name"
+  transport_copy_to "$client_script" "$task_dir/$client_script_remote_name"
   client_sha256="$(sha256_file "$client_script")"
-  "${ssh_cmd[@]}" "$ssh_host" \
+  transport_command \
     "test \"\$(sha256sum '$task_dir/$client_script_remote_name' | cut -d' ' -f1)\" = '$client_sha256' && chmod 700 '$task_dir/$client_script_remote_name'"
 fi
 verify_staged_artifacts before
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
   cat "$local_tmp/aux-agent-hashes-before.properties" >> "$identity_before"
-  "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
-  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-before.properties" \
-    "$ssh_host:$evidence_dir/aux-agent-hashes-before.properties"
+  transport_copy_to "$identity_before" "$evidence_dir/identity-before.properties"
+  transport_copy_to "$local_tmp/aux-agent-hashes-before.properties" \
+    "$evidence_dir/aux-agent-hashes-before.properties"
 fi
 if [ -n "$fixture_remote" ]; then
-  "${ssh_cmd[@]}" "$ssh_host" "cp --reflink=auto -- '$fixture_remote' '$fixture_path'"
+  transport_copy_host_file "$fixture_remote" "$fixture_path"
 else
-  "${scp_cmd[@]}" "$fixture_local" "$ssh_host:$fixture_path"
+  transport_copy_to "$fixture_local" "$fixture_path"
 fi
-fixture_before_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_path' | cut -d' ' -f1")"
+fixture_before_sha256="$(transport_command "sha256sum '$fixture_path' | cut -d' ' -f1")"
 source_before_sha256="$(grep '^sourceFixtureSha256=' "$identity_before" | tail -n 1 | cut -d= -f2-)"
 [ -n "$source_before_sha256" ] || fail "source fixture identity is missing"
 [ "$fixture_before_sha256" = "$source_before_sha256" ] || fail "copied fixture hash differs from its source"
 printf 'fixtureBeforeSha256=%s\n' "$fixture_before_sha256" > "$local_tmp/fixture-before.properties"
-"${scp_cmd[@]}" "$local_tmp/fixture-before.properties" "$ssh_host:$evidence_dir/fixture-before.properties"
+transport_copy_to "$local_tmp/fixture-before.properties" "$evidence_dir/fixture-before.properties"
 
 win_home="$(z_path "$home_dir")"
 win_agent="$(z_path "$task_dir/turboism-agent.jar")"
@@ -1196,12 +1215,12 @@ rc=\$?
 printf '%s\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"
 SH
-"${scp_cmd[@]}" "$local_tmp/launch.bat" "$ssh_host:$task_dir/launch.bat"
-"${scp_cmd[@]}" "$local_tmp/launch.sh" "$ssh_host:$task_dir/launch.sh"
-"${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/launch.sh'"
+transport_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
+transport_copy_to "$local_tmp/launch.sh" "$task_dir/launch.sh"
+transport_command "chmod 700 '$task_dir/launch.sh'"
 
 log "launching exact Cubism $version through official BAT"
-"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
+transport_command "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
 launched=1
 run_remote_hook "$remote_post_launch"
 
@@ -1226,11 +1245,19 @@ fi
 
 if [ -n "$trigger_path" ]; then
   log "creating trigger $trigger_path"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$trigger_path")' && touch '$home_dir/$trigger_path'"
+  trigger_parent="$home_dir/$(dirname "$trigger_path")"
+  trigger_target="$home_dir/$trigger_path"
+  if [ "$transport" = local ]; then
+    host_validation_transport_assert_destination_tree_safe "$trigger_target"
+    transport_prepare_directory "$trigger_parent"
+    touch -- "$trigger_target"
+  else
+    transport_command "mkdir -p '$trigger_parent' && touch '$trigger_target'"
+  fi
 fi
 if [ -n "$client_script" ]; then
   log "running task-local validation client $client_script_remote_name"
-  if ! "${ssh_cmd[@]}" "$ssh_host" \
+  if ! transport_command \
     "'$task_dir/$client_script_remote_name' '$home_dir' '$task_id' > '$evidence_dir/client.out' 2> '$evidence_dir/client.err'"; then
     fail "task-local validation client failed"
   fi
@@ -1281,13 +1308,13 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 if remote_process_alive; then
   log "launcher remained alive after terminal PASS; stopping the task-scoped process tree"
-  "${ssh_cmd[@]}" "$ssh_host" \
+  transport_command \
     "printf '%s\n' 'terminal PASS observed; graceful close timed out; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
   remote_stop_process_tree
   wrapper_cleanup_done=1
 fi
 
-wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
+wrapper_exit="$(transport_command "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
 if [ "$wrapper_cleanup_done" = 0 ]; then
   [ -n "$wrapper_exit" ] || fail "official launcher exited with code missing"
   [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
@@ -1304,27 +1331,27 @@ REMOTE
 fi
 verify_staged_artifacts after
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
-  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-after.properties" \
-    "$ssh_host:$evidence_dir/aux-agent-hashes-after.properties"
+  transport_copy_to "$local_tmp/aux-agent-hashes-after.properties" \
+    "$evidence_dir/aux-agent-hashes-after.properties"
 fi
 
 source_after_sha256=''
 if [ -n "$fixture_remote" ]; then
-  source_after_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_remote' | cut -d' ' -f1")"
+  source_after_sha256="$(transport_command "sha256sum '$fixture_remote' | cut -d' ' -f1")"
   source_before_sha256="$(grep '^sourceFixtureSha256=' "$identity_before" | tail -n 1 | cut -d= -f2-)"
   [ "$source_after_sha256" = "$source_before_sha256" ] || fail "source fixture changed"
 fi
-fixture_after_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_path' | cut -d' ' -f1")"
+fixture_after_sha256="$(transport_command "sha256sum '$fixture_path' | cut -d' ' -f1")"
 if [ "$require_fixture_unchanged" = 1 ] && [ "$fixture_after_sha256" != "$fixture_before_sha256" ]; then
   fail "copied fixture changed despite --require-fixture-unchanged"
 fi
 
-golden_jar_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$golden_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
-cloned_jar_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$cloned_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
+golden_jar_after="$(transport_command "sha256sum '$golden_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
+cloned_jar_after="$(transport_command "sha256sum '$cloned_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
 golden_bat_before="$(grep '^officialBatSha256=' "$identity_before" | cut -d= -f2-)"
-cloned_bat_before="$("${ssh_cmd[@]}" "$ssh_host" "grep '^clonedBatSha256=' '$evidence_dir/cloned-identity.properties' | cut -d= -f2-")"
-golden_bat_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$golden_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
-cloned_bat_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$cloned_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
+cloned_bat_before="$(transport_command "grep '^clonedBatSha256=' '$evidence_dir/cloned-identity.properties' | cut -d= -f2-")"
+golden_bat_after="$(transport_command "sha256sum '$golden_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
+cloned_bat_after="$(transport_command "sha256sum '$cloned_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
 [ "$golden_jar_after" = "$reviewed_jar_sha256" ] || fail "golden Cubism JAR changed"
 [ "$cloned_jar_after" = "$reviewed_jar_sha256" ] || fail "cloned Cubism JAR changed"
 [ "$golden_bat_after" = "$golden_bat_before" ] || fail "golden Cubism launcher changed"
