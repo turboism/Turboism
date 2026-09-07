@@ -9,35 +9,20 @@ public final class BoundingBoxOverlayButtonVerificationManifest {
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.bounding-box-overlay-button";
     public static final String CAPABILITY_ID = "cubism.editor-ui.bounding-box-overlay-button";
     public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
-    private static final String RECORD_SHA_52 = "62df5f6ac28c3c362ecd2e425184305ff82e1a3967a804b49ce5f394dc1cc365";
-    private static final String RECORD_SHA_5302 = "f4b910d06d20e383a3f8f3556fbc14a26e15b9d315c9e7b141338990ed44f528";
-    private static final String RECORD_SHA_5303 = "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5";
+    private static final String RECORD_SHA_52 = "cbe781be54f7c1d67f97c5143a2375932cbe97ec77209ce4320232290af1a81a";
+    private static final String RECORD_SHA_5302 = "ceeaa56bbb690a93170a37427a9fd12a0252b9f34079863048eb7fd89e6c64cc";
+    private static final String RECORD_SHA_5303 = "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797";
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.ui-bounding-box-overlay.bounding-box.update",
+        "cubism.ui-bounding-box-overlay.bounding-box.setup-button",
         "cubism.ui-bounding-box-overlay.button.create",
-        "cubism.ui-bounding-box-overlay.bounding-box.buttons",
-        "cubism.ui-bounding-box-overlay.bounding-box.last-bounding-box",
-        "cubism.ui-bounding-box-overlay.bounding-box.hide-button-position",
-        "cubism.ui-bounding-box-overlay.action.view-context",
-        "cubism.ui-bounding-box-overlay.action.scale",
-        "cubism.ui-bounding-box-overlay.view.camera",
-        "cubism.ui-bounding-box-overlay.view.complete-pack",
-        "cubism.ui-bounding-box-overlay.complete-pack.main-view",
-        "cubism.ui-bounding-box-overlay.main-view.dpi-scale",
-        "cubism.ui-bounding-box-overlay.camera.document-to-component",
-        "cubism.ui-bounding-box-overlay.vector.x",
-        "cubism.ui-bounding-box-overlay.vector.y",
-        "cubism.ui-bounding-box-overlay.vector.plus",
         "cubism.ui-bounding-box-overlay.vector.times",
-        "cubism.ui-bounding-box-overlay.vector.create",
-        "cubism.ui-bounding-box-overlay.rect.create",
-        "cubism.ui-bounding-box-overlay.button.set-bounds",
+        "cubism.ui-bounding-box-overlay.vector.plus",
         "cubism.ui-bounding-box-overlay.button.set-enabled",
-        "cubism.ui-bounding-box-overlay.entity.enabled",
         "cubism.ui-bounding-box-overlay.scene.component-objects",
         "cubism.ui-bounding-box-overlay.entity.children",
-        "cubism.ui-bounding-box-overlay.entities.add",
-        "cubism.ui-bounding-box-overlay.scene.volatile",
+        "cubism.ui-bounding-box-overlay.scene.remove-volatile",
+        "cubism.ui-bounding-box-overlay.entities.remove",
         "cubism.ui-bounding-box-overlay.writable-image.create",
         "cubism.ui-bounding-box-overlay.icon-set.create"
     );

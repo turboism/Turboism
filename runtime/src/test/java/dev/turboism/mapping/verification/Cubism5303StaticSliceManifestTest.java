@@ -42,7 +42,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             BoundingBoxOverlayButtonVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-bounding-box-overlay.static",
-            "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5",
+            "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797",
             BoundingBoxOverlayButtonVerificationManifest.ADAPTER_SLICE_ID,
             BoundingBoxOverlayButtonVerificationManifest.CAPABILITY_IDS,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES

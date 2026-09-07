@@ -56,6 +56,32 @@ class VerifiedMemberResolverTest {
         assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.unverified"));
     }
 
+    private static volatile Object allocationSink;
+
+    @Test
+    void repeatedVerifiedInvocationDoesNotAllocateResolutionMetadata() {
+        final var bean = java.lang.management.ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(bean instanceof com.sun.management.ThreadMXBean);
+        final var allocations = (com.sun.management.ThreadMXBean) bean;
+        org.junit.jupiter.api.Assumptions.assumeTrue(allocations.isThreadAllocatedMemorySupported());
+        allocations.setThreadAllocatedMemoryEnabled(true);
+        final var resolver = new VerifiedMemberResolver(plan(StaticSelector.method(
+            "fixture.instance-value", internalName(SyntheticHost.class), "instanceValue",
+            "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC)), SyntheticHost.class.getClassLoader());
+        final var target = new SyntheticHost();
+        for (int i = 0; i < 10000; i++) allocationSink = resolver.invoke("fixture.instance-value", target);
+        final long thread = Thread.currentThread().getId();
+        final long before = allocations.getThreadAllocatedBytes(thread);
+        for (int i = 0; i < 1000; i++) allocationSink = resolver.invoke("fixture.instance-value", target);
+        final long bytes = allocations.getThreadAllocatedBytes(thread) - before;
+        assertEquals("instance", allocationSink);
+        assertTrue(bytes <= 256L * 1000, "resolution metadata allocated on the hot path: " + bytes);
+        assertThrows(VerifiedAccessException.class, () -> resolver.invoke("fixture.instance-value", new Object()));
+        assertThrows(VerifiedAccessException.class, () -> resolver.invokeStatic("fixture.instance-value"));
+        assertThrows(VerifiedAccessException.class, () -> resolver.invoke("fixture.missing", target));
+        assertEquals("instance", resolver.invoke("fixture.instance-value", target));
+    }
+
     @Test
     void invokesExactVerifiedPublicMethodsDeclaredByPackagePrivateHostTypes() {
         VerifiedMemberResolver resolver = new VerifiedMemberResolver(

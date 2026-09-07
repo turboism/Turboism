@@ -6,10 +6,126 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
+
+## [0.43.9] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4–0.43.8 candidates.
+
+### Added
+
+- Synchronous authoring transactions, grouped Glue writes, stable history entry/transaction identity, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Adopted the reviewed SDK v7 exact release baseline while preserving v2–v6 historical baselines. **Plugin API migration may be required:** `McpHttpConnection` now takes endpoint/protocol only and no longer exposes `authorization()`; `HistoryEntry` carries additional identity fields; exception enum ordinals changed. See the [SDK v7 review](sdk/api-contracts/sdk-api-v7-review.md).
+- Unified palette toolbar/filter contributions and reduced repeated model and history scans.
+- The local loopback MCP server operates without bearer authentication.
+- Release packages exclude managed fx runtime bytes and the development-only Turboism with fx plugin.
+
+### Fixed
+
+- Stabilized snapshot-race and asynchronous plugin-disable regression tests, corrected bounding-box draft metadata, and separated native Java installer Full payload testing from Windows policy coverage without weakening production validation.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
+## [0.43.8] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4–0.43.7 candidates.
+
+### Added
+
+- Synchronous authoring transactions, grouped Glue writes, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar/filter contributions and reduced repeated model and history scans.
+- The local loopback MCP server operates without bearer authentication.
+- Release packages exclude managed fx runtime bytes and the development-only Turboism with fx plugin.
+
+### Fixed
+
+- Corrected release verification: deterministic snapshot-race and asynchronous plugin-disable tests, schema-compliant bounding-box draft metadata, and native-OS Java installer Full payload testing with separate Windows policy coverage. No production validation, lifecycle behavior, or host selectors were changed by these verification fixes.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
+## [0.43.7] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4–0.43.6 candidates.
+
+### Added
+
+- Synchronous authoring transactions, grouped Glue writes, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar/filter contributions and reduced repeated model and history scans.
+- The local loopback MCP server operates without bearer authentication.
+- Release packages exclude managed fx runtime bytes and the development-only Turboism with fx plugin.
+
+### Fixed
+
+- Corrected the Cubism 5.3.03 bounding-box draft mapping metadata to conform to the existing schema; selectors and verification records are unchanged, and the draft remains unverified.
+- Made snapshot-race and asynchronous plugin-disable regression tests deterministic without changing production validation or lifecycle behavior.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
+## [0.43.6] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4 and 0.43.5 candidates.
+
+### Added
+
+- Synchronous authoring transaction scopes, grouped Glue writes, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar and filter contributions with production host lifecycle handling and reduced repeated model and history scans.
+- The local loopback MCP server operates without bearer authentication.
+- Release packages no longer include managed fx runtime bytes or the development-only Turboism with fx plugin.
+
+### Fixed
+
+- Stabilized release regression coverage: snapshot-copy races explicitly cover changed and preserved timestamps, and repeated plugin-disable tests await terminal lifecycle completion rather than callback entry. Production validation and lifecycle behavior are unchanged by these test fixes.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
+## [0.43.5] - 2026-09-06
+
+This release supersedes the unpublished 0.43.4 candidate and includes its changes below.
+
+### Added
+
+- Added synchronous authoring transaction scopes, grouped Glue writes, expanded typed MCP read/write operations, direct plugin installation from JAR files, and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar and filter contributions with production host lifecycle handling and reduced repeated model and history scans.
+- Changed the local loopback MCP server to operate without bearer authentication.
+- Removed managed fx runtime bytes and the development-only Turboism with fx plugin from all release packages.
+
+### Fixed
+
+- Made the snapshot-copy ABA regression tests independent of filesystem timestamp resolution, covering both observable file changes and corrupt snapshots with unchanged timestamps without weakening production validation.
+- Included installer configuration validation before payload changes, parameter batch-transfer row layout fixes, SDK interface proxy coverage, Cubism 5.3.03 texture-atlas auto-layout hook selection, and MCP/runtime transaction and lifecycle fixes.
+
+## [0.43.4] - 2026-09-06
+
+### Added
+
+- Added synchronous authoring transaction scopes, including grouped Glue writes, and expanded typed MCP read/write operations.
+- Added direct plugin installation from JAR files and restored bounding-box overlay controls.
+
+### Changed
+
+- Unified palette toolbar and filter contributions with production host lifecycle handling.
+- Changed the local loopback MCP server to operate without bearer authentication.
+- Reduced repeated model and history scans in runtime hot paths.
+
 ### Fixed
 
 - Made Windows and Java installers validate or migrate `config.json` before payload mutation, require an integer schema token and runtime-valid v1 values, and apply upgrade plugin selections without overwriting unrelated settings.
 - Removed the managed fx runtime payload from every release channel and documented that the development-only Turboism with fx plugin ships in no release package; made the optional Windows fx resolver test skip safely when its private fixture path is absent.
+- Fixed overlapping parameter batch-transfer binding rows, SDK interface proxy coverage, and Cubism 5.3.03 texture-atlas auto-layout hook selection.
+- Addressed MCP and runtime review findings around transaction outcomes and lifecycle handling.
 
 ## [0.43.3] - 2026-09-03
 

@@ -95,11 +95,13 @@ class PluginManagerIsolationTest {
 
         try {
             // When
-            manager.disable(PLUGIN_ID);
-            manager.disable(PLUGIN_ID);
+            var firstDisable = manager.disable(PLUGIN_ID).toCompletableFuture();
+            var repeatedDisable = manager.disable(PLUGIN_ID).toCompletableFuture();
             assertTrue(firstDisableStarted.await(1, TimeUnit.SECONDS));
             releaseDisable.countDown();
-            awaitDisableCount(disableCount, 1);
+            // The callback count records entry, not completion of the terminal state transition.
+            assertEquals(PluginLifecycleState.DISABLED, firstDisable.get(1, TimeUnit.SECONDS));
+            assertEquals(PluginLifecycleState.DISABLED, repeatedDisable.get(1, TimeUnit.SECONDS));
 
             // Then
             assertEquals(1, disableCount.get());
@@ -161,13 +163,6 @@ class PluginManagerIsolationTest {
             Thread.sleep(10);
         }
         assertEquals(expectedState, runtime.state());
-    }
-
-    private static void awaitDisableCount(AtomicInteger disableCount, int expectedCount) throws InterruptedException {
-        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(1);
-        while (System.nanoTime() < deadlineNanos && disableCount.get() != expectedCount) {
-            Thread.sleep(10);
-        }
     }
 
     private static void awaitEvent(
