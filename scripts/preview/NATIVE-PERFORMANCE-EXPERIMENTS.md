@@ -192,3 +192,103 @@
 Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并、全局WarpPointRef缓存、XML校验绕过都未通过本任务的完整实施/实机验收。缺少完整像素写范围、边缘失效、消费前flush或可变引用生命周期证明时不启用。不能将“考虑过”写成“算法已失败”，也不能每次从同一无证据假设重新开始。
 
 旧 `run-cubism-camera-scenario.sh` 实际驱动窗口resize，不是真正camera/拖参场景；源码历史注释不能当成本轮GPU证据。新的交互GPU负载必须说明真实动作、任务窗口身份、恢复和采样窗口后再验证。
+
+## P03–P07 — 用户批准的后续调查队列
+
+2026-09-07 用户要求逐项验证并即时记录；下列均为调查方向，不是已实施或失败的优化。
+
+| 编号 | 方向 | 首项验证目标 | 当前状态 |
+|---|---|---|---|
+| P03 | 交互重复更新/重绘 | 真实缩放+三指标/JFR | 3轮完整PASS；确认CPU模型更新热点，未实施跳过/合并 |
+| P04 | 图片/纹理长期驻留 | 正常关闭+自然GC+weak/RSS/heap | Full GC后doc仍被保留，根持有者未定；无优化收益结论 |
+| P05 | 局部替代全量处理 | 真实VBO采样点+精确dirty/消费审计 | STATIC_FEASIBILITY；缺少完整写区间证据，未实施 |
+| P06 | 加载瞬时峰值 | RSS峰对齐heap/GC/JFR | INCONCLUSIVE；不原样重试旧分配缓存 |
+| P07 | 热路径纯计算 | 新内部点Warp快路径原型差分/微基准 | 数值通过，但离线慢9.8–29.3%；不接产品Hook |
+
+### I09 — 续接预检：其他任务占用宿主（BLOCKED，不是算法失败）
+
+- **时间/工作区**：2026-09-07T08:40:54Z；`feat/cubism-native-performance-20260905`，HEAD `18f90f5aa`，续接时工作树干净。
+- **实现/验证方式**：仅只读检查 `/proc/<pid>/{comm,stat,cmdline,environ}` 中进程状态、UID、启动ticks、Cubism主类及隔离prefix；不连接Editor、不发信号、不写进程状态。已读取通用实机runbook及runner `--help`。
+- **观测结果**：四个存活Cubism JVM，UID均1000；PID/startTicks分别为 `1463014/9035826`、`1474315/9054406`、`1493893/9090441`、`1504607/9116250`。均属于另一任务族 `core-acquisition` 的5302工具栏验证，任务ID分别为 `core-acquisition-5302-toolbar-on-20260907T082646Z-toolbar5302on`、`core-acquisition-5302-toolbar-on-20260907T082951Z-toolbar5302on2`、`core-acquisition-5302-toolbar-on-20260907T083551Z-toolbar5302on3`、`core-acquisition-5302-toolbar-off-20260907T084008Z-toolbar5302off`；各有存活wineserver。
+- **判定/原因**：BLOCKED。已证实存在非本次任务的Cubism会话，按runbook暂停实机操作；并发资源争用也不适合作三指标对照。不推断这些会话是泄漏或可清理残留。
+- **本轮未做**：未启动新宿主、未实施优化、未运行新性能试验、未清理其他任务、未合并或推送。P03–P07保持未验证，不报为失败或完成。
+- **恢复条件**：相关任务负责人正常关闭其会话，重新核对宿主空闲和精确身份后，先冻结P03/P04观测切片再运行。上述PID仅为历史证据，不能据此在未来清理进程。
+
+- **I09恢复**：用户报告已清理，2026-09-07T12:08:26Z只读重新检查无Cubism/Wine会话；官方5302 JAR/BAT/heavy源文件SHA均未变化。没有代为清理其他任务。
+
+### P03-a — 真实缩放/关闭后资源观测辅助件（离线通过）
+
+- **实现**：JDK-only `NativeResourceHostAgent`，独立auxiliary JAR及薄wrapper，复用E10采样器。120次原生放大/缩小，每次检查实际camera scale变化、任务doc/view身份；通过原生scale同步恢复；验证dirty/Undo不变；正常关闭唯一干净任务模型，观察至少120秒。只保留弱document引用，不强制GC。记录阶段epoch以区分idle/zoom/restored/closed。可选JFR，plain/profile不当成优化off/on。
+- **依据/边界**：精确JAR javap跟随CEAppCtrl.zoom→ar.m/l→canvas.f/e→原生scale-step及CEUpdateManager.setValueCameraScale；SDK当前无modeling zoom-in/out、close命令。测试侧没有新产品hook、SDK/API或像素写入；不足以宣称交互画面完整正确。具体协议：[README-native-resource-workload.md](README-native-resource-workload.md)。
+- **验证**：`devCheck checkResourceValidationBundle checkCubismHostValidationArguments` BUILD SUCCESSFUL（`build/native-followup/offline.log`）；14项CPU/DRM/proc观察器测试通过，Bash语法、rs-n1 wrapper dry-run通过（`build/native-followup/dry-run.log`）。helper语法diagnostics零错误；这里只是编译/打包/静态及基础设施检查，不假冒实机结果。
+- **工件**：产品Agent仍为P01的`ac3e7602ac1e70031fcdf7f77b0ea7201882939ce586366fda966e29afcd03e3`；新auxiliary SHA `a19251855348340c340eb177195a1bccc66054684f9cc1aaa85233bd140c0aaf`。产品所有实验优化关闭。
+- **判定/下一步**：离线VALIDATION_PASS，尚无性能收益。先运行一轮plain验证驱动，成功后另加profile定位实际栈；若驱动失败记录为驱动问题，修复须明确变化。
+
+### P03-b — 首轮驱动失败，保留结果
+
+- **实机run**：`native-resource-5302-rs-n1-20260907T122423Z-2131764`，plain；120/120次原生缩放都实际改变camera scale，耗时129.21秒。恢复断言FAIL：7.5337915→7.533791（差1 ULP）；未进入模型关闭观察，不能据此判断P04。runner整体FAIL、wrapper exit143（失败后的task-owned清理），survivors0。没有把采样完整当作验证成功。
+- **原因调查**：已检查`GCameraManager.getCameraScale()`实际返回派生`scaleComponentToDocument`，不是wrapper原始`cameraScale`；原生UI同步路径包含倒数浮点转换。因此不能从原生UI值恢复就声称派生量逐位恢复。唯一原因仍需修复对照，不改容差掩盖失败。
+- **下一轮实质变化**：保存wrapper原始cameraScale，通过原生wrapper.setCameraScale（会通知原生scale监听器）+manager.updateCamera+repaint恢复，并继续要求原始/派生scale逐位相等。缩放次数改60次：本机120次实际耗时129秒，不足以在既有300秒观察窗内留下完整120秒关闭观察；保留500ms最小节奏和实际次数/耗时，不扩大采样器全局时间界限。辅助件重建/新SHA后再运行，不复用本轮作为收益证据。
+
+### P03-c — 原始setter恢复仍失败；改用明确的原生档位负载前置条件
+
+- **run**：`native-resource-5302-rs-n2-20260907T123538Z-2160595`，aux SHA `2f2d559a13c63fb680c28e228bc04b67e7e3dbbd5217ab078ba85f97a1653b4d`。60/60实际缩放、66.36秒；`raw camera scale not restored exactly`，整体FAIL、task-owned清理survivors0，未测试关闭后驻留。辅助件重建及dry-run通过，不能盖过实机FAIL。
+- **已知/未定**：原生wrapper setter会发送`1.0f/scale`给监听器，并非纯无副作用字段赋值；调用后原始值仍有变化，尚未证明所有回写来源。禁止移除监听器或直接写私有字段制造逐位恢复。
+- **新协议**：在采样ready前执行一次原生放大/缩小，将任务副本视图规范到原生缩放档位，记录规范前后scale；后续60次动作必须逐位恢复到这个明确的测试起点。原始任意fit比例不再被宣称逐位恢复；它所属任务副本视图最终正常关闭，不保存模型或用户视图设置。保留旧两轮FAIL，不放宽新起点恢复容差，也不把规范化前的两次动作混进idle/性能窗口。此变化是负载定义修正，不是产品优化。
+
+### P03-d / P04-a — 首轮完整缩放与关闭观察 PASS（尚非优化）
+
+- **run/工件**：`native-resource-5302-rs-n3-20260907T124833Z-2195008`，plain；aux SHA `50d5e99910c95d86a6981915db3488cf6ccb5c06671acc42dd93f4e130afb472`，产品未变。辅助件重建及新dry-run通过；完整runner PASS、exit0、原文件hash不变。初始fit7.5337915，规范化测试起点10.000001，60/60真实缩放，恢复后10.000001逐位一致，dirty/Undo不变，唯一模型正常关闭。
+- **三指标（不是off/on）**：加载RSS采样峰值3.2075GiB；idle30秒RSS中位3.0615GiB，CPU整机12核0.162%，GPU render0%。zoom65.688秒、CPU75.66秒（单核等价117.65%，整机9.8045%）、GPU render1.9048%，RSS中位3.0630GiB。缩放GPU有效区间完整；加载约85.8%覆盖，其余不当零。
+- **关闭后120秒**：RSS中位3.0743GiB，末30秒3.0744GiB；CPU整机0.1022%，GPU0%。heap used约1.545→1.066GB，committed保持2.642GB；GC计数41→43后关闭窗口不再变化。i915该客户端system0 resident从约579.6MB降到518.9MB，但不是完整显存/共享物理内存总账。进程Swap0。弱document未清除，不能据此认定泄漏（不知自然GC是否扫描到它所在代际）。
+- **已知/假设**：真实缩放相较静置有明显CPU工作，GPU仍低，不支持盲目以GPU上传为主靶点。关闭后部分heap/driver资源下降但RSS未退，可能有堆保留、缓存或未回收引用；尚无唯一持有链证据。数据在`build/native-followup/rs-n3-summary.json`，从JSONL+tar内jvm.csv按phase epoch计算，CPU按进程ticks/真实区间，GPU按client busy差值，未累计inclusive方法时间。
+- **下一步变化**：同一产品/负载另开profile模式记录JFR，按已知phase筛选真实CPU栈和GC事件；这是新增归因证据，不和plain拼成优化百分比。P05/P07只在实际热栈支持后选择切片；P06对加载样本单独归因。
+
+### P03-e / P04-b — JFR归因轮 PASS，明确内存观测局限
+
+- **run**：`native-resource-5302-rs-p1-20260907T125843Z-2222712`，同产品/aux SHA，profile=true；完整PASS、exit0、原文件hash不变。60次/65.496秒，CPU75.85秒（整机9.6843%），GPU1.9559%，缩放RSS中位2.9647GiB；闭合末段约2.974GiB。不能以plain与profile的RSS差异宣称优化。
+- **P03发现**：缩放阶段118个Java execution samples中89个调用链包含`CEViewContext_ModelingView.updateScene`，经`view.ay.a`遍历模型、`CWarpDeformer.transformDeformer_testImpl`和`warp.o.a`执行变形；43个leaf样本落在warp.o.a。另25个execution样本在渲染路径，8个leaf为GTransform.getLocalToWorldMatrix。JFR线程CPU表显示EDT是主要CPU工作线程。NativeMethodSample里大量WToolkit.eventLoop是阻塞事件循环，不能把样本占比当CPU热点；原生GL buffer/readpixels也被采到，但不等于调用次数或GPU时间。
+- **P04发现/局限**：原生模型关闭自己执行两次System.gc（JFR栈到CModelingDocument.closeFile及其文件组件），并不是辅助件主动GC。那时调用者/原生close仍可能持有doc/view，故120秒弱引用未清除不能证明泄漏。原生CImageResource线程约关闭120秒后又触发GC，发生在weak观测之后、300秒sampler结束之前；最后heap used仍约1.064GB、committed2.525GB、RSS2.974GiB。JFR OldObjectSample主要为byte/int/float数组，未记录referrer路径，不能据此确定它们的持有者或可释放性。
+- **实现/验证方法**：使用JDK `jfr print --json --stack-depth 128`筛选phase时间窗；默认print仅显示5帧，不代表录制缺少更深栈，不为此无变化重跑。记录有界128MiB、没有新增产品hook；本地分析`build/native-followup/rs-p1-summary.json`、`rs-p1.jfr`及相关JSON，不提交私有原始记录。
+- **后续条件**：P03重复model update是真实执行路径，但尚未证明可跳过（camera改变可能影响GUI/网格/选择）。P04需要在原生后续GC后检查weak，或完整持有链诊断，不能立即清缓存/降heap cap。P05继续审计实际VBO消费契约；P06/P07使用本轮已有事件，不以旧缓存方案重新碰运气。
+
+- **P04-c预注册变化**：辅助件新增sampler300秒结束时的weak-reference检查（仍不强持有doc），保留120秒旧字段；在新的profile轮关联原生后续GC与最终弱引用。目的是区分仅观察过早和后续仍被引用，不改采样时长、不触发额外GC、不重复原有优化flag。另加Linux JDK17辅助件拒绝非法窗口/启用产品优化的离线烟测；不是启动Cubism。
+
+### P04-c — 原生后续Full GC后仍有document引用，但未定位持有者
+
+- **run/验证**：`native-resource-5302-rs-p2-20260907T131548Z-2264186`，aux SHA `a0e089f2aadb50240563266bff3564f681994a95121acea234ac2ffda244523c`；产品不变。bundle重建、3项准入烟测（6种拒绝输入）、新dry-run通过；实机完整PASS、exit0、原文件hash不变，60次缩放/67.489秒、CPU75.70秒、GPU2.0075%。
+- **结果**：关闭后120秒和sampler结束（约关闭170秒）weak都未清除。JFR在关闭约113秒后记录原生CImageResource线程触发G1Full，GC52后heap used1,057,674,472B、committed3,565,158,400B，之后最终weak仍false。由此不能再仅解释为没有Full GC；确有可达/被保留引用的线索，但持有者可能为原生缓存、Runtime、宿主UI或观察器，未确定。不能直接称为产品泄漏或清除未知缓存。
+- **内存变异**：该轮加载RSS峰4.4554GiB，zoom中位3.5795GiB，closed末30秒3.3987GiB；同协议plain/profile前轮差异仍大。没有任何RAM优化实施/收益；CPU工作量约75.7秒在三次成功轮一致得多。
+- **重试条件**：下一步须取得具体GC-root/持有链，或明确的重复开关模型生命周期对照；不要重复同样120秒idle。辅助件已把最终weak检查保留下来，默认所有产品优化关闭。原始JFR/JSONL留在任务证据，摘要`build/native-followup/rs-p2-summary.json`。
+
+### P05-a — 局部上传/图集/缓冲更新：静态消费边界调查
+
+- **验证方法**：从P03-e真实native samples追到`graphics3d.mesh.a.b/c`，对精确JAR javap读取float/int buffer准备、容量分配、glBufferData/SubData及末尾dirty清除；本地`build/native-followup/buffers.javap`、`buffer-base.javap`。这不是新算法实机验收。
+- **发现**：当前上传按整buffer的dirty/重新分配标志选择全量Data/SubData，未见写区间账本；修改时必须同时保留buffer创建、容量/位置、dirty消费和GL生命周期。真实缩放采到SubData，不证明所有内容重复，也不证明可省略。图集/纹理局部合成不是当前camera负载的主要已证实热点。
+- **判定**：仅STATIC_FEASIBILITY，未实施，非算法失败。直接把全量上传改局部、跳过dirty，或按数组身份去重缺少写者/范围证据，拒绝实施。可继续的具体前提：先只读统计既有buffer与新数据逐位相同的比例；若比例高，再设计不额外持有大型buffer的相等性/更新策略并单独审阅。新缓存必须计入RAM成本，不能只比较GPU命中率。
+
+### P06-a — 加载峰值：对齐现有RSS/heap/GC/采样栈
+
+- **验证方法**：rs-p1按RSS最高加载sample的epoch匹配250ms jvm-loading.csv及JFR前后2秒栈/分配事件，不新增宿主轮。峰值2026-09-07T13:00:28.678Z，RSS3.7579GiB；附近heap used571,085,952B、committed2,071,986,176B，刚经过原生System.gc。
+- **发现**：附近活跃栈集中于扩展插值、WarpPointRef/变形与deformer palette，采样分配含点引用/向量/列表。堆used已经下降而RSS仍高，说明不能把瞬时占用直接等同于活跃堆或把分配样本当驻留。已有E05/P01正覆盖部分相关分配但未获主指标收益，不因此原样重试。
+- **判定/原因**：INCONCLUSIVE，峰值归因仍缺少具体存活/驻留来源及并发在途量；未找到可安全缩短的已证实中间结果生命周期。未调整加载并发、heap上限或强制GC。允许继续的变化是存活对象/驱动驻留归因或明确的加载队列时序证据，不是单纯降低分配数字。
+
+### P07-a — 内部点Warp纯计算快路径：离线数值通过，但更慢，拒绝产品Hook
+
+- **新假设/区别**：P03-e实际缩放CPU leaf为`warp.o.a`。其原生方法约3395字节，外部点外推占大部分字节码；尝试将内部点的双线性/三角插值提取为较小纯Java循环。这不是P01点引用投影缓存，也不跳过模型更新或数学步骤。
+- **实现**：`testing/host-validation/experiments/WarpInteriorPrototype.java`，仅离线，不进入产品或辅助Agent。至多131072点/stride2..16，检查数组边界、维度/整数溢出、输出不与grid别名，完整预检所有缩放坐标后才写入；外部/边界/非有限输入回退。保留原生浮点操作顺序、in-place src/out语义，不缓存。未新增Runtime/Bootstrap seam。
+- **验证**：Linux JDK17加载精确已审阅JAR的纯warp singleton（不是Cubism启动），4000个固定种子case、1,538,058个raw float值逐位相同，双线性/三角、offset/stride、原地输出及拒绝不写入测试PASS。JAR hash运行时验证。Java语法diagnostics0错误。随后相同MethodHandle调用，64/1024/16384点，预热5000轮，7轮交替测量，计入全量预检成本。
+- **结果**：native/candidate中位ns每点分别20.0845/22.0542、21.0004/25.5399、13.8448/17.9026；候选分别慢9.8%、21.6%、29.3%。`NO_OFFLINE_BENEFIT`，不增加产品hook，不进行无意义实机A/B。不是用户端CPU占用回退测量，也不是RAM/GPU结论。
+- **可能原因**：完整准入扫描额外遍历输入，成本超过缩短冷分支代码的收益；原始JIT已能有效处理内部点分支。没有通过移除安全预检、忽略alias或部分写入后不安全回退来制造快样本。原因是与机制一致的解释，不是完整汇编归因。
+- **复现**：`javac --release 17 -d build/native-followup/prototype testing/host-validation/experiments/WarpInteriorPrototype.java`；Linux JDK17 `java -Djava.awt.headless=true -cp "build/native-followup/prototype:<reviewed5302-install>/app/lib/*" WarpInteriorPrototype "<reviewed5302-install>/app/lib/Live2D_Cubism.jar"`。全部7轮数值保留`build/native-followup/warp-interior-offline.log`。
+- **重试条件**：需要新的算法/可证明不需重复扫描的调用契约或真实输入分布；不原样重复该guard+双遍历实现。另一个排序矩阵候选仅完成字节码阅读：getSortingZOrder取首顶点经父链矩阵再camera矩阵的Z，直接用位置Z或跨帧缓存会破坏父变换/相机语义；未实施，不称为失败。
+
+### 本轮阶段性收口与下一准入点
+
+- `checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments checkPreviewBundleLayout` BUILD SUCCESSFUL，2m24s、213 tasks（29 executed/184 up-to-date），日志`build/native-followup/completed-commit.log`；不会把缓存任务说成全部重新执行。另14项采样器测试、3项准入烟测及P07差分/微基准按各段记录。新增Java/Python diagnostics均0错误。
+- 五方向首轮调查已逐项记录，但**没有新增可推荐的三指标优化**：P03找到真实CPU更新热点，P04确认Full GC后仍有引用但未定位所有者，P05仅静态契约调查，P06仍归因未定，P07新原型更慢所以不接Hook。不能宣称所有可能优化已穷尽。
+- 下一步最有价值的内存证据是GC-root/持有链。完整堆快照可能含模型和宿主敏感字符串，且占用GB级本地空间；在获得用户对这种敏感诊断范围的明确确认前不采集、不上传、不清未知缓存。继续遵守task-owned官方启动/原件不变/不合并main。
+
+### I10 — 收口时出现新的其他任务会话，暂停下一实机轮
+
+2026-09-07T13:51:31Z只读发现新的非本次任务JVM `2299028/startTicks10933256` 和wineserver2298877，prefix属于另一工作区的`heavy-dinosaur/build/texture-host-szx2a9uu/prefix/pfx`，不是本任务native-resource族。没有连接或清理该会话。按/proc启动ticks估算其启动为13:43:09Z，在本轮全部native-resource会话及P07离线微基准之后（后者日志birth13:38:11Z、mtime13:38:17Z），没有据此倒写早先性能轮为并发失败。下一实机轮需重新等待宿主空闲；堆持有链诊断另需上文敏感采集确认。
