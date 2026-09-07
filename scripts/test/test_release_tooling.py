@@ -251,7 +251,8 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertIn("5.2.03", readme)
         self.assertIn("5.3.02", readme)
         self.assertIn("5.3.03", readme)
-        self.assertIn("Current capabilities", readme)
+        self.assertIn("## About", readme)
+        self.assertIn("## Supported Cubism Editor versions", readme)
         self.assertIn("CHANGELOG.md", readme)
 
     def test_public_plugin_readmes_state_complete_host_roster(self):
@@ -271,6 +272,76 @@ class ReleaseWorkflowTest(unittest.TestCase):
         self.assertRegex(script, r"TIMESTAMP\s*=\s*\(1980, 1, 1, 0, 0, 0\)")
         self.assertIn("zipfile.ZipInfo(name, TIMESTAMP)", script)
         self.assertIsNone(re.search(r"\bz\.write\(", script))
+
+
+class RootReadmeTest(unittest.TestCase):
+    PAGES = {
+        "README.md": ["Copyright and notices", "About", "Supported Cubism Editor versions",
+                      "Installation", "Development", "Documentation"],
+        "README_zh.md": ["版权声明", "项目简介", "支持的 Cubism Editor 版本", "安装", "开发", "文档"],
+        "README_ja.md": ["著作権と注意事項", "プロジェクト概要", "対応する Cubism Editor のバージョン",
+                         "インストール", "開発", "ドキュメント"],
+        "README_ko.md": ["저작권 및 고지", "프로젝트 소개", "지원하는 Cubism Editor 버전", "설치", "개발", "문서"],
+    }
+
+    def test_default_english_and_four_way_navigation_at_top(self):
+        for filename in self.PAGES:
+            with self.subTest(page=filename):
+                first_line = (ROOT / filename).read_text(encoding="utf-8").splitlines()[0]
+                self.assertEqual(re.findall(r"\]\(([^)]+)\)", first_line), list(self.PAGES))
+                for label in ("EN / English", "ZH / 简体中文", "JP / 日本語", "KR / 한국어"):
+                    self.assertIn(label, first_line)
+
+    def test_requested_section_order_and_installation_formats(self):
+        for filename, headings in self.PAGES.items():
+            with self.subTest(page=filename):
+                text = (ROOT / filename).read_text(encoding="utf-8")
+                self.assertEqual(re.findall(r"(?m)^## (.+)$", text), headings)
+                self.assertEqual(re.findall(r"(?m)^### (ZIP|JAR|EXE)\b", text), ["ZIP", "JAR", "EXE"])
+                copyright_section = text.split("## " + headings[1], 1)[0]
+                self.assertIn("Copyright © 2026 Turboism Contributors", copyright_section)
+                self.assertIn("(LICENSE)", copyright_section)
+                self.assertIn("(EULA.md)", copyright_section)
+                self.assertIn("Live2D Inc.", copyright_section)
+
+    def test_shared_versions_artifacts_and_development_requirements(self):
+        for filename in self.PAGES:
+            with self.subTest(page=filename):
+                text = (ROOT / filename).read_text(encoding="utf-8")
+                self.assertEqual(set(re.findall(r"\*\*(5\.\d+\.\d+)\*\*", text)),
+                                 {"5.2.03", "5.3.02", "5.3.03"})
+                for token in ("Windows x64", "macOS", "Linux", "Java 17", "JDK 17", ".sha256",
+                              "turboism-<version>-full.zip", "turboism-<version>-lite.zip",
+                              "TurboismInstaller-<version>.jar", "TurboismInstaller-<version>.exe",
+                              "configure_turboism.ps1", "launch-cubism-turboism.bat",
+                              "gradlew.bat", "compileOnly", "com.live2d.*"):
+                    self.assertIn(token, text)
+
+    def test_command_examples_are_identical_in_every_language(self):
+        def blocks(filename):
+            text = (ROOT / filename).read_text(encoding="utf-8")
+            return ["\n".join(line.strip() for line in block.splitlines())
+                    for block in re.findall(r"(?ms)^ *```[^\n]*\n(.*?)^ *```[ \t]*$", text)]
+        english = blocks("README.md")
+        self.assertEqual(len(english), 5)
+        for filename in self.PAGES:
+            self.assertEqual(blocks(filename), english, filename)
+
+    def test_links_exist_and_match_across_languages(self):
+        from collections import Counter
+        from urllib.parse import urlsplit
+        english_links = None
+        for filename in self.PAGES:
+            links = re.findall(r"\[[^\]]+\]\(([^)]+)\)", (ROOT / filename).read_text(encoding="utf-8"))
+            if english_links is None:
+                english_links = Counter(links)
+            self.assertEqual(Counter(links), english_links, filename)
+            for link in links:
+                parsed = urlsplit(link)
+                if not parsed.scheme and parsed.path:
+                    self.assertTrue((ROOT / parsed.path).exists(), f"{filename}: broken link {link}")
+            self.assertIn("https://docs.turboism.dev", links)
+            self.assertIn("https://github.com/turboism/Turboism/releases/latest", links)
 
 
 class ReleaseVerifierTest(unittest.TestCase):
