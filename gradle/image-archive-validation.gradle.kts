@@ -130,3 +130,28 @@ tasks.register("checkWarpPositionValidationBundle") {
         }
     }
 }
+
+val buildResourceHostProbe by tasks.registering(Jar::class) {
+    group = "host verification"
+    description = "Builds the test-only phase-marked native resource workload."
+    dependsOn(compileImageArchiveHostProbe)
+    archiveFileName.set("resource-host-validation-exerciser.jar")
+    destinationDirectory.set(layout.buildDirectory)
+    from(compileImageArchiveHostProbe.flatMap { it.destinationDirectory })
+    manifest { attributes("Premain-Class" to "dev.turboism.validation.NativeResourceHostAgent") }
+}
+
+tasks.register("checkResourceValidationBundle") {
+    group = "verification"
+    dependsOn("previewBundle", buildResourceHostProbe)
+    doLast {
+        val agent = project(":bootstrap").tasks.named<Jar>("jar").get().archiveFile.get().asFile
+        JarFile(agent).use { jar ->
+            check(jar.entries().asSequence().none { it.name.startsWith("dev/turboism/validation/") })
+        }
+        JarFile(buildResourceHostProbe.get().archiveFile.get().asFile).use { jar ->
+            check(jar.manifest.mainAttributes.getValue("Premain-Class") == "dev.turboism.validation.NativeResourceHostAgent")
+            check(jar.getJarEntry("dev/turboism/validation/NativeMemoryObservation.class") != null)
+        }
+    }
+}
