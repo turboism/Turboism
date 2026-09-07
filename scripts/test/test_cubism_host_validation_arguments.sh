@@ -135,10 +135,10 @@ if '"${ssh_cmd[@]}" "$ssh_host" "bash -s --' in body:
     raise SystemExit(1)
 if "<<'REMOTE' || true" in body:
     raise SystemExit("process cleanup failure must propagate")
-for marker in ('WINEPREFIX={prefix}', 'Path("/proc").iterdir()', 'prefix.encode() in raw'):
-    if marker not in body:
-        raise SystemExit(marker)
+if 'cat "$repo_root/scripts/preview/host-task-processes.py"' not in body:
+    raise SystemExit("cleanup must use the identity-safe shared process selector")
 PY
+python3 "$script_dir/test_host_task_processes.py"
 
 # Feature hooks receive exact host timing and Proton launch context as positional
 # arguments. This lets task-local native-runtime setup use the same reviewed runner
@@ -167,4 +167,5 @@ PY
 
 bash "$script_dir/test_cubism_host_validation_local_transport.sh"
 python3 "$script_dir/test_cubism_host_validation_result.py"
+python3 "$script_dir/test_cubism_host_validation_interactive.py"
 echo 'PASS: Cubism host-validation argument hardening'

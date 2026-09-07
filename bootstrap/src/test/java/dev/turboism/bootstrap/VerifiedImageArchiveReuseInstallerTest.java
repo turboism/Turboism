@@ -19,4 +19,8 @@ class VerifiedImageArchiveReuseInstallerTest {
             new RuntimeStartupConfig(false,false,false,false,false,false,false,
                 Set.of(VerifiedImageArchiveReuseInstaller.HOOK_ID)),true));
     }
+
+    @Test void installsAfterAdmissionButBeforeRuntimeStartup() throws Exception {
+        NativeOptimizationStartupOrder.assertBeforeRuntime("installImageArchiveReuse", "closeImageArchiveReuse");
+    }
 }

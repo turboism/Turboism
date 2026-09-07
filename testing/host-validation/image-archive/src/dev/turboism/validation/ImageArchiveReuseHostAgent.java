@@ -61,11 +61,34 @@ public final class ImageArchiveReuseHostAgent {
             getImage=resourceType.getMethod("getImage"); archive=resourceType.getMethod("archive");
             getPixels=imageType.getMethod("getIntBuffer"); decodedField=field(resourceType,"image");
             pngField=field(resourceType,"imageFileBuf");
+            phase(home,"waiting-for-task-model");
+            long documentWaitStart=System.nanoTime();
+            NativeAtlasWorkflow.awaitTaskDocument(resourceType.getClassLoader());
+            RESULT.setProperty("documentReadyWaitNs",Long.toString(System.nanoTime()-documentWaitStart));
+            dumpRecording(home,"native-load.jfr");
             Object diagnostics=System.getProperties().get(STATS);
             require(diagnostics instanceof Supplier<?>,"production optimization not installed"); stats=(Supplier<?>)diagnostics;
             RESULT.setProperty("schemaVersion","2");
             RESULT.setProperty("benchmarkScenario","controlled-forced-decode-archive");
-            observeNaturalIdle(home);
+            snapshotCounters("initial");
+            boolean workflow=Boolean.getBoolean("turboism.validation.imageArchive.atlasWorkflow");
+            if (!workflow) observeNaturalIdle(home);
+            if (workflow || Boolean.getBoolean("turboism.validation.imageArchive.inspectAtlas")) {
+                phase(home,workflow?"native-atlas-create-undo-redo-save":"native-atlas-open-cancel");
+                NativeAtlasWorkflow.inspect(home,resourceType.getClassLoader(),RESULT);
+                RESULT.setProperty("atlasInspection",workflow?"created-undone-redone-saved":"opened-and-cancelled");
+                snapshotCounters("afterAtlasInspection");
+            }
+            if(workflow) observeNaturalIdle(home);
+            String expectedDigest=System.getProperty("turboism.validation.imageArchive.expectedContentDigest","");
+            if(workflow || !expectedDigest.isBlank()) {
+                phase(home,"native-source-atlas-export-pixels");
+                String digest=NativeAtlasWorkflow.captureAndExport(home,resourceType.getClassLoader(),RESULT);
+                if(!expectedDigest.isBlank()) {
+                    require(expectedDigest.equals(digest),"saved/reopened source or atlas pixels differ");
+                    RESULT.setProperty("workflow.reopenedPixelsPreserved","true");
+                }
+            }
             long beforeReuse=count("reused");
             phase(home,"synthetic-roundtrip-and-timing");
             ownedImageChecks(1024,home);
@@ -87,7 +110,8 @@ public final class ImageArchiveReuseHostAgent {
             require(System.getProperties().get(STATS)==null,"diagnostic callback was not removed");
             require(System.getProperties().get("turboism.image-archive-reuse.callback")==null,"native callback was not removed");
             RESULT.setProperty("bytecodeRestored","true");
-            RESULT.setProperty("fixtureWritten","false");
+            RESULT.setProperty("fixtureWritten",Boolean.toString(workflow));
+            dumpRecording(home,"native-total.jfr");
             RESULT.setProperty("status","PASS");
             store(result,RESULT);
             closeTaskWindow();
@@ -97,7 +121,19 @@ public final class ImageArchiveReuseHostAgent {
             RESULT.setProperty("status","FAIL");RESULT.setProperty("failure",root.getClass().getName()+": "+root.getMessage());
             root.printStackTrace(System.err);
             try{store(result,RESULT);}catch(Exception ignored){ /* runner treats a missing result as failure */ }
+            try{dumpRecording(home,"native-failure.jfr");}catch(Exception ignored){ /* original failure remains authoritative */ }
         }
+    }
+
+    private static void dumpRecording(Path home,String name) throws Exception {
+        if(!Boolean.getBoolean("turboism.validation.imageArchive.jfr"))return;
+        for(var recording:jdk.jfr.FlightRecorder.getFlightRecorder().getRecordings()) {
+            if(recording.getName().equals("native-performance")) {
+                recording.dump(home.resolve("state/image-archive/"+name));
+                return;
+            }
+        }
+        throw new IllegalStateException("requested native-performance JFR recording is absent");
     }
 
     /** Passive initial-load/idle observation: never calls getImage/archive or changes native timers. */
@@ -120,7 +156,14 @@ public final class ImageArchiveReuseHostAgent {
         RESULT.setProperty("naturalIdle.archiveChecks",Long.toString(count("archiveChecks")-beforeChecks));
         RESULT.setProperty("naturalIdle.decodeObservations",Long.toString(count("decodeObservations")-beforeDecode));
         RESULT.setProperty("naturalIdle.status","OBSERVED");
+        snapshotCounters("afterNaturalIdle");
         phase(home,"passive-native-idle-complete");
+    }
+
+    private static void snapshotCounters(String prefix) {
+        for (var entry : ((Map<?,?>)stats.get()).entrySet()) {
+            RESULT.setProperty(prefix+"."+entry.getKey(),entry.getValue().toString());
+        }
     }
 
     private static void ownedImageChecks(int size,Path home) throws Exception {
@@ -170,6 +213,7 @@ public final class ImageArchiveReuseHostAgent {
         require(doc!=null && doc.getClass().getName().equals("com.live2d.cubism.doc.modeling.CModelingDocument"),"active fixture is not a modeling document");
         Object source=doc.getClass().getMethod("getModelSource").invoke(doc);
         Object manager=source.getClass().getMethod("getTextureManager").invoke(source);
+        RESULT.setProperty("textureAtlasCount",Integer.toString(((List<?>)manager.getClass().getMethod("getTextureAtlases").invoke(manager)).size()));
         List<?> images=(List<?>)manager.getClass().getMethod("getAllModelImages").invoke(manager);
         RESULT.setProperty("modelImageCount",Integer.toString(images.size()));
         int checked=0;
