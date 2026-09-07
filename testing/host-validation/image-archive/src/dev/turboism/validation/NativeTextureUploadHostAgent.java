@@ -96,6 +96,7 @@ public final class NativeTextureUploadHostAgent {
                 return null;
             });
             store(home.resolve("state/texture-upload/load.properties"));
+            NativeMemoryObservation.observe(home);
             // All contract/disable/restoration checks are outside the load timing window.
             if(enabled) {
                 @SuppressWarnings("unchecked") BiFunction<Object,Object,Object> callback=(BiFunction<Object,Object,Object>)System.getProperties().get(CALLBACK);
