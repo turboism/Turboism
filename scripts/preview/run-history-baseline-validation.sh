@@ -44,7 +44,7 @@ done
 
 exec bash "$runner" \
   --name semantic-history \
-  --execution-mode "${TURBOISM_HOST_VALIDATION_EXECUTION_MODE:-local}" \
+  --transport "${TURBOISM_HOST_VALIDATION_TRANSPORT:-local}" \
   --version "$version" \
   --run-label "$run_label" \
   --bundle-root "$bundle_root" \

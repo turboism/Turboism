@@ -38,7 +38,8 @@ Adds natural sorting and persistent manual row ordering to Cubism's Scene palett
 ## Requirements and compatibility
 
 - **Turboism API:** `[0.1.0,0.2.0)`.
-- **Cubism:** Requires Cubism. Turboism currently admits exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; this plugin exposes each host-facing feature only when its declared services and capabilities are available.
+- **Cubism:** Requires Cubism. The Scene palette bridge is admitted for the exact reviewed Editor artifacts `5.2.03`, `5.3.02`, and `5.3.03`; any other artifact fails closed. Scene-specific private UI selectors were independently verified against the exact `5.3.03` artifact (Scene palette controller/listener classes byte-identical to `5.3.02`, every referenced member descriptor matching).
+
 - **Interface mode:** `none`.
 - **Plugin dependencies:** None declared.
 
@@ -73,7 +74,7 @@ Makes no network connections.
 
 ### Local data
 
-Atomically stores newline-separated item IDs in plugin state files named `manual-order-<scopeId>.txt`. The scope ID must be an opaque 64-character lowercase hexadecimal value; project paths are not stored by this plugin.
+Atomically stores a versioned `# turboism.scene.manual-order v1` header followed by newline-separated item IDs in plugin state files named `manual-order-<scopeId>.txt`. Legacy headerless files remain readable. Truncated or unknown future formats fail closed. The scope ID must be an opaque 64-character lowercase hexadecimal value; project paths are not stored by this plugin.
 
 ### Telemetry
 

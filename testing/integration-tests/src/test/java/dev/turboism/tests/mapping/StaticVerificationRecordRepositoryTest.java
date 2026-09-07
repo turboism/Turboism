@@ -192,8 +192,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "0b6767554352851c035de65caf7ed18d2d12210fb419cf762067f2f6053a6df3",
-            579,
+            "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
+            621,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -215,7 +215,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            600,
+            642,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -324,7 +324,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-project-workspace" ->
                 "a238d1ef701f59130d792b2b6ada3961ab9541f6cf5236bbed25d5f9d558eab2";
             case "cubism-5.3.03-ui-bounding-box-overlay" ->
-                "add4f142ad6d84a04b7e1b6bbfa4e82107982352fddd4e49a6a85cc2fdfb0ae5";
+                "d7653ef266f1273822458e7a5bb8736895c88c2b0248d33a5b8e63061c655797";
             case "cubism-5.3.03-ui-control-appearance" ->
                 "9d6e88817a5596adb5d2057c4269ec01d2c1d7b0c49170aa7003ee289e4c11c0";
             case "cubism-5.3.03-ui-embedded-panel" ->
@@ -906,7 +906,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.2.03",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "62df5f6ac28c3c362ecd2e425184305ff82e1a3967a804b49ce5f394dc1cc365",
+                "cbe781be54f7c1d67f97c5143a2375932cbe97ec77209ce4320232290af1a81a",
                 "cubism-5.2.03-ui-bounding-box-overlay",
                 "5.2.03"
             )
@@ -919,7 +919,7 @@ class StaticVerificationRecordRepositoryTest {
                 "cubism-5.3.02",
                 ReviewedHostArtifacts.CUBISM_5_3_02.size(),
                 ReviewedHostArtifacts.CUBISM_5_3_02.sha256(),
-                "f4b910d06d20e383a3f8f3556fbc14a26e15b9d315c9e7b141338990ed44f528",
+                "ceeaa56bbb690a93170a37427a9fd12a0252b9f34079863048eb7fd89e6c64cc",
                 "cubism-5.3.02-ui-bounding-box-overlay",
                 "5.3.02"
             )
@@ -947,7 +947,7 @@ class StaticVerificationRecordRepositoryTest {
             artifactSize,
             artifactSha256,
             recordSha256,
-            27,
+            12,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,
             BoundingBoxOverlayButtonVerificationManifest.REQUIRED_ALIASES,

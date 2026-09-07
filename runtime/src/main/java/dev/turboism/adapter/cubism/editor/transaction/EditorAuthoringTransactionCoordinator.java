@@ -104,18 +104,13 @@ public final class EditorAuthoringTransactionCoordinator {
             final T value;
             try {
                 value = checkedWork.run();
+                if (!current(checkedBinding)) {
+                    throw new ScopeRejectedException("authoring binding changed before commit");
+                }
             } catch (ScopeRejectedException failure) {
                 return recover(scope, failure, true);
-            } catch (Exception failure) {
+            } catch (Exception | Error failure) {
                 return recover(scope, failure, false);
-            }
-
-            if (!current(checkedBinding)) {
-                return recover(
-                    scope,
-                    new ScopeRejectedException("authoring binding changed before commit"),
-                    true
-                );
             }
             if (!scope.changed()) {
                 return noChange(scope, value);
@@ -219,7 +214,7 @@ public final class EditorAuthoringTransactionCoordinator {
             scope.markEditClosed();
         } catch (ScopeRejectedException failure) {
             return recover(scope, failure, true);
-        } catch (RuntimeException failure) {
+        } catch (RuntimeException | Error failure) {
             return recover(scope, failure, false);
         }
 
@@ -301,16 +296,16 @@ public final class EditorAuthoringTransactionCoordinator {
 
     private <T> AuthoringTransactionResult<T> recover(
         final EditorAuthoringScope scope,
-        final Exception failure,
+        final Throwable failure,
         final boolean scopeRejected
     ) {
-        RuntimeException recoveryFailure = null;
+        Throwable recoveryFailure = null;
         if (scope.edit() != null && !scope.editEndAttempted()) {
             try {
                 scope.markEditEndAttempted();
                 host.endEdit(scope.binding(), scope.edit(), true);
                 scope.markEditClosed();
-            } catch (RuntimeException abortFailure) {
+            } catch (RuntimeException | Error abortFailure) {
                 recoveryFailure = append(recoveryFailure, abortFailure);
             }
         } else if (scope.edit() != null && !scope.editClosed()) {
@@ -335,12 +330,12 @@ public final class EditorAuthoringTransactionCoordinator {
                             + contribution.operationId()
                     );
                 }
-            } catch (RuntimeException compensationFailure) {
+            } catch (RuntimeException | Error compensationFailure) {
                 recoveryFailure = append(recoveryFailure, compensationFailure);
             }
         }
 
-        final HistorySnapshot after;
+        HistorySnapshot after = HistorySnapshot.unavailable();
         try {
             after = Objects.requireNonNull(host.history(scope.binding()), "history");
             if (!scope.historyBefore().equals(after)) {
@@ -349,12 +344,21 @@ public final class EditorAuthoringTransactionCoordinator {
                     new IllegalStateException("authoring history was not restored")
                 );
             }
-        } catch (RuntimeException historyFailure) {
+        } catch (RuntimeException | Error historyFailure) {
             recoveryFailure = append(recoveryFailure, historyFailure);
-            return AuthoringTransactionResult.recoveryFailed(
-                receipt(scope, HistorySnapshot.unavailable(), Optional.empty()),
-                diagnostic("authoring.recovery-failed", recoveryFailure)
-            );
+        }
+
+        // Cleanup is best-effort across all contributions, but a fatal failure is never converted
+        // to a successful rollback or replaced by a later cleanup failure.
+        if (failure instanceof Error original) {
+            if (recoveryFailure != null && recoveryFailure != original) {
+                original.addSuppressed(recoveryFailure);
+            }
+            throw original;
+        }
+        if (recoveryFailure instanceof Error fatal) {
+            if (fatal != failure) fatal.addSuppressed(failure);
+            throw fatal;
         }
 
         final AuthoringTransactionReceipt receipt = receipt(scope, after, Optional.empty());
@@ -532,11 +536,13 @@ public final class EditorAuthoringTransactionCoordinator {
         return code;
     }
 
-    private static RuntimeException append(
-        final RuntimeException current,
-        final RuntimeException next
-    ) {
+    private static Throwable append(final Throwable current, final Throwable next) {
         if (current == null) return next;
+        if (current == next) return current;
+        if (next instanceof Error && !(current instanceof Error)) {
+            next.addSuppressed(current);
+            return next;
+        }
         current.addSuppressed(next);
         return current;
     }

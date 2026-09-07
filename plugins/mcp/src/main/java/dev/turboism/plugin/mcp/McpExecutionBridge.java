@@ -58,7 +58,7 @@ final class McpExecutionBridge {
             }
         });
         try {
-            return await(result);
+            return awaitUi(result, state);
         } finally {
             registration.close();
             cancellationRegistration.close();
@@ -81,6 +81,40 @@ final class McpExecutionBridge {
         }
     }
 
+    /** The deadline bounds queue admission, not an already-started host write. */
+    private <T> T awaitUi(final CompletableFuture<T> result, final AtomicInteger state) {
+        boolean interrupted = false;
+        try {
+            try {
+                return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            } catch (TimeoutException failure) {
+                if (state.compareAndSet(0, 2)) {
+                    result.cancel(false);
+                    throw new ExecutionFailure("MCP operation timed out before host execution", failure);
+                }
+            } catch (InterruptedException failure) {
+                interrupted = true;
+                if (state.compareAndSet(0, 2)) {
+                    result.cancel(false);
+                    throw new ExecutionFailure("MCP operation was interrupted before host execution", failure);
+                }
+            }
+            // Once admitted, cancelling this future cannot cancel the native operation. Keep the
+            // request/result association until the host finishes, including after waiter interruption.
+            while (true) {
+                try {
+                    return result.get();
+                } catch (InterruptedException failure) {
+                    interrupted = true;
+                }
+            }
+        } catch (ExecutionException failure) {
+            throw executionFailure(failure);
+        } finally {
+            if (interrupted) Thread.currentThread().interrupt();
+        }
+    }
+
     private <T> T await(final CompletableFuture<T> result) {
         try {
             return result.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
@@ -92,11 +126,15 @@ final class McpExecutionBridge {
             result.cancel(true);
             throw new ExecutionFailure("MCP operation timed out", failure);
         } catch (ExecutionException failure) {
-            final Throwable cause = failure.getCause();
-            if (cause instanceof RuntimeException runtime) throw runtime;
-            if (cause instanceof Error error) throw error;
-            throw new ExecutionFailure("MCP operation failed", cause);
+            throw executionFailure(failure);
         }
+    }
+
+    private static RuntimeException executionFailure(final ExecutionException failure) {
+        final Throwable cause = failure.getCause();
+        if (cause instanceof RuntimeException runtime) return runtime;
+        if (cause instanceof Error error) throw error;
+        return new ExecutionFailure("MCP operation failed", cause);
     }
 
     private static <T> void complete(

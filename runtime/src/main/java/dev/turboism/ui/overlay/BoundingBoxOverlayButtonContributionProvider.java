@@ -13,6 +13,8 @@ import java.util.Objects;
 public final class BoundingBoxOverlayButtonContributionProvider
     implements EditorUiContributionProvider {
 
+    private static final int MAX_CONTRIBUTIONS = 8;
+
     private final EditorUiProviderAdmission admission;
     private final BoundingBoxOverlayButtonHostOperations host;
 
@@ -40,6 +42,27 @@ public final class BoundingBoxOverlayButtonContributionProvider
     }
 
     @Override
+    public boolean supportsIncrementalReconcile() {
+        return true;
+    }
+
+    @Override
+    public Registration reconcile(
+        final long hostGeneration,
+        final List<EditorUiContribution<?>> contributions,
+        final Registration existing
+    ) {
+        if (!admission.isAdmittedTo(hostGeneration)) {
+            throw new IllegalStateException("bounding-box overlay provider admission is stale");
+        }
+        final List<BoundingBoxOverlayButtonDescriptor> requested = descriptors(contributions);
+        if (existing == null) {
+            return requested.isEmpty() ? null : host.install(requested);
+        }
+        return host.reconcile(requested, existing);
+    }
+
+    @Override
     public Registration apply(
         final long hostGeneration,
         final List<EditorUiContribution<?>> contributions
@@ -47,8 +70,20 @@ public final class BoundingBoxOverlayButtonContributionProvider
         if (!admission.isAdmittedTo(hostGeneration)) {
             throw new IllegalStateException("bounding-box overlay provider admission is stale");
         }
-        return host.install(contributions.stream()
+        return host.install(descriptors(contributions));
+    }
+
+    private static List<BoundingBoxOverlayButtonDescriptor> descriptors(
+        final List<EditorUiContribution<?>> contributions
+    ) {
+        Objects.requireNonNull(contributions, "contributions");
+        if (contributions.size() > MAX_CONTRIBUTIONS) {
+            throw new IllegalArgumentException(
+                "bounding-box overlay supports at most " + MAX_CONTRIBUTIONS + " contributions"
+            );
+        }
+        return contributions.stream()
             .map(BoundingBoxOverlayButtonDescriptor::from)
-            .toList());
+            .toList();
     }
 }

@@ -4,8 +4,11 @@ import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryEntryId;
 
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
-import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -13,7 +16,8 @@ import java.util.Optional;
 /** Process-local, weakly held metadata for native Undo entries. */
 public final class EditorHistoryMetadataRegistry {
 
-    private static final List<Metadata> ENTRIES = new ArrayList<>();
+    private static final ReferenceQueue<Object> COLLECTED = new ReferenceQueue<>();
+    private static final Map<IdentityReference, EntryMetadata> ENTRIES = new HashMap<>();
     private static long nextEntryId;
 
     private EditorHistoryMetadataRegistry() {
@@ -25,8 +29,11 @@ public final class EditorHistoryMetadataRegistry {
         final HistoryAction action
     ) {
         final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
-        final Metadata current = metadataLocked(entry);
-        replace(current, current.withAction(Objects.requireNonNull(action, "action")));
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), current.transactionId(),
+            Optional.of(Objects.requireNonNull(action, "action")), current.detail()
+        ));
     }
 
     /** Associates authoritative operation-time semantic detail with a native Undo entry. */
@@ -35,8 +42,11 @@ public final class EditorHistoryMetadataRegistry {
         final HistoryEntryDetail detail
     ) {
         final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
-        final Metadata current = metadataLocked(entry);
-        replace(current, current.withDetail(Objects.requireNonNull(detail, "detail")));
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), current.transactionId(), current.action(),
+            Optional.of(Objects.requireNonNull(detail, "detail"))
+        ));
     }
 
     /** Atomically associates captured detail and an optional compatibility action. */
@@ -53,9 +63,8 @@ public final class EditorHistoryMetadataRegistry {
                 throw new IllegalArgumentException("captured action conflicts with semantic detail");
             }
         });
-        final Metadata current = metadataLocked(entry);
-        replace(current, new Metadata(
-            current.entry(),
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(),
             current.transactionId(),
             trustedAction.isPresent() ? trustedAction : current.action(),
@@ -69,8 +78,11 @@ public final class EditorHistoryMetadataRegistry {
         final String transactionId
     ) {
         final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
-        final Metadata current = metadataLocked(entry);
-        replace(current, current.withTransaction(normalizedTransactionId(transactionId)));
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), Optional.of(normalizedTransactionId(transactionId)),
+            current.action(), current.detail()
+        ));
     }
 
     /** Atomically registers the complete authoritative transaction annotation. */
@@ -88,9 +100,8 @@ public final class EditorHistoryMetadataRegistry {
                 throw new IllegalArgumentException("transaction action conflicts with semantic detail");
             }
         });
-        final Metadata current = metadataLocked(entry);
-        replace(current, new Metadata(
-            current.entry(),
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(),
             Optional.of(normalizedTransactionId(transactionId)),
             trustedAction.isPresent() ? trustedAction : current.action(),
@@ -141,15 +152,7 @@ public final class EditorHistoryMetadataRegistry {
     }
 
     static synchronized EntryMetadata metadata(final Object nativeEntry) {
-        final Metadata value = metadataLocked(
-            Objects.requireNonNull(nativeEntry, "nativeEntry")
-        );
-        return new EntryMetadata(
-            value.entryId(),
-            value.transactionId(),
-            value.action(),
-            value.detail()
-        );
+        return metadataLocked(Objects.requireNonNull(nativeEntry, "nativeEntry"));
     }
 
     static synchronized Optional<HistoryAction> action(final Object nativeEntry) {
@@ -166,28 +169,20 @@ public final class EditorHistoryMetadataRegistry {
         return Optional.of(newEntries.get(newEntries.size() - 1));
     }
 
-    private static Metadata metadataLocked(final Object nativeEntry) {
-        ENTRIES.removeIf(metadata -> metadata.entry().get() == null);
-        for (Metadata metadata : ENTRIES) {
-            if (metadata.entry().get() == nativeEntry) return metadata;
+    private static EntryMetadata metadataLocked(final Object nativeEntry) {
+        for (Reference<?> collected; (collected = COLLECTED.poll()) != null;) {
+            ENTRIES.remove(collected);
         }
-        final Metadata created = new Metadata(
-            new WeakReference<>(nativeEntry),
+        final EntryMetadata current = ENTRIES.get(new IdentityReference(nativeEntry, null));
+        if (current != null) return current;
+        final EntryMetadata created = new EntryMetadata(
             new HistoryEntryId("history-entry-" + Long.toUnsignedString(++nextEntryId, 36)),
             Optional.empty(),
             Optional.empty(),
             Optional.empty()
         );
-        ENTRIES.add(created);
+        ENTRIES.put(new IdentityReference(nativeEntry, COLLECTED), created);
         return created;
-    }
-
-    private static void replace(final Metadata current, final Metadata replacement) {
-        final int index = ENTRIES.indexOf(current);
-        if (index < 0) {
-            throw new IllegalStateException("history metadata entry disappeared during update");
-        }
-        ENTRIES.set(index, replacement);
     }
 
     private static String normalizedTransactionId(final String value) {
@@ -220,23 +215,21 @@ public final class EditorHistoryMetadataRegistry {
         }
     }
 
-    private record Metadata(
-        WeakReference<Object> entry,
-        HistoryEntryId entryId,
-        Optional<String> transactionId,
-        Optional<HistoryAction> action,
-        Optional<HistoryEntryDetail> detail
-    ) {
-        Metadata withAction(final HistoryAction value) {
-            return new Metadata(entry, entryId, transactionId, Optional.of(value), detail);
+    private static final class IdentityReference extends WeakReference<Object> {
+        private final int identityHash;
+
+        private IdentityReference(final Object entry, final ReferenceQueue<Object> queue) {
+            super(entry, queue);
+            identityHash = System.identityHashCode(entry);
         }
 
-        Metadata withDetail(final HistoryEntryDetail value) {
-            return new Metadata(entry, entryId, transactionId, action, Optional.of(value));
-        }
+        @Override public int hashCode() { return identityHash; }
 
-        Metadata withTransaction(final String value) {
-            return new Metadata(entry, entryId, Optional.of(value), action, detail);
+        @Override public boolean equals(final Object other) {
+            if (this == other) return true;
+            final Object entry = get();
+            return entry != null && other instanceof IdentityReference reference
+                && entry == reference.get();
         }
     }
 }
