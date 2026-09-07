@@ -998,12 +998,17 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         }
     }
 
-    private List<ParameterBinding> parameters(final Object model) {
+    private Iterable<?> nativeParameters(final Object model) {
         final Object set = resolver.invoke("cubism.editor-model.model.parameter-set", model);
         final Object raw = resolver.invoke("cubism.editor-model.parameter-set.parameters", set);
         if (!(raw instanceof Iterable<?> iterable)) {
             throw unavailable("Editor parameter collection is unavailable.");
         }
+        return iterable;
+    }
+
+    private List<ParameterBinding> parameters(final Object model) {
+        final Iterable<?> iterable = nativeParameters(model);
         final List<ParameterBinding> values = new ArrayList<>();
         // No uniqueness hard-check: verified host evidence shows CParameterSet stores CParameter
         // entries in a plain CArrayList without any id-uniqueness constraint, and real Editor
@@ -1012,7 +1017,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         for (Object parameter : iterable) {
             final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", parameter);
             final String id = text(resolver.invoke("cubism.editor-model.id.value", rawId));
-            values.add(new ParameterBinding(id, parameter));
+            values.add(new ParameterBinding(id, parameter, values.size()));
         }
         return List.copyOf(values);
     }
@@ -1042,22 +1047,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         };
     }
 
-    private int parameterIndex(final Object model, final ParameterId id) {
-        final List<ParameterBinding> values = parameters(model);
-        for (int index = 0; index < values.size(); index++) {
-            if (values.get(index).id().equals(id.value())) return index;
+    private ParameterBinding parameter(final Object model, final ParameterId id) {
+        int index = 0;
+        for (Object parameter : nativeParameters(model)) {
+            final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", parameter);
+            final String value = text(resolver.invoke("cubism.editor-model.id.value", rawId));
+            if (value.equals(id.value())) return new ParameterBinding(value, parameter, index);
+            index++;
         }
         throw new NoSuchElementException("Cubism parameter is absent: " + id.value());
-    }
-
-
-    private ParameterBinding parameter(final Object model, final ParameterId id) {
-        return parameters(model).stream()
-            .filter(value -> value.id().equals(id.value()))
-            .findFirst()
-            .orElseThrow(() -> new NoSuchElementException(
-                "Cubism parameter is absent: " + id.value()
-            ));
     }
 
     private static String text(final Object value) {
@@ -1253,14 +1251,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         private void current() { requireCurrent(identity, model); }
         @Override public List<Parameter> all() {
             current();
+            final java.util.Map<String, ParameterBinding> firstById = new java.util.HashMap<>();
             return parameters(model).stream()
-                .map(value -> (Parameter) new EditorParameter(identity, model, new ParameterId(value.id())))
+                .map(value -> (Parameter) new EditorParameter(identity, model,
+                    firstById.computeIfAbsent(value.id(), ignored -> value)))
                 .toList();
         }
         @Override public Parameter find(final ParameterId id) {
             current();
-            parameter(model, Objects.requireNonNull(id, "id"));
-            return new EditorParameter(identity, model, id);
+            return new EditorParameter(identity, model, parameter(model, Objects.requireNonNull(id, "id")));
         }
 
         @Override public Parameter create(final ParameterDefinition definition) {
@@ -1332,20 +1331,66 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         private final String identity;
         private final Object model;
         private final ParameterId id;
+        private ParameterBinding binding;
+        private Object authoringSource;
         private EditorParameter(final String identity, final Object model, final ParameterId id) {
+            // Creation returns a stable identity without rescanning the collection for every
+            // item in a native batch. Bind its source on the first live-state read.
             this.identity = identity;
             this.model = model;
             this.id = id;
         }
-        private ParameterBinding current() {
+        private EditorParameter(final String identity, final Object model, final ParameterBinding binding) {
+            this(identity, model, new ParameterId(binding.id()));
+            this.binding = binding;
+            this.authoringSource = resolver.invoke("cubism.editor-model.parameter.source", binding.parameter());
+        }
+        private synchronized ParameterBinding current() {
             requireCurrent(identity, model);
-            return parameter(model, id);
+            if (binding == null) {
+                binding = parameter(model, id);
+                authoringSource = resolver.invoke("cubism.editor-model.parameter.source", binding.parameter());
+            }
+            final ParameterBinding expected = binding;
+            final Iterable<?> live = nativeParameters(model);
+            Object actual = null;
+            int index = expected.index();
+            if (live instanceof List<?> list && index < list.size()) {
+                final Object candidate = list.get(index);
+                if (sameAuthoringSource(candidate)) actual = candidate;
+            }
+            if (actual == null) {
+                // Position is a hint. Evaluation objects can be rebuilt after combine/Undo;
+                // only the same authoring source may be rebound, never a same-ID replacement.
+                index = 0;
+                for (Object candidate : live) {
+                    if (sameAuthoringSource(candidate)) {
+                        actual = candidate;
+                        break;
+                    }
+                    index++;
+                }
+                if (actual == null) throw new IllegalStateException("Cubism parameter reference is stale.");
+            }
+            final Object rawId = resolver.invoke("cubism.editor-model.parameter.id", actual);
+            if (!id.value().equals(text(resolver.invoke("cubism.editor-model.id.value", rawId)))) {
+                throw new IllegalStateException("Cubism parameter identity is stale.");
+            }
+            if (actual != expected.parameter() || index != expected.index()) {
+                binding = new ParameterBinding(id.value(), actual, index);
+            }
+            return binding;
+        }
+        private boolean sameAuthoringSource(final Object candidate) {
+            return authoringSource != null && candidate != null
+                && resolver.invoke("cubism.editor-model.parameter.source", candidate) == authoringSource;
         }
         private Object source() {
-            return resolver.invoke("cubism.editor-model.parameter.source", current().parameter());
+            current();
+            return authoringSource;
         }
         @Override public ParameterId id() { requireCurrent(identity, model); return id; }
-        @Override public int index() { current(); return parameterIndex(model, id); }
+        @Override public int index() { return current().index(); }
         @Override public FloatSequence keyValues() { current(); return Parameter.super.keyValues(); }
         @Override public Optional<String> name() {
             final Object value = resolver.invoke("cubism.editor-model.parameter-source.name", source());
@@ -1392,10 +1437,18 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public float getMaximumValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.maximum", source())); }
         @Override public float getDefaultValue() { return number(resolver.invoke("cubism.editor-model.parameter-source.default", source())); }
         @Override public void setValue(final float value) {
-            setParameterValue(identity, model, id, value);
+            EditorHostThread.dispatch("Cubism Parameter", () -> {
+                current();
+                setParameterValue(identity, model, id, value);
+                return null;
+            });
         }
         @Override public void updateDefinition(final ParameterDefinition definition) {
-            updateParameterDefinition(identity, model, id, definition);
+            EditorHostThread.dispatch("Cubism Parameter", () -> {
+                current();
+                updateParameterDefinition(identity, model, id, definition);
+                return null;
+            });
         }
     }
 
@@ -1427,6 +1480,6 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         Object source,
         Object model
     ) { }
-    private record ParameterBinding(String id, Object parameter) { }
+    private record ParameterBinding(String id, Object parameter, int index) { }
     private record CreateParent(Object source, boolean deformer) { }
 }

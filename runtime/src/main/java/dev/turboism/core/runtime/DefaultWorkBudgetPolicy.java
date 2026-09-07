@@ -25,6 +25,7 @@ public final class DefaultWorkBudgetPolicy implements WorkBudgetPolicy {
                  "lifecycle.shutdown",
                  "event.subscribe",
                  "ui.schedule",
+                 "ui.overlay-button.click",
                  "plugin.compute.normal",
                  "plugin.compute.low",
                  "plugin.refresh.normal",

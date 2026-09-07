@@ -503,6 +503,29 @@ tasks.register<Exec>("validateStatusBarHost5302") {
     commandLine("bash", "scripts/preview/run-status-bar-host-validation.sh", "5302")
 }
 
+val buildBoundingBoxOverlayHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds and self-checks the validation-only SDK bounding-box overlay exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/bounding-box-overlay-host-probe/build.sh")
+}
+
+fun registerBoundingBoxOverlayHostValidation(name: String, version: String, displayVersion: String) {
+    tasks.register<Exec>(name) {
+        group = "host verification"
+        description = "Runs the exact-host Cubism $displayVersion bounding-box overlay matrix."
+        dependsOn("previewBundle", ":sdk:jar", buildBoundingBoxOverlayHostProbe)
+        workingDir(rootDir)
+        environment("TURBOISM_WORKTREE_ID", resolvedHostValidationWorktreeId)
+        commandLine("bash", "scripts/preview/run-bounding-box-overlay-host-validation.sh", version)
+    }
+}
+
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5203", "5203", "5.2.03")
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5302", "5302", "5.3.02")
+registerBoundingBoxOverlayHostValidation("validateBoundingBoxOverlayHost5303", "5303", "5.3.03")
+
 val buildFpsHostProbe by tasks.registering(Exec::class) {
     group = "host verification"
     description = "Builds the test-only SDK FPS counting host exerciser."
@@ -743,18 +766,24 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
         "scripts/release/turboism-release.py",
+        "scripts/release/promote-github-release.py",
         "scripts/release/verify-github-assets.py",
         "scripts/release/verify-plugin-publication.py",
         fileTree("scripts/release/turboism_release") { include("*.py") },
         "scripts/test/test_release_tooling.py",
         "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py",
+        ".github/workflows/release-github-only.yml",
+        ".github/workflows/release-publisher.yml",
+        "RELEASING.md",
         "CHANGELOG.md",
         ".github/workflows/release.yml"
     )
     commandLine(
         "python3", "-m", "unittest", "-v",
         "scripts/test/test_release_tooling.py",
-        "scripts/test/test_release_orchestrator.py"
+        "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py"
     )
 }
 
@@ -771,6 +800,7 @@ tasks.register("checkRelease") {
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV5ExactApiCompatibility",
         "checkSdkV6ExactApiCompatibility",
+        "checkSdkV7ExactApiCompatibility",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",

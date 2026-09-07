@@ -3,9 +3,9 @@
   Turboism cross-platform Java installer (IzPack 5.2.6).
 
   This file is GENERATED at build time from this template by the root
-  installer Gradle script: __PLUGIN_PACKS__ and __BUNDLED_PLUGINS__ are
-  derived from each plugin JAR's META-INF/turboism/plugin.json, and
-  __STAGE_REL__ points at the shared staged payload
+  installer Gradle script. Plugin packs and bundled plugin files are derived
+  from each plugin JAR's META-INF/turboism/plugin.json; the staging placeholder
+  points at the shared staged payload
   (build/windows-installer/staging). Do not edit the generated file.
 
   Every plugin SELECTION pack carries the XML id attribute equal to its plugin

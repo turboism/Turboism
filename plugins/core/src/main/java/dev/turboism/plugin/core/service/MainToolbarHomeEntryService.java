@@ -53,6 +53,7 @@ public final class MainToolbarHomeEntryService {
     private static final String ABOUT_MENU_LABEL_KEY = "main-toolbar.about-menu.label";
     private static final String TURBOISM_MENU_ROOT_KEY = "common.turboism";
     private static final String ICON_RESOURCE_PATH = "icons/main-toolbar-home.png";
+    private static final String INSTALLER_ICON_RESOURCE_PATH = "icons/main-toolbar-installer.png";
     private static final int ORDER = 10;
 
     private final UiHostCapabilityService uiHost;
@@ -122,12 +123,15 @@ public final class MainToolbarHomeEntryService {
      * @return the button registration; closing it removes the button from the toolbar
      */
     public Registration registerHomeEntry() {
-        return mainToolbar.contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
-            CONTRIBUTION_ID, ACTION_ID, LABEL_KEY, TOOLTIP_KEY,
-            new MainToolbarRegistry.IconVariants(
+        final MainToolbarRegistry.IconVariants icons = runtimeSettings.read().useTextIcon()
+            ? new MainToolbarRegistry.IconVariants(
                 ICON_RESOURCE_PATH, Optional.of("icons/main-toolbar-home-hover.png"),
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
-            ),
+            )
+            : MainToolbarRegistry.IconVariants.normal(INSTALLER_ICON_RESOURCE_PATH);
+        return mainToolbar.contributeButton(new MainToolbarRegistry.MainToolbarButtonContribution(
+            CONTRIBUTION_ID, ACTION_ID, LABEL_KEY, TOOLTIP_KEY,
+            icons,
             MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY), ORDER
         ));
     }

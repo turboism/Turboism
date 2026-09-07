@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Shared local configuration for exact-host validation wrappers.
 #
-# Developers keep machine-specific paths and SSH placement in the repository
+# Developers keep machine-specific paths and transport placement in the repository
 # root `.env` (ignored by Git). Copy `.env.example` to `.env`, edit it locally,
 # then invoke any wrapper normally. Existing exported variables take precedence
 # so CI and one-off commands can override `.env` without rewriting it.
@@ -50,6 +50,7 @@ if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
   fi
 
   : "${TURBOISM_HOST_VALIDATION_SSH_HOST:=}"
+  : "${TURBOISM_HOST_VALIDATION_TRANSPORT:=}"
   : "${TURBOISM_HOST_VALIDATION_SSH_KEY:=}"
   : "${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:=}"
   : "${TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX:=}"
@@ -58,6 +59,8 @@ if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5203_SHA256:=331bbb4cbdb1287f5bd063a0661d94c2860534baa7d0f76bb055ed070a21b028}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5302:=}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256:=57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4}"
+  : "${TURBOISM_HOST_VALIDATION_FIXTURE_5303:=}"
+  : "${TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256:=57c4854b70f7d5d305b1974f9dc1792cdd7bed616f05621f535b47019d33fbe4}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302:=}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PBT_5302_SHA256:=8b1718d2976eabffc8d85ea10343003aadea784230094e5397a41acbc17a20b8}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD:=}"
@@ -89,6 +92,11 @@ turboism_select_fixture() {
       turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5302 "Cubism 5.3.02 fixture path" || return
       fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5302"
       fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256"
+      ;;
+    5303)
+      turboism_require_env TURBOISM_HOST_VALIDATION_FIXTURE_5303 "Cubism 5.3.03 fixture path" || return
+      fixture_src="$TURBOISM_HOST_VALIDATION_FIXTURE_5303"
+      fixture_sha256="$TURBOISM_HOST_VALIDATION_FIXTURE_5303_SHA256"
       ;;
     *)
       printf 'host validation: unsupported fixture version: %s\n' "$version" >&2
