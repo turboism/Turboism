@@ -132,6 +132,14 @@ class FinalVerdictRecoveryTest(StoreFixture, unittest.TestCase):
                 queue.durable_outcome(self.store, job)
         self.assertEqual("owned", self.store.host()["state"])
 
+    def test_existing_null_or_non_object_outcome_never_falls_back(self):
+        job, directory, _ = self.final_fixture()
+        for raw in ("null", "[]", "false", "42", '"text"'):
+            (directory / "outcome.json").write_text(raw)
+            with self.assertRaises(queue.QueueError):
+                queue.durable_outcome(self.store, job)
+        self.assertEqual("owned", self.store.host()["state"])
+
     def test_conflicting_outcome_and_live_runner_do_not_release(self):
         job, directory, final = self.final_fixture()
         queue.atomic_json(directory / "outcome.json", {**final, "validationStatus": "FAIL"})

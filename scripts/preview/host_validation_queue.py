@@ -947,9 +947,10 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
     directory = store.root / "jobs" / job["job_id"]
     outcome_path = directory / "outcome.json"
     final_path = directory / "evidence/lifecycle-result.json"
-    outcome = json.loads(outcome_path.read_text()) if outcome_path.exists() else None
+    outcome_exists = outcome_path.exists() or outcome_path.is_symlink()
+    outcome = json.loads(outcome_path.read_text()) if outcome_exists else None
     final = json.loads(final_path.read_text()) if final_path.exists() else None
-    if outcome is not None:
+    if outcome_exists:
         if not isinstance(outcome, dict):
             raise QueueError("outcome must be an object")
         if outcome.get("finalizedBy") != "contained-supervisor":
