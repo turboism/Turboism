@@ -57,17 +57,48 @@ if fps_parse_geometry $'WINDOW=42\nWIDTH=40\nHEIGHT=720' >/dev/null; then
 fi
 
 wrapper_source=$(<"$wrapper")
-[[ "$wrapper_source" == *'ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"'* ]] \
-  || fail "FPS wrapper does not read the local SSH host configuration"
-[[ "$wrapper_source" == *'ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"'* ]] \
-  || fail "FPS wrapper does not read the local SSH key configuration"
-[[ "$wrapper_source" == *'ssh_host="${runner_args[index + 1]}"'* ]] \
-  || fail "FPS wrapper does not reuse the runner SSH host"
-[[ "$wrapper_source" == *'ssh_key="${runner_args[index + 1]}"'* ]] \
-  || fail "FPS wrapper does not reuse the runner SSH key"
-[[ "$wrapper_source" == *'nohup ssh -i "$ssh_key"'* ]] \
-  || fail "FPS resize driver does not use the resolved SSH key"
-[[ "$wrapper_source" == *'"$ssh_host" "bash -s --'* ]] \
-  || fail "FPS resize driver does not use the resolved SSH host"
+[[ "$wrapper_source" == *'--remote-pre-launch "$driver"'* ]] \
+  || fail "FPS wrapper does not route resize through the common local Runner hook"
+[[ "$wrapper_source" == *'--remote-pre-launch-background'* ]] \
+  || fail "FPS wrapper does not request task-owned background hook management"
+[[ "$wrapper_source" == *'--remote-pre-launch-args-only'* ]] \
+  || fail "FPS wrapper does not keep the reviewed driver argument boundary"
+[[ "$wrapper_source" == *"--remote-pre-launch-arg '{FIXTURE_NAME}'"* ]] \
+  || fail "FPS wrapper does not pass the canonical fixture name to the hook"
+[[ "$wrapper_source" == *'--fixture-host "$fixture_src"'* ]] \
+  || fail "FPS wrapper does not use the local fixture transport"
+if grep -Eq '(^|[[:space:]])(ssh|scp)([[:space:]]|$)|nohup[[:space:]]+ssh|ssh_host|ssh_key' <<<"$wrapper_source"; then
+  fail "FPS wrapper still contains an SSH/SCP or detached transport bypass"
+fi
+[[ "$wrapper_source" != *'driver_pid'* ]] || fail "FPS wrapper owns a second driver lifecycle"
 
+# Execute the real wrapper + real Runner against temporary synthetic inputs.
+# This catches a missing `exec bash "$runner"` that parameter-text greps cannot.
+fixture_repo="$stub_dir/fixture repo"
+mkdir -p "$fixture_repo/scripts/preview" "$fixture_repo/scripts/dev" "$fixture_repo/build/preview/test" "$stub_dir/golden"
+cp "$wrapper" "$driver" "$root/scripts/preview/run-cubism-host-validation.sh" \
+  "$root/scripts/preview/host-validation-env.sh" "$root/scripts/preview/archive-cubism-host-evidence.sh" "$fixture_repo/scripts/preview/"
+printf '#!/bin/sh\nprintf "test\\n"\n' > "$fixture_repo/scripts/dev/worktree-id.sh"
+chmod +x "$fixture_repo/scripts/dev/worktree-id.sh"
+printf 'synthetic agent' > "$fixture_repo/build/preview/test/turboism-agent.jar"
+printf 'synthetic probe' > "$fixture_repo/build/fps-host-validation-exerciser.jar"
+printf 'synthetic fixture' > "$stub_dir/fixture.cmo3"
+for mode in dry prepare; do
+  options=(--dry-run)
+  [ "$mode" != prepare ] || options=(--prepare-dir "$stub_dir/prepared")
+  TURBOISM_ENV_FILE=/dev/null \
+    TURBOISM_HOST_VALIDATION_FIXTURE_5302="$stub_dir/fixture.cmo3" \
+    TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256="$(sha256sum "$stub_dir/fixture.cmo3" | cut -d' ' -f1)" \
+    bash "$fixture_repo/scripts/preview/run-fps-host-validation.sh" 5302 regression \
+      --golden-prefix "$stub_dir/golden" --host-root "$stub_dir/must-not-create" \
+      --proton-runner /bin/true --proton-wrapper /bin/true "${options[@]}" > "$stub_dir/wrapper-$mode.out"
+done
+[ ! -e "$stub_dir/must-not-create" ] || fail "wrapper prepare/dry-run touched host task root"
+python3 - "$stub_dir/prepared/runner-request.json" <<'PY'
+import json,sys
+request=json.load(open(sys.argv[1]))
+assert request['environment']=={}
+assert '--remote-pre-launch-background' in request['argv']
+assert '{FIXTURE_NAME}' in request['argv']
+PY
 echo "fps resize driver test: PASS"
