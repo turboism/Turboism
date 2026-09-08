@@ -22,11 +22,11 @@ Usage:
     --bundle-root <local-directory> \
     --agent <local-agent.jar> \
     --home-config <local-config.json> \
-    --plugin <local.jar[:remote-name.jar]> [--plugin ...] \
-    --aux-agent <local.jar[:remote-name.jar]> [--aux-agent ...] \
+    --plugin <local.jar[:task-name.jar]> [--plugin ...] \
+    --aux-agent <local.jar[:task-name.jar]> [--aux-agent ...] \
     --home-file <local-file:relative-home-path> [--home-file ...] \
     --home-dir <local-directory:relative-home-path> [--home-dir ...] \
-    (--fixture-remote <host-path> | --fixture-local <local-path>) \
+    (--fixture-host|--fixture-remote <local-path> | --fixture-local <local-path>) \
     [options]
 
 Result modes (choose one):
@@ -35,25 +35,37 @@ Result modes (choose one):
       [--result-pass-line <exact line, default status=PASS>]
       [--result-fail-line <exact line, default status=FAIL>]
 
+Local-only options:
+  --host-root <local task root>
+  --remote-root <local task root>       compatibility alias for --host-root
+  --fixture-host <local fixture>         compatibility alias for --fixture-remote
+  --golden-prefix <local Proton prefix>
+  --local-evidence-dir <local path>
+  --display <X display, default :0>
+  --proton-wrapper <local executable, default shorin-proton-wrapper>
+  --proton-runner <local executable>
+  --prepare-dir <path>                  write runner-request.json and exit
+  --transport local                     accepted compatibility spelling
+
 Common options:
   --home-file <local-file:relative-home-path>   repeatable
   --home-dir <local-directory:relative-home-path> repeatable
-  --remote-pre-launch <local-script>       runs on the host with task paths and launch context
-  --remote-post-launch <local-script>      runs on the host after Cubism starts
-  --remote-pre-cleanup <local-script>      runs before task process cleanup/evidence collection
-      Hooks receive task, home, evidence, prefix, fixture, run ID, version,
+  --remote-pre-launch <local-script>       runs locally before launch
+  --remote-post-launch <local-script>      runs locally after Cubism starts
+  --remote-pre-cleanup <local-script>      runs locally before cleanup/evidence
+  --remote-pre-launch-background           manage a background pre-launch hook
+  --remote-pre-launch-args-only            pass only explicit hook args to that hook
+  --remote-pre-launch-arg <value>          repeatable hook argument
+      Hooks normally receive task, home, evidence, prefix, fixture, run ID, version,
       result timeout, Proton wrapper, Proton runner, and display as positional arguments.
   --fixture-sha256 <expected source hash>
-  --fixture-name <remote filename suffix>
+  --fixture-name <task filename suffix>
       The copied project is always prefixed with the generated validation run ID.
-      By default only the source extension is retained; use this for a host-specific suffix.
   --require-fixture-unchanged
   --ready-marker <runtime-log marker>        repeatable
   --failure-marker <runtime-log marker>      repeatable
   --trigger <Turboism-home-relative path>
-  --client-script <local-script[:remote-name]>
-      Stage and run one task-local client after readiness. The client receives
-      <Turboism-home> and <task-id> as argv[1] and argv[2].
+  --client-script <local-script[:task-name]>
   --jvm-option <JVM option>                  repeatable
   --windows-env <NAME=value>                 repeatable task-local launch environment
   --cubism-java <Windows executable path>    override JAVA_EXE in the task-local launch
@@ -65,18 +77,13 @@ Common options:
   --result-timeout <seconds, default 300>
   --exit-timeout <seconds, default 120>
   --poll-seconds <seconds, default 3>
-  --ssh-host <user@host, or TURBOISM_HOST_VALIDATION_SSH_HOST>
-  --ssh-key <path, or TURBOISM_HOST_VALIDATION_SSH_KEY>
-  --golden-prefix <host path, or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX>
-  --remote-root <host path, or TURBOISM_HOST_VALIDATION_REMOTE_ROOT>
-  --local-evidence-dir <local path>
-  --display <X display, default :0>
-  --proton-wrapper <host executable, default shorin-proton-wrapper>
-  --proton-runner <host executable>
   --keep-prefix
   --dry-run
 
-Placeholders in --jvm-option:
+Migration errors:
+  --ssh-host and --ssh-key are rejected; this Runner no longer supports SSH/SCP.
+
+Placeholders in --jvm-option/--windows-env/--remote-pre-launch-arg:
   {TASK_ID}      generated validation run ID
   {HOME}         Windows path to the task-scoped Turboism home
   {FIXTURE}      Windows path to the copied fixture
@@ -138,21 +145,142 @@ require_safe_remote_value() {
 # Sends untrusted argument values only as a Base64 payload. Remote shell code
 # receives no interpolated path or marker values; it decodes the payload into
 # positional parameters before using them.
+# Execute the reviewed shell payload locally with encoded positional arguments.
+# The encoding keeps task paths out of the child command line while preserving
+# the old heredoc call shape used by process/evidence helpers.
 remote_args_bash() {
   local encoded
   encoded="$(printf '%s\n' "$@" | base64 -w 0)"
   {
-    cat <<'REMOTE_ARGS'
+    cat <<'LOCAL_ARGS'
 remote_args() {
   mapfile -t REMOTE_ARGS < <(printf '%s' "$TURBOISM_ARGS_B64" | base64 -d)
 }
-REMOTE_ARGS
+remote_args
+set -- "${REMOTE_ARGS[@]}"
+LOCAL_ARGS
     cat
-  } | "${ssh_cmd[@]}" "$ssh_host" "TURBOISM_ARGS_B64=$encoded bash -s"
+  } | TURBOISM_ARGS_B64="$encoded" bash -s
 }
 
 sha256_file() {
   sha256sum "$1" | cut -d' ' -f1
+}
+
+local_path_canonical() {
+  realpath -m -- "$1"
+}
+
+local_path_is_descendant() {
+  local child="$1" parent="$2"
+  if [ "$parent" = / ]; then
+    [ "$child" != / ] && [[ "$child" == /* ]]
+    return
+  fi
+  [[ "$child" == "$parent"/* ]]
+}
+
+local_assert_no_symlink_ancestors() {
+  local destination="$1" current=/ part
+  local lexical="$destination"
+  case "$lexical" in
+    /*) ;;
+    *) lexical="$PWD/$lexical" ;;
+  esac
+  IFS=/ read -r -a local_path_parts <<< "${lexical#/}"
+  for part in "${local_path_parts[@]}"; do
+    case "$part" in
+      ''|.) continue ;;
+      ..)
+        [ "$current" = / ] || current="${current%/*}"
+        [ -n "$current" ] || current=/ ;;
+      *)
+        if [ "$current" = / ]; then current="/$part"; else current="$current/$part"; fi
+        [ ! -L "$current" ] || fail "local destination has a symlink ancestor: $current"
+        ;;
+    esac
+  done
+  unset local_path_parts
+}
+
+local_assert_destination_safe() {
+  local destination="$1" unsafe links
+  local_assert_no_symlink_ancestors "$destination"
+  [ ! -L "$destination" ] || fail "local destination is a symlink: $destination"
+  if [ -f "$destination" ]; then
+    links="$(stat -c %h -- "$destination")" || fail "cannot inspect local destination: $destination"
+    [[ "$links" =~ ^[0-9]+$ && "$links" -le 1 ]] || fail "local destination is hardlinked: $destination"
+    return 0
+  fi
+  [ -d "$destination" ] || return 0
+  unsafe="$(find -P "$destination" -mindepth 1 \( -type l -o \( -type f -links +1 \) \) -print -quit)" \
+    || fail "cannot inspect local destination tree: $destination"
+  [ -z "$unsafe" ] || fail "local destination tree contains a symlink or hardlink: $unsafe"
+}
+
+local_assert_copy_safe() {
+  local source="$1" destination="$2" recursive="${3:-0}" source_abs destination_abs
+  source_abs="$(local_path_canonical "$source")" || fail "cannot canonicalize local source: $source"
+  destination_abs="$(local_path_canonical "$destination")" || fail "cannot canonicalize local destination: $destination"
+  [ "$source_abs" != "$destination_abs" ] || fail "local copy source-equals-destination: $source"
+  if [ -e "$source" ] && [ -e "$destination" ] && [ "$source" -ef "$destination" ]; then
+    fail "local copy source and destination alias: $source"
+  fi
+  if [ "$recursive" = 1 ]; then
+    local_path_is_descendant "$destination_abs" "$source_abs" \
+      && fail "local copy destination inside source: $destination"
+    local_path_is_descendant "$source_abs" "$destination_abs" \
+      && fail "local copy source inside destination: $source"
+  fi
+  local_assert_destination_safe "$destination"
+}
+
+local_prepare_directory() {
+  local destination="$1"
+  local_assert_destination_safe "$destination"
+  mkdir -p -- "$destination"
+}
+
+local_copy_to() {
+  local recursive=0 source destination
+  if [ "${1:-}" = --recursive ]; then recursive=1; shift; fi
+  [ "$#" -eq 2 ] || fail "internal local copy-to argument error"
+  source="$1"; destination="$2"
+  local_assert_copy_safe "$source" "$destination" "$recursive"
+  if [ "$recursive" = 1 ]; then cp -a -- "$source" "$destination"; else cp -- "$source" "$destination"; fi
+}
+
+local_copy_from() {
+  local recursive=0 source destination
+  if [ "${1:-}" = --recursive ]; then recursive=1; shift; fi
+  [ "$#" -eq 2 ] || fail "internal local copy-from argument error"
+  source="$1"; destination="$2"
+  local_assert_copy_safe "$source" "$destination" "$recursive"
+  if [ "$recursive" = 1 ]; then cp -a -- "$source" "$destination"; else cp -- "$source" "$destination"; fi
+}
+
+local_copy_dir_contents_to() {
+  local source="$1" destination="$2"
+  local_assert_copy_safe "$source/." "$destination" 1
+  cp -a -- "$source/." "$destination/"
+}
+
+local_copy_host_file() {
+  local source="$1" destination="$2"
+  local_assert_copy_safe "$source" "$destination" 0
+  cp --reflink=auto -- "$source" "$destination"
+}
+
+local_remove_tree() {
+  local target="$1"
+  local_assert_no_symlink_ancestors "$target"
+  [ ! -L "$target" ] || fail "local cleanup target is a symlink: $target"
+  rm -rf -- "$target"
+}
+
+transport_command() {
+  # Command strings are assembled only from validated, runner-owned values.
+  bash -c "$1"
 }
 
 z_path() {
@@ -183,10 +311,15 @@ home_dirs=()
 remote_pre_launch=''
 remote_post_launch=''
 remote_pre_cleanup=''
-fixture_remote=''
+remote_pre_launch_background=0
+remote_pre_launch_args_only=0
+remote_pre_launch_args=()
+fixture_host=''
 fixture_local=''
 fixture_sha256=''
 fixture_name=''
+fixture_name_suffix=''
+fixture_name_explicit=0
 require_fixture_unchanged=0
 ready_markers=()
 failure_markers=()
@@ -208,16 +341,16 @@ ready_timeout=240
 result_timeout=300
 exit_timeout=120
 poll_seconds=3
-ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
-ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
 golden_prefix="$TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX"
-remote_root="$TURBOISM_HOST_VALIDATION_REMOTE_ROOT"
+host_root="${TURBOISM_HOST_VALIDATION_HOST_ROOT:-${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:-}}"
 local_evidence_dir=''
 display=':0'
 proton_wrapper='shorin-proton-wrapper'
 proton_runner="$TURBOISM_HOST_VALIDATION_PROTON_RUNNER"
-keep_prefix=0
+prepare_dir=''
+transport="${TURBOISM_HOST_VALIDATION_TRANSPORT:-local}"
 dry_run=0
+keep_prefix=0
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -233,10 +366,13 @@ while [ "$#" -gt 0 ]; do
     --remote-pre-launch) require_value "$@"; remote_pre_launch="$2"; shift 2 ;;
     --remote-post-launch) require_value "$@"; remote_post_launch="$2"; shift 2 ;;
     --remote-pre-cleanup) require_value "$@"; remote_pre_cleanup="$2"; shift 2 ;;
-    --fixture-remote) require_value "$@"; fixture_remote="$2"; shift 2 ;;
+    --remote-pre-launch-background) remote_pre_launch_background=1; shift ;;
+    --remote-pre-launch-args-only) remote_pre_launch_args_only=1; shift ;;
+    --remote-pre-launch-arg) require_value "$@"; remote_pre_launch_args+=("$2"); shift 2 ;;
+    --fixture-host|--fixture-remote) require_value "$@"; fixture_host="$2"; shift 2 ;;
     --fixture-local) require_value "$@"; fixture_local="$2"; shift 2 ;;
     --fixture-sha256) require_value "$@"; fixture_sha256="$2"; shift 2 ;;
-    --fixture-name) require_value "$@"; fixture_name="$2"; shift 2 ;;
+    --fixture-name) require_value "$@"; fixture_name="$2"; fixture_name_explicit=1; shift 2 ;;
     --require-fixture-unchanged) require_fixture_unchanged=1; shift ;;
     --ready-marker) require_value "$@"; ready_markers+=("$2"); shift 2 ;;
     --failure-marker) require_value "$@"; failure_markers+=("$2"); shift 2 ;;
@@ -257,14 +393,17 @@ while [ "$#" -gt 0 ]; do
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
-    --ssh-host) require_value "$@"; ssh_host="$2"; shift 2 ;;
-    --ssh-key) require_value "$@"; ssh_key="$2"; shift 2 ;;
+    --transport) require_value "$@"; transport="$2"; shift 2 ;;
+    --ssh-host|--ssh-key)
+      fail "$1 is no longer supported in the local-only Runner; remove SSH/SCP options and use --host-root/--fixture-host"
+      ;;
     --golden-prefix) require_value "$@"; golden_prefix="$2"; shift 2 ;;
-    --remote-root) require_value "$@"; remote_root="$2"; shift 2 ;;
+    --host-root|--remote-root) require_value "$@"; host_root="$2"; shift 2 ;;
     --local-evidence-dir) require_value "$@"; local_evidence_dir="$2"; shift 2 ;;
     --display) require_value "$@"; display="$2"; shift 2 ;;
     --proton-wrapper) require_value "$@"; proton_wrapper="$2"; shift 2 ;;
     --proton-runner) require_value "$@"; proton_runner="$2"; shift 2 ;;
+    --prepare-dir) require_value "$@"; prepare_dir="$2"; shift 2 ;;
     --keep-prefix) keep_prefix=1; shift ;;
     --dry-run) dry_run=1; shift ;;
     -h|--help) usage; exit 0 ;;
@@ -275,10 +414,13 @@ done
 [ -n "$name" ] || fail "--name is required"
 [ -n "$version" ] || fail "--version is required"
 [ -n "$bundle_root" ] || fail "--bundle-root is required"
-[ -n "$ssh_host" ] || fail "validation SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
-[ -n "$ssh_key" ] || fail "validation SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
+case "$transport" in
+  local|'') ;;
+  remote|ssh) fail "remote/SSH transport is no longer supported; this Runner is local-only" ;;
+  *) fail "unsupported transport: $transport (expected local)" ;;
+esac
 [ -n "$golden_prefix" ] || fail "golden Proton prefix is required; set --golden-prefix or TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX in .env"
-[ -n "$remote_root" ] || fail "remote validation root is required; set --remote-root or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
+[ -n "$host_root" ] || fail "local validation root is required; set --host-root or TURBOISM_HOST_VALIDATION_HOST_ROOT in .env"
 [ -n "$proton_runner" ] || fail "Proton runner is required; set --proton-runner or TURBOISM_HOST_VALIDATION_PROTON_RUNNER in .env"
 name="$(safe_label "$name")"
 run_label="$(safe_label "$run_label")"
@@ -311,25 +453,62 @@ done
 bundle_root="$(cd "$bundle_root" 2>/dev/null && pwd)" || fail "bundle root does not exist: $bundle_root"
 agent="${agent:-$bundle_root/turboism-agent.jar}"
 [ -f "$agent" ] || fail "agent does not exist: $agent"
+agent="$(cd "$(dirname "$agent")" && pwd -P)/$(basename "$agent")"
 [ "${#plugins[@]}" -gt 0 ] || [ "${#aux_agents[@]}" -gt 0 ] \
   || fail "at least one --plugin or --aux-agent is required"
 
-if [ -n "$fixture_remote" ] && [ -n "$fixture_local" ]; then
-  fail "use only one of --fixture-remote or --fixture-local"
+for value in "$golden_prefix" "$host_root" "$display" "$proton_wrapper" "$proton_runner"; do
+  [ -z "$value" ] || require_safe_remote_value "$value" "local path or executable"
+done
+# Runtime locations are fixed now, never resolved against the worker's cwd.
+for path_variable in golden_prefix host_root proton_runner; do
+  printf -v "$path_variable" '%s' "$(python3 - "${!path_variable}" <<'PY'
+import os, sys
+print(os.path.abspath(sys.argv[1]))
+PY
+)"
+done
+if [ "$dry_run" = 0 ]; then
+  if [[ "$proton_wrapper" != */* ]]; then
+    proton_wrapper="$(command -v -- "$proton_wrapper")" || fail "Proton wrapper executable not found"
+  fi
+  proton_wrapper="$(python3 - "$proton_wrapper" <<'PY'
+import os, sys
+print(os.path.abspath(sys.argv[1]))
+PY
+)"
 fi
-if [ -z "$fixture_remote" ] && [ -z "$fixture_local" ]; then
-  fail "one of --fixture-remote or --fixture-local is required"
+if [ -n "$home_config" ]; then
+  require_safe_text "$home_config" "home config path"
+  [ -f "$home_config" ] || fail "home config does not exist: $home_config"
+  home_config="$(cd "$(dirname "$home_config")" && pwd)/$(basename "$home_config")"
+fi
+
+if [ -n "$fixture_host" ] && [ -n "$fixture_local" ]; then
+  fail "use only one of --fixture-host/--fixture-remote or --fixture-local"
+fi
+if [ -z "$fixture_host" ] && [ -z "$fixture_local" ]; then
+  fail "one of --fixture-host/--fixture-remote or --fixture-local is required"
+fi
+if [ -n "$fixture_host" ]; then
+  require_safe_text "$fixture_host" "fixture host path"
+  [ -f "$fixture_host" ] || fail "fixture host path does not exist: $fixture_host"
+  fixture_host="$(cd "$(dirname "$fixture_host")" && pwd)/$(basename "$fixture_host")"
 fi
 if [ -n "$fixture_local" ]; then
+  require_safe_text "$fixture_local" "local fixture path"
   [ -f "$fixture_local" ] || fail "local fixture does not exist: $fixture_local"
   fixture_local="$(cd "$(dirname "$fixture_local")" && pwd)/$(basename "$fixture_local")"
 fi
 if [ -n "$fixture_sha256" ]; then
-  [[ "$fixture_sha256" =~ ^[0-9a-fA-F]{64}$ ]] || fail "fixture SHA-256 must contain exactly 64 hexadecimal characters"
+  [[ "$fixture_sha256" =~ ^[0-9a-fA-F]{64}$ ]] \
+    || fail "fixture SHA-256 must contain exactly 64 hexadecimal characters"
   fixture_sha256="${fixture_sha256,,}"
 fi
 if [ -n "$fixture_name" ]; then
-  [[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "fixture name must be a simple filename suffix"
+  [[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] \
+    || fail "fixture name must be a simple filename suffix"
+  fixture_name_suffix="$fixture_name"
 fi
 
 if [ -n "$result_marker" ] && [ -n "$result_file" ]; then
@@ -340,6 +519,7 @@ if [ -z "$result_marker" ] && [ -z "$result_file" ]; then
 fi
 [ -z "$result_file" ] || require_relative_path "$result_file" "result file"
 [ -z "$trigger_path" ] || require_relative_path "$trigger_path" "trigger path"
+
 if [ -n "$client_script" ]; then
   local_path="$client_script"
   if [[ "$client_script" == *:* ]]; then
@@ -352,15 +532,15 @@ if [ -n "$client_script" ]; then
   local_path="$(cd "$(dirname "$local_path")" && pwd)/$(basename "$local_path")"
   client_script_remote_name="${client_script_remote_name:-$(basename "$local_path")}";
   [[ "$client_script_remote_name" =~ ^[A-Za-z0-9._-]+$ ]] \
-    || fail "client script remote name must be a simple filename: $client_script_remote_name"
+    || fail "client script task name must be a simple filename: $client_script_remote_name"
   client_script="$local_path"
 fi
 
 for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
   [ -z "$marker" ] || require_safe_text "$marker" "marker"
 done
-for option in "${jvm_options[@]}"; do
-  require_safe_text "$option" "JVM option"
+for option in "${jvm_options[@]}" "${remote_pre_launch_args[@]}"; do
+  require_safe_text "$option" "JVM or hook option"
 done
 windows_environment_names=()
 for assignment in "${windows_environment[@]}"; do
@@ -372,8 +552,7 @@ for assignment in "${windows_environment[@]}"; do
   environment_name_normalized=${environment_name^^}
   case "$environment_name_normalized" in
     JAVA_TOOL_OPTIONS|_JAVA_OPTIONS|JDK_JAVA_OPTIONS)
-      fail "Windows environment assignment may not override $environment_name"
-      ;;
+      fail "Windows environment assignment may not override $environment_name" ;;
   esac
   for existing_name in "${windows_environment_names[@]}"; do
     [ "$existing_name" != "$environment_name_normalized" ] \
@@ -385,12 +564,21 @@ for assignment in "${windows_environment[@]}"; do
       || fail "Windows environment value contains an unsupported command character: $forbidden"
   done
 done
+
 for hook in "$remote_pre_launch" "$remote_post_launch" "$remote_pre_cleanup"; do
   if [ -n "$hook" ]; then
-    require_safe_text "$hook" "remote hook path"
-    [ -f "$hook" ] || fail "remote hook does not exist: $hook"
+    require_safe_text "$hook" "local hook path"
+    [ -f "$hook" ] || fail "local hook does not exist: $hook"
+    hook="$(cd "$(dirname "$hook")" && pwd)/$(basename "$hook")"
   fi
 done
+if [ "$remote_pre_launch_background" = 1 ] && [ -z "$remote_pre_launch" ]; then
+  fail "--remote-pre-launch-background requires --remote-pre-launch"
+fi
+if [ "$remote_pre_launch_args_only" = 1 ] && [ -z "$remote_pre_launch" ]; then
+  fail "--remote-pre-launch-args-only requires --remote-pre-launch"
+fi
+
 if [ -n "$cubism_java" ]; then
   require_safe_text "$cubism_java" "Cubism Java path"
   case "$cubism_java" in
@@ -403,11 +591,6 @@ if [ -n "$cubism_java" ]; then
       || fail "Cubism Java path contains an unsupported command character: $forbidden"
   done
 fi
-require_safe_remote_value "$ssh_host" "SSH host"
-[[ "$ssh_host" != -* ]] || fail "SSH host must not begin with an option prefix"
-for value in "$fixture_remote" "$golden_prefix" "$remote_root" "$display" "$proton_wrapper" "$proton_runner"; do
-  [ -z "$value" ] || require_safe_remote_value "$value" "host path or executable"
-done
 
 resolved_plugins=()
 remote_plugin_names=()
@@ -489,28 +672,68 @@ for spec in "${aux_agents[@]}"; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+queue_admission_json=''
+supervisor_cleanup=0
+if [ "$dry_run" = 0 ] && [ -z "$prepare_dir" ] && {
+  [ "${TURBOISM_QUEUE_ADMISSION_FD+x}" = x ] || [ "${TURBOISM_QUEUE_JOB_ID+x}" = x ] \
+    || [ "${TURBOISM_QUEUE_ATTEMPT_ID+x}" = x ] || [ "${TURBOISM_QUEUE_RUN_ID+x}" = x ];
+}; then
+  # Verify inherited lock, durable attempt, live supervisor and ancestry before
+  # using the controlled run ID or creating any task/prefix/hook side effects.
+  queue_admission_json="$(python3 "$repo_root/scripts/preview/host_validation.py" _admit)" \
+    || fail "worker admission rejected"
+  supervisor_cleanup="$(python3 - "$queue_admission_json" <<'PY'
+import json, sys
+print(1 if json.loads(sys.argv[1]).get('cleanupOwner') == 'supervisor' else 0)
+PY
+)"
+fi
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
-if [ "${TURBOISM_HOST_VALIDATION_RUN_NONCE+x}" = x ]; then
+if [ "${TURBOISM_QUEUE_RUN_ID+x}" = x ] && [ -n "$TURBOISM_QUEUE_RUN_ID" ]; then
+  [[ "$TURBOISM_QUEUE_RUN_ID" =~ ^[A-Za-z0-9._-]{1,128}$ ]] \
+    || fail "TURBOISM_QUEUE_RUN_ID must be a safe bounded run ID"
+  run_id="$TURBOISM_QUEUE_RUN_ID"
+  task_id="$run_id"
+elif [ "${TURBOISM_HOST_VALIDATION_RUN_NONCE+x}" = x ]; then
   [[ "$TURBOISM_HOST_VALIDATION_RUN_NONCE" =~ ^[A-Za-z0-9._-]{1,32}$ ]] \
     || fail "TURBOISM_HOST_VALIDATION_RUN_NONCE must be a safe bounded label"
   run_nonce="$TURBOISM_HOST_VALIDATION_RUN_NONCE"
+  run_id="$name-$version-$run_label-$timestamp-$run_nonce"
+  task_id="$run_id"
 else
   run_nonce="$(printf '%06d' "$$")"
+  run_id="$name-$version-$run_label-$timestamp-$run_nonce"
+  task_id="$run_id"
 fi
-task_id="$name-$version-$run_label-$timestamp-$run_nonce"
+
 if [ -n "$fixture_name" ]; then
-  fixture_name="$task_id-$fixture_name"
+  fixture_name_suffix="$fixture_name"
 else
   source_fixture_name="${fixture_local:+$(basename "$fixture_local")}"
-  source_fixture_name="${source_fixture_name:-$(basename "$fixture_remote")}"
+  source_fixture_name="${source_fixture_name:-$(basename "$fixture_host")}";
   case "$source_fixture_name" in
-    *.*) fixture_extension=".${source_fixture_name##*.}" ;;
-    *) fixture_extension='' ;;
+    *.*) fixture_name_suffix=".${source_fixture_name##*.}" ;;
+    *) fixture_name_suffix='' ;;
   esac
-  fixture_name="$task_id$fixture_extension"
+fi
+if [ "$fixture_name_explicit" = 1 ]; then
+  fixture_name="$task_id-$fixture_name_suffix"
+else
+  fixture_name="$task_id$fixture_name_suffix"
 fi
 [[ "$fixture_name" =~ ^[A-Za-z0-9._-]+$ ]] || fail "fixture name must be a simple filename"
-task_dir="$remote_root/$name/$version-$run_label/$task_id"
+
+if [ -n "$remote_pre_launch" ]; then
+  remote_pre_launch="$(cd "$(dirname "$remote_pre_launch")" && pwd)/$(basename "$remote_pre_launch")"
+fi
+if [ -n "$remote_post_launch" ]; then
+  remote_post_launch="$(cd "$(dirname "$remote_post_launch")" && pwd)/$(basename "$remote_post_launch")"
+fi
+if [ -n "$remote_pre_cleanup" ]; then
+  remote_pre_cleanup="$(cd "$(dirname "$remote_pre_cleanup")" && pwd)/$(basename "$remote_pre_cleanup")"
+fi
+
+task_dir="$host_root/$name/$version-$run_label/$task_id"
 home_dir="$task_dir/turboism-home"
 prefix_dir="$task_dir/prefix"
 evidence_dir="$task_dir/evidence"
@@ -519,22 +742,94 @@ golden_cubism="$golden_prefix/$cubism_rel"
 cloned_cubism="$prefix_dir/$cubism_rel"
 local_evidence_dir="${local_evidence_dir:-$repo_root/build/host-validation/$name/$version/$task_id}"
 
+normalized_argv=(
+  --name "$name" --version "$version" --bundle-root "$bundle_root" --agent "$agent"
+  --fixture-sha256 "$fixture_sha256"
+  --golden-prefix "$golden_prefix" --host-root "$host_root"
+  --local-evidence-dir "$local_evidence_dir" --display "$display"
+  --proton-wrapper "$proton_wrapper" --proton-runner "$proton_runner"
+  --run-label "$run_label" --agent-timeout "$agent_timeout"
+  --agent-host-class "$agent_host_class" --ready-timeout "$ready_timeout"
+  --result-timeout "$result_timeout" --exit-timeout "$exit_timeout"
+  --poll-seconds "$poll_seconds"
+)
+[ "$fixture_name_explicit" = 1 ] && normalized_argv+=(--fixture-name "$fixture_name_suffix")
+if [ -n "$home_config" ]; then normalized_argv+=(--home-config "$home_config"); fi
+for spec in "${resolved_plugins[@]}"; do normalized_argv+=(--plugin "$spec"); done
+for spec in "${resolved_aux_agents[@]}"; do normalized_argv+=(--aux-agent "$spec"); done
+for spec in "${resolved_home_files[@]}"; do normalized_argv+=(--home-file "$spec"); done
+for spec in "${resolved_home_dirs[@]}"; do normalized_argv+=(--home-dir "$spec"); done
+if [ -n "$fixture_host" ]; then normalized_argv+=(--fixture-host "$fixture_host"); else normalized_argv+=(--fixture-local "$fixture_local"); fi
+if [ -n "$remote_pre_launch" ]; then normalized_argv+=(--remote-pre-launch "$remote_pre_launch"); fi
+if [ -n "$remote_post_launch" ]; then normalized_argv+=(--remote-post-launch "$remote_post_launch"); fi
+if [ -n "$remote_pre_cleanup" ]; then normalized_argv+=(--remote-pre-cleanup "$remote_pre_cleanup"); fi
+[ "$remote_pre_launch_background" = 1 ] && normalized_argv+=(--remote-pre-launch-background)
+[ "$remote_pre_launch_args_only" = 1 ] && normalized_argv+=(--remote-pre-launch-args-only)
+for hook_arg in "${remote_pre_launch_args[@]}"; do normalized_argv+=(--remote-pre-launch-arg "$hook_arg"); done
+[ "$require_fixture_unchanged" = 1 ] && normalized_argv+=(--require-fixture-unchanged)
+for marker in "${ready_markers[@]}"; do normalized_argv+=(--ready-marker "$marker"); done
+for marker in "${failure_markers[@]}"; do normalized_argv+=(--failure-marker "$marker"); done
+if [ -n "$result_marker" ]; then
+  normalized_argv+=(--result-marker "$result_marker")
+else
+  normalized_argv+=(--result-file "$result_file" --result-pass-line "$result_pass_line" --result-fail-line "$result_fail_line")
+fi
+[ -n "$trigger_path" ] && normalized_argv+=(--trigger "$trigger_path")
+[ -n "$client_script" ] && normalized_argv+=(--client-script "$client_script:$client_script_remote_name")
+for option in "${jvm_options[@]}"; do normalized_argv+=(--jvm-option "$option"); done
+for assignment in "${windows_environment[@]}"; do normalized_argv+=(--windows-env "$assignment"); done
+[ -n "$cubism_java" ] && normalized_argv+=(--cubism-java "$cubism_java")
+[ -n "$cubism_java_console_marker" ] && normalized_argv+=(--cubism-java-console-marker "$cubism_java_console_marker")
+[ "$keep_prefix" = 1 ] && normalized_argv+=(--keep-prefix)
+normalized_argv+=(--transport local)
+
+write_runner_request() {
+  local output="$prepare_dir/runner-request.json" temporary
+  local_prepare_directory "$prepare_dir"
+  local_assert_destination_safe "$output"
+  temporary="$(mktemp "$prepare_dir/.runner-request.json.XXXXXX")"
+  python3 - "$temporary" -- "${normalized_argv[@]}" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+target = Path(sys.argv[1])
+separator = sys.argv.index("--", 2)
+argv = sys.argv[separator + 1:]
+payload = {"schemaVersion": 1, "argv": argv, "environment": {}}
+target.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
+os.replace(target, Path(sys.argv[1]).with_name("runner-request.json"))
+PY
+}
+
+if [ -n "$prepare_dir" ]; then
+  write_runner_request
+  printf 'preparedRequest=%s\n' "$prepare_dir/runner-request.json"
+  exit 0
+fi
+
 if [ "$dry_run" = 1 ]; then
   printf '%s\n' \
     "name=$name" \
+    "transport=local" \
     "version=$version" \
     "validationHostVersionJvmOption=-Dturboism.validation.hostVersion=$version" \
     "taskId=$task_id" \
+    "runId=$run_id" \
     "bundleRoot=$bundle_root" \
     "agent=$agent" \
     "agentStage=$task_dir/turboism-agent.jar" \
     "homeConfigStage=$home_dir/config.json" \
-    "fixtureRemote=$fixture_remote" \
+    "fixtureHost=$fixture_host" \
     "fixtureLocal=$fixture_local" \
     "fixtureName=$fixture_name" \
+    "fixtureNameSuffix=$fixture_name_suffix" \
     "fixturePath=$fixture_path" \
     "validationFixtureNameJvmOption=-Dturboism.validation.fixtureName=$fixture_name" \
     "taskDir=$task_dir" \
+    "hostRoot=$host_root" \
+    "remoteRoot=$host_root" \
     "homeDir=$home_dir" \
     "pluginStageDir=$home_dir/plugins" \
     "auxAgentDir=$task_dir/agents" \
@@ -555,22 +850,15 @@ if [ "$dry_run" = 1 ]; then
     "cubismJava=$cubism_java" \
     "cubismJavaConsoleMarker=$cubism_java_console_marker" \
     "clientScript=$client_script" \
-    "clientScriptRemoteName=$client_script_remote_name" \
+    "clientScriptTaskName=$client_script_remote_name" \
     "evidenceArchiver=$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
-    "evidenceArchiverRemotePath=$task_dir/archive-cubism-host-evidence.sh" \
     "localEvidenceDir=$local_evidence_dir"
-  for index in "${!resolved_plugins[@]}"; do
-    printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"
-  done
-  for index in "${!resolved_home_files[@]}"; do
-    printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"
-  done
-  for index in "${!resolved_home_dirs[@]}"; do
-    printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"
-  done
+  for index in "${!resolved_plugins[@]}"; do printf 'plugin.%s=%s\n' "$index" "${resolved_plugins[$index]}"; done
+  for index in "${!resolved_home_files[@]}"; do printf 'homeFile.%s=%s\n' "$index" "${resolved_home_files[$index]}"; done
+  for index in "${!resolved_home_dirs[@]}"; do printf 'homeDir.%s=%s\n' "$index" "${resolved_home_dirs[$index]}"; done
   if [ -n "$client_script" ]; then
     printf 'clientScript.sha256=%s\n' "$(sha256_file "$client_script")"
-    printf 'clientScript.remotePath=%s\n' "$task_dir/$client_script_remote_name"
+    printf 'clientScript.localPath=%s\n' "$client_script"
   fi
   printf 'turboismAgent.javaToolOption=-javaagent:%s=home=%s;timeoutSeconds=%s\n' \
     "$(z_path "$task_dir/turboism-agent.jar")" "$(z_path "$home_dir")" "$agent_timeout"
@@ -578,8 +866,7 @@ if [ "$dry_run" = 1 ]; then
     local_path="${resolved_aux_agents[$index]%%:*}"
     remote_name="${resolved_aux_agents[$index]#*:}"
     printf 'auxAgent.%s=%s\n' "$index" "${resolved_aux_agents[$index]}"
-    printf 'auxAgent.%s.remotePath=%s\n' "$index" "$task_dir/agents/$remote_name"
-    printf 'auxAgent.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
+    printf 'auxAgent.%s.localPath=%s\n' "$index" "$local_path"
     printf 'auxAgent.%s.javaToolOption=-javaagent:%s\n' "$index" "$(z_path "$task_dir/agents/$remote_name")"
   done
   dry_win_home="$(z_path "$home_dir")"
@@ -604,34 +891,108 @@ if [ "$dry_run" = 1 ]; then
   exit 0
 fi
 
-[ -f "$ssh_key" ] || fail "SSH key does not exist: $ssh_key"
+if [ -z "$queue_admission_json" ]; then
+  # Ordinary direct Runner calls join the same durable queue. Waiting here is
+  # only a client concern; its exit never releases or cancels the host slot.
+  prepare_dir="$(mktemp -d)"
+  trap 'rm -rf -- "$prepare_dir"' EXIT
+  write_runner_request
+  python3 "$repo_root/scripts/preview/host_validation.py" _enqueue-runner \
+    --request "$prepare_dir/runner-request.json"
+  exit $?
+fi
 
-ssh_cmd=(ssh -i "$ssh_key" -o IdentitiesOnly=yes -o ConnectTimeout=10)
-scp_cmd=(scp -i "$ssh_key" -o IdentitiesOnly=yes)
 local_tmp="$(mktemp -d)"
 launched=0
 evidence_collected=0
 success=0
 wrapper_cleanup_done=0
 pre_cleanup_hook_done=0
+background_hook_started=0
+process_cleanup_done=0
+process_cleanup_status='not-run'
+cleanup_status='unknown'
+identity_status='UNKNOWN'
+identity_expected_sha256="$reviewed_jar_sha256"
+identity_actual_sha256=''
+fixture_before_sha256=''
+fixture_after_sha256=''
+source_before_sha256=''
+source_after_sha256=''
+wrapper_exit=''
+normal_exit=0
+fixture_unchanged=0
+golden_unchanged=0
+local_prepare_directory "$task_dir"
+local_prepare_directory "$home_dir/plugins"
+local_prepare_directory "$home_dir/state"
+local_prepare_directory "$home_dir/logs"
+local_prepare_directory "$task_dir/agents"
+local_prepare_directory "$evidence_dir"
+local_assert_copy_safe "$golden_prefix" "$prefix_dir" 1
+local_assert_copy_safe "$evidence_dir/." "$local_evidence_dir/" 1
+
+: > "$evidence_dir/owned-pids.tsv"
+
+process_start_time() {
+  local pid="$1"
+  python3 - "$pid" <<'PY'
+from pathlib import Path
+import sys
+
+pid = sys.argv[1]
+try:
+    raw = (Path('/proc') / pid / 'stat').read_bytes()
+except (OSError, ValueError):
+    raise SystemExit(1)
+closing = raw.rfind(b')')
+if closing < 0:
+    raise SystemExit(1)
+fields = raw[closing + 2:].split()
+if len(fields) < 20:
+    raise SystemExit(1)
+print(fields[19].decode('ascii'))
+PY
+}
+
+record_owned_process_identity() {
+  local pid="$1" role="$2" start confirm
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 0
+  start="$(process_start_time "$pid" 2>/dev/null || true)"
+  if [ -z "$start" ]; then
+    printf 'pid=%s role=%s binding=unproven-start-unreadable\n' "$pid" "$role" \
+      >> "$evidence_dir/launch-ownership-unproven.txt"
+    return 0
+  fi
+  confirm="$(process_start_time "$pid" 2>/dev/null || true)"
+  if [ "$confirm" != "$start" ]; then
+    printf 'pid=%s role=%s binding=unproven-start-changed\n' "$pid" "$role" \
+      >> "$evidence_dir/launch-ownership-unproven.txt"
+    return 0
+  fi
+  printf '%s\t%s\t%s\n' "$pid" "$start" "$role" >> "$evidence_dir/owned-pids.tsv"
+  printf 'pid=%s start=%s role=%s binding=observed-not-atomic\n' \
+    "$pid" "$start" "$role" >> "$evidence_dir/launch-ownership-unproven.txt"
+}
 
 remote_process_alive() {
-  remote_args_bash "$evidence_dir/wrapper.exit" "$evidence_dir/wrapper.pid" <<'REMOTE'
-set -euo pipefail
-remote_args
-exit_file="${REMOTE_ARGS[0]}"; pid_file="${REMOTE_ARGS[1]}"
-test ! -s "$exit_file" && test -s "$pid_file" && kill -0 "$(cat "$pid_file")" 2>/dev/null
-REMOTE
+  [ ! -s "$evidence_dir/wrapper.exit" ] || return 1
+  [ -s "$evidence_dir/wrapper.pid" ] || return 1
+  local pid expected actual
+  pid="$(cat "$evidence_dir/wrapper.pid" 2>/dev/null || true)"
+  expected="$(awk -F '\t' '$3 == "wrapper" { print $2; exit }' "$evidence_dir/owned-pids.tsv" 2>/dev/null || true)"
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  [ -n "$expected" ] || return 1
+  actual="$(process_start_time "$pid" 2>/dev/null || true)"
+  [ "$actual" = "$expected" ] || return 1
+  kill -0 "$pid" 2>/dev/null
 }
 
 remote_normal_exit_evidence_seen() {
   case "$version" in
     5302|5303)
-      remote_args_bash "$evidence_dir/cubism-console.txt" <<'REMOTE'
-set -euo pipefail
-remote_args
-grep -Eq -- '-- successfully exited pid:[0-9]+ --' "${REMOTE_ARGS[0]}"
-REMOTE
+      [ -f "$evidence_dir/cubism-console.txt" ] \
+        && grep -Eq -- '-- successfully exited pid:[0-9]+ --' "$evidence_dir/cubism-console.txt"
       ;;
     5203)
       local log_file
@@ -640,206 +1001,436 @@ REMOTE
       runtime_log_contains "$log_file" 'Stopping Turboism Developer Preview' \
         && runtime_log_contains "$log_file" 'Turboism core shutdown'
       ;;
-    *)
-      return 1
-      ;;
+    *) return 1 ;;
   esac
 }
 
 remote_record_wrapper_cleanup() {
-  remote_args_bash "$evidence_dir/wrapper.cleanup" <<'REMOTE'
-set -euo pipefail
-remote_args
-printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' > "${REMOTE_ARGS[0]}"
-REMOTE
+  printf '%s\n' 'cubism successful-exit marker observed; task-scoped cleanup invoked' \
+    > "$evidence_dir/wrapper.cleanup"
 }
 
 remote_stop_process_tree() {
-  # Keep the task id out of this cleanup shell's process command line. Otherwise
-  # the task-name scan below can discover and terminate its own coordinator
-  # before it records cleanup evidence or reaches the final survivor check.
-  remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner" <<'REMOTE'
-set -euo pipefail
-remote_args
-pid_file="${REMOTE_ARGS[0]}"
-wine_prefix="${REMOTE_ARGS[1]}"
-proton_runner="${REMOTE_ARGS[2]}"
-wineserver="$(dirname "$proton_runner")/files/bin/wineserver"
-[ ! -x "$wineserver" ] || WINEPREFIX="$wine_prefix" "$wineserver" -k 2>/dev/null || true
-processes=()
-if [ -s "$pid_file" ]; then
-  root="$(cat "$pid_file")"
-  [[ "$root" =~ ^[1-9][0-9]*$ ]] || {
-    printf '%s\n' 'invalid wrapper pid' > "$(dirname "$pid_file")/task-process-cleanup.properties"
-    exit 1
+  if [ "$supervisor_cleanup" = 1 ]; then
+    # This Runner itself is contained. Only its outside supervisor can prove
+    # the whole cgroup empty after we exit; no local process scan may do so.
+    process_cleanup_done=1
+    process_cleanup_status='deferred'
+    cleanup_status='unknown'
+    return 0
+  fi
+  [ "$process_cleanup_done" = 0 ] || return 0
+  process_cleanup_done=1
+  local candidate pid expected_start comm signal_rc
+  local cleanup_uncertain=0 scan_failed=0 selected_identity_uncertain=0
+  local observed_task_process=0 wineserver_observed=0
+  local processes=()
+  local protected_ancestors=()
+  declare -A process_start_times=()
+
+  record_uncertain() {
+    cleanup_uncertain=1
+    printf '%s\n' "$1" >> "$evidence_dir/task-process-cleanup-uncertain.txt"
   }
-  processes=("$root")
-fi
-for _ in $(seq 1 64); do
-  added=0
-  for parent in "${processes[@]}"; do
-    while read -r child; do
-      [ -n "$child" ] || continue
-      if [[ " ${processes[*]} " != *" $child "* ]]; then
-        processes+=("$child")
-        added=1
-      fi
-    done < <(ps -o pid= --ppid "$parent" 2>/dev/null | tr -d ' ' || true)
-  done
-  [ "$added" = 1 ] || break
-done
-task_dir="${wine_prefix%/prefix/pfx}"
-task_name="${task_dir##*/}"
-append_task_processes() {
-  local pid
-  while read -r pid; do
-    [ -n "$pid" ] || continue
-    [[ " ${processes[*]} " == *" $pid "* ]] || processes+=("$pid")
-  done < <(
-    python3 - "$task_dir" "$wine_prefix" <<'PY'
+
+  is_protected_ancestor() {
+    local candidate="$1" ancestor
+    [ "$candidate" != "$$" ] || return 0
+    for ancestor in "${protected_ancestors[@]}"; do
+      [ "$candidate" != "$ancestor" ] || return 0
+    done
+    return 1
+  }
+
+  scan_owned_processes() {
+    local proc_root="${1:-/proc}"
+    python3 - "$task_dir" "$prefix_dir/pfx" "$proc_root" <<'PY'
 from pathlib import Path
+import os
 import sys
 
-task = sys.argv[1]
-prefix = sys.argv[2]
-self_pid = str(Path('/proc/self').resolve().name)
-for proc in Path('/proc').iterdir():
+task = sys.argv[1].encode()
+prefix = sys.argv[2].encode()
+proc_root = Path(sys.argv[3])
+self_pid = str(os.getpid())
+
+def fail_scan(message):
+    print(f'proc-scan-error: {message}', file=sys.stderr)
+    raise SystemExit(2)
+
+def path_token(token, root):
+    return token == root or token.startswith(root + b'/')
+
+def start_time(raw):
+    closing = raw.rfind(b')')
+    if closing < 0:
+        return None
+    fields = raw[closing + 2:].split()
+    return fields[19].decode('ascii') if len(fields) >= 20 else None
+
+try:
+    processes = list(proc_root.iterdir())
+except OSError as exc:
+    fail_scan(f'{proc_root}: {exc}')
+
+for proc in processes:
     if not proc.name.isdigit() or proc.name == self_pid:
         continue
     try:
-        raw = (proc / 'cmdline').read_bytes()
-        environ = (proc / 'environ').read_bytes()
-    except (OSError, PermissionError):
-        continue
-    owned = task.encode() in raw or prefix.encode() in raw
-    owned = owned or f'WINEPREFIX={prefix}'.encode() + b'\0' in environ
-    if owned:
-        print(proc.name)
+        raw_cmdline = (proc / 'cmdline').read_bytes()
+        raw_environ = (proc / 'environ').read_bytes()
+        stat = (proc / 'stat').read_bytes()
+        comm = (proc / 'comm').read_bytes().rstrip(b'\n').decode('utf-8', 'replace')
+        argv = [token for token in raw_cmdline.split(b'\x00') if token]
+        exact_environment = False
+        for entry in raw_environ.split(b'\x00'):
+            key, separator, value = entry.partition(b'=')
+            if not separator:
+                continue
+            if key == b'TURBOISM_HOST_VALIDATION_TASK_DIR' and value == task:
+                exact_environment = True
+            if key == b'WINEPREFIX' and value == prefix:
+                exact_environment = True
+        exact_argument = any(path_token(token, task) or path_token(token, prefix) for token in argv)
+        if exact_environment or exact_argument:
+            start = start_time(stat)
+            if start is None:
+                fail_scan(f'{proc}: malformed stat start time')
+            print(f'{proc.name}\t{start}\t{comm}')
+    except (OSError, UnicodeError, ValueError) as exc:
+        fail_scan(f'{proc}: {exc}')
 PY
-  )
-}
-append_task_processes
-for ((index=${#processes[@]} - 1; index >= 0; index--)); do
-  kill -TERM "${processes[$index]}" 2>/dev/null || true
-done
-for _ in $(seq 1 10); do
-  append_task_processes
-  alive=0
-  for pid in "${processes[@]}"; do
-    kill -0 "$pid" 2>/dev/null && alive=1
-  done
-  [ "$alive" = 1 ] || break
-  sleep 1
-done
-append_task_processes
-for ((index=${#processes[@]} - 1; index >= 0; index--)); do
-  kill -KILL "${processes[$index]}" 2>/dev/null || true
-done
-for _ in $(seq 1 10); do
-  alive=0
-  for pid in "${processes[@]}"; do
-    kill -0 "$pid" 2>/dev/null && alive=1
-  done
-  [ "$alive" = 1 ] || break
-  sleep 1
-done
-mapfile -t survivors < <(
-  python3 - "$task_dir" "$wine_prefix" "${processes[@]}" <<'PY'
+  }
+
+  add_process() {
+    local candidate="$1" supplied_start="${2:-}" role="${3:-candidate}" observed_start
+    [[ "$candidate" =~ ^[1-9][0-9]*$ ]] || return 0
+    if is_protected_ancestor "$candidate"; then
+      record_uncertain "protected ancestor candidate pid=$candidate role=$role"
+      return 0
+    fi
+    if [ -z "$supplied_start" ]; then
+      record_uncertain "unbound process candidate pid=$candidate role=$role"
+      return 0
+    fi
+    observed_start="$(process_start_time "$candidate" 2>/dev/null || true)"
+    if [ -z "$observed_start" ]; then
+      if [ -e "/proc/$candidate" ]; then
+        record_uncertain "unable to read process identity pid=$candidate role=$role"
+      fi
+      return 0
+    fi
+    if [ "$observed_start" != "$supplied_start" ]; then
+      printf 'pid-reused pid=%s expectedStart=%s observedStart=%s role=%s\n' \
+        "$candidate" "$supplied_start" "$observed_start" "$role" \
+        >> "$evidence_dir/task-process-cleanup.pid-reuse"
+      selected_identity_uncertain=1
+      return 0
+    fi
+    if [ -n "${process_start_times[$candidate]+x}" ]; then
+      if [ "${process_start_times[$candidate]}" != "$observed_start" ]; then
+        record_uncertain "pid identity changed pid=$candidate role=$role"
+        selected_identity_uncertain=1
+      fi
+      return 0
+    fi
+    processes+=("$candidate")
+    process_start_times["$candidate"]="$observed_start"
+    printf '%s\t%s\t%s\n' "$candidate" "$observed_start" "$role" \
+      >> "$evidence_dir/task-process-selected.tsv"
+  }
+
+  process_is_same_instance() {
+    local candidate="$1" expected="${process_start_times[$1]:-}" observed
+    [ -n "$expected" ] || return 1
+    [ -e "/proc/$candidate" ] || return 1
+    observed="$(process_start_time "$candidate" 2>/dev/null || true)"
+    if [ -z "$observed" ]; then
+      record_uncertain "unable to re-read process identity pid=$candidate"
+      selected_identity_uncertain=1
+      return 1
+    fi
+    if [ "$observed" != "$expected" ]; then
+      printf 'pid-reused-before-signal pid=%s expectedStart=%s observedStart=%s\n' \
+        "$candidate" "$expected" "$observed" \
+        >> "$evidence_dir/task-process-cleanup.pid-reuse"
+      selected_identity_uncertain=1
+      return 1
+    fi
+    kill -0 "$candidate" 2>/dev/null
+  }
+
+  signal_pidfd() {
+    local candidate="$1" expected="$2" signal="$3"
+    python3 - "$candidate" "$expected" "$signal" <<'PY'
 from pathlib import Path
+import os
+import signal
 import sys
 
-task = sys.argv[1]
-prefix = sys.argv[2]
-tracked = set(sys.argv[3:])
-for proc in Path("/proc").iterdir():
-    if not proc.name.isdigit():
-        continue
-    try:
-        raw = (proc / "cmdline").read_bytes()
-        cmdline = raw.replace(b"\0", b" ").decode("utf-8", "replace")
-        environ = (proc / "environ").read_bytes()
-    except (OSError, PermissionError):
-        continue
-    owned = proc.name in tracked or task.encode() in raw or prefix.encode() in raw
-    owned = owned or f"WINEPREFIX={prefix}".encode() + b"\0" in environ
-    if owned and proc.name != str(Path('/proc/self').resolve().name):
-        print(f"{proc.name} {cmdline.strip()}")
+pid = int(sys.argv[1])
+expected = sys.argv[2]
+signal_name = sys.argv[3]
+
+def start_time(pid_value):
+    raw = (Path('/proc') / str(pid_value) / 'stat').read_bytes()
+    closing = raw.rfind(b')')
+    if closing < 0:
+        raise ValueError('malformed stat')
+    fields = raw[closing + 2:].split()
+    if len(fields) < 20:
+        raise ValueError('short stat')
+    return fields[19].decode('ascii')
+
+try:
+    pidfd_open = getattr(os, 'pidfd_open')
+    pidfd_send_signal = getattr(signal, 'pidfd_send_signal')
+except AttributeError as exc:
+    print(f'pidfd unavailable: {exc}', file=sys.stderr)
+    raise SystemExit(10)
+
+try:
+    pidfd = pidfd_open(pid)
+except OSError as exc:
+    print(f'pidfd open failed for {pid}: {exc}', file=sys.stderr)
+    raise SystemExit(11)
+try:
+    observed = start_time(pid)
+    if observed != expected:
+        print(f'pidfd identity mismatch pid={pid} expected={expected} observed={observed}', file=sys.stderr)
+        raise SystemExit(12)
+    signal_number = getattr(signal, f'SIG{signal_name}')
+    pidfd_send_signal(signal_number, pidfd)
+except ProcessLookupError as exc:
+    print(f'pidfd target already exited pid={pid}: {exc}', file=sys.stderr)
+    raise SystemExit(13)
+except OSError as exc:
+    print(f'pidfd signal failed for {pid}: {exc}', file=sys.stderr)
+    raise SystemExit(14)
+finally:
+    os.close(pidfd)
 PY
-)
-{
-  printf 'taskDir=%s\n' "$task_dir"
-  printf 'trackedProcesses=%s\n' "${#processes[@]}"
-  printf 'survivors=%s\n' "${#survivors[@]}"
-} > "$(dirname "$pid_file")/task-process-cleanup.properties"
-if [ "${#survivors[@]}" -gt 0 ]; then
-  printf '%s\n' "${survivors[@]}" > "$(dirname "$pid_file")/task-process-survivors.txt"
-  return 1
-fi
-rm -f "$(dirname "$pid_file")/task-process-survivors.txt"
-REMOTE
+  }
+
+  signal_selected() {
+    local signal="$1" index candidate expected
+    for ((index=${#processes[@]} - 1; index >= 0; index--)); do
+      candidate="${processes[$index]}"
+      expected="${process_start_times[$candidate]:-}"
+      if process_is_same_instance "$candidate"; then
+        if signal_pidfd "$candidate" "$expected" "$signal"; then
+          :
+        else
+          signal_rc=$?
+          case "$signal_rc" in
+            12)
+              selected_identity_uncertain=1
+              printf 'pidfd identity mismatch before signal pid=%s signal=%s\n' \
+                "$candidate" "$signal" >> "$evidence_dir/task-process-cleanup.pid-reuse"
+              ;;
+            *)
+              record_uncertain "pidfd signal unavailable pid=$candidate signal=$signal status=$signal_rc"
+              ;;
+          esac
+        fi
+      elif [ -e "/proc/$candidate" ]; then
+        record_uncertain "selected process identity could not be proven pid=$candidate signal=$signal"
+      fi
+    done
+  }
+
+  selected_is_alive() {
+    local candidate
+    for candidate in "${processes[@]}"; do
+      if process_is_same_instance "$candidate"; then
+        return 0
+      fi
+    done
+    return 1
+  }
+
+  : > "$evidence_dir/task-process-selected.tsv"
+  : > "$evidence_dir/task-process-cleanup-uncertain.txt"
+  : > "$evidence_dir/task-process-cleanup.pid-reuse"
+  : > "$evidence_dir/task-process-survivors.txt"
+
+  # Do not walk children with ps --ppid: its parent PID can be reused between
+  # lookup and enumeration. Full /proc attribution below is the only candidate
+  # source, and every candidate carries its observed start time.
+  local cursor="$$" parent
+  while [[ "$cursor" =~ ^[1-9][0-9]*$ ]] && [ "$cursor" -ne 1 ]; do
+    parent="$(awk '{print $4}' "/proc/$cursor/stat" 2>/dev/null || true)"
+    if ! [[ "$parent" =~ ^[1-9][0-9]*$ ]]; then
+      record_uncertain "could not verify protected ancestor chain from pid=$cursor"
+      break
+    fi
+    protected_ancestors+=("$parent")
+    cursor="$parent"
+  done
+
+  local owned_scan="$local_tmp/owned-processes-before-cleanup.tsv"
+  if ! scan_owned_processes > "$owned_scan"; then
+    record_uncertain 'owned process scan failed before cleanup'
+    scan_failed=1
+  fi
+  if [ "$scan_failed" = 0 ]; then
+    while IFS=$'\t' read -r pid expected_start comm; do
+      [ -n "$pid" ] || continue
+      observed_task_process=1
+      add_process "$pid" "$expected_start" owned-scan
+      case "$comm" in
+        wineserver|wineserver.*) wineserver_observed=1 ;;
+      esac
+    done < "$owned_scan"
+  fi
+
+  if [ "$scan_failed" = 0 ] && [ "${#processes[@]}" -gt 0 ]; then
+    signal_selected TERM
+    for _ in $(seq 1 10); do
+      selected_is_alive || break
+      sleep 1
+    done
+    if selected_is_alive; then
+      signal_selected KILL
+      for _ in $(seq 1 10); do
+        selected_is_alive || break
+        sleep 1
+      done
+    fi
+  fi
+
+  local stable_empty=0 scan_pass=0 current_scan found
+  while [ "$scan_pass" -lt 3 ] && [ "$scan_failed" = 0 ]; do
+    scan_pass=$((scan_pass + 1))
+    current_scan="$local_tmp/owned-processes-after-$scan_pass.tsv"
+    if ! scan_owned_processes > "$current_scan"; then
+      record_uncertain "owned process scan failed after cleanup pass=$scan_pass"
+      scan_failed=1
+      break
+    fi
+    found=0
+    while IFS=$'\t' read -r pid expected_start comm; do
+      [ -n "$pid" ] || continue
+      found=1
+      observed_task_process=1
+      add_process "$pid" "$expected_start" post-cleanup
+    done < "$current_scan"
+    if [ "$found" = 0 ]; then
+      stable_empty=$((stable_empty + 1))
+    else
+      stable_empty=0
+      signal_selected TERM
+      sleep 1
+      if selected_is_alive; then
+        signal_selected KILL
+      fi
+    fi
+  done
+
+  if [ "$scan_failed" = 0 ] && selected_is_alive; then
+    record_uncertain 'selected task process remained alive after final scan'
+  fi
+
+  # Stable empty scans are only observations. Without a task supervisor/cgroup
+  # proof, a detached or late-born child cannot be excluded, so launched tasks
+  # never claim safe cleanup from this Runner alone.
+  if [ "$launched" = 1 ] || [ "$background_hook_started" = 1 ]; then
+    record_uncertain 'late-born or detached task processes cannot be excluded without supervisor proof'
+  fi
+
+  {
+    printf 'taskDir=%s\n' "$task_dir"
+    printf 'trackedProcesses=%s\n' "${#processes[@]}"
+    printf 'postCleanupScanPasses=%s\n' "$scan_pass"
+    printf 'stableEmptyScans=%s\n' "$stable_empty"
+    printf 'wineserverObservedByExactOwnership=%s\n' "$wineserver_observed"
+    printf 'automaticSignalMethod=pidfd\n'
+    printf 'lateProcessExclusion=unproven-without-supervisor\n'
+    printf 'cleanupUncertain=%s\n' "$cleanup_uncertain"
+  } > "$evidence_dir/task-process-cleanup.properties"
+  if [ "$stable_empty" -lt 2 ] || [ "$cleanup_uncertain" = 1 ] \
+    || [ "$selected_identity_uncertain" = 1 ] || [ "$scan_failed" = 1 ] \
+    || [ "$observed_task_process" = 1 ] || [ "$launched" = 1 ] \
+    || [ "$background_hook_started" = 1 ]; then
+    if [ -f "$current_scan" ]; then
+      while IFS=$'\t' read -r pid expected_start comm; do
+        [ -n "$pid" ] || continue
+        printf '%s\t%s\t%s\n' "$pid" "$expected_start" "$comm" \
+          >> "$evidence_dir/task-process-survivors.txt"
+      done < "$current_scan"
+    fi
+    process_cleanup_status='unknown'
+    return 1
+  fi
+  rm -f -- "$evidence_dir/task-process-survivors.txt"
+  process_cleanup_status='safe'
 }
 
 latest_runtime_log() {
-  remote_args_bash "$home_dir/logs/runtime" <<'REMOTE' || true
-set -euo pipefail
-remote_args
-find "${REMOTE_ARGS[0]}" -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2-
-REMOTE
+  # Runtime logging may not have created its directory on the first poll.
+  [ -d "$home_dir/logs/runtime" ] || return 0
+  find "$home_dir/logs/runtime" -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null \
+    | sort -nr | head -n 1 | cut -d' ' -f2-
 }
 
 runtime_log_contains() {
   local log_file="$1" marker="$2"
-  remote_args_bash "$log_file" "$marker" <<'REMOTE'
-set -euo pipefail
-remote_args
-grep -Fq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
-REMOTE
+  grep -Fq -- "$marker" "$log_file"
 }
 
 result_file_contains() {
   local relative="$1" line="$2"
-  remote_args_bash "$home_dir/$relative" "$line" <<'REMOTE'
-set -euo pipefail
-remote_args
-[ -f "${REMOTE_ARGS[0]}" ] && grep -Fxq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
-REMOTE
+  python3 - "$home_dir/$relative" "$line" <<'PY'
+import os
+import sys
+from pathlib import Path
+
+path = Path(sys.argv[1])
+if not path.is_file():
+    raise SystemExit(1)
+expected = os.fsencode(sys.argv[2])
+with path.open('rb') as result:
+    for raw in result:
+        if raw.removesuffix(b'\n').removesuffix(b'\r') == expected:
+            raise SystemExit(0)
+raise SystemExit(1)
+PY
 }
 
 verify_staged_artifacts() {
   local phase="$1" actual expected spec local_path remote_name
   expected="$(sha256_file "$agent")"
-  actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/turboism-agent.jar' | cut -d' ' -f1")"
+  actual="$(sha256_file "$task_dir/turboism-agent.jar")"
   [ "$actual" = "$expected" ] || fail "staged agent hash mismatch"
   for spec in "${resolved_plugins[@]}"; do
     local_path="${spec%%:*}"
     remote_name="${spec#*:}"
     expected="$(sha256_file "$local_path")"
-    actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/plugins/$remote_name' | cut -d' ' -f1")"
+    actual="$(sha256_file "$home_dir/plugins/$remote_name")"
     [ "$actual" = "$expected" ] || fail "staged plugin hash mismatch: $remote_name"
   done
   for spec in "${resolved_home_files[@]}"; do
     local_path="${spec%%:*}"
     relative_path="${spec#*:}"
     expected="$(sha256_file "$local_path")"
-    actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$home_dir/$relative_path' | cut -d' ' -f1")"
+    actual="$(sha256_file "$home_dir/$relative_path")"
     [ "$actual" = "$expected" ] || fail "staged home-file hash mismatch: $relative_path"
   done
   for spec in "${resolved_home_dirs[@]}"; do
     local_path="${spec%%:*}"
     relative_path="${spec#*:}"
     local_hash="$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
-    remote_hash="$("${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1")"
-    [ "$remote_hash" = "$local_hash" ] || fail "staged home-dir hash mismatch: $relative_path"
+    staged_hash="$(tar -C "$home_dir/$relative_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
+    [ "$staged_hash" = "$local_hash" ] || fail "staged home-dir hash mismatch: $relative_path"
   done
   if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
-    local aux_hash_file
-    aux_hash_file="$local_tmp/aux-agent-hashes-$phase.properties"
+    local aux_hash_file="$local_tmp/aux-agent-hashes-$phase.properties"
     : > "$aux_hash_file"
     for index in "${!resolved_aux_agents[@]}"; do
       local_path="${resolved_aux_agents[$index]%%:*}"
       remote_name="${resolved_aux_agents[$index]#*:}"
       expected="$(sha256_file "$local_path")"
-      actual="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$task_dir/agents/$remote_name' | cut -d' ' -f1")"
+      actual="$(sha256_file "$task_dir/agents/$remote_name")"
       printf 'auxAgent.%s.name=%s\n' "$index" "$remote_name" >> "$aux_hash_file"
       printf 'auxAgent.%s.localSha256=%s\n' "$index" "$expected" >> "$aux_hash_file"
       printf 'auxAgent.%s.stagedSha256=%s\n' "$index" "$actual" >> "$aux_hash_file"
@@ -851,40 +1442,42 @@ verify_staged_artifacts() {
 collect_evidence() {
   [ "$evidence_collected" = 0 ] || return 0
   evidence_collected=1
-  "${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$home_dir' '$evidence_dir' '$fixture_path' '$fixture_remote' '$golden_cubism' '$cloned_cubism' '$result_file'" <<'REMOTE' || true
-set -u
-task="$1"; home="$2"; evidence="$3"; fixture="$4"; source_fixture="$5"
-golden="$6"; cloned="$7"; result_file="$8"
-archive_script="$task/archive-cubism-host-evidence.sh"
-mkdir -p "$evidence"
-runtime_log="$(find "$home/logs/runtime" -type f -name '*.log' -printf '%T@ %p\n' 2>/dev/null | sort -nr | head -n 1 | cut -d' ' -f2- || true)"
-[ -z "$runtime_log" ] || cp "$runtime_log" "$evidence/turboism.log" 2>/dev/null || true
-[ ! -f "$home/state/plugin-load-report.json" ] || cp "$home/state/plugin-load-report.json" "$evidence/" || true
-[ ! -f "$home/state/preview-runtime-report.json" ] || cp "$home/state/preview-runtime-report.json" "$evidence/" || true
-if [ -n "$result_file" ] && [ -f "$home/$result_file" ]; then
-  mkdir -p "$evidence/result"
-  cp "$home/$result_file" "$evidence/result/$(basename "$result_file")" || true
-fi
-[ ! -x "$archive_script" ] || "$archive_script" "$home" "$evidence" 2>/dev/null || true
-{
-  echo "fixture_after_sha256=$(sha256sum "$fixture" 2>/dev/null | cut -d' ' -f1 || true)"
-  if [ -n "$source_fixture" ]; then
-    echo "source_fixture_after_sha256=$(sha256sum "$source_fixture" 2>/dev/null | cut -d' ' -f1 || true)"
+  local runtime_log archive_script
+  local_prepare_directory "$evidence_dir"
+  runtime_log="$(latest_runtime_log || true)"
+  [ -z "$runtime_log" ] || cp -- "$runtime_log" "$evidence_dir/turboism.log" 2>/dev/null || true
+  [ ! -f "$home_dir/state/plugin-load-report.json" ] \
+    || cp -- "$home_dir/state/plugin-load-report.json" "$evidence_dir/" || true
+  [ ! -f "$home_dir/state/preview-runtime-report.json" ] \
+    || cp -- "$home_dir/state/preview-runtime-report.json" "$evidence_dir/" || true
+  if [ -n "$result_file" ] && [ -f "$home_dir/$result_file" ]; then
+    local_prepare_directory "$evidence_dir/result"
+    cp -- "$home_dir/$result_file" "$evidence_dir/result/$(basename "$result_file")" || true
   fi
-  echo "golden_jar_after_sha256=$(sha256sum "$golden/app/lib/Live2D_Cubism.jar" 2>/dev/null | cut -d' ' -f1 || true)"
-  echo "golden_bat_after_sha256=$(sha256sum "$golden/CubismEditor5.bat" 2>/dev/null | cut -d' ' -f1 || true)"
-  echo "cloned_jar_after_sha256=$(sha256sum "$cloned/app/lib/Live2D_Cubism.jar" 2>/dev/null | cut -d' ' -f1 || true)"
-  echo "cloned_bat_after_sha256=$(sha256sum "$cloned/CubismEditor5.bat" 2>/dev/null | cut -d' ' -f1 || true)"
-  echo "wrapper_exit=$(cat "$evidence/wrapper.exit" 2>/dev/null || true)"
-} > "$evidence/final-hashes.properties"
-REMOTE
-  mkdir -p "$local_evidence_dir"
-  "${scp_cmd[@]}" -r "$ssh_host:$evidence_dir/." "$local_evidence_dir/" >/dev/null 2>&1 || true
+  archive_script="$task_dir/archive-cubism-host-evidence.sh"
+  [ ! -x "$archive_script" ] || "$archive_script" "$home_dir" "$evidence_dir" 2>/dev/null || true
+  {
+    printf 'fixture_after_sha256=%s\n' "$(sha256sum "$fixture_path" 2>/dev/null | cut -d' ' -f1 || true)"
+    if [ -n "$fixture_host" ]; then
+      printf 'source_fixture_after_sha256=%s\n' "$(sha256sum "$fixture_host" 2>/dev/null | cut -d' ' -f1 || true)"
+    elif [ -n "$fixture_local" ]; then
+      printf 'source_fixture_after_sha256=%s\n' "$(sha256sum "$fixture_local" 2>/dev/null | cut -d' ' -f1 || true)"
+    fi
+    printf 'golden_jar_after_sha256=%s\n' "$(sha256sum "$golden_cubism/app/lib/Live2D_Cubism.jar" 2>/dev/null | cut -d' ' -f1 || true)"
+    printf 'golden_bat_after_sha256=%s\n' "$(sha256sum "$golden_cubism/CubismEditor5.bat" 2>/dev/null | cut -d' ' -f1 || true)"
+    printf 'cloned_jar_after_sha256=%s\n' "$(sha256sum "$cloned_cubism/app/lib/Live2D_Cubism.jar" 2>/dev/null | cut -d' ' -f1 || true)"
+    printf 'cloned_bat_after_sha256=%s\n' "$(sha256sum "$cloned_cubism/CubismEditor5.bat" 2>/dev/null | cut -d' ' -f1 || true)"
+    printf 'golden_unchanged=%s\n' "$golden_unchanged"
+    printf 'wrapper_exit=%s\n' "$(cat "$evidence_dir/wrapper.exit" 2>/dev/null || true)"
+  } > "$evidence_dir/final-hashes.properties"
+  local_prepare_directory "$local_evidence_dir"
+  local_copy_from --recursive "$evidence_dir/." "$local_evidence_dir/"
 }
 
 cleanup_prefix() {
+  [ "$supervisor_cleanup" = 0 ] || return 0
   [ "$keep_prefix" = 0 ] || return 0
-  "${ssh_cmd[@]}" "$ssh_host" "rm -rf -- '$prefix_dir'" || true
+  local_remove_tree "$prefix_dir"
 }
 
 run_remote_hook() {
@@ -893,23 +1486,135 @@ run_remote_hook() {
   if [ "$hook" = "$remote_pre_cleanup" ] && [ "$pre_cleanup_hook_done" = 1 ]; then
     return 0
   fi
-  local remote_hook="$task_dir/$(basename "$hook")"
-  "${scp_cmd[@]}" "$hook" "$ssh_host:$remote_hook"
-  remote_args_bash \
-    "$task_dir" "$home_dir" "$evidence_dir" "$prefix_dir" "$fixture_path" "$task_id" \
-    "$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display" \
-    "$remote_hook" <<'REMOTE'
-set -euo pipefail
-remote_args
-hook="${REMOTE_ARGS[11]}"
-chmod 700 "$hook"
-exec "$hook" "${REMOTE_ARGS[0]}" "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[2]}" \
-  "${REMOTE_ARGS[3]}" "${REMOTE_ARGS[4]}" "${REMOTE_ARGS[5]}" "${REMOTE_ARGS[6]}" \
-  "${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[10]}"
-REMOTE
+  local task_hook="$task_dir/$(basename "$hook")"
+  local_copy_to "$hook" "$task_hook"
+  chmod 700 -- "$task_hook"
+  local hook_arg expanded_hook_arg hook_log hook_home_win hook_fixture_win
+  hook_home_win="$(z_path "$home_dir")"
+  hook_fixture_win="$(z_path "$fixture_path")"
+  local hook_context=(
+    "$task_dir" "$home_dir" "$evidence_dir" "$prefix_dir" "$fixture_path" "$task_id"
+    "$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display"
+  )
+  local expanded_hook_args=()
+  for hook_arg in "${remote_pre_launch_args[@]}"; do
+    expanded_hook_arg="${hook_arg//\{TASK_ID\}/$task_id}"
+    expanded_hook_arg="${expanded_hook_arg//\{HOME\}/$hook_home_win}"
+    expanded_hook_arg="${expanded_hook_arg//\{FIXTURE\}/$hook_fixture_win}"
+    expanded_hook_arg="${expanded_hook_arg//\{FIXTURE_NAME\}/$fixture_name}"
+    expanded_hook_args+=("$expanded_hook_arg")
+  done
+  hook_log="$(safe_label "$(basename "$hook")")"
+  if [ "$hook" = "$remote_pre_launch" ] && [ "$remote_pre_launch_background" = 1 ]; then
+    if [ "$remote_pre_launch_args_only" = 1 ]; then
+      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}" \
+        > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
+    else
+      TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}" \
+        > "$evidence_dir/$hook_log.out" 2> "$evidence_dir/$hook_log.err" &
+    fi
+    background_hook_started=1
+    printf '%s\n' "$!" > "$evidence_dir/background-hook.pid"
+    record_owned_process_identity "$!" background-hook
+  elif [ "$remote_pre_launch_args_only" = 1 ] && [ "$hook" = "$remote_pre_launch" ]; then
+    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${expanded_hook_args[@]}"
+  else
+    TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir" "$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"
+  fi
   if [ "$hook" = "$remote_pre_cleanup" ]; then
     pre_cleanup_hook_done=1
   fi
+}
+
+write_lifecycle_result() {
+  local rc="$1" cleanup_rc="$2" result_status='FAIL' cleanup_value="$cleanup_status"
+  local lifecycle_tmp="$evidence_dir/.lifecycle-result.json.$$"
+  if [ "$success" = 1 ] && [ "$rc" -eq 0 ] && [ "$cleanup_rc" -eq 0 ] \
+    && [ "$identity_status" = PASS ] && [ "$fixture_unchanged" = 1 ] \
+    && [ "$normal_exit" = 1 ] && [ "$cleanup_status" = safe ] \
+    && [ "$golden_unchanged" = 1 ]; then
+    result_status='PASS'
+  fi
+  [ -n "$cleanup_value" ] || cleanup_value=unknown
+  if [ "$result_status" != PASS ] && {
+    [ "$cleanup_value" = unknown ] || [ "$identity_status" = UNKNOWN ] || [ "$normal_exit" = 0 ]
+  }; then
+    result_status='UNKNOWN'
+  fi
+  TURBOISM_LOCAL_EVIDENCE_DIR="$local_evidence_dir" \
+  python3 - "$lifecycle_tmp" "$task_id" "$result_status" "$rc" "$cleanup_value" \
+    "$identity_status" "$fixture_unchanged" "$normal_exit" "$identity_expected_sha256" \
+    "$identity_actual_sha256" "$fixture_before_sha256" "$fixture_after_sha256" \
+    "$source_before_sha256" "$source_after_sha256" "$golden_unchanged" "$wrapper_exit" \
+    "$task_dir" "$evidence_dir" "$keep_prefix" "$queue_admission_json" "$success" \
+    "${golden_bat_before:-}" "${cloned_bat_before:-}" <<'PY'
+import json
+import os
+import sys
+from pathlib import Path
+
+(
+    output, run_id, status, exit_code, cleanup, identity_status, fixture_unchanged,
+    normal_exit, expected_jar, actual_jar, fixture_before, fixture_after,
+    source_before, source_after, golden_unchanged, wrapper_exit, task_dir, evidence_dir, keep_prefix, admission_json,
+    validation_complete, golden_bat_before, cloned_bat_before,
+) = sys.argv[1:]
+admission = json.loads(admission_json)
+if admission.get("schemaVersion") != 1 or admission.get("runId") != run_id:
+    raise SystemExit("lifecycle admission identity mismatch")
+payload = {
+    "schemaVersion": 1,
+    "jobId": admission["jobId"],
+    "attemptId": admission["attemptId"],
+    "runId": run_id,
+    "preparedDigest": admission["preparedDigest"],
+    "cleanup": cleanup,
+    "validationStatus": status,
+    "identityVerified": identity_status == "PASS",
+    "fixtureUnchanged": fixture_unchanged == "1",
+    "normalExit": normal_exit == "1",
+    "details": {
+        "exitCode": int(exit_code),
+        "identityStatus": identity_status,
+        "identityExpectedJarSha256": expected_jar,
+        "identityActualJarSha256": actual_jar or None,
+        "fixtureBeforeSha256": fixture_before or None,
+        "fixtureAfterSha256": fixture_after or None,
+        "sourceFixtureBeforeSha256": source_before or None,
+        "sourceFixtureAfterSha256": source_after or None,
+        "goldenUnchanged": golden_unchanged == "1",
+        "wrapperExit": int(wrapper_exit) if wrapper_exit.isdigit() else None,
+        "taskDir": task_dir,
+        "evidenceDir": evidence_dir,
+        "prefixRetained": (Path(task_dir) / "prefix").exists(),
+        "cleanupOwner": admission.get("cleanupOwner"),
+        "validationComplete": validation_complete == "1",
+        "goldenBatBeforeSha256": golden_bat_before or None,
+        "clonedBatBeforeSha256": cloned_bat_before or None,
+        "taskOwnedCleanup": cleanup == "safe",
+    },
+}
+target = Path(output)
+with target.open('w', encoding='utf-8') as stream:
+    stream.write(json.dumps(payload, ensure_ascii=False, indent=2) + '\n')
+    stream.flush()
+    os.fsync(stream.fileno())
+os.replace(target, Path(evidence_dir) / "lifecycle-result.json")
+local_evidence = Path(os.environ["TURBOISM_LOCAL_EVIDENCE_DIR"])
+local_evidence.mkdir(parents=True, exist_ok=True)
+copy_tmp = local_evidence / f'.lifecycle-result.json.{os.getpid()}'
+with copy_tmp.open('xb') as stream:
+    stream.write((Path(evidence_dir) / 'lifecycle-result.json').read_bytes())
+    stream.flush()
+    os.fsync(stream.fileno())
+os.replace(copy_tmp, local_evidence / 'lifecycle-result.json')
+for directory in (Path(evidence_dir), local_evidence):
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+PY
 }
 
 on_exit() {
@@ -921,170 +1626,133 @@ on_exit() {
   if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree || cleanup_rc=1
   fi
-  collect_evidence
-  if [ "$success" = 1 ]; then
-    cleanup_prefix
+  if [ "$background_hook_started" = 1 ] && [ "$process_cleanup_done" = 0 ]; then
+    remote_stop_process_tree || cleanup_rc=1
   fi
-  rm -rf "$local_tmp"
+  collect_evidence || cleanup_rc=1
+  if [ "$success" = 1 ] && [ "$cleanup_rc" -eq 0 ]; then
+    cleanup_prefix || cleanup_rc=1
+  fi
   if [ "$cleanup_rc" -ne 0 ]; then
-    printf 'host validation: REMOTE CLEANUP FAILED task=%s remote=%s evidence=%s\n' \
+    cleanup_status='unknown'
+    printf 'host validation: TASK CLEANUP FAILED task=%s host=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
-    rc=1
+    [ "$rc" -ne 0 ] || rc=1
+  elif [ "$process_cleanup_status" = safe ] \
+    || { [ "$launched" = 0 ] && [ "$background_hook_started" = 0 ] \
+      && [ "$process_cleanup_done" = 0 ]; }; then
+    cleanup_status='safe'
   fi
   if [ "$rc" -ne 0 ]; then
-    printf 'host validation: FAILED task=%s remote=%s evidence=%s\n' \
+    printf 'host validation: FAILED task=%s host=%s evidence=%s\n' \
       "$task_id" "$task_dir" "$local_evidence_dir" >&2
   fi
-  return "$rc"
+  write_lifecycle_result "$rc" "$cleanup_rc"
+  rm -rf -- "$local_tmp"
+  exit "$rc"
 }
 trap on_exit EXIT
 
-log "preflight exact host identity"
-identity_before="$local_tmp/identity-before.properties"
-"${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$golden_cubism' '$reviewed_jar_sha256' '$fixture_remote' '$fixture_sha256' '$golden_prefix' '$task_id'" > "$identity_before" <<'REMOTE'
-set -euo pipefail
-cubism="$1"; reviewed="$2"; fixture="$3"; fixture_expected="$4"; golden_prefix="$5"; task_id="$6"
-jar="$cubism/app/lib/Live2D_Cubism.jar"
-bat="$cubism/CubismEditor5.bat"
-[ -f "$jar" ] || { echo "identity=FAIL missing_jar=$jar"; exit 3; }
-[ -f "$bat" ] || { echo "identity=FAIL missing_bat=$bat"; exit 3; }
-jar_sha="$(sha256sum "$jar" | cut -d' ' -f1)"
-[ "$jar_sha" = "$reviewed" ] || { echo "identity=FAIL reviewed_jar=$reviewed actual_jar=$jar_sha"; exit 3; }
-if pgrep -af 'CubismEditor5|CECubismEditorApp|wineserver' 2>/dev/null | grep -F -- "$golden_prefix" >/dev/null; then
-  echo "identity=FAIL golden_prefix_in_use=$golden_prefix"
-  exit 4
+log "preflight exact host identity (transport=local)"
+identity_before="$evidence_dir/identity-before.properties"
+fixture_source="$fixture_host"
+[ -n "$fixture_source" ] || fixture_source="$fixture_local"
+source_before_sha256="$(sha256_file "$fixture_source")"
+if [ -n "$fixture_sha256" ] && [ "$source_before_sha256" != "$fixture_sha256" ]; then
+  fail "fixture hash mismatch: expected $fixture_sha256 got $source_before_sha256"
 fi
-cat <<EOF
-schemaVersion=1
-taskId=$task_id
-goldenPrefix=$golden_prefix
-hostJarSize=$(stat -c %s "$jar")
-hostJarSha256=$jar_sha
-officialBatSha256=$(sha256sum "$bat" | cut -d' ' -f1)
-EOF
-if [ -n "$fixture" ]; then
-  [ -f "$fixture" ] || { echo "identity=FAIL missing_fixture=$fixture"; exit 5; }
-  fixture_sha="$(sha256sum "$fixture" | cut -d' ' -f1)"
-  [ -z "$fixture_expected" ] || [ "$fixture_sha" = "$fixture_expected" ] || {
-    echo "identity=FAIL expected_fixture=$fixture_expected actual_fixture=$fixture_sha"
-    exit 5
-  }
-  echo "sourceFixtureSha256=$fixture_sha"
+golden_jar_before=''
+golden_bat_before=''
+cloned_jar_before=''
+cloned_bat_before=''
+jar="$golden_cubism/app/lib/Live2D_Cubism.jar"
+bat="$golden_cubism/CubismEditor5.bat"
+[ -f "$jar" ] || fail "exact host identity missing JAR: $jar"
+[ -f "$bat" ] || fail "exact host identity missing official BAT: $bat"
+identity_actual_sha256="$(sha256_file "$jar")"
+[ "$identity_actual_sha256" = "$reviewed_jar_sha256" ] \
+  || fail "exact host identity JAR hash mismatch: expected $reviewed_jar_sha256 got $identity_actual_sha256"
+if pgrep -af 'CubismEditor5|CECubismEditorApp|wineserver' 2>/dev/null \
+  | grep -F -- "$golden_prefix" >/dev/null; then
+  fail "golden Proton prefix is already in use: $golden_prefix"
 fi
-echo "identity=PASS"
-REMOTE
-
-grep -Fxq 'identity=PASS' "$identity_before" || fail "exact identity gate failed"
-agent_sha256="$(sha256_file "$agent")"
+golden_jar_before="$identity_actual_sha256"
+golden_bat_before="$(sha256_file "$bat")"
 {
-  printf 'agentSha256=%s\n' "$agent_sha256"
-  if [ -n "$fixture_local" ]; then
-    local_fixture_sha="$(sha256_file "$fixture_local")"
-    if [ -n "$fixture_sha256" ] && [ "$local_fixture_sha" != "$fixture_sha256" ]; then
-      fail "local fixture hash mismatch: expected $fixture_sha256 got $local_fixture_sha"
-    fi
-    printf 'sourceFixtureSha256=%s\n' "$local_fixture_sha"
-  fi
-  for index in "${!resolved_plugins[@]}"; do
-    local_path="${resolved_plugins[$index]%%:*}"
-    remote_name="${resolved_plugins[$index]#*:}"
-    printf 'plugin.%s.name=%s\n' "$index" "$remote_name"
-    printf 'plugin.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
-  done
-  for index in "${!resolved_home_files[@]}"; do
-    local_path="${resolved_home_files[$index]%%:*}"
-    relative_path="${resolved_home_files[$index]#*:}"
-    printf 'homeFile.%s.path=%s\n' "$index" "$relative_path"
-    printf 'homeFile.%s.sha256=%s\n' "$index" "$(sha256_file "$local_path")"
-  done
-  for index in "${!resolved_home_dirs[@]}"; do
-    local_path="${resolved_home_dirs[$index]%%:*}"
-    relative_path="${resolved_home_dirs[$index]#*:}"
-    printf 'homeDir.%s.path=%s\n' "$index" "$relative_path"
-    printf 'homeDir.%s.sha256=%s\n' "$index" "$(tar -C "$local_path" --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -cf - . | sha256sum | cut -d' ' -f1)"
-  done
-  if [ -n "$client_script" ]; then
-    printf 'clientScriptName=%s\n' "$client_script_remote_name"
-    printf 'clientScriptSha256=%s\n' "$(sha256_file "$client_script")"
-  fi
-  if [ -n "$home_config" ]; then
-    printf 'homeConfigSha256=%s\n' "$(sha256_file "$home_config")" >> "$identity_before"
-  fi
-} >> "$identity_before"
+  printf 'schemaVersion=1\n'
+  printf 'taskId=%s\n' "$task_id"
+  printf 'runId=%s\n' "$run_id"
+  printf 'goldenPrefix=%s\n' "$golden_prefix"
+  printf 'hostJarSize=%s\n' "$(stat -c %s "$jar")"
+  printf 'hostJarSha256=%s\n' "$identity_actual_sha256"
+  printf 'officialBatSha256=%s\n' "$golden_bat_before"
+  printf 'sourceFixtureSha256=%s\n' "$source_before_sha256"
+  printf 'identity=PASS\n'
+} > "$identity_before"
+identity_status='PASS'
 
 log "creating task directory and CoW prefix clone"
-"${ssh_cmd[@]}" "$ssh_host" "bash -s -- '$task_dir' '$home_dir' '$evidence_dir' '$golden_prefix' '$prefix_dir' '$cloned_cubism' '$reviewed_jar_sha256'" <<'REMOTE'
-set -euo pipefail
-task="$1"; home="$2"; evidence="$3"; golden="$4"; prefix="$5"; cubism="$6"; reviewed="$7"
-mkdir -p "$task" "$task/agents" "$home/plugins" "$home/state" "$home/logs" "$evidence"
-cp -a --reflink=always "$golden" "$prefix"
-rm -f "$prefix/pfx.lock"
-test -d "$prefix/pfx/drive_c/windows"
-jar="$cubism/app/lib/Live2D_Cubism.jar"
-bat="$cubism/CubismEditor5.bat"
-[ "$(sha256sum "$jar" | cut -d' ' -f1)" = "$reviewed" ]
+cp -a --reflink=always -- "$golden_prefix" "$prefix_dir"
+rm -f -- "$prefix_dir/pfx.lock"
+[ -d "$prefix_dir/pfx/drive_c/windows" ] || fail "cloned Proton prefix is incomplete"
+cloned_cubism="$prefix_dir/$cubism_rel"
+cloned_jar_before="$(sha256_file "$cloned_cubism/app/lib/Live2D_Cubism.jar")"
+cloned_bat_before="$(sha256_file "$cloned_cubism/CubismEditor5.bat")"
+[ "$cloned_jar_before" = "$reviewed_jar_sha256" ] || fail "cloned Cubism JAR hash mismatch"
 {
-  echo "clonedJarSha256=$(sha256sum "$jar" | cut -d' ' -f1)"
-  echo "clonedBatSha256=$(sha256sum "$bat" | cut -d' ' -f1)"
-} > "$evidence/cloned-identity.properties"
-REMOTE
-
-"${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
-"${scp_cmd[@]}" "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" \
-  "$ssh_host:$task_dir/archive-cubism-host-evidence.sh"
-"${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/archive-cubism-host-evidence.sh'"
-"${scp_cmd[@]}" "$agent" "$ssh_host:$task_dir/turboism-agent.jar"
+  printf 'clonedJarSha256=%s\n' "$cloned_jar_before"
+  printf 'clonedBatSha256=%s\n' "$cloned_bat_before"
+} > "$evidence_dir/cloned-identity.properties"
+local_copy_to "$repo_root/scripts/preview/archive-cubism-host-evidence.sh" "$task_dir/archive-cubism-host-evidence.sh"
+chmod 700 -- "$task_dir/archive-cubism-host-evidence.sh"
+local_copy_to "$agent" "$task_dir/turboism-agent.jar"
 if [ -n "$home_config" ]; then
-  "${scp_cmd[@]}" "$home_config" "$ssh_host:$home_dir/config.json"
-  staged_config_sha="$(sha256_file "$home_config")"
-  "${ssh_cmd[@]}" "$ssh_host" "test -s '$home_dir/config.json' && test \"\$(sha256sum '$home_dir/config.json' | cut -d' ' -f1)\" = '$staged_config_sha'"
+  local_copy_to "$home_config" "$home_dir/config.json"
+  staged_config_sha="$(sha256_file "$home_dir/config.json")"
+  [ -s "$home_dir/config.json" ] || fail "staged home config is empty"
+  [ "$staged_config_sha" = "$(sha256_file "$home_config")" ] || fail "staged home config hash mismatch"
 fi
 for spec in "${resolved_plugins[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/plugins/$remote_name"
+  local_copy_to "$local_path" "$home_dir/plugins/$remote_name"
 done
 for spec in "${resolved_home_files[@]}"; do
   local_path="${spec%%:*}"
   relative_path="${spec#*:}"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$relative_path")'"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$home_dir/$relative_path"
+  local_prepare_directory "$home_dir/$(dirname "$relative_path")"
+  local_copy_to "$local_path" "$home_dir/$relative_path"
 done
 for spec in "${resolved_home_dirs[@]}"; do
   local_path="${spec%%:*}"
   relative_path="${spec#*:}"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$relative_path'"
-  tar -C "$local_path" -cf - . | "${ssh_cmd[@]}" "$ssh_host" "tar -C '$home_dir/$relative_path' -xf -"
+  local_prepare_directory "$home_dir/$relative_path"
+  local_copy_dir_contents_to "$local_path" "$home_dir/$relative_path"
 done
 for spec in "${resolved_aux_agents[@]}"; do
   local_path="${spec%%:*}"
   remote_name="${spec#*:}"
-  "${scp_cmd[@]}" "$local_path" "$ssh_host:$task_dir/agents/$remote_name"
+  local_copy_to "$local_path" "$task_dir/agents/$remote_name"
 done
 if [ -n "$client_script" ]; then
-  "${scp_cmd[@]}" "$client_script" "$ssh_host:$task_dir/$client_script_remote_name"
+  local_copy_to "$client_script" "$task_dir/$client_script_remote_name"
   client_sha256="$(sha256_file "$client_script")"
-  "${ssh_cmd[@]}" "$ssh_host" \
-    "test \"\$(sha256sum '$task_dir/$client_script_remote_name' | cut -d' ' -f1)\" = '$client_sha256' && chmod 700 '$task_dir/$client_script_remote_name'"
+  [ "$client_sha256" = "$(sha256_file "$task_dir/$client_script_remote_name")" ] \
+    || fail "staged client script hash mismatch"
+  chmod 700 -- "$task_dir/$client_script_remote_name"
 fi
 verify_staged_artifacts before
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
   cat "$local_tmp/aux-agent-hashes-before.properties" >> "$identity_before"
-  "${scp_cmd[@]}" "$identity_before" "$ssh_host:$evidence_dir/identity-before.properties"
-  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-before.properties" \
-    "$ssh_host:$evidence_dir/aux-agent-hashes-before.properties"
+  local_copy_to "$local_tmp/aux-agent-hashes-before.properties" \
+    "$evidence_dir/aux-agent-hashes-before.properties"
+  # identity_before already names the task-local evidence file.
 fi
-if [ -n "$fixture_remote" ]; then
-  "${ssh_cmd[@]}" "$ssh_host" "cp --reflink=auto -- '$fixture_remote' '$fixture_path'"
-else
-  "${scp_cmd[@]}" "$fixture_local" "$ssh_host:$fixture_path"
-fi
-fixture_before_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_path' | cut -d' ' -f1")"
-source_before_sha256="$(grep '^sourceFixtureSha256=' "$identity_before" | tail -n 1 | cut -d= -f2-)"
-[ -n "$source_before_sha256" ] || fail "source fixture identity is missing"
-[ "$fixture_before_sha256" = "$source_before_sha256" ] || fail "copied fixture hash differs from its source"
+local_copy_host_file "$fixture_source" "$fixture_path"
+fixture_before_sha256="$(sha256_file "$fixture_path")"
+[ "$fixture_before_sha256" = "$source_before_sha256" ] || fail "copied fixture hash differs from source"
 printf 'fixtureBeforeSha256=%s\n' "$fixture_before_sha256" > "$local_tmp/fixture-before.properties"
-"${scp_cmd[@]}" "$local_tmp/fixture-before.properties" "$ssh_host:$evidence_dir/fixture-before.properties"
+local_copy_to "$local_tmp/fixture-before.properties" "$evidence_dir/fixture-before.properties"
 
 win_home="$(z_path "$home_dir")"
 win_agent="$(z_path "$task_dir/turboism-agent.jar")"
@@ -1094,7 +1762,8 @@ win_launch="$(z_path "$task_dir/launch.bat")"
 cmd_unix="$prefix_dir/pfx/drive_c/windows/system32/cmd.exe"
 
 if [ -n "$cubism_java" ]; then
-  remote_args_bash "$cloned_cubism/CubismEditor5.bat" "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" <<'REMOTE'
+  remote_args_bash "$cloned_cubism/CubismEditor5.bat" \
+    "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" <<'LOCAL'
 set -euo pipefail
 remote_args
 official="${REMOTE_ARGS[0]}"; override="${REMOTE_ARGS[1]}"; java_exe="${REMOTE_ARGS[2]}"
@@ -1114,17 +1783,18 @@ if count != 1:
     raise SystemExit('official launcher did not contain exactly one JAVA_EXE assignment')
 override.write_bytes(updated)
 PY
-REMOTE
-  remote_args_bash "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" "$evidence_dir/cubism-java.properties" <<'REMOTE'
+LOCAL
+  remote_args_bash "$cloned_cubism/CubismEditor5-java-override.bat" "$cubism_java" \
+    "$evidence_dir/cubism-java.properties" <<'LOCAL'
 set -euo pipefail
 remote_args
 launcher="${REMOTE_ARGS[0]}"; java_exe="${REMOTE_ARGS[1]}"; evidence="${REMOTE_ARGS[2]}"
 grep -Fq -- "set JAVA_EXE=$java_exe" "$launcher"
 {
   printf 'configuredWindowsPath=%s\n' "$java_exe"
-  printf 'overrideLauncherSha256=%s\n' "$(sha256sum "$launcher" | cut -d' ' -f1)"
+  printf 'overrideLauncherSha256=%s\n' "$(sha256_file "$launcher")"
 } > "$evidence"
-REMOTE
+LOCAL
 fi
 
 all_jvm_options=(
@@ -1168,11 +1838,7 @@ for assignment in "${windows_environment[@]}"; do
 done
 printf 'set "JAVA_TOOL_OPTIONS=%s"\r\n' "$java_tool_options" >> "$local_tmp/launch.bat"
 if [ -n "$cubism_java" ]; then
-  # The official BAT assigns JAVA_EXE unconditionally, so invoke a task-local
-  # text-equivalent copy with only that assignment replaced. The installed and
-  # cloned official launchers stay byte-for-byte unchanged and all other vendor
-  # JVM/classpath/native arguments still come from the exact reviewed BAT.
-  win_task_launcher="$cubism_win\CubismEditor5-java-override.bat"
+  win_task_launcher="$cubism_win\\CubismEditor5-java-override.bat"
   cat >> "$local_tmp/launch.bat" <<BAT
 call "$win_task_launcher" "$win_fixture" > "$win_console" 2>&1
 BAT
@@ -1185,23 +1851,28 @@ cat >> "$local_tmp/launch.bat" <<'BAT'
 exit /b %ERRORLEVEL%
 BAT
 run_remote_hook "$remote_pre_launch"
-
+local_copy_to "$local_tmp/launch.bat" "$task_dir/launch.bat"
 cat > "$local_tmp/launch.sh" <<SH
 #!/bin/sh
 set -u
 export DISPLAY="$display"
+export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
 "$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
-printf '%s\n' "\$rc" > "$evidence_dir/wrapper.exit"
+printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
 exit "\$rc"
 SH
-"${scp_cmd[@]}" "$local_tmp/launch.bat" "$ssh_host:$task_dir/launch.bat"
-"${scp_cmd[@]}" "$local_tmp/launch.sh" "$ssh_host:$task_dir/launch.sh"
-"${ssh_cmd[@]}" "$ssh_host" "chmod 700 '$task_dir/launch.sh'"
+local_copy_to "$local_tmp/launch.sh" "$task_dir/launch.sh"
+chmod 700 -- "$task_dir/launch.sh"
 
 log "launching exact Cubism $version through official BAT"
-"${ssh_cmd[@]}" "$ssh_host" "cd '$task_dir' || exit 1; nohup ./launch.sh </dev/null >/dev/null 2>&1 & pid=\$!; printf '%s\n' \"\$pid\" > '$evidence_dir/wrapper.pid'"
+(
+  cd "$task_dir" || exit 1
+  nohup ./launch.sh </dev/null >/dev/null 2>&1 &
+  printf '%s\n' "$!" > "$evidence_dir/wrapper.pid"
+  record_owned_process_identity "$(cat "$evidence_dir/wrapper.pid")" wrapper
+)
 launched=1
 run_remote_hook "$remote_post_launch"
 
@@ -1226,12 +1897,13 @@ fi
 
 if [ -n "$trigger_path" ]; then
   log "creating trigger $trigger_path"
-  "${ssh_cmd[@]}" "$ssh_host" "mkdir -p '$home_dir/$(dirname "$trigger_path")' && touch '$home_dir/$trigger_path'"
+  local_prepare_directory "$home_dir/$(dirname "$trigger_path")"
+  touch -- "$home_dir/$trigger_path"
 fi
 if [ -n "$client_script" ]; then
   log "running task-local validation client $client_script_remote_name"
-  if ! "${ssh_cmd[@]}" "$ssh_host" \
-    "'$task_dir/$client_script_remote_name' '$home_dir' '$task_id' > '$evidence_dir/client.out' 2> '$evidence_dir/client.err'"; then
+  if ! "$task_dir/$client_script_remote_name" "$home_dir" "$task_id" \
+    > "$evidence_dir/client.out" 2> "$evidence_dir/client.err"; then
     fail "task-local validation client failed"
   fi
 fi
@@ -1269,6 +1941,7 @@ log "terminal PASS observed; waiting for graceful launcher exit"
 deadline=$((SECONDS + exit_timeout))
 while [ "$SECONDS" -lt "$deadline" ]; do
   if remote_normal_exit_evidence_seen; then
+    case "$version" in 5302|5303) normal_exit=1 ;; esac
     if remote_process_alive; then
       remote_record_wrapper_cleanup
       remote_stop_process_tree
@@ -1281,60 +1954,53 @@ while [ "$SECONDS" -lt "$deadline" ]; do
 done
 if remote_process_alive; then
   log "launcher remained alive after terminal PASS; stopping the task-scoped process tree"
-  "${ssh_cmd[@]}" "$ssh_host" \
-    "printf '%s\n' 'terminal PASS observed; graceful close timed out; task-scoped cleanup invoked' > '$evidence_dir/wrapper.cleanup'"
+  remote_record_wrapper_cleanup
   remote_stop_process_tree
   wrapper_cleanup_done=1
 fi
-
-wrapper_exit="$("${ssh_cmd[@]}" "$ssh_host" "cat '$evidence_dir/wrapper.exit' 2>/dev/null || true")"
+wrapper_exit="$(cat "$evidence_dir/wrapper.exit" 2>/dev/null || true)"
 if [ "$wrapper_cleanup_done" = 0 ]; then
   [ -n "$wrapper_exit" ] || fail "official launcher exited with code missing"
   [ "$wrapper_exit" = 0 ] || fail "official launcher exited with code $wrapper_exit"
+  normal_exit=1
 elif [ -n "$wrapper_exit" ] && [ "$wrapper_exit" != 0 ] && [ "$wrapper_exit" != 1 ]; then
   fail "official launcher cleanup exited with unexpected code $wrapper_exit"
 fi
 if [ -n "$cubism_java_console_marker" ]; then
-  remote_args_bash "$evidence_dir/cubism-console.txt" "$cubism_java_console_marker" <<'REMOTE' \
+  grep -Fq -- "$cubism_java_console_marker" "$evidence_dir/cubism-console.txt" \
     || fail "Cubism Java identity marker was not observed: $cubism_java_console_marker"
-set -euo pipefail
-remote_args
-grep -Fq -- "${REMOTE_ARGS[1]}" "${REMOTE_ARGS[0]}"
-REMOTE
 fi
 verify_staged_artifacts after
 if [ "${#resolved_aux_agents[@]}" -gt 0 ]; then
-  "${scp_cmd[@]}" "$local_tmp/aux-agent-hashes-after.properties" \
-    "$ssh_host:$evidence_dir/aux-agent-hashes-after.properties"
+  local_copy_to "$local_tmp/aux-agent-hashes-after.properties" \
+    "$evidence_dir/aux-agent-hashes-after.properties"
 fi
-
-source_after_sha256=''
-if [ -n "$fixture_remote" ]; then
-  source_after_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_remote' | cut -d' ' -f1")"
-  source_before_sha256="$(grep '^sourceFixtureSha256=' "$identity_before" | tail -n 1 | cut -d= -f2-)"
-  [ "$source_after_sha256" = "$source_before_sha256" ] || fail "source fixture changed"
-fi
-fixture_after_sha256="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$fixture_path' | cut -d' ' -f1")"
+source_after_sha256="$(sha256_file "$fixture_source")"
+[ "$source_after_sha256" = "$source_before_sha256" ] || fail "source fixture changed"
+fixture_after_sha256="$(sha256_file "$fixture_path")"
 if [ "$require_fixture_unchanged" = 1 ] && [ "$fixture_after_sha256" != "$fixture_before_sha256" ]; then
   fail "copied fixture changed despite --require-fixture-unchanged"
 fi
-
-golden_jar_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$golden_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
-cloned_jar_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$cloned_cubism/app/lib/Live2D_Cubism.jar' | cut -d' ' -f1")"
-golden_bat_before="$(grep '^officialBatSha256=' "$identity_before" | cut -d= -f2-)"
-cloned_bat_before="$("${ssh_cmd[@]}" "$ssh_host" "grep '^clonedBatSha256=' '$evidence_dir/cloned-identity.properties' | cut -d= -f2-")"
-golden_bat_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$golden_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
-cloned_bat_after="$("${ssh_cmd[@]}" "$ssh_host" "sha256sum '$cloned_cubism/CubismEditor5.bat' | cut -d' ' -f1")"
+[ "$fixture_after_sha256" = "$fixture_before_sha256" ] || fail "copied fixture changed"
+fixture_unchanged=1
+golden_jar_after="$(sha256_file "$golden_cubism/app/lib/Live2D_Cubism.jar")"
+cloned_jar_after="$(sha256_file "$cloned_cubism/app/lib/Live2D_Cubism.jar")"
+golden_bat_after="$(sha256_file "$golden_cubism/CubismEditor5.bat")"
+cloned_bat_after="$(sha256_file "$cloned_cubism/CubismEditor5.bat")"
 [ "$golden_jar_after" = "$reviewed_jar_sha256" ] || fail "golden Cubism JAR changed"
 [ "$cloned_jar_after" = "$reviewed_jar_sha256" ] || fail "cloned Cubism JAR changed"
 [ "$golden_bat_after" = "$golden_bat_before" ] || fail "golden Cubism launcher changed"
 [ "$cloned_bat_after" = "$cloned_bat_before" ] || fail "cloned Cubism launcher changed"
-
+golden_unchanged=1
 run_remote_hook "$remote_pre_cleanup"
+remote_stop_process_tree || fail "task-owned process cleanup could not be proven safe"
 collect_evidence
 success=1
-cleanup_prefix
 
-log "PASS task=$task_id"
-log "remote task=$task_dir"
+if [ "$supervisor_cleanup" = 1 ]; then
+  log "validation phase complete task=$task_id; final cleanup verdict pending supervisor"
+else
+  log "PASS task=$task_id"
+fi
+log "local task=$task_dir"
 log "local evidence=$local_evidence_dir"

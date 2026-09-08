@@ -37,49 +37,28 @@ if [ ! -f "$probe_jar" ]; then
   exit 1
 fi
 
-# The runner prefixes this suffix with its generated run ID. The resize driver
-# matches the nonce-bearing tail, which stays unique even if the launch crosses
-# a UTC-second boundary or other validations start at the same time.
+# The generic Runner owns this local hook's task lifecycle. It snapshots the
+# reviewed driver path, starts it only after the task is admitted/launched, and
+# contains it alongside Cubism in the admitted scope. {FIXTURE_NAME}
+# resolves after QUEUE_RUN_ID is selected, so prepared and executed tasks agree.
 fixture_suffix='fps.cmo3'
-run_nonce="$(printf '%06d' "$$")"
-fixture_selector="-$run_nonce-$fixture_suffix"
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
-driver_pid=''
-runner_args=("$@")
-ssh_host="$TURBOISM_HOST_VALIDATION_SSH_HOST"
-ssh_key="$TURBOISM_HOST_VALIDATION_SSH_KEY"
-for ((index = 0; index < ${#runner_args[@]}; index++)); do
-  case "${runner_args[index]}" in
-    --ssh-host)
-      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-host requires a value' >&2; exit 2; }
-      ssh_host="${runner_args[index + 1]}"
-      index=$((index + 1))
-      ;;
-    --ssh-key)
-      ((index + 1 < ${#runner_args[@]})) || { echo 'error: --ssh-key requires a value' >&2; exit 2; }
-      ssh_key="${runner_args[index + 1]}"
-      index=$((index + 1))
-      ;;
-  esac
-done
-if [ -r "$driver" ]; then
-  nohup ssh -i "$ssh_key" -o IdentitiesOnly=yes \
-    "$ssh_host" "bash -s -- '$fixture_selector'" < "$driver" \
-    > "/tmp/fps-resize-driver-$run_nonce.out" 2>&1 &
-  driver_pid=$!
-fi
-trap 'if [ -n "$driver_pid" ]; then kill "$driver_pid" 2>/dev/null || true; fi' EXIT
-TURBOISM_HOST_VALIDATION_RUN_NONCE="$run_nonce" bash "$runner" \
+[ -r "$driver" ] || { echo "error: FPS resize hook is missing at $driver" >&2; exit 1; }
+exec bash "$runner" \
   --name fps \
   --version "$version" \
   --run-label "$run_label" \
   --bundle-root "$repo_root/build/preview/$worktree_id" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:fps-host-validation-exerciser.jar" \
-  --fixture-remote "$fixture_src" \
+  --fixture-host "$fixture_src" \
   --fixture-name "$fixture_suffix" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
+  --remote-pre-launch "$driver" \
+  --remote-pre-launch-background \
+  --remote-pre-launch-args-only \
+  --remote-pre-launch-arg '{FIXTURE_NAME}' \
   --ready-marker 'FPS_EXERCISER_READY' \
   --result-file 'state/dev.turboism.validation.fps/result.txt' \
   --result-pass-line 'status=PASS' \

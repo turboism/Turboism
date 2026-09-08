@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Resource-aware dispatcher for Turboism exact-host validation wrappers.
+"""Local durable FIFO queue for Turboism exact-host validation wrappers.
 
 This scheduler owns admission only. Existing wrappers and
 run-cubism-host-validation.sh remain responsible for project copies, Cubism
@@ -9,9 +9,7 @@ launch, result polling, evidence, and task-owned cleanup.
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 import dataclasses
-import datetime as dt
 import json
 import os
 from pathlib import Path
@@ -20,10 +18,13 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import threading
 import time
 import uuid
-from typing import Any, Iterable
+from typing import Any
+
+import host_validation_queue as queue
 
 FORMAT = "turboism.host-validation.tasks"
 SCHEMA_VERSION = 1
@@ -160,11 +161,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
     if data.get("schemaVersion") != SCHEMA_VERSION:
         raise SchedulerError(f"manifest schemaVersion must be {SCHEMA_VERSION}")
     placement = os.environ if environment is None else environment
-    scheduler_root = placement.get("TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT", "").strip()
-    if not scheduler_root:
-        remote_root = placement.get("TURBOISM_HOST_VALIDATION_REMOTE_ROOT", "").strip()
-        if remote_root:
-            scheduler_root = remote_root.rstrip("/") + "/.scheduler"
+    scheduler_root = str(queue.account_root())
 
     resource_values = require_dict(data.get("resources"), "resources")
     resources: dict[str, Resource] = {}
@@ -293,516 +290,205 @@ def parse_request(spec: str, run_label: str, manifest: Manifest) -> Request:
     return Request(task, version, variant, run_label)
 
 
-def resolve_placement(
-    args: argparse.Namespace,
-    manifest: Manifest,
-    environment: dict[str, str] | None = None,
-) -> tuple[str, Path, str]:
-    placement = os.environ if environment is None else environment
-    ssh_host = (args.ssh_host or placement.get("TURBOISM_HOST_VALIDATION_SSH_HOST", "")).strip()
-    ssh_key_value = (args.ssh_key or placement.get("TURBOISM_HOST_VALIDATION_SSH_KEY", "")).strip()
-    scheduler_root = (args.scheduler_root or manifest.scheduler_root).strip()
-    if not ssh_host:
-        raise SchedulerError(
-            "SSH host is required; set --ssh-host or TURBOISM_HOST_VALIDATION_SSH_HOST in .env"
-        )
-    if not ssh_key_value:
-        raise SchedulerError(
-            "SSH key is required; set --ssh-key or TURBOISM_HOST_VALIDATION_SSH_KEY in .env"
-        )
-    if not scheduler_root:
-        raise SchedulerError(
-            "scheduler root is required; set --scheduler-root, TURBOISM_HOST_VALIDATION_SCHEDULER_ROOT, "
-            "or TURBOISM_HOST_VALIDATION_REMOTE_ROOT in .env"
-        )
-    return ssh_host, Path(ssh_key_value), validate_remote_root(scheduler_root)
+def render_command(request: Request, manifest: Manifest) -> list[str]:
+    templates = request.task.variants[request.variant] if request.variant else request.task.arguments
+    if templates is None:
+        raise SchedulerError(f"cannot run blocked task: {request.task.blocked_reason}")
+    return ["bash", str(manifest.root / request.task.command),
+            *(value.format(version=request.version, runLabel=request.run_label) for value in templates)]
 
 
-def render_command(request: Request, manifest: Manifest, ssh_host: str, ssh_key: Path) -> list[str]:
-    template = request.task.arguments
-    if template is None:
-        assert request.variant is not None
-        template = request.task.variants[request.variant]
-    values = {"{version}": request.version, "{runLabel}": request.run_label}
-    arguments = [values.get(argument, argument) for argument in template]
-    placement = ["--ssh-host", ssh_host, "--ssh-key", str(ssh_key.resolve())]
-    return [
-        "bash",
-        str((manifest.root / request.task.command).resolve()),
-        *arguments,
-        *placement,
-    ]
-
-
-def plan_waves(requests: Iterable[Request], resources: dict[str, Resource]) -> list[list[Request]]:
-    waves: list[list[Request]] = []
-    usage: list[dict[str, int]] = []
-    for request in requests:
-        placed = False
-        for index, current in enumerate(usage):
-            if all(
-                current.get(name, 0) + quantity <= resources[name].capacity
-                for name, quantity in request.task.resources.items()
-            ):
-                waves[index].append(request)
-                for name, quantity in request.task.resources.items():
-                    current[name] = current.get(name, 0) + quantity
-                placed = True
-                break
-        if not placed:
-            waves.append([request])
-            usage.append(dict(request.task.resources))
-    return waves
+def plan_waves(requests: list[Request], resources: dict[str, Resource]) -> list[list[Request]]:
+    # Retained API name; the executable policy is deliberately single-session FIFO.
+    return [[request] for request in requests]
 
 
 def resource_text(resources: dict[str, int]) -> str:
-    return ",".join(f"{name}={quantity}" for name, quantity in sorted(resources.items()))
-
-
-def shell_command(command: list[str]) -> str:
-    return shlex.join(command)
-
-
-class RemoteLeases:
-    def __init__(self, ssh_host: str, ssh_key: Path, scheduler_root: str, resources: dict[str, Resource]):
-        if not ssh_host or any(character in ssh_host for character in "\n\r\0"):
-            raise SchedulerError("ssh host must be non-empty single-line text")
-        if not ssh_key.is_file():
-            raise SchedulerError(f"SSH key does not exist: {ssh_key}")
-        self.ssh_host = ssh_host
-        self.ssh_key = ssh_key.resolve()
-        self.scheduler_root = validate_remote_root(scheduler_root)
-        self.resources = resources
-        self.ssh = [
-            "ssh", "-i", str(self.ssh_key), "-o", "IdentitiesOnly=yes", "-o", "ConnectTimeout=10",
-        ]
-
-    def _run(self, script: str, arguments: list[str], *, capture: bool = True) -> subprocess.CompletedProcess[str]:
-        remote = "bash -s -- " + " ".join(shlex.quote(argument) for argument in arguments)
-        return subprocess.run(
-            [*self.ssh, self.ssh_host, remote], input=script, text=True,
-            capture_output=capture, check=False,
-        )
-
-    def acquire(
-        self,
-        request: Request,
-        owner: str,
-        wait_seconds: int,
-        poll_seconds: int,
-        cancelled: threading.Event | None = None,
-    ) -> Lease:
-        deadline = time.monotonic() + wait_seconds
-        resource_args = [
-            f"{name}={quantity}:{self.resources[name].capacity}"
-            for name, quantity in sorted(request.task.resources.items())
-        ]
-        script = r'''set -euo pipefail
-root=$1; owner=$2; task=$3; started=$4; shift 4
-mkdir -p "$root/leases"
-acquired=''
-cleanup() {
-  printf '%s\n' "$acquired" | while IFS= read -r slot; do
-    [ -n "$slot" ] || continue
-    [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ] && rm -rf -- "$slot"
-  done
-}
-for request in "$@"; do
-  resource=${request%%=*}
-  rest=${request#*=}
-  quantity=${rest%%:*}
-  capacity=${rest#*:}
-  mkdir -p "$root/leases/$resource"
-  held=0
-  index=1
-  while [ "$index" -le "$capacity" ] && [ "$held" -lt "$quantity" ]; do
-    slot="$root/leases/$resource/slot-$index"
-    if mkdir "$slot" 2>/dev/null; then
-      printf '%s\n' "$owner" > "$slot/owner"
-      printf '%s\n' "$task" > "$slot/task"
-      printf '%s\n' "$started" > "$slot/startedEpoch"
-      printf '%s\n' "$started" > "$slot/heartbeatEpoch"
-      acquired="${acquired}${acquired:+
-}$slot"
-      held=$((held + 1))
-    fi
-    index=$((index + 1))
-  done
-  if [ "$held" -ne "$quantity" ]; then cleanup; exit 75; fi
-done
-printf '%s\n' "$acquired"
-'''
-        while True:
-            if cancelled is not None and cancelled.is_set():
-                raise SchedulerError(f"cancelled while waiting for resources for {request.spec}")
-            started = str(int(time.time()))
-            result = self._run(
-                script, [self.scheduler_root, owner, request.spec, started, *resource_args]
-            )
-            if result.returncode == 0:
-                slots = tuple(line for line in result.stdout.splitlines() if line)
-                expected = sum(request.task.resources.values())
-                if len(slots) != expected:
-                    self.release_owner(owner)
-                    raise SchedulerError(f"lease acquisition returned {len(slots)} of {expected} slots")
-                return Lease(owner, request, slots)
-            if result.returncode != BUSY_EXIT:
-                message = result.stderr.strip() or result.stdout.strip() or f"ssh exit {result.returncode}"
-                raise SchedulerError(f"cannot acquire resources for {request.spec}: {message}")
-            if time.monotonic() >= deadline:
-                raise SchedulerError(f"timed out waiting for resources for {request.spec}")
-            if cancelled is None:
-                time.sleep(poll_seconds)
-            elif cancelled.wait(poll_seconds):
-                raise SchedulerError(f"cancelled while waiting for resources for {request.spec}")
-
-    def heartbeat(self, owner: str) -> None:
-        script = r'''set -euo pipefail
-root=$1; owner=$2; now=$3
-[ -d "$root/leases" ] || exit 0
-find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
-while IFS= read -r -d '' slot; do
-  lock="$slot/.scheduler-operation"
-  mkdir "$lock" 2>/dev/null || continue
-  if [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ]; then
-    printf '%s\n' "$now" > "$slot/heartbeatEpoch"
-  fi
-  rmdir "$lock" 2>/dev/null || true
-done
-'''
-        self._run(script, [self.scheduler_root, owner, str(int(time.time()))])
-
-    def release_owner(self, owner: str) -> None:
-        script = r'''set -euo pipefail
-root=$1; owner=$2
-[ -d "$root/leases" ] || exit 0
-find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
-while IFS= read -r -d '' slot; do
-  [ "$(cat "$slot/owner" 2>/dev/null || true)" = "$owner" ] || continue
-  rm -rf -- "$slot"
-done
-'''
-        result = self._run(script, [self.scheduler_root, owner])
-        if result.returncode != 0:
-            message = result.stderr.strip() or f"ssh exit {result.returncode}"
-            print(f"host-validation scheduler: lease release warning: {message}", file=sys.stderr)
-
-    def status(self) -> list[dict[str, str]]:
-        script = r'''set -euo pipefail
-root=$1
-[ -d "$root/leases" ] || exit 0
-find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
-while IFS= read -r -d '' slot; do
-  resource=$(basename "$(dirname "$slot")")
-  printf '%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$resource" "$(basename "$slot")" \
-    "$(cat "$slot/owner" 2>/dev/null || true)" \
-    "$(cat "$slot/task" 2>/dev/null || true)" \
-    "$(cat "$slot/startedEpoch" 2>/dev/null || echo 0)" \
-    "$(cat "$slot/heartbeatEpoch" 2>/dev/null || echo 0)"
-done
-'''
-        result = self._run(script, [self.scheduler_root])
-        if result.returncode != 0:
-            raise SchedulerError(result.stderr.strip() or f"status ssh exit {result.returncode}")
-        rows = []
-        for line in result.stdout.splitlines():
-            fields = line.split("\t")
-            if len(fields) == 6:
-                rows.append(dict(zip(
-                    ("resource", "slot", "owner", "task", "started", "heartbeat"), fields
-                )))
-        return sorted(rows, key=lambda row: (row["resource"], row["slot"]))
-
-    def release_stale(self, older_than: int) -> list[str]:
-        script = r'''set -euo pipefail
-root=$1; cutoff=$2
-[ -d "$root/leases" ] || exit 0
-find "$root/leases" -mindepth 2 -maxdepth 2 -type d -name 'slot-*' -print0 2>/dev/null |
-while IFS= read -r -d '' slot; do
-  heartbeat=$(cat "$slot/heartbeatEpoch" 2>/dev/null || echo 0)
-  case "$heartbeat" in ''|*[!0-9]*) heartbeat=0 ;; esac
-  [ "$heartbeat" -lt "$cutoff" ] || continue
-  owner=$(cat "$slot/owner" 2>/dev/null || true)
-  lock="$slot/.scheduler-operation"
-  mkdir "$lock" 2>/dev/null || continue
-  current_heartbeat=$(cat "$slot/heartbeatEpoch" 2>/dev/null || echo 0)
-  current_owner=$(cat "$slot/owner" 2>/dev/null || true)
-  if [ "$current_heartbeat" != "$heartbeat" ] || [ "$current_owner" != "$owner" ]; then
-    rmdir "$lock" 2>/dev/null || true
-    continue
-  fi
-  case "$current_heartbeat" in ''|*[!0-9]*) current_heartbeat=0 ;; esac
-  if [ "$current_heartbeat" -ge "$cutoff" ]; then
-    rmdir "$lock" 2>/dev/null || true
-    continue
-  fi
-  printf '%s\t%s\n' "$slot" "$owner"
-  rm -rf -- "$slot"
-done
-'''
-        cutoff = int(time.time()) - older_than
-        result = self._run(script, [self.scheduler_root, str(cutoff)])
-        if result.returncode != 0:
-            raise SchedulerError(result.stderr.strip() or f"release-stale ssh exit {result.returncode}")
-        return [line for line in result.stdout.splitlines() if line]
-
-
-def owner_id(request: Request, index: int) -> str:
-    stamp = dt.datetime.now(dt.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    nonce = uuid.uuid4().hex
-    raw = f"{nonce}-{request.task.name}-{request.version}-{os.getpid()}-{index}-{stamp}"
-    return re.sub(r"[^A-Za-z0-9._-]", "-", raw)[:128]
-
-
-def run_one(
-    request: Request,
-    index: int,
-    manifest: Manifest,
-    leases: RemoteLeases,
-    ssh_host: str,
-    ssh_key: Path,
-    wait_seconds: int,
-    poll_seconds: int,
-    stop: threading.Event,
-) -> RunResult:
-    if stop.is_set():
-        return RunResult(request, 130)
-    owner = owner_id(request, index)
-    lease = leases.acquire(request, owner, wait_seconds, poll_seconds, stop)
-    print(f"[scheduler] acquired {request.spec}: {', '.join(lease.slots)}", flush=True)
-    heartbeat_stop = threading.Event()
-
-    def heartbeat() -> None:
-        while not heartbeat_stop.wait(HEARTBEAT_SECONDS):
-            leases.heartbeat(owner)
-
-    heartbeat_thread = threading.Thread(target=heartbeat, name=f"lease-heartbeat-{index}", daemon=True)
-    heartbeat_thread.start()
-    command = render_command(request, manifest, ssh_host, ssh_key)
-    print(f"[scheduler] run {request.spec}: {shell_command(command)}", flush=True)
-    try:
-        process = subprocess.Popen(command, cwd=manifest.root)
-        while True:
-            try:
-                return_code = process.wait(timeout=1)
-                break
-            except subprocess.TimeoutExpired:
-                if stop.is_set():
-                    process.terminate()
-                    try:
-                        return_code = process.wait(timeout=15)
-                    except subprocess.TimeoutExpired:
-                        process.kill()
-                        return_code = process.wait()
-                    break
-        return RunResult(request, return_code)
-    finally:
-        heartbeat_stop.set()
-        heartbeat_thread.join(timeout=2)
-        leases.release_owner(owner)
-        print(f"[scheduler] released {request.spec}", flush=True)
+    return ",".join(f"{name}={amount}" for name, amount in sorted(resources.items()))
 
 
 def list_tasks(manifest: Manifest) -> int:
     print("TASK\tVERSIONS\tVARIANTS\tRESOURCES\tRUNNABLE\tDESCRIPTION")
     for task in manifest.tasks.values():
-        variants = ",".join(task.variants) if task.variants else "-"
-        runnable = "yes" if task.runnable else f"no: {task.blocked_reason}"
-        print(
-            f"{task.name}\t{','.join(task.versions)}\t{variants}\t"
-            f"{resource_text(task.resources)}\t{runnable}\t{task.description}"
-        )
+        print(f"{task.name}\t{','.join(task.versions)}\t{','.join(task.variants) or '-'}\t"
+              f"{resource_text(task.resources)}\t{'yes' if task.runnable else task.blocked_reason}\t{task.description}")
     return 0
 
 
-def show_plan(requests: list[Request], manifest: Manifest, ssh_host: str, ssh_key: Path) -> int:
-    waves = plan_waves(requests, manifest.resources)
-    for wave_index, wave in enumerate(waves, start=1):
-        print(f"wave {wave_index}:")
-        for request in wave:
-            state = "runnable" if request.task.runnable else f"blocked: {request.task.blocked_reason}"
-            print(f"  {request.spec} [{resource_text(request.task.resources)}] {state}")
-            print(f"    {shell_command(render_command(request, manifest, ssh_host, ssh_key))}")
-    return 0 if all(request.task.runnable for request in requests) else 1
+def prepare_request(request: Request, manifest: Manifest, store: queue.Store,
+                    environment: dict[str, str]) -> dict[str, Any]:
+    if not request.task.runnable:
+        raise SchedulerError(f"cannot run blocked task: {request.task.blocked_reason}")
+    with tempfile.TemporaryDirectory(dir=store.root / "staging") as directory:
+        result = subprocess.run([*render_command(request, manifest), "--prepare-dir", directory],
+            cwd=manifest.root, env=environment, text=True, capture_output=True)
+        if result.returncode:
+            raise SchedulerError(result.stderr.strip() or "wrapper preparation failed")
+        path = Path(directory) / "runner-request.json"
+        if not path.is_file():
+            raise SchedulerError("wrapper does not support preparation; update this checkout before submitting")
+        return queue.PreparedStore(store).capture(json.loads(path.read_text()), manifest.root, request.spec)
 
 
-def run_requests(
-    args: argparse.Namespace,
-    requests: list[Request],
-    manifest: Manifest,
-    environment: dict[str, str] | None = None,
-) -> int:
-    blocked = [request for request in requests if not request.task.runnable]
-    if blocked:
-        details = "; ".join(f"{item.spec}: {item.task.blocked_reason}" for item in blocked)
-        raise SchedulerError(f"cannot run blocked tasks: {details}")
-    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
-    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
-    waves = plan_waves(requests, manifest.resources)
-    stop = threading.Event()
-    previous_handlers: dict[int, Any] = {}
-
-    def stop_handler(signum: int, _frame: Any) -> None:
-        print(f"host-validation scheduler: received signal {signum}; stopping", file=sys.stderr)
-        stop.set()
-
-    for signum in (signal.SIGINT, signal.SIGTERM):
-        previous_handlers[signum] = signal.signal(signum, stop_handler)
-    failures: list[RunResult] = []
-    try:
-        sequence = 0
-        for wave_index, wave in enumerate(waves, start=1):
-            if stop.is_set():
-                break
-            print(f"[scheduler] wave {wave_index}/{len(waves)}: {', '.join(item.spec for item in wave)}")
-            wave_failed = False
-            with concurrent.futures.ThreadPoolExecutor(max_workers=len(wave)) as executor:
-                futures: list[tuple[Request, concurrent.futures.Future[RunResult]]] = []
-                for request in wave:
-                    sequence += 1
-                    futures.append((request, executor.submit(
-                        run_one, request, sequence, manifest, leases, ssh_host,
-                        ssh_key, args.wait_seconds, args.poll_seconds, stop,
-                    )))
-                for request, future in futures:
-                    try:
-                        result = future.result()
-                    except SchedulerError as failure:
-                        print(f"host-validation scheduler: {failure}", file=sys.stderr)
-                        failures.append(RunResult(request, 1))
-                        wave_failed = True
-                        continue
-                    if result.return_code != 0:
-                        failures.append(result)
-                        wave_failed = True
-                        print(
-                            f"[scheduler] FAIL {result.request.spec} exit={result.return_code}",
-                            file=sys.stderr,
-                        )
-                    else:
-                        print(f"[scheduler] PASS {result.request.spec}")
-            if wave_failed and not args.keep_going:
-                break
-    finally:
-        for signum, handler in previous_handlers.items():
-            signal.signal(signum, handler)
-    if stop.is_set() and not failures:
-        return 130
-    return 1 if failures else 0
+def emit(value: Any) -> None:
+    print(json.dumps(value, ensure_ascii=False, sort_keys=True), flush=True)
 
 
-def status_command(
-    args: argparse.Namespace,
-    manifest: Manifest,
-    environment: dict[str, str] | None = None,
-) -> int:
-    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
-    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
-    rows = leases.status()
-    if not rows:
-        print("no active host-validation leases")
-        return 0
-    now = int(time.time())
-    print("RESOURCE\tSLOT\tTASK\tOWNER\tAGE_SECONDS\tHEARTBEAT_AGE_SECONDS")
-    for row in rows:
-        try:
-            started = int(row["started"])
-            heartbeat = int(row["heartbeat"])
-        except ValueError:
-            started = heartbeat = 0
-        print(
-            f"{row['resource']}\t{row['slot']}\t{row['task']}\t{row['owner']}\t"
-            f"{max(0, now - started)}\t{max(0, now - heartbeat)}"
-        )
-    return 0
-
-
-def release_stale_command(
-    args: argparse.Namespace,
-    manifest: Manifest,
-    environment: dict[str, str] | None = None,
-) -> int:
-    if not args.force:
-        raise SchedulerError("release-stale requires --force")
-    ssh_host, ssh_key, scheduler_root = resolve_placement(args, manifest, environment)
-    leases = RemoteLeases(ssh_host, ssh_key, scheduler_root, manifest.resources)
-    released = leases.release_stale(args.older_than)
-    if not released:
-        print("no stale host-validation leases released")
-    else:
-        for row in released:
-            print(f"released\t{row}")
-    return 0
-
-
-def add_remote_options(parser: argparse.ArgumentParser) -> None:
-    parser.add_argument("--ssh-host")
-    parser.add_argument("--ssh-key")
-    parser.add_argument("--scheduler-root")
+def wait_job(store: queue.Store, job_id: str, timeout: int | None = None) -> int:
+    deadline = None if timeout is None else time.monotonic() + timeout
+    while True:
+        job = store.jobs(job_id)[0]
+        if job["state"] in queue.TERMINAL or job["state"] == "quarantined":
+            emit({"schemaVersion": 1, "job": job})
+            return 0 if job["state"] == "succeeded" else 75 if job["state"] == "quarantined" else 1
+        if deadline is not None and time.monotonic() >= deadline:
+            emit({"schemaVersion": 1, "job": job, "waitTimedOut": True})
+            return 3
+        time.sleep(0.2)  # Only a client waiter; never controls scheduling or cancellation.
 
 
 def build_parser(default_manifest: Path) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
+    parser = argparse.ArgumentParser(description="Local-only durable single-session host verification queue")
     parser.add_argument("--manifest", default=str(default_manifest))
-    subparsers = parser.add_subparsers(dest="command", required=True)
-
-    subparsers.add_parser("list", help="list declared exact-host tasks and resources")
-
-    plan = subparsers.add_parser("plan", help="show deterministic resource-compatible waves")
-    plan.add_argument("tasks", nargs="+")
-    plan.add_argument("--run-label", default="scheduled")
-    add_remote_options(plan)
-
-    run = subparsers.add_parser("run", help="run task waves with remote resource leases")
-    run.add_argument("tasks", nargs="+")
-    run.add_argument("--run-label", default="scheduled")
-    run.add_argument("--wait-seconds", type=int, default=3600)
-    run.add_argument("--poll-seconds", type=int, default=5)
-    run.add_argument("--keep-going", action="store_true")
-    add_remote_options(run)
-
-    status = subparsers.add_parser("status", help="show active remote resource leases")
-    add_remote_options(status)
-
-    release = subparsers.add_parser("release-stale", help="remove explicitly confirmed stale leases")
-    release.add_argument("--older-than", type=int, default=3600)
-    release.add_argument("--force", action="store_true")
-    add_remote_options(release)
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("list")
+    for name in ("plan", "prepare", "run"):
+        command = commands.add_parser(name)
+        command.add_argument("tasks", nargs="+" if name != "prepare" else 1)
+        command.add_argument("--run-label", default="r1")
+    submit = commands.add_parser("submit")
+    submit.add_argument("--prepared", required=True)
+    submit.add_argument("--request-id", required=True)
+    submit.add_argument("--timeout-seconds", type=int, default=1800)
+    submit.add_argument("--json", action="store_true")
+    status = commands.add_parser("status")
+    status.add_argument("job", nargs="?")
+    status.add_argument("--json", action="store_true")
+    wait = commands.add_parser("wait")
+    wait.add_argument("job")
+    wait.add_argument("--timeout-seconds", type=int)
+    cancel = commands.add_parser("cancel")
+    cancel.add_argument("job")
+    events = commands.add_parser("events")
+    events.add_argument("--job")
+    events.add_argument("--after", type=int, default=0)
+    events.add_argument("--follow", action="store_true")
+    commands.add_parser("serve")
+    recover = commands.add_parser("recover")
+    mode = recover.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--inspect", dest="job")
+    mode.add_argument("--confirm", dest="confirm")
+    recover.add_argument("--reason")
+    commands.add_parser("_admit", help=argparse.SUPPRESS)
+    enqueue = commands.add_parser("_enqueue-runner", help=argparse.SUPPRESS)
+    enqueue.add_argument("--request", required=True)
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
-    default_manifest = Path(__file__).with_name("host-validation-tasks.json")
-    parser = build_parser(default_manifest)
-    args = parser.parse_args(argv)
+    arguments = sys.argv[1:] if argv is None else argv
+    if any(value.split("=", 1)[0] in {"--ssh-host", "--ssh-key", "--scheduler-root",
+            "--keep-going", "--wait-seconds", "--poll-seconds", "release-stale"} for value in arguments):
+        print("host-validation: old SSH/wave/lease options are retired; use the local queue and recover --inspect", file=sys.stderr)
+        return 2
+    parser = build_parser(Path(__file__).with_name("host-validation-tasks.json"))
+    args = parser.parse_args(arguments)
     try:
+        if args.command == "_admit":
+            emit(queue.validate_admission())
+            return 0
         root = Path(__file__).resolve().parents[2]
-        placement = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
-        placement.update(os.environ)
-        manifest = load_manifest(Path(args.manifest), placement)
-        if args.command == "list":
-            return list_tasks(manifest)
-        if args.command in {"plan", "run"}:
+        if args.command in {"list", "plan", "prepare", "run"}:
+            environment = dict(parse_local_env(Path(os.environ.get("TURBOISM_ENV_FILE", root / ".env"))))
+            environment.update(os.environ)
+            manifest = load_manifest(Path(args.manifest), environment)
+            if args.command == "list":
+                return list_tasks(manifest)
             if not SAFE_NAME.fullmatch(args.run_label):
                 raise SchedulerError("run label must be a safe bounded label")
             requests = [parse_request(spec, args.run_label, manifest) for spec in args.tasks]
             if args.command == "plan":
-                ssh_host, ssh_key, _scheduler_root = resolve_placement(args, manifest, placement)
-                return show_plan(requests, manifest, ssh_host, ssh_key)
-            if args.wait_seconds < 1 or args.poll_seconds < 1:
-                raise SchedulerError("wait and poll intervals must be positive integers")
-            return run_requests(args, requests, manifest, placement)
+                print("local-only FIFO; one host session, including cleanup; no SSH")
+                for index, request in enumerate(requests, 1):
+                    state = "runnable" if request.task.runnable else f"blocked: {request.task.blocked_reason}"
+                    print(f"{index}. {request.spec} {state}")
+                    if request.task.runnable:
+                        print("   " + shlex.join(render_command(request, manifest)))
+                return 0 if all(request.task.runnable for request in requests) else 1
+            if any(not request.task.runnable for request in requests):
+                raise SchedulerError("cannot run blocked tasks")
+            store = queue.Store()
+            prepared = [prepare_request(request, manifest, store, environment) for request in requests]
+            if args.command == "prepare":
+                emit({"schemaVersion": 1, "preparedId": prepared[0]["digest"]})
+                return 0
+            jobs = [store.submit(item["digest"], item["digest"], str(uuid.uuid4())) for item in prepared]
+            for job in jobs:
+                emit({"schemaVersion": 1, "job": job})
+            queue.wake(store)
+            results = [wait_job(store, job["job_id"]) for job in jobs]
+            return max(results, default=0)
+        store = queue.Store()
+        if args.command == "_enqueue-runner":
+            request = json.loads(Path(args.request).read_text())
+            prepared = queue.PreparedStore(store).capture(request, root, "direct-runner")
+            job = store.submit(prepared["digest"], prepared["digest"], str(uuid.uuid4()))
+            emit({"schemaVersion": 1, "job": job})
+            queue.wake(store)
+            return wait_job(store, job["job_id"])
+        if args.command == "submit":
+            prepared = queue.PreparedStore(store).load(args.prepared)
+            job = store.submit(args.prepared, prepared["digest"], args.request_id, args.timeout_seconds)
+            queue.wake(store)
+            emit({"schemaVersion": 1, "job": job, "workerOnline": queue.worker_online(store)})
+            return 0
         if args.command == "status":
-            return status_command(args, manifest, placement)
-        if args.command == "release-stale":
-            if args.older_than < 300:
-                raise SchedulerError("release-stale --older-than must be at least 300 seconds")
-            return release_stale_command(args, manifest, placement)
-        raise SchedulerError(f"unknown command: {args.command}")
-    except SchedulerError as failure:
-        print(f"host-validation scheduler: {failure}", file=sys.stderr)
+            emit({"schemaVersion": 1, "host": store.host(), "jobs": store.jobs(args.job),
+                  "workerOnline": queue.worker_online(store)})
+            return 0
+        if args.command == "wait":
+            if args.timeout_seconds is not None and args.timeout_seconds < 1:
+                raise SchedulerError("wait timeout must be positive")
+            return wait_job(store, args.job, args.timeout_seconds)
+        if args.command == "cancel":
+            emit({"schemaVersion": 1, "job": store.cancel(args.job)})
+            queue.wake(store)
+            return 0
+        if args.command == "events":
+            if args.after < 0:
+                raise SchedulerError("event cursor must be nonnegative")
+            while True:
+                events = store.events(args.after, args.job)
+                for event in events:
+                    emit({"schemaVersion": 1, **event})
+                    args.after = event["event_id"]
+                if not args.follow and len(events) < 1000:
+                    return 0
+                if not events:
+                    time.sleep(0.2)
+        if args.command == "recover":
+            if args.confirm and (args.reason is None or not args.reason.strip()):
+                raise queue.QueueError("recover --confirm requires a nonempty --reason")
+            if not args.confirm and args.reason is not None:
+                raise queue.QueueError("--reason is only valid with recover --confirm")
+            report = queue.recover(store, args.confirm or args.job, args.reason if args.confirm else None)
+            emit({"schemaVersion": 1, **report})
+            return 0 if report["safe"] else 75
+        if args.command == "serve":
+            stop = threading.Event()
+            previous = {sig: signal.signal(sig, lambda *_: stop.set()) for sig in (signal.SIGINT, signal.SIGTERM)}
+            try:
+                queue.Worker(store).serve(stop=stop)
+            finally:
+                for sig, handler in previous.items():
+                    signal.signal(sig, handler)
+            return 0
+        raise SchedulerError("unknown command")
+    except (SchedulerError, queue.QueueError, OSError, ValueError) as failure:
+        print(f"host-validation: {failure}", file=sys.stderr)
         return 2
+    except KeyboardInterrupt:
+        return 130  # Client interruption is not job cancellation.
 
 
 if __name__ == "__main__":

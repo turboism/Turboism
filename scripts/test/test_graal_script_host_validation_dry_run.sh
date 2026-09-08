@@ -23,12 +23,16 @@ printf 'probe\n' > "$probe"
 printf 'library\n' > "$bundle/graal/lib/graal-host-any-version.jar"
 printf 'console.log(1);\n' > "$scripts_root/example/main.js"
 printf 'key\n' > "$tmp/key"
+printf 'fixture\n' > "$tmp/fixture.cmo3"
+fixture_sha256="$(sha256sum "$tmp/fixture.cmo3" | cut -d' ' -f1)"
 
 TURBOISM_WORKTREE_ID="$worktree_id" \
 TURBOISM_GRAAL_JAVA='C:\Program Files\GraalVM\bin\java.exe' \
 TURBOISM_CUBISM_JAVA='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe' \
 TURBOISM_GRAAL_VALIDATION_PROBE="$probe" \
 TURBOISM_GRAAL_VALIDATION_SCRIPTS="$scripts_root" \
+TURBOISM_GRAAL_VALIDATION_FIXTURE_REMOTE="$tmp/fixture.cmo3" \
+TURBOISM_GRAAL_VALIDATION_FIXTURE_SHA256="$fixture_sha256" \
 TURBOISM_HOST_VALIDATION_SSH_HOST='test@example.invalid' \
 TURBOISM_HOST_VALIDATION_SSH_KEY="$tmp/key" \
 TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX='/tmp/turboism-golden' \
