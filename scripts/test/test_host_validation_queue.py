@@ -312,7 +312,7 @@ class PreparedStoreTest(unittest.TestCase):
         self.source = self.base / "source"
         self.preview = self.source / "scripts/preview"
         self.preview.mkdir(parents=True)
-        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             (self.preview / name).write_text("# test fixture, never executed\n")
@@ -443,7 +443,7 @@ class PreparedStoreTest(unittest.TestCase):
 
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
-        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
                      "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):

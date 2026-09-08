@@ -12,7 +12,6 @@ set -euo pipefail
 
 # shellcheck source=host-validation-env.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
-
 usage() {
   cat <<'EOF'
 Usage:
@@ -96,6 +95,9 @@ fail() {
   exit 1
 }
 
+# shellcheck source=host-validation-transport.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-transport.sh"
+
 log() {
   printf '[host-validation] %s\n' "$*"
 }
@@ -132,6 +134,12 @@ require_safe_text() {
   case "$value" in
     *'"'*|*"'"*) fail "$label contains an unsupported quote" ;;
   esac
+}
+
+require_safe_marker() {
+  local value="$1" label="$2"
+  [[ ! "$value" =~ [[:cntrl:]] ]] || fail "$label contains an unsupported control character"
+  [ "${#value}" -le 1024 ] || fail "$label exceeds 1024 characters"
 }
 
 require_safe_remote_value() {
@@ -392,6 +400,7 @@ while [ "$#" -gt 0 ]; do
     --ready-timeout) require_value "$@"; ready_timeout="$2"; shift 2 ;;
     --result-timeout) require_value "$@"; result_timeout="$2"; shift 2 ;;
     --exit-timeout) require_value "$@"; exit_timeout="$2"; shift 2 ;;
+    --execution-mode) require_value "$@"; [ "$2" = local ] || fail "execution mode is local-only"; shift 2 ;;
     --poll-seconds) require_value "$@"; poll_seconds="$2"; shift 2 ;;
     --transport) require_value "$@"; transport="$2"; shift 2 ;;
     --ssh-host|--ssh-key)
@@ -537,7 +546,7 @@ if [ -n "$client_script" ]; then
 fi
 
 for marker in "${ready_markers[@]}" "${failure_markers[@]}" "$result_marker" "$result_pass_line" "$result_fail_line" "$cubism_java_console_marker"; do
-  [ -z "$marker" ] || require_safe_text "$marker" "marker"
+  [ -z "$marker" ] || require_safe_marker "$marker" "marker"
 done
 for option in "${jvm_options[@]}" "${remote_pre_launch_args[@]}"; do
   require_safe_text "$option" "JVM or hook option"
@@ -741,6 +750,18 @@ fixture_path="$task_dir/$fixture_name"
 golden_cubism="$golden_prefix/$cubism_rel"
 cloned_cubism="$prefix_dir/$cubism_rel"
 local_evidence_dir="${local_evidence_dir:-$repo_root/build/host-validation/$name/$version/$task_id}"
+if [ "$transport" = local ]; then
+  host_validation_transport_assert_destination_tree_safe "$task_dir"
+  host_validation_transport_assert_destination_tree_safe "$home_dir"
+  host_validation_transport_assert_destination_tree_safe "$evidence_dir"
+  host_validation_transport_assert_copy_safe "$golden_prefix" "$prefix_dir" 1
+  host_validation_transport_assert_copy_safe "$evidence_dir/." "$local_evidence_dir/" 1
+  if [ -n "$fixture_host" ]; then
+    host_validation_transport_assert_copy_safe "$fixture_host" "$fixture_path" 0
+  else
+    host_validation_transport_assert_copy_safe "$fixture_local" "$fixture_path" 0
+  fi
+fi
 
 normalized_argv=(
   --name "$name" --version "$version" --bundle-root "$bundle_root" --agent "$agent"
@@ -1487,8 +1508,8 @@ run_remote_hook() {
     return 0
   fi
   local task_hook="$task_dir/$(basename "$hook")"
-  local_copy_to "$hook" "$task_hook"
-  chmod 700 -- "$task_hook"
+  (local_copy_to "$hook" "$task_hook") || return $?
+  chmod 700 -- "$task_hook" || return $?
   local hook_arg expanded_hook_arg hook_log hook_home_win hook_fixture_win
   hook_home_win="$(z_path "$home_dir")"
   hook_fixture_win="$(z_path "$fixture_path")"
@@ -1621,7 +1642,7 @@ on_exit() {
   local rc=$? cleanup_rc=0
   set +e
   if [ "$launched" = 1 ] && [ "$success" = 0 ]; then
-    run_remote_hook "$remote_pre_cleanup" || cleanup_rc=1
+    (run_remote_hook "$remote_pre_cleanup") || cleanup_rc=1
   fi
   if [ "$launched" = 1 ] && [ "$success" = 0 ] && [ "$wrapper_cleanup_done" = 0 ]; then
     remote_stop_process_tree || cleanup_rc=1
@@ -1629,9 +1650,9 @@ on_exit() {
   if [ "$background_hook_started" = 1 ] && [ "$process_cleanup_done" = 0 ]; then
     remote_stop_process_tree || cleanup_rc=1
   fi
-  collect_evidence || cleanup_rc=1
+  (collect_evidence) || cleanup_rc=1
   if [ "$success" = 1 ] && [ "$cleanup_rc" -eq 0 ]; then
-    cleanup_prefix || cleanup_rc=1
+    (cleanup_prefix) || cleanup_rc=1
   fi
   if [ "$cleanup_rc" -ne 0 ]; then
     cleanup_status='unknown'
@@ -1866,6 +1887,7 @@ SH
 local_copy_to "$local_tmp/launch.sh" "$task_dir/launch.sh"
 chmod 700 -- "$task_dir/launch.sh"
 
+# External-host admission is checked by the queue while holding its account lock.
 log "launching exact Cubism $version through official BAT"
 (
   cd "$task_dir" || exit 1

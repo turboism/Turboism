@@ -469,7 +469,7 @@ class PreparedStore:
             for path in sorted((source_root / "scripts/preview").iterdir()):
                 if path.suffix in {".sh", ".py", ".json"} and path.is_file():
                     copy_verified(path, tool_dir / path.name)
-            for required in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+            for required in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                              "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                              "host_validation_containment.py", "host_validation_evidence.py"):
                 if not (tool_dir / required).is_file():

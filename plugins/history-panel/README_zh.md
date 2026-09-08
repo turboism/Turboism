@@ -58,6 +58,7 @@ interface: embedded
 | 已声明能力 | 用户效果 |
 |---|---|
 | `cubism.editor-history.read` | 读取当前文档的原生撤销历史快照。 |
+| `cubism.editor-history.semantic-read` | 在独立授权下解码已验证的原生撤销类型，并严格限制深度、节点数和字符串长度。 |
 | `cubism.editor-history.move` | 请求在原生撤销历史记录之间移动。 |
 | `ui.embedded-panel.contribute` | 提供历史记录面板。 |
 | `ui.status.notify` | 提供历史记录状态通知。 |
