@@ -77,7 +77,7 @@ fi
 fixture_repo="$stub_dir/fixture repo"
 mkdir -p "$fixture_repo/scripts/preview" "$fixture_repo/scripts/dev" "$fixture_repo/build/preview/test" "$stub_dir/golden"
 cp "$wrapper" "$driver" "$root/scripts/preview/run-cubism-host-validation.sh" \
-  "$root/scripts/preview/host-validation-env.sh" "$root/scripts/preview/archive-cubism-host-evidence.sh" "$fixture_repo/scripts/preview/"
+  "$root/scripts/preview/host-validation-env.sh" "$root/scripts/preview/host-validation-transport.sh" "$root/scripts/preview/archive-cubism-host-evidence.sh" "$fixture_repo/scripts/preview/"
 printf '#!/bin/sh\nprintf "test\\n"\n' > "$fixture_repo/scripts/dev/worktree-id.sh"
 chmod +x "$fixture_repo/scripts/dev/worktree-id.sh"
 printf 'synthetic agent' > "$fixture_repo/build/preview/test/turboism-agent.jar"

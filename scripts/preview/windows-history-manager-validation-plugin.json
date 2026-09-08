@@ -20,7 +20,13 @@
     "locales": []
   },
   "dependencies": [],
-  "permissions": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Compare the exact native Undo manager projection with the Runtime SDK history snapshot in the same EDT poll."
+    }
+  ],
   "capabilities": [],
   "environment": {
     "requiresCubism": true,
