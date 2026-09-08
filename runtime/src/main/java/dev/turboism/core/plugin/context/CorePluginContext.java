@@ -61,6 +61,7 @@ import dev.turboism.sdk.ui.filter.PaletteFilterRegistry;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import dev.turboism.sdk.ui.table.SceneTableService;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import dev.turboism.ui.dialog.RuntimeHostDialogAutomationService;
 import dev.turboism.ui.appearance.RuntimeAppearanceService;
@@ -93,6 +94,7 @@ public final class CorePluginContext implements PluginContext {
     private final ContextMenuRegistry contextMenuRegistry;
     private final PluginConfigRegistry pluginConfigRegistry;
     private final UiHostCapabilityService uiHostCapabilityService;
+    private final UiResourceService uiResourceService;
     private final dev.turboism.sdk.ui.dialog.HostDialogAutomationService hostDialogAutomationService;
     private final AppearanceService appearanceService;
     private final PluginLocalization localization;
@@ -545,6 +547,7 @@ public final class CorePluginContext implements PluginContext {
                 hostAccess.adapters().projectWorkspace()
             ));
         final RuntimeHostAdapters adapters = Objects.requireNonNull(hostAdapters, "hostAdapters");
+        this.uiResourceService = adapters.uiResources();
         final CubismServicesFactory servicesFactory = Objects.requireNonNull(
             cubismServicesFactory, "cubismServicesFactory"
         );
@@ -995,6 +998,11 @@ public final class CorePluginContext implements PluginContext {
     @Override
     public UiHostCapabilityService uiHost() {
         return uiHostCapabilityService;
+    }
+
+    @Override
+    public UiResourceService uiResources() {
+        return uiResourceService;
     }
 
     @Override
