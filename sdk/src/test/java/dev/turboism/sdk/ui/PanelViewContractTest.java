@@ -2,6 +2,8 @@ package dev.turboism.sdk.ui;
 
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -15,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 class PanelViewContractTest {
 
@@ -157,6 +160,54 @@ class PanelViewContractTest {
     void collapsibleSectionExpandedByDefaultPassesThrough() {
         assertFalse(
             PanelView.collapsibleSection("标题", false, PanelView.text("x")).expandedByDefault()
+        );
+    }
+
+    @Test
+    void preservesLegacyToggleFactoriesAndConstructors() {
+        final PanelView.Toggle fourArgument = new PanelView.Toggle(
+            "enabled", "Enabled", true, "profile.enabled.changed"
+        );
+        final PanelView.Toggle fiveArgument = new PanelView.Toggle(
+            "enabled", "Enabled", false, true, "profile.enabled.changed"
+        );
+        final PanelView.Toggle factory = PanelView.toggle(
+            "enabled", "Enabled", true, "profile.enabled.changed"
+        );
+
+        assertEquals("Enabled", fourArgument.label());
+        assertFalse(fourArgument.grayed());
+        assertNull(fourArgument.inlineLabel());
+        assertEquals("Enabled", fiveArgument.label());
+        assertTrue(fiveArgument.grayed());
+        assertNull(fiveArgument.inlineLabel());
+        assertEquals(fourArgument, factory);
+    }
+
+    @Test
+    void addsInlineToggleAndSelectableLabelsWithoutChangingStringLabelFallback() {
+        final UiInlineLabel label = UiInlineLabel.of(
+            UiInlineLabel.textRun("移动 "),
+            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
+            UiInlineLabel.textRun(" 左眼皮")
+        );
+        final PanelView.Toggle toggle = PanelView.toggle(
+            "entry", label, true, true, "history.move"
+        );
+        final PanelView.Toggle selectable = PanelView.selectable(
+            "entry", label, false, "history.move"
+        );
+
+        assertSame(label, toggle.inlineLabel());
+        assertSame(label, toggle.labelContent());
+        assertEquals(label.fallbackText(), toggle.label());
+        assertTrue(toggle.selected());
+        assertTrue(toggle.grayed());
+        assertSame(label, selectable.inlineLabel());
+        assertFalse(selectable.grayed());
+        assertThrows(
+            NullPointerException.class,
+            () -> new PanelView.Toggle("entry", (UiInlineLabel) null, false, "history.move")
         );
     }
 }
