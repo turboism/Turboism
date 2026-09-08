@@ -478,6 +478,27 @@ public final class VerifiedMemberResolver {
         }
     }
 
+    /** Checks a value against the exact class named by a verified class alias. */
+    public boolean isExactInstance(final String alias, final Object value) {
+        final StaticSelector selector = classSelector(alias);
+        if (value == null) return false;
+        try {
+            final Class<?> owner = Class.forName(
+                selector.ownerInternalName().replace('/', '.'),
+                false,
+                hostClassLoader
+            );
+            if (owner.getClassLoader() != hostClassLoader) {
+                throw resolutionFailure(alias, "Verified host classloader attestation no longer matches.");
+            }
+            return owner == value.getClass();
+        } catch (VerifiedAccessException exception) {
+            throw exception;
+        } catch (ClassNotFoundException | LinkageError | SecurityException exception) {
+            throw resolutionFailure(alias, "Verified host class resolution failed safely.");
+        }
+    }
+
     /**
      * Invokes a verified instance method once.
      *
