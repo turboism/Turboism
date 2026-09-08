@@ -5,20 +5,27 @@ import dev.turboism.sdk.theme.ThemeStatusSnapshot;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.resource.UiIconAvailability;
 import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.Icon;
 import javax.swing.SwingUtilities;
 import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
+import java.lang.reflect.Field;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -32,12 +39,53 @@ class RuntimeUiResourceServiceTest {
         assertSame(service, RuntimeUiResourceService.unavailable());
         assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, service.availability(ART_MESH));
         assertTrue(service.resolve(ART_MESH, false).isEmpty());
-        assertSame(dev.turboism.sdk.ui.resource.UiResourceService.unavailable(),
-            dev.turboism.sdk.ui.resource.UiResourceService.unavailable());
+        assertSame(UiResourceService.unavailable(), UiResourceService.unavailable());
         assertEquals(
             UiIconAvailability.SERVICE_UNAVAILABLE,
-            dev.turboism.sdk.ui.resource.UiResourceService.unavailable().availability(ART_MESH)
+            UiResourceService.unavailable().availability(ART_MESH)
         );
+    }
+
+    @Test
+    void sdkViewIsStableNonCloseableAndOwnerControlsShutdown() {
+        final NativeIconVariant key =
+            new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 100, false);
+        final RuntimeUiResourceService owner = new RuntimeUiResourceService(
+            new CubismNativeIconResolver(
+                Map.of(key, image(16, 0xff123456)),
+                UiIconAvailability.RESOURCE_UNAVAILABLE
+            )
+        );
+        final UiResourceService view = owner.sdkView();
+
+        assertFalse(view instanceof AutoCloseable);
+        assertSame(view, owner.sdkView());
+        assertEquals(UiIconAvailability.AVAILABLE, view.availability(ART_MESH));
+
+        owner.close();
+
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, view.availability(ART_MESH));
+        assertTrue(owner.resolve(ART_MESH, false).isEmpty());
+    }
+
+    @Test
+    void reflectsExternalResolverDisposalWithoutStaleAvailability() {
+        final NativeIconVariant key =
+            new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 100, false);
+        final CubismNativeIconResolver resolver = new CubismNativeIconResolver(
+            Map.of(key, image(16, 0xff123456)),
+            UiIconAvailability.RESOURCE_UNAVAILABLE
+        );
+        final RuntimeUiResourceService owner = new RuntimeUiResourceService(resolver);
+        final Icon oldHandle = owner.resolve(ART_MESH, false).orElseThrow();
+
+        assertEquals(UiIconAvailability.AVAILABLE, owner.availability(ART_MESH));
+        resolver.close();
+
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, owner.availability(ART_MESH));
+        assertTrue(owner.resolve(ART_MESH, false).isEmpty());
+        assertFalse(hasPaintedPixel(oldHandle));
+        owner.close();
     }
 
     @Test
@@ -145,6 +193,70 @@ class RuntimeUiResourceServiceTest {
     }
 
     @Test
+    void closeWinsOverAnInFlightRefreshAndReleasesHostBoundReferences() throws Exception {
+        final CubismNativeIconResolver resolver = new CubismNativeIconResolver(
+            Map.of(),
+            UiIconAvailability.RESOURCE_UNAVAILABLE
+        );
+        final AtomicInteger themeReads = new AtomicInteger();
+        final AtomicInteger scaleReads = new AtomicInteger();
+        final AtomicBoolean blockRefresh = new AtomicBoolean();
+        final CountDownLatch refreshStarted = new CountDownLatch(1);
+        final CountDownLatch releaseRefresh = new CountDownLatch(1);
+        final AtomicReference<Throwable> refreshFailure = new AtomicReference<>();
+        final ThemeStatusAdapter theme = () -> {
+            themeReads.incrementAndGet();
+            if (blockRefresh.get()) {
+                refreshStarted.countDown();
+                try {
+                    if (!releaseRefresh.await(5, TimeUnit.SECONDS)) {
+                        throw new AssertionError("refresh did not receive its release");
+                    }
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    throw new AssertionError(interrupted);
+                }
+            }
+            return ThemeStatusAdapter.AdapterResult.available(
+                Optional.of(new ThemeStatusSnapshot("light", "Light", false))
+            );
+        };
+        final RuntimeUiResourceService service = RuntimeUiResourceService.connected(
+            resolver,
+            theme,
+            () -> {
+                scaleReads.incrementAndGet();
+                return 100;
+            }
+        );
+        blockRefresh.set(true);
+        final Thread refresh = new Thread(() -> {
+            try {
+                service.refreshPresentation();
+            } catch (Throwable failure) {
+                refreshFailure.set(failure);
+            }
+        });
+        refresh.start();
+
+        assertTrue(refreshStarted.await(5, TimeUnit.SECONDS));
+        service.close();
+        assertNull(privateField(service, "resolver"));
+        assertNull(privateField(service, "presentationSource"));
+
+        releaseRefresh.countDown();
+        refresh.join(5_000);
+        assertFalse(refresh.isAlive());
+        assertNull(refreshFailure.get());
+        final int themeReadsAfterInFlightRefresh = themeReads.get();
+        final int scaleReadsAfterInFlightRefresh = scaleReads.get();
+        service.refreshPresentation();
+        assertEquals(themeReadsAfterInFlightRefresh, themeReads.get());
+        assertEquals(scaleReadsAfterInFlightRefresh, scaleReads.get());
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, service.availability(ART_MESH));
+    }
+
+    @Test
     void invalidThemeAndScaleFallBackToLightAt100Percent() {
         final NativeIconVariant fallback =
             new NativeIconVariant(CubismIcon.ART_MESH, NativeIconVariant.Theme.LIGHT, 100, false);
@@ -240,5 +352,11 @@ class RuntimeUiResourceServiceTest {
             }
         }
         return false;
+    }
+
+    private static Object privateField(final Object target, final String name) throws Exception {
+        final Field field = target.getClass().getDeclaredField(name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 }

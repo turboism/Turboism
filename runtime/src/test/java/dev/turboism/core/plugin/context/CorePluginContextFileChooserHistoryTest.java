@@ -1,6 +1,7 @@
 package dev.turboism.core.plugin.context;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.ui.resource.RuntimeUiResourceService;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.core.diagnostics.PluginWorkBudgetEvent;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
@@ -31,6 +32,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -54,7 +56,8 @@ class CorePluginContextFileChooserHistoryTest {
     @Test
     void composesOneUiResourceServiceForAllContextsWithoutContextOwnership() {
         final UiIconRef reference = new UiIconRef(CubismIcon.ART_MESH);
-        final UiResourceService injected = ignored -> UiIconAvailability.AVAILABLE;
+        final RuntimeUiResourceService owner = RuntimeUiResourceService.unavailable();
+        final UiResourceService injected = owner.sdkView();
         final RuntimeHostAdapters composed =
             RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), injected);
 
@@ -63,11 +66,13 @@ class CorePluginContextFileChooserHistoryTest {
         final CorePluginContext safe =
             new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
 
+        assertFalse(injected instanceof AutoCloseable);
+        assertSame(injected, owner.sdkView());
         assertSame(UiResourceService.unavailable(), safe.uiResources());
         assertSame(injected, composed.uiResources());
         assertSame(injected, first.uiResources());
         assertSame(injected, second.uiResources());
-        assertEquals(UiIconAvailability.AVAILABLE, first.uiResources().availability(reference));
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, first.uiResources().availability(reference));
     }
 
     @Test

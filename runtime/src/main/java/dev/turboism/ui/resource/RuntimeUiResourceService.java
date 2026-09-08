@@ -18,54 +18,55 @@ import java.util.function.Supplier;
 /**
  * Runtime-owned UI resource service backed by one verified native-icon resolver.
  *
- * <p>The resolver and this service are host-binding resources. A composition owner creates one
- * instance per host binding, shares that instance with all plugin contexts, and closes it when the
- * binding is replaced or disposed. Plugin contexts only receive the SDK-facing
- * {@link UiResourceService}; the Runtime-only {@link #resolve(UiIconRef, boolean)} method is kept
- * on this implementation for the renderer seam.</p>
+ * <p>The host-binding owner creates one instance per host binding, shares its one stable
+ * {@link #sdkView()} with all plugin contexts, and closes this owner when the binding is replaced or
+ * disposed. The SDK view implements only {@link UiResourceService}; plugins cannot close the shared
+ * resolver through the SDK surface. The Runtime-only {@link #resolve(UiIconRef, boolean)} method and
+ * {@link #close()} remain on this owner for the renderer and host lifecycle seams.</p>
  *
  * <p>Host presentation state is sampled only during explicit off-EDT composition or refresh. The
  * availability and resolve paths use the selected in-memory variant and never query a host,
  * filesystem or class loader.</p>
  */
-public final class RuntimeUiResourceService implements UiResourceService, AutoCloseable {
+public final class RuntimeUiResourceService implements AutoCloseable {
     public static final int DEFAULT_SCALE_PERCENT = 100;
 
     private static final Presentation DEFAULT_PRESENTATION =
         new Presentation(NativeIconVariant.Theme.LIGHT, DEFAULT_SCALE_PERCENT);
     private static final RuntimeUiResourceService UNAVAILABLE =
-        new RuntimeUiResourceService(Optional.empty(), DEFAULT_PRESENTATION, null);
+        new RuntimeUiResourceService(null, DEFAULT_PRESENTATION, null);
 
-    private final Optional<CubismNativeIconResolver> resolver;
-    private final Supplier<Presentation> presentationSource;
+    private CubismNativeIconResolver resolver;
+    private Supplier<Presentation> presentationSource;
+    private final UiResourceService sdkView;
     private final Map<LookupKey, NativeIconVariant> selections = new HashMap<>();
-    private final Map<LookupKey, UiIconAvailability> availability = new HashMap<>();
     private NativeIconVariant.Theme theme;
     private int scalePercent;
     private boolean closed;
 
     private RuntimeUiResourceService(
-        final Optional<CubismNativeIconResolver> resolver,
+        final CubismNativeIconResolver resolver,
         final Presentation presentation,
         final Supplier<Presentation> presentationSource
     ) {
-        this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.resolver = resolver;
         final Presentation selected = Objects.requireNonNull(presentation, "presentation");
         this.theme = selected.theme();
         this.scalePercent = selected.scalePercent();
         this.presentationSource = presentationSource;
+        this.sdkView = new SdkView();
     }
 
-    /** Creates a connected service with the conservative light/100% presentation default. */
+    /** Creates a connected owner with the explicit light/100% presentation fallback. */
     public RuntimeUiResourceService(final CubismNativeIconResolver resolver) {
         this(resolver, NativeIconVariant.Theme.LIGHT, DEFAULT_SCALE_PERCENT);
     }
 
     /**
-     * Creates a connected service from already sampled presentation state.
+     * Creates a connected owner from already sampled presentation state.
      *
-     * <p>Null or unsupported presentation values intentionally fall back to light/100%; they do
-     * not widen the reviewed variant catalog.</p>
+     * <p>Null or unsupported values use an explicit light/100% presentation fallback only; this does
+     * not attest host theme/DPI parity or expand the reviewed variant catalog.</p>
      */
     public RuntimeUiResourceService(
         final CubismNativeIconResolver resolver,
@@ -73,16 +74,16 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         final int scalePercent
     ) {
         this(
-            Optional.of(Objects.requireNonNull(resolver, "resolver")),
+            Objects.requireNonNull(resolver, "resolver"),
             normalize(theme, scalePercent),
             null
         );
     }
 
     /**
-     * Creates a connected service by sampling host presentation state once off the EDT.
-     * Subsequent queries use only cached state. Call {@link #refreshPresentation()} off the EDT
-     * after a host theme/DPI change.
+     * Creates a connected owner by sampling host presentation state once off the EDT.
+     * Subsequent queries use only resolver-backed cached state. Call {@link #refreshPresentation()}
+     * off the EDT after a host theme/DPI change.
      */
     public RuntimeUiResourceService(
         final CubismNativeIconResolver resolver,
@@ -90,7 +91,7 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         final IntSupplier scalePercent
     ) {
         this(
-            Optional.of(Objects.requireNonNull(resolver, "resolver")),
+            Objects.requireNonNull(resolver, "resolver"),
             readPresentation(themeStatus, scalePercent),
             () -> readPresentation(themeStatus, scalePercent)
         );
@@ -98,8 +99,8 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
 
     /**
      * Explicit connected factory for host composition. This method does not preload. The host-binding
-     * owner must retain and close the returned service when the binding is replaced or disposed;
-     * closing the service releases the resolver's cached resources.
+     * owner must retain and close the returned owner when the binding is replaced or disposed;
+     * closing it releases the resolver's cached resources.
      */
     public static RuntimeUiResourceService connected(
         final CubismNativeIconResolver resolver,
@@ -109,7 +110,7 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         return new RuntimeUiResourceService(resolver, themeStatus, scalePercent);
     }
 
-    /** Creates a connected service from already sampled presentation state. */
+    /** Creates a connected owner from already sampled presentation state. */
     public static RuntimeUiResourceService connected(
         final CubismNativeIconResolver resolver,
         final NativeIconVariant.Theme theme,
@@ -119,13 +120,22 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
     }
 
     /**
-     * Returns the fail-closed service used when no verified host-binding provider is installed.
+     * Returns one stable, non-closeable SDK view for this owner. The same object is returned on every
+     * call; it is intended to be composed into every plugin context for this host binding.
      */
+    public UiResourceService sdkView() {
+        return sdkView;
+    }
+
+    /** Returns the fail-closed owner used when no verified host-binding provider is installed. */
     public static RuntimeUiResourceService unavailable() {
         return UNAVAILABLE;
     }
 
-    @Override
+    /**
+     * Returns current cached availability for the enabled presentation. The underlying resolver's
+     * lookup is constant-space and performs no filesystem, host or decoding IO.
+     */
     public synchronized UiIconAvailability availability(final UiIconRef reference) {
         Objects.requireNonNull(reference, "reference");
         return availability(reference, false);
@@ -140,14 +150,15 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         if (availability(reference, disabled) != UiIconAvailability.AVAILABLE) {
             return Optional.empty();
         }
-        final CubismNativeIconResolver activeResolver = resolver.orElse(null);
+        final CubismNativeIconResolver activeResolver = resolver;
         if (closed || activeResolver == null) return Optional.empty();
         return activeResolver.resolve(selection(reference, disabled));
     }
 
     /**
      * Samples the retained host presentation source off the EDT and invalidates only presentation
-     * selection caches. A disposed service ignores the refresh and does not touch the source.
+     * selection caches. A disposed owner ignores the refresh and does not touch the source. A refresh
+     * that already captured the source may finish, but it cannot update a closed owner.
      */
     public void refreshPresentation() {
         final Supplier<Presentation> source;
@@ -181,25 +192,28 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         apply(normalize(theme, scalePercent));
     }
 
+    /** Closes this host-binding owner and releases the resolver/source references. */
     @Override
-    public synchronized void close() {
-        if (closed) return;
-        closed = true;
-        selections.clear();
-        availability.clear();
-        resolver.ifPresent(CubismNativeIconResolver::close);
+    public void close() {
+        final CubismNativeIconResolver activeResolver;
+        synchronized (this) {
+            if (closed) return;
+            closed = true;
+            presentationSource = null;
+            activeResolver = resolver;
+            resolver = null;
+            selections.clear();
+        }
+        if (activeResolver != null) activeResolver.close();
     }
 
     private UiIconAvailability availability(
         final UiIconRef reference,
         final boolean disabled
     ) {
-        if (closed || resolver.isEmpty()) return UiIconAvailability.SERVICE_UNAVAILABLE;
-        final LookupKey key = new LookupKey(reference, disabled);
-        return availability.computeIfAbsent(
-            key,
-            ignored -> resolver.orElseThrow().availability(selection(reference, disabled))
-        );
+        final CubismNativeIconResolver activeResolver = resolver;
+        if (closed || activeResolver == null) return UiIconAvailability.SERVICE_UNAVAILABLE;
+        return activeResolver.availability(selection(reference, disabled));
     }
 
     private NativeIconVariant selection(final UiIconRef reference, final boolean disabled) {
@@ -214,7 +228,6 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
         theme = presentation.theme();
         scalePercent = presentation.scalePercent();
         selections.clear();
-        availability.clear();
     }
 
     private static Presentation readPresentation(
@@ -236,14 +249,14 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
                 }
             }
         } catch (RuntimeException ignored) {
-            // Presentation is optional; an adapter failure must not make resource access fail open.
+            // Presentation is optional; an adapter failure uses the explicit light fallback.
         }
 
         int sampledScale = DEFAULT_SCALE_PERCENT;
         try {
             sampledScale = scalePercent.getAsInt();
         } catch (RuntimeException ignored) {
-            // Retain the conservative default when the optional DPI source is unavailable.
+            // An unavailable DPI source uses the explicit light/100% fallback only.
         }
         return normalize(theme, sampledScale);
     }
@@ -270,6 +283,13 @@ public final class RuntimeUiResourceService implements UiResourceService, AutoCl
     private static void requireOffEdt() {
         if (SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("native UI presentation sampling must run off the EDT");
+        }
+    }
+
+    private final class SdkView implements UiResourceService {
+        @Override
+        public UiIconAvailability availability(final UiIconRef reference) {
+            return RuntimeUiResourceService.this.availability(reference);
         }
     }
 
