@@ -27,6 +27,20 @@ tasks.register<Exec>("checkCubismHostValidationArguments") {
     commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationLocalTransport") {
+    group = "verification"
+    description = "Verifies local host command/copy transport and side-effect-free dry runs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_local_transport.sh")
+}
+
+tasks.register<Exec>("checkHistoryValidationProbePackaging") {
+    group = "verification"
+    description = "Verifies history exact-host probe JARs include their descriptor-declared base i18n catalogs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
+}
+
 tasks.register<Exec>("checkFxValidationBrokerArguments") {
     group = "verification"
     description = "Verifies bounded validation-only fx broker accept lifetimes offline."
@@ -713,6 +727,8 @@ tasks.register("checkIntegration") {
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
+        "checkHistoryValidationProbePackaging",
+        "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
@@ -762,18 +778,24 @@ val checkReleaseTooling by tasks.registering(Exec::class) {
         "scripts/release/audit-v0.42.0.py",
         "scripts/release/build-updates-manifests.py",
         "scripts/release/turboism-release.py",
+        "scripts/release/promote-github-release.py",
         "scripts/release/verify-github-assets.py",
         "scripts/release/verify-plugin-publication.py",
         fileTree("scripts/release/turboism_release") { include("*.py") },
         "scripts/test/test_release_tooling.py",
         "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py",
+        ".github/workflows/release-github-only.yml",
+        ".github/workflows/release-publisher.yml",
+        "RELEASING.md",
         "CHANGELOG.md",
         ".github/workflows/release.yml"
     )
     commandLine(
         "python3", "-m", "unittest", "-v",
         "scripts/test/test_release_tooling.py",
-        "scripts/test/test_release_orchestrator.py"
+        "scripts/test/test_release_orchestrator.py",
+        "scripts/test/test_release_promotion.py"
     )
 }
 
@@ -790,6 +812,7 @@ tasks.register("checkRelease") {
         "checkSdkV4ExactApiCompatibility",
         "checkSdkV5ExactApiCompatibility",
         "checkSdkV6ExactApiCompatibility",
+        "checkSdkV7ExactApiCompatibility",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",

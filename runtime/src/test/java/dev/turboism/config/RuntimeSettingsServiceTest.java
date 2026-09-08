@@ -41,7 +41,7 @@ class RuntimeSettingsServiceTest {
             """);
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
-        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true, true));
+        RuntimeSettings saved = service.save(new RuntimeSettings(true, "DEBUG", 64, true, true, true, true, "en", true));
         RuntimeSettings reloaded = service.read();
 
         assertEquals(saved, reloaded);
@@ -52,8 +52,24 @@ class RuntimeSettingsServiceTest {
         assertEquals("DEBUG", reloaded.logLevel());
         assertEquals(64, reloaded.maxLogStorageMiB());
         assertTrue(reloaded.separateExportSaveDirectory());
+        assertTrue(reloaded.useTextIcon());
+        assertEquals("settings-test", JSON.readTree(home.resolve("config.json").toFile()).path("worktreeId").asText());
         assertFalse(Files.exists(home.resolve("config/runtime.json")));
         assertFalse(Files.exists(home.resolve("config.json.tmp")));
+    }
+
+    @Test
+    void missingTextIconDefaultsOffAndBothValuesRoundTrip() {
+        RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
+
+        assertFalse(service.read().useTextIcon());
+
+        service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "ja", true));
+        assertTrue(service.read().useTextIcon());
+
+        service.save(new RuntimeSettings(false, "INFO", 100, false, false, false, false, "ja", false));
+        assertFalse(service.read().useTextIcon());
+        assertEquals("ja", service.read().locale());
     }
 
     @Test
@@ -289,6 +305,7 @@ class RuntimeSettingsServiceTest {
         assertFalse(settings.safeMode());
         assertEquals("INFO", settings.logLevel());
         assertEquals(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB, settings.maxLogStorageMiB());
+        assertFalse(settings.useTextIcon());
     }
 
     @Test
@@ -333,6 +350,7 @@ class RuntimeSettingsServiceTest {
         RuntimeSettingsFileService service = new RuntimeSettingsFileService(home, coordinator());
 
         assertFalse(service.read().separateExportSaveDirectory());
+        assertFalse(service.read().useTextIcon());
         assertEquals(RuntimeSettings.DEFAULT_LOCALE, service.read().locale());
     }
 

@@ -2,14 +2,11 @@
 """Read-only Linux/Proton main-Java occupancy sampler; no launches or signals."""
 import importlib.util
 import json
-import os
 from pathlib import Path
 import sys
 import time
 
-HELPER = Path(__file__).with_name('host-task-processes.py')
-if not HELPER.is_file():
-    HELPER = Path(__file__).resolve().parents[1] / 'preview/host-task-processes.py'
+HELPER = Path(__file__).with_name('host_memory_identity.py')
 SPEC = importlib.util.spec_from_file_location('memory_task_identity', HELPER)
 IDENTITY = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = IDENTITY
@@ -38,31 +35,12 @@ def same_process(before, after):
         raise RuntimeError('measured process exited or changed identity')
 
 
-def find_java(task):
-    found = []
-    for directory in Path('/proc').iterdir():
-        if not directory.name.isdigit():
-            continue
-        try:
-            name = (directory / 'comm').read_text().strip().lower()
-        except FileNotFoundError:
-            continue
-        if name not in ('java.exe', 'javaw.exe'):
-            continue
-        process = IDENTITY.read_process(int(directory.name))
-        if process is not None and process.uid == os.getuid() and IDENTITY.tagged(process, task):
-            if 'com.live2d.cubism.CECubismEditorApp' in process.command:
-                found.append(process)
-    if len(found) > 1:
-        raise RuntimeError('multiple task Editor JVMs; memory attribution ambiguous')
-    return found[0] if found else None
-
-
-def sample(process):
-    before = IDENTITY.read_process(process.pid)
-    same_process(process, before)
-    root = Path('/proc') / str(process.pid)
+def sample(process, scope):
     started = time.monotonic_ns()
+    scope.verify_process(process)
+    if scope.find_java() != process:
+        raise RuntimeError('task Editor identity is no longer unique')
+    root = scope.proc / str(process.pid)
     cpu = COUNTERS.cpu_snapshot((root / 'stat').read_text())
     if cpu['started'] != process.started:
         raise RuntimeError('CPU process identity changed')
@@ -70,11 +48,13 @@ def sample(process):
     status = kilobytes((root / 'status').read_text(), ('VmRSS', 'VmHWM', 'VmSwap'))
     rollup = kilobytes((root / 'smaps_rollup').read_text(),
                       ('Rss', 'Pss', 'Private_Clean', 'Private_Dirty', 'Swap', 'SwapPss'))
-    same_process(process, IDENTITY.read_process(process.pid))
-    system = kilobytes(Path('/proc/meminfo').read_text(), ('MemAvailable', 'SwapFree'))
+    same_process(process, scope.read_process(process.pid))
+    scope.verify_process(process)
+    identity = scope.metadata()
+    system = kilobytes((scope.proc / 'meminfo').read_text(), ('MemAvailable', 'SwapFree'))
     return dict(epochMillis=time.time_ns() // 1_000_000, monotonicNs=time.monotonic_ns(),
                 readDurationNs=time.monotonic_ns() - started, pid=process.pid, started=process.started,
-                status=status, rollup=rollup, system=system, cpu=cpu, gpu=gpu)
+                status=status, rollup=rollup, system=system, cpu=cpu, gpu=gpu, scope=identity)
 
 
 def publish(path, text):
@@ -107,18 +87,20 @@ def measure(task):
     directory.mkdir(parents=True, exist_ok=True)
     output = task / 'evidence/memory-samples.jsonl'
     complete = directory / 'complete.properties'
+    scope = None
     try:
+        scope = IDENTITY.BoundScope()
         process = None
         deadline = time.monotonic() + 180
         while process is None and time.monotonic() < deadline:
-            process = find_java(task)
+            process = scope.find_java()
             if process is None:
                 if (task / 'evidence/wrapper.exit').exists():
                     raise RuntimeError('launcher exited before sampler attachment')
                 time.sleep(0.1)
         if process is None:
-            raise RuntimeError('no prefix-verified task Editor JVM appeared')
-        first = sample(process)
+            raise RuntimeError('no bound-scope task Editor JVM appeared')
+        first = sample(process, scope)
         publish(directory / 'attached.properties', f'pid={process.pid}\nstarted={process.started}\nuid={process.uid}\n')
         count = 0
         rows = []
@@ -137,15 +119,19 @@ def measure(task):
                     validate_window(rows, IDENTITY.properties(directory / 'ready.properties'),
                                     IDENTITY.properties(directory / 'end.properties'))
                     IDENTITY.verify_task(task)
+                    scope.verify_process(process)
                     publish(complete, f'status=PASS\nsamples={count}\npid={process.pid}\n')
                     return
                 time.sleep(1)
-                current = sample(process)
+                current = sample(process, scope)
         raise RuntimeError('memory observation did not finish within 900 seconds')
     except Exception as failure:
         if not complete.exists():
             publish(complete, 'status=FAIL\nfailure=' + type(failure).__name__ + ': ' + str(failure).replace('\n', ' ') + '\n')
         raise
+    finally:
+        if scope is not None:
+            scope.close()
 
 
 if __name__ == '__main__':

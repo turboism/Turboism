@@ -21,4 +21,17 @@ class WindowsHistoryManagerValidationProbeTest {
         assertEquals(160, bounded.codePointCount(0, bounded.length()));
         assertEquals("", WindowsHistoryManagerValidationProbe.boundedLabel(null));
     }
+
+    @Test
+    void semanticScalarProjectionRejectsUnknownObjectStringConversion() {
+        final Object explosive = new Object() {
+            @Override
+            public String toString() {
+                throw new AssertionError("must not stringify unknown host objects");
+            }
+        };
+        assertEquals("", WindowsHistoryManagerValidationProbe.safeScalar(explosive));
+        assertEquals("", WindowsHistoryManagerValidationProbe.boundedLabel(explosive));
+        assertEquals("7", WindowsHistoryManagerValidationProbe.safeScalar(7));
+    }
 }

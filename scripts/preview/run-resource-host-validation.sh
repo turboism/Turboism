@@ -15,6 +15,7 @@ label="$mode"
 if [[ $# -gt 0 && "$1" != --* ]]; then label="$1"; shift; fi
 worktree_id="$(bash "$repo_root/scripts/dev/worktree-id.sh")"
 bundle="$repo_root/build/preview/$worktree_id"
+observer_python="$(python3 -I -S -c 'import pathlib, sys; print(pathlib.Path(sys.executable).resolve(strict=True))')"
 exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --name native-resource --version 5302 --run-label "$label" \
   --bundle-root "$bundle" --agent "$bundle/turboism-agent.jar" \
@@ -25,8 +26,9 @@ exec bash "$repo_root/scripts/preview/run-cubism-host-validation.sh" \
   --trigger state/resource-workload/start.flag --result-file state/resource-workload/result.properties \
   --home-file "$repo_root/scripts/test/measure-task-memory.py:validation/measure-task-memory.py" \
   --home-file "$repo_root/scripts/test/host_resource_counters.py:validation/host_resource_counters.py" \
-  --home-file "$repo_root/scripts/preview/host-task-processes.py:validation/host-task-processes.py" \
+  --home-file "$repo_root/scripts/test/host_memory_identity.py:validation/host_memory_identity.py" \
   --remote-pre-launch "$repo_root/scripts/test/start-task-memory-observer.sh" \
+  --remote-pre-launch-background --remote-pre-launch-arg "$observer_python" \
   --jvm-option '-Dturboism.optimization.warpPositionProjection=false' \
   --jvm-option '-Dturboism.optimization.imageArchiveReuse=false' \
   --jvm-option '-Dturboism.optimization.floatArrayParseCache=false' \

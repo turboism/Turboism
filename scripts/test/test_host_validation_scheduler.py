@@ -12,6 +12,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[2]
 PREVIEW = ROOT / "scripts" / "preview"
@@ -38,9 +39,9 @@ class HostValidationSchedulerTest(unittest.TestCase):
             "startup-suppression", "status-bar", "theme", "workspace",
         }
         self.assertEqual(expected, set(self.manifest.tasks))
-        self.assertEqual(4, self.manifest.resources["host-slot"].capacity)
+        self.assertEqual(1, self.manifest.resources["host-slot"].capacity)
         self.assertEqual(
-            {"host-slot": 4, "display-input": 1, "performance-host": 1},
+            {"host-slot": 1, "display-input": 1, "performance-host": 1},
             self.manifest.tasks["fps"].resources,
         )
         self.assertEqual(
@@ -48,6 +49,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
             self.manifest.tasks["backup-interactive"].resources,
         )
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
+        self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
 
     def test_local_env_loads_data_without_overriding_exported_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -77,7 +79,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
         with self.assertRaisesRegex(scheduler.SchedulerError, "does not define variants"):
             scheduler.parse_request("workspace:5302@matrix", "test-run", self.manifest)
 
-    def test_planner_parallelizes_isolated_projects_and_serializes_performance(self) -> None:
+    def test_planner_serializes_all_versions_in_fifo_order(self) -> None:
         requests = [
             self.request("workspace:5302"),
             self.request("recent-preview:5203"),
@@ -86,22 +88,18 @@ class HostValidationSchedulerTest(unittest.TestCase):
         ]
         waves = scheduler.plan_waves(requests, self.manifest.resources)
         self.assertEqual(
-            [["workspace", "recent-preview", "status-bar"], ["fps"]],
+            [["workspace"], ["recent-preview"], ["status-bar"], ["fps"]],
             [[request.task.name for request in wave] for wave in waves],
         )
 
     def test_rendered_command_reuses_wrapper_and_common_placement_options(self) -> None:
         request = self.request("psd-clip-mask:5203@read")
-        command = scheduler.render_command(
-            request, self.manifest, "operator@example", Path("/tmp/scheduler-key")
-        )
+        command = scheduler.render_command(request, self.manifest)
         self.assertEqual("bash", command[0])
         self.assertTrue(command[1].endswith("run-psd-clip-mask-host-validation.sh"))
         self.assertEqual(["5203", "read", "test-run"], command[2:5])
-        self.assertEqual(
-            ["--ssh-host", "operator@example", "--ssh-key", "/tmp/scheduler-key"],
-            command[-4:],
-        )
+        self.assertNotIn("--ssh-host", command)
+        self.assertNotIn("--ssh-key", command)
 
     def test_cli_list_and_plan_do_not_require_host_access(self) -> None:
         output = io.StringIO()
@@ -110,15 +108,14 @@ class HostValidationSchedulerTest(unittest.TestCase):
         self.assertIn("workspace\t5203,5302", output.getvalue())
 
         output = io.StringIO()
-        with contextlib.redirect_stdout(output):
+        with contextlib.redirect_stdout(output), mock.patch.object(scheduler.queue, "Store", side_effect=AssertionError("plan touched queue")), mock.patch.object(scheduler.subprocess, "run", side_effect=AssertionError("plan executed a process")):
             self.assertEqual(0, scheduler.main([
                 "plan", "workspace:5302", "fps:5203", "--run-label", "offline",
-                "--ssh-host", "operator@example", "--ssh-key", "/tmp/scheduler-key",
-                "--scheduler-root", "/remote/scheduler",
             ]))
         rendered = output.getvalue()
-        self.assertIn("wave 1:", rendered)
-        self.assertIn("wave 2:", rendered)
+        self.assertIn("local-only FIFO", rendered)
+        self.assertIn("1. workspace:5302", rendered)
+        self.assertIn("2. fps:5203", rendered)
         self.assertIn("workspace:5302", rendered)
         self.assertIn("fps:5203", rendered)
 
@@ -136,77 +133,54 @@ class HostValidationSchedulerTest(unittest.TestCase):
             with self.assertRaisesRegex(scheduler.SchedulerError, "unknown resource"):
                 scheduler.load_manifest(invalid)
 
-    def test_remote_lease_acquisition_is_atomic_and_owner_scoped(self) -> None:
+    def test_local_admission_is_atomic_and_owner_scoped(self) -> None:
+        # Preserve the old lease test's exclusivity/owner guarantees, without SSH stubs.
         with tempfile.TemporaryDirectory() as directory:
-            temporary = Path(directory)
-            key = temporary / "key"
-            key.write_text("test", encoding="utf-8")
-            bin_dir = temporary / "bin"
-            bin_dir.mkdir()
-            ssh = bin_dir / "ssh"
-            ssh.write_text(
-                "#!/usr/bin/env bash\nset -euo pipefail\nremote=${!#}\nexec bash -c \"$remote\"\n",
-                encoding="utf-8",
-            )
-            ssh.chmod(0o755)
-            old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = f"{bin_dir}:{old_path}"
-            try:
-                resources = {"exclusive": scheduler.Resource("exclusive", 1, "test")}
-                leases = scheduler.RemoteLeases(
-                    "local-test", key, str(temporary / "scheduler"), resources
-                )
-                task = scheduler.Task(
-                    name="lease-test", description="test", command="scripts/preview/run-theme-host-validation.sh",
-                    versions=("5302",), resources={"exclusive": 1}, arguments=("{version}", "{runLabel}"),
-                    variants={}, default_variant=None, runnable=True, blocked_reason=None,
-                )
-                request = scheduler.Request(task, "5302", None, "test")
-                first = leases.acquire(request, "owner-one", wait_seconds=1, poll_seconds=1)
-                self.assertEqual(1, len(first.slots))
-                with self.assertRaisesRegex(scheduler.SchedulerError, "timed out"):
-                    leases.acquire(request, "owner-two", wait_seconds=1, poll_seconds=1)
-                rows = leases.status()
-                self.assertEqual("owner-one", rows[0]["owner"])
-                leases.release_owner("owner-two")
-                self.assertEqual(1, len(leases.status()))
-                leases.release_owner("owner-one")
-                self.assertEqual([], leases.status())
+            store = scheduler.queue.Store(Path(directory) / "queue")
+            path = store.root / "admission.lock"
+            owner = scheduler.queue.FileLock(path).acquire()
+            other = scheduler.queue.FileLock(path)
+            with self.assertRaises(scheduler.queue.QueueError):
+                other.acquire()
+            other.close()  # A non-owner cannot release the owner's lock.
+            with self.assertRaises(scheduler.queue.QueueError):
+                scheduler.queue.FileLock(path).acquire()
+            owner.close()
+            with scheduler.queue.FileLock(path):
+                pass
+            store.submit("prepared", "digest", "one")
+            job = store.claim()
+            store.quarantine(job["job_id"], "cleanup unknown")
+            with contextlib.redirect_stderr(io.StringIO()):
+                self.assertEqual(2, scheduler.main(["release-stale", "--older-than", "3600", "--force"]))
+            self.assertIsNone(store.claim())
 
-                stale = leases.acquire(request, "stale-owner", wait_seconds=1, poll_seconds=1)
-                heartbeat = Path(stale.slots[0]) / "heartbeatEpoch"
-                heartbeat.write_text(str(int(time.time()) - 1000) + "\n", encoding="utf-8")
-                released = leases.release_stale(older_than=300)
-                self.assertEqual(1, len(released))
-                self.assertEqual([], leases.status())
+    def test_attempt_ids_include_entropy(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = scheduler.queue.Store(Path(directory) / "queue")
+            first = store.submit("prepared", "digest", "first")
+            second = store.submit("prepared", "digest", "second")
+            self.assertNotEqual(first["job_id"], second["job_id"])
+            self.assertRegex(first["job_id"], scheduler.SAFE_NAME)
+            self.assertRegex(second["job_id"], scheduler.SAFE_NAME)
 
-                live = leases.acquire(request, "live-owner", wait_seconds=1, poll_seconds=1)
-                live_heartbeat = Path(live.slots[0]) / "heartbeatEpoch"
-                live_heartbeat.write_text(str(int(time.time()) - 1000) + "\n", encoding="utf-8")
-                operation_lock = Path(live.slots[0]) / ".scheduler-operation"
-                operation_lock.mkdir()
-                self.assertEqual([], leases.release_stale(older_than=300))
-                self.assertEqual("live-owner", leases.status()[0]["owner"])
-                operation_lock.rmdir()
-                leases.heartbeat("live-owner")
-                self.assertEqual([], leases.release_stale(older_than=300))
-                leases.release_owner("live-owner")
+    def test_legacy_remote_configuration_cannot_trigger_connections(self) -> None:
+        with mock.patch.object(scheduler.subprocess, "run", side_effect=AssertionError("network execution")):
+            for arguments in (["plan", "workspace:5302", "--ssh-host", "remote"],
+                              ["status", "--ssh-key=/secret"], ["run", "workspace:5302", "--keep-going"]):
+                with contextlib.redirect_stderr(io.StringIO()):
+                    self.assertEqual(2, scheduler.main(arguments))
 
-                missing_root = scheduler.RemoteLeases(
-                    "local-test", key, str(temporary / "missing-scheduler"), resources
-                )
-                self.assertEqual([], missing_root.status())
-                self.assertEqual([], missing_root.release_stale(older_than=300))
-            finally:
-                os.environ["PATH"] = old_path
-
-    def test_owner_ids_include_random_dispatcher_entropy(self) -> None:
-        request = self.request("workspace:5302")
-        first = scheduler.owner_id(request, 1)
-        second = scheduler.owner_id(request, 1)
-        self.assertNotEqual(first, second)
-        self.assertRegex(first, scheduler.SAFE_NAME)
-        self.assertRegex(second, scheduler.SAFE_NAME)
+    def test_recovery_confirmation_requires_reason(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            store = scheduler.queue.Store(Path(directory) / "queue")
+            with mock.patch.object(scheduler.queue, "Store", return_value=store), \
+                 mock.patch.object(scheduler.queue, "recover", side_effect=AssertionError("invalid recovery invoked")), \
+                 contextlib.redirect_stderr(io.StringIO()):
+                for arguments in (["recover", "--confirm", "job"],
+                                  ["recover", "--confirm", "job", "--reason", " "],
+                                  ["recover", "--inspect", "job", "--reason", "reviewed"]):
+                    self.assertEqual(2, scheduler.main(arguments))
 
 
 if __name__ == "__main__":

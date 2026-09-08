@@ -279,7 +279,36 @@ host validation
 
 A bare multi-project `check` is not the daily workflow because Gradle expands every subproject's same-named task. Broad suites are run only when their affected surface justifies them.
 
-Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into its task directory and prefixes the copy name with the validation purpose/run ID; independent CoW prefixes and homes allow different project copies to remain open in concurrent Cubism windows. Only the golden prefix and source project are immutable shared inputs. Concurrent automation reserves task-scoped shared resources instead of using a global host lock. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
+### Local host-validation admission
+
+`scripts/preview/host_validation.py` separates immutable preparation and durable
+submission from a separately supervised `serve` worker. All managed worktrees use
+one current-UID queue root and one host-admission lock; supported Cubism versions
+share a single session slot through task-owned cleanup. Build and prepare work
+may run in parallel, but must not launch the host or execute UI hooks.
+
+The worker consumes verified input/tool snapshots, records an attempt before
+launch permission, and passes inherited admission ownership to the common
+Runner. Completion requires matching structured lifecycle and cleanup evidence;
+an expired heartbeat, vanished PID or exit code alone cannot release the host.
+Unknown ownership/cleanup quarantines the host for evidence-based inspection.
+External sessions are never killed or adopted. Old checkouts and unmanaged
+launchers must be retired at a safe boundary before rollout; the queue does not
+claim to intercept arbitrary manual official-BAT launches.
+
+The Linux backend binds a fresh delegated systemd user cgroup before acknowledging
+Runner execution. Its outside supervisor holds kernel directory/events/kill FDs;
+late children and `setsid` remain covered without PID-tree or environment matching.
+Only bound-cgroup empty/destruction proof permits finalization. A snapshot finalizer
+then rechecks official files, runtime dependencies, fixture and staged artifacts,
+archives evidence and removes only a successful task prefix. Preliminary Runner
+results cannot claim final cleanup. Unsupported containment fails closed.
+See `scripts/preview/README-host-validation-scheduling.md` for local-only CLI,
+recovery, service lifecycle and Agent adoption. The service is opt-in and is not
+installed or started by Gradle. Actual exact-host acceptance is a separate gate,
+not a conclusion drawn from the scheduler's isolated process tests.
+
+Real-host verification is automation-first. Test-only plugins call the public SDK and emit structured assertions. Host scripts launch the official Editor, poll readiness and terminal result markers, batch compatible assertions in one session, and collect hashes, values, Undo/Redo, persistence, cleanup, and timing evidence. Every run copies the selected host project into its task directory and prefixes the copy name with the validation purpose/run ID; independent CoW prefixes and homes isolate sequential runs, not permission to open concurrent Cubism windows. The golden prefix and source project remain immutable shared inputs. All managed exact-host runs share the global admission slot until cleanup is proven. UI automation is reserved for entry points that cannot yet be reached through a semantic SDK operation. Screenshots are last-resort evidence for visual-only facts or failure diagnosis.
 
 Fake providers, static selector records, classfile inspection, and document consistency never promote a provider to real-host readiness.
 
