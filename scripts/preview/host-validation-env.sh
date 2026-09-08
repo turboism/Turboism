@@ -3,9 +3,10 @@
 #
 # Developers keep machine-specific local paths in the repository root `.env` (ignored by Git). Copy `.env.example` to `.env`, edit it locally, then invoke any wrapper normally. Existing exported variables take precedence so CI and one-off commands can override `.env` without rewriting it.
 
-if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
-  TURBOISM_HOST_VALIDATION_ENV_LOADED=1
+if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
+  TURBOISM_HOST_VALIDATION_ENV_LOADED="$BASHPID"
   # This guard is shell-local: child Runners must initialize non-exported defaults.
+  export -n TURBOISM_HOST_VALIDATION_ENV_LOADED
 
   _turboism_env_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   _turboism_env_file="${TURBOISM_ENV_FILE:-$_turboism_env_root/.env}"

@@ -87,6 +87,7 @@ for mode in dry prepare; do
   options=(--dry-run)
   [ "$mode" != prepare ] || options=(--prepare-dir "$stub_dir/prepared")
   TURBOISM_ENV_FILE=/dev/null \
+    TURBOISM_HOST_VALIDATION_ENV_LOADED=1 \
     TURBOISM_HOST_VALIDATION_FIXTURE_5302="$stub_dir/fixture.cmo3" \
     TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256="$(sha256sum "$stub_dir/fixture.cmo3" | cut -d' ' -f1)" \
     bash "$fixture_repo/scripts/preview/run-fps-host-validation.sh" 5302 regression \
