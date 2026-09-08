@@ -121,7 +121,8 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             startup.path("skipSplash").asBoolean(false),
             startup.path("skipInformation").asBoolean(false),
             startup.path("separateExportSaveDirectory").asBoolean(false),
-            root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE)
+            root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE),
+            root.path("useTextIcon").asBoolean(false)
         );
     }
 
@@ -135,6 +136,7 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
                 root.put("logLevel", requested.logLevel());
                 root.put("maxLogStorageMiB", requested.maxLogStorageMiB());
                 root.put("locale", requested.locale());
+                root.put("useTextIcon", requested.useTextIcon());
                 final ObjectNode startup = root.withObject("hooks").withObject("startup");
                 startup.put("skipUpdateCheck", requested.skipStartupUpdateCheck());
                 startup.put("skipSplash", requested.skipStartupSplash());

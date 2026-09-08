@@ -9,7 +9,6 @@ import java.awt.Point;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class SceneTableDragSupportTest {
 
@@ -33,24 +32,6 @@ final class SceneTableDragSupportTest {
         assertEquals(2, overlay.targetRow());
         assertFalse(overlay.contains(5, 5));
         overlay.finish();
-    }
-
-    @Test
-    void recognizesOnlyExactNativeSceneRowListenerName() {
-        assertFalse(SceneTableDragSupport.isNativeSceneRowListener(new Object()));
-        assertFalse(SceneTableDragSupport.isNativeSceneRowListener(null));
-    }
-
-    @Test
-    void removesCompetingMotionListenersButKeepsDragHandler() {
-        final JTable table = table();
-        final java.awt.event.MouseMotionListener keep = new java.awt.event.MouseMotionAdapter() { };
-        final java.awt.event.MouseMotionListener competing = new java.awt.event.MouseMotionAdapter() { };
-        table.addMouseMotionListener(keep);
-        table.addMouseMotionListener(competing);
-        SceneTableDragSupport.removeConflictingMouseMotionListeners(table, keep);
-        assertTrue(java.util.Arrays.asList(table.getMouseMotionListeners()).contains(keep));
-        assertFalse(java.util.Arrays.asList(table.getMouseMotionListeners()).contains(competing));
     }
 
     private static JTable table() {

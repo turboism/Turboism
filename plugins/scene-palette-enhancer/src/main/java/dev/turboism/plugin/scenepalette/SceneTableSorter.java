@@ -5,10 +5,13 @@ import dev.turboism.sdk.ui.table.SceneTableService;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Consumer;
 
 /** Plugin-owned Scene palette sorting policy ported from the legacy enhancer. */
@@ -22,6 +25,10 @@ final class SceneTableSorter implements AutoCloseable {
     private List<String> manualOrder = List.of();
     private String scopeId = "";
     private long scopeGeneration;
+    private long manualGeneration;
+    private boolean loadPending;
+    private boolean persistenceBlocked;
+    private boolean closed;
     private String sortColumn;
     private boolean ascending;
 
@@ -47,51 +54,123 @@ final class SceneTableSorter implements AutoCloseable {
         this.debug = Objects.requireNonNull(debug, "debug");
     }
 
-    void onSnapshot(final SceneTableService.TableSnapshot next) {
-        snapshot = next;
-        next.columns().forEach(column -> baseHeaders.putIfAbsent(column.id(), stripMarker(column.label())));
-        final List<String> liveOrder = next.items().stream().map(SceneTableService.Item::id).toList();
+    synchronized void onSnapshot(final SceneTableService.TableSnapshot next) {
+        if (closed) return;
+        snapshot = Objects.requireNonNull(next, "next");
+        next.columns().forEach(column -> baseHeaders.put(column.id(), stripMarker(column.label())));
+        final List<String> liveOrder = itemIds(next);
         if (!Objects.equals(scopeId, next.scopeId())) {
             scopeId = next.scopeId();
             manualOrder = liveOrder;
             final long generation = ++scopeGeneration;
-            if (!scopeId.isBlank()) {
-                store.load(scopeId).thenAccept(stored -> {
-                    if (generation != scopeGeneration || snapshot == null || !Objects.equals(scopeId, snapshot.scopeId())) return;
-                    manualOrder = merge(stored, snapshot.items().stream().map(SceneTableService.Item::id).toList());
-                    apply();
-                });
+            final long orderGeneration = manualGeneration;
+            persistenceBlocked = false;
+            loadPending = !scopeId.isBlank();
+            apply();
+            if (loadPending) {
+                load(scopeId, generation, orderGeneration);
             }
-        } else if (sortColumn == null) {
-            final List<String> merged = merge(manualOrder, liveOrder);
-            if (!merged.equals(manualOrder)) {
-                manualOrder = merged;
+            return;
+        }
+        final List<String> merged = merge(manualOrder, liveOrder);
+        if (!merged.equals(manualOrder)) {
+            manualOrder = merged;
+            if (sortColumn == null && !loadPending) {
                 persistManualOrder();
             }
-        } else {
-            manualOrder = merge(manualOrder, liveOrder);
         }
         apply();
     }
 
+    private void load(
+        final String requestedScope,
+        final long generation,
+        final long orderGeneration
+    ) {
+        try {
+            store.load(requestedScope).handle((loaded, failure) -> {
+                acceptLoad(requestedScope, generation, orderGeneration, loaded, failure);
+                return null;
+            });
+        } catch (RuntimeException failure) {
+            acceptLoad(requestedScope, generation, orderGeneration, null, failure);
+        }
+    }
+
+    private synchronized void acceptLoad(
+        final String requestedScope,
+        final long generation,
+        final long orderGeneration,
+        final ManualOrderStore.LoadResult loaded,
+        final Throwable failure
+    ) {
+        if (closed || generation != scopeGeneration || !Objects.equals(requestedScope, scopeId)) return;
+        loadPending = false;
+        if (failure != null || loaded == null) {
+            persistenceBlocked = true;
+            debug.accept("Scene manual order load failed; keeping the current order.");
+            return;
+        }
+        if (loaded.status() == ManualOrderStore.LoadStatus.UNUSABLE) {
+            persistenceBlocked = true;
+            debug.accept("Scene manual order is unusable; keeping the current order.");
+            return;
+        }
+        persistenceBlocked = false;
+        if (orderGeneration != manualGeneration) {
+            persistManualOrder();
+            return;
+        }
+        switch (loaded.status()) {
+            case CURRENT, LEGACY -> {
+                manualOrder = merge(loaded.itemIds(), itemIds(snapshot));
+                if (loaded.status() == ManualOrderStore.LoadStatus.LEGACY) {
+                    persistManualOrder();
+                }
+            }
+            case MISSING -> { }
+        }
+        apply();
+    }
+
+    private static List<String> itemIds(final SceneTableService.TableSnapshot value) {
+        return value == null
+            ? List.of()
+            : value.items().stream().map(SceneTableService.Item::id).toList();
+    }
+
     private static List<String> merge(final List<String> stored, final List<String> live) {
-        final List<String> merged = new ArrayList<>();
-        stored.stream().filter(live::contains).filter(id -> !merged.contains(id)).forEach(merged::add);
-        live.stream().filter(id -> !merged.contains(id)).forEach(merged::add);
+        final Set<String> liveIds = new HashSet<>(live);
+        final Set<String> merged = new LinkedHashSet<>();
+        stored.stream().filter(liveIds::contains).forEach(merged::add);
+        merged.addAll(live);
         return List.copyOf(merged);
     }
 
     private void persistManualOrder() {
-        if (!scopeId.isBlank()) store.save(scopeId, manualOrder);
+        if (scopeId.isBlank() || loadPending || persistenceBlocked) return;
+        try {
+            store.save(scopeId, manualOrder).exceptionally(failure -> {
+                debug.accept("Scene manual order save failed.");
+                return null;
+            });
+        } catch (RuntimeException failure) {
+            debug.accept("Scene manual order save failed.");
+        }
     }
 
-    void onItemOrderChanged(final SceneTableService.ItemOrderChanged changed) {
-        if (!Objects.equals(scopeId, changed.scopeId())) return;
-        manualOrder = List.copyOf(changed.itemIds());
+    synchronized void onItemOrderChanged(final SceneTableService.ItemOrderChanged changed) {
+        if (closed || !Objects.equals(SceneTableService.SCENE_TABLE_ID, changed.tableId())
+            || !Objects.equals(scopeId, changed.scopeId())) {
+            return;
+        }
+        manualOrder = merge(changed.itemIds(), itemIds(snapshot));
+        manualGeneration++;
         persistManualOrder();
     }
 
-    void onHeaderClick(final SceneTableService.HeaderClick click) {
+    synchronized void onHeaderClick(final SceneTableService.HeaderClick click) {
+        if (closed || snapshot == null || !Objects.equals(snapshot.tableId(), click.tableId())) return;
         if (!Objects.equals(sortColumn, click.columnId())) {
             sortColumn = click.columnId();
             ascending = false;
@@ -102,20 +181,19 @@ final class SceneTableSorter implements AutoCloseable {
             ascending = false;
         }
         apply();
-        service.setManualReordering(SceneTableService.SCENE_TABLE_ID, sortColumn == null);
-        if (sortColumn == null) persistManualOrder();
+        if (sortColumn == null && !loadPending) persistManualOrder();
     }
 
     private void apply() {
         final SceneTableService.TableSnapshot current = snapshot;
-        if (current == null) {
+        if (closed || current == null) {
             return;
         }
         service.setManualReordering(current.tableId(), sortColumn == null);
         current.columns().forEach(column -> service.setHeader(
             current.tableId(),
             column.id(),
-            baseHeaders.getOrDefault(column.id(), column.label()) + marker(column.id())
+            baseHeaders.getOrDefault(column.id(), stripMarker(column.label())) + marker(column.id())
         ));
         if (sortColumn == null) {
             service.setItemOrder(current.tableId(), manualOrder);
@@ -181,11 +259,19 @@ final class SceneTableSorter implements AutoCloseable {
     }
 
     @Override
-    public void close() {
-        service.setManualReordering(SceneTableService.SCENE_TABLE_ID, false);
-        snapshot = null;
+    public synchronized void close() {
+        if (closed) return;
+        closed = true;
         scopeGeneration++;
+        loadPending = false;
+        final String tableId = snapshot == null ? SceneTableService.SCENE_TABLE_ID : snapshot.tableId();
+        baseHeaders.forEach((columnId, base) -> service.setHeader(tableId, columnId, stripMarker(base)));
+        service.setManualReordering(tableId, false);
+        snapshot = null;
         scopeId = "";
         manualOrder = List.of();
+        sortColumn = null;
+        ascending = false;
+        baseHeaders.clear();
     }
 }

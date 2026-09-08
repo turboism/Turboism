@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
 # Shared local configuration for exact-host validation wrappers.
 #
-# Developers keep machine-specific paths and SSH placement in the repository
-# root `.env` (ignored by Git). Copy `.env.example` to `.env`, edit it locally,
-# then invoke any wrapper normally. Existing exported variables take precedence
-# so CI and one-off commands can override `.env` without rewriting it.
+# Developers keep machine-specific local paths in the repository root `.env`
+# (ignored by Git). Values are parsed as data; exported values take precedence.
 
-if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
-  TURBOISM_HOST_VALIDATION_ENV_LOADED=1
-  export TURBOISM_HOST_VALIDATION_ENV_LOADED
+if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
+  TURBOISM_HOST_VALIDATION_ENV_LOADED="$BASHPID"
+  # This guard is shell-local: child Runners must initialize non-exported defaults.
+  export -n TURBOISM_HOST_VALIDATION_ENV_LOADED
 
   _turboism_env_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
   _turboism_env_file="${TURBOISM_ENV_FILE:-$_turboism_env_root/.env}"
@@ -48,13 +47,10 @@ if [[ -z "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" ]]; then
       fi
     done < "$_turboism_env_file"
   fi
-  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
-fi
-
-# Defaults belong to each sourcing shell, including an exec'd runner whose
-# environment already contains the loaded marker but omits optional SSH keys.
 
   : "${TURBOISM_HOST_VALIDATION_SSH_HOST:=}"
+  : "${TURBOISM_HOST_VALIDATION_HOST_ROOT:=}"
+  : "${TURBOISM_HOST_VALIDATION_TRANSPORT:=local}"
   : "${TURBOISM_HOST_VALIDATION_SSH_KEY:=}"
   : "${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:=}"
   : "${TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX:=}"
@@ -72,6 +68,8 @@ fi
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_PSD_SHA256:=27c2641e45d9ca55478550b99d1bf69262383af38b0eed39cc172fb96b3b053e}"
   : "${TURBOISM_HOST_VALIDATION_FIXTURE_HISTORY_5302:=}"
 
+  unset _turboism_env_root _turboism_env_file _turboism_env_line _turboism_env_key _turboism_env_value _turboism_env_quote
+fi
 
 turboism_require_env() {
   local name=$1 description=${2:-$1}

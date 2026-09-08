@@ -82,6 +82,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
+        logger.info("Turboism main toolbar icon mode selected: "
+            + (settings.useTextIcon() ? "text" : "installer"));
         logger.info("Turboism core enabled");
     }
 
@@ -120,6 +122,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         registerAction("settings.skip-information", localization(context).text("settings.skip-information"), action -> update(action, "skip-information"));
         registerAction("settings.separate-export-save-directory", localization(context).text("settings.separate-export-save-directory"),
             action -> update(action, "separate-export-save-directory"));
+        registerAction("settings.use-text-icon", localization(context).text("settings.use-text-icon"),
+            action -> update(action, "use-text-icon"));
         registerAction("settings.save", localization(context).text("settings.save"), ignored -> {
             settings = services.settings().save(settings);
             logger.info("Turboism settings saved; startup changes require restart");
@@ -232,31 +236,40 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
-                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory(),
+                settings.locale(), settings.useTextIcon());
             case "log-level" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), ((dev.turboism.sdk.action.UiActionEvent.SelectionValue) value).value(),
                 settings.maxLogStorageMiB(), settings.skipStartupUpdateCheck(),
                 settings.skipStartupSplash(), settings.skipStartupInformation(),
-                settings.separateExportSaveDirectory());
+                settings.separateExportSaveDirectory(), settings.locale(), settings.useTextIcon());
             case "skip-update" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
                 settings.skipStartupSplash(), settings.skipStartupInformation(),
-                settings.separateExportSaveDirectory());
+                settings.separateExportSaveDirectory(), settings.locale(), settings.useTextIcon());
             case "skip-splash" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
-                settings.skipStartupInformation(), settings.separateExportSaveDirectory());
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory(),
+                settings.locale(), settings.useTextIcon());
             case "skip-information" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
-                settings.separateExportSaveDirectory());
+                settings.separateExportSaveDirectory(), settings.locale(), settings.useTextIcon());
             case "separate-export-save-directory" -> new dev.turboism.sdk.runtime.RuntimeSettings(
                 settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
                 settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
                 settings.skipStartupInformation(),
+                ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value(),
+                settings.locale(), settings.useTextIcon());
+            case "use-text-icon" -> new dev.turboism.sdk.runtime.RuntimeSettings(
+                settings.safeMode(), settings.logLevel(), settings.maxLogStorageMiB(),
+                settings.skipStartupUpdateCheck(), settings.skipStartupSplash(),
+                settings.skipStartupInformation(), settings.separateExportSaveDirectory(),
+                settings.locale(),
                 ((dev.turboism.sdk.action.UiActionEvent.ToggleValue) value).value());
             default -> throw new IllegalArgumentException("unknown settings field: " + field);
         };
@@ -278,6 +291,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                         case "main-toolbar.logs-menu.label" -> "Logs";
                         case "main-toolbar.about-menu.label" -> "About";
                         case "settings.save" -> "Save";
+                        case "settings.use-text-icon" -> "Use text icon";
                         case "plugins.operation-failed" -> "Plugin operation failed safely.";
                         default -> key;
                     };

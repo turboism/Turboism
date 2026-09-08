@@ -1,7 +1,11 @@
 package dev.turboism.plugin.historypanel;
 
+import dev.turboism.plugin.historypanel.service.HistoryPanelService;
+
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.CubismHistory;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryId;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.CancellationToken;
@@ -54,11 +58,49 @@ class HistoryPanelPluginTest {
         assertEquals(0, context.uiHost().panels().size());
     }
 
+    @Test
+    void entryNavigationUsesStableIdentityAndRejectsChangedSnapshotBinding() {
+        final RecordingContext context = new RecordingContext();
+        context.historySnapshot = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            7,
+            11,
+            2,
+            List.of(
+                new HistoryEntry(0, "First", true, Optional.empty(), Optional.of(new HistoryEntryId("entry-a")), Optional.empty()),
+                new HistoryEntry(1, "Second", true, Optional.empty(), Optional.of(new HistoryEntryId("entry-b")), Optional.empty())
+            ),
+            true,
+            false
+        );
+        final HistoryPanelPlugin plugin = new HistoryPanelPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.actions().execute(HistoryPanelPlugin.TOGGLE_ACTION_ID);
+
+        context.actions().execute(HistoryPanelService.moveActionId("entry-a"));
+        assertEquals(List.of(0), context.movePositions);
+
+        context.historySnapshot = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            7,
+            12,
+            2,
+            context.historySnapshot.entries(),
+            true,
+            false
+        );
+        context.actions().execute(HistoryPanelService.moveActionId("entry-b"));
+        assertEquals(List.of(0), context.movePositions, "stale binding must not move by old index");
+    }
+
     private static final class RecordingContext implements PluginContext {
 
         private final RecordingUiHost uiHost = new RecordingUiHost();
         private final DisposableScope scope = new DisposableScope();
         private final RecordingActionRegistry actionRegistry = new RecordingActionRegistry();
+        private HistorySnapshot historySnapshot = HistorySnapshot.unavailable();
+        private final List<Integer> movePositions = new ArrayList<>();
 
         @Override
         public RecordingUiHost uiHost() {
@@ -103,7 +145,7 @@ class HistoryPanelPluginTest {
                     return new CubismHistory() {
                         @Override
                         public HistorySnapshot snapshot() {
-                            return HistorySnapshot.unavailable();
+                            return historySnapshot;
                         }
 
                         @Override
@@ -112,10 +154,11 @@ class HistoryPanelPluginTest {
                             final long expectedRevision,
                             final int position
                         ) {
+                            movePositions.add(position);
                             return new HistoryMoveResult(
-                                HistoryMoveResult.Outcome.UNAVAILABLE,
-                                HistorySnapshot.unavailable(),
-                                Optional.of("history.move.unavailable")
+                                HistoryMoveResult.Outcome.MOVED,
+                                historySnapshot,
+                                Optional.empty()
                             );
                         }
                     };

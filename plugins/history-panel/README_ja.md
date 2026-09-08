@@ -58,6 +58,7 @@ interface: embedded
 | 宣言された機能 | ユーザーへの効果 |
 |---|---|
 | `cubism.editor-history.read` | アクティブなドキュメントのネイティブ Undo 履歴スナップショットを読み取ります。 |
+| `cubism.editor-history.semantic-read` | 個別に許可された検証済みネイティブ Undo 種別を、深さ・ノード数・文字列長の上限内でデコードします。 |
 | `cubism.editor-history.move` | ネイティブ Undo 履歴内の移動を要求します。 |
 | `ui.embedded-panel.contribute` | 履歴パネルを提供します。 |
 | `ui.status.notify` | 履歴状態通知を提供します。 |

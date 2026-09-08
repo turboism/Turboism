@@ -1,200 +1,97 @@
+[EN / English](README.md) · [ZH / 简体中文](README_zh.md) · [JP / 日本語](README_ja.md) · [KR / 한국어](README_ko.md)
+
 # Turboism
 
-Turboism is a Windows-first runtime enhancement tool and plugin framework for
-Live2D Cubism Editor. It uses Java 17, a thin Java Agent bootstrap, a
-version-routed runtime, and SDK-only first-party plugins.
+## Copyright and notices
 
-[Download the latest release](https://github.com/Turboism/Turboism/releases/latest)
-· [Changelog](CHANGELOG.md)
+Copyright © 2026 Turboism Contributors. Turboism is open source under the [MIT License](LICENSE).
 
-## Compatibility
+Turboism is an **independent third-party project**, not affiliated with, endorsed by, or sponsored by Live2D Inc. Live2D, Cubism and related names and marks belong to Live2D Inc. or their respective owners. Turboism does not distribute Cubism Editor or grant, replace or bypass its license; a separately installed, lawfully licensed copy is required.
 
-| Item | Status |
+Read the [End User Runtime Statement and Disclaimer](EULA.md) before installation. It does not reduce the rights granted by the MIT License; its Simplified Chinese text is authoritative. The software is provided **as is**. Keep independent backups before using plugins or automation that change project content.
+
+## About
+
+Turboism is a Windows-first runtime enhancement tool and plugin framework for **Live2D Cubism Editor**. It uses a Java agent and a public SDK to provide modeling workflow improvements, including parameter and mesh tools, PSD utilities, palette enhancements and local automation. Available features depend on the installed plugins, permissions and exact Editor version.
+
+## Supported Cubism Editor versions
+
+| Cubism Editor | Support |
 | --- | --- |
-| Host platform | Windows x64 is the supported Cubism host platform. |
-| Cubism Editor | Exact-version adapters for **5.2.03**, **5.3.02**, and **5.3.03**. Other versions fail closed and are not claimed compatible. |
-| Installer | NSIS `.exe` is preferred on Windows; Lite/Full Windows ZIPs and a Java 17 IzPack installer are also published. |
-| macOS | Java installer/payload packaging is preview-only; Cubism host readiness is not claimed. |
-| Linux | Installer/payload semantics only; running Cubism Editor as a Turboism host is unsupported. |
+| **5.2.03** | Exact-version adapters |
+| **5.3.02** | Exact-version adapters |
+| **5.3.03** | Exact-version adapters |
 
-Turboism does not bundle Cubism Editor. A separately installed, licensed copy
-of a supported version is required. Published installers are currently
-unsigned; verify the accompanying `.sha256` files after downloading.
+**Windows x64** is the supported Cubism host platform. Unlisted Editor versions are not claimed compatible; unavailable adapters or features fail closed. Version support does not mean every plugin feature is available on every version.
 
-## Current capabilities
+The Java installer can also package/install files on macOS and Linux. macOS packaging is preview-only with no verified Cubism host support; Linux covers installer/payload behavior only and is not a supported Cubism host.
 
-The 0.43.3 release includes:
+## Installation
 
-- a Java 17 agent runtime, public plugin SDK, lifecycle, permissions,
-  configuration, localization, tasks, events, actions, menus, toolbars,
-  workspace services, transactions, Undo-aware Editor writes, and
-  exact-version host adapters;
-- a built-in Turboism menu, toolbar, settings UI, plugin manager, package
-  inspection, and Plugin Directory integration;
-- parameter batch transfer with optional inversion;
-- mesh-edit mirror-axis enhancements;
-- a native Undo/Redo History panel and confirmed PSD clip-mask relationship import;
-- Recent Files hover thumbnails;
-- clip-mask inspection, Cubism palette filtering, palette label styling,
-  scene-palette ordering, texture-atlas statistics and MaxRects-BSSF layout;
-- physics-editor workflow enhancements, UI themes, performance statistics,
-  WebDAV auto-backup, and a loopback MCP server;
-- an isolated, permission-checked Graal script host when a compatible GraalVM
-  runtime is available.
+Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
 
-Capabilities remain subject to plugin permissions, active document/session
-state, exact Cubism version availability, and verified host evidence. Turboism
-fails closed when a required adapter or host capability is unavailable.
+Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
-## Install on Windows
+```powershell
+Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
+```
 
-Download one of the following from the
-[latest GitHub Release](https://github.com/Turboism/Turboism/releases/latest):
+### ZIP — manual setup on Windows
 
-- `TurboismInstaller-<version>.exe` — recommended Windows installer;
-- `turboism-<version>-full.zip` — agent, the exact first-party plugin bundle, and the managed Windows x64 fx product payload;
-- `turboism-<version>-lite.zip` — agent and common runtime without plugin JARs or managed fx bytes;
-- `TurboismInstaller-<version>.jar` — Java 17 installer; Full installs the matching managed fx payload on Linux, macOS, or Windows x64, while Thin carries plugins without managed runtime bytes.
+1. Choose `turboism-<version>-full.zip` for the bundled first-party plugins, or `turboism-<version>-lite.zip` for the runtime without plugin JARs.
+2. Extract the **whole archive** into a separate Turboism folder, not into the Cubism installation directory.
+3. From the extracted folder, open the configurator:
 
-Windows Full supplies an exact-size, exact-SHA Turboism build of upstream fx v0.0.5. It is not an official Vercel Windows asset. The Windows candidate admits only Turboism's exact authenticated numeric-loopback HTTP MCP server and keeps ACP sessions ephemeral; it does not claim durable-session, native-tool, general networking, process, or persistence parity with the official Linux/macOS runtimes. Windows has no online fx repair archive; repair or reinstall Turboism Full to restore the payload.
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass -File ".\configure_turboism.ps1"
+   ```
 
-Each artifact has a sibling SHA-256 sidecar. After downloading both files,
-verify from their directory, for example:
+   The execution-policy option applies only to that PowerShell process. Select the Cubism installations and plugins you want, then save.
+4. Start Cubism using the generated Turboism shortcut or `launch-cubism-turboism.bat` in that folder.
+
+### JAR — Java installer
+
+Install **Java 17 or newer**, then run:
 
 ```bash
-sha256sum -c TurboismInstaller-0.43.3.exe.sha256
+java -jar "TurboismInstaller-<version>.jar"
 ```
 
-During a successful Windows installation, the installer scans for exact supported Cubism Editor 5.2.03 / 5.3.02 / 5.3.03 installations, selects every compatible installation found, and applies the chosen shortcut and official-BAT options headlessly. The Start-menu configurator remains available for later changes. BAT integration is attempted only for exact selected installations, preserves a hash-guarded backup for restoration, and writes actionable diagnostics under `logs/installer/`.
+Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
 
-## Architecture
+### EXE — recommended on Windows
 
-```text
-Plugin -> SDK -> Runtime policy -> versioned Adapter/Provider -> Cubism/Editor
-```
+Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. Use the generated Turboism shortcut afterward.
 
-The authoritative module list is `settings.gradle.kts`:
+Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
-```text
-:bootstrap
-:runtime
-:sdk
-:plugins:*
-:testing:test-support
-:testing:integration-tests
-```
+No release package includes managed fx runtime bytes or the development-only Turboism with fx plugin.
 
-First-party plugins follow the same boundary as third-party plugins: they depend on `:sdk` with `compileOnly` scope and do not access runtime or `com.live2d.*` types directly.
+## Development
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the current design.
-
-## Current direction
-
-Turboism is developed by product and framework capability rather than numbered migration phases:
-
-- a unified Turboism-owned Cubism object API;
-- Editor-owned authoring writes with transaction and Undo support;
-- consistent `before` / `on` / `after` invocation semantics;
-- exact-version Cubism 5.2.03, 5.3.02, and 5.3.03 providers;
-- semantic project, selection, model-tree and UI adapters;
-- SDK-only restoration of official Parameter, Mesh, PSD, UI and performance workflows;
-- production hooks only where explicit APIs and callbacks are insufficient.
-
-See [ROADMAP.md](ROADMAP.md) for the active order.
-
-## Verification
-
-During implementation, run the narrowest affected compile or test task, for example:
+You need **Git and JDK 17**. Use the repository's Gradle wrapper; no separate Gradle installation is required.
 
 ```bash
-./gradlew :sdk:test --tests '<affected test class>'
-./gradlew :runtime:test --tests '<affected test class>'
-./gradlew :plugins:<plugin>:test
-```
-
-After a meaningful implementation slice is coherent, run the fast structural gate:
-
-```bash
+git clone https://github.com/turboism/Turboism.git
+cd Turboism
 ./gradlew devCheck
 ```
 
-A bare multi-project `check` is intentionally not the daily command because it expands every subproject's test task.
+On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate feature branch or worktree.
 
-Runtime and packaged integration:
-
-```bash
-./gradlew checkIntegration
-```
-
-Full automated verification for a coherent completed change:
+For plugin development, start with the [demo plugin](plugins/demo/README.md), its [build configuration](plugins/demo/build.gradle.kts) and [plugin descriptor](plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
 
 ```bash
-./gradlew checkCompletedCommit
+./gradlew :plugins:demo:test :plugins:demo:jar
 ```
 
-`checkCompletedCommit` includes ordinary tests, integration, documentation and metadata checks, API-tool selftests, and repository hygiene selftests. It is the normal completed-change gate.
-
-Release-oriented verification:
-
-```bash
-./gradlew checkRelease \
-  -PinstallerVersion=<release-version> \
-  -PturboismRelease=true
-```
-
-Exact-host validation is opt-in and automation-first. `scripts/preview/run-cubism-host-validation.sh` is the shared exact-host runner: it clones a task-scoped Proton prefix, stages any test-only SDK plugins, launches the official `CubismEditor5.bat`, polls structured readiness/results, collects hashes and logs, and cleans up only the current process tree. Feature wrappers provide their own plugins and assertions:
-
-```bash
-./gradlew validateParameterHost5302
-./gradlew validateParameterHost5203 -PturboismHostValidationMode=binding-matrix
-./gradlew validateThemeHost5302
-./gradlew validateThemeHost5203
-```
-
-Use `bash scripts/preview/run-cubism-host-validation.sh --help` for a new validation plugin. Screenshots are reserved for visual-only assertions or targeted failure diagnosis.
-
-## API policy
-
-Turboism publishes one public SDK tier. Removing the former preview marker does not remove or disable implemented SDK functionality. Before the first formal release, maintainers review the generated public classfile surface; the first released SDK artifact establishes the compatibility baseline for later releases.
-
-Cubism Editor version availability is declared with `@CubismEditor` at public type or method boundaries and with exact-version catalogs where finer command granularity is required. Permissions, active-session state, verified adapters, and backend capabilities remain independent runtime checks.
-
-Ordinary additive getters and setters do not require a dedicated capability row, permission, schema, ADR, or migration report. Permissions describe real risk boundaries rather than individual methods.
-
-## Cubism and Editor state
-
-Turboism aims to expose natural object APIs such as:
-
-```java
-CubismModel model = context.cubism().model().active();
-CubismParameter parameter = model.parameters().find(ParameterId.of("ParamAngleX"));
-
-parameter.setValue(parameter.getValue() + 1.0f);
-```
-
-For an Editor-attached model, the Editor authoring model remains the only write source of truth. Runtime routes writes through validation, host-thread dispatch, transaction, Undo, dirty-state handling and version-specific providers. Cubism Core is used for evaluation and result reads rather than as a second independently synchronized authoring state.
-
-## Documentation tracking
-
-`docs/`, `cubism-ref/`, `evidence/`, `generated-references/`, `host-evidence/`, and `research/` are local-only so research notes, licensed references, generated reports, host evidence, AI review artifacts, and machine-specific paths do not enter remote history. Repository builds, tests, and release tooling depend only on tracked product sources and public contracts such as `compatibility/cubism/`, `sdk/api-contracts/`, reproducible probe source under `validation/`, and `packaging/`. Generated reports are written under `build/reports/`.
-
-## Compliance
-
-Turboism does not distribute Cubism Editor, replace its licensing, or authorize copying private Cubism source, resources, binaries, decompiled method bodies, or authorization-bypass logic.
-
-## Prerequisites
-
-- A JDK 17 toolchain (the agent and runtime are compiled with `-release 17`).
-- A separately installed, licensed copy of Live2D Cubism Editor for exact-host
-  validation. Turboism does not bundle or install Cubism.
+The demo is development-only, not part of the release bundle. Run focused tests for your changes and `./gradlew devCheck` before submitting them. See the [architecture](ARCHITECTURE.md) for API, lifecycle, transaction and verification rules.
 
 ## Documentation
 
-Public documentation lives at <https://docs.turboism.dev>. `ARCHITECTURE.md`
-and `ROADMAP.md` in this repository describe the current design and direction.
-
-## Non-affiliation
-
-Turboism is an independent project. It is not affiliated with, endorsed by, or
-sponsored by Live2D Inc. "Live2D" and "Cubism" are trademarks of Live2D Inc.;
-Turboism uses those names only to describe interoperability.
+- [User and developer documentation](https://docs.turboism.dev)
+- [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v7 migration notes](sdk/api-contracts/sdk-api-v7-review.md)
+- [Demo plugin](plugins/demo/README.md)
+- [Java installer details](packaging/java-installer/README-java-installer.md)
+- [Release process](RELEASING.md) and [changelog](CHANGELOG.md)

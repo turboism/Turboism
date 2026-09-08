@@ -40,7 +40,9 @@ jobs:
   preflight:
     if: >-
       (github.event_name == 'workflow_dispatch') ||
-      (github.event.workflow_run.conclusion == 'success')
+      (github.event.workflow_run.conclusion == 'success' &&
+       (github.event.workflow_run.name != 'Product release candidate' ||
+        github.event.workflow_run.event == 'push'))
     runs-on: ubuntu-22.04
     outputs:
       run_id: ${{ steps.source.outputs.run_id }}

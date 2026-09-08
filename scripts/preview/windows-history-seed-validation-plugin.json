@@ -4,7 +4,7 @@
   "id": "dev.turboism.validation.history-seed",
   "name": "Windows History Seed Validation Probe",
   "version": "0.1.0",
-  "description": "Manual-test-only SDK writer that creates and restores one native Parameter Undo item.",
+  "description": "Manual-test-only SDK writer that creates and restores Parameter metadata entries plus one native-decoded Artmesh form entry.",
   "entrypoints": [
     "dev.turboism.tests.plugin.WindowsHistorySeedValidationProbe"
   ],
@@ -24,12 +24,12 @@
     {
       "id": "turboism.cubism.model.read",
       "scope": "application",
-      "reason": "Select one finite-range Parameter and verify its authoritative value during isolated exact-host validation."
+      "reason": "Select one finite-range Parameter and one Artmesh, then verify their authoritative values during isolated exact-host validation."
     },
     {
       "id": "turboism.cubism.model.write",
       "scope": "application",
-      "reason": "Create one native Parameter Undo item and restore the copied fixture through native Undo/Redo."
+      "reason": "Create and restore Parameter history plus one Artmesh multiply-color Undo item in the copied fixture."
     }
   ],
   "capabilities": [],

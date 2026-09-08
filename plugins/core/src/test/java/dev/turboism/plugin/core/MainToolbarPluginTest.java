@@ -80,14 +80,7 @@ class MainToolbarPluginTest {
                 "turboism.core.open",
                 "main-toolbar.home.aria-label",
                 "main-toolbar.home.tooltip",
-                new MainToolbarRegistry.IconVariants(
-                    "icons/main-toolbar-home.png",
-                    Optional.of("icons/main-toolbar-home-hover.png"),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                ),
+                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
                 MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 10
             )),
@@ -124,6 +117,31 @@ class MainToolbarPluginTest {
             context.menus().contributions().stream()
                 .map(value -> value.menuPath() + ":" + value.actionId() + ":" + value.order())
                 .toList()
+        );
+    }
+
+    @Test
+    void enabledTextIconPreferenceKeepsMainToolbarContributionContract() throws Exception {
+        RecordingPluginContext context = new RecordingPluginContext();
+        MainToolbarPlugin plugin = plugin(true);
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertEquals(
+            List.of(new MainToolbarRegistry.MainToolbarButtonContribution(
+                "turboism.core.home-entry",
+                "turboism.core.open",
+                "main-toolbar.home.aria-label",
+                "main-toolbar.home.tooltip",
+                new MainToolbarRegistry.IconVariants(
+                    "icons/main-toolbar-home.png", Optional.of("icons/main-toolbar-home-hover.png"),
+                    Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
+                ),
+                MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
+                10
+            )),
+            context.mainToolbar().buttonContributions()
         );
     }
 
@@ -270,7 +288,14 @@ class MainToolbarPluginTest {
     }
 
     private static MainToolbarPlugin plugin() {
-        return plugin(plugins());
+        return plugin(false);
+    }
+
+    private static MainToolbarPlugin plugin(final boolean useTextIcon) {
+        return CorePluginServices.instantiate(
+            new CorePluginServices(settings(useTextIcon), plugins()),
+            MainToolbarPlugin::new
+        );
     }
 
     private static MainToolbarPlugin plugin(final CorePluginManagement management) {
@@ -281,9 +306,15 @@ class MainToolbarPluginTest {
     }
 
     private static dev.turboism.sdk.runtime.RuntimeSettingsService settings() {
+        return settings(false);
+    }
+
+    private static dev.turboism.sdk.runtime.RuntimeSettingsService settings(final boolean useTextIcon) {
         return new dev.turboism.sdk.runtime.RuntimeSettingsService() {
             private dev.turboism.sdk.runtime.RuntimeSettings value =
-                new dev.turboism.sdk.runtime.RuntimeSettings(false, "INFO", false, false, false);
+                new dev.turboism.sdk.runtime.RuntimeSettings(
+                    false, "INFO", 100, false, false, false, false, "system", useTextIcon
+                );
             @Override public dev.turboism.sdk.runtime.RuntimeSettings read() { return value; }
             @Override public dev.turboism.sdk.runtime.RuntimeSettings save(
                 dev.turboism.sdk.runtime.RuntimeSettings settings

@@ -19,6 +19,9 @@ val sdkV5ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v
 val sdkV6ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v6-exact.json")
 val sdkV6ExactCommit = "07f520755557b941cac1658bed931d21ef609b11"
 val sdkV6ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v6-exact-reference.jar")
+val sdkV7ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v7-exact.json")
+val sdkV7ExactCommit = "46ea5cb303a2a1a9191859885c56c059d1d538b6"
+val sdkV7ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v7-exact-reference.jar")
 val sdkHistoryGradleUserHome = providers.gradleProperty("turboismSdkHistoryGradleUserHome")
     .map { file(it).canonicalFile }
     .orElse(provider { gradle.gradleUserHomeDir.canonicalFile })
@@ -138,6 +141,25 @@ val prepareSdkV6ExactReference by tasks.registering(Exec::class) {
     )
 }
 
+val prepareSdkV7ExactReference by tasks.registering(Exec::class) {
+    group = "historical verification"
+    description = "Reconstructs the reviewed v7 SDK Gradle JAR from its pinned Git commit in an isolated archive."
+    workingDir(rootDir)
+    inputs.file(sdkV2ExactReferenceBuilder)
+    inputs.property("historicalCommit", sdkV7ExactCommit)
+    inputs.property("historicalGradleUserHome", sdkHistoryGradleUserHome.map { it.absolutePath })
+    outputs.file(sdkV7ExactReferenceArtifact)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkV2ExactReferenceBuilder.asFile.absolutePath,
+        "--root", rootDir.absolutePath,
+        "--commit", sdkV7ExactCommit,
+        "--gradle", gradle.gradleHomeDir!!.resolve("bin/gradle").absolutePath,
+        "--output", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
+        "--reuse-gradle-user-home", sdkHistoryGradleUserHome.get().absolutePath
+    )
+}
+
 val checkSdkV2ExactApiCompatibility by tasks.registering(Exec::class) {
     group = "historical verification"
     description = "Audits the reviewed v2 baseline's historical artifact and canonical binding."
@@ -207,25 +229,42 @@ val checkSdkV5ExactApiCompatibility by tasks.registering(Exec::class) {
 }
 
 val checkSdkV6ExactApiCompatibility by tasks.registering(Exec::class) {
-    group = "release verification"
-    description = "Verifies the live SDK remains byte-exact to the reviewed v6 release anchor."
-    dependsOn(":sdk:jar", prepareSdkV6ExactReference)
-    inputs.files(
-        sdkApiHelperFiles,
-        sdkV6ExactBaseline,
-        sdkV2ExactReferenceBuilder,
-        sdkV6ExactReferenceArtifact,
-        sdkJarArtifact
-    )
+    group = "historical verification"
+    description = "Audits the reviewed v6 baseline's historical artifact and canonical binding."
+    dependsOn(prepareSdkV6ExactReference)
+    inputs.files(sdkApiHelperFiles, sdkV6ExactBaseline, sdkV2ExactReferenceBuilder, sdkV6ExactReferenceArtifact)
     inputs.property("expectedCommit", sdkV6ExactCommit)
     outputs.upToDateWhen { false }
     commandLine(
         "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
-        "--input", sdkJarArtifact.get().asFile.absolutePath,
+        "--input", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
         "--reference-input", sdkV6ExactReferenceArtifact.get().asFile.absolutePath,
         "--package-prefix", "dev.turboism.sdk",
         "--baseline", sdkV6ExactBaseline.asFile.absolutePath,
         "--expected-commit", sdkV6ExactCommit
+    )
+}
+
+val checkSdkV7ExactApiCompatibility by tasks.registering(Exec::class) {
+    group = "release verification"
+    description = "Verifies the live SDK remains byte-exact to the reviewed v7 release anchor."
+    dependsOn(":sdk:jar", prepareSdkV7ExactReference)
+    inputs.files(
+        sdkApiHelperFiles,
+        sdkV7ExactBaseline,
+        sdkV2ExactReferenceBuilder,
+        sdkV7ExactReferenceArtifact,
+        sdkJarArtifact
+    )
+    inputs.property("expectedCommit", sdkV7ExactCommit)
+    outputs.upToDateWhen { false }
+    commandLine(
+        "python3", sdkApiBaselineTool.asFile.absolutePath, "verify-exact",
+        "--input", sdkJarArtifact.get().asFile.absolutePath,
+        "--reference-input", sdkV7ExactReferenceArtifact.get().asFile.absolutePath,
+        "--package-prefix", "dev.turboism.sdk",
+        "--baseline", sdkV7ExactBaseline.asFile.absolutePath,
+        "--expected-commit", sdkV7ExactCommit
     )
 }
 

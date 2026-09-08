@@ -64,6 +64,7 @@
   ],
   "capabilities": [
     "cubism.editor-history.read",
+    "cubism.editor-history.semantic-read",
     "cubism.editor-history.move",
     "ui.embedded-panel.contribute",
     "ui.status.notify"

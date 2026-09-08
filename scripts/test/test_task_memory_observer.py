@@ -17,6 +17,20 @@ SPEC.loader.exec_module(MODULE)
 
 
 class MemoryObserver(unittest.TestCase):
+    def self_process(self):
+        # Real metric reads target only this unittest PID; admission itself is
+        # covered with fake cgroup fixtures, not bypassed in production.
+        fields = Path('/proc/self/stat').read_text().rsplit(')', 1)[1].split()
+        return MODULE.IDENTITY.Process(os.getpid(), int(fields[19]), os.getuid(), ())
+
+    def self_scope(self):
+        scope = mock.Mock(proc=Path('/proc'))
+        process = self.self_process()
+        scope.read_process.side_effect = lambda pid: self.self_process() if pid == os.getpid() else None
+        scope.verify_process.side_effect = lambda expected: MODULE.same_process(expected, scope.read_process(expected.pid))
+        scope.metadata.return_value = {'testOnly': True}
+        scope.find_java.return_value = process
+        return process, scope
     def test_memory_units_and_required_fields(self):
         self.assertEqual({'Rss': 2048, 'Pss': 1024}, MODULE.kilobytes('Rss: 2 kB\nPss: 1 kB\n', ('Rss', 'Pss')))
         for text in ('Rss: 2 kB\n', 'Rss: -1 kB\nPss: 1 kB\n', 'Rss: 2 MB\nPss: 1 kB\n'):
@@ -24,25 +38,49 @@ class MemoryObserver(unittest.TestCase):
                 MODULE.kilobytes(text, ('Rss', 'Pss'))
 
     def test_identity_changes_are_not_attributed_to_original_process(self):
-        before = MODULE.IDENTITY.Process(10, 1, 42, os.getuid(), 'S', (), ())
+        before = MODULE.IDENTITY.Process(10, 42, os.getuid(), ())
         MODULE.same_process(before, before)
-        for after in (None, MODULE.IDENTITY.Process(10, 1, 43, os.getuid(), 'S', (), ())):
+        for after in (None, MODULE.IDENTITY.Process(10, 43, os.getuid(), ())):
             with self.assertRaises(RuntimeError):
                 MODULE.same_process(before, after)
 
     def test_real_self_memory_sample_without_signals(self):
-        process = MODULE.IDENTITY.read_process(os.getpid())
-        result = MODULE.sample(process)
+        process, scope = self.self_scope()
+        result = MODULE.sample(process, scope)
         self.assertGreater(result['rollup']['Rss'], 0)
         self.assertGreater(result['rollup']['Pss'], 0)
         self.assertEqual(os.getpid(), result['pid'])
 
     def test_changed_identity_during_read_fails(self):
-        before = MODULE.IDENTITY.read_process(os.getpid())
-        changed = MODULE.IDENTITY.Process(before.pid, before.parent, before.started + 1, before.uid, 'S', (), ())
-        with mock.patch.object(MODULE.IDENTITY, 'read_process', side_effect=[before, changed]):
-            with self.assertRaises(RuntimeError):
-                MODULE.sample(before)
+        before, scope = self.self_scope()
+        changed = MODULE.IDENTITY.Process(before.pid, before.started + 1, before.uid, ())
+        scope.read_process.side_effect = [before, changed]
+        with self.assertRaises(RuntimeError):
+            MODULE.sample(before, scope)
+
+    def test_scope_failure_publishes_fail_without_sampling(self):
+        with tempfile.TemporaryDirectory() as name:
+            task = Path(name)
+            (task / 'evidence').mkdir()
+            with mock.patch.object(MODULE.IDENTITY, 'verify_task'), \
+                    mock.patch.object(MODULE.IDENTITY, 'BoundScope', side_effect=RuntimeError('scope mismatch')):
+                with self.assertRaisesRegex(RuntimeError, 'scope mismatch'):
+                    MODULE.measure(task)
+            complete = task / 'turboism-home/state/texture-upload/memory/complete.properties'
+            self.assertIn('status=FAIL', complete.read_text())
+            self.assertFalse((task / 'evidence/memory-samples.jsonl').exists())
+
+    def test_sampling_failure_closes_scope(self):
+        with tempfile.TemporaryDirectory() as name:
+            task = Path(name)
+            (task / 'evidence').mkdir()
+            scope = mock.Mock()
+            scope.find_java.side_effect = RuntimeError('identity mismatch')
+            with mock.patch.object(MODULE.IDENTITY, 'verify_task'), \
+                    mock.patch.object(MODULE.IDENTITY, 'BoundScope', return_value=scope):
+                with self.assertRaisesRegex(RuntimeError, 'identity mismatch'):
+                    MODULE.measure(task)
+            scope.close.assert_called_once()
 
     def test_full_idle_window_required(self):
         rows = [{'epochMillis': x * 1000, 'monotonicNs': x * 1_000_000_000} for x in range(33)]

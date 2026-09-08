@@ -1,13 +1,16 @@
 # Candidate builder for immutable vMAJOR.MINOR.PATCH framework releases.
 # This workflow has read-only repository permissions and no production secrets.
-# The protected release-publisher workflow owns every remote mutation.
+# Explicit protected GitHub promotion owns remote tag/release creation.
 
 name: Product release candidate
 
 on:
-  push:
-    tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+    inputs:
+      expected_source_sha:
+        description: Exact main commit to build; mismatches fail rather than follow a moving branch
+        required: true
+        type: string
 
 permissions:
   contents: read
@@ -21,14 +24,24 @@ concurrency:
 
 jobs:
   build:
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     steps:
-      - name: Check out tagged revision
+      - name: Check out immutable candidate revision
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Verify requested source identity
+        env:
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+        run: |
+          set -euo pipefail
+          [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
 
       - name: Check complete public history hygiene
         run: python3 scripts/check_remote_hygiene.py --all
@@ -38,9 +51,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION="${GITHUB_REF_NAME#v}"
-          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          FRAMEWORK_VERSION="$(python3 - <<'PY'
+          VERSION="$(python3 - <<'PY'
           import re
           from pathlib import Path
           text = Path("gradle/common-java.gradle.kts").read_text(encoding="utf-8")
@@ -50,7 +61,11 @@ jobs:
           print(match.group(1))
           PY
           )"
-          test "$VERSION" = "$FRAMEWORK_VERSION"
+          [[ "$VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          # A version already bound to another source cannot be reused.
+          if git show-ref --verify --quiet "refs/tags/v$VERSION"; then
+            test "$(git rev-parse "v$VERSION^{commit}")" = "$GITHUB_SHA"
+          fi
           grep -Fq "## [$VERSION] - " CHANGELOG.md
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
@@ -117,6 +132,9 @@ jobs:
 
       - name: Generate deterministic release candidate
         run: |
+          # Local-only tag after all build/payload checks; never push from this job.
+          python3 scripts/release/promote-github-release.py candidate-tag \
+            --source-root "$GITHUB_WORKSPACE" --source-sha "$GITHUB_SHA"
           market_args=()
           if [ "${{ steps.policy.outputs.eligible }}" != 0 ]; then
             market_args=(--market-dir build/market-release)
@@ -171,3 +189,12 @@ jobs:
           path: build/market-release
           retention-days: 7
           if-no-files-found: error
+
+      - name: Report candidate promotion identity
+        run: |
+          {
+            echo '## Candidate verified — no official tag or Release was published'
+            echo "Source: $GITHUB_SHA"
+            echo "Candidate run: $GITHUB_RUN_ID; attempt: $GITHUB_RUN_ATTEMPT"
+            echo 'Review the artifacts, then explicitly dispatch release-github-only.yml.'
+          } >> "$GITHUB_STEP_SUMMARY"

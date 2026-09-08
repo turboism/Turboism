@@ -178,6 +178,7 @@ final class CoreWindows implements AutoCloseable {
         final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
         final JCheckBox separateExportSaveDirectory =
             new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
+        final JCheckBox useTextIcon = createUseTextIconCheckBox(value);
 
         final Map<String, BuiltinTab> builtins = new LinkedHashMap<>();
         final JPanel runtime = form();
@@ -185,6 +186,7 @@ final class CoreWindows implements AutoCloseable {
         add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
         add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
         add(runtime, 3, safeMode, new JLabel());
+        add(runtime, 4, useTextIcon, new JLabel());
         builtins.put("runtime", new BuiltinTab(text("settings.tab.runtime"), 100, runtime));
 
         builtins.put(
@@ -221,11 +223,11 @@ final class CoreWindows implements AutoCloseable {
                 if (!rendered.save().getAsBoolean()) {
                     return false;
                 }
-                settings.save(new RuntimeSettings(
+                settings.save(settingsFromControls(
                     safeMode.isSelected(), (String) logLevel.getSelectedItem(),
                     ((Number) maxLogStorage.getValue()).intValue(),
                     skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
-                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
+                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem(), useTextIcon.isSelected()
                 ));
                 CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
                 return true;
@@ -248,6 +250,27 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    JCheckBox createUseTextIconCheckBox(final RuntimeSettings value) {
+        return new JCheckBox(text("settings.use-text-icon"), value.useTextIcon());
+    }
+
+    static RuntimeSettings settingsFromControls(
+        final boolean safeMode,
+        final String logLevel,
+        final int maxLogStorageMiB,
+        final boolean skipStartupUpdateCheck,
+        final boolean skipStartupSplash,
+        final boolean skipStartupInformation,
+        final boolean separateExportSaveDirectory,
+        final String locale,
+        final boolean useTextIcon
+    ) {
+        return new RuntimeSettings(
+            safeMode, logLevel, maxLogStorageMiB, skipStartupUpdateCheck,
+            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, locale, useTextIcon
+        );
     }
 
     static void saveAndClose(

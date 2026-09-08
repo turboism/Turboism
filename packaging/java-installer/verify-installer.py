@@ -394,6 +394,9 @@ def load_release_manifest(path):
     return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
 
 
+_STRICT_VERSION_RE = re.compile(r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')
+
+
 def load_plugin_metadata(manifest_path, modules):
     """Reads committed plugin.json descriptors for the given modules — the
     regression oracle for payload identity. The canonical
@@ -402,8 +405,8 @@ def load_plugin_metadata(manifest_path, modules):
     plugins/<module>/src/main/resources/META-INF/turboism/plugin.json path
     (no scans, no id/name inference). Fail-closed on manifest path shape,
     missing or non-regular descriptor, non-object JSON, blank/non-string
-    id/name, and duplicate module or id. Returns
-    {module: {"id": id, "name": name}}."""
+    id/name/version, and duplicate module or id. Returns
+    {module: {"id": id, "name": name, "version": version}}."""
     canonical = os.path.normpath(manifest_path)
     check("release manifest path has canonical packaging shape",
           os.path.basename(canonical) == "release-plugins.txt"
@@ -425,14 +428,22 @@ def load_plugin_metadata(manifest_path, modules):
               descriptor)
         pid = meta.get("id")
         pname = meta.get("name")
+        pversion = meta.get("version")
         check("plugin descriptor has nonblank string id",
               isinstance(pid, str) and bool(pid.strip()), descriptor)
         check("plugin descriptor has nonblank string name",
               isinstance(pname, str) and bool(pname.strip()), descriptor)
+        check("plugin descriptor has strict MAJOR.MINOR.PATCH version",
+              isinstance(pversion, str) and bool(_STRICT_VERSION_RE.match(pversion.strip())),
+              descriptor)
         check("plugin descriptor id unique across metadata",
               pid.strip() not in seen_ids, pid)
         seen_ids.add(pid.strip())
-        metadata[module] = {"id": pid.strip(), "name": pname.strip()}
+        metadata[module] = {
+            "id": pid.strip(),
+            "name": pname.strip(),
+            "version": pversion.strip(),
+        }
     return metadata
 
 
@@ -571,30 +582,31 @@ def assert_lite_install(jar, payload_plugins):
     shutil.rmtree(base, ignore_errors=True)
 
 
-def assert_windows_full_install(jar, payload_plugins):
-    """Windows x64 Full is admitted on every supported host: release payloads
-    no longer carry a platform-specific managed runtime, so Full must not be
-    rejected for the Windows platform and must install the full plugin roster."""
-    java_flags = ("-Dos.name=Windows 11", "-Dos.arch=amd64")
-    base = tempfile.mkdtemp(prefix="turboism-windows-full ")
+def assert_full_payload_install(jar, payload_plugins):
+    """Verify Full extraction on the native JVM and filesystem.
+
+    ConfigMergeRegression.platformPolicy separately exercises Windows x64
+    admission. Spoofing os.name for a whole IzPack process breaks JLine and
+    target-path validation on non-Windows hosts; it is not Windows evidence.
+    """
+    base = tempfile.mkdtemp(prefix="turboism-full-payload ")
     target = os.path.join(base, "home")
     clear_task_lock()
     rc, out = run_console(
         jar,
         install_answers("full", target, payload_plugins=payload_plugins),
-        java_flags=java_flags,
     )
-    check("Windows full install exit 0", rc == 0, "rc=%s" % rc)
-    check("Windows full writes config",
+    check("Full payload install exit 0", rc == 0, "rc=%s output=%s" % (rc, out[-2000:]))
+    check("Full payload writes config",
           os.path.isfile(os.path.join(target, "config.json")))
-    check("Windows full installs agent",
+    check("Full payload installs agent",
           os.path.isfile(os.path.join(target, "turboism-agent.jar")))
     expected = sorted(p["module"] + ".jar" for p in payload_plugins)
     installed = sorted(os.listdir(os.path.join(target, "plugins")))
-    check("Windows full installs every bundled plugin jar", installed == expected,
+    check("Full payload installs every bundled plugin jar", installed == expected,
           str(installed))
     config = json.load(open(os.path.join(target, "config.json")))
-    check("Windows full all-selected omits empty disabledPlugins",
+    check("Full payload all-selected omits empty disabledPlugins",
           config.get("disabledPlugins") in (None, []),
           str(config.get("disabledPlugins")))
     shutil.rmtree(base, ignore_errors=True)
@@ -1499,14 +1511,17 @@ def assert_global_lock_untouched(before):
 def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata):
     """Built-JAR metadata is the identity authority (never module-name or
     filename derived); committed plugin.json descriptors are the regression
-    oracle. Asserts every included payload module's id/name equals its
+    oracle. Asserts every included payload module's id/name/version equals its
     descriptor, excluded modules and their committed ids are absent, the
     renamed algorithm display identity plus its compatibility id holds, and
     the required present/absent plugin facts hold."""
     by_module = {p["module"]: p for p in payload_plugins}
-    actual = {module: {"id": p["id"], "name": p["name"]}
-              for module, p in by_module.items()}
-    check("included payload identities equal committed metadata (module+id+name)",
+    actual = {module: {
+        "id": p["id"],
+        "name": p["name"],
+        "version": p["version"],
+    } for module, p in by_module.items()}
+    check("included payload identities equal committed metadata (module+id+name+version)",
           actual == included_metadata,
           "actual=%s expected=%s" % (sorted(actual.items()),
                                      sorted(included_metadata.items())))
@@ -1625,7 +1640,7 @@ def main():
         assert_default_install_does_not_download_graal(jar, payload_plugins)
         assert_lite_install(jar, payload_plugins)
         assert_install_home_symlink_rejected(jar)
-        assert_windows_full_install(jar, payload_plugins)
+        assert_full_payload_install(jar, payload_plugins)
         assert_thin_install(jar, payload_plugins)
         assert_full_defaults_all(jar, payload_plugins)
         assert_full_install(jar, args.payload, payload_plugins)

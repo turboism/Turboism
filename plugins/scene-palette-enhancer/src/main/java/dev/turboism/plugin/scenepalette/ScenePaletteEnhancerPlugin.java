@@ -14,6 +14,7 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
 
     private PluginContext context;
     private SceneTableSorter sorter;
+    private ManualOrderStore store;
 
     @Override
     public void init(final PluginContext context) {
@@ -26,11 +27,17 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
             throw new IllegalStateException("Scene Palette Enhancer must be initialized before enable.");
         }
         disable();
-        sorter = new SceneTableSorter(
-            context.sceneTable(),
-            ManualOrderStore.storage(context.storage(), context.logger()),
-            context.logger()
-        );
+        // Reuse one store across disable/enable cycles so a queued write from a previous
+        // enable cannot be overtaken by, and then overwrite, a newer write after re-enable.
+        if (store == null) {
+            try {
+                store = ManualOrderStore.storage(context.storage(), context.logger());
+            } catch (UnsupportedOperationException unavailable) {
+                store = ManualOrderStore.unavailable();
+                context.logger().info("Scene manual order storage is unavailable; persistence is disabled.");
+            }
+        }
+        sorter = new SceneTableSorter(context.sceneTable(), store, context.logger());
     }
 
     /** Forwards a scene-table header click to the active palette sorter. */
@@ -69,5 +76,6 @@ public final class ScenePaletteEnhancerPlugin implements TurboismPlugin {
     public void shutdown() {
         disable();
         context = null;
+        store = null;
     }
 }

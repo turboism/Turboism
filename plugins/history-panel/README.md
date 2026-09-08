@@ -16,7 +16,7 @@ interface: embedded
 
 > **Official Turboism plugin** · **Status: Preview**
 
-Projects the active document's native Undo history into a floating embedded History panel with a vertical tool-strip toggle and snapshot-bound Undo/Redo navigation.
+Projects the active document's native Undo history into a floating semantic timeline with trusted targets, before/after values, origin, bounded native decoding, and stable snapshot-bound navigation.
 
 | Detail | Value |
 |---|---|
@@ -32,8 +32,9 @@ Projects the active document's native Undo history into a floating embedded Hist
 ## What it does
 
 - Adds a localized History button to the right-side vertical Cubism tool strip.
-- Toggles a floating History panel that shows the available native Undo history as applied/undone entry toggles.
-- Refreshes the pane when the history generation or revision changes, normally once per second, and registers entry actions that call the typed Undo/Redo APIs.
+- Renders every reachable Undo entry as `FULL`, `PARTIAL`, or `LABEL_ONLY` semantic detail. Turboism-captured metadata is authoritative; allowlisted native decoders may supplement host entries; unknown operations stay label-only.
+- Shows a semantic description without repeating the raw host label; label-only entries keep the host label once. Each group shows only its summary, never its first change or a `+N` suffix. Rows retain affected target count, detail level, and known Turboism attribution; host-unattributed origin is omitted and groups cannot expand.
+- Refreshes when history identity or semantic content changes and navigates only by stable entry ID against the unchanged generation, revision, document/manager binding, and entry sequence.
 
 ## Requirements and compatibility
 
@@ -58,6 +59,7 @@ This plugin is included in Turboism Full releases. Install a Full package, then 
 | Declared capability | User effect |
 |---|---|
 | `cubism.editor-history.read` | Reads the active document's native Undo history snapshot. |
+| `cubism.editor-history.semantic-read` | Optionally decodes independently authorized native Undo families with strict depth/node/string budgets. |
 | `cubism.editor-history.move` | Requests movement through native Undo history entries. |
 | `ui.embedded-panel.contribute` | Contributes the History panel. |
 | `ui.status.notify` | Declares history-status notification support. |
@@ -92,10 +94,14 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 ## Status and limitations
 
 - **Status:** Preview release plugin.
-- The panel shows a localized unavailable state when native history is unavailable.
+- `FULL` means targets and relevant values are complete; `PARTIAL` includes an explicit degradation code; `LABEL_ONLY` makes no semantic claim beyond the host label.
+- `TURBOISM` origin is emitted only from operation-time registry metadata. Unregistered native operations remain `HOST_UNATTRIBUTED` in SDK data, but the panel does not display that unattributed origin.
+- Native semantic decoding is authorized for the reviewed Cubism 5.2.03 and 5.3.02 selector records. Cubism 5.3.03 native-semantic readiness remains explicitly pending.
+- Operation-time capture currently covers controlled SDK writes; native UI capture ingress is not yet implemented. Uncaptured native entries use conservative decoder or label-only fallback, never the current mutable target as an old after-value.
+- Two-version SDK probes passed 19 assertions each, including retained color details after later writes and Undo/Redo. These runs required task-scoped forced cleanup, so graceful exit and complete native-semantic readiness remain unverified. The latest panel summary rendering has local test coverage but has not been redeployed for host visual validation.
+- Entries without stable IDs are displayed but receive no move action. Changed snapshot binding or entry sequence rejects navigation without index fallback.
 - Polling is optional: if task scheduling is unavailable, the pane remains usable with its initial refresh only.
-- A failed panel refresh is logged and retried on the next poll; a failed close is handled safely from the toggle state.
-- History access and move behavior depend on the reviewed host integration and declared permissions.
+- A failed panel refresh, stale navigation, or failed close is logged and handled fail-closed.
 
 ## Troubleshooting
 
@@ -104,7 +110,7 @@ The plugin logs lifecycle, refresh, polling, and safe-failure diagnostics. Plugi
 | History button is missing | Confirm the plugin is enabled and the vertical main-toolbar contribution is available. |
 | Pane says history is unavailable | Open an active document and confirm the native history service is available. |
 | Pane does not refresh | Check scheduler availability; without it, the pane displays only its initial snapshot. |
-| Clicking an entry has no effect | Confirm the history snapshot is available and the model-write permission and native Undo/Redo integration are available. |
+| Clicking an entry has no effect | The row may lack a stable entry ID, or the generation/revision/binding/entry sequence changed after rendering. Refresh and retry; no index fallback is used. |
 | Pane does not close cleanly | Check the plugin log for host floating-frame teardown diagnostics. |
 
 ## Support and license
