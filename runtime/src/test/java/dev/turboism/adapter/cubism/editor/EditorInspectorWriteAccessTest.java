@@ -842,10 +842,10 @@ class EditorInspectorWriteAccessTest {
         public String value() { return value; }
     }
 
-    public static final class GroupUndo {
+    public static final class GroupUndo extends UndoEntry {
         final String label;
         int undoAddCount;
-        GroupUndo(final String label) { this.label = label; }
+        GroupUndo(final String label) { super(label); this.label = label; }
         public boolean add(final Undo undo, final boolean redoable) {
             undoAddCount++;
             return true;
@@ -876,7 +876,7 @@ class EditorInspectorWriteAccessTest {
         }
         public void end(final boolean aborted, final Object unused) {
             this.aborted = aborted;
-            if (!aborted && current != null) manager.commit(current.label);
+            if (!aborted && current != null) manager.commit(current);
             current = null;
         }
     }
@@ -888,14 +888,17 @@ class EditorInspectorWriteAccessTest {
         public int position() { return position; }
         public boolean canUndo() { return position > 0; }
         public boolean canRedo() { return position < entries.size(); }
-        void commit(final String label) {
+        void commit(final UndoEntry entry) {
             while (entries.size() > position) entries.remove(entries.size() - 1);
-            entries.add(new UndoEntry(label));
+            entries.add(entry);
             position = entries.size();
         }
     }
 
-    public record UndoEntry(String presentationName) {
+    public static class UndoEntry {
+        private final String presentationName;
+        UndoEntry(final String presentationName) { this.presentationName = presentationName; }
+        public String presentationName() { return presentationName; }
         public boolean significant() { return true; }
     }
 
