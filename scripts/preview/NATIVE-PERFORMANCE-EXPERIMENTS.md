@@ -458,3 +458,8 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **堆与保留**：300秒内heap.used1934.83→1022.66MiB，heap.committed始终2688MiB，GC计数48→52；关文档约156秒后的documentWeak仍未clear。used下降/committed不降/RSS换出是不同事实，尚无retained-size或GC根路径，不据此断言N01已留住整个模型或N02日常漏还。探针sample调用耗时中位118.83ms/峰673.58ms、最大采样间隔1.674s；这是读延迟而非CPU耗时，探针扰动仍需留意。
 - **复现产物**：`/tmp/turboism-native-memory-admission-20260908/`保留dry-run、prepare、submit、wait、events、offline分析脚本和summary；分析脚本SHA256=`cce1ada6968b9f861dba5ce0fc9ef1806f9cd0f39e7cda11632d0e473fcf120e`，summary=`34cca727c227e6de4349224e107642d6c3709e90a7c251ba26548d603236c1a6`。样本SHA256=`140e52ac17aacd0f246bb401146b442a0e1a69ea1d78bc9c173aebe91af047b1`，阶段结果=`4746ea6e04b05136092ec5c7d4071fd02bb5392441f6fa48182d8a0d862555ce`。原始证据按上述job/run定位，不猜最新目录。
 - **有效程度/下一步**：完成新的只读观测准入实机验证，拿到Cubism自身三指标基线；没有新优化收益宣称。N01错误强引用/N02异常资源归还仍是待实现验证候选。先针对原生图像保留链做窄只读归因，再决定优化；后续A/B必须匹配内存压力/交换状态，不能把RSS换出或累计分配下降冒充省RAM。
+
+### I18 分支提交与main增量接入（2026-09-08）
+
+- 已在`feat/cubism-native-performance-20260905`提交`24c6dc21a5e81e6a6c7ffa878c837670d9fe0e2a`，父提交为原分支98b28395与main951b6b97。内容是已验证的main整合、只读观测切片、此前N02纯原型与完整实验记录；不是合并到main。最后15个变更/新文件直接复用现有卫生扫描PASS，git diff检查及提交hook卫生PASS。
+- 随后只在性能worktree接入main83a49168余下4文件增量（env示例、service示例、调度README、service示例测试），自动合并保留memory observer窄准入说明，没有执行代码/实际worker配置变更。逐项审阅diff，并运行`python3 -B scripts/test/test_host_validation_service_example.py`：1 test PASS（0.623秒），只在临时目录执行stub，验证带空格/元字符路径及空/缺失/不存在路径失败，不安装服务、不启动队列或Cubism。没有重跑未受影响的整组实机/产品门禁；main工作区及正在运行的worker不变。
