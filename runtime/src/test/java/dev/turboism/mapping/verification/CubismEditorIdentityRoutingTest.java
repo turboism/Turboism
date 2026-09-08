@@ -21,7 +21,7 @@ class CubismEditorIdentityRoutingTest {
             "cubism-5.3.03.editor-model.static",
             "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
             EditorModelVerificationManifest.ADAPTER_SLICE_ID,
-            EditorModelVerificationManifest.CAPABILITY_IDS,
+            EditorModelVerificationManifest.cubism5303Capabilities(),
             EditorModelVerificationManifest.cubism5303StaticAliases()
         );
         assertManifest(

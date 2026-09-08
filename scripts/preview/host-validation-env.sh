@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Shared local configuration for exact-host validation wrappers.
 #
-# Developers keep machine-specific local paths in the repository root `.env` (ignored by Git). Copy `.env.example` to `.env`, edit it locally, then invoke any wrapper normally. Existing exported variables take precedence so CI and one-off commands can override `.env` without rewriting it.
+# Developers keep machine-specific local paths in the repository root `.env`
+# (ignored by Git). Values are parsed as data; exported values take precedence.
 
 if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
   TURBOISM_HOST_VALIDATION_ENV_LOADED="$BASHPID"
@@ -49,6 +50,7 @@ if [[ "${TURBOISM_HOST_VALIDATION_ENV_LOADED:-}" != "$BASHPID" ]]; then
 
   : "${TURBOISM_HOST_VALIDATION_SSH_HOST:=}"
   : "${TURBOISM_HOST_VALIDATION_HOST_ROOT:=}"
+  : "${TURBOISM_HOST_VALIDATION_TRANSPORT:=local}"
   : "${TURBOISM_HOST_VALIDATION_SSH_KEY:=}"
   : "${TURBOISM_HOST_VALIDATION_REMOTE_ROOT:=}"
   : "${TURBOISM_HOST_VALIDATION_GOLDEN_PREFIX:=}"

@@ -418,11 +418,12 @@ final class McpOutputSchemas {
                 entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
                 entry("entryId", nullableString()),
                 entry("transactionId", nullableString()),
-                entry("action", nullableObject(historyAction()))
+                entry("action", nullableObject(historyAction())),
+                entry("detail", historyDetail(4))
             ),
             List.of(
                 "index", "label", "significant", "detailLevel",
-                "entryId", "transactionId", "action"
+                "entryId", "transactionId", "action", "detail"
             )
         );
     }
@@ -442,6 +443,95 @@ final class McpOutputSchemas {
                 "kind", "targetType", "targetId", "property",
                 "before", "after", "detailLevel"
             )
+        );
+    }
+
+    private static Map<String, Object> historyDetail(final int remainingGroupDepth) {
+        return object(
+            properties(
+                entry("summary", nonEmptyString()),
+                entry("detailLevel", enumSchema(List.of("FULL", "PARTIAL", "LABEL_ONLY"))),
+                entry("origin", historyOrigin()),
+                entry("targets", boundedArray(historyTarget(), 64)),
+                entry("changes", boundedArray(historyChange(), 64)),
+                entry("group", remainingGroupDepth == 0
+                    ? Map.of("type", "null")
+                    : nullableObject(historyGroup(remainingGroupDepth - 1))),
+                entry("degradationCode", nullableString())
+            ),
+            List.of("summary", "detailLevel", "origin", "targets", "changes", "group", "degradationCode")
+        );
+    }
+
+    private static Map<String, Object> historyOrigin() {
+        return object(
+            properties(
+                entry("kind", enumSchema(List.of("TURBOISM", "HOST_UNATTRIBUTED"))),
+                entry("producerId", nullableString()),
+                entry("operationId", nullableString())
+            ),
+            List.of("kind", "producerId", "operationId")
+        );
+    }
+
+    private static Map<String, Object> historyTarget() {
+        return object(
+            properties(
+                entry("type", nonEmptyString()),
+                entry("id", nullableString()),
+                entry("displayName", nullableString())
+            ),
+            List.of("type", "id", "displayName")
+        );
+    }
+
+    private static Map<String, Object> historyChange() {
+        return object(
+            properties(
+                entry("operation", enumSchema(List.of("SET", "ADD", "REMOVE", "UNKNOWN"))),
+                entry("targetIndex", nullableNonNegativeInteger()),
+                entry("property", nullableString()),
+                entry("before", nullableString()),
+                entry("after", nullableString()),
+                entry("context", historyEditContext())
+            ),
+            List.of("operation", "targetIndex", "property", "before", "after", "context")
+        );
+    }
+
+    private static Map<String, Object> historyEditContext() {
+        return object(
+            properties(
+                entry(
+                    "kind",
+                    enumSchema(List.of("OBJECT", "DEFAULT_FORM", "KEYFORM", "DOCUMENT", "UNKNOWN"))
+                ),
+                entry("formId", nullableString()),
+                entry("coordinates", boundedArray(historyParameterCoordinate(), 64))
+            ),
+            List.of("kind", "formId", "coordinates")
+        );
+    }
+
+    private static Map<String, Object> historyParameterCoordinate() {
+        return object(
+            properties(
+                entry("parameter", historyTarget()),
+                entry("value", nonEmptyString())
+            ),
+            List.of("parameter", "value")
+        );
+    }
+
+    private static Map<String, Object> historyGroup(final int remainingGroupDepth) {
+        return object(
+            properties(
+                entry("groupId", nullableString()),
+                entry("children", boundedArray(historyDetail(remainingGroupDepth), 64)),
+                entry("observedChildCount", nonNegativeInteger()),
+                entry("truncated", booleanSchema())
+            ),
+            List.of("groupId", "observedChildCount", "children", "truncated")
         );
     }
 
@@ -515,6 +605,17 @@ final class McpOutputSchemas {
         return Map.of("type", "string");
     }
 
+    private static Map<String, Object> nonEmptyString() {
+        return Map.of("type", "string", "minLength", 1);
+    }
+
+    private static Map<String, Object> boundedArray(
+        final Map<String, Object> items,
+        final int maxItems
+    ) {
+        return Map.of("type", "array", "items", items, "maxItems", maxItems);
+    }
+
     private static Map<String, Object> nullableString() {
         return Map.of("type", List.of("string", "null"));
     }
@@ -529,6 +630,10 @@ final class McpOutputSchemas {
 
     private static Map<String, Object> nonNegativeInteger() {
         return Map.of("type", "integer", "minimum", 0);
+    }
+
+    private static Map<String, Object> nullableNonNegativeInteger() {
+        return Map.of("type", List.of("integer", "null"), "minimum", 0);
     }
 
     private static Map<String, Object> enumSchema(final List<String> values) {

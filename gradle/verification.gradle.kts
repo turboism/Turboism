@@ -27,6 +27,20 @@ tasks.register<Exec>("checkCubismHostValidationArguments") {
     commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationLocalTransport") {
+    group = "verification"
+    description = "Verifies local host command/copy transport and side-effect-free dry runs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_local_transport.sh")
+}
+
+tasks.register<Exec>("checkHistoryValidationProbePackaging") {
+    group = "verification"
+    description = "Verifies history exact-host probe JARs include their descriptor-declared base i18n catalogs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
+}
+
 tasks.register<Exec>("checkFxValidationBrokerArguments") {
     group = "verification"
     description = "Verifies bounded validation-only fx broker accept lifetimes offline."
@@ -713,6 +727,8 @@ tasks.register("checkIntegration") {
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
+        "checkHistoryValidationProbePackaging",
+        "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )

@@ -50,6 +50,12 @@ associated with the job. Golden/official installation and Proton are separately
 revalidated host dependencies, not redistributed input bundles.
 
 Unknown custom hook dependencies are rejected, not executed speculatively.
+The only admitted custom hook inventory is the FPS resize driver. The history
+baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
+MCP clients and generated plugin-chooser hooks remain blocked at snapshot admission
+until their complete dependencies are explicitly reviewed; do not bypass the queue.
+`host-validation-transport.sh` retains local-only utility names for path/copy
+compatibility; it contains no SSH/SCP execution and is a required snapshotted helper.
 Interactive WebDAV backup is not supported unattended and is explicitly blocked
 before configuration copying or any host side effect. `list` also identifies
 other catalogue tasks requiring explicit unsupported inputs.

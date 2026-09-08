@@ -69,6 +69,16 @@ final class EditorAuthoringScope {
         refreshRequirements.addAll(contribution.refreshRequirements());
     }
 
+    void captureActual(final EditorUndoContribution contribution) {
+        for (int index = 0; index < contributions.size(); index++) {
+            if (contributions.get(index) == contribution) {
+                contributions.set(index, contribution.captureActual());
+                return;
+            }
+        }
+        throw new IllegalStateException("capture contribution is not owned by this scope");
+    }
+
     List<EditorUndoContribution> contributions() {
         return List.copyOf(contributions);
     }

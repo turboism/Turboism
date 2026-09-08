@@ -520,7 +520,8 @@ public final class CoreAcquisitionProbeAgent {
         }
         static Config read() {
             final String profile = required("turboism.coreAcquisition.profile");
-            if (!"cubism-5.2".equals(profile) && !"cubism-5.3.02".equals(profile)) {
+            if (!"cubism-5.2".equals(profile) && !"cubism-5.3.02".equals(profile)
+                && !"cubism-5.3.03-distribution".equals(profile)) {
                 throw new IllegalArgumentException("unsupported Core acquisition profile: " + profile);
             }
             final String editor = digest("turboism.coreAcquisition.expectedEditorSha256");

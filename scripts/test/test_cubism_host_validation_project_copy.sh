@@ -17,7 +17,7 @@ printf 'x\n' > "$BUNDLE/source model.cmo3"
 printf 'x\n' > "$BUNDLE/source.psd"
 
 COMMON=(bash "$RUNNER" --version 5302 --bundle-root "$BUNDLE"
-  --agent "$BUNDLE/agent.jar" --plugin "$BUNDLE/plugin.jar" --result-marker never --dry-run
+  --agent "$BUNDLE/agent.jar" --plugin "$BUNDLE/plugin.jar" --result-marker never --dry-run --transport local
   --golden-prefix /remote/golden --host-root /remote/tasks --proton-runner /remote/proton)
 
 first="$(TURBOISM_HOST_VALIDATION_RUN_NONCE=000001 "${COMMON[@]}" \
