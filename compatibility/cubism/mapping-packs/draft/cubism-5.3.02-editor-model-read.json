@@ -10868,6 +10868,27 @@
       "descriptor": "()Ljava/io/File;"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layered_image_psd_doc",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layered-image.psd-doc",
+      "runtime": "getPsdDoc",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+        "requiredAccessFlags": 0,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/psd/CPsdDocument;"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.method.model-image-group_group-name",
       "kind": "method",
       "owner": "editor-model-read",

@@ -19,7 +19,6 @@ import dev.turboism.sdk.cubism.model.RawTexture;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 
-import java.io.File;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -36,6 +35,10 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Read-only projection of the verified 5.3.02 raw/model-image/ArtMesh relation graph.
+ *
+ * <p>One call is synchronously marshalled to {@link EditorHostThread}; the before/after model
+ * guard runs inside that same host-thread boundary. The observation revision is not a native
+ * model revision and cannot detect an in-place mutation that the host does not serialize.</p>
  *
  * <p>The projection deliberately keeps host objects inside this package. SDK values contain only
  * copied scalars, SDK identifiers, and immutable collections. A missing relation capability is a
@@ -58,7 +61,7 @@ final class EditorTextureRelationsAccess {
     private static final String LAYERED_IMAGE_NAME = "cubism.editor-model.layered-image.name";
     private static final String LAYERED_IMAGE_WIDTH = "cubism.editor-model.layered-image.width";
     private static final String LAYERED_IMAGE_HEIGHT = "cubism.editor-model.layered-image.height";
-    private static final String LAYERED_IMAGE_PSD_FILE = "cubism.editor-model.layered-image.psd-file";
+    private static final String LAYERED_IMAGE_PSD_DOC = "cubism.editor-model.layered-image.psd-doc";
     private static final String LAYERED_IMAGE_CHILDREN = "cubism.editor-model.layered-image.children";
     private static final String LAYER_ENTRY_CLASS = "cubism.editor-model.layer-entry.class";
     private static final String LAYER_ENTRY_GUID = "cubism.editor-model.layer-entry.guid";
@@ -122,6 +125,7 @@ final class EditorTextureRelationsAccess {
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
     private final LongSupplier generationSupplier;
+    /** Local observation sequence; it is not a native Cubism revision. */
     private final AtomicLong revision = new AtomicLong();
 
     EditorTextureRelationsAccess(
@@ -145,6 +149,18 @@ final class EditorTextureRelationsAccess {
         if (!isAvailable()) {
             return TextureRelationsSnapshot.unavailable();
         }
+        return EditorHostThread.dispatch(
+            "Cubism texture relations",
+            () -> relationsOnHostThread(identity, source, model)
+        );
+    }
+
+    /** All native relation selectors run in one synchronous host-thread read boundary. */
+    private TextureRelationsSnapshot relationsOnHostThread(
+        final String identity,
+        final Object source,
+        final Object model
+    ) {
         modelGuard.requireCurrent(identity, model);
 
         final Object textureManager = requireObject(
@@ -169,6 +185,8 @@ final class EditorTextureRelationsAccess {
             modelImages.add(readModelImageRelation(image, using));
         }
 
+        // The same guard closes the boundary: a replacement with the same binding/model ID
+        // must not publish a projection assembled from an older native object graph.
         modelGuard.requireCurrent(identity, model);
         final long generation = generationSupplier.getAsLong();
         final long observedRevision = revision.incrementAndGet();
@@ -209,8 +227,11 @@ final class EditorTextureRelationsAccess {
                 id,
                 new HashSet<>()
             );
-            final Object psdFile = resolver.invoke(LAYERED_IMAGE_PSD_FILE, image);
-            final RawImageDetails.SourceKind sourceKind = psdFile instanceof File
+            // CLayeredImage.psdFile is shared by the ordinary CImageResource constructor and the
+            // CPsdDocument constructor. Only a non-null, typed getPsdDoc result is positive PSD
+            // evidence; a reopened document with a missing psdDoc remains UNKNOWN.
+            final Object psdDocument = resolver.invoke(LAYERED_IMAGE_PSD_DOC, image);
+            final RawImageDetails.SourceKind sourceKind = psdDocument != null
                 ? RawImageDetails.SourceKind.PSD
                 : RawImageDetails.SourceKind.UNKNOWN;
             final RawImageDetails details = new RawImageDetails(

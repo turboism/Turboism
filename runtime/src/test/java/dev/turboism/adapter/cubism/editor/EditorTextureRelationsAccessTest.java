@@ -26,12 +26,14 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /** Synthetic, host-free coverage for the verified 5.3.02 texture relation projection. */
 class EditorTextureRelationsAccessTest {
@@ -60,7 +62,12 @@ class EditorTextureRelationsAccessTest {
         assertEquals(42L, snapshot.generation());
         assertEquals(1L, snapshot.revision());
         assertEquals(
-            List.of(new RawImageId("raw-a"), new RawImageId("raw-b")),
+            List.of(
+                new RawImageId("raw-a"),
+                new RawImageId("raw-b"),
+                new RawImageId("raw-c"),
+                new RawImageId("raw-d")
+            ),
             snapshot.rawImages().stream().map(RawImageDetails::id).toList()
         );
         assertEquals(2, guardCalls.get());
@@ -93,6 +100,14 @@ class EditorTextureRelationsAccessTest {
         assertEquals(Optional.empty(), rawB.importedAt());
         assertEquals(new RawLayerId("raw-b-layer"), rawB.layers().get(0).id());
         assertEquals(new RawImageId("raw-b"), rawB.layers().get(0).ownerRawImageId());
+        final RawImageDetails rawC = snapshot.rawImage(new RawImageId("raw-c")).orElseThrow();
+        assertEquals(RawImageDetails.SourceKind.UNKNOWN, rawC.sourceKind());
+        final RawImageDetails rawD = snapshot.rawImage(new RawImageId("raw-d")).orElseThrow();
+        assertEquals(RawImageDetails.SourceKind.UNKNOWN, rawD.sourceKind());
+        assertEquals(0, fixture.rawA.psdFileReads());
+        assertEquals(0, fixture.rawB.psdFileReads());
+        assertEquals(0, fixture.rawC.psdFileReads());
+        assertEquals(0, fixture.rawD.psdFileReads());
 
         final ModelImageRelation modelA = snapshot.modelImage(new ModelImageId("model-a"))
             .orElseThrow();
@@ -165,6 +180,75 @@ class EditorTextureRelationsAccessTest {
             "session-a", fixture.source, fixture.model
         );
         assertEquals(2L, second.revision());
+    }
+
+    @Test
+    void dispatchesAWorkerProjectionAsOneHostThreadRead() throws Exception {
+        final Fixture fixture = new Fixture();
+        final AtomicReference<TextureRelationsSnapshot> result = new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final AtomicReference<Boolean> callerWasHostThread = new AtomicReference<>();
+        final EditorTextureRelationsAccess access = new EditorTextureRelationsAccess(
+            resolver("5.3.02", true),
+            (identity, model) -> { },
+            () -> 43L
+        );
+
+        final Thread worker = new Thread(() -> {
+            callerWasHostThread.set(EditorHostThread.isCurrent());
+            try {
+                result.set(access.relations("session-a", fixture.source, fixture.model));
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        }, "texture-relations-worker");
+        worker.start();
+        worker.join();
+
+        assertEquals(Boolean.FALSE, callerWasHostThread.get());
+        assertNull(failure.get());
+        assertTrue(fixture.source.textureManagerReadOnHostThread.get());
+        assertTrue(result.get().isAvailable());
+        assertEquals(43L, result.get().generation());
+    }
+
+    @Test
+    void rejectsReadInProgressWhenSameIdDocumentIsReplaced() throws Exception {
+        final Fixture fixture = new Fixture();
+        final AtomicReference<Model> currentModel = new AtomicReference<>(fixture.model);
+        final Model replacement = new Model("model-a", List.of());
+        fixture.source.afterTextureManagerRead.set(() -> currentModel.set(replacement));
+        final AtomicInteger guardCalls = new AtomicInteger();
+        final EditorTextureRelationsAccess access = new EditorTextureRelationsAccess(
+            resolver("5.3.02", true),
+            (identity, expectedModel) -> {
+                guardCalls.incrementAndGet();
+                if (currentModel.get() != expectedModel) {
+                    throw new IllegalStateException("stale same-ID document");
+                }
+            },
+            () -> 44L
+        );
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        final Thread worker = new Thread(() -> {
+            try {
+                access.relations("session-a", fixture.source, fixture.model);
+            } catch (Throwable throwable) {
+                failure.set(throwable);
+            }
+        }, "texture-relations-replacement-worker");
+        worker.start();
+        worker.join();
+
+        assertTrue(failure.get() instanceof IllegalStateException);
+        assertEquals(2, guardCalls.get(), "the replacement is detected at the closing read boundary");
+        assertEquals("model-a", replacement.id(), "the binding/model ID stayed the same");
+
+        currentModel.set(fixture.model);
+        final TextureRelationsSnapshot recovered = access.relations(
+            "session-a", fixture.source, fixture.model
+        );
+        assertEquals(1L, recovered.revision(), "a stale read is not an observation revision");
     }
 
     @Test
@@ -248,6 +332,8 @@ class EditorTextureRelationsAccessTest {
             "getHeight", "()I");
         putMethod(selectors, "cubism.editor-model.layered-image.psd-file", LayeredImage.class,
             "getPsdFile", "()Ljava/io/File;");
+        putMethod(selectors, "cubism.editor-model.layered-image.psd-doc", LayeredImage.class,
+            "getPsdDoc", desc(PsdDocument.class));
         putMethod(selectors, "cubism.editor-model.layered-image.children", LayeredImage.class,
             "getChildren", "()Ljava/util/List;");
         putClass(selectors, "cubism.editor-model.layer-entry.class", LayerEntry.class);
@@ -374,6 +460,10 @@ class EditorTextureRelationsAccessTest {
     private static final class Fixture {
         final ModelSource source;
         final Model model;
+        final LayeredImage rawA;
+        final LayeredImage rawB;
+        final LayeredImage rawC;
+        final LayeredImage rawD;
 
         Fixture() {
             final LayerEntry layerA = new LayerEntry(new HostId("layer-a"), "Layer A");
@@ -381,16 +471,29 @@ class EditorTextureRelationsAccessTest {
             final LayerGroup layerGroup = new LayerGroup(
                 new HostId("layer-group"), "Layer Group", List.of(layerA, layerB)
             );
-            final LayeredImage rawA = new LayeredImage(
+            this.rawA = new LayeredImage(
                 new HostId("raw-a"), "Raw A", 1024, 512,
-                new File("/proven/raw-a.psd"), List.of(layerGroup)
+                new File("/proven/raw-a.psd"), new PsdDocument(), List.of(layerGroup)
             );
-            final LayeredImage rawB = new LayeredImage(
+            this.rawB = new LayeredImage(
                 new HostId("raw-b"), "Raw B", 256, 128,
-                null, List.of(new LayerEntry(new HostId("raw-b-layer"), "Raw B Layer"))
+                new File("/proven/raw-b.png"), null,
+                List.of(new LayerEntry(new HostId("raw-b-layer"), "Raw B Layer"))
+            );
+            this.rawC = new LayeredImage(
+                new HostId("raw-c"), "Raw C", 128, 64,
+                null, null,
+                List.of(new LayerEntry(new HostId("raw-c-layer"), "Raw C Layer"))
+            );
+            this.rawD = new LayeredImage(
+                new HostId("raw-d"), "Reopened PSD", 128, 64,
+                new File("/proven/reopened.psd"), null,
+                List.of(new LayerEntry(new HostId("raw-d-layer"), "Reopened Layer"))
             );
             final Wrapper wrapperA = new Wrapper(rawA, "import-a", "modified-a", true);
             final Wrapper wrapperB = new Wrapper(rawB, null, null, false);
+            final Wrapper wrapperC = new Wrapper(rawC, null, null, false);
+            final Wrapper wrapperD = new Wrapper(rawD, null, null, false);
 
             final LayerInput firstLayerInput = new LayerInput(layerA, new Object(), new Object());
             final LayerInput secondLayerInput = new LayerInput(layerB, null, new Object());
@@ -432,14 +535,14 @@ class EditorTextureRelationsAccessTest {
                 new ArtMesh(meshSourceA), new ArtMesh(meshSourceB), new ArtMesh(unboundSource)
             );
             final TextureManager manager = new TextureManager(
-                List.of(wrapperA, wrapperB),
+                List.of(wrapperA, wrapperB, wrapperC, wrapperD),
                 List.of(group),
                 List.of(modelImageA, modelImageB),
                 List.of(new TextureAtlas(new HostId("atlas-a"))),
                 List.of(group)
             );
             this.source = new ModelSource(manager, meshSources);
-            this.model = new Model(meshInstances);
+            this.model = new Model("model-a", meshInstances);
         }
     }
 
@@ -460,6 +563,8 @@ class EditorTextureRelationsAccessTest {
         private final TextureManager textureManager;
         private final List<ArtMeshSource> allArtMeshes;
         final AtomicInteger textureManagerCalls = new AtomicInteger();
+        final AtomicReference<Boolean> textureManagerReadOnHostThread = new AtomicReference<>();
+        final AtomicReference<Runnable> afterTextureManagerRead = new AtomicReference<>();
 
         ModelSource(final TextureManager textureManager, final List<ArtMeshSource> allArtMeshes) {
             this.textureManager = textureManager;
@@ -468,6 +573,9 @@ class EditorTextureRelationsAccessTest {
 
         public TextureManager textureManager() {
             textureManagerCalls.incrementAndGet();
+            textureManagerReadOnHostThread.set(EditorHostThread.isCurrent());
+            final Runnable hook = afterTextureManagerRead.getAndSet(null);
+            if (hook != null) hook.run();
             return textureManager;
         }
 
@@ -477,10 +585,20 @@ class EditorTextureRelationsAccessTest {
     }
 
     public static final class Model {
+        private final String id;
         private final List<ArtMesh> allArtMeshes;
 
         Model(final List<ArtMesh> allArtMeshes) {
+            this("model-a", allArtMeshes);
+        }
+
+        Model(final String id, final List<ArtMesh> allArtMeshes) {
+            this.id = id;
             this.allArtMeshes = allArtMeshes;
+        }
+
+        public String id() {
+            return id;
         }
 
         public List<ArtMesh> allArtMeshes() {
@@ -596,13 +714,17 @@ class EditorTextureRelationsAccessTest {
         }
     }
 
+    public static final class PsdDocument { }
+
     public static final class LayeredImage {
         private final HostId guid;
         private final String name;
         private final int width;
         private final int height;
         private final File psdFile;
+        private final PsdDocument psdDoc;
         private final List<LayerEntry> children;
+        private final AtomicInteger psdFileReads = new AtomicInteger();
 
         LayeredImage(
             final HostId guid,
@@ -612,11 +734,24 @@ class EditorTextureRelationsAccessTest {
             final File psdFile,
             final List<LayerEntry> children
         ) {
+            this(guid, name, width, height, psdFile, null, children);
+        }
+
+        LayeredImage(
+            final HostId guid,
+            final String name,
+            final int width,
+            final int height,
+            final File psdFile,
+            final PsdDocument psdDoc,
+            final List<LayerEntry> children
+        ) {
             this.guid = guid;
             this.name = name;
             this.width = width;
             this.height = height;
             this.psdFile = psdFile;
+            this.psdDoc = psdDoc;
             this.children = children;
         }
 
@@ -637,7 +772,16 @@ class EditorTextureRelationsAccessTest {
         }
 
         public File getPsdFile() {
+            psdFileReads.incrementAndGet();
             return psdFile;
+        }
+
+        public PsdDocument getPsdDoc() {
+            return psdDoc;
+        }
+
+        int psdFileReads() {
+            return psdFileReads.get();
         }
 
         public List<LayerEntry> getChildren() {
