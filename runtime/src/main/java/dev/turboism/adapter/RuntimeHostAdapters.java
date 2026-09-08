@@ -348,8 +348,9 @@ public record RuntimeHostAdapters(
     }
 
     /**
-     * Adds an explicitly composed, host-binding-owned UI resource service without preloading or
-     * changing any other adapter slot. The caller retains close ownership of the service.
+     * Adds one stable, non-closeable SDK view owned by an explicitly composed host-binding resource
+     * owner without preloading or changing any other adapter slot. The caller retains close ownership
+     * of the {@code RuntimeUiResourceService} owner, not this SDK view.
      */
     public static RuntimeHostAdapters withUiResources(
         final RuntimeHostAdapters base,
