@@ -6,8 +6,12 @@ Description=Turboism local serial host-validation queue
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/dev/projects/turboism
-ExecStart=/usr/bin/python3 /opt/dev/projects/turboism/scripts/preview/host_validation.py serve
+# Replace only the EnvironmentFile placeholder in your private installed unit.
+# The actual checkout path is TURBOISM_HOST_VALIDATION_CHECKOUT in that .env.
+EnvironmentFile=/path/to/turboism/.env
+# WorkingDirectory does not expand environment variables. env --chdir does;
+# ${...} is one systemd argument even when the configured path contains spaces.
+ExecStart=/usr/bin/env --chdir=${TURBOISM_HOST_VALIDATION_CHECKOUT} /usr/bin/python3 scripts/preview/host_validation.py serve
 UMask=0077
 Restart=no
 # Stop only the worker; its SIGTERM handler drains the owned attempt. Do not
