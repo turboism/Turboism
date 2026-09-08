@@ -2,10 +2,15 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.AbstractButton;
+import javax.swing.Action;
 import javax.swing.JComboBox;
+import javax.swing.Icon;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -13,8 +18,10 @@ import javax.swing.JCheckBox;
 import javax.swing.JScrollPane;
 import javax.swing.JSeparator;
 import javax.swing.JTextField;
+import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
+import java.awt.Color;
 import java.awt.Container;
 import java.awt.Graphics2D;
 import java.awt.Point;
@@ -23,11 +30,13 @@ import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class SwingPanelViewRendererTest {
 
@@ -321,6 +330,223 @@ class SwingPanelViewRendererTest {
                 "checkbox preferred width " + toggle.getPreferredSize().width
                 + " exceeds actual width " + toggle.getWidth());
         });
+    }
+
+    @Test
+    void rendersInlineIconAsOneFullRowWithResolverAndStandardActions() throws Exception {
+        final List<String> actions = new ArrayList<>();
+        final List<Optional<UiActionEvent>> events = new ArrayList<>();
+        final List<UiIconRef> references = new ArrayList<>();
+        final List<Boolean> disabledPresentation = new ArrayList<>();
+        final RecordingIcon icon = new RecordingIcon();
+        final UiInlineLabel label = UiInlineLabel.of(
+            UiInlineLabel.textRun("移动 "),
+            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
+            UiInlineLabel.textRun(" 左眼皮")
+        );
+
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("entry", label, false, false, "history.move"),
+                    (action, event) -> {
+                        actions.add(action);
+                        events.add(event);
+                    },
+                    (reference, disabled) -> {
+                        references.add(reference);
+                        disabledPresentation.add(disabled);
+                        return Optional.of(icon);
+                    }
+                )
+            );
+            assertEquals("entry", box.getName());
+            assertEquals("", box.getText());
+            assertFalse(box.isSelected());
+            assertTrue(box.isEnabled());
+            assertEquals(0, box.getComponentCount(), "label runs must not steal row input");
+            assertEquals(label.accessibleText(), box.getAccessibleContext().getAccessibleName());
+            assertEquals(List.of(new UiIconRef(CubismIcon.ART_MESH)), references);
+            assertEquals(List.of(false), disabledPresentation);
+
+            box.setSize(360, 40);
+            paintComponent(box);
+            assertTrue(icon.paintCount.get() > 0, "the injected icon should be painted");
+
+            final int beforeMouse = actions.size();
+            final int rightEdge = Math.max(1, box.getWidth() - 2);
+            box.dispatchEvent(new MouseEvent(
+                box, MouseEvent.MOUSE_PRESSED, System.currentTimeMillis(), 0,
+                rightEdge, box.getHeight() / 2, 1, false, MouseEvent.BUTTON1
+            ));
+            box.dispatchEvent(new MouseEvent(
+                box, MouseEvent.MOUSE_RELEASED, System.currentTimeMillis(), 0,
+                rightEdge, box.getHeight() / 2, 1, false, MouseEvent.BUTTON1
+            ));
+            assertTrue(actions.size() > beforeMouse, "the whole checkbox row must be clickable");
+            assertTrue(box.isSelected());
+
+            final int beforeKeyboard = actions.size();
+            invokeSpace(box);
+            assertTrue(actions.size() > beforeKeyboard, "Space must use the standard checkbox action");
+            assertFalse(box.isSelected());
+        });
+
+        assertEquals("history.move", actions.get(0));
+        assertTrue(assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(0).orElseThrow().value()).value());
+        assertEquals("history.move", actions.get(1));
+        assertFalse(assertInstanceOf(UiActionEvent.ToggleValue.class, events.get(1).orElseThrow().value()).value());
+    }
+
+    @Test
+    void missingInlineIconUsesLiteralFallbackTextAndKeepsAccessibleName() throws Exception {
+        final UiInlineLabel label = UiInlineLabel.of(
+            UiInlineLabel.textRun("<Move> \"quoted\"\n"),
+            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.WARP_DEFORMER), "曲面变形器"),
+            UiInlineLabel.textRun(" <target>")
+        );
+
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("fallback", label, false, "history.fallback"),
+                    (action, event) -> { }
+                )
+            );
+            assertEquals("", box.getText(), "typed labels must not be encoded as plugin HTML");
+            assertEquals(label.fallbackText(), box.renderedFallbackText());
+            assertEquals(label.accessibleText(), box.getAccessibleContext().getAccessibleName());
+            assertTrue(box.renderedFallbackText().contains("曲面变形器"));
+            assertTrue(box.renderedFallbackText().contains("<Move> \"quoted\""));
+
+            box.setSize(180, 80);
+            paintComponent(box);
+            assertTrue(box.getPreferredSize().width <= box.getWidth());
+            assertTrue(box.getPreferredSize().height > 25, "the embedded newline should remain visible");
+        });
+    }
+
+    @Test
+    void graySelectedInlineRowRequestsDisabledIconButDoesNotDisableNavigation() throws Exception {
+        final List<Boolean> disabledPresentation = new ArrayList<>();
+        final RecordingIcon icon = new RecordingIcon();
+        final UiInlineLabel label = UiInlineLabel.icon(
+            new UiIconRef(CubismIcon.ROTATION_DEFORMER), "旋转变形器"
+        );
+
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("redo", label, true, true, "history.redo"),
+                    (action, event) -> { },
+                    (reference, disabled) -> {
+                        disabledPresentation.add(disabled);
+                        return Optional.of(icon);
+                    }
+                )
+            );
+            assertTrue(box.isSelected());
+            assertTrue(box.isEnabled(), "gray redo styling must not disable navigation");
+            assertTrue(box.isFocusable());
+            assertEquals(List.of(true), disabledPresentation);
+            box.setSize(180, 32);
+            paintComponent(box);
+            assertTrue(icon.paintCount.get() > 0);
+        });
+    }
+
+    @Test
+    void propagatesInlineResolverThroughNestedColumnAndScrollWithoutOverflow() throws Exception {
+        final List<UiIconRef> references = new ArrayList<>();
+        final UiInlineLabel label = UiInlineLabel.of(
+            UiInlineLabel.textRun("移动 "),
+            UiInlineLabel.icon(new UiIconRef(CubismIcon.ART_MESH), "图形网格").runs().get(0),
+            UiInlineLabel.textRun(" very-long-target-name")
+        );
+
+        SwingUtilities.invokeAndWait(() -> {
+            final JScrollPane scroll = assertInstanceOf(
+                JScrollPane.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.scroll(PanelView.column(
+                        PanelView.toggle("nested", label, false, "history.nested"),
+                        PanelView.text("tail")
+                    )),
+                    (action, event) -> { },
+                    (reference, disabled) -> {
+                        references.add(reference);
+                        return Optional.empty();
+                    }
+                )
+            );
+            scroll.setSize(180, 160);
+            layoutChain(scroll);
+            layoutChain(scroll);
+
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                named(scroll, "nested")
+            );
+            assertEquals(List.of(new UiIconRef(CubismIcon.ART_MESH)), references);
+            assertTrue(box.getWidth() <= scroll.getViewport().getWidth());
+            assertTrue(box.getX() + box.getWidth() <= scroll.getViewport().getWidth());
+            assertTrue(box.getHeight() > 25, "narrow nested rows should wrap rather than clip");
+        });
+    }
+
+    private static void invokeSpace(final AbstractButton button) {
+        final KeyStroke pressedStroke = KeyStroke.getKeyStroke("pressed SPACE");
+        final Object pressedKey = button.getInputMap(JComponent.WHEN_FOCUSED).get(pressedStroke);
+        assertNotNull(pressedKey, "JCheckBox must retain its standard pressed-Space binding");
+        final Action pressed = button.getActionMap().get(pressedKey);
+        assertNotNull(pressed, "JCheckBox must retain its standard pressed action");
+        pressed.actionPerformed(new java.awt.event.ActionEvent(
+            button, java.awt.event.ActionEvent.ACTION_PERFORMED, "pressed SPACE"
+        ));
+
+        final KeyStroke releasedStroke = KeyStroke.getKeyStroke("released SPACE");
+        final Object releasedKey = button.getInputMap(JComponent.WHEN_FOCUSED).get(releasedStroke);
+        assertNotNull(releasedKey, "JCheckBox must retain its standard released-Space binding");
+        final Action released = button.getActionMap().get(releasedKey);
+        assertNotNull(released, "JCheckBox must retain its standard released action");
+        released.actionPerformed(new java.awt.event.ActionEvent(
+            button, java.awt.event.ActionEvent.ACTION_PERFORMED, "released SPACE"
+        ));
+    }
+
+    private static void paintComponent(final JComponent component) {
+        final BufferedImage image = new BufferedImage(
+            Math.max(1, component.getWidth()),
+            Math.max(1, component.getHeight()),
+            BufferedImage.TYPE_INT_ARGB
+        );
+        final Graphics2D graphics = image.createGraphics();
+        component.paint(graphics);
+        graphics.dispose();
+    }
+
+    private static final class RecordingIcon implements Icon {
+        private final AtomicInteger paintCount = new AtomicInteger();
+
+        @Override
+        public void paintIcon(final Component component, final java.awt.Graphics graphics, final int x, final int y) {
+            paintCount.incrementAndGet();
+            graphics.setColor(Color.BLUE);
+            graphics.fillRect(x, y, getIconWidth(), getIconHeight());
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 32;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 32;
+        }
     }
 
     private static void layoutChain(final JScrollPane scroll) {

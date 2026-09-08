@@ -95,6 +95,51 @@ public sealed interface PanelView permits
         return new Toggle(id, label, selected, grayed, actionId);
     }
 
+    /**
+     * Creates a selectable row whose label may place typed icons between literal text runs.
+     * Missing icons are rendered with the fallback text embedded in {@code label}.
+     */
+    static Toggle toggle(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, false, actionId);
+    }
+
+    /** Creates an icon-capable selectable row with an independent gray presentation flag. */
+    static Toggle toggle(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final boolean grayed,
+        final String actionId
+    ) {
+        return new Toggle(id, label, selected, grayed, actionId);
+    }
+
+    /** Alias for callers describing the control by its row semantics rather than its marker. */
+    static Toggle selectable(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final String actionId
+    ) {
+        return toggle(id, label, selected, actionId);
+    }
+
+    /** Alias for {@link #selectable(String, UiInlineLabel, boolean, String)} with gray styling. */
+    static Toggle selectable(
+        final String id,
+        final UiInlineLabel label,
+        final boolean selected,
+        final boolean grayed,
+        final String actionId
+    ) {
+        return toggle(id, label, selected, grayed, actionId);
+    }
+
     static Separator separator() {
         return new Separator();
     }
@@ -255,17 +300,68 @@ public sealed interface PanelView permits
         String label,
         boolean selected,
         boolean grayed,
-        String actionId
+        String actionId,
+        UiInlineLabel inlineLabel
     ) implements PanelView {
         public Toggle {
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
+            // A null value is reserved for the legacy string constructors so the renderer can
+            // retain their established HTML/text behavior without changing existing callers.
         }
 
         /** Backwards-compatible construction for callers without a grayed flag. */
         public Toggle(final String id, final String label, final boolean selected, final String actionId) {
-            this(id, label, selected, false, actionId);
+            this(id, label, selected, false, actionId, null);
+        }
+
+        /** Backwards-compatible construction for callers with a grayed flag. */
+        public Toggle(
+            final String id,
+            final String label,
+            final boolean selected,
+            final boolean grayed,
+            final String actionId
+        ) {
+            this(id, label, selected, grayed, actionId, null);
+        }
+
+        /** Constructs an icon-capable toggle without requiring a duplicate fallback string. */
+        public Toggle(
+            final String id,
+            final UiInlineLabel inlineLabel,
+            final boolean selected,
+            final String actionId
+        ) {
+            this(id, requireInlineLabel(inlineLabel).fallbackText(), selected, false, actionId, inlineLabel);
+        }
+
+        /** Constructs an icon-capable toggle with an independent gray presentation flag. */
+        public Toggle(
+            final String id,
+            final UiInlineLabel inlineLabel,
+            final boolean selected,
+            final boolean grayed,
+            final String actionId
+        ) {
+            this(
+                id,
+                requireInlineLabel(inlineLabel).fallbackText(),
+                selected,
+                grayed,
+                actionId,
+                inlineLabel
+            );
+        }
+
+        /** Returns the inline label, or {@code null} for a legacy string-only toggle. */
+        public UiInlineLabel labelContent() {
+            return inlineLabel;
+        }
+
+        private static UiInlineLabel requireInlineLabel(final UiInlineLabel value) {
+            return Objects.requireNonNull(value, "inlineLabel");
         }
     }
 
