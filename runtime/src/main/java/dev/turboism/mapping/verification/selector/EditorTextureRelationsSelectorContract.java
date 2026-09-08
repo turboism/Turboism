@@ -10,6 +10,11 @@ import java.util.Set;
  * relation graph consumes additional selectors and is not verified for 5.2.03
  * or 5.3.03. The capability remains the existing model texture read
  * capability; no write selector is admitted here.</p>
+ *
+ * <p>The relation projection uses the typed {@code CLayeredImage.getPsdDoc()} result for the
+ * positive PSD signal. {@code getPsdFile()} is deliberately not a type discriminator: the
+ * ordinary image constructor also populates that field. A missing PSD document therefore stays
+ * {@code UNKNOWN}; source-file contents are never read.</p>
  */
 public final class EditorTextureRelationsSelectorContract {
     public static final String ADAPTER_SLICE_ID = EditorTextureSelectorContract.ADAPTER_SLICE_ID;
@@ -26,7 +31,7 @@ public final class EditorTextureRelationsSelectorContract {
             "cubism.editor-model.layered-image-wrapper.import-time",
             "cubism.editor-model.layered-image-wrapper.modified-time",
             "cubism.editor-model.layered-image-wrapper.replaced",
-            "cubism.editor-model.layered-image.psd-file",
+            "cubism.editor-model.layered-image.psd-doc",
             "cubism.editor-model.layered-image.children",
             "cubism.editor-model.layer-entry.class",
             "cubism.editor-model.layer-entry.guid",

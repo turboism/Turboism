@@ -6,7 +6,14 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Immutable details for one raw layered image and its verified layer tree. */
+/**
+ * Immutable details for one raw layered image and its verified layer tree.
+ *
+ * <p>{@link SourceKind#PSD} is emitted only when the verified typed PSD-document selector returns
+ * a non-null document. An ordinary image may still carry a non-null source-file field, and a
+ * reopened project may have no PSD document object; both cases remain {@link SourceKind#UNKNOWN}.
+ * Classification does not read source-file contents.</p>
+ */
 public record RawImageDetails(
     RawTexture rawImage,
     SourceKind sourceKind,
