@@ -2,6 +2,8 @@ package dev.turboism.ui.panel;
 
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 
 import javax.imageio.ImageIO;
 
@@ -26,9 +28,13 @@ import java.io.ByteArrayInputStream;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 
 /** Renders immutable SDK panel values into runtime-owned Swing components. */
 public final class SwingPanelViewRenderer {
+
+    private static final BiFunction<UiIconRef, Boolean, Optional<Icon>> EMPTY_ICON_RESOLVER =
+        (reference, disabled) -> Optional.empty();
 
     private SwingPanelViewRenderer() { }
 
@@ -51,45 +57,90 @@ public final class SwingPanelViewRenderer {
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action
     ) {
-        Objects.requireNonNull(view, "view");
-        Objects.requireNonNull(action, "action");
-        return renderNode(view, action, false, dev.turboism.i18n.CubismHostLocale.resolve());
+        return render(
+            view,
+            action,
+            dev.turboism.i18n.CubismHostLocale.resolve(),
+            EMPTY_ICON_RESOLVER
+        );
     }
+
     /**
      * Renders a panel value using an explicit locale, which affects only runtime-supplied chrome
      * such as collapsible-section affordances; plugin-supplied text is used verbatim.
      *
-     * <p>Must be called on the Swing event dispatch thread.
-     *
-     * @param view the panel value to realise
-     * @param action sink invoked when a control fires
-     * @param locale locale for runtime-generated UI text
-     * @return the root Swing component for {@code view}
-     * @throws NullPointerException if {@code view} or {@code action} is {@code null}
-     * @throws IllegalArgumentException if the tree holds an unsupported node kind, or an image
-     *     node whose bytes are not a readable PNG
+     * <p>Must be called on the Swing event dispatch thread.</p>
      */
     public static JComponent render(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action,
         final java.util.Locale locale
     ) {
+        return render(view, action, locale, EMPTY_ICON_RESOLVER);
+    }
+
+    /**
+     * Renders a panel value with an optional Runtime icon resolver. The resolver is called only
+     * for typed {@link UiInlineLabel} icon runs; its second argument requests the disabled visual
+     * variant, not a disabled control. A missing or failed resolution always uses the run's
+     * localized fallback text.
+     *
+     * <p>The resolver must be a cached, non-blocking presentation lookup suitable for the EDT.
+     * Existing callers that do not provide it retain the text-only fallback path.</p>
+     *
+     * @param view the panel value to realise
+     * @param action sink invoked when a control fires
+     * @param iconResolver Runtime-owned typed icon presentation lookup
+     * @return the root Swing component for {@code view}
+     */
+    public static JComponent render(
+        final PanelView view,
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
+    ) {
+        return render(
+            view,
+            action,
+            dev.turboism.i18n.CubismHostLocale.resolve(),
+            iconResolver
+        );
+    }
+
+    /** Renders with an explicit locale and Runtime-owned typed icon resolver. */
+    public static JComponent render(
+        final PanelView view,
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final java.util.Locale locale,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
+    ) {
         Objects.requireNonNull(view, "view");
         Objects.requireNonNull(action, "action");
-        return renderNode(view, action, false, locale);
+        Objects.requireNonNull(iconResolver, "iconResolver");
+        return renderNode(view, action, false, locale, iconResolver);
+    }
+
+    /** Equivalent to the locale-first overload with the resolver in the final position. */
+    public static JComponent render(
+        final PanelView view,
+        final BiConsumer<String, Optional<UiActionEvent>> action,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver,
+        final java.util.Locale locale
+    ) {
+        return render(view, action, locale, iconResolver);
     }
 
     private static JComponent renderNode(
         final PanelView view,
         final BiConsumer<String, Optional<UiActionEvent>> action,
         final boolean chartTitleSuppressed,
-        final java.util.Locale locale
+        final java.util.Locale locale,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
     ) {
         if (view instanceof PanelView.Column column) {
-            return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale);
+            return container(column.children(), BoxLayout.Y_AXIS, action, chartTitleSuppressed, locale, iconResolver);
         }
         if (view instanceof PanelView.Row row) {
-            return container(row.children(), BoxLayout.X_AXIS, action, chartTitleSuppressed, locale);
+            return container(row.children(), BoxLayout.X_AXIS, action, chartTitleSuppressed, locale, iconResolver);
         }
 
         if (view instanceof PanelView.Chart chart) {
@@ -155,9 +206,23 @@ public final class SwingPanelViewRenderer {
             return labelled(select.label(), component);
         }
         if (view instanceof PanelView.Toggle toggle) {
-            // HTML label so long text wraps at the available width instead of
-            // clipping; the enclosing layout hands the checkbox the viewport
-            // width and the wrapped height follows the content.
+            if (toggle.inlineLabel() != null) {
+                final InlineLabelCheckBox component = new InlineLabelCheckBox(
+                    toggle.id(),
+                    toggle.inlineLabel(),
+                    toggle.selected(),
+                    toggle.grayed(),
+                    iconResolver
+                );
+                component.addActionListener(ignored -> action.accept(
+                    toggle.actionId(),
+                    Optional.of(UiActionEvent.toggle(toggle.id(), component.isSelected()))
+                ));
+                return component;
+            }
+            // Keep the established HTML-backed string renderer byte-for-byte in spirit for legacy
+            // string toggles. The typed path above deliberately avoids HTML so literal plugin text
+            // and fallback text cannot be interpreted as markup.
             final JCheckBox component = new JCheckBox(
                 "<html>" + htmlEscape(toggle.label()) + "</html>",
                 toggle.selected()
@@ -175,7 +240,7 @@ public final class SwingPanelViewRenderer {
         }
         if (view instanceof PanelView.Scroll scroll) {
             final JScrollPane pane = new JScrollPane(
-                renderNode(scroll.child(), action, false, locale),
+                renderNode(scroll.child(), action, false, locale, iconResolver),
                 JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
                 JScrollPane.HORIZONTAL_SCROLLBAR_NEVER
             );
@@ -194,7 +259,7 @@ public final class SwingPanelViewRenderer {
                 && section.children().get(0) instanceof PanelView.Chart;
             return CollapsibleSection.create(
                 section.title(),
-                container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale),
+                container(section.children(), BoxLayout.Y_AXIS, action, singleChart, locale, iconResolver),
                 section.expandedByDefault(),
                 locale
             );
@@ -218,7 +283,8 @@ public final class SwingPanelViewRenderer {
         final int axis,
         final BiConsumer<String, Optional<UiActionEvent>> action,
         final boolean chartTitleSuppressed,
-        final java.util.Locale locale
+        final java.util.Locale locale,
+        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver
     ) {
         final JPanel panel = axis == BoxLayout.X_AXIS
             ? new JPanel()
@@ -231,7 +297,7 @@ public final class SwingPanelViewRenderer {
             panel.setLayout(new BoxLayout(panel, axis));
         }
         for (int index = 0; index < children.size(); index++) {
-            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale);
+            final JComponent child = renderNode(children.get(index), action, chartTitleSuppressed, locale, iconResolver);
             if (axis == BoxLayout.X_AXIS) {
                 child.setAlignmentY(Component.CENTER_ALIGNMENT);
             } else {
