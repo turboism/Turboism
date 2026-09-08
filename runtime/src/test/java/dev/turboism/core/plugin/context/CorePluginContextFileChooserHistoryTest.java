@@ -7,6 +7,10 @@ import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconAvailability;
+import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 import dev.turboism.sdk.diagnostics.DiagnosticReport;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
@@ -30,7 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Covers the {@code fileChooserHistory()} exposure on {@link CorePluginContext}. */
+/** Covers Runtime UI-resource and file-chooser exposure on {@link CorePluginContext}. */
 class CorePluginContextFileChooserHistoryTest {
 
     private static final Clock CLOCK =
@@ -45,6 +49,25 @@ class CorePluginContextFileChooserHistoryTest {
             UnsupportedOperationException.class,
             () -> context.fileChooserHistory().setExportRecentDirectory(Path.of("x"))
         );
+    }
+
+    @Test
+    void composesOneUiResourceServiceForAllContextsWithoutContextOwnership() {
+        final UiIconRef reference = new UiIconRef(CubismIcon.ART_MESH);
+        final UiResourceService injected = ignored -> UiIconAvailability.AVAILABLE;
+        final RuntimeHostAdapters composed =
+            RuntimeHostAdapters.withUiResources(RuntimeHostAdapters.safeMode(), injected);
+
+        final CorePluginContext first = new CorePluginContext(dependencies(TEMP), composed);
+        final CorePluginContext second = new CorePluginContext(dependencies(TEMP), composed);
+        final CorePluginContext safe =
+            new CorePluginContext(dependencies(TEMP), RuntimeHostAdapters.safeMode());
+
+        assertSame(UiResourceService.unavailable(), safe.uiResources());
+        assertSame(injected, composed.uiResources());
+        assertSame(injected, first.uiResources());
+        assertSame(injected, second.uiResources());
+        assertEquals(UiIconAvailability.AVAILABLE, first.uiResources().availability(reference));
     }
 
     @Test
