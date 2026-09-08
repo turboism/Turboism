@@ -185,7 +185,7 @@ class PanelViewContractTest {
     }
 
     @Test
-    void addsInlineToggleAndSelectableLabelsWithoutChangingStringLabelFallback() {
+    void addsInlineToggleLabelsWithoutChangingStringLabelFallback() {
         final UiInlineLabel label = UiInlineLabel.of(
             UiInlineLabel.textRun("移动 "),
             UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
@@ -194,17 +194,19 @@ class PanelViewContractTest {
         final PanelView.Toggle toggle = PanelView.toggle(
             "entry", label, true, true, "history.move"
         );
-        final PanelView.Toggle selectable = PanelView.selectable(
-            "entry", label, false, "history.move"
+        final PanelView.Toggle canonical = new PanelView.Toggle(
+            "entry", label.fallbackText(), true, true, "history.move", label
         );
 
         assertSame(label, toggle.inlineLabel());
-        assertSame(label, toggle.labelContent());
         assertEquals(label.fallbackText(), toggle.label());
         assertTrue(toggle.selected());
         assertTrue(toggle.grayed());
-        assertSame(label, selectable.inlineLabel());
-        assertFalse(selectable.grayed());
+        assertSame(label, canonical.inlineLabel());
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new PanelView.Toggle("entry", "contradictory", true, true, "history.move", label)
+        );
         assertThrows(
             NullPointerException.class,
             () -> new PanelView.Toggle("entry", (UiInlineLabel) null, false, "history.move")
