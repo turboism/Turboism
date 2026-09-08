@@ -191,7 +191,7 @@ def load_manifest(path: Path, environment: dict[str, str] | None = None) -> Mani
         if not command_path.is_relative_to(scripts_root) or not command_path.is_file():
             raise SchedulerError(f"task {name} command must be an existing scripts/preview file")
         versions = require_string_list(fields.get("versions"), f"task {name} versions")
-        if any(version not in {"5203", "5302"} for version in versions):
+        if any(version not in {"5203", "5302", "5303"} for version in versions):
             raise SchedulerError(f"task {name} contains an unsupported exact host version")
 
         request_values = require_dict(fields.get("resources"), f"task {name} resources")

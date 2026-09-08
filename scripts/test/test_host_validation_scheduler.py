@@ -32,7 +32,7 @@ class HostValidationSchedulerTest(unittest.TestCase):
 
     def test_manifest_covers_supported_wrappers_and_resource_boundaries(self) -> None:
         expected = {
-            "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
+            "atlas", "backup", "backup-interactive", "clipmask-viewer", "core-acquisition",
             "dialog-automation", "fps", "host-locale", "parameter",
             "parameter-batch-transfer", "psd-clip-mask",
             "recent-preview", "selection-lag", "separate-save-path",
@@ -50,6 +50,28 @@ class HostValidationSchedulerTest(unittest.TestCase):
         )
         self.assertFalse(self.manifest.tasks["dialog-automation"].runnable)
         self.assertFalse(self.manifest.tasks["backup-interactive"].runnable)
+
+    def test_atlas_has_fixed_preliminary_cases_and_exact_version(self) -> None:
+        task = self.manifest.tasks["atlas"]
+        self.assertEqual({"host-slot": 1, "display-input": 1, "performance-host": 1}, task.resources)
+        self.assertEqual({f"geometry-{count}-{implementation}" for count in (100, 500, 1000, 2500)
+                          for implementation in ("native", "new")} |
+                         {f"ui-{dataset}-{count}-{implementation}" for dataset in ("circle", "geometry")
+                          for count in (100, 500, 1000, 2500)
+                          for implementation in ("native", "new")} |
+                         {f"ui-{dataset}-{count}-new-parallel" for dataset in ("circle", "geometry")
+                          for count in (100, 500)}, set(task.variants))
+        self.assertEqual("geometry-100-new", self.request("atlas:5303").variant)
+        for spec in ("atlas:5302", "atlas:9999", "atlas:5303@geometry-2500-both",
+                     "atlas:5303@geometry-2499-new", "atlas:5303@geometry-100-both",
+                     "atlas:5303@ui-geometry-2499-native", "atlas:5303@ui-circle-101-new",
+                     "atlas:5303@ui-circle-1000-new-parallel", "atlas:5303@ui-geometry-500-native-parallel"):
+            with self.subTest(spec=spec), self.assertRaises(scheduler.SchedulerError):
+                self.request(spec)
+        with mock.patch("subprocess.run", side_effect=AssertionError("Plan must not execute wrappers")):
+            command = scheduler.render_command(self.request("atlas:5303"), self.manifest)
+            self.assertTrue(command[1].endswith("run-atlas-host-validation.sh"))
+            self.assertEqual(["5303", "test-run", "geometry-100-new"], command[2:])
 
     def test_local_env_loads_data_without_overriding_exported_values(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
