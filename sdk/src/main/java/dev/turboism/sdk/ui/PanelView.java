@@ -119,27 +119,6 @@ public sealed interface PanelView permits
         return new Toggle(id, label, selected, grayed, actionId);
     }
 
-    /** Alias for callers describing the control by its row semantics rather than its marker. */
-    static Toggle selectable(
-        final String id,
-        final UiInlineLabel label,
-        final boolean selected,
-        final String actionId
-    ) {
-        return toggle(id, label, selected, actionId);
-    }
-
-    /** Alias for {@link #selectable(String, UiInlineLabel, boolean, String)} with gray styling. */
-    static Toggle selectable(
-        final String id,
-        final UiInlineLabel label,
-        final boolean selected,
-        final boolean grayed,
-        final String actionId
-    ) {
-        return toggle(id, label, selected, grayed, actionId);
-    }
-
     static Separator separator() {
         return new Separator();
     }
@@ -307,8 +286,9 @@ public sealed interface PanelView permits
             id = requireText(id, "id");
             label = requireText(label, "label");
             actionId = requireText(actionId, "actionId");
-            // A null value is reserved for the legacy string constructors so the renderer can
-            // retain their established HTML/text behavior without changing existing callers.
+            if (inlineLabel != null && !label.equals(inlineLabel.fallbackText())) {
+                throw new IllegalArgumentException("label must equal inlineLabel.fallbackText()");
+            }
         }
 
         /** Backwards-compatible construction for callers without a grayed flag. */
@@ -353,11 +333,6 @@ public sealed interface PanelView permits
                 actionId,
                 inlineLabel
             );
-        }
-
-        /** Returns the inline label, or {@code null} for a legacy string-only toggle. */
-        public UiInlineLabel labelContent() {
-            return inlineLabel;
         }
 
         private static UiInlineLabel requireInlineLabel(final UiInlineLabel value) {

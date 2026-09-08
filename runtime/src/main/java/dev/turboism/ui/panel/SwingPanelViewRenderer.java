@@ -23,6 +23,7 @@ import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
 import java.awt.Dimension;
 import java.io.ByteArrayInputStream;
 import java.util.Objects;
@@ -119,14 +120,28 @@ public final class SwingPanelViewRenderer {
         return renderNode(view, action, false, locale, iconResolver);
     }
 
-    /** Equivalent to the locale-first overload with the resolver in the final position. */
-    public static JComponent render(
-        final PanelView view,
-        final BiConsumer<String, Optional<UiActionEvent>> action,
-        final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver,
-        final java.util.Locale locale
-    ) {
-        return render(view, action, locale, iconResolver);
+    /**
+     * Re-resolves typed inline icon runs in an existing rendered tree and drops stale icon
+     * presentations. Call this on the Swing event dispatch thread after a cached provider,
+     * theme, or display scale changes; the injected resolver must remain non-blocking.
+     *
+     * @param root rendered component tree to refresh
+     * @throws NullPointerException if {@code root} is {@code null}
+     */
+    public static void refreshInlineLabelPresentation(final JComponent root) {
+        Objects.requireNonNull(root, "root");
+        refreshInlineLabelPresentation((Component) root);
+    }
+
+    private static void refreshInlineLabelPresentation(final Component component) {
+        if (component instanceof InlineLabelCheckBox checkbox) {
+            checkbox.refreshPresentation();
+        }
+        if (component instanceof Container container) {
+            for (Component child : container.getComponents()) {
+                refreshInlineLabelPresentation(child);
+            }
+        }
     }
 
     private static JComponent renderNode(

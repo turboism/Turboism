@@ -44,7 +44,7 @@ class UiInlineLabelContractTest {
         assertEquals(label.fallbackText(), label.accessibleText());
         assertFalse(label.isTextOnly());
         assertTrue(UiInlineLabel.text("plain").isTextOnly());
-        assertEquals(artmesh, ((UiInlineLabel.IconRun) label.runs().get(1)).reference());
+        assertEquals(artmesh, ((UiInlineLabel.IconRun) label.runs().get(1)).icon());
     }
 
     @Test

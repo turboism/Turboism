@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -463,7 +464,7 @@ class SwingPanelViewRendererTest {
         final List<UiIconRef> references = new ArrayList<>();
         final UiInlineLabel label = UiInlineLabel.of(
             UiInlineLabel.textRun("移动 "),
-            UiInlineLabel.icon(new UiIconRef(CubismIcon.ART_MESH), "图形网格").runs().get(0),
+            UiInlineLabel.iconRun(new UiIconRef(CubismIcon.ART_MESH), "图形网格"),
             UiInlineLabel.textRun(" very-long-target-name")
         );
 
@@ -494,6 +495,104 @@ class SwingPanelViewRendererTest {
             assertTrue(box.getWidth() <= scroll.getViewport().getWidth());
             assertTrue(box.getX() + box.getWidth() <= scroll.getViewport().getWidth());
             assertTrue(box.getHeight() > 25, "narrow nested rows should wrap rather than clip");
+        });
+    }
+
+    @Test
+    void shapesCombiningEmojiAndMixedScriptTextWithoutSplittingLabelRuns() throws Exception {
+        final UiIconRef iconReference = new UiIconRef(CubismIcon.ART_MESH);
+        final RecordingIcon icon = new RecordingIcon();
+        final UiInlineLabel label = UiInlineLabel.of(
+            UiInlineLabel.textRun("Move e\u0301 "),
+            UiInlineLabel.iconRun(iconReference, "图标"),
+            UiInlineLabel.textRun(" 👩‍🎨 سلام 中文\nNext e\u0301 👩‍🎨")
+        );
+
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("shaped", label, false, "history.shaped"),
+                    (action, event) -> { },
+                    (reference, disabled) -> Optional.of(icon)
+                )
+            );
+            assertEquals(label.fallbackText(), box.accessibleLabel());
+            assertEquals(1, box.resolvedIconCount());
+            box.setSize(160, 160);
+            assertTrue(box.getPreferredSize().height > 25, "mixed text and newline must wrap safely");
+            paintComponent(box);
+            assertTrue(icon.paintCount.get() > 0, "the shaped line must retain the inline icon");
+        });
+    }
+
+    @Test
+    void refreshesIconPresentationAfterResolverBecomesUnavailableAndKeepsAction() throws Exception {
+        final UiIconRef iconReference = new UiIconRef(CubismIcon.ART_MESH);
+        final RecordingIcon icon = new RecordingIcon();
+        final AtomicReference<Optional<Icon>> presentation = new AtomicReference<>(Optional.of(icon));
+        final AtomicInteger resolverCalls = new AtomicInteger();
+        final List<String> actions = new ArrayList<>();
+        final UiInlineLabel label = UiInlineLabel.icon(iconReference, "图形网格");
+
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("refresh", label, false, "history.refresh"),
+                    (action, event) -> actions.add(action),
+                    (reference, disabled) -> {
+                        resolverCalls.incrementAndGet();
+                        return presentation.get();
+                    }
+                )
+            );
+            assertEquals(1, box.resolvedIconCount());
+            box.setSize(180, 40);
+            paintComponent(box);
+            assertTrue(icon.paintCount.get() > 0, "the initial presentation should paint the resolved icon");
+            final int iconPaintsBeforeFallback = icon.paintCount.get();
+            presentation.set(Optional.empty());
+            SwingPanelViewRenderer.refreshInlineLabelPresentation(box);
+            assertEquals(0, box.resolvedIconCount());
+            assertTrue(box.renderedFallbackText().contains("图形网格"));
+            paintComponent(box);
+            assertEquals(iconPaintsBeforeFallback, icon.paintCount.get(), "stale icons must not be painted after refresh");
+            box.doClick();
+        });
+
+        assertTrue(resolverCalls.get() >= 2, "refresh must query the current presentation state");
+        assertEquals(List.of("history.refresh"), actions);
+    }
+
+    @Test
+    void paintsExplicitFullRowFocusIndicatorUnderTheSupportedCheckboxLaf() throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            final InlineLabelCheckBox box = assertInstanceOf(
+                InlineLabelCheckBox.class,
+                SwingPanelViewRenderer.render(
+                    PanelView.toggle("focus", UiInlineLabel.text("Focus target"), false, "history.focus"),
+                    (action, event) -> { }
+                )
+            );
+            assertNotNull(box.getUI());
+            assertTrue(box.isFocusPainted());
+            box.setSize(180, 36);
+            final BufferedImage image = new BufferedImage(180, 36, BufferedImage.TYPE_INT_ARGB);
+            final Graphics2D graphics = image.createGraphics();
+            box.paintFocusIndicatorForTest(graphics);
+            graphics.dispose();
+
+            boolean painted = false;
+            for (int x = 0; x < image.getWidth() && !painted; x++) {
+                for (int y = 0; y < image.getHeight(); y++) {
+                    if ((image.getRGB(x, y) >>> 24) != 0) {
+                        painted = true;
+                        break;
+                    }
+                }
+            }
+            assertTrue(painted, "focused inline label must paint a visible row indicator");
         });
     }
 

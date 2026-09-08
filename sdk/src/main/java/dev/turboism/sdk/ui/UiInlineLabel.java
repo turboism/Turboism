@@ -19,8 +19,6 @@ public final class UiInlineLabel {
     public static final int MAX_RUNS = 32;
     /** Maximum literal text or icon fallback length in one run. */
     public static final int MAX_RUN_TEXT_LENGTH = 256;
-    /** Compatibility alias for the per-run text bound. */
-    public static final int MAX_TEXT_LENGTH = MAX_RUN_TEXT_LENGTH;
     /** Maximum concatenated literal/fallback text length in one label. */
     public static final int MAX_TOTAL_TEXT_LENGTH = 4_096;
 
@@ -165,9 +163,5 @@ public final class UiInlineLabel {
             }
         }
 
-        /** Alias emphasizing that this is a declarative icon reference. */
-        public UiIconRef reference() {
-            return icon;
-        }
     }
 }
