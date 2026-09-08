@@ -463,3 +463,15 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 
 - 已在`feat/cubism-native-performance-20260905`提交`24c6dc21a5e81e6a6c7ffa878c837670d9fe0e2a`，父提交为原分支98b28395与main951b6b97。内容是已验证的main整合、只读观测切片、此前N02纯原型与完整实验记录；不是合并到main。最后15个变更/新文件直接复用现有卫生扫描PASS，git diff检查及提交hook卫生PASS。
 - 随后只在性能worktree接入main83a49168余下4文件增量（env示例、service示例、调度README、service示例测试），自动合并保留memory observer窄准入说明，没有执行代码/实际worker配置变更。逐项审阅diff，并运行`python3 -B scripts/test/test_host_validation_service_example.py`：1 test PASS（0.623秒），只在临时目录执行stub，验证带空格/元字符路径及空/缺失/不存在路径失败，不安装服务、不启动队列或Cubism。没有重跑未受影响的整组实机/产品门禁；main工作区及正在运行的worker不变。
+
+### N01/I19 原生保留链的被动观测入口核查（2026-09-08）
+
+- **目的**：为N01归因选择不制造图像、不延长模型寿命的观察路径；尚未清除任何原生记录，也未新增宿主运行。复用既有精确5302 JAR，Linux `javap -p -c -s`只读取字节码，不加载Cubism类。
+- **新发现/放弃方案**：`CModelImage.getFilteredImage()`不是纯getter：在字段为空时调用`ModelImageFilterSet.requestOutputValue`，再设置_filteredImage（BCI0–65）。因此放弃借用现有Atlas像素capture helper；它还会getImage/PNG编码，改变被测工作集。被动探针应读取原始_filteredImage，null作为未物化状态而不是触发计算。
+- **可用路径**：CModelingDocument.getModelSource、CModelSource.getTextureManager、CTextureManager.getModelImageGroups、CModelImageGroup.getModelImages均经逐方法字节码确认是字段读取。getAllModelImages虽不生成像素，却会新建ArrayList并展平所有分组；弃用这种无界辅助分配，改为有上限的分组遍历候选。
+- **释放事实补全**：完整复核CImageResource.dispose/dispose_exe；dispose_exe末尾BCI121–128将两个压缩byte[]字段置空，然后return；该方法没有清空active/released记录列表。dispose会移出soft cache并处理像素资源，但不能据此声称诊断引用消失。相关资源整体不可达时仍可回收，这不是整模型泄漏或实际retained bytes的证明。
+- **证据**：私有`/tmp/turboism-native-retain-observer-20260908/`保存四个新javap文件。CModelSource.class SHA256=`55692c69382655a14142a6fc3dab1da78862d67180c6e7cbbe0c22e8253085d1`，CTextureManager.class=`e8cbde3360fc781b0e2fe3806b120dc73c74102fd7f173fde104f057b8548a5a`，CModelingDocument.class=`7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`。原CImageResource javap全文SHA256=`e8b2ad56aa5b4fd4a5b8742511658332759ad601cb56be10cfc37439613b03a1`。
+- **后续实施约束**：仅测试aux、精确版本校验、EDT有界瞬时遍历、identity去重、标量报告；跨阶段只留弱引用。并发变化或截断必须显式标记，不能误报零。released记录中不在当前active集合的user只是候选，不自动等同无合法引用。不得调用用户toString/equals、解码图、清Undo、强制GC或以计数估算省下的GB。
+- **有效程度**：静态入口核查成功，排除两个会污染观测的实现选择；内存/CPU/GPU优化收益仍未验证。下一切片先获取该工作负载中的真实链计数，再决定是否值得做生产释放诊断记录修复。
+- **补充验证**：原生CArrayList为final ArrayList子类；get(int)直接调用ArrayList.get，size→getSize→ArrayList.size，无惰性像素行为。该class SHA256=`c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051`，新增只读CArrayList.javap.txt留在同一私有目录。现有aux构建自动包含全部Java源且排除产品JAR中的validation包，不需要新增模块或Runner。
+- **下一切片冻结**：SpecKit024的spec/plan/tasks/research/data-model/quickstart和质量检查完成，8任务中T001–T002完成，未开始源实现/新实机。范围仅现有load/zoom/close，观察当前模型分组的filtered resources（不冒充所有图像/GPU资源）；每次上限4096组、4096图像/资源、16384 active+released记录，250ms协作式截止并报告实际耗时，非硬实时保证。两个在计时阶段之外的快照，关文档后只用refersTo(null)。最终批次含focused、devCheck/受影响bundle与参数门禁及一次队列exact5302；纯观测本身不算优化有效。
