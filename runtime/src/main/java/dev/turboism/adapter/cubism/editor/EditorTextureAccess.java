@@ -9,12 +9,14 @@ import dev.turboism.sdk.cubism.model.AtlasTexture;
 import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
+import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.model.RawTexture;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.function.LongSupplier;
 
 /**
  * Exact, generation-bound Editor projection of the model texture library.
@@ -60,13 +62,23 @@ final class EditorTextureAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
+    private final EditorTextureRelationsAccess relationAccess;
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard modelGuard
     ) {
+        this(resolver, modelGuard, () -> 0L);
+    }
+
+    EditorTextureAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard modelGuard,
+        final LongSupplier generationSupplier
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
+        this.relationAccess = new EditorTextureRelationsAccess(resolver, modelGuard, generationSupplier);
     }
 
     ModelTextures textures(final String identity, final Object source, final Object model) {
@@ -369,6 +381,11 @@ final class EditorTextureAccess {
                 });
             }
             return List.copyOf(values);
+        }
+
+        @Override
+        public TextureRelationsSnapshot relations() {
+            return relationAccess.relations(identity, source, model);
         }
 
         @Override

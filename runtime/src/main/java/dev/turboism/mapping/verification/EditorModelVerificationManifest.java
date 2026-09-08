@@ -40,6 +40,7 @@ import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import java.util.List;
 import java.util.Set;
 
@@ -74,7 +75,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "422eb72d76b7030d1603b76cf8aaca7dc5fa6a2a4faeb596717742180067f281",
+        "ba7080e72d818b7899e28124eea9c674d8e4940e25faeb64d130099cccf32847",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -716,6 +717,7 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism5302Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
+        values.addAll(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 

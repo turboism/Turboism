@@ -12,6 +12,7 @@ import dev.turboism.sdk.cubism.model.ModelImageEntry;
 
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -64,6 +65,7 @@ class EditorTextureAccessTest {
         assertEquals(1024, atlases.get(0).height());
         assertEquals(3, atlases.get(0).atlasVersion());
         assertEquals(1, atlases.get(0).modelImageCount());
+        assertEquals(TextureRelationsSnapshot.unavailable(), textures.relations());
     }
 
     @ParameterizedTest

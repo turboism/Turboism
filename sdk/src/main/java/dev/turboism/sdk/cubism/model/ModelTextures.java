@@ -28,6 +28,16 @@ public interface ModelTextures {
     List<AtlasTexture> textureAtlases();
 
     /**
+     * Reads the immutable raw-image/model-image/ArtMesh texture relation graph when the exact
+     * Editor relationship selectors are available. Unsupported implementations return a typed
+     * unavailable value rather than an available empty graph.
+     */
+    @CubismEditor({"5.3.02"})
+    default TextureRelationsSnapshot relations() {
+        return TextureRelationsSnapshot.unavailable();
+    }
+
+    /**
      * Creates a new empty model image group.
      *
      * <p>Editor {@code CModelImageGroup} carries no stable guid, so the group is
