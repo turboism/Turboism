@@ -6646,6 +6646,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.layered_image_psd_doc",
+      "alias": "cubism.editor-model.layered-image.psd-doc",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+      "memberName": "getPsdDoc",
+      "descriptor": "()Lcom/live2d/graphics/psd/CPsdDocument;",
+      "requiredAccessFlags": 0,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.model_image_current_layer_input_data",
       "alias": "cubism.editor-model.model-image.current-layer-input-data",
       "kind": "method",
