@@ -1,5 +1,7 @@
 package dev.turboism.plugin.core.service;
 
+import dev.turboism.plugin.core.CorePluginManagement;
+
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.ClipMaskSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -15,6 +17,8 @@ import dev.turboism.sdk.cubism.TextureAtlasSnapshot;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.service.read.CubismReadCapabilityService;
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.theme.ThemeStatusSnapshot;
@@ -41,6 +45,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.HexFormat;
 
+import java.awt.image.BufferedImage;
+import javax.imageio.ImageIO;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -48,7 +55,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class MainToolbarHomeEntryServiceTest {
 
     @Test
-    void packagedToolbarIconsMatchReviewedLegacyAssets() throws Exception {
+    void packagedToolbarIconsMatchReviewedAssets() throws Exception {
         assertEquals(
             "79ce45cc0ff477224ba5b3484fd5c0175c869ece823baeb62ff3c777a4e45586",
             sha256Resource("/icons/main-toolbar-home.png")
@@ -57,10 +64,21 @@ class MainToolbarHomeEntryServiceTest {
             "85b256dc4a5d2b6a0c9d6db8c119b14c0afd5634e8d0b66db7fe5cb17b53ec68",
             sha256Resource("/icons/main-toolbar-home-hover.png")
         );
+        assertEquals(
+            "36b4fc5a09bac5f3325f88ea0419b8ba9b53e0cebc67f4a154731f3b5328213e",
+            sha256Resource("/icons/main-toolbar-installer.png")
+        );
+        try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream("/icons/main-toolbar-installer.png")) {
+            assertNotNull(stream, "missing packaged installer toolbar icon");
+            final BufferedImage icon = ImageIO.read(stream);
+            assertNotNull(icon, "installer toolbar icon must decode as a PNG");
+            assertEquals(32, icon.getWidth(), "installer toolbar icon width");
+            assertEquals(32, icon.getHeight(), "installer toolbar icon height");
+        }
     }
 
     @Test
-    void registerHomeEntry_contributesHomeButtonToMainToolbar() {
+    void registerHomeEntry_usesInstallerIconByDefault() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
         MainToolbarHomeEntryService service = service(uiHost);
@@ -75,19 +93,34 @@ class MainToolbarHomeEntryServiceTest {
                 "turboism.core.open",
                 "main-toolbar.home.aria-label",
                 "main-toolbar.home.tooltip",
-                new MainToolbarRegistry.IconVariants(
-                    "icons/main-toolbar-home.png",
-                    Optional.of("icons/main-toolbar-home-hover.png"),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty(),
-                    Optional.empty()
-                ),
+                MainToolbarRegistry.IconVariants.normal("icons/main-toolbar-installer.png"),
                 MainToolbarRegistry.Placement.after(MainToolbarRegistry.Anchor.HOST_HOME_ENTRY),
                 10
             )),
             uiHost.buttonContributions()
         );
+    }
+
+    @Test
+    void registerHomeEntry_usesTextIconsWhenPreferenceEnabled() {
+        // Given
+        RecordingUiHost uiHost = new RecordingUiHost();
+        MainToolbarHomeEntryService service = service(uiHost, new RuntimeSettings(
+            false, "INFO", 100, false, false, false, false, "system", true
+        ));
+
+        // When
+        service.registerHomeEntry();
+
+        // Then
+        assertEquals(1, uiHost.buttonContributions().size());
+        final MainToolbarRegistry.IconVariants icons = uiHost.buttonContributions().get(0).icons();
+        assertEquals("icons/main-toolbar-home.png", icons.normal());
+        assertEquals(Optional.of("icons/main-toolbar-home-hover.png"), icons.hover());
+        assertTrue(icons.selected().isEmpty());
+        assertTrue(icons.disabled().isEmpty());
+        assertTrue(icons.light().isEmpty());
+        assertTrue(icons.dark().isEmpty());
     }
 
     @Test
@@ -131,6 +164,13 @@ class MainToolbarHomeEntryServiceTest {
         }
     }
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
+        return service(uiHost, new RuntimeSettings(false, "INFO", false, false, false));
+    }
+
+    private static MainToolbarHomeEntryService service(
+        final RecordingUiHost uiHost,
+        final RuntimeSettings settings
+    ) {
         final MenuRegistry menus = contribution -> () -> { };
         final PluginLocalization localization = new PluginLocalization() {
             @Override
@@ -153,7 +193,46 @@ class MainToolbarHomeEntryServiceTest {
                 return true;
             }
         };
-        return new MainToolbarHomeEntryService(uiHost, toolbar(uiHost), menus, localization);
+        return new MainToolbarHomeEntryService(
+            uiHost, toolbar(uiHost), menus, localization,
+            new RuntimeSettingsService() {
+                @Override
+                public RuntimeSettings read() {
+                    return settings;
+                }
+
+                @Override
+                public RuntimeSettings save(final RuntimeSettings value) {
+                    return value;
+                }
+
+                @Override
+                public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+                    return new RuntimeSettingsService.DockCleanupResult("Empty dock cleanup completed.");
+                }
+            },
+            new CorePluginManagement() {
+                @Override
+                public List<PluginInfo> plugins() {
+                    return List.of();
+                }
+
+                @Override
+                public OperationResult install() {
+                    return OperationResult.rejected("Unavailable");
+                }
+
+                @Override
+                public OperationResult uninstall(final String id) {
+                    return OperationResult.rejected("Unavailable");
+                }
+
+                @Override
+                public OperationResult setEnabled(final String id, final boolean enabled) {
+                    return OperationResult.rejected("Unavailable");
+                }
+            }
+        );
     }
 
     private static MainToolbarRegistry toolbar(final RecordingUiHost uiHost) {

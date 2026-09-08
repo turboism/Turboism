@@ -294,3 +294,167 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 2026-09-07T13:51:31Z只读发现新的非本次任务JVM `2299028/startTicks10933256` 和wineserver2298877，prefix属于另一工作区的`heavy-dinosaur/build/texture-host-szx2a9uu/prefix/pfx`，不是本任务native-resource族。没有连接或清理该会话。按/proc启动ticks估算其启动为13:43:09Z，在本轮全部native-resource会话及P07离线微基准之后（后者日志birth13:38:11Z、mtime13:38:17Z），没有据此倒写早先性能轮为并发失败。下一实机轮需重新等待宿主空闲；堆持有链诊断另需上文敏感采集确认。
 
 - **敏感诊断授权已获得**：用户通过结构化确认选择“允许本地堆快照”。范围仅本任务隔离进程，可能含模型/宿主敏感字符串、GB级空间，仅本地分析、不上传、诊断结束删除。授权不包含其他任务进程、不允许清理未知缓存，也不改变实机安全规则。2026-09-07T13:58:24Z重新检查，I10的两个其他任务进程仍存活；尚未实现或采集堆快照，等待宿主空闲。
+
+
+### I11 — 接入 main 统一队列（2026-09-08，离线整合尚待完整门禁）
+
+- 用户选择将完整 main `951b6b97f855830684a39f8365064da05e6e5ffd` 合入当前性能分支，而不是只摘取管理器；起点为干净的`98b28395b`。仅在原worktree执行`git merge --no-commit --no-ff`，不反向合并main、不push、不启动宿主。六处文本冲突已解决。
+- Runner、队列、transport及其参数测试采用main版本，不恢复旧SSH/lease/PID清理路径。插件隔离测试采用main的Future完成态等待；图表测试保留本分支实际字体ink-width断言；mapping采用main的DRAFT记录，不由此宣称readiness。保留子shell默认值回归，移除main已删除的SSH_KEY变量断言。全部性能候选代码及历史证据保留，默认关闭策略不变。
+- 验证：`bash scripts/test/check_host_validation_scheduler.sh` PASS（11 scheduler、43 queue、12 evidence tests及配套shell checks）；local transport和arguments脚本PASS。日志`build/main-integration/scheduler.log`。headless `./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle --console=plain`已通过devCheck，但600秒工具超时中断在FX插件测试处；没有完整BUILD SUCCESSFUL，不能把提交门禁或resource bundle记为通过。日志`build/main-integration/gradle.log`，无遗留Gradle进程。
+- 构建前共享队列idle且无非终态job；超时后只读复查发现另一任务`65687483-9d9e-47a3-9a75-fdd1e45ccf8b`（`atlas-final-geometry-2500-native-4bb38d8073cf339b`）正在运行，立即暂停后续构建。该任务在本次构建期间入场，可能存在测量干扰；不能假设其拥有全程安静环境。未连接、取消或清理它。
+- 接入状态：代码冲突解决但合并尚未提交；等待测量结束后利用Gradle缓存继续剩余离线门禁，失败才针对修复。性能memory sampler自定义hook尚未完成队列dependency inventory准入，保持blocked；本次不开发Runner、不旁路、不新增实机授权。旧实机数据仅适用于原artifact hash，新整合产物需要独立获授权的验证。
+
+
+### P08/P09 — 旧调查对照与Paseo只读复核（2026-09-08）
+
+- **范围/验证方法**：两名Paseo pi/Luna max只读探索；父代理复核身份、报告摘要/hash及关键源文件。目标为待整合worktree（HEAD98b28395b + MERGE_HEAD951b6b97），不是main启动cwd。无代码实现、构建、实机或新性能测量；静态结论不能当作收益。父复核记录`/tmp/turboism-explore-review-20260908.md`。
+- **P08 内存候选：Turboism自身的模型引用生命周期**。`EditorBackedCubismModelAccess.java:82-85,310-320,372-387`保存强document/source/model；无活动文档时binding先抛不可用，未清这些槽。该逻辑在合并前已存在。连接保留modelAccess；`VerifiedHostAdapterConnector.java:944-958`关闭UI/layout/Core而未清editor access。调用方保留的stale SessionModel也可能保留delegate：安全拒绝调用不等于释放引用。Core backend完整close已有清除借用引用的路径，不应误报整个Core缺少清理。**结果：发现可核实的强引用候选，不是已经定位实机GC root或证明整套图像仍占内存。**
+- **P08 下一验证**：先用离线fixture复现bind A→无文档、owner仍存活，检查Turboism槽、stale wrapper和连接清理；随后才冻结失效/释放机制，覆盖在途调用、lease、Undo事务、同ID替换和失败重试。禁止dispose官方对象、删除host字段或靠失效包装器可调用制造通过。实机仍需队列准入和场景授权。
+- **P09 CPU候选：重复快照读取**。父复核`CubismFacadeImpl.java:745-764`和`HostSessionSnapshotSource.java:42-91`：先生成runtime快照再读token；activeModel再读document，token再次读project/document。`HostSessionIdentityRegistry.java:18-45`弱引用registry每次清理和查找均线性扫描。**结果：重复工作结构存在，实际调用频率、CPU占比和RSS收益未测。**下一步用带计数fixture测稳定版本重复查询、扫描数和临时分配，任何缓存须保持一致的snapshot/version、权限、失效和常驻内存上界。
+- **排除/降级**：旧tool/agent选择事件类不在当前runtime；当前live snapshot source返回EMPTY_SELECTION，不能照搬旧同步selection lag结论。GPU已有dirty/reallocation分支，不是无条件全量上传；JFR native sample不是调用次数或GPU耗时。继续沿graphics3d而不是影片轨jp.live2d管线归因；不重试既有负收益缓存/投影/内部Warp原型。
+- **报告状态**：内存agent8283d169报告53行/11662字节/SHA256100a391ca8aea28958beb97bac908793725e44e4589377019fb04b3dde028f6c，父裁决ACCEPTED仅限静态范围；CPU/GPU agenta727d4a9原报告48行/11223字节/SHA256a4a1ccd94d94bd896c7826ba42e6655d1b4aba20a195172d5c68cd2ead46c824终态标记格式不符，CORRECTION_REQUIRED，已要求新task/artifact修正而非覆盖原报告。上述P09关键调用链由父独立复核，不依赖未验收报告作收益结论。
+- **协议修正已回收**：CPU/GPU新task`turboism-explore-cpugpu-20260908T0610-r1`报告52行/12353字节/SHA25689fe384726cf0fb280282d30a72f20257255d9f51d13edf4f75ba78a62f98bd3，首末标记及RESULT摘要匹配，diff仅修正身份/协议并强调未测CPU占比，原报告保留。父裁决ACCEPTED限静态候选；不据此批准实现或实机，不认可任何尚未测量的收益。
+
+
+### P08-a — 离线复现代码准备，尚未执行
+
+- Paseo agent8283d169按冻结契约准备两项test-only characterization：bind A→无文档后检查三个owner槽是否仍保留；bind B后检查owner替换而旧wrapper仍失效且保留A。反射仅观察Turboism私有字段，fixture static状态finally恢复，无GC/睡眠/内存数字推断，无生产修改。
+- Artifact `/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`（SHA256fe439c13672c26cdfe2e5cbb9317657f236dabbc29e43a8c9f347dbda8d3c157），仅对现有EditorBackedCubismModelAccessTest增加76行。报告35行/7128字节/SHA25683ebd800f2b264bc3cecd3a2799bff2c5b2cacfe2cabf489737a41e58cbbce25。父已核验身份/摘要/稳定hash、阅读全部patch并独立`git apply --check`通过。ACCEPTED仅指准备产物可应用，未应用checkout，**编译/测试NOT_RUN**。
+- **重要归因限制**：原NativeResourceHostAgent自身走native反射，并未直接调用Turboism SDK binding；没有证明原实机轮触发过这些slots，故此候选不能直接解释之前的weak-reference未释放。下一实机归因必须同时记录实际绑定路径和持有链。
+- 两个测试是当前行为诊断，不将保留引用永久固化成产品契约。未来修复后的回归应检查正确生命周期释放，并继续拒绝stale引用。未加入复杂连接fixture或生产失效seam。
+- 复查共享队列job65687483-9d9e-47a3-9a75-fdd1e45ccf8b仍running，继续禁止构建/测试干扰。待空闲先完成整合，再应用/执行最小headless batch；使用`env -u DISPLAY -u WAYLAND_DISPLAY JAVA_TOOL_OPTIONS=-Djava.awt.headless=true ./gradlew --no-daemon --max-workers=1 :runtime:test --tests dev.turboism.adapter.cubism.editor.EditorBackedCubismModelAccessTest`，不把Gradle客户端单独-D开关当测试JVM已headless。没有新性能收益或实机PASS。
+
+
+## 原生内存优化候选登记（2026-09-08，用户新调查）
+
+目标是改善Cubism原生内存/CPU/GPU，不仅消除Turboism自身开销。P08/P09降为辅助排查。本批尚无新增运行时收益；用户提供的是方法级字节码机制，下面明确区分待复核、离线验证和实机收益。父已重新读取精确5302安装JAR计算SHA256：988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21。当前实际源目标为性能任务worktree（本机绝对路径保留在私有报告的身份记录中），不将旧路径或5.3.03材料当成本机身份。
+
+### N01 — 已释放使用者的诊断强引用（优先1）
+- 机制（用户字节码证据，待独立复核）：CImageResource.releaseResource先把retain记录追加到releasedRetainUserData_forDebug再从retainCounter删除；CImageResource$c持有真实ICImageResourceUser。CModelImage.reinit共享_filteredImage，已dispose使用者可经活资源反向保留模型关联。
+- 拟议实现：只让已释放诊断历史不再强持有真实user，保留有界值摘要；有效retainCounter、释放/销毁条件和当前图像均不得变化。不预定具体变换策略，先核验全部诊断消费者、同步和失败路径。不能修改已加载类字段结构，不能修改官方工件。
+- 验证：精确class/method/exception-table/所有读写点；离线共享资源A/B、释放A而B继续使用、重复/错误释放及诊断调用兼容；检查优化引入的外部状态不反向强持有资源/user。之后单项开关对照及GC-root/存活量/私有内存证据。
+- 有效程度：候选机制尚待本轮独立复核；未实施、未运行、无节省字节/比例；不能称为每次操作泄漏整模型。失败/停止条件：诊断记录参与正常所有权或无法保持所有消费者兼容。重试需新的完整契约/调用证据。
+
+### N02 — UtCache获取阶段异常漏还（优先2）
+- 机制（用户证据，待复核）：空闲条目SoftReference但usingMap强键持有借出图像；HQ合成四次获取在try保护区之前。第2/3/4次获取失败可能遗留此前成功取得资源，延迟检查只警告。
+- 拟议实现：以调用为单位记录成功获取资源，异常路径仅归还本次资源，原异常仍传播；正常finally不可双归还，嵌套/并发调用隔离。禁止usingMap.clear；不以全局OOME注入替代有界离线故障测试。
+- 验证：核验描述符和异常表、获取/归还契约、同对象重复获取可能性；离线在第1/2/3/4次获取分别注入失败，检查净借出量、无双归还、正常结果、嵌套/并发和清理再抛异常。实机故障场景另需明确授权及队列准入。
+- 有效程度：条件性安全/内存候选，未实施/未复现；正常路径的节省可能为零，不能据此解释日常高RSS。失败/停止条件：无法证明借用所有权或原生已有上层补偿；据反证降级而非强做Hook。
+
+### N03 — HQ整页临时图工作集与并发字节预算（后续）
+- 机制：8192² ARGB目标256MiB + 同尺寸彩色临时256MiB + 灰度临时64MiB = 576MiB仅理论像素工作集，不是RSS或实际同时存活值，未包含源图/旧atlas/GPU。
+- 拟议实现：先按真实图像格式/尺寸统计活动任务字节，限制重任务并发和可回收空闲大图缓存；不清正在借出的对象。再评估局部区域合成，覆盖旋转/双三次边界/透明边缘/源图原地修改。
+- 验证：真实租借时序/高水位，串行与预算调度的峰值、总时长、CPU/GPU；像素差分与保存重开。ROI必须完整语义证明，不能裁矩形即认定等价。
+- 有效程度：理论工作集和候选，未实施、未测；预算可能降低峰值却增加耗时；ROI风险高。已有Atlas其他任务由其owner管理，本任务不抢写或启动其场景。
+
+### N04 — PSD/Undo/历史对象保留归因（调查，不默认清理）
+- 检查psdDoc/psdBytes/layer tree/icon和合法Undo/重导依赖；dispose方法不置空不足以证明泄漏。当前EditorHistoryMetadataRegistry弱键，不套用旧createUndo_forAllEdit结论。
+- 拟议验证：对象持有链与可重建性、保存/重开/PSD重导/Undo/Redo。禁止删除历史、盲目置空PSD或仅凭isReplaced释放。
+- 有效程度：尚未确定违规保留者，无实现收益；若属于合法业务保留则不修复。
+
+### N05 — PNG归档复用/编码临时分配（已有方向，不重复计数）
+- 对应本账本既有PNG reuse实验：受控重用可减少编码/分配，但此前自然工作负载未证明足够命中；不从零重复。archive已有解码缓存，不能宣称每次get都解码。
+- 后续仅在新的实际归档工作负载和完整像素失效契约成立时重试；imageFileBuf非空不充分，HQ源图可能原地修改。优化toByteArray副本需确认编码API所有权。
+- 有效程度：沿用既有受控有效/自然收益不足证据，默认关闭；不是新增省内存结果。
+
+### N06 — 内存归因探针（测量基础，不是省内存优化）
+- 拟观察JVM used/committed/GC后存活、诊断历史数与保留链、池借出/归还/空闲字节、图像工作集、进程RSS/PSS/私有内存、direct/GPU资源。指标重叠不能相加；JVM Non-Heap不是全部堆外，NMT不覆盖全部第三方分配。
+- 探针约束：有界、值类型摘要/弱身份、不自行强持有模型，量化采样开销；已有进程CPU/DRM/RSS observer尽量复用，先完成dependency inventory准入，不开发第二套Runner。离屏渲染深度/区域仅待验证线索。
+- 对照：原生Cubism、当前Turboism全优化关闭、单项开启；同fixture/操作/测量条件重复，诊断instrumentation单独校准。Windows与Proton分开，不以单次RSS或累计分配宣称占用下降。
+- 有效程度：尚未新增该探针；有助归因但自身可能增加开销，不能列为优化收益。本批不包含新增宿主/故障注入授权。
+
+### N01/N02 本轮独立核验与方案收窄（2026-09-08）
+
+状态分层：下述是静态机制确认，不是已实施修复，更不是实测收益。内存占用、CPU占用、GPU占用均为 NOT_MEASURED；不填估算百分比冒充测量值。
+
+- **N01 核心机制 VERIFIED_STATIC**：父复读 `build/native-image-resource-javap.txt` 的 releaseResource（1081–1180行）、finalize（640–689行）及 `getDebutInfoAboutRetainAndRelease`（1838–1937行），并复核当前安装JAR及class ZIP项SHA256。成功释放分支确实在BCI126/131读取/追加released历史，随后才删除active记录；不是DEBUG-only。`CImageResource$c.a`是final强user字段，构造器拒绝null，`hashCode()`直接调用user.hashCode()。因此“直接将user置null”不是可接受方案。
+- **N01 诊断兼容性边界**：原生finalize与getDebutInfoAboutRetainAndRelease都读取released历史；保留active/released区分、标签及其顺序需要单独验收。原生记录还有equals/hashCode/toString，不能把released列表元素直接换成String。仅限制历史条数或去掉stack不能彻底切断其余记录对user的强引用，属于有界缓解而非完整修复。
+- **N01 候选实现比较**：①跳过历史追加最窄，但丢失原生诊断，暂不采用；②只对已释放记录使用脱离宿主的摘要，优先研究，但必须保留原生诊断入口并确定容量/截断标识；③弱引用历史可允许回收，但仍须处理已回收后的诊断语义；④外部状态不是天然安全，键必须不强持有resource，值不得间接引用resource/user/model。②③④都尚未实现，不预设需要改变已加载类字段结构。有效retainCounter、相等比较、销毁条件和顺序不得改变。
+- **N01 有界验证设计（NOT_RUN）**：资源R由A/B共享，释放A后B仍可用且active只含B；重复/错误release维持原生行为，最终释放B只产生原生应有的销毁；开/关调试条件下比较诊断标签、次序和缺省stack；单独验证探针/摘要无反向强引用。retain/release未见方法级同步，不能声称已有线程安全，需刻画并发或限定经过证实的线程边界。动态反射消费者和实际GC-root仍未验证。
+- **N02 核心窗口 VERIFIED_STATIC（父独立复核）**：新dump `com.live2d.util.f.g.javap.txt` 1251–1300、1515–1547行，目标描述符 `(Ljava/awt/image/BufferedImage;Ljava/awt/Graphics2D;Ljava/awt/image/BufferedImage;II)V`；四次获取22/39/56/71，存入locals7/8/9/10，catch-all覆盖[76,537)，不覆盖获取。清理四个资源后重新抛异常；不能说完全没有finally。
+- **N02 新边界：获取函数内部也非事务式**。父完整读取 `jp.noids.util.UtCache.javap.txt`：新建路径先在BCI196 usingMap.put，随后BCI202 cache列表add，并可能创建延迟检查任务，到228才return。因此若插入后/返回前失败，调用方尚未取得引用；仅补调用方finally不能保证回收该次未返回对象。这是另一个条件性窗口，不宣称已复现或日常主因，也不将全局map差分清理作为修复。
+- **N02 方案分层**：N02-a先保证先前“已成功返回”的局部资源在后续获取失败时归还；N02-b另行研究池内部取得/登记/返回的事务边界及锁内精确回滚，不假装N02-a涵盖它。原release先移除usingMap键再标空闲；正常finally和新增异常处理不得双归还。归还函数自身抛错时需继续尝试其余本次资源并保留原异常，具体策略需独立设计，尤其不得为构造suppressed异常在OOME路径无界分配。
+- **N02 验证矩阵（NOT_RUN）**：第1/2/3/4次获取前注入失败，先前成功数分别0/1/2/3且最终净借出回到基线；全部成功/绘制失败、归还失败、嵌套/并发分别验证，无双归还、不触碰其他调用；另设池内部“登记后返回前失败”作为N02-b，未实现时必须明确失败/不覆盖。使用离线可控故障，不进行全局内存耗尽或未授权宿主异常注入。
+- **可复核身份**：本轮父使用Python `ZipFile.read('<class>.class')` + SHA256（仅解析，不加载类）；官方JAR仍为 `988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`。CImageResource=`0b7e56b4b3a1baa314daa6266b2f36f29fb7cab679f51afbe19490ce77a69c14`；$c=`048f08db85203901d8eb4958a18cfa63e3268c601e2f383c3db6b1d897e1628b`；HQ g=`ff1d1ce9b4291212d255c6e84c8b57242234c1fa174af09e440c1162a4a1f8d6`；UtCache=`64193febe864958bf0ae6b701a75a38cfd09588f1e549d910eb968159e6c2db1`。
+- **证据位置**：N01原报告 `/tmp/turboism-native-retain-20260908T0700/report.md`（43行8550B，SHA256 `d73f12447af344f052510a6b735bbbcbf9c8c984f5d69feacb846d9e74e62d86`）判定CORRECTION_REQUIRED：终态标记未带任务ID、摘要方案必需改字段结构表述过强，已要求新ID不可变修订，核心静态事实不因此升级为生产PASS。N02父复核dump位于 `/tmp/turboism-native-pool-20260908T0700/`，HQ dump SHA256 `21012485429e5dc620abb422a4c31d455f7d1f6e9fd5339312fa298f96faf4d8`，UtCache dump SHA256 `bf8c6bf6ed4b4a764da2b780c2d547819d23b788267c765486fb4b6eff066165`；子代理最终报告尚未回收，不冒充验收完成。
+- **执行限制/失败记录**：对子代理a727d4a9的收口消息发送返回SEND_FAILED（active run cancellation未获确认），其状态仍running；未强行替换或停止进程，180秒等待超时不是分析失败结论。主工作区不写实现、未启动宿主/构建，未改变已运行worker。当前阶段只修改实验账本，main整合门禁与提交仍未完成。
+- **N01 修订验收**：新报告 `/tmp/turboism-native-retain-20260908T0720-r1/report.md`（41行7272B，SHA256 `56b9451c8877b44b9d32edfab7abd36228accab7e23e1a66868960a2482a2141`）。父完整读取，核对Paseo身份、首尾同任务ID、稳定hash/字节数及RESULT一致；此前过强方案表述已修正。ACCEPTED仅限有界静态机制及风险报告；生产修复/诊断兼容性/三指标效果仍BLOCKED或NOT_MEASURED。
+- **N02 代理异常后续**：其后wait返回 `stopReason=error`，inspect确认error且无报告；不把子代理任务记为完成。创建进度项#28，使用同一代理/模型派发新ID `turboism-native-pool-20260908T0730-r1`，只从已有dump及账本回收<=80行报告，禁止扩展检索/构建/实机操作。原始0700证据保持不变。
+- **N02 回收与父裁决**：已完整读取r1报告 `/tmp/turboism-native-pool-20260908T0730-r1/report.md`（35行4578B，SHA256 `dc4f3d3677d06bef56305a901e06209134c1ce0e539792eb8dcb914c18caf0a5`），前后Paseo身份/首尾task_id/RESULT/hash一致。ACCEPTED仅限父已独立复核的获取窗口、强键及顺序归还事实；其他生产问题仍BLOCKED/UNKNOWN。报告N02-b标题泛指所有权/清理，本账本继续严格以N02-a=调用方已返回资源、N02-b=池内部登记事务窗口区分；“第1次失败无lease”只适用于调用方此前成功资源为0，不排除池内部已登记未返回资源。
+- **N03 算术扩展（非新增实测）**：仅在source与target各8192²、彩色各4B/px、灰度各1B/px且像素存储独立时，四张scratch理论640MiB；加existing target为896MiB，再加existing source为1152MiB。后两个小计已分别包含目标/源像素，不能重复加；未包含对象/raster开销、旧atlas、其他池图、原生/显存，也不是并发峰值证据。较小source、池复用/超尺寸、别名都会改变实际账单。禁止以此推算“能省1GB”。
+- **回收过程限制**：N02-r1报告称无scan，但父wait摘要显示做过/tmp文件名find/grep定位；故不接受其“只读指定文件、无scan”的绝对执行声明。未观察到新宿主/构建/JAR操作；已有dump事实由父复核，不依赖该自述。保留原报告与这一偏差，不覆盖痕迹或再开广泛探索。
+- **共享门禁状态更新**：2026-09-08本轮末通过main本机 `python3 scripts/preview/host_validation.py status --json` 读取到workerOnline=true、host.state=idle、job_id=null、activeJobs=[]。原65687483已终态cancelled；本任务未调用cancel或清理。解除旧quiet-host等待，但这不是新增宿主场景授权；整合门禁尚未重跑。文档 `git diff --check` PASS，不等于实现或实机验收。
+
+### N02-a 离线控制流原型（2026-09-08续推）
+
+- **实现/边界**：源码保存于 `experiments/native-image-lease/NativeImageLeaseCleanupPrototype.java`，README列冻结范围和复现命令；这是JDK-only假池实验，不接触Cubism类、图像或原生安装。不计为新生产优化，不接入Gradle默认构建。控制组保留“4次获取在finally之前”的拓扑；候选以4个局部变量记录成功返回资源，异常路径逐一尝试归还。已存在primary时保持同一异常对象，否则尝试全部清理后抛首个cleanup异常。不创建lease集合或suppressed数组；生产中的次级错误诊断仍待设计。
+- **如何验证**：共享队列确认idle且无activeJobs后，使用JDK17.0.20，`javac -d <task-classes> NativeImageLeaseCleanupPrototype.java`，`java -ea -Xmx64m -cp <task-classes> NativeImageLeaseCleanupPrototype`。源SHA256 `1a18c6222cf943f0a630a68b641986b67f1b3f098f685265f90d76622655cc64`；输出SHA256 `2aaff0c25ecfc2163e45038eafc07fd98c9ad3afa73d45a20127ea6495fc82ea`。本机原始source/result.log/toolchain.log在 `/tmp/turboism-native-lease-prototype-20260908/`；仓库源码与已执行源码逐字节相同。
+- **结果**：PASS，500次断言检查（非500个独立用例）。第1/2/3/4次获取前失败，控制组遗留此前成功资源0/1/2/3个，候选为0；覆盖RuntimeException与人工Error、绘制体失败、每个清理位置失败、正常/外部借用/嵌套调用。确认不跳过后续清理、不误还其他调用、原异常identity保留。
+- **明确未解决/失败方向**：登记后返回前失败，候选仍遗留1个，反例测试专门断言它不会被调用方修复；归还在移除登记之前失败，候选同样仍遗留1个，不能把“attempted”当“returned”。不做不知提交状态的盲重试。原控制组首个清理异常会替换body异常并跳过后3项清理，这也在原型中复现。并发、VM致命错误、原生字节码变换/验证器、诊断兼容、图像/Undo/保存重开均NOT_TESTED。后续需分别实现和验证N02-b事务边界，不用全局clear兜底。
+- **有效程度**：只确认候选控制流在假池模型下处理已返回资源的能力；RAM/CPU/GPU均NOT_MEASURED，未证明实际高占用主因，正常路径的省内存可能为0。只有原生变换测试、获授权队列实机对照和对象保留/进程指标完成后，才讨论产品收益。
+
+### I12 整合门禁续跑与暂停（2026-09-08）
+
+- 本轮先重新读取全局协作规则/架构/新版调度README，确认主Agent可直接实现，不再把旧委派-only约束误当当前规则；Paseo MCP无工具，CLI实际daemon/provider检查可用，本轮未新派代理。CodeGraph仍无本worktree索引，未在他人测量期间进行全仓索引，定点文件检查不冒充图分析。
+- main在951b6b97之后到83a49168的增量已只读审阅：4个文件，仅服务示例环境路径、说明和独立stub回归测试；未切换main worker、未安装服务。性能worktree仍是HEAD98b28395b+MERGE_HEAD951b6b97，尚未提交这次整合。
+- 门禁命令：headless环境、`./gradlew --no-daemon --max-workers=1 devCheck checkCompletedCommit checkResourceValidationBundle`。首次本轮续跑约61秒，`checkRepositoryHygiene`因本账本330行机器绝对home路径失败；已改为可移植的“性能任务worktree”引用，原始精确身份仍保留私有报告，没有放宽hygiene规则或删除失败证据。结果位于 `build/main-integration/continuation-20260908/{gradle.log,result.json}`。
+- 修正后重试在约10秒时观察到新任务c44666b4进入queued，任务级构建守卫停止了本次Gradle进程组（exit143，guard75）；当时host仍idle。它只监测队列并停止自己创建的构建，不启动/取消/清理任何Cubism任务，不是第二套宿主Runner。原始失败和重试日志使用不同目录，重试结果在 `build/main-integration/continuation-20260908-retry1/`，未覆写首轮失败。随后只读检查本worktree无Gradle进程残留。
+- **当前结论**：整合门禁仍未完成；不能commit整合或宣称接入验收PASS。原型PASS、文档卫生修正和main集成是三种不同状态。需取得足够空闲窗口继续必要门禁，而不是在持续到来的实机测量间反复启动完整构建。
+- **局部收口检查**：直接复用现有 `scan_repository_content` 对本账本及新增原型Java/README三个文件检查PASS；未修改扫描规则。仓库原型与已编译执行源逐字节一致，ReadSeek Java诊断0错误，`git diff --check` PASS。这只确认局部修正，不替代尚未完成的整合门禁。
+
+### N06/I13 实机授权后的实际准入检查（2026-09-08）
+
+- **授权**：用户明确“允许实机，继续推进”。可开展本任务隔离验证，但不授权绕过管理器inventory、清理外部会话、全局OOME或覆盖官方工件；本轮尚未submit/启动任何宿主。
+- **最新门禁**：续跑retry2已通过仓库卫生并到达 `:devCheck` 完成；约75.6秒管理器报告external-busy（外部Cubism PID1024491），构建守卫只停止本次Gradle，exit143/guard75。`checkCompletedCommit`、`checkResourceValidationBundle`仍未完成，不宣称整合PASS；日志保留 `build/main-integration/continuation-20260908-retry2/`。守卫此前错误地把历史timed_out当active，本轮按管理器实际TERMINAL集合纠正；host非idle仍始终阻止构建，不以终态过滤放行external/quarantine。
+- **工具整合身份**：性能worktree的host_validation.py、host_validation_queue.py、host_validation_containment.py、通用Runner和transport五文件与当前main逐字节一致；使用的是已接入的新队列工具，不是旧SSH/lease路径。main worker和主工作区工具均未修改。
+- **实际prepare结果**：完整读取resource能力README/wrapper，按其fixture hash执行dry-run。首次缺失本机env配置失败，使用已有私有env后dry-run成功。默认目录无native-resource项，使用CLI支持的task-scoped `--manifest`明确指向现有resource wrapper，声明host-slot/performance-host；未改变共享catalog。随后真实执行 `host_validation.py --manifest <task-manifest> prepare native-resource:5302 --run-label nm-authorized-admission`，明确失败exit2：`custom hook requires reviewed dependency inventory`。未返回prepared ID，未submit。manifest/prepare.log/完整评审在 `/tmp/turboism-native-memory-admission-20260908/`；此为准入拒绝证据，不是实机运行失败或产品收益。
+- **inventory 已逐文件读完**：start-task-memory-observer.sh=`00024a1cc6a72c39df10dff446e840289930443d642a595b5018f305a8759b29`；measure-task-memory.py=`da54d8b35d99c2b1d6eeea00759ef4f7d84f6ed80042d49e0a4aec659738a3ac`；host_resource_counters.py=`d0eaf3bcdbf7a01e8cf95716430566f70bf233d734c96f63b19699c9ede22c67`；host-task-processes.py=`e49b52003a763861f3bb3eaf3e19a3498299b8ee5ee63a220072f2b61e4bd603`。运行依赖bash、PATH解析python3及stdlib，后两项动态导入模块的staged路径/fallback需明确固定；不是仅把顶层shell加白名单。
+- **发现的接入风险**：采样器只调用read_process/tagged/verify_task/properties，但导入的host-task-processes.py同时包含旧PID/process-tree清理CLI与signal函数。正常采样不调用它们，不能误报本轮已杀进程；同样不能未经评审把完整旧清理模块带进新hook闭包。当前观测身份是PID/startTicks/UID+prefix/environment筛选，不是队列绑定cgroup身份；不得当作清理授权。shell自行fork观察器、写pid文件，退出/超时/输出路径与snapshot篡改还需覆盖。
+- **拟议最小接入方案（未实施）**：抽出不含任何signals/cleanup入口的只读身份依赖，固定解释器与完整helper闭包，绑定管理器认可的任务/进程身份，保留歧义/重用/不可读的fail-closed；在既有管理器中申请窄范围memory-observer inventory准入，验证后台生命周期和失败路径。不开发另一套Runner，不把脚本伪装成FPS hook，也不移除采样器冒称三指标协议不变。此涉及此前暂停的管理器相关工作范围，需要明确由本任务补齐还是由管理器维护者接入。
+- **有效程度/后续**：新RAM/CPU/GPU实测均NONE，N01/N02尚未接入生产。180秒查找+900秒采样、约1Hz及DRM客户端数据不是硬字节上限；readDurationNs不含全部身份发现开销，不能当作探针总成本。只有inventory通过、构建产物门禁完成且外部会话正常结束后，才可提交获授权的基线；授权本身并未解除这些技术阻塞。
+
+### N06/I14 只读身份提取实施与局部验证（2026-09-08）
+
+- **范围裁决**：用户选择“本任务补齐准入”；限性能worktree提取纯只读依赖、既有队列窄准入和生命周期测试，未授权新Runner或main合并。Spec Kit 023的spec/plan/tasks已冻结，main上Atlas的feature指针保持不变。
+- **门禁中断保留**：此前retry3只续跑`checkCompletedCommit checkResourceValidationBundle`，约26.6秒发现外部Cubism PID1113591，守卫只停止本次Gradle（143/75），日志`build/main-integration/continuation-20260908-retry3/`。两门禁仍未完成。此后只读status曾恢复idle，不代表预留宿主空闲窗口。
+- **实现方案**：新增`scripts/test/host_memory_identity.py`，不含launch/signal/cleanup或环境匹配。只绑定观察器已继承的管理器scope，持有目录FD并检查device/inode、boot ID、观察器PID/start/UID；只枚举该scope的cgroup.procs，读前后检查Editor身份，多个Editor、移出scope、PID重用、不可读身份均拒绝。FD在失败和退出时释放，但绝不清理scope。
+- **采样接入**：measure-task-memory.py改为仅加载同目录纯helper，不再fallback到旧清理模块；在每次采样前后检查绑定身份，样本附scope元数据。RSS/PSS/private、CPU与GPU字段/不可用语义及原300秒协议保持。readDurationNs现在含本次sample的身份检查，仍不等于完整探针成本（不含启动hash/发现/JSON写出）。
+- **验证方式/结果**：先写`test_host_memory_identity.py`，未实现时真实失败FileNotFoundError；实现后12个隔离文件系统回归PASS（0.077秒），覆盖单Editor、外部同名不读取、歧义、scope移出/替换、PID/UID/读取中重用、观察器变化、缺失身份、退出及FD关闭。另8个sampler focused tests PASS（0.012秒），包括只读取测试自身进程的真实RSS/PSS、读中身份变化、scope失败写FAIL、不采样和异常关闭FD、单位/完整窗口/证据不覆盖。JDK30秒握手测试本小批尚未重跑；队列准入/完整门禁/实机仍待验证。
+- **有效程度**：已验证纯只读身份机制的局部行为，不是Cubism优化；新增内存/CPU/GPU收益仍NONE。未知hook拒绝尚未改动，未prepare成功、未submit/启动宿主。下一步完成固定解释器/三文件闭包准入与负例，随后完整门禁、授权基线，再推进N01/N02原生优化。
+
+### N06/I15 窄准入与受管exec实施（2026-09-08，实机仍待门禁）
+
+- **实现**：现有PreparedStore仅为精确native-resource:5302的memory prelaunch添加闭包校验：限定background、标准上下文、单一解释器参数，恰好三个指定源/目标home-file；拒绝home-dir覆盖、重复/缺失/替代helper、额外hook/client、错误版本/任务/模式。解释器必须是prepare所用Python的解析后绝对路径，按既有hostDependencies保存hash并在command阶段重验；没有新增Runner/通用任意hook注册，也未修改main worker。FPS原准入保持。
+- **生命周期**：shell不再自行fork或写独立PID清理文件，而是exec固定Python，`-I -S -B`隔离PYTHONPATH/site并禁止写pyc；由管理器既有background模式追踪退出。hook检查12参数、任务环境和home/evidence一致性。resource wrapper改为固定三文件和解释器。README去掉旧直接执行建议，明确队列prepare/submit与授权/验收区别。
+- **验证**：两个新正例在实施前真实失败`custom hook requires reviewed dependency inventory`；实施后PreparedStore整组16 tests PASS（2.127秒），含既有真实Runner的无宿主prepare/replay隔离测试。三项新增synthetic hook测试PASS（0.257秒）：exec PID保持和exit7传播，环境注入的json/sitecustomize未加载，缺纯helper报错且无旧fallback，错误上下文在执行前拒绝。解释器变更负例只改临时伪解释器，未改系统Python。
+- **当前阻塞/重试条件**：准备最终门禁时status显示job78d2e1e4 running、40d44ba9 queued；没有启动新的重构建或实机争抢。待队列/外部宿主安静后完成受影响Python/JDK/Gradle批次及真实prepare。局部PASS不等于准入exact-host验收，尚无本轮prepared成功/submit/宿主结果。
+- **效果**：这是测量路径安全接入，不能称为Cubism RAM/CPU/GPU下降；三指标新增实测仍NONE。N01诊断强引用与N02异常漏还尚未生产启用，继续保持原记录中的静态/原型证据等级。
+
+### I16 最终批次的整合回归与修复（2026-09-08）
+
+- 等待已有队列任务终态后，status确认idle且无active/queued，执行受管最终批次；未启动Cubism。77个Python tests PASS：身份12、exec3、采样器含JDK30秒握手9、资源计数器7、完整队列46。`devCheck`及此前卫生/宿主参数相关门禁通过；总269.8秒后`checkCompletedCommit`在integration-tests失败（369tests/1fail/1skip），resource bundle和最后policy smoke尚未执行。完整首轮证据`build/main-integration/observer-admission-final-20260908/{gradle.log,result.json}`，不覆盖。
+- 唯一失败`MappingPackDraftImportTest.boundingBoxDraftRemainsAnUnverifiedProjectionOfItsStaticEvidence:275`：草稿metadata.artifactSha256缺失，而静态证据为5303固定hash。先比较整合遗漏、生成材料漂移和旧格式测试三个假设；HEAD/main951/main83/当前worktree JSON逐项比较证实，pending main整合覆盖了分支既有014c5a3bf修正：丢失artifactSha256/confidenceBasis并把12项medium变为high，选择器没有变化。
+- **修复**：只恢复该草稿原分支的metadata和medium置信度，保留全部测试不动，DRAFT/none/null和静态证据等级不变。解析JSON与整合前HEAD语义完全相等检查PASS。不是新增5303适配/宿主验证；Spec023 T008/T011注明这是保留已有分支修正。后续只续跑失败与未完成门禁，不重跑已通过的整组Python。
+
+### N06/I17 新队列实机基线PASS与三指标结果（2026-09-08）
+
+- **门禁收口**：修复后只续跑`checkCompletedCommit checkResourceValidationBundle checkCubismHostValidationArguments`和3项native resource policy smoke，239.6秒全部PASS；`build/main-integration/observer-admission-final-20260908-repair1/`保留完整日志。既有失败记录不删除，测试断言不变。
+- **prepare/submit**：新wrapper dry-run成功，真实prepared ID=`e405a2c4e55d6cbf00de650292097c4f0bf8cb25604cbee4b29492ebbe0011e8`；显式核对三home-file、managed background、解释器dependency、四优化false和exact5302 fixture。由main CLI提交request=`native-memory-scope-baseline-20260908-b1`，job=`4acfbf9d-7dce-41f0-95c8-b8f897598115`，attempt=`79a34502-c568-416e-bcec-98eb55d019ac`，run=`queue-c55e1dfc7da34329a280f1ee1f0b5ddc`。快照记录dirtyFingerprint，不把未提交分支误报clean commit。
+- **worker中断/恢复**：submit持久成功但workerOnline=false；通知中的旧Paseo terminal已不存在，main工作区terminal列表为空。用户随后明确选择恢复既有worker。只读核查无同UID exact serve argv后，从main83a49168的独立Paseo terminal `a75facf6-2c61-4ceb-b05a-1dad4e002d1b`启动原`host_validation.py serve`；未修改main代码、安装服务或新建Runner。同一排队job自行进入running，没有重复submit。结束后workerOnline=true、host idle。
+- **结构化终态**：manager succeeded/PASS，identityVerified/fixtureUnchanged/normalExit=true；源码模型与任务副本hash=`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`，官方JAR=`988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21`，BAT=`2c767eb3e3640c007f0bead1e54ddfba629fc15493c7ccd8f7aab1a4fc91c334`前后相同，goldenUnchanged=true。wrapper.exit实际内容0；final details.wrapperExit为null的汇总字段不冒充原始退出码。cleanup=safe，kernel原scope绑定证明完整，cgroupKillWritten=false，cgroup自然destroyed，errors=[]，prefixRetained=false。旧observed-not-atomic PID辅助记录不是所有权证明，采用最终bound-cgroup证据。
+- **采样和操作**：428个样本，所有PID/start/UID及scope path/device33/inode49080/boot与本次manager绑定一致；sampler complete PASS。60次原生zoom完成，原camera raw scale精确恢复，dirty/Undo未变，300秒JVM观测完整。任务主Java PID1428993；未做产品变换、强制GC、保存模型或真实OOME注入。
+
+| 阶段 | RSS中位/采样峰值 MiB | PSS中位 MiB | CPU整机占比（12逻辑核） | i915 render时间加权占比 |
+| --- | --- | --- | --- | --- |
+| 加载181.33s | 1109.42 / 4294.68 | 1045.24 | 11.850% | 0.131%（146/160有效区间） |
+| 原生idle30.01s | 3080.20 / 3080.31 | 3015.65 | 0.116% | 0.000% |
+| zoom82.10s | 3203.66 / 3204.50 | 3139.13 | 9.028% | 2.045% |
+| 恢复后idle30.89s | 3204.59 / 3208.19 | 3140.05 | 0.668% | 0.000% |
+| 关文档idle120.01s | 3206.60 / 3206.63 | 3142.07 | 0.224% | 0.000% |
+| 关文档后续35.76s | 3071.73 / 3202.08 | 3021.43 | 0.094% | 0.000% |
+
+- **如何计算**：按resource-workload/result.properties的epoch阶段边界选择点样本；CPU仅纳入首尾均落在阶段内的相邻tick差/monotonic时间区间，除12给整机口径；GPU复用该次冻结的host_resource_counters.GpuIntervals高水位/客户端去重，只对有效区间按wallNs加权，不把加载缺失的14区间填0。表内idle GPU零来自有效engine计数不增，不是不可用替代值。RSS/PSS/private互有包含，不能相加；GPU为进程DRM engine占比，不是所有进程GPU总量或独立显存占用。
+- **重要反例：RSS下降不等于释放**：关文档后末段近36秒，RSS从3202.08降到2807.08MiB，而VmSwap从106.51升至464.79MiB（约+358.29）；主要是换出，并非回收395MiB。全局MemAvailable最低815.36MiB，SwapFree最低0.125MiB，本轮存在明显内存压力。采样RSS峰值4294.68MiB，内核VmHWM4384.20MiB（采样可能漏短峰）。不能拿这一轮与旧机器状态下的结果算优化百分比。
+- **堆与保留**：300秒内heap.used1934.83→1022.66MiB，heap.committed始终2688MiB，GC计数48→52；关文档约156秒后的documentWeak仍未clear。used下降/committed不降/RSS换出是不同事实，尚无retained-size或GC根路径，不据此断言N01已留住整个模型或N02日常漏还。探针sample调用耗时中位118.83ms/峰673.58ms、最大采样间隔1.674s；这是读延迟而非CPU耗时，探针扰动仍需留意。
+- **复现产物**：`/tmp/turboism-native-memory-admission-20260908/`保留dry-run、prepare、submit、wait、events、offline分析脚本和summary；分析脚本SHA256=`cce1ada6968b9f861dba5ce0fc9ef1806f9cd0f39e7cda11632d0e473fcf120e`，summary=`34cca727c227e6de4349224e107642d6c3709e90a7c251ba26548d603236c1a6`。样本SHA256=`140e52ac17aacd0f246bb401146b442a0e1a69ea1d78bc9c173aebe91af047b1`，阶段结果=`4746ea6e04b05136092ec5c7d4071fd02bb5392441f6fa48182d8a0d862555ce`。原始证据按上述job/run定位，不猜最新目录。
+- **有效程度/下一步**：完成新的只读观测准入实机验证，拿到Cubism自身三指标基线；没有新优化收益宣称。N01错误强引用/N02异常资源归还仍是待实现验证候选。先针对原生图像保留链做窄只读归因，再决定优化；后续A/B必须匹配内存压力/交换状态，不能把RSS换出或累计分配下降冒充省RAM。

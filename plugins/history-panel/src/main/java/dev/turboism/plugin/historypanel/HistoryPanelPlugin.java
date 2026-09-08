@@ -142,30 +142,67 @@ public final class HistoryPanelPlugin implements TurboismPlugin {
 
     private void registerMoveActions() {
         unregisterMoveActions();
-        final dev.turboism.sdk.cubism.history.HistorySnapshot snapshot =
-            context.cubism().history().snapshot();
-        if (snapshot.availability() != dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE) {
+        final CubismHistory history = context.cubism().history();
+        final HistorySnapshot snapshot = history.snapshot();
+        if (snapshot.availability() != HistorySnapshot.Availability.AVAILABLE) {
+            return;
+        }
+        final List<String> expectedSequence = snapshot.entries().stream()
+            .map(entry -> entry.entryId().map(id -> id.value()).orElse(null))
+            .toList();
+        if (expectedSequence.stream().anyMatch(java.util.Objects::isNull)) {
+            logger.warn("History navigation disabled: stable entry identity unavailable");
             return;
         }
         for (final dev.turboism.sdk.cubism.history.HistoryEntry entry : snapshot.entries()) {
-            final String actionId = "history.entry.move." + entry.index();
-            final int index = entry.index();
+            final String entryId = entry.entryId().orElseThrow().value();
+            final String actionId = HistoryPanelService.moveActionId(entryId);
             moveActions.add(registerAction(actionId, entry.label(), ignored -> {
-                // Checkbox interaction: unchecking an applied entry undoes back
-                // to it; re-checking an undone entry redoes forward past it.
-                final dev.turboism.sdk.cubism.history.HistorySnapshot current =
-                    context.cubism().history().snapshot();
-                if (current.availability()
-                    != dev.turboism.sdk.cubism.history.HistorySnapshot.Availability.AVAILABLE) {
+                final HistorySnapshot current = history.snapshot();
+                if (!matchesBinding(snapshot, expectedSequence, current)) {
+                    logger.warn("History navigation rejected: snapshot binding changed");
                     return;
                 }
-                if (index < current.position()) {
-                    context.cubism().history().undo(current.position() - index);
-                } else {
-                    context.cubism().history().redo(index - current.position() + 1);
+                final int entryIndex = expectedSequence.indexOf(entryId);
+                if (entryIndex < 0) {
+                    logger.warn("History navigation rejected: entry identity missing");
+                    return;
+                }
+                final int targetPosition = entryIndex < current.position()
+                    ? entryIndex
+                    : entryIndex + 1;
+                final HistoryMoveResult result = history.moveTo(
+                    snapshot.generation(),
+                    snapshot.revision(),
+                    targetPosition
+                );
+                if (result.outcome() != HistoryMoveResult.Outcome.MOVED) {
+                    logger.warn("History navigation failed safely: " + result.diagnosticId().orElse("unknown"));
                 }
             }));
         }
+    }
+
+    private static boolean matchesBinding(
+        final HistorySnapshot expected,
+        final List<String> expectedSequence,
+        final HistorySnapshot current
+    ) {
+        if (current.availability() != HistorySnapshot.Availability.AVAILABLE
+            || current.generation() != expected.generation()
+            || current.revision() != expected.revision()
+            || current.entries().size() != expectedSequence.size()) {
+            return false;
+        }
+        for (int index = 0; index < expectedSequence.size(); index++) {
+            final String currentId = current.entries().get(index).entryId()
+                .map(id -> id.value())
+                .orElse(null);
+            if (!expectedSequence.get(index).equals(currentId)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private void unregisterMoveActions() {

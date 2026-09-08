@@ -1,6 +1,9 @@
 package dev.turboism.tests.plugin;
 
 import dev.turboism.sdk.cubism.CubismPlugin;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.PluginContext;
 
 import javax.swing.SwingUtilities;
@@ -19,6 +22,9 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
 
     private static final int POLL_MILLIS = 100;
     private static final int MAX_ENTRIES = 256;
+    private static final int MAX_DETAIL_DEPTH = 4;
+    private static final int MAX_DETAIL_NODES = 64;
+    private static final int MAX_DETAIL_STRING = 256;
     private static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
 
     private PluginContext context;
@@ -116,7 +122,7 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final Object mainManager = mainMode == null ? null : invoke(mainMode, "getUndoManager");
         final Object linkedManager = currentMode == null ? null : optionalInvoke(currentMode, "getLinkedUndoManager");
 
-        for (Object value : List.of(documentManager, currentManager, mainManager)) {
+        for (Object value : new Object[] {documentManager, currentManager, mainManager}) {
             if (value != null) requireSameLoader(appClass, value.getClass());
         }
         if (linkedManager != null) requireSameLoader(appClass, linkedManager.getClass());
@@ -132,8 +138,90 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             manager("DOCUMENT", documentManager),
             manager("CURRENT", currentManager),
             manager("MAIN", mainManager),
-            manager("LINKED", linkedManager)
+            manager("LINKED", linkedManager),
+            sdkHistory()
         );
+    }
+
+    private SdkHistorySnapshot sdkHistory() {
+        final HistorySnapshot history = context.cubism().history().snapshot();
+        final int count = Math.min(history.entries().size(), MAX_ENTRIES);
+        final List<SdkEntry> entries = new ArrayList<>(count);
+        for (int index = 0; index < count; index++) {
+            final HistoryEntry entry = history.entries().get(index);
+            entries.add(new SdkEntry(
+                entry.index(),
+                entry.entryId().map(value -> value.value()).orElse(""),
+                boundedLabel(entry.label()),
+                sdkDetailJson(entry.detail(), 0)
+            ));
+        }
+        return new SdkHistorySnapshot(
+            history.availability().name(),
+            history.generation(),
+            history.revision(),
+            history.position(),
+            history.canUndo(),
+            history.canRedo(),
+            boundedLabel(history.documentBindingId()),
+            boundedLabel(history.managerBindingId()),
+            history.entries().size(),
+            List.copyOf(entries)
+        );
+    }
+
+    private static String sdkDetailJson(
+        final dev.turboism.sdk.cubism.history.HistoryEntryDetail detail,
+        final int depth
+    ) {
+        final String targets = detail.targets().stream().map(target ->
+            "{\"type\":\"" + json(target.type())
+                + "\",\"id\":" + optionalJson(target.id())
+                + ",\"displayName\":" + optionalJson(target.displayName()) + "}"
+        ).reduce((left, right) -> left + "," + right).orElse("");
+        final String changes = detail.changes().stream().map(change ->
+            "{\"operation\":\"" + change.operation().name()
+                + "\",\"targetIndex\":" + change.targetIndex().map(String::valueOf).orElse("null")
+                + ",\"property\":" + optionalJson(change.property())
+                + ",\"before\":" + optionalJson(change.before())
+                + ",\"after\":" + optionalJson(change.after())
+                + ",\"context\":" + sdkContextJson(change) + "}"
+        ).reduce((left, right) -> left + "," + right).orElse("");
+        String group = "null";
+        if (depth < MAX_DETAIL_DEPTH && detail.group().isPresent()) {
+            final var value = detail.group().orElseThrow();
+            final String children = value.children().stream()
+                .map(child -> sdkDetailJson(child, depth + 1))
+                .reduce((left, right) -> left + "," + right)
+                .orElse("");
+            group = "{\"groupId\":" + optionalJson(value.groupId())
+                + ",\"observedChildCount\":" + value.observedChildCount()
+                + ",\"truncated\":" + value.truncated()
+                + ",\"children\":[" + children + "]}";
+        }
+        return "{\"summary\":\"" + json(detail.summary())
+            + "\",\"detailLevel\":\"" + detail.detailLevel().name()
+            + "\",\"origin\":\"" + detail.origin().kind().name()
+            + "\",\"degradationCode\":" + optionalJson(detail.degradationCode())
+            + ",\"targets\":[" + targets + "]"
+            + ",\"changes\":[" + changes + "]"
+            + ",\"group\":" + group + "}";
+    }
+
+    private static String sdkContextJson(final HistoryChange change) {
+        final String coordinates = change.context().coordinates().stream().map(coordinate ->
+            "{\"parameter\":{\"type\":\"" + json(coordinate.parameter().type())
+                + "\",\"id\":" + optionalJson(coordinate.parameter().id())
+                + ",\"displayName\":" + optionalJson(coordinate.parameter().displayName())
+                + "},\"value\":\"" + json(coordinate.value()) + "\"}"
+        ).reduce((left, right) -> left + "," + right).orElse("");
+        return "{\"kind\":\"" + change.context().kind().name()
+            + "\",\"formId\":" + optionalJson(change.context().formId())
+            + ",\"coordinates\":[" + coordinates + "]}";
+    }
+
+    private static String optionalJson(final java.util.Optional<String> value) {
+        return value.map(item -> "\"" + json(item) + "\"").orElse("null");
     }
 
     private static ManagerSnapshot manager(final String name, final Object manager) throws Exception {
@@ -143,7 +231,12 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final List<Entry> entries = new ArrayList<>(count);
         for (int index = 0; index < count; index++) {
             final Object entry = raw.get(index);
-            entries.add(new Entry(index, boundedLabel(invoke(entry, "getPresentationName")), (Boolean) invoke(entry, "isSignificant")));
+            entries.add(new Entry(
+                index,
+                boundedLabel(invoke(entry, "getPresentationName")),
+                (Boolean) invoke(entry, "isSignificant"),
+                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0})
+            ));
         }
         return new ManagerSnapshot(
             name,
@@ -157,9 +250,140 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     }
 
     static String boundedLabel(final Object value) {
+        if (!(value instanceof String text)) return "";
+        return bound(text, 160);
+    }
+
+    static String safeScalar(final Object value) {
         if (value == null) return "";
-        final String text = value.toString();
-        return text.codePoints().limit(160).collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append).toString();
+        if (value instanceof String text) return bound(text, MAX_DETAIL_STRING);
+        if (value instanceof Number || value instanceof Boolean || value instanceof Character) {
+            return bound(String.valueOf(value), MAX_DETAIL_STRING);
+        }
+        if (value instanceof Enum<?> enumeration) return bound(enumeration.name(), MAX_DETAIL_STRING);
+        return "";
+    }
+
+    private static String bound(final String value, final int codePoints) {
+        return value.codePoints().limit(codePoints)
+            .collect(StringBuilder::new, StringBuilder::appendCodePoint, StringBuilder::append)
+            .toString();
+    }
+
+    private static NativeDetail nativeDetail(
+        final Object entry,
+        final int depth,
+        final java.util.IdentityHashMap<Object, Boolean> visited,
+        final int[] nodes
+    ) {
+        final String className = entry.getClass().getName();
+        if (depth > MAX_DETAIL_DEPTH || nodes[0] >= MAX_DETAIL_NODES || visited.put(entry, Boolean.TRUE) != null) {
+            return NativeDetail.degraded(className, "LIMIT", "history.detail.node-or-depth-limit");
+        }
+        nodes[0]++;
+        try {
+            return switch (className) {
+                case "com.live2d.undo.GroupUndo" -> groupDetail(entry, className, depth, visited, nodes);
+                case "com.live2d.undo.PropertyUndo" -> propertyDetail(entry, className);
+                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className);
+                case "com.live2d.undo.ListUndo" -> listDetail(entry, className);
+                case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Parameter_" ->
+                    addRemoveDetail(entry, className, "getChildItem");
+                case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Part",
+                     "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Drawable",
+                     "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Deformer" ->
+                    addRemoveDetail(entry, className, "getItem");
+                case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_ParameterGroup" ->
+                    addRemoveDetail(entry, className, "getChildGroup");
+                default -> NativeDetail.degraded(className, "UNSUPPORTED", "history.detail.class-unsupported");
+            };
+        } catch (Exception failure) {
+            return NativeDetail.degraded(className, "FAILED", "history.detail.decoder-failed");
+        }
+    }
+
+    private static NativeDetail groupDetail(
+        final Object entry,
+        final String className,
+        final int depth,
+        final java.util.IdentityHashMap<Object, Boolean> visited,
+        final int[] nodes
+    ) throws Exception {
+        final List<?> children = (List<?>) invoke(entry, "getEditList");
+        final int observed = (Integer) invoke(entry, "getEditCount");
+        final ArrayList<String> childClasses = new ArrayList<>();
+        final ArrayList<NativeDetail> childDetails = new ArrayList<>();
+        final int count = Math.min(children.size(), MAX_DETAIL_NODES - nodes[0]);
+        boolean truncated = observed != children.size() || children.size() > count;
+        for (int index = 0; index < count; index++) {
+            final NativeDetail child = nativeDetail(children.get(index), depth + 1, visited, nodes);
+            childClasses.add(child.entryClass());
+            childDetails.add(child);
+            if (!child.degradationCode().isEmpty()) truncated = true;
+        }
+        return new NativeDetail(
+            "GROUP", className, "", "", "", "", "", -1,
+            observed, List.copyOf(childClasses), List.copyOf(childDetails), false, false,
+            truncated ? "history.detail.group-truncated" : ""
+        );
+    }
+
+    private static NativeDetail propertyDetail(final Object entry, final String className) throws Exception {
+        final Object target = invoke(entry, "getObj");
+        final Object previous = invoke(entry, "getPrevValue");
+        final Object post = invoke(entry, "getPostValue");
+        final String previousValue = safeScalar(previous);
+        final String postValue = safeScalar(post);
+        final String degradation = postValue.isEmpty()
+            ? "history.detail.post-state-unavailable"
+            : previous != null && previousValue.isEmpty()
+                ? "history.detail.value-unsupported"
+                : "history.detail.native-target-unattributed";
+        return new NativeDetail(
+            "PROPERTY", className, target == null ? "" : target.getClass().getName(),
+            boundedLabel(invoke(entry, "getName")), previousValue, postValue, "", -1,
+            0, List.of(), List.of(), previous != null, post != null, degradation
+        );
+    }
+
+    private static NativeDetail simpleDetail(final Object entry, final String className) throws Exception {
+        final Object target = invoke(entry, "getTargetData");
+        final Object undo = invoke(entry, "getUndoData");
+        final Object redo = invoke(entry, "getRedoData");
+        return new NativeDetail(
+            "SIMPLE", className, target == null ? "" : target.getClass().getName(),
+            "", "", "", "", -1, 0, List.of(), List.of(), undo != null, redo != null,
+            redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque"
+        );
+    }
+
+    private static NativeDetail listDetail(final Object entry, final String className) throws Exception {
+        final Object target = invoke(entry, "getTargetList");
+        final Object undo = invoke(entry, "getTargetListEntriesForUndo");
+        final Object redo = invoke(entry, "getTargetListEntriesForRedo");
+        final String previous = undo instanceof List<?> list ? Integer.toString(list.size()) : "";
+        final String post = redo instanceof List<?> list ? Integer.toString(list.size()) : "";
+        return new NativeDetail(
+            "LIST", className, target == null ? "" : target.getClass().getName(),
+            "entryCount", previous, post, "", -1, 0, List.of(), List.of(), undo != null, redo != null,
+            post.isEmpty() ? "history.detail.post-state-unavailable" : "history.detail.native-list-content-opaque"
+        );
+    }
+
+    private static NativeDetail addRemoveDetail(
+        final Object entry,
+        final String className,
+        final String itemMethod
+    ) throws Exception {
+        final Object owner = invoke(entry, "getOwnerObject");
+        final Object item = invoke(entry, itemMethod);
+        final boolean add = (Boolean) invoke(entry, "isAdd");
+        return new NativeDetail(
+            "ADD_REMOVE", className,
+            item == null ? (owner == null ? "" : owner.getClass().getName()) : item.getClass().getName(),
+            "", "", "", add ? "ADD" : "REMOVE", (Integer) invoke(entry, "getInsertIndex"),
+            0, List.of(), List.of(), true, true, item == null ? "history.detail.target-unavailable" : ""
+        );
     }
 
     private static void requireSameLoader(final Class<?> expected, final Class<?> actual) {
@@ -238,10 +462,54 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         else SwingUtilities.invokeLater(operation);
     }
 
-    record Entry(int index, String label, boolean significant) {
+    record Entry(int index, String label, boolean significant, NativeDetail detail) {
         String json() {
             return "{\"index\":" + index + ",\"label\":\"" + WindowsHistoryManagerValidationProbe.json(label)
-                + "\",\"significant\":" + significant + "}";
+                + "\",\"significant\":" + significant + ",\"nativeDetail\":" + detail.json() + "}";
+        }
+    }
+
+    record NativeDetail(
+        String family,
+        String entryClass,
+        String targetClass,
+        String propertyName,
+        String previousValue,
+        String postValue,
+        String direction,
+        int index,
+        int observedChildCount,
+        List<String> childClasses,
+        List<NativeDetail> childDetails,
+        boolean undoAvailable,
+        boolean postAvailable,
+        String degradationCode
+    ) {
+        static NativeDetail degraded(final String entryClass, final String family, final String code) {
+            return new NativeDetail(
+                family, entryClass, "", "", "", "", "", -1, 0, List.of(), List.of(), false, false, code
+            );
+        }
+
+        String json() {
+            return "{\"family\":\"" + WindowsHistoryManagerValidationProbe.json(family)
+                + "\",\"entryClass\":\"" + WindowsHistoryManagerValidationProbe.json(entryClass)
+                + "\",\"targetClass\":\"" + WindowsHistoryManagerValidationProbe.json(targetClass)
+                + "\",\"propertyName\":\"" + WindowsHistoryManagerValidationProbe.json(propertyName)
+                + "\",\"previousValue\":\"" + WindowsHistoryManagerValidationProbe.json(previousValue)
+                + "\",\"postValue\":\"" + WindowsHistoryManagerValidationProbe.json(postValue)
+                + "\",\"direction\":\"" + WindowsHistoryManagerValidationProbe.json(direction)
+                + "\",\"index\":" + index
+                + ",\"observedChildCount\":" + observedChildCount
+                + ",\"childClasses\":[" + childClasses.stream()
+                    .map(value -> "\"" + WindowsHistoryManagerValidationProbe.json(value) + "\"")
+                    .reduce((a, b) -> a + "," + b).orElse("") + "]"
+                + ",\"childDetails\":[" + childDetails.stream()
+                    .map(NativeDetail::json)
+                    .reduce((a, b) -> a + "," + b).orElse("") + "]"
+                + ",\"undoAvailable\":" + undoAvailable
+                + ",\"postAvailable\":" + postAvailable
+                + ",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode) + "\"}";
         }
     }
 
@@ -266,6 +534,43 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         }
     }
 
+    record SdkEntry(int index, String entryId, String label, String detailJson) {
+        String json() {
+            return "{\"index\":" + index
+                + ",\"entryId\":\"" + WindowsHistoryManagerValidationProbe.json(entryId)
+                + "\",\"label\":\"" + WindowsHistoryManagerValidationProbe.json(label)
+                + "\",\"detail\":" + detailJson + "}";
+        }
+    }
+
+    record SdkHistorySnapshot(
+        String availability,
+        long generation,
+        long revision,
+        int position,
+        boolean canUndo,
+        boolean canRedo,
+        String documentBindingId,
+        String managerBindingId,
+        int totalEntries,
+        List<SdkEntry> entries
+    ) {
+        String json() {
+            return "{\"availability\":\"" + WindowsHistoryManagerValidationProbe.json(availability)
+                + "\",\"generation\":" + generation
+                + ",\"revision\":" + revision
+                + ",\"position\":" + position
+                + ",\"canUndo\":" + canUndo
+                + ",\"canRedo\":" + canRedo
+                + ",\"documentBindingId\":\"" + WindowsHistoryManagerValidationProbe.json(documentBindingId)
+                + "\",\"managerBindingId\":\"" + WindowsHistoryManagerValidationProbe.json(managerBindingId)
+                + "\",\"totalEntries\":" + totalEntries
+                + ",\"truncated\":" + (totalEntries > entries.size())
+                + ",\"entries\":[" + entries.stream().map(SdkEntry::json)
+                    .reduce((left, right) -> left + "," + right).orElse("") + "]}";
+        }
+    }
+
     record Snapshot(
         String observedAt,
         String thread,
@@ -277,12 +582,15 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         ManagerSnapshot document,
         ManagerSnapshot current,
         ManagerSnapshot main,
-        ManagerSnapshot linked
+        ManagerSnapshot linked,
+        SdkHistorySnapshot sdkHistory
     ) {
         String fingerprint() {
             return documentIdentity + ":" + currentModeIdentity + ":" + document.identity() + ":" + current.identity()
                 + ":" + main.identity() + ":" + linked.identity() + ":" + document.position() + ":" + current.position()
-                + ":" + main.position() + ":" + linked.position() + ":" + document.totalEntries() + ":" + current.totalEntries();
+                + ":" + main.position() + ":" + linked.position() + ":" + document.totalEntries() + ":" + current.totalEntries()
+                + ":" + sdkHistory.generation() + ":" + sdkHistory.revision() + ":" + sdkHistory.position()
+                + ":" + sdkHistory.totalEntries();
         }
 
         String json() {
@@ -293,7 +601,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                 + "\",\"documentIdentity\":\"" + WindowsHistoryManagerValidationProbe.json(documentIdentity)
                 + "\",\"currentModeClass\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeClass)
                 + "\",\"currentModeIdentity\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeIdentity)
-                + "\",\"managers\":[" + document.json() + "," + current.json() + "," + main.json() + "," + linked.json() + "]}";
+                + "\",\"managers\":[" + document.json() + "," + current.json() + "," + main.json() + "," + linked.json() + "]"
+                + ",\"sdkHistory\":" + sdkHistory.json() + "}";
         }
     }
 }

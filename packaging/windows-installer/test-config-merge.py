@@ -108,12 +108,12 @@ REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/�
 CURRENT_SCHEMA = 1
 V0_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
     "hooks", "launcher", "cubismJvm", "graalVmPath",
 }
 V1_FIELDS = {
     "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+    "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
     "hooks", "launcher",
 }
 LOG_LEVELS = {"TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL"}
@@ -164,6 +164,8 @@ def validate_v1(doc):
             raise ValueError("locale is invalid")
     if "safeMode" in doc and type(doc["safeMode"]) is not bool:
         raise ValueError("safeMode must be boolean")
+    if "useTextIcon" in doc and type(doc["useTextIcon"]) is not bool:
+        raise ValueError("useTextIcon must be boolean")
     if "hooks" in doc:
         hooks = doc["hooks"]
         if not isinstance(hooks, dict) or set(hooks) - HOOK_FIELDS:
@@ -206,7 +208,7 @@ def migrate_v0(doc):
     }
     for field in (
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel",
-        "maxLogStorageMiB", "locale", "safeMode", "diagnostics", "hooks",
+        "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics", "hooks",
     ):
         if field in doc:
             migrated[field] = doc[field]
@@ -241,6 +243,7 @@ def installer_write_config(mode, unchecked, existing_text, bundled_ids=BUNDLED_I
             "schemaVersion": CURRENT_SCHEMA,
             "worktreeId": "turboism-runtime",
             "pluginDirs": ["plugins"],
+            "useTextIcon": False,
             "launcher": {"cubismJvm": "graalvm"},
         }
     else:
@@ -1110,7 +1113,7 @@ def main():
     doc = json.loads(out)
     check("T1 模板字段", doc["worktreeId"] == "turboism-runtime" and doc["pluginDirs"] == ["plugins"]
           and doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1
-          and doc["launcher"] == {"cubismJvm": "graalvm"})
+          and doc["launcher"] == {"cubismJvm": "graalvm"} and doc["useTextIcon"] is False)
     check("T1 无 disabledPlugins", "disabledPlugins" not in doc)
 
     # T2: Full、未勾选 2 个、无既有配置 → 升序写出
@@ -1125,14 +1128,14 @@ def main():
     # T3: current v1 更新只改 disabledPlugins，并让本次勾选真正生效。
     existing = json.dumps({"format": "turboism.runtime.config", "schemaVersion": 1,
                            "worktreeId": "user-runtime", "pluginDirs": ["custom"],
-                           "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG"}, indent=2)
+                           "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG", "useTextIcon": True}, indent=2)
     out = installer_write_config("full", [b], existing)
     doc = json.loads(out)
     check("T3 current schema 应用本次插件选择",
           doc["disabledPlugins"] == [b, UNRELATED], str(doc.get("disabledPlugins")))
     check("T3 current schema 保留其他用户字段",
           doc["worktreeId"] == "user-runtime" and doc["pluginDirs"] == ["custom"]
-          and doc["logLevel"] == "DEBUG")
+          and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
 
     # T4: Lite 更新禁用全部捆绑插件，同时保留无关禁用项和其他字段。
     out = installer_write_config("lite", BUNDLED_IDS, existing)
@@ -1151,14 +1154,14 @@ def main():
     # T6: schema-less v0 迁移到 v1，保留已知设置并应用本次插件选择。
     legacy = json.dumps({"worktreeId": "legacy-runtime", "pluginDirs": ["custom"],
                          "disabledPlugins": [a, UNRELATED], "logLevel": "DEBUG",
-                         "cubismJvm": "bundled"})
+                         "useTextIcon": True, "cubismJvm": "bundled"})
     out = installer_write_config("full", [b], legacy)
     doc = json.loads(out)
     check("T6 v0 迁移到 current schema",
           doc["format"] == "turboism.runtime.config" and doc["schemaVersion"] == 1)
     check("T6 v0 保留用户设置",
           doc["worktreeId"] == "legacy-runtime" and doc["pluginDirs"] == ["custom"]
-          and doc["logLevel"] == "DEBUG")
+          and doc["logLevel"] == "DEBUG" and doc["useTextIcon"] is True)
     check("T6 v0 应用插件选择", doc["disabledPlugins"] == [b, UNRELATED])
     check("T6 v0 JVM 字段迁入 launcher", doc["launcher"]["cubismJvm"] == "bundled")
 
@@ -1198,6 +1201,7 @@ def main():
     for label, legacy_invalid in (
         ("日志级别", '{"logLevel":"BOGUS"}'),
         ("安全模式类型", '{"safeMode":"false"}'),
+        ("文字图标类型", '{"useTextIcon":"false"}'),
         ("启动器枚举", '{"cubismJvm":"other"}'),
         ("插件目录类型", '{"pluginDirs":"plugins"}'),
     ):
