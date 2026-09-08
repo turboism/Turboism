@@ -3,8 +3,8 @@
   "schemaVersion": 1,
   "resources": {
     "host-slot": {
-      "capacity": 4,
-      "description": "One isolated Cubism project/prefix/home session; performance tasks reserve all slots."
+      "capacity": 1,
+      "description": "One local Cubism session, including preparation on host and task-owned cleanup; all versions serialize."
     },
     "display-input": {
       "capacity": 1,
@@ -32,7 +32,9 @@
       "command": "scripts/preview/run-backup-interactive-session.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1}
+      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1},
+      "runnable": false,
+      "blockedReason": "Interactive WebDAV sessions are not supported by the unattended local queue; no configuration is copied or host launched."
     },
     "clipmask-viewer": {
       "description": "Clip-mask viewer SDK and host validation.",
@@ -62,7 +64,7 @@
       "command": "scripts/preview/run-fps-host-validation.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 4, "display-input": 1, "performance-host": 1}
+      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
     },
     "host-locale": {
       "description": "Host locale projection validation.",
@@ -134,7 +136,7 @@
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 4, "performance-host": 1}
+      "resources": {"host-slot": 1, "performance-host": 1}
     },
     "separate-save-path": {
       "description": "Separate project/export save-path validation.",
