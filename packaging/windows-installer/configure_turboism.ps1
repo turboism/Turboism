@@ -193,7 +193,7 @@ function Assert-RuntimeConfigV1 {
 
     Assert-RuntimeAllowedProperties $Document @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "launcher"
     ) "config.json"
 
@@ -256,6 +256,10 @@ function Assert-RuntimeConfigV1 {
     $safeMode = $Document.PSObject.Properties["safeMode"]
     if ($null -ne $safeMode -and $safeMode.Value -isnot [bool]) {
         throw "config.json safeMode must be a boolean"
+    $useTextIcon = $Document.PSObject.Properties["useTextIcon"]
+    if ($null -ne $useTextIcon -and $useTextIcon.Value -isnot [bool]) {
+        throw "config.json useTextIcon must be a boolean"
+    }
     }
 
     $hooksProperty = $Document.PSObject.Properties["hooks"]
@@ -311,7 +315,7 @@ function Convert-RuntimeConfigV0ToV1 {
     $allowed = New-Object 'System.Collections.Generic.HashSet[string]' ([System.StringComparer]::Ordinal)
     foreach ($name in @(
         "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+        "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
         "hooks", "launcher", "cubismJvm", "graalVmPath"
     )) { [void]$allowed.Add($name) }
     foreach ($property in $Document.PSObject.Properties) {
@@ -333,7 +337,7 @@ function Convert-RuntimeConfigV0ToV1 {
     }
     foreach ($name in @(
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
-        "locale", "safeMode", "diagnostics", "hooks"
+        "locale", "safeMode", "useTextIcon", "diagnostics", "hooks"
     )) {
         $property = $Document.PSObject.Properties[$name]
         if ($null -ne $property) { $migrated[$name] = $property.Value }
@@ -487,6 +491,7 @@ function Invoke-InstallerPluginSelection {
             schemaVersion = 1
             worktreeId = "turboism-runtime"
             pluginDirs = @("plugins")
+            useTextIcon = $false
             launcher = [pscustomobject][ordered]@{ cubismJvm = "graalvm" }
         }
         Assert-RuntimeConfigV1 $document

@@ -17,6 +17,11 @@ if [ "${#sdk_jars[@]}" -ne 1 ] || [ ! -f "${sdk_jars[0]}" ]; then
 fi
 sdk_jar="${sdk_jars[0]}"
 src="validation/status-bar-host-probe/src"
+catalog='META-INF/turboism/i18n/messages.properties'
+if [ ! -f "$src/$catalog" ]; then
+  echo "error: declared probe i18n catalog is missing: $src/$catalog" >&2
+  exit 1
+fi
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
@@ -26,5 +31,7 @@ cp -r "$src/META-INF" "$out/"
 
 output="$repo_root/build/status-bar-host-validation-exerciser.jar"
 jar cf "$output" -C "$out" .
+# Exercise the packaged artifact, not merely the resource source directory.
+jar tf "$output" | grep -Fx "$catalog" >/dev/null
 echo "[probe] $output"
 sha256sum "$output"

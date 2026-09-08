@@ -12,6 +12,13 @@ import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
 import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
 import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
+import dev.turboism.adapter.cubism.editor.history.decoder.ArtMeshPropertyCapture;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.sdk.cubism.id.ArtMeshId;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterBindingPointId;
@@ -989,6 +996,54 @@ final class EditorObjectReadAccess {
         writeEnvelope(undoKind, Kind.ART_MESH, modelSource, List.of(objectSource), action, mutation, true);
     }
 
+    private void writeArtMeshProperty(
+        final UndoKind undoKind, final Object modelSource, final Object objectSource,
+        final Object form, final String property, final String label,
+        final Runnable mutation, final BooleanSupplier applied,
+        final Runnable compensation, final BooleanSupplier restored
+    ) {
+        if (authoringCoordinator == null || !resolver.authorizesFeature(
+            "adapter.editor-model.readwrite", "cubism.editor-history.read",
+            EditorHistoryReadSelectorContract.REQUIRED_ALIASES)) {
+            writeEnvelope(undoKind, Kind.ART_MESH, modelSource, List.of(objectSource), label,
+                mutation, undoKind != UndoKind.ALL_EDIT);
+            return;
+        }
+        final var binding = Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final String operationId = "cubism.art-mesh.set-" + property;
+        final HistoryOrigin origin = HistoryOrigin.turboism(binding.pluginId(), operationId);
+        final Optional<ArtMeshPropertyCapture> before = ArtMeshPropertyCapture.capture(resolver, form, property);
+        final HistoryEntryDetail pending = before.map(value -> value.detail(label, origin, Optional.empty()))
+            .orElseGet(() -> new HistoryEntryDetail(label, HistoryAction.DetailLevel.PARTIAL, origin,
+                List.of(new HistoryTarget("ART_MESH", Optional.of(objectId(objectSource)), Optional.empty())),
+                List.of(new HistoryChange(HistoryChange.Operation.SET, Optional.of(0), Optional.of(property),
+                    Optional.empty(), Optional.empty())), Optional.empty(), Optional.of("history.capture.before-unavailable")));
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Runnable update = () -> {
+            resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+            refresh(app, Kind.ART_MESH, undoKind != UndoKind.ALL_EDIT);
+        };
+        authoringCoordinator.mutate(binding, new EditorUndoContribution(operationId,
+            binding.modelIdentity() + ":artmesh:" + objectId(objectSource), label,
+            (edit, transactionLabel) -> {
+                final Object handler = resolver.invoke("cubism.editor-model.parameter-controllable-source.handler", objectSource);
+                final Object undo = resolver.invoke(undoAlias(undoKind), handler, transactionLabel);
+                if (!Boolean.TRUE.equals(resolver.invoke("cubism.editor-model.undo.add", edit, undo, Boolean.TRUE))) {
+                    throw new IllegalStateException("Artmesh Undo admission failed");
+                }
+                final Object listener = resolver.createFunctionalProxy("cubism.editor-model.undo-listener.class",
+                    ignored -> { update.run(); return null; });
+                resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
+            }, () -> { mutation.run(); update.run(); }, applied,
+            () -> { compensation.run(); update.run(); }, restored,
+            EnumSet.of(EditorRefreshRequirement.MARK_DIRTY), pending
+        ).withCaptureAfter(() -> {
+            if (!binding.equals(authoringBinding.get())) throw new IllegalStateException("Artmesh capture binding changed");
+            return before.map(value -> value.detail(label, origin, ArtMeshPropertyCapture.capture(resolver, form, property)))
+                .orElse(pending);
+        }));
+    }
+
     private void writeEnvelope(
         final UndoKind undoKind,
         final Kind kind,
@@ -1227,6 +1282,10 @@ final class EditorObjectReadAccess {
             model,
             value.source(),
             "Turboism: Set Glue Name",
+            "cubism.glue.name.set",
+            "name",
+            original == null ? "<unset>" : (String) original,
+            requested,
             () -> {
                 resolver.invoke(
                     "cubism.editor-model.glue-source.set-local-name",
@@ -1273,6 +1332,10 @@ final class EditorObjectReadAccess {
             model,
             value.source(),
             "Turboism: Set Glue ID",
+            "cubism.glue.id.set",
+            "id",
+            original,
+            newId,
             () -> {
                 setGlueIdValue(value.source(), newId);
                 verifyModel(modelSource);
@@ -1311,6 +1374,10 @@ final class EditorObjectReadAccess {
             model,
             value.source(),
             "Turboism: Set Glue Intensity",
+            "cubism.glue.intensity.set",
+            "intensity",
+            Float.toString(original),
+            Float.toString(intensity),
             () -> resolver.invoke(
                 "cubism.editor-model.glue-form.set-intensity",
                 form,
@@ -1475,6 +1542,10 @@ final class EditorObjectReadAccess {
             model,
             value.source(),
             targetA ? "Turboism: Set Glue Drawable A" : "Turboism: Set Glue Drawable B",
+            targetA ? "cubism.glue.drawable-a.set" : "cubism.glue.drawable-b.set",
+            targetA ? "drawableA" : "drawableB",
+            objectId(current),
+            requested.value(),
             () -> resolver.invoke(writeAlias, value.source(), targetGuid),
             () -> resolver.invoke(readAlias, value.source()) == targetSource,
             () -> resolver.invoke(writeAlias, value.source(), originalGuid),
@@ -1488,6 +1559,10 @@ final class EditorObjectReadAccess {
         final Object model,
         final Object objectSource,
         final String action,
+        final String operationId,
+        final String property,
+        final String before,
+        final String after,
         final Runnable mutation,
         final BooleanSupplier applied,
         final Runnable compensation,
@@ -1511,8 +1586,8 @@ final class EditorObjectReadAccess {
         authoringCoordinator.mutate(
             binding,
             new EditorUndoContribution(
-                "turboism.cubism.glue.write",
-                identity + ":glue:" + objectId(objectSource),
+                operationId,
+                identity + ":glue@" + Integer.toHexString(System.identityHashCode(objectSource)),
                 action,
                 (edit, transactionLabel) -> admitGlueUndo(
                     edit,
@@ -1530,6 +1605,15 @@ final class EditorObjectReadAccess {
                     EditorRefreshRequirement.DEFORMER_PALETTE,
                     EditorRefreshRequirement.CANVAS,
                     EditorRefreshRequirement.MARK_DIRTY
+                ),
+                new HistoryEntryDetail(
+                    action,
+                    HistoryAction.DetailLevel.FULL,
+                    HistoryOrigin.turboism(binding.pluginId(), operationId),
+                    java.util.List.of(new HistoryTarget("GLUE", java.util.Optional.of(objectId(objectSource)), java.util.Optional.empty())),
+                    java.util.List.of(HistoryChange.set(0, property, before, after)),
+                    Optional.empty(),
+                    Optional.empty()
                 )
             )
         );
@@ -1916,10 +2000,17 @@ final class EditorObjectReadAccess {
     ) {
         if (!Float.isFinite(value)) throw new IllegalArgumentException("opacity must be finite");
         requireWriteAuthorized(kind);
-        if (Float.compare(number(resolver.invoke(readAlias, form), action), value) == 0) return;
-        write(kind, modelSource, objectSource, action, () ->
-            resolver.invoke(writeAlias, form, Float.valueOf(value))
-        );
+        final float original = number(resolver.invoke(readAlias, form), action);
+        if (Float.compare(original, value) == 0) return;
+        if (kind == Kind.ART_MESH) {
+            writeArtMeshProperty(UndoKind.ALL_EDIT, modelSource, objectSource, form, "opacity", action,
+                () -> resolver.invoke(writeAlias, form, Float.valueOf(value)),
+                () -> Float.compare(number(resolver.invoke(readAlias, form), action), value) == 0,
+                () -> resolver.invoke(writeAlias, form, Float.valueOf(original)),
+                () -> Float.compare(number(resolver.invoke(readAlias, form), action), original) == 0);
+        } else {
+            write(kind, modelSource, objectSource, action, () -> resolver.invoke(writeAlias, form, Float.valueOf(value)));
+        }
     }
 
     private static final java.util.regex.Pattern ID_FORBIDDEN_START =
@@ -2174,14 +2265,13 @@ final class EditorObjectReadAccess {
     ) {
         requireInspectorWriteAuthorized();
         final int clamped = Math.max(0, Math.min(1000, value));
-        if (integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "ArtMesh draw order") == clamped) {
-            return;
-        }
-        writeInspector(UndoKind.KEYFORM_EDIT, modelSource, objectSource, "Set ArtMesh draw order", () ->
-            resolver.invoke(
-                "cubism.editor-model.drawable-form.set-draw-order", form, Integer.valueOf(clamped)
-            )
-        );
+        final int original = integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "draw order");
+        if (original == clamped) return;
+        writeArtMeshProperty(UndoKind.KEYFORM_EDIT, modelSource, objectSource, form, "drawOrder", "Set ArtMesh draw order",
+            () -> resolver.invoke("cubism.editor-model.drawable-form.set-draw-order", form, Integer.valueOf(clamped)),
+            () -> integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "draw order") == clamped,
+            () -> resolver.invoke("cubism.editor-model.drawable-form.set-draw-order", form, Integer.valueOf(original)),
+            () -> integer(resolver.invoke("cubism.editor-model.drawable-form.draw-order", form), "draw order") == original);
     }
 
     private void setColor(
@@ -2203,20 +2293,23 @@ final class EditorObjectReadAccess {
             throw unavailable("Editor drawable color is unavailable.");
         }
         if (equalsColor(hostColor, color)) return;
-        writeInspector(UndoKind.KEYFORM_EDIT, modelSource, objectSource, action, () -> {
-            resolver.invoke(
-                "cubism.editor-model.float-color.set-red", hostColor, Float.valueOf(color.red())
-            );
-            resolver.invoke(
-                "cubism.editor-model.float-color.set-green", hostColor, Float.valueOf(color.green())
-            );
-            resolver.invoke(
-                "cubism.editor-model.float-color.set-blue", hostColor, Float.valueOf(color.blue())
-            );
-            resolver.invoke(
-                "cubism.editor-model.float-color.set-alpha", hostColor, Float.valueOf(color.alpha())
-            );
-        });
+        final Color original = new Color(
+            number(resolver.invoke("cubism.editor-model.float-color.red", hostColor), "red"),
+            number(resolver.invoke("cubism.editor-model.float-color.green", hostColor), "green"),
+            number(resolver.invoke("cubism.editor-model.float-color.blue", hostColor), "blue"),
+            number(resolver.invoke("cubism.editor-model.float-color.alpha", hostColor), "alpha"));
+        final String property = colorAlias.equals("cubism.editor-model.drawable-form.multiply-color")
+            ? "multiplyColor" : "screenColor";
+        writeArtMeshProperty(UndoKind.KEYFORM_EDIT, modelSource, objectSource, form, property, action,
+            () -> setCapturedHostColor(hostColor, color), () -> equalsColor(hostColor, color),
+            () -> setCapturedHostColor(hostColor, original), () -> equalsColor(hostColor, original));
+    }
+
+    private void setCapturedHostColor(final Object hostColor, final Color color) {
+        resolver.invoke("cubism.editor-model.float-color.set-red", hostColor, Float.valueOf(color.red()));
+        resolver.invoke("cubism.editor-model.float-color.set-green", hostColor, Float.valueOf(color.green()));
+        resolver.invoke("cubism.editor-model.float-color.set-blue", hostColor, Float.valueOf(color.blue()));
+        resolver.invoke("cubism.editor-model.float-color.set-alpha", hostColor, Float.valueOf(color.alpha()));
     }
 
     private boolean equalsColor(final Object hostColor, final Color color) {

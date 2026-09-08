@@ -31,19 +31,19 @@ printf 'fixture\n' > "$tmp/fixture.cmo3"
 printf 'home-file\n' > "$tmp/home-file.txt"
 mkdir -p "$tmp/home-dir"
 printf 'home-dir\n' > "$tmp/home-dir/value.txt"
-printf 'key\n' > "$tmp/key"
-host_args=(--ssh-host test@example.invalid --ssh-key "$tmp/key"
-  --golden-prefix /tmp/turboism-golden --remote-root /tmp/turboism-validation
-  --proton-runner /tmp/proton)
 
+host_args=(--golden-prefix "$tmp/golden" --host-root "$tmp/host"
+  --proton-runner "$tmp/proton")
 base=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
-  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
+  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-host "$tmp/fixture.cmo3"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
 
+# Legacy remote mode is rejected even when its former connection inputs exist.
+expect_rejected remote-mode 'local-only' "${base[@]}" --transport remote
 cubism_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
 "${base[@]}" --home-file "$tmp/home-file.txt:scripts/input.txt" --home-dir "$tmp/home-dir:scripts" \
-  --trigger state/trigger.flag --windows-env 'HOME={HOME}\\fx-home' \
-  --windows-env 'USERPROFILE={HOME}\\fx-home' --cubism-java "$cubism_java" \
+  --trigger state/trigger.flag --windows-env 'HOME={HOME}\\\\fx-home' \
+  --windows-env 'USERPROFILE={HOME}\\\\fx-home' --cubism-java "$cubism_java" \
   --cubism-java-console-marker 'GraalVM Community' > "$tmp/good.out"
 grep -Fq 'homeFileCount=1' "$tmp/good.out" || fail 'valid home-file was not accepted'
 grep -Fq 'homeDirCount=1' "$tmp/good.out" || fail 'valid home-dir was not accepted'
@@ -57,11 +57,27 @@ grep -Fq 'windowsEnvironment.1=USERPROFILE=Z:' "$tmp/good.out" \
 grep -Fq "cubismJava=$cubism_java" "$tmp/good.out" || fail 'valid Cubism Java override was not accepted'
 grep -Fq 'cubismJavaConsoleMarker=GraalVM Community' "$tmp/good.out" \
   || fail 'Cubism Java console marker was not accepted'
+grep -Fq 'transport=local' "$tmp/good.out" || fail 'local transport was not selected'
 
-base_5303=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
+# Keep both spellings covered while the local aliases replace SSH placement.
+legacy=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
+  --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-remote "$tmp/fixture.cmo3"
+  --result-file state/result.txt --golden-prefix "$tmp/golden" --remote-root "$tmp/legacy-host"
+  --proton-runner "$tmp/proton" --dry-run)
+"${legacy[@]}" > "$tmp/legacy.out"
+grep -Fq 'transport=local' "$tmp/legacy.out" || fail 'legacy local aliases were not accepted'
+
+"${base[@]}" \
+  --result-pass-line '{"type":"summary","status":"PASS"}' \
+  --result-fail-line '{"type":"summary","status":"FAIL"}' \
+  > "$tmp/good-json-marker.out"
+expect_rejected marker-control 'marker contains an unsupported control character' \
+  "${base[@]}" --result-pass-line $'status=PASS\nextra'
+
+auth=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
-"${base_5303[@]}" > "$tmp/good-5303.out"
+"${auth[@]}" > "$tmp/good-5303.out"
 grep -Fq 'version=5303' "$tmp/good-5303.out" || fail 'exact 5.3.03 version was not accepted'
 grep -Fq 'expectedJarSha256=bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166' \
   "$tmp/good-5303.out" || fail 'exact 5.3.03 reviewed artifact was not pinned'
@@ -80,8 +96,10 @@ expect_rejected home-dir-metachar 'home-dir destination must contain only ASCII'
   "${base[@]}" --home-dir "$tmp/home-dir:scripts/\$(touch-pwned)"
 expect_rejected control-character 'result file must contain only ASCII' \
   "${base[@]}" --result-file $'state/result\n.txt'
-expect_rejected ssh-option-prefix 'SSH host must not begin with an option prefix' \
-  "${base[@]}" --ssh-host '-oProxyCommand=touch-pwned'
+expect_rejected ssh-host-migration 'no longer supported in the local-only Runner' \
+  "${base[@]}" --ssh-host 'operator@example.invalid'
+expect_rejected ssh-key-migration 'no longer supported in the local-only Runner' \
+  "${base[@]}" --ssh-key "$tmp/not-a-secret-key"
 expect_rejected windows-env-format 'Windows environment assignment must use NAME=value' \
   "${base[@]}" --windows-env 'HOME'
 expect_rejected windows-env-duplicate 'duplicate Windows environment name' \
@@ -93,29 +111,32 @@ expect_rejected windows-env-java-case 'Windows environment assignment may not ov
 expect_rejected windows-env-duplicate-case 'duplicate Windows environment name' \
   "${base[@]}" --windows-env 'Path=first' --windows-env 'PATH=second'
 expect_rejected windows-env-command 'Windows environment value contains an unsupported command character' \
-  "${base[@]}" --windows-env 'HOME=C:\\safe&whoami'
+  "${base[@]}" --windows-env 'HOME=C:\safe&whoami'
+expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quote' \
+  "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
-# A non-dry run must not interpolate attacker-controlled path text into the SSH
-# command. The validation rejects it before trying either transport stub.
+# A rejected request must not reach either legacy transport name.
 bin="$tmp/bin"
 mkdir -p "$bin"
-cat > "$bin/ssh" <<'SH'
+for transport in ssh scp; do
+  cat > "$bin/$transport" <<'SH'
 #!/usr/bin/env bash
-: "${SSH_MARKER:?}"
-touch "$SSH_MARKER"
+: "${TRANSPORT_MARKER:?}"
+touch "$TRANSPORT_MARKER"
 exit 99
 SH
-chmod +x "$bin/ssh"
-expect_rejected before-ssh 'trigger path must contain only ASCII' env PATH="$bin:$PATH" SSH_MARKER="$tmp/ssh-used" \
+  chmod +x "$bin/$transport"
+done
+expect_rejected before-transport 'trigger path must contain only ASCII' \
+  env PATH="$bin:$PATH" TRANSPORT_MARKER="$tmp/transport-used" \
   bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle" --agent "$bundle/agent.jar" \
-  --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3" --result-file state/result.txt \
+  --plugin "$bundle/probe.jar" --fixture-host "$tmp/fixture.cmo3" --result-file state/result.txt \
   --trigger 'state/trigger;touch-pwned' "${host_args[@]}"
-[ ! -e "$tmp/ssh-used" ] || fail 'rejected path reached SSH transport'
+[ ! -e "$tmp/transport-used" ] || fail 'rejected path reached a legacy transport'
 
-# Cleanup must pass task-scoped paths through the runner's Base64 argument
-# transport. Embedding them in the remote `bash -s -- ...` command causes the
-# process scan to match and kill its own cleanup coordinator.
-python3 - "$runner" <<'PY' || fail 'remote cleanup embeds task paths in its command line'
+# Cleanup must bind candidates to recorded /proc start times, fail closed on
+# unreadable scans, and never use an unbound process tree or broad Wine kill.
+python3 - "$runner" <<'PY' || exit 1
 from pathlib import Path
 import re
 import sys
@@ -127,42 +148,60 @@ match = re.search(
     re.DOTALL,
 )
 if match is None:
-    raise SystemExit(1)
+    raise SystemExit("cleanup function not found")
 body = match.group("body")
-if 'remote_args_bash "$evidence_dir/wrapper.pid" "$prefix_dir/pfx" "$proton_runner"' not in body:
-    raise SystemExit(1)
-if '"${ssh_cmd[@]}" "$ssh_host" "bash -s --' in body:
-    raise SystemExit(1)
-if "<<'REMOTE' || true" in body:
-    raise SystemExit("process cleanup failure must propagate")
-for marker in ('WINEPREFIX={prefix}', 'Path("/proc").iterdir()', 'prefix.encode() in raw'):
-    if marker not in body:
-        raise SystemExit(marker)
+for forbidden in (
+    'task in raw',
+    'prefix in raw',
+    'proc.name.encode() in tracked',
+    'kill -KILL',
+    'kill -TERM',
+    'ps -o pid= --ppid',
+    'WINEPREFIX="$prefix_dir/pfx" "$wineserver" -k',
+):
+    if forbidden in body:
+        raise SystemExit(f"unsafe cleanup pattern remains: {forbidden}")
+for required in (
+    'process_start_time',
+    'pid-reused-before-signal',
+    'protected ancestor candidate',
+    'scan_owned_processes',
+    'TURBOISM_HOST_VALIDATION_TASK_DIR',
+    'value == prefix',
+    'stable_empty',
+    'pidfd_open',
+    'pidfd_send_signal',
+    'late-born or detached task processes cannot be excluded',
+    'owned process scan failed',
+):
+    if required not in body:
+        raise SystemExit(f"missing cleanup guard: {required}")
+if 'add_process "$pid" "$expected_start" owned-scan' not in body:
+    raise SystemExit('scanner candidates are not start-time bound')
+if 'unbound process candidate' not in body:
+    raise SystemExit('unbound candidates are not fail-closed')
 PY
 
-# Feature hooks receive exact host timing and Proton launch context as positional
-# arguments. This lets task-local native-runtime setup use the same reviewed runner
-# and cloned prefix without reading global environment or wrapper configuration.
-python3 - "$runner" <<'PY' || fail 'remote hooks do not receive host launch context'
+# Hooks receive the complete local context, are recorded as task-owned work, and
+# are not run by --prepare-dir.
+python3 - "$runner" <<'PY' || exit 1
 from pathlib import Path
 import re
 import sys
 
 source = Path(sys.argv[1]).read_text(encoding="utf-8")
-match = re.search(
-    r"run_remote_hook\(\) \{\n(?P<body>.*?)\n\}\n\non_exit\(\)",
-    source,
-    re.DOTALL,
-)
+match = re.search(r"run_remote_hook\(\) \{\n(?P<body>.*?)\n\}\n\nwrite_lifecycle_result\(\)", source, re.DOTALL)
 if match is None:
-    raise SystemExit(1)
+    raise SystemExit("hook function not found")
 body = match.group("body")
-if '"$version" "$result_timeout" "$proton_wrapper" "$proton_runner" "$display"' not in body:
-    raise SystemExit(1)
-if '"${REMOTE_ARGS[5]}" "${REMOTE_ARGS[6]}"' not in body:
-    raise SystemExit(1)
-if '"${REMOTE_ARGS[7]}" "${REMOTE_ARGS[8]}" "${REMOTE_ARGS[9]}" "${REMOTE_ARGS[10]}"' not in body:
-    raise SystemExit(1)
+for required in (
+    '"$task_hook" "${hook_context[@]}" "${expanded_hook_args[@]}"',
+    'background-hook.pid',
+    'record_owned_process_identity "$!" background-hook',
+    'TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"',
+):
+    if required not in body:
+        raise SystemExit(f"missing hook lifecycle guard: {required}")
 PY
 
-echo 'PASS: Cubism host-validation argument hardening'
+echo 'PASS: Cubism host-validation argument and ownership hardening'
