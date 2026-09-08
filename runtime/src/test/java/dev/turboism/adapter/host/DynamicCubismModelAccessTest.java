@@ -296,6 +296,7 @@ class DynamicCubismModelAccessTest {
         assertEquals(List.of(recording.animation), model.animationDocuments());
         final var sessionTextures = model.textures();
         assertEquals(recording.textures.rawImages(), sessionTextures.rawImages());
+        assertEquals(recording.textures.relations(), sessionTextures.relations());
         assertSame(
             recording.partTargets,
             model.parts().find(new PartId("PartReturned")).morphTargets()
@@ -311,6 +312,7 @@ class DynamicCubismModelAccessTest {
         assertThrows(IllegalStateException.class, model::autoYure);
         assertThrows(IllegalStateException.class, model::animationDocuments);
         assertThrows(IllegalStateException.class, model::textures);
+        assertThrows(IllegalStateException.class, sessionTextures::relations);
         assertThrows(IllegalStateException.class, () -> model.parts().find(
             new PartId("PartReturned")
         ).morphTargets());

@@ -562,6 +562,10 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         @Override public List<dev.turboism.sdk.cubism.model.AtlasTexture> textureAtlases() {
             return guarded(generation, delegate::textureAtlases);
         }
+        @Override public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
+            return guarded(generation, delegate::relations);
+        }
+
         @Override public void addModelImageGroup(final String name) {
             guardedVoid(generation, () -> delegate.addModelImageGroup(name));
         }
