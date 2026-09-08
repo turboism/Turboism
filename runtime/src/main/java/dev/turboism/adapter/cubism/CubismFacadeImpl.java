@@ -1174,6 +1174,10 @@ public final class CubismFacadeImpl implements CubismFacade {
                     requireModelRead("model.textures.textureAtlases");
                     return textures.textureAtlases();
                 }
+                @Override public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
+                    requireModelRead("model.textures.relations");
+                    return textures.relations();
+                }
                 @Override public void addModelImageGroup(final String name) {
                     requireModelWrite("model.textures.addModelImageGroup");
                     textures.addModelImageGroup(name);

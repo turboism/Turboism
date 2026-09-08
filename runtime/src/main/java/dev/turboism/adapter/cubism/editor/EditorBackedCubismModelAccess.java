@@ -147,7 +147,8 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.textureAccess = new EditorTextureAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            () -> binding().generation()
         );
         this.modelProfileAccess = new EditorModelProfileAccess(
             resolver,
