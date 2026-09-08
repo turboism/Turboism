@@ -90,7 +90,7 @@ final class TextureAtlasSettingsBinding {
     );
 
     private PluginConfigRegistry registry;
-    private TextureAtlasSettings confirmed = TextureAtlasSettings.defaults();
+    private volatile TextureAtlasSettings confirmed = TextureAtlasSettings.defaults();
     private long revision;
     private long epoch;
     private boolean initialized;

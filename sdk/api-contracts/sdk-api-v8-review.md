@@ -1,5 +1,7 @@
 # SDK v8 current-page texture layout contract review
 
+> Historical review: after authorized main integration, v8 remains frozen and is audited historically. The current exact gate is [v9](sdk-api-v9-review.md); the statements below describe the original v8 acceptance.
+
 The user explicitly chose **“演进新 SDK 合同（推荐）”** after being offered strict v7 preservation versus a new contract for the complete single-page scaling/rotation feature. This authorizes contract evolution and validation, **not publishing a release or modifying a Cubism installation**. The framework release version is unchanged.
 
 ## Immutable identity
