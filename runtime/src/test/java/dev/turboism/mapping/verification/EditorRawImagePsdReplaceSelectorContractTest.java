@@ -9,6 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** Static exact-JAR evidence for the internal T015 native replace seam. */
@@ -17,9 +18,9 @@ class EditorRawImagePsdReplaceSelectorContractTest {
         "/opt/dev/projects/turboism-legacy/cubism-ref/Cubism-5.3.02/jars/Live2D_Cubism.jar"
     );
     private static final HostArtifactFingerprint FINGERPRINT = new HostArtifactFingerprint(
-        EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSION,
-        41922739,
-        "988ef6a8b5fede84bd43c6dc3a9a045d9a6a974986c3f49fb6f567ccf8c84f21"
+        ReviewedHostArtifacts.CUBISM_5_3_02_VERSION,
+        ReviewedHostArtifacts.CUBISM_5_3_02.size(),
+        ReviewedHostArtifacts.CUBISM_5_3_02.sha256()
     );
 
     @Test
@@ -47,6 +48,37 @@ class EditorRawImagePsdReplaceSelectorContractTest {
     }
 
     @Test
+    void verifiesNativeTransactionEvidenceSeparatelyWithoutAdmittingUnusedAliases() throws Exception {
+        final List<StaticSelector> selectors = transactionEvidenceSelectors();
+        final StaticVerificationReport report = new StaticSelectorVerifier().verify(
+            ARTIFACT,
+            FINGERPRINT,
+            selectors
+        );
+
+        assertTrue(
+            report.allSelectorsVerified(),
+            report.results().stream()
+                .filter(result -> result.status() != StaticVerificationStatus.VERIFIED_STATIC)
+                .map(result -> result.alias() + ": " + result.message())
+                .toList()
+                .toString()
+        );
+        assertEquals(
+            EditorRawImagePsdReplaceSelectorContract.TRANSACTION_EVIDENCE_ALIASES,
+            selectors.stream()
+                .map(StaticSelector::alias)
+                .collect(java.util.stream.Collectors.toSet())
+        );
+        assertTrue(
+            java.util.Collections.disjoint(
+                EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES,
+                EditorRawImagePsdReplaceSelectorContract.TRANSACTION_EVIDENCE_ALIASES
+            )
+        );
+    }
+
+    @Test
     void contractRequiresExact5302AndDoesNotAuthorizeOtherVersionsByItself() {
         assertEquals("5.3.02", EditorRawImagePsdReplaceSelectorContract.SUPPORTED_CUBISM_VERSION);
         assertEquals(
@@ -56,6 +88,22 @@ class EditorRawImagePsdReplaceSelectorContractTest {
         assertEquals(
             EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES.size(),
             new HashSet<>(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES).size()
+        );
+    }
+
+    @Test
+    void replaceAdmissionIsScopedToThe5302ModelRecord() {
+        assertTrue(
+            EditorModelVerificationManifest.cubism5302Capabilities()
+                .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID)
+        );
+        assertFalse(
+            EditorModelVerificationManifest.CAPABILITY_IDS
+                .contains(EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID)
+        );
+        assertFalse(
+            EditorModelVerificationManifest.cubism5303StaticAliases()
+                .contains(EditorRawImagePsdReplaceSelectorContract.PSD_IMPORT_REPLACE_ALIAS)
         );
     }
 
@@ -105,7 +153,12 @@ class EditorRawImagePsdReplaceSelectorContractTest {
                     + "Ljava/io/File;"
                     + "Lcom/live2d/cubism/doc/modeling/CModelingDocument;"
                     + "Ljava/util/List;)V"
-            ),
+            )
+        );
+    }
+
+    private static List<StaticSelector> transactionEvidenceSelectors() {
+        return List.of(
             classSelector(
                 EditorRawImagePsdReplaceSelectorContract.NATIVE_EDIT_MODE_CLASS_ALIAS,
                 "com/live2d/cubism/doc/ACEditMode"

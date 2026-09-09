@@ -12828,6 +12828,109 @@
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/util/a/a;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.psd_replace_edit_mode",
+      "kind": "method",
+      "owner": "editor-model-psd-replace",
+      "name": "cubism.editor-command.canvas.edit-mode",
+      "runtime": "getCurrentEditMode",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/CModelingDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/modeling/CModelingEditMode_Base;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.psd_replace_is_editing",
+      "kind": "method",
+      "owner": "editor-model-psd-replace",
+      "name": "cubism.editor-command.canvas.is-editing",
+      "runtime": "isEditing",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.psd_import_process",
+      "kind": "class",
+      "owner": "editor-model-psd-replace",
+      "name": "cubism.editor-model.psd-import-process.class",
+      "runtime": "com/live2d/cubism/process/psd/a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/process/psd/a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.field.psd_import_process_instance",
+      "kind": "field",
+      "owner": "editor-model-psd-replace",
+      "name": "cubism.editor-model.psd-import-process.instance",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/process/psd/a",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "intermediary": "",
+      "descriptor": "Lcom/live2d/cubism/process/psd/a;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.psd_import_replace",
+      "kind": "method",
+      "owner": "editor-model-psd-replace",
+      "name": "cubism.editor-model.psd-import-process.replace",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/process/psd/a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/cubism/CEAppCtrl;Lcom/live2d/cubism/doc/resources/CLayeredImage;Ljava/io/File;Lcom/live2d/cubism/doc/modeling/CModelingDocument;Ljava/util/List;)V"
     }
   ],
   "metadata": {
