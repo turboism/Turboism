@@ -48,7 +48,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        channel: [beta, nightly]
+        channel: [stable, beta, nightly]
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -76,7 +76,7 @@ jobs:
           CHANNEL: ${{ matrix.channel }}
         run: |
           BASE=$(python3 -c 'import sys;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;from pathlib import Path;print(framework_version(Path.cwd()))')
-          if [ "$CHANNEL" = beta ]; then VERSION="$BASE-beta.1"; NUMBER=900000001; else VERSION="$BASE-0.nightly.900000002"; NUMBER=900000002; fi
+          if [ "$CHANNEL" = stable ]; then VERSION="$BASE"; NUMBER=900000000; elif [ "$CHANNEL" = beta ]; then VERSION="$BASE-beta.1"; NUMBER=900000001; else VERSION="$BASE-0.nightly.900000002"; NUMBER=900000002; fi
           echo "TURBOISM_BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
           echo "TURBOISM_BUILD_CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
           echo "TURBOISM_BUILD_NUMBER=$NUMBER" >> "$GITHUB_ENV"
