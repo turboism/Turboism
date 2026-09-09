@@ -127,7 +127,7 @@ final class EditorRawImagePsdAccess {
             phase = FailurePhase.PROGRESS;
             final Object progress = requireNativeValue(
                 EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS,
-                resolver.invokeStatic(EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS)
+                resolver.invokeStatic("cubism.editor-model.psd-progress.default")
             );
 
             phase = FailurePhase.SOURCE_NAME;
@@ -141,7 +141,7 @@ final class EditorRawImagePsdAccess {
 
             phase = FailurePhase.SAVE;
             resolver.invoke(
-                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_SAVE_PSD_ALIAS,
+                "cubism.editor-model.layered-image.save-psd",
                 boundNativeSource,
                 targetFile,
                 progress
@@ -161,10 +161,10 @@ final class EditorRawImagePsdAccess {
             phase = FailurePhase.PARSE;
             final Object companion = requireNativeValue(
                 EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS,
-                resolver.readStaticField(EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS)
+                resolver.readStaticField("cubism.editor-model.psd-document.companion")
             );
             final Object parsed = resolver.invoke(
-                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_PARSE_FILE_ALIAS,
+                "cubism.editor-model.psd-document.parse-file",
                 companion,
                 targetFile,
                 false,
@@ -182,7 +182,7 @@ final class EditorRawImagePsdAccess {
 
             phase = FailurePhase.CONSTRUCT;
             final Object reconstructed = resolver.construct(
-                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_FROM_PSD_ALIAS,
+                "cubism.editor-model.layered-image.from-psd",
                 parsed,
                 targetFile,
                 sourceName
