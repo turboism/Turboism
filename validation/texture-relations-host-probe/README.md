@@ -67,9 +67,13 @@ SDK export entry for the fixture's single raw image. It awaits completion off th
 Native export writes only a newly allocated OS-temporary PSD; no source model save,
 replacement, external editor launch or file deletion is requested.
 
-PASS requires readable native export and matching observed structure, reported by
-this intermediate implementation as `FAILED` without a file/revision capability.
-The exact safe diagnostic is asserted; generic failure or UNAVAILABLE is not PASS.
+The `025-native-export-readable-v2` profile follows the user's explicit decision:
+PASS requires native export to be readable, not pixel or structural equality.
+This intermediate implementation still reports `FAILED` without a file/revision
+capability because handle lifecycle wiring is unfinished. Native status and
+readability are asserted; generic failure or native UNAVAILABLE is not PASS.
+Observed structural mismatch/unknown is diagnostic only. Older run results retain
+their original profile and verdict; this change does not reclassify failed runs.
 This deliberately does **not** certify full PSD fidelity, successful public EXPORTED,
 automatic replacement, Undo, reopen without the temporary PSD, or complete US2.
 The authoritative lifecycle checks above remain mandatory.
