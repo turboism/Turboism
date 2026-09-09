@@ -7113,6 +7113,26 @@
       "descriptor": "()I"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.texture_atlas.native_item_scale",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.native.item.scale",
+      "runtime": "c",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/a/b",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()D"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.texture_atlas.native_item_transform",
       "kind": "method",
       "owner": "texture-atlas-authoring",
