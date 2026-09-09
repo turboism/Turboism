@@ -17,6 +17,7 @@ public record FrameworkBuildInfo(
 
     public enum Channel {
         STABLE, BETA, NIGHTLY, UNKNOWN;
+        /** Lower-case wire/feed value used in properties and reports. */
         public String wireName() { return name().toLowerCase(Locale.ROOT); }
         static Channel parse(String value) {
             try { return valueOf(value.toUpperCase(Locale.ROOT)); }
@@ -38,15 +39,18 @@ public record FrameworkBuildInfo(
 
     /** Package identity, not the user's independently selected future update channel. */
     public static FrameworkBuildInfo current() { return Loaded.VALUE; }
-    public boolean isLocalBuild() { return buildKind.equals("local"); }
-    public String displayVersion() {
+        /** True only for an unnumbered local development build. */
+        public boolean isLocalBuild() { return buildKind.equals("local"); }
+        /** Human-readable identity: version with channel and recorded number, local build or provenance. */
+        public String displayVersion() {
         if (channel == Channel.UNKNOWN) return version;
         String identity = buildNumber.isPresent() ? "Build " + buildNumber.getAsLong()
             : isLocalBuild() ? "local" : "unrecorded build";
         return version + " (" + channel.wireName() + ", " + identity + (dirty ? ", dirty" : "") + ")";
     }
 
-    public static FrameworkBuildInfo fromProperties(Properties p) {
+        /** Parses and validates one embedded properties resource into an immutable build identity. */
+        public static FrameworkBuildInfo fromProperties(Properties p) {
         Objects.requireNonNull(p, "properties");
         String version = p.getProperty("version", "").trim();
         if (!version.matches("(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)\\.(?:0|[1-9]\\d*)(?:-[A-Za-z0-9.-]+)?") || version.length() > 120) {
