@@ -475,3 +475,31 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **有效程度**：静态入口核查成功，排除两个会污染观测的实现选择；内存/CPU/GPU优化收益仍未验证。下一切片先获取该工作负载中的真实链计数，再决定是否值得做生产释放诊断记录修复。
 - **补充验证**：原生CArrayList为final ArrayList子类；get(int)直接调用ArrayList.get，size→getSize→ArrayList.size，无惰性像素行为。该class SHA256=`c1ce8ee957d4131db8ea6ee965b027acbf4e13d9b912602c58b955ef22ab3051`，新增只读CArrayList.javap.txt留在同一私有目录。现有aux构建自动包含全部Java源且排除产品JAR中的validation包，不需要新增模块或Runner。
 - **下一切片冻结**：SpecKit024的spec/plan/tasks/research/data-model/quickstart和质量检查完成，8任务中T001–T002完成，未开始源实现/新实机。范围仅现有load/zoom/close，观察当前模型分组的filtered resources（不冒充所有图像/GPU资源）；每次上限4096组、4096图像/资源、16384 active+released记录，250ms协作式截止并报告实际耗时，非硬实时保证。两个在计时阶段之外的快照，关文档后只用refersTo(null)。最终批次含focused、devCheck/受影响bundle与参数门禁及一次队列exact5302；纯观测本身不算优化有效。
+
+### N01/I20 有界只读归因探针实施（2026-09-09；沿用09-08私有任务目录）
+
+- **实现**：新增测试专用NativeImageRetainObservation，不进入产品。精确字段类型/类来源与已验证宿主对齐；EDT读取原始model/group/image/resource字段，identity去重，active/released列表及record user读前后比较。有限列表副本与强identity表只在capture栈内存在；跨阶段仅Properties标量和WeakReference。当前资源统计先暂存并通过有界一致性检查，再整体提交，超时/缺失/观察到变化不伪装完整零。
+- **场景接入**：沿用现有load/60次zoom/close；新增idle.end/restored.end，两个retain.begin/end明确排除在计时idle/zoom阶段之外。只保留beforeClose弱cohort，120秒后及sampler结束用refersTo(null)计数。已有身份/camera/dirty/Undo检查保留，观察前后再次检查作者状态。整体workload PASS与retain.attributionStatus分开，INCOMPLETE不能当归因完成。
+- **验证与失败保留**：先写测试时真实失败（helper缺失，1failure/1error）；首次实现后synthetic图验证通过137断言，但文本禁止规则误把Long.toString(number)当宿主toString，导致1test FAIL。修正为禁止无参toString调用，保留会抛错的宿主equals/hashCode/toString/materialization对象，不改变行为验收。随后加入跨组重复、全局record预算、不同截止点不提交半资源、EDT/未知宿主负例；2测试入口PASS，565断言、71个可检测同大小替换时机（这些不是565个独立测试或全部并发窗口）。
+- **限制/有效程度**：250ms是协作式截止，调度暂停和末尾标量/弱引用合并不受硬实时保证；一致性检查不排除ABA或所有后台线程写。当前model分组缺失的atlas-only资源未扫描，released user仍可能有其他合法所有者。没有GC根/retained size证明，也没有新内存/CPU/GPU收益。最终构建门禁与新实机尚待执行；后续只报告这次真实证据，不从静态机制外推GB。
+
+### N01/I21 exact5302归因PASS：当前打开/缩放场景未发现released链（2026-09-09）
+
+- **最终门禁**：`build/native-retain-attribution/final-20260908/{gates.log,result.json}`，74.18秒exit0、无宿主抢占；2 focused入口566断言/71检测替换时机PASS（新增已验证宿主来源不匹配负例），devCheck、checkResourceValidationBundle、checkCubismHostValidationArguments全部PASS，3项resource policy smoke PASS。新aux class存在于测试JAR，product包无validation类；README、diagnostics和后续diff检查单独收口。
+- **固定与运行**：dry-run核对exact5302、heavy副本、四优化false/profilefalse、三固定helper和managed background；prepare=`0dd019193383928e70aa47042a0a462c5f820baf11c52ddcba43d5b514b81c6f`，source HEAD97866ae5c+dirtyDigest8f2742d3b0aec302896d6ab757c8a3db2e48a201493c9057a33f6a8314ddf47c，aux SHA256=`6e93803219a7314a56dce5d15a2135a8bce5e80e5d81a97a6651358206508f2d`。main现有worker未重启，提交request=`native-retain-attribution-20260909-b1`，job=`0e305cf3-3c79-4c95-bfd6-93652f0c7bc2`，attempt=`cd60f76d-cc59-48f8-806a-74a977283733`，run=`queue-67cde2143a5a428d87c04c2c845ae0e8`，label=`nr-chain-b1`。未在测量期间构建。
+- **终态**：manager succeeded/PASS，retain.attributionStatus=COMPLETE；410样本均绑定Java PID1613339/start24093860与原cgroup（device33/inode55371、boot39a1d627-6b70-427b-828f-4eafaa615ae8）。normalExit/identityVerified/fixtureUnchanged/goldenUnchanged=true；wrapper.exit实值0，汇总wrapperExit仍null不替代原始证据。scope自然destroyed，originalCgroupBound=true、cgroupKillWritten=false、errors=[]、prefixRetained=false。官方JAR/BAT、原始heavy及副本、Agent/aux、解释器与Proton依赖前后hash一致；main host恢复idle、worker在线。
+- **核心观测**：beforeZoom和beforeClose均COMPLETE/reason none：12组、849个modelImage、848个唯一resource、missingImage0、activeRecords3131、releasedRecords0、releasedRecordsAbsentActive0、releasedUsers0。两个snapshot自身耗时39.7839ms/16.5054ms；整个EDT/phase调用包络更大，不能把这两个数称完整探针CPU成本。关闭120秒后及约156秒时，848个资源弱引用仍全未clear，documentWeak亦未clear；released-user弱cohort为空是因为关闭前没有该类记录，不是“用户对象全被回收”。
+- **负结果及重试条件**：当前打开/缩放/关闭前这两个时点，没有N01诊断记录可清，故不实施“清诊断列表”作为本场景省RAM手段。静态release机制仍成立；未扫描关闭动作之后的记录、atlas-only资源，也未执行导出/重导，所以不能全面排除N01或声称解释了关文档后全部保留。只有获得相关操作的独立授权/冻结范围及明确链证据后，才重试生产N01修复；不因零计数偷偷改场景。
+
+| 阶段 | RSS中位/采样峰值 MiB | PSS中位 MiB | CPU整机%（12核） | 进程i915 render% |
+| --- | --- | --- | --- | --- |
+| 加载 | 668.87 / 4355.57 | 607.88 | 12.390 | 0.152（118/143有效区间） |
+| native idle | 4350.97 / 4354.80 | 4287.26 | 0.353 | 0.000 |
+| zoom | 4350.28 / 4355.55 | 4286.93 | 9.055 | 1.994 |
+| restored idle | 4350.31 / 4350.33 | 4286.99 | 0.147 | 0.000 |
+| closed idle | 4014.44 / 4014.68 | 3951.10 | 0.184 | 0.000 |
+| closed tail | 4014.61 / 4014.64 | 3951.27 | 0.089 | 0.000 |
+
+- **内存解释**：全程RSS/内核HWM峰4396.46MiB（约4.29GiB）；表内阶段之外有过渡峰值，不能只取表中最大。300秒heap.used约1567.29→1023.70MiB，heap.committed3840→3472MiB，GC计数39→42；GC计数不代表每次都全堆回收。关闭后RSS约减少336MiB，swap也从约53降至46MiB，与上一轮主要换出的模式不同，但这是原生基线行为，仍非新优化收益。全局MemAvailable最低1874MiB、SwapFree0；不同轮堆容量/内存压力明显不同，不能直接算探针或优化因果效应。sampler读延迟中位128.14ms、峰310.04ms，仍非CPU占用。
+- **如何验证/复现**：离线分析采用新增idle.end/restored.end排除探针包络；CPU只纳入完整阶段相邻区间、除12，GPU复用冻结helper按有效wallNs加权、不补零。RSS/PSS/private不相加，GPU不是全机GPU或VRAM。私有`/tmp/turboism-native-retain-observer-20260908/`保留prepare/submit/wait/events、分析脚本及summary。分析SHA256=`1dd251342120b5a4bcdb085bd96e239582205bbcb691bacddf998c446a600cf3`，summary=`8020507334eac58cb985d7c9c692dd36bfa125492d9cded62b9e38edb059b965`；原始samples=`3d70753438b733b08ec5ef5565ed3f0e33487f2b130dd4b4b0d24ebc2f274a3e`，phase result=`448536de2fea732fa353e48489e39977220556053246545d927615a87602afc0`，jvm.csv=`7f88b6eba4e101f7797ce0bc40e508fd1b3d744668806b32efa0c505a64cc26d`。
+- **有效程度**：只读归因实现及此场景exact-host验证成功，排除了一个未经实测支持的立即清理方向；新增内存/CPU/GPU优化收益NONE。下一步要分清真实强根保留、合法图像生命周期和JVM已提交容量未及时归还，不能仅凭848个weak未clear就清资源。
