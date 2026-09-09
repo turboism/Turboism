@@ -1,18 +1,12 @@
 package dev.turboism.preview;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
 /** Renders and publishes the single authoritative runtime-start banner. */
 final class StartupBanner {
-    private static final String VERSION_RESOURCE =
-        "/META-INF/turboism/framework-version.properties";
-
     private final AtomicBoolean published = new AtomicBoolean(false);
 
     void publish(final List<Consumer<String>> sinks, final Details details) {
@@ -59,14 +53,11 @@ final class StartupBanner {
     }
 
     static String frameworkVersion() {
-        try (InputStream stream = StartupBanner.class.getResourceAsStream(VERSION_RESOURCE)) {
-            if (stream == null) return "unknown";
-            final Properties properties = new Properties();
-            properties.load(stream);
-            return properties.getProperty("version", "unknown");
-        } catch (IOException unavailable) {
-            return "unknown";
-        }
+        return dev.turboism.core.FrameworkBuildInfo.current().version();
+    }
+
+    static String frameworkDisplayVersion() {
+        return dev.turboism.core.FrameworkBuildInfo.current().displayVersion();
     }
 
     record Details(

@@ -590,7 +590,7 @@ public final class PreviewRuntime implements AutoCloseable {
         STARTUP_BANNER.publish(
             List.of(log::banner),
             new StartupBanner.Details(
-                StartupBanner.frameworkVersion(),
+                StartupBanner.frameworkDisplayVersion(),
                 System.getProperty("java.version", "unavailable"),
                 graalVm,
                 hostAccess().cubismEditorVersion().orElse("unavailable"),
