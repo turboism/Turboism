@@ -40,6 +40,7 @@ import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdReplaceSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import java.util.List;
@@ -76,7 +77,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "6c559392668673159dd0f2d5f2d113013ca546e39087e89259386bca6cf4e32c",
+        "95f7e6b2a62639357fcabb19563fdb60404166e6c58f9b2e1e25f2402cdcbb90",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -720,12 +721,19 @@ public final class EditorModelVerificationManifest {
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
         values.addAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorRawImagePsdReplaceSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
     }
 
-    /** Exact PSD export/parse capability admitted only for the reviewed Cubism 5.3.02 record. */
+    /** Exact PSD export/parse/replace capabilities admitted only for the reviewed Cubism 5.3.02 record. */
     public static Set<String> cubism5302Capabilities() {
-        return union(CAPABILITY_IDS, Set.of(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
+        return union(
+            CAPABILITY_IDS,
+            Set.of(
+                EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+                EditorRawImagePsdReplaceSelectorContract.CAPABILITY_ID
+            )
+        );
     }
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
