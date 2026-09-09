@@ -32,8 +32,10 @@ def decode_file(value):
         raise ValueError('Oversized ledger document')
     return json.loads(data)
 
-def allocate(github, wanted):
+def allocate(github, wanted, *, nightly=False):
     """Fast-forward-only ref updates are the CAS. A sibling commit can never overwrite a winner."""
+    if nightly and not re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)", wanted['version']):
+        raise ValueError('Nightly allocation needs a stable base version')
     path = f"entries/{wanted['runId']}-{wanted['runAttempt']}.json"
     for retry in range(12):
         ref = github.api(f'git/ref/heads/{BRANCH}', optional=True)
@@ -41,7 +43,12 @@ def allocate(github, wanted):
         tree = github.api(f'git/commits/{head}')['tree']['sha'] if head else None
         entry = github.api(f'contents/{path}?ref={head}', optional=True) if head else None
         counter = decode_file(github.api(f'contents/counter.json?ref={head}')) if head else {'schemaVersion': 1, 'nextBuildNumber': 1}
-        record, updated = reserve(counter, decode_file(entry) if entry else None, wanted)
+        existing = decode_file(entry) if entry else None
+        candidate = wanted
+        if nightly:
+            number = existing.get('buildNumber') if existing else counter.get('nextBuildNumber')
+            candidate = identity(f"{wanted['version']}-0.nightly.{number}", wanted['sourceRevision'], wanted['runId'], wanted['runAttempt'])
+        record, updated = reserve(counter, existing, candidate)
         if entry:
             return record
         payload = {'tree': [{'path': name, 'type': 'blob', 'mode': '100644', 'content': json.dumps(value, sort_keys=True, separators=(',', ':')) + '\n'} for name, value in [('counter.json', updated), (path, record)]]}
@@ -86,6 +93,7 @@ def verify_receipt(github, source_root, bundle_root, version, source, run_id, at
     number = receipt.get('buildNumber')
     if type(number) is not int or not 0 < number < 9007199254740991:
         raise ValueError('Invalid build number')
+    extended = (Path(source_root) / 'runtime/src/main/java/dev/turboism/core/FrameworkBuildInfo.java').is_file()
     dist = next(Path(bundle_root).rglob(f'TurboismInstaller-{version}.jar')).parent
     def check_jar(data):
         with zipfile.ZipFile(data) as jar:
@@ -97,11 +105,24 @@ def verify_receipt(github, source_root, bundle_root, version, source, run_id, at
                 return False
             if fields['Turboism-Build-Number'] != str(number) or fields.get('Turboism-Source-Revision') != source:
                 raise ValueError('JAR build identity mismatch')
+            if extended:
+                if fields.get('Turboism-Version') != version or fields.get('Turboism-Channel') != receipt['channel']:
+                    raise ValueError('JAR version/channel does not match its build receipt')
+                resource = 'META-INF/turboism/framework-version.properties'
+                if resource in jar.namelist():
+                    properties = dict(line.split('=', 1) for line in jar.read(resource).decode('utf-8').splitlines() if '=' in line)
+                    for key, value in {'version':version, 'channel':receipt['channel'], 'buildNumber':str(number), 'sourceRevision':source, 'buildKind':'ci', 'dirty':'false'}.items():
+                        if properties.get(key) != value:
+                            raise ValueError('Runtime version resource disagrees with the verified build receipt: ' + key)
             return True
     if not check_jar(dist / f'TurboismInstaller-{version}.jar'):
         raise ValueError('Installer JAR has no build identity')
     for variant in ('full', 'lite'):
         with zipfile.ZipFile(dist / f'turboism-{version}-{variant}.zip') as archive:
+            if extended:
+                with zipfile.ZipFile(io.BytesIO(archive.read('turboism-agent.jar'))) as agent:
+                    if 'META-INF/turboism/framework-version.properties' not in agent.namelist():
+                        raise ValueError('Product runtime is missing its embedded build identity')
             checked = sum(check_jar(io.BytesIO(archive.read(n))) for n in archive.namelist() if n.endswith('.jar') and ('turboism' in n.lower()))
             if not checked:
                 raise ValueError('Portable archive has no identifiable product JAR')

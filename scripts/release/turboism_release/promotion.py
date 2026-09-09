@@ -167,6 +167,22 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
     require(re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id)), "invalid candidate run id")
     run = github.api(f"actions/runs/{run_id}")
     validate_run(run, run_id, source_sha, attempt)
+    prerelease_files = list(Path(bundle_root).rglob("prerelease-candidate.json"))
+    if prerelease_files:
+        require(len(prerelease_files) == 1 and not list(Path(bundle_root).rglob("candidate.json")),
+                "candidate cannot contain mixed stable/prerelease identities")
+        require(run["event"] == "workflow_dispatch", "Beta promotion requires a manual verified candidate")
+        from .prerelease import verify_candidate, publish as publish_prerelease
+        candidate_root = prerelease_files[0].parent
+        import shutil
+        if not (candidate_root / "dist").exists():
+            dist_roots = [p for p in Path(bundle_root).glob("windows-installer/dist") if p.is_dir()]
+            require(len(dist_roots) == 1, "prerelease artifact dist is missing")
+            shutil.copytree(dist_roots[0], candidate_root / "dist")
+        manifest, receipt, notes = verify_candidate(github, source_root, candidate_root, source_sha,
+                                                   str(run_id), run["run_attempt"], expected_channel="beta")
+        validate_run(github.api(f"actions/runs/{run_id}"), run_id, source_sha, run["run_attempt"])
+        return publish_prerelease(github, candidate_root / "dist", receipt, manifest, notes)
     tag, dist, notes, expected = verify_bundle(source_root, bundle_root, run, source_sha)
     receipt = verify_receipt(github, source_root, bundle_root, tag[1:], source_sha, str(run_id), run["run_attempt"])
     if receipt is not None:

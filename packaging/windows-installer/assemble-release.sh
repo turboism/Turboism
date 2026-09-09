@@ -385,14 +385,13 @@ else
   ver_numeric=""
   if [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
     ver_numeric="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[5]:-0}"
+  elif [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-(0\.nightly\.[1-9][0-9]*|(alpha|beta|rc)\.(0|[1-9][0-9]*))$ ]]; then
+    # Windows resources have only four 16-bit components; the complete build
+    # identity remains in the string version and payload JARs, not a lossy counter.
+    ver_numeric="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.0"
   else
-    ver_numeric="$(printf '%s' "$VER" | sed -E 's/[^0-9]+/./g; s/^\.+//; s/\.+$//')"
-    parts=(${ver_numeric//./ })
-    if [[ ${#parts[@]} -lt 3 ]]; then
-      ver_numeric=""
-    else
-      while [[ ${#parts[@]} -lt 4 ]]; do ver_numeric="$ver_numeric.0"; parts+=("0"); done
-    fi
+    echo "error: unsupported installer version: $VER" >&2
+    exit 1
   fi
   nsis_args=(
     -WX
