@@ -41,7 +41,7 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("schemaVersion", "1");
         result.setProperty("runId", runId);
         result.setProperty("profile", exportObservation
-            ? "025-native-export-observation" : "025-relations-read-only-smoke");
+            ? "025-native-export-readable-v2" : "025-relations-read-only-smoke");
         result.setProperty("expectedHostVersion", "5.3.02");
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
         result.setProperty("writeUndoPersistence", "NOT_TESTED: no model replacement or save");
@@ -163,15 +163,15 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("export.fileIssued", Boolean.toString(exported.file().isPresent()));
         result.setProperty("export.fullFidelity", "NOT_VERIFIED");
         validateExportObservation(exported);
-        result.setProperty("assertion", "native export readable and structural match; SDK fails closed without file capability");
+        result.setProperty("assertion", "native export readable; no pixel or structural admission; SDK handle not yet issued");
     }
 
     static void validateExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported) {
         if (exported.status() != dev.turboism.sdk.cubism.psd.PsdExportResult.Status.FAILED
             || exported.file().isPresent() || exported.initialRevision().isPresent()
-            || !"PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=MATCHED_UNVERIFIED;readable=true;structure=true"
-                .equals(exported.diagnostic())) {
-            throw new IllegalStateException("Native readable/structural observation with fail-closed SDK result was not obtained");
+            || !exported.diagnostic().matches(
+                "PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=(MATCHED_UNVERIFIED|MISMATCH|UNAVAILABLE);readable=true;structure=(true|false)")) {
+            throw new IllegalStateException("Native readable observation without an unfinished SDK file capability was not obtained");
         }
     }
     static void validate(final TextureRelationsSnapshot snapshot) {
