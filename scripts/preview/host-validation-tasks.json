@@ -3,8 +3,8 @@
   "schemaVersion": 1,
   "resources": {
     "host-slot": {
-      "capacity": 4,
-      "description": "One isolated Cubism project/prefix/home session; performance tasks reserve all slots."
+      "capacity": 1,
+      "description": "One local Cubism session, including preparation on host and task-owned cleanup; all versions serialize."
     },
     "display-input": {
       "capacity": 1,
@@ -20,6 +20,43 @@
     }
   },
   "tasks": {
+    "atlas": {
+      "description": "Fixed single-invocation current-page Geometry validation; final 2500 explicitly authorized after preliminary PASS.",
+      "command": "scripts/preview/run-atlas-host-validation.sh",
+      "versions": ["5303"],
+      "defaultVariant": "geometry-100-new",
+      "variants": {
+        "ui-circle-100-new": ["{version}", "{runLabel}", "ui-circle-100-new"],
+        "ui-circle-100-new-parallel": ["{version}", "{runLabel}", "ui-circle-100-new-parallel"],
+        "ui-circle-100-native": ["{version}", "{runLabel}", "ui-circle-100-native"],
+        "ui-circle-1000-new": ["{version}", "{runLabel}", "ui-circle-1000-new"],
+        "ui-circle-1000-native": ["{version}", "{runLabel}", "ui-circle-1000-native"],
+        "ui-circle-2500-new": ["{version}", "{runLabel}", "ui-circle-2500-new"],
+        "ui-circle-2500-native": ["{version}", "{runLabel}", "ui-circle-2500-native"],
+        "ui-geometry-100-new": ["{version}", "{runLabel}", "ui-geometry-100-new"],
+        "ui-geometry-100-new-parallel": ["{version}", "{runLabel}", "ui-geometry-100-new-parallel"],
+        "ui-geometry-100-native": ["{version}", "{runLabel}", "ui-geometry-100-native"],
+        "ui-geometry-1000-new": ["{version}", "{runLabel}", "ui-geometry-1000-new"],
+        "ui-geometry-1000-native": ["{version}", "{runLabel}", "ui-geometry-1000-native"],
+        "ui-geometry-2500-new": ["{version}", "{runLabel}", "ui-geometry-2500-new"],
+        "ui-geometry-2500-native": ["{version}", "{runLabel}", "ui-geometry-2500-native"],
+        "ui-circle-500-new": ["{version}", "{runLabel}", "ui-circle-500-new"],
+        "ui-circle-500-new-parallel": ["{version}", "{runLabel}", "ui-circle-500-new-parallel"],
+        "ui-circle-500-native": ["{version}", "{runLabel}", "ui-circle-500-native"],
+        "ui-geometry-500-new": ["{version}", "{runLabel}", "ui-geometry-500-new"],
+        "ui-geometry-500-new-parallel": ["{version}", "{runLabel}", "ui-geometry-500-new-parallel"],
+        "ui-geometry-500-native": ["{version}", "{runLabel}", "ui-geometry-500-native"],
+        "geometry-100-new": ["{version}", "{runLabel}", "geometry-100-new"],
+        "geometry-100-native": ["{version}", "{runLabel}", "geometry-100-native"],
+        "geometry-500-new": ["{version}", "{runLabel}", "geometry-500-new"],
+        "geometry-500-native": ["{version}", "{runLabel}", "geometry-500-native"],
+        "geometry-1000-new": ["{version}", "{runLabel}", "geometry-1000-new"],
+        "geometry-1000-native": ["{version}", "{runLabel}", "geometry-1000-native"],
+        "geometry-2500-new": ["{version}", "{runLabel}", "geometry-2500-new"],
+        "geometry-2500-native": ["{version}", "{runLabel}", "geometry-2500-native"]
+      },
+      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
+    },
     "backup": {
       "description": "Automated backup host validation.",
       "command": "scripts/preview/run-backup-host-validation.sh",
@@ -32,7 +69,9 @@
       "command": "scripts/preview/run-backup-interactive-session.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1}
+      "resources": {"host-slot": 1, "display-input": 1, "interactive-desktop": 1},
+      "runnable": false,
+      "blockedReason": "Interactive WebDAV sessions are not supported by the unattended local queue; no configuration is copied or host launched."
     },
     "clipmask-viewer": {
       "description": "Clip-mask viewer SDK and host validation.",
@@ -62,7 +101,7 @@
       "command": "scripts/preview/run-fps-host-validation.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 4, "display-input": 1, "performance-host": 1}
+      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
     },
     "host-locale": {
       "description": "Host locale projection validation.",
@@ -134,7 +173,7 @@
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
       "versions": ["5203", "5302"],
       "arguments": ["{version}", "{runLabel}"],
-      "resources": {"host-slot": 4, "performance-host": 1}
+      "resources": {"host-slot": 1, "performance-host": 1}
     },
     "separate-save-path": {
       "description": "Separate project/export save-path validation.",

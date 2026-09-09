@@ -1,10 +1,14 @@
 package dev.turboism.adapter.cubism.editor.history;
 
+import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
+import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 
@@ -29,6 +33,7 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
     private final LongSupplier generation;
     private final Object revisionLock = new Object();
     private final BindingIdentityTracker documentIdentities;
+    private final NativeHistoryDecoderRegistry nativeDecoders = new NativeHistoryDecoderRegistry();
     private final BindingIdentityTracker managerIdentities;
     private long revisionGeneration = -1;
     private long revision;
@@ -314,6 +319,8 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
         final Object manager = binding.manager();
         final Object rawEntries = resolver.invoke("cubism.editor-history.manager.entries", manager);
         if (!(rawEntries instanceof List<?> values)) return HistorySnapshot.unavailable();
+        final int position = number(resolver.invoke("cubism.editor-history.manager.position", manager));
+        if (position < 0 || position > values.size()) return HistorySnapshot.unavailable();
         final ArrayList<HistoryEntry> entries = new ArrayList<>(values.size());
         for (int index = 0; index < values.size(); index++) {
             final Object entry = values.get(index);
@@ -327,16 +334,37 @@ public final class EditorHistorySnapshotProvider implements CubismHistory {
             }
             final EditorHistoryMetadataRegistry.EntryMetadata metadata =
                 EditorHistoryMetadataRegistry.metadata(entry);
+            final HistoryEntryDetail detail;
+            if (metadata.detail().isPresent()) {
+                detail = metadata.detail().orElseThrow();
+            } else if (metadata.action().isPresent()) {
+                detail = HistoryEntryDetail.fromAction(
+                    text,
+                    metadata.action().orElseThrow(),
+                    HistoryOrigin.hostUnattributed()
+                );
+            } else {
+                final NativeHistoryDecodeResult decoded = nativeDecoders.decode(
+                    resolver,
+                    entry,
+                    text
+                );
+                detail = decoded.detail().orElseGet(() -> HistoryEntryDetail.labelOnly(
+                    text,
+                    HistoryOrigin.hostUnattributed(),
+                    decoded.diagnosticId()
+                ));
+            }
             entries.add(new HistoryEntry(
                 index,
                 text,
                 flag,
                 metadata.action(),
                 Optional.of(metadata.entryId()),
-                metadata.transactionId()
+                metadata.transactionId(),
+                detail
             ));
         }
-        final int position = number(resolver.invoke("cubism.editor-history.manager.position", manager));
         final boolean canUndo = flag(resolver.invoke("cubism.editor-history.manager.can-undo", manager));
         final boolean canRedo = flag(resolver.invoke("cubism.editor-history.manager.can-redo", manager));
         if (generation.getAsLong() != expectedGeneration) return HistorySnapshot.unavailable();

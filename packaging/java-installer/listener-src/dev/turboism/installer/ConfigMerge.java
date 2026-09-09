@@ -826,11 +826,11 @@ final class ConfigMerge {
     private static final long CURRENT_SCHEMA_VERSION = 1L;
     private static final Set<String> V0_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
             "hooks", "launcher", "cubismJvm", "graalVmPath");
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
-            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "diagnostics",
+            "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
             "hooks", "launcher");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
@@ -929,6 +929,9 @@ final class ConfigMerge {
         }
         if (map.containsKey("safeMode") && !(map.get("safeMode") instanceof Boolean)) {
             throw new ConfigException("existing config.json safeMode must be a boolean");
+        }
+        if (map.containsKey("useTextIcon") && !(map.get("useTextIcon") instanceof Boolean)) {
+            throw new ConfigException("existing config.json useTextIcon must be a boolean");
         }
 
         if (map.containsKey("hooks")) {
@@ -1033,7 +1036,7 @@ final class ConfigMerge {
         migrated.put("launcher", new LinkedHashMap<>(Map.of("cubismJvm", "graalvm")));
         for (String field : List.of(
                 "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB",
-                "locale", "safeMode", "diagnostics", "hooks")) {
+                "locale", "safeMode", "useTextIcon", "diagnostics", "hooks")) {
             if (legacy.containsKey(field)) migrated.put(field, legacy.get(field));
         }
 
