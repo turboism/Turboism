@@ -21,12 +21,18 @@ import java.util.Objects;
  * editor GUIDs, and there is no verified evidence that those GUIDs are PSD-persisted identifiers.
  * A missing native layer ID is therefore retained as {@code null}, never replaced with an editor
  * GUID. Clipping is observed but remains unverified because the exact save helper does not read
- * {@code isClipping()}. Pixel values are compared with a bounded row-major ARGB digest so a large
- * image cannot cause unbounded extra storage or host-thread work. This class does not expose host
+ * {@code isClipping()}. Pixel values use one shared per-capture sample budget plus bounded
+ * node and recursion-depth budgets. Cubism 5.3.02 exposes {@code CWritableImage.getIntBuffer()},
+ * but its exact bytecode returns raw {@code DataBufferInt} storage or {@code null}; it does not
+ * establish an ARGB-normalized, contiguous-row contract for every image type. This observer
+ * therefore retains verified {@code getArgb()} reads with conservative budgets and does not
+ * claim host-thread performance validation. This class does not expose host
  * objects or restrict edits made after export.</p>
  */
 final class EditorRawImagePsdIntegrityAccess {
-    private static final long MAX_PIXEL_SAMPLES = 16_777_216L;
+    static final long MAX_PIXEL_SAMPLES = 16_777_216L;
+    static final int MAX_LAYER_NODES = 16_384;
+    static final int MAX_TREE_DEPTH = 256;
     private static final String DIGEST_ALGORITHM = "SHA-256";
 
     private final VerifiedMemberResolver resolver;
@@ -58,9 +64,12 @@ final class EditorRawImagePsdIntegrityAccess {
             resolver.invoke("cubism.editor-model.layered-image.height", layeredImage),
             "layered image height"
         );
+        final ObservationBudget budget = new ObservationBudget();
         final List<LayerNode> layers = readLayers(
             resolver.invoke("cubism.editor-model.layered-image.children", layeredImage),
-            new IdentityHashMap<>()
+            new IdentityHashMap<>(),
+            budget,
+            0
         );
         return new Snapshot(name, width, height, layers);
     }
@@ -177,12 +186,25 @@ final class EditorRawImagePsdIntegrityAccess {
 
     private List<LayerNode> readLayers(
         final Object rawEntries,
-        final IdentityHashMap<Object, Boolean> visited
+        final IdentityHashMap<Object, Boolean> visited,
+        final ObservationBudget budget,
+        final int parentDepth
     ) {
         final List<?> entries = list(rawEntries, "layered image children");
-        final ArrayList<LayerNode> values = new ArrayList<>(entries.size());
+        final ArrayList<LayerNode> values = new ArrayList<>();
         for (final Object entry : entries) {
             if (entry == null) throw unavailable("layered image contains a null layer entry");
+            final int depth = parentDepth + 1;
+            if (depth > MAX_TREE_DEPTH) {
+                throw unavailable(
+                    "layer tree depth " + depth + " exceeds capture limit of " + MAX_TREE_DEPTH
+                );
+            }
+            if (!budget.tryVisitNode()) {
+                throw unavailable(
+                    "layer node budget exceeded at " + MAX_LAYER_NODES + " nodes; capture is unverified"
+                );
+            }
             if (visited.put(entry, Boolean.TRUE) != null) {
                 throw unavailable("layered image layer tree contains a repeated or cyclic entry");
             }
@@ -208,7 +230,9 @@ final class EditorRawImagePsdIntegrityAccess {
                     PixelObservation.notApplicable(),
                     readLayers(
                         resolver.invoke("cubism.editor-model.layer-group.children", entry),
-                        visited
+                        visited,
+                        budget,
+                        depth
                     )
                 ));
             } else {
@@ -224,7 +248,7 @@ final class EditorRawImagePsdIntegrityAccess {
                     ),
                     attributes,
                     readBounds(entry),
-                    readPixels(entry),
+                    readPixels(entry, budget),
                     List.of()
                 ));
             }
@@ -341,8 +365,13 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-    private PixelObservation readPixels(final Object layer) {
+    private PixelObservation readPixels(final Object layer, final ObservationBudget budget) {
         try {
+            if (budget.pixelBudgetExhausted()) {
+                return PixelObservation.unavailable(
+                    "capture pixel budget was already exhausted; ARGB reads were skipped"
+                );
+            }
             final Object resource = resolver.invoke(
                 "cubism.editor-model.layer.image-resource",
                 layer
@@ -379,12 +408,8 @@ final class EditorRawImagePsdIntegrityAccess {
                     "ARGB scan size overflowed the bounded pixel observer"
                 );
             }
-            if (sampleCount > MAX_PIXEL_SAMPLES) {
-                return PixelObservation.unavailable(
-                    width,
-                    height,
-                    "ARGB scan exceeds bounded observer limit of " + MAX_PIXEL_SAMPLES + " pixels"
-                );
+            if (!budget.tryReservePixels(sampleCount)) {
+                return PixelObservation.unavailable(width, height, budget.pixelBudgetDetail());
             }
             final MessageDigest digest = messageDigest();
             for (int y = 0; y < height; y++) {
@@ -669,11 +694,8 @@ final class EditorRawImagePsdIntegrityAccess {
 
     private static List<?> list(final Object value, final String label) {
         if (!(value instanceof List<?> values)) throw unavailable(label + " is unavailable");
-        try {
-            return List.copyOf(values);
-        } catch (NullPointerException failure) {
-            throw unavailable(label + " contains null");
-        }
+        // Do not copy an unbounded host collection before the shared node budget can stop traversal.
+        return values;
     }
 
     private static String string(final Object value, final String label) {
@@ -720,6 +742,38 @@ final class EditorRawImagePsdIntegrityAccess {
 
     private static IllegalStateException unavailable(final String detail) {
         return new IllegalStateException(detail);
+    }
+
+    private static final class ObservationBudget {
+        private int nodes;
+        private long pixels;
+        private boolean pixelBudgetExhausted;
+
+        boolean tryVisitNode() {
+            if (nodes >= MAX_LAYER_NODES) return false;
+            nodes++;
+            return true;
+        }
+
+        boolean tryReservePixels(final long requested) {
+            if (pixelBudgetExhausted || requested < 0
+                || requested > MAX_PIXEL_SAMPLES - pixels) {
+                pixelBudgetExhausted = true;
+                return false;
+            }
+            pixels += requested;
+            return true;
+        }
+
+        boolean pixelBudgetExhausted() {
+            return pixelBudgetExhausted;
+        }
+
+        String pixelBudgetDetail() {
+            return "capture pixel budget exceeded: requested pixels would pass the shared limit of "
+                + MAX_PIXEL_SAMPLES + "; ARGB reads were skipped"
+                + " (already reserved " + pixels + ")";
+        }
     }
 
     private interface Observation {
