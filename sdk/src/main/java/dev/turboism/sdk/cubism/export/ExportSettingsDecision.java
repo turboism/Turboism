@@ -37,7 +37,7 @@ public record ExportSettingsDecision(Outcome outcome, String messageKey) {
      * @param messageKey non-blank localization or diagnostic message key
      */
     public static ExportSettingsDecision reject(final String messageKey) {
-        return new ExportSettingsDecision(Outcome.REJECT, requireText(messageKey, "messageKey"));
+        return new ExportSettingsDecision(Outcome.REJECT, messageKey);
     }
 
     public ExportSettingsDecision {
@@ -51,12 +51,14 @@ public record ExportSettingsDecision(Outcome outcome, String messageKey) {
         if (outcome == Outcome.REJECT && messageKey.isBlank()) {
             throw new IllegalArgumentException("REJECT decision requires a message key");
         }
+        if (outcome == Outcome.REJECT) {
+            messageKey = requireKey(messageKey, "messageKey");
+        }
     }
 
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+    private static String requireKey(final String value, final String name) {
+        if (value.length() > 128 || !value.matches("[a-z0-9][a-z0-9._-]{0,127}")) {
+            throw new IllegalArgumentException(name + " must be a lowercase config key");
         }
         return value;
     }

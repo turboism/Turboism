@@ -88,7 +88,28 @@ final class ExportSettingsContributionServiceContractTest {
 
         assertThrows(NullPointerException.class, () -> ExportSettingsDecision.reject(null));
         assertThrows(IllegalArgumentException.class, () -> ExportSettingsDecision.reject(""));
+        assertThrows(IllegalArgumentException.class, () -> ExportSettingsDecision.reject("INVALID"));
         assertThrows(IllegalArgumentException.class, () -> ExportSettingsDecision.reject(" "));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ExportSettingsDecision.reject("invalid/message key")
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> ExportSettingsDecision.reject("a".repeat(129))
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> new ExportSettingsDecision(
+                ExportSettingsDecision.Outcome.REJECT, "a".repeat(129)
+            )
+        );
+        final String originalPath = "/tmp/source/model.cmo3";
+        final IllegalArgumentException pathFailure = assertThrows(
+            IllegalArgumentException.class,
+            () -> ExportSettingsDecision.reject(originalPath)
+        );
+        assertFalse(pathFailure.getMessage().contains(originalPath));
         assertThrows(
             IllegalArgumentException.class,
             () -> new ExportSettingsDecision(
@@ -126,6 +147,33 @@ final class ExportSettingsContributionServiceContractTest {
         assertThrows(IllegalArgumentException.class, () -> contribution(" ", "label.key", callback));
         assertThrows(IllegalArgumentException.class, () -> contribution("option-1", "", callback));
         assertThrows(NullPointerException.class, () -> contribution("option-1", "label.key", null));
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution("a".repeat(129), "label.key", callback)
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution("option-1", "a".repeat(129), callback)
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution("invalid/option", "label.key", callback)
+        );
+        assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution("option-1", "invalid/label", callback)
+        );
+        final String originalPath = "/tmp/source/model.cmo3";
+        final IllegalArgumentException optionPathFailure = assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution(originalPath, "label.key", callback)
+        );
+        assertFalse(optionPathFailure.getMessage().contains(originalPath));
+        final IllegalArgumentException labelPathFailure = assertThrows(
+            IllegalArgumentException.class,
+            () -> contribution("option-1", originalPath, callback)
+        );
+        assertFalse(labelPathFailure.getMessage().contains(originalPath));
     }
 
     @Test

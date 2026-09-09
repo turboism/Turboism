@@ -6,12 +6,18 @@ import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.export.ExportSettingsDecisionCallback;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.plugin.DisposableScope;
 import org.junit.jupiter.api.Test;
+import javax.swing.SwingUtilities;
 import java.time.Duration;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTimeout;
 import static org.junit.jupiter.api.Assertions.assertTimeoutPreemptively;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -153,6 +159,113 @@ final class RuntimeExportSettingsContributionRegistryTest {
                 invoke(closedRegistry, true).messageKey()
             );
         });
+    }
+
+    @Test
+    void edtCallbackCannotReleaseLoaderDuringSynchronousSelfUnload() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeExportSettingsContributionRegistry registry = registry();
+        scope.register(registry);
+        scope.register(registry.scopeCloseGuard());
+        final AtomicReference<Throwable> scopeFailure = new AtomicReference<>();
+        final AtomicReference<ExportSettingsDecision> decision = new AtomicReference<>();
+        final AtomicBoolean callbackOnEdt = new AtomicBoolean();
+        final AtomicBoolean loaderClosed = new AtomicBoolean();
+
+        registry.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
+            callbackOnEdt.set(SwingUtilities.isEventDispatchThread());
+            try {
+                scope.close();
+                loaderClosed.set(true);
+            } catch (Throwable failure) {
+                scopeFailure.set(failure);
+            }
+            return ExportSettingsDecision.proceedUnchanged();
+        }));
+
+        assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
+            SwingUtilities.invokeAndWait(() -> decision.set(invoke(registry, true)))
+        );
+
+        assertTrue(callbackOnEdt.get());
+        assertTrue(scopeFailure.get() instanceof IllegalStateException);
+        assertEquals(
+            RuntimeExportSettingsContributionRegistry.CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY,
+            scopeFailure.get().getMessage()
+        );
+        assertFalse(loaderClosed.get(), "a failed scope close must retain the plugin loader");
+        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+            decision.get().messageKey());
+        final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot snapshot =
+            registry.lifecycleSnapshot();
+        assertTrue(snapshot.closed());
+        assertEquals(0, snapshot.activeCallbacks());
+        assertTrue(snapshot.closeReturnedReentrantly());
+        assertFalse(snapshot.closeDrainTimedOut());
+        assertFalse(snapshot.closeDrainInterrupted());
+        assertTimeoutPreemptively(Duration.ofMillis(200), registry::close);
+    }
+
+    @Test
+    void crossThreadScopeCloseTimesOutAndKeepsLoaderRetained() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final RuntimeExportSettingsContributionRegistry registry = registry();
+        scope.register(registry);
+        scope.register(registry.scopeCloseGuard());
+        final CountDownLatch callbackEntered = new CountDownLatch(1);
+        final CountDownLatch releaseCallback = new CountDownLatch(1);
+        final AtomicReference<ExportSettingsDecision> callbackDecision = new AtomicReference<>();
+        final AtomicBoolean loaderClosed = new AtomicBoolean();
+        registry.contribute(contribution(OPTION, (selected, documentId, modelId) -> {
+            callbackEntered.countDown();
+            try {
+                if (!releaseCallback.await(10, TimeUnit.SECONDS)) {
+                    return ExportSettingsDecision.reject("callback.timeout");
+                }
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return ExportSettingsDecision.reject("callback.interrupted");
+            }
+            return ExportSettingsDecision.reject("callback.rejected");
+        }));
+        final Thread callbackThread = new Thread(
+            () -> callbackDecision.set(invoke(registry, true)),
+            "export-settings-callback"
+        );
+        callbackThread.start();
+
+        try {
+            assertTrue(callbackEntered.await(2, TimeUnit.SECONDS));
+            final AtomicReference<Exception> scopeFailure = new AtomicReference<>();
+            assertTimeout(Duration.ofSeconds(6), () -> {
+                try {
+                    scope.close();
+                    loaderClosed.set(true);
+                } catch (Exception failure) {
+                    scopeFailure.set(failure);
+                }
+            });
+            assertFalse(loaderClosed.get(), "a timeout must retain the plugin loader");
+            assertEquals(RuntimeExportSettingsContributionRegistry.CALLBACK_DRAIN_TIMEOUT_KEY,
+                scopeFailure.get().getMessage());
+            final RuntimeExportSettingsContributionRegistry.LifecycleSnapshot timedOut =
+                registry.lifecycleSnapshot();
+            assertTrue(timedOut.closed());
+            assertEquals(1, timedOut.activeCallbacks());
+            assertFalse(timedOut.closeReturnedReentrantly());
+            assertTrue(timedOut.closeDrainTimedOut());
+            assertFalse(timedOut.closeDrainInterrupted());
+            assertTimeoutPreemptively(Duration.ofMillis(200), registry::close);
+        } finally {
+            releaseCallback.countDown();
+            callbackThread.join(2_000);
+        }
+
+        assertFalse(callbackThread.isAlive());
+        assertEquals(RuntimeExportSettingsContributionRegistry.STALE_GENERATION_KEY,
+            callbackDecision.get().messageKey());
+        assertEquals(0, registry.lifecycleSnapshot().activeCallbacks());
+        assertTrue(registry.lifecycleSnapshot().closeDrainTimedOut());
     }
 
     @Test
