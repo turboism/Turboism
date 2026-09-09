@@ -8,6 +8,9 @@ import dev.turboism.adapter.host.HostSessionTestSupport;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.userfile.RuntimeUserFileAccessService;
+import dev.turboism.userfile.SwingUserFileGrantSource;
+import dev.turboism.userfile.UserFileGrantSource;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
 import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
@@ -23,16 +26,23 @@ import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
 import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
+import dev.turboism.sdk.ui.UserFileLifetime;
+import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
+import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -55,6 +65,7 @@ class PreviewPluginContextFactoryCompositionTest {
     @Test
     void previewCompositionPublishesSessionSnapshotReadsToCanonicalAndLegacyFacadeSurfaces() throws Exception {
         final AtomicReference<HostInstanceDescriptor> current = new AtomicReference<>();
+        final AtomicReference<SwingUserFileGrantSource> actualSource = new AtomicReference<>();
         final HostSession session = HostSessionTestSupport.connectedSession(
             () -> Optional.ofNullable(current.get()),
             ignored -> adapters("preview-project")
@@ -80,6 +91,9 @@ class PreviewPluginContextFactoryCompositionTest {
                         PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
                         scope
                     ).context();
+                    final RuntimeUserFileAccessService userFiles =
+                        assertInstanceOf(RuntimeUserFileAccessService.class, context.userFiles());
+                    actualSource.set(assertInstanceOf(SwingUserFileGrantSource.class, sourceOf(userFiles)));
 
                     final Path pluginRoot = home.resolve("data/").resolve(descriptor().id());
                     assertFalse(Files.exists(home.resolve("config/").resolve(descriptor().id())));
@@ -120,6 +134,16 @@ class PreviewPluginContextFactoryCompositionTest {
                 } finally {
                     scope.close();
                 }
+                assertSame(
+                    UserFileGrantSource.Unavailable.INSTANCE,
+                    actualSource.get().request(new UserFileRequest(
+                        "closed-composition",
+                        "Choose",
+                        List.of("csv"),
+                        UserFileMode.READ,
+                        UserFileLifetime.ONE_OPERATION
+                    )).toCompletableFuture().get(2, TimeUnit.SECONDS)
+                );
             } finally {
                 lane.close();
             }
@@ -190,6 +214,13 @@ class PreviewPluginContextFactoryCompositionTest {
             session.close();
             scheduler.shutdown();
         }
+    }
+
+    private static UserFileGrantSource sourceOf(final RuntimeUserFileAccessService service)
+        throws ReflectiveOperationException {
+        final Field field = RuntimeUserFileAccessService.class.getDeclaredField("source");
+        field.setAccessible(true);
+        return (UserFileGrantSource) field.get(service);
     }
 
     private static RuntimeHostAdapters adapters(final String projectId) {
