@@ -32,6 +32,8 @@ import dev.turboism.sdk.task.TaskSubmissionStatus;
 import java.util.concurrent.CompletionStage;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
+import dev.turboism.sdk.ui.resource.CubismIcon;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import org.junit.jupiter.api.Test;
 
@@ -44,6 +46,7 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class HistoryPanelServiceTest {
 
@@ -177,14 +180,14 @@ class HistoryPanelServiceTest {
         );
         final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
 
-        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+        final PanelView.Toggle toggle = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
 
-        assertTrue(
-            text.contains("Artmesh(Face shadow) default shape multiply color changed to #66ccff"),
-            text
-        );
-        assertFalse(text.contains("ART_MESH multiplyColor"), text);
-        assertFalse(text.contains("Host technical label"), text);
+        assertNotNull(toggle.inlineLabel());
+        assertEquals("1 Set multiply color Artmesh icon Face shadow · partial detail", toggle.label());
+        assertFalse(toggle.label().contains("#66ccff"), toggle.label());
+        assertFalse(toggle.label().contains("Host technical label"), toggle.label());
     }
 
     @Test
@@ -241,15 +244,87 @@ class HistoryPanelServiceTest {
         );
         final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
 
-        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+        final PanelView.Toggle toggle = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
 
-        assertTrue(
-            text.contains(
-                "Artmesh(Face shadow) at keyform [Angle X=30, Angle Y=-10] "
-                    + "multiply color changed from #ffffff to #66ccff"
+        assertNotNull(toggle.inlineLabel());
+        assertEquals("1 Set multiply color Artmesh icon Face shadow", toggle.label());
+        assertFalse(toggle.label().contains("Angle X=30"), toggle.label());
+        assertFalse(toggle.label().contains("#ffffff"), toggle.label());
+    }
+
+    @Test
+    void trustedSingleTargetRowsUseClosedIconsAndNeverInferMoveFromVertexPositions() {
+        final HistorySnapshot snapshot = available(
+            1,
+            1,
+            3,
+            List.of(
+                richEntry(0, "art-entry", "ART_MESH", "<literal>&mesh", HistoryChange.Operation.SET,
+                    Optional.of("vertexPositions"), HistoryEditContext.Kind.DEFAULT_FORM),
+                richEntry(1, "warp-entry", "WARP_DEFORMER", "Warp name", HistoryChange.Operation.ADD,
+                    Optional.empty(), HistoryEditContext.Kind.OBJECT),
+                richEntry(2, "rotation-entry", "ROTATION_DEFORMER", "Rotation name", HistoryChange.Operation.REMOVE,
+                    Optional.empty(), HistoryEditContext.Kind.OBJECT)
             ),
-            text
+            true,
+            false
         );
+
+        final List<PanelView.Toggle> rows = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        );
+
+        assertEquals(3, rows.size());
+        assertEquals(CubismIcon.ART_MESH, icon(rows.get(0)).icon().icon());
+        assertEquals(CubismIcon.WARP_DEFORMER, icon(rows.get(1)).icon().icon());
+        assertEquals(CubismIcon.ROTATION_DEFORMER, icon(rows.get(2)).icon().icon());
+        assertEquals("1 Set vertex positions Artmesh icon <literal>&mesh", rows.get(0).label());
+        assertEquals("2 Add Warp deformer icon Warp name", rows.get(1).label());
+        assertEquals("3 Remove Rotation deformer icon Rotation name", rows.get(2).label());
+        assertFalse(rows.get(0).label().contains("Move"), rows.get(0).label());
+        assertTrue(rows.get(0).label().contains("<literal>&mesh"), rows.get(0).label());
+    }
+
+    @Test
+    void unknownPropertyTargetOrContextKeepsConservativeTextFallback() {
+        final HistorySnapshot snapshot = available(
+            1,
+            1,
+            4,
+            List.of(
+                partialEntry(0, "unknown-property", "Unknown property", "ART_MESH", "Mesh",
+                    "foregroundColor", HistoryEditContext.Kind.DEFAULT_FORM),
+                partialEntry(1, "unknown-target", "Unknown target", "UNKNOWN_TARGET", "Mystery",
+                    "multiplyColor", HistoryEditContext.Kind.DEFAULT_FORM),
+                partialEntry(2, "unknown-context", "Unknown context", "ART_MESH", "Mesh",
+                    "multiplyColor", HistoryEditContext.Kind.UNKNOWN),
+                new HistoryEntry(
+                    3,
+                    "Host label",
+                    true,
+                    Optional.empty(),
+                    Optional.of(new HistoryEntryId("label-only")),
+                    Optional.empty(),
+                    HistoryEntryDetail.labelOnly("Fallback summary")
+                )
+            ),
+            true,
+            false
+        );
+
+        final List<PanelView.Toggle> rows = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        );
+
+        assertEquals(4, rows.size());
+        assertTrue(rows.stream().allMatch(row -> row.inlineLabel() == null), "fallback rows stay text-only");
+        assertTrue(rows.get(0).label().contains("Unknown property"), rows.get(0).label());
+        assertTrue(rows.get(1).label().contains("Unknown target"), rows.get(1).label());
+        assertTrue(rows.get(2).label().contains("Unknown context"), rows.get(2).label());
+        assertTrue(rows.get(3).label().contains("Host label"), rows.get(3).label());
+        assertFalse(rows.stream().anyMatch(row -> row.label().contains("icon")), "no fallback row invents an icon");
     }
 
     @Test
@@ -286,6 +361,7 @@ class HistoryPanelServiceTest {
         final String text = flatten(view);
 
         assertEquals(1, toggles(view).size(), "a group remains one navigable history row");
+        assertTrue(toggles(view).get(0).inlineLabel() == null, "group rows stay conservative");
         assertTrue(toggles(view).get(0).label().startsWith("1 Edit model group"), text);
         assertTrue(text.contains("Edit model group"), text);
         assertFalse(text.contains("Add parameter"), "group children are not rendered");
@@ -490,6 +566,100 @@ class HistoryPanelServiceTest {
 
         assertEquals(1, uiHost.panels().size());
         assertEquals(1, uiHost.registrations().size(), "unchanged snapshots never re-contribute");
+    }
+
+    private static UiInlineLabel.IconRun icon(final PanelView.Toggle toggle) {
+        return (UiInlineLabel.IconRun) toggle.inlineLabel().runs().stream()
+            .filter(UiInlineLabel.IconRun.class::isInstance)
+            .findFirst()
+            .orElseThrow();
+    }
+
+    private static HistoryEntry richEntry(
+        final int index,
+        final String entryId,
+        final String targetType,
+        final String displayName,
+        final HistoryChange.Operation operation,
+        final Optional<String> property,
+        final HistoryEditContext.Kind contextKind
+    ) {
+        final HistoryTarget target = new HistoryTarget(
+            targetType,
+            Optional.of(entryId + "-target"),
+            Optional.of(displayName)
+        );
+        final HistoryChange change = new HistoryChange(
+            operation,
+            Optional.of(0),
+            property,
+            operation == HistoryChange.Operation.SET ? Optional.of("before") : Optional.empty(),
+            operation == HistoryChange.Operation.SET ? Optional.of("after") : Optional.empty(),
+            context(contextKind)
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Rich " + displayName,
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target),
+            List.of(change),
+            Optional.empty(),
+            Optional.empty()
+        );
+        return new HistoryEntry(
+            index,
+            "Raw " + displayName,
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId(entryId)),
+            Optional.empty(),
+            detail
+        );
+    }
+
+    private static HistoryEntry partialEntry(
+        final int index,
+        final String entryId,
+        final String summary,
+        final String targetType,
+        final String displayName,
+        final String property,
+        final HistoryEditContext.Kind contextKind
+    ) {
+        final HistoryTarget target = new HistoryTarget(
+            targetType,
+            Optional.of(entryId + "-target"),
+            Optional.of(displayName)
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            summary,
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.of(property),
+                Optional.empty(),
+                Optional.of("after"),
+                context(contextKind)
+            )),
+            Optional.empty(),
+            Optional.of("history.detail.partial")
+        );
+        return new HistoryEntry(
+            index,
+            summary,
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId(entryId)),
+            Optional.empty(),
+            detail
+        );
+    }
+
+    private static HistoryEditContext context(final HistoryEditContext.Kind kind) {
+        return new HistoryEditContext(kind, Optional.empty(), List.of());
     }
 
     private static HistoryAction action(final String targetId, final String before, final String after) {
@@ -916,6 +1086,11 @@ class HistoryPanelServiceTest {
                 case "history.property.multiply-color" -> "multiply color";
                 case "history.property.screen-color" -> "screen color";
                 case "history.property.vertex-positions" -> "vertex positions";
+                case "history.entry.action.add" -> "Add";
+                case "history.entry.action.remove" -> "Remove";
+                case "history.icon.art-mesh" -> "Artmesh icon";
+                case "history.icon.warp-deformer" -> "Warp deformer icon";
+                case "history.icon.rotation-deformer" -> "Rotation deformer icon";
                 case "history.target.art-mesh" -> "Artmesh";
                 case "history.target.parameter" -> "Parameter";
                 case "history.target.part" -> "Part";
@@ -937,6 +1112,9 @@ class HistoryPanelServiceTest {
             }
             if (key.equals("history.entry.origin.turboism")) {
                 return "Turboism (" + arguments[0] + ")";
+            }
+            if (key.equals("history.entry.action.set")) {
+                return "Set " + arguments[0];
             }
             if (key.equals("history.entry.target.named")) {
                 return arguments[0] + "(" + arguments[1] + ")";
