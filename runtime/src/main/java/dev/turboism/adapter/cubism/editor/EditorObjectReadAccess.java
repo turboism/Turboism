@@ -1754,7 +1754,7 @@ final class EditorObjectReadAccess {
                 throw unavailable("Editor Deformer Undo handler is unavailable.");
             }
             final Object changeUndo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.change-target-deformer",
+                "cubism.editor-model.parameter-controllable-handler.change-target-deformer-guid",
                 handler,
                 model,
                 targetGuid,
