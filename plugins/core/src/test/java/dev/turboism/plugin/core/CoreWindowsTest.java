@@ -274,7 +274,8 @@ class CoreWindowsTest {
     @Test
     void frameworkVersion_readsPackagedResource() {
         final String version = CoreWindows.frameworkVersion();
-        assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), "framework version: " + version);
+        assertTrue(version.matches("\\d+\\.\\d+\\.\\d+(?:-[A-Za-z0-9.-]+)?"), "framework version: " + version);
+        assertTrue(CoreWindows.frameworkDisplayVersion().startsWith(version));
         assertEquals(System.getProperty("turboism.expectedFrameworkVersion"), version);
     }
 

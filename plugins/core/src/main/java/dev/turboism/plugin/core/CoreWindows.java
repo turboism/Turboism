@@ -901,7 +901,7 @@ final class CoreWindows implements AutoCloseable {
         final JDialog dialog = CoreDialogs.create(text("window.about.title"), 380, 278);
         dialog.setLayout(new BorderLayout(0, 8));
 
-        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkVersion()));
+        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkDisplayVersion()));
         content.setEditable(false);
         content.setOpaque(true);
         content.setBackground(Color.WHITE);
@@ -1046,6 +1046,19 @@ final class CoreWindows implements AutoCloseable {
         graphics.drawString(ABOUT_LOGO_TEXT, 3, metrics.getAscent() + 2);
         graphics.dispose();
         return image;
+    }
+
+    static String frameworkDisplayVersion() {
+        return packagedVersionProperty("displayVersion", frameworkVersion());
+    }
+
+    private static String packagedVersionProperty(final String key, final String fallback) {
+        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
+            if (stream == null) return fallback;
+            final java.util.Properties properties = new java.util.Properties();
+            properties.load(stream);
+            return properties.getProperty(key, fallback);
+        } catch (java.io.IOException unavailable) { return fallback; }
     }
 
     static String frameworkVersion() {
