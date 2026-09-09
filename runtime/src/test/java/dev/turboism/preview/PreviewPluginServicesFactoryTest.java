@@ -1,11 +1,13 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.userfile.SwingUserFileGrantSource;
 import org.junit.jupiter.api.Test;
 
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 
 final class PreviewPluginServicesFactoryTest {
 
@@ -25,6 +27,19 @@ final class PreviewPluginServicesFactoryTest {
                 localization(false, "plugin.name")
             )
         );
+    }
+
+    @Test
+    void createsFreshSwingGrantSourceForEachPlugin() {
+        final SwingUserFileGrantSource first = PreviewPluginServicesFactory.newUserFileGrantSource();
+        final SwingUserFileGrantSource second = PreviewPluginServicesFactory.newUserFileGrantSource();
+
+        try {
+            assertNotSame(first, second);
+        } finally {
+            first.close();
+            second.close();
+        }
     }
 
     private static PluginLocalization localization(

@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletionStage;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -321,6 +323,52 @@ class RuntimeUserFileAccessServiceTest {
             oversizedResult.error().orElseThrow().code()
         );
         assertEquals(UserFileHandleState.CLOSED, oversized.state());
+    }
+
+    @Test
+    void closeClosesOwnedGrantSourceAndFencesLateSelection() throws Exception {
+        final Path selected = temporary.resolve("late.csv");
+        Files.writeString(selected, "value");
+        final class CloseTrackingSource implements UserFileGrantSource, AutoCloseable {
+            private final CompletableFuture<UserFileGrantSource.Decision> pending =
+                new CompletableFuture<>();
+            private final AtomicInteger closeCalls = new AtomicInteger();
+
+            @Override
+            public CompletionStage<UserFileGrantSource.Decision> request(
+                final UserFileRequest request
+            ) {
+                return pending;
+            }
+
+            @Override
+            public void close() {
+                closeCalls.incrementAndGet();
+            }
+        }
+
+        final CloseTrackingSource source = new CloseTrackingSource();
+        final RuntimeUserFileAccessService service = service(
+            permissions(UserFileMode.READ),
+            source
+        );
+        final var result = service.request(request(
+            UserFileMode.READ,
+            UserFileLifetime.ONE_OPERATION
+        ));
+
+        service.close();
+
+        assertEquals(1, source.closeCalls.get());
+        assertEquals(
+            UserFileRequestStatus.UNAVAILABLE,
+            result.toCompletableFuture().get(2, TimeUnit.SECONDS).status()
+        );
+        source.pending.complete(UserFileGrantSource.Decision.selected(selected));
+        assertEquals(
+            UserFileRequestStatus.UNAVAILABLE,
+            result.toCompletableFuture().get(2, TimeUnit.SECONDS).status()
+        );
     }
 
     private RuntimeUserFileAccessService service(

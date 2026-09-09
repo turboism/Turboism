@@ -365,6 +365,13 @@ public final class RuntimeUserFileAccessService
             }
         });
         toSettle.forEach(PendingRequest::unavailable);
+        if (source instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Exception ignored) {
+                // A chooser close must not prevent the remaining owned I/O from closing.
+            }
+        }
         io.close();
         synchronized (lifecycleLock) {
             grants.clear();
