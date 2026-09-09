@@ -21,6 +21,9 @@ import dev.turboism.sdk.task.TaskId;
 import dev.turboism.sdk.task.TaskSubmission;
 import dev.turboism.sdk.ui.EmbeddedPanelContribution;
 import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 
 import java.nio.charset.StandardCharsets;
@@ -230,20 +233,112 @@ public final class HistoryPanelService {
         final String unavailable = stableId.isEmpty()
             ? " · " + localization.text("history.entry.navigation.unavailable")
             : "";
-        final String label = (entry.index() + 1) + " "
-            + detailHeadline(semantic, entry.label()) + unavailable;
         final boolean applied = entry.index() < cursor;
         final boolean grayed = !applied || stableId.isEmpty();
-        final PanelView toggle = PanelView.toggle(
+        final String actionId = stableId.map(HistoryPanelService::moveActionId)
+            .orElse("history.entry.unavailable." + entry.index());
+        final Optional<UiInlineLabel> richLabel = richInlineLabel(semantic, entry.index(), unavailable);
+        if (richLabel.isPresent()) {
+            return PanelView.toggle(
+                "history.entry.toggle." + identity,
+                richLabel.orElseThrow(),
+                applied,
+                grayed,
+                actionId
+            );
+        }
+        final String label = (entry.index() + 1) + " "
+            + detailHeadline(semantic, entry.label()) + unavailable;
+        return PanelView.toggle(
             "history.entry.toggle." + identity,
             label,
             applied,
             grayed,
-            stableId.map(HistoryPanelService::moveActionId)
-                .orElse("history.entry.unavailable." + entry.index())
+            actionId
         );
-        return toggle;
     }
+
+    private Optional<UiInlineLabel> richInlineLabel(
+        final HistoryEntryDetail detail,
+        final int entryIndex,
+        final String unavailable
+    ) {
+        if (detail.group().isPresent()
+            || detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
+            || detail.targets().size() != 1
+            || detail.changes().size() != 1) {
+            return Optional.empty();
+        }
+        final HistoryChange change = detail.changes().get(0);
+        if (change.targetIndex().filter(index -> index == 0).isEmpty()
+            || change.context().kind() == HistoryEditContext.Kind.UNKNOWN
+            || change.context().kind() == HistoryEditContext.Kind.KEYFORM
+                && change.context().coordinates().isEmpty()) {
+            return Optional.empty();
+        }
+        final HistoryTarget target = detail.targets().get(0);
+        final Optional<IconSpec> icon = iconFor(target);
+        final Optional<String> displayName = target.displayName().filter(name -> !name.isBlank());
+        final Optional<String> action = richAction(change);
+        if (icon.isEmpty() || displayName.isEmpty() || action.isEmpty()) {
+            return Optional.empty();
+        }
+
+        final IconSpec iconSpec = icon.orElseThrow();
+        final List<UiInlineLabel.Run> runs = new ArrayList<>();
+        runs.add(UiInlineLabel.textRun((entryIndex + 1) + " " + action.orElseThrow() + " "));
+        runs.add(UiInlineLabel.iconRun(
+            new UiIconRef(iconSpec.icon()),
+            localization.text(iconSpec.fallbackKey())
+        ));
+        runs.add(UiInlineLabel.textRun(" " + displayName.orElseThrow()));
+
+        final StringBuilder metadata = new StringBuilder();
+        if (detail.origin().kind() == HistoryOrigin.Kind.TURBOISM) {
+            metadata.append(" · ").append(localization.format(
+                "history.entry.origin.turboism",
+                detail.origin().producerId().orElse("Turboism")
+            ));
+        }
+        if (detail.detailLevel() == HistoryAction.DetailLevel.PARTIAL) {
+            metadata.append(" · ").append(localization.text("history.entry.level.partial"));
+        }
+        metadata.append(unavailable);
+        if (!metadata.isEmpty()) {
+            runs.add(UiInlineLabel.textRun(metadata.toString()));
+        }
+        return Optional.of(UiInlineLabel.of(runs));
+    }
+
+    private Optional<String> richAction(final HistoryChange change) {
+        return switch (change.operation()) {
+            case SET -> change.property()
+                .flatMap(this::property)
+                .map(property -> localization.format("history.entry.action.set", property));
+            case ADD -> change.property().isEmpty()
+                ? Optional.of(localization.text("history.entry.action.add"))
+                : Optional.empty();
+            case REMOVE -> change.property().isEmpty()
+                ? Optional.of(localization.text("history.entry.action.remove"))
+                : Optional.empty();
+            case UNKNOWN -> Optional.empty();
+        };
+    }
+
+    private Optional<IconSpec> iconFor(final HistoryTarget target) {
+        return switch (target.type()) {
+            case "ART_MESH" -> Optional.of(new IconSpec(CubismIcon.ART_MESH, "history.icon.art-mesh"));
+            case "WARP_DEFORMER" -> Optional.of(
+                new IconSpec(CubismIcon.WARP_DEFORMER, "history.icon.warp-deformer")
+            );
+            case "ROTATION_DEFORMER" -> Optional.of(
+                new IconSpec(CubismIcon.ROTATION_DEFORMER, "history.icon.rotation-deformer")
+            );
+            default -> Optional.empty();
+        };
+    }
+
+    private record IconSpec(CubismIcon icon, String fallbackKey) { }
 
     private String detailHeadline(final HistoryEntryDetail detail, final String hostLabel) {
         final boolean grouped = detail.group().isPresent();
