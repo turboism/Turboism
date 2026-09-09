@@ -262,6 +262,50 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
+    void sharesOnePixelBudgetAcrossLayersAndSkipsLaterArgbReads() {
+        final SyntheticSourceFixture.LayeredImage image =
+            SyntheticSourceFixture.cumulativePixelBudgetImage();
+
+        final EditorRawImagePsdIntegrityAccess.Snapshot snapshot = capture(image);
+        final List<String> events = SyntheticSourceFixture.events();
+
+        assertEquals(1L, events.stream().filter("image-argb"::equals).count());
+        assertTrue(snapshot.layers().get(0).pixels().observed());
+        assertEquals(1L, snapshot.layers().get(0).pixels().pixelsCompared());
+        final EditorRawImagePsdIntegrityAccess.PixelObservation skipped =
+            snapshot.layers().get(1).pixels();
+        assertFalse(skipped.observed());
+        assertTrue(skipped.detail().contains("shared limit"));
+        assertTrue(skipped.detail().contains("ARGB reads were skipped"));
+    }
+
+    @Test
+    void rejectsADeepLayerTreeBeforeUnboundedRecursion() {
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> capture(SyntheticSourceFixture.deepLayerTree())
+        );
+
+        assertTrue(failure.getMessage().contains("layer tree depth"));
+        assertTrue(failure.getMessage().contains(
+            Integer.toString(EditorRawImagePsdIntegrityAccess.MAX_TREE_DEPTH)
+        ));
+    }
+
+    @Test
+    void rejectsAWholeCaptureThatExceedsTheLayerNodeBudget() {
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> capture(SyntheticSourceFixture.nodeBudgetImage())
+        );
+
+        assertTrue(failure.getMessage().contains("layer node budget exceeded"));
+        assertTrue(failure.getMessage().contains(
+            Integer.toString(EditorRawImagePsdIntegrityAccess.MAX_LAYER_NODES)
+        ));
+    }
+
+    @Test
     void reportsStructuralMismatchesAndObservesRegeneratedLayerIds(@TempDir final Path temp) {
         final Map<SyntheticSourceFixture.ParseMode, String> cases = Map.of(
             SyntheticSourceFixture.ParseMode.REORDER, "ordered layer/group tree",
@@ -367,6 +411,15 @@ class EditorRawImagePsdSourceBindingTest {
                 assertSame(fixture.model, model);
             }
         ).exportPsd("session-a", fixture.source, fixture.model, sourceId, target);
+    }
+
+    private static EditorRawImagePsdIntegrityAccess.Snapshot capture(
+        final SyntheticSourceFixture.LayeredImage image
+    ) {
+        return EditorHostThread.dispatch(
+            "synthetic PSD integrity capture",
+            () -> new EditorRawImagePsdIntegrityAccess(resolver()).captureOnHostThread(image)
+        );
     }
 
     private static VerifiedMemberResolver resolver() {
@@ -952,6 +1005,106 @@ class EditorRawImagePsdSourceBindingTest {
                         )
                     )
                 )
+            );
+        }
+
+        static LayeredImage cumulativePixelBudgetImage() {
+            final PixelLayer small = new PixelLayer(
+                "budget-small-guid",
+                "Small",
+                "budget-small-id",
+                255,
+                true,
+                new Blend("normal"),
+                false,
+                false,
+                new Rect(0, 0, 1, 1),
+                new ImageResource(new WritableImage(1, 1, new int[] {0xFF010203}))
+            );
+            final int remainingExceedingWidth = Math.toIntExact(
+                EditorRawImagePsdIntegrityAccess.MAX_PIXEL_SAMPLES
+            );
+            final PixelLayer large = new PixelLayer(
+                "budget-large-guid",
+                "Large",
+                "budget-large-id",
+                255,
+                true,
+                new Blend("normal"),
+                false,
+                false,
+                new Rect(0, 0, remainingExceedingWidth, 1),
+                new ImageResource(new WritableImage(remainingExceedingWidth, 1, new int[0]))
+            );
+            return new LayeredImage(
+                "budget-root-guid",
+                "Budget",
+                1,
+                1,
+                null,
+                List.of(small, large)
+            );
+        }
+
+        static LayeredImage deepLayerTree() {
+            LayerEntry nested = new LayerGroup(
+                "deep-leaf-guid",
+                "Deep",
+                "deep-leaf-id",
+                255,
+                true,
+                new Blend("normal"),
+                false,
+                false,
+                List.of()
+            );
+            for (int depth = 1; depth <= EditorRawImagePsdIntegrityAccess.MAX_TREE_DEPTH; depth++) {
+                nested = new LayerGroup(
+                    "deep-" + depth + "-guid",
+                    "Deep",
+                    "deep-" + depth + "-id",
+                    255,
+                    true,
+                    new Blend("normal"),
+                    false,
+                    false,
+                    List.of(nested)
+                );
+            }
+            return new LayeredImage(
+                "deep-root-guid",
+                "DeepRoot",
+                1,
+                1,
+                null,
+                List.of(nested)
+            );
+        }
+
+        static LayeredImage nodeBudgetImage() {
+            final ArrayList<LayerEntry> children = new ArrayList<>(
+                EditorRawImagePsdIntegrityAccess.MAX_LAYER_NODES + 1
+            );
+            for (int index = 0; index <= EditorRawImagePsdIntegrityAccess.MAX_LAYER_NODES; index++) {
+                children.add(new LayerGroup(
+                    "node-" + index + "-guid",
+                    "Node",
+                    "node-" + index + "-id",
+                    255,
+                    true,
+                    new Blend("normal"),
+                    false,
+                    false,
+                    List.of()
+                ));
+            }
+            return new LayeredImage(
+                "node-root-guid",
+                "NodeRoot",
+                1,
+                1,
+                null,
+                children
             );
         }
 
