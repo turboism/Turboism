@@ -7209,17 +7209,6 @@
       "status": "VERIFIED_STATIC"
     },
     {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.layer_image_resource",
-      "alias": "cubism.editor-model.layer.image-resource",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayer",
-      "memberName": "getImageResource",
-      "descriptor": "()Lcom/live2d/graphics/CImageResource;",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.class.rect",
       "alias": "cubism.editor-model.rect.class",
       "kind": "class",
@@ -7270,72 +7259,6 @@
       "ownerInternalName": "com/live2d/type/CRect",
       "memberName": "getHeight",
       "descriptor": "()I",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.image_resource",
-      "alias": "cubism.editor-model.image-resource.class",
-      "kind": "class",
-      "ownerInternalName": "com/live2d/graphics/CImageResource",
-      "memberName": null,
-      "descriptor": null,
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 0,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.image_resource_image",
-      "alias": "cubism.editor-model.image-resource.image",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/CImageResource",
-      "memberName": "getImage",
-      "descriptor": "()Lcom/live2d/graphics/CWritableImage;",
-      "requiredAccessFlags": 17,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.writable_image",
-      "alias": "cubism.editor-model.writable-image.class",
-      "kind": "class",
-      "ownerInternalName": "com/live2d/graphics/CWritableImage",
-      "memberName": null,
-      "descriptor": null,
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 0,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.writable_image_width",
-      "alias": "cubism.editor-model.writable-image.width",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/CWritableImage",
-      "memberName": "getWidth",
-      "descriptor": "()I",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.writable_image_height",
-      "alias": "cubism.editor-model.writable-image.height",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/CWritableImage",
-      "memberName": "getHeight",
-      "descriptor": "()I",
-      "requiredAccessFlags": 1,
-      "forbiddenAccessFlags": 8,
-      "status": "VERIFIED_STATIC"
-    },
-    {
-      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.writable_image_argb",
-      "alias": "cubism.editor-model.writable-image.argb",
-      "kind": "method",
-      "ownerInternalName": "com/live2d/graphics/CWritableImage",
-      "memberName": "getArgb",
-      "descriptor": "(II)I",
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
