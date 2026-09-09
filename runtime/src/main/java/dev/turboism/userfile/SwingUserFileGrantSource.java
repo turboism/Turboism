@@ -1,5 +1,9 @@
 package dev.turboism.userfile;
 
+import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.failure.RuntimeFailure;
+import dev.turboism.failure.RuntimeFailureDomain;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 
@@ -26,6 +30,9 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
     private static final EdtDispatcher EDT = SwingUtilities::invokeLater;
 
     private final Object lifecycleLock = new Object();
+    private final String pluginId;
+    private final RuntimeFailureSink failureSink;
+    private final CleanupEvidenceCollector cleanupEvidence;
     private final Supplier<JFileChooser> chooserFactory;
     private final EdtDispatcher edt;
     private boolean active = true;
@@ -33,13 +40,34 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
     private VisibleChooser visible;
 
     public SwingUserFileGrantSource() {
-        this(JFileChooser::new, EDT);
+        this(null, RuntimeFailureSink.noop(), new CleanupEvidenceCollector(), JFileChooser::new, EDT);
     }
 
     SwingUserFileGrantSource(
         final Supplier<JFileChooser> chooserFactory,
         final EdtDispatcher edt
     ) {
+        this(null, RuntimeFailureSink.noop(), new CleanupEvidenceCollector(), chooserFactory, edt);
+    }
+
+    public SwingUserFileGrantSource(
+        final String pluginId,
+        final RuntimeFailureSink failureSink,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
+        this(pluginId, failureSink, cleanupEvidence, JFileChooser::new, EDT);
+    }
+
+    SwingUserFileGrantSource(
+        final String pluginId,
+        final RuntimeFailureSink failureSink,
+        final CleanupEvidenceCollector cleanupEvidence,
+        final Supplier<JFileChooser> chooserFactory,
+        final EdtDispatcher edt
+    ) {
+        this.pluginId = pluginId;
+        this.failureSink = RuntimeFailureSink.require(failureSink);
+        this.cleanupEvidence = Objects.requireNonNull(cleanupEvidence, "cleanupEvidence");
         this.chooserFactory = Objects.requireNonNull(chooserFactory, "chooserFactory");
         this.edt = Objects.requireNonNull(edt, "edt");
     }
@@ -57,6 +85,11 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         try {
             edt.dispatch(() -> show(candidate));
         } catch (RuntimeException | LinkageError | AWTError failure) {
+            reportFailure(
+                "USER_FILE_CHOOSER_DISPATCH_FAILED",
+                "user-file.chooser.request",
+                false
+            );
             settle(candidate, Decision.unavailable());
         }
         return candidate.completion;
@@ -83,7 +116,11 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
             try {
                 edt.dispatch(() -> cancelOnEdt(chooser));
             } catch (RuntimeException | LinkageError | AWTError failure) {
-                // The request is already fenced unavailable; close must remain non-blocking.
+                reportFailure(
+                    "USER_FILE_CHOOSER_CANCEL_DISPATCH_FAILED",
+                    "user-file.chooser.close",
+                    true
+                );
             }
         }
     }
@@ -104,16 +141,22 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
                 visible = new VisibleChooser(expected, chooser);
             }
             configure(chooser, expected.request());
+            if (!isPending(expected)) {
+                return;
+            }
             final int choice = expected.request().mode() == UserFileMode.READ
                 ? chooser.showOpenDialog(null)
                 : chooser.showSaveDialog(null);
-            settle(
-                expected,
-                choice == JFileChooser.APPROVE_OPTION
-                    ? approvedDecision(chooser.getSelectedFile())
-                    : Decision.canceled()
-            );
+            final File selected = choice == JFileChooser.APPROVE_OPTION
+                ? chooser.getSelectedFile()
+                : null;
+            settle(expected, decisionFor(choice, selected));
         } catch (RuntimeException | LinkageError | AWTError failure) {
+            reportFailure(
+                "USER_FILE_CHOOSER_SHOW_FAILED",
+                "user-file.chooser.show",
+                false
+            );
             settle(expected, Decision.unavailable());
         } finally {
             synchronized (lifecycleLock) {
@@ -128,8 +171,33 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         try {
             chooser.cancelSelection();
         } catch (RuntimeException | LinkageError | AWTError failure) {
-            // The request is already unavailable; cancellation is best-effort only.
+            reportFailure(
+                "USER_FILE_CHOOSER_CANCEL_FAILED",
+                "user-file.chooser.close",
+                true
+            );
         }
+    }
+
+    private void reportFailure(
+        final String code,
+        final String operationId,
+        final boolean cleanupFailed
+    ) {
+        if (cleanupFailed) {
+            cleanupEvidence.cleanupFailed();
+        }
+        failureSink.record(RuntimeFailureDomain.STORAGE, new RuntimeFailure(
+            code,
+            "ERROR",
+            "user-file-chooser",
+            pluginId,
+            operationId,
+            null,
+            "User-file chooser operation failed safely.",
+            null,
+            1
+        ));
     }
 
     private boolean isPending(final PendingRequest expected) {
@@ -152,6 +220,14 @@ public final class SwingUserFileGrantSource implements UserFileGrantSource, Auto
         if (current) {
             expected.completion.complete(Objects.requireNonNull(decision, "decision"));
         }
+    }
+
+    private static Decision decisionFor(final int choice, final File selected) {
+        return switch (choice) {
+            case JFileChooser.APPROVE_OPTION -> approvedDecision(selected);
+            case JFileChooser.CANCEL_OPTION -> Decision.canceled();
+            default -> Decision.unavailable();
+        };
     }
 
     private static void configure(

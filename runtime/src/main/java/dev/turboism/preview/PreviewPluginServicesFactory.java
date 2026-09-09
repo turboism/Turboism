@@ -9,6 +9,7 @@ import dev.turboism.core.event.RuntimeEventBroker;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
+import dev.turboism.failure.RuntimeFailureSink;
 import dev.turboism.hostread.ProjectWorkspaceHostReadSource;
 import dev.turboism.hostread.RuntimeAsyncHostReadService;
 import dev.turboism.hostread.SharedAsyncHostReadLane;
@@ -319,8 +320,12 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }
-    static SwingUserFileGrantSource newUserFileGrantSource() {
-        return new SwingUserFileGrantSource();
+    static SwingUserFileGrantSource newUserFileGrantSource(
+        final String pluginId,
+        final RuntimeFailureSink failureSink,
+        final CleanupEvidenceCollector cleanupEvidence
+    ) {
+        return new SwingUserFileGrantSource(pluginId, failureSink, cleanupEvidence);
     }
 
     private RuntimeUserFileAccessService userFiles(
@@ -331,8 +336,13 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final CleanupEvidenceCollector evidence
     ) {
         return new RuntimeUserFileAccessService(
-            descriptor.id(), permissions, newUserFileGrantSource(), tasks, scope,
-            evidence, failureCollector
+            descriptor.id(),
+            permissions,
+            newUserFileGrantSource(descriptor.id(), failureCollector, evidence),
+            tasks,
+            scope,
+            evidence,
+            failureCollector
         );
     }
 

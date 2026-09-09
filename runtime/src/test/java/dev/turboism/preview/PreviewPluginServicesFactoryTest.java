@@ -1,6 +1,8 @@
 package dev.turboism.preview;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
+import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.userfile.SwingUserFileGrantSource;
 import org.junit.jupiter.api.Test;
 
@@ -31,8 +33,18 @@ final class PreviewPluginServicesFactoryTest {
 
     @Test
     void createsFreshSwingGrantSourceForEachPlugin() {
-        final SwingUserFileGrantSource first = PreviewPluginServicesFactory.newUserFileGrantSource();
-        final SwingUserFileGrantSource second = PreviewPluginServicesFactory.newUserFileGrantSource();
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final SwingUserFileGrantSource first = PreviewPluginServicesFactory.newUserFileGrantSource(
+            "plugin.one",
+            failures,
+            evidence
+        );
+        final SwingUserFileGrantSource second = PreviewPluginServicesFactory.newUserFileGrantSource(
+            "plugin.two",
+            failures,
+            evidence
+        );
 
         try {
             assertNotSame(first, second);
