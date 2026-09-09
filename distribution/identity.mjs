@@ -13,7 +13,7 @@ export async function verifyGitHubIdentity(token,fetcher=fetch){
  require(c.ref==='refs/heads/main'||/^refs\/tags\/v\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(c.ref??''));
  require(c.workflow_ref===`turboism/Turboism/.github/workflows/notify-release-api.yml@${c.ref}`);
  if(!cache||cache.until<now||fetcher!==fetch){
-  const r=await fetcher(ISSUER+'/.well-known/jwks',{signal:AbortSignal.timeout(10000),redirect:'error'});require(r.ok);
+  const r=await fetcher(ISSUER+'/.well-known/jwks',{signal:AbortSignal.timeout(10000),redirect:'manual'});require(r.ok);
   const text=await r.text();require(text.length<64000);const data=JSON.parse(text);require(Array.isArray(data.keys));cache={keys:data.keys,until:now+600};
  }
  const jwk=cache.keys.find(k=>k.kid===header.kid&&k.kty==='RSA');require(jwk);
