@@ -8,6 +8,8 @@ import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import org.junit.jupiter.api.Test;
 import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -84,6 +86,32 @@ class EditorHistorySnapshotProviderTest {
         assertEquals(HistoryAction.DetailLevel.LABEL_ONLY, snapshot.entries().get(0).detailLevel());
         assertEquals(HistoryAction.DetailLevel.FULL, snapshot.entries().get(1).detailLevel());
         assertEquals("ParamAngleX", snapshot.entries().get(1).action().orElseThrow().targetId());
+    }
+
+    @Test
+    void authoritativeSemanticMetadataWinsBeforeAnyNativeFallback() {
+        final Manager manager = new Manager();
+        final Entry entry = new Entry("Host label", true);
+        manager.entries.add(entry);
+        manager.position = 1;
+        Host.document = new Document(manager);
+        EditorHistoryMetadataRegistry.registerDetail(
+            entry,
+            HistoryEntryDetail.labelOnly(
+                "Captured semantic summary",
+                HistoryOrigin.turboism("test-plugin", "operation-1"),
+                "history.detail.captured-label-only"
+            )
+        );
+        final EditorHistorySnapshotProvider provider = new EditorHistorySnapshotProvider(
+            () -> Optional.of(resolver()),
+            () -> 6
+        );
+
+        final var projected = provider.snapshot().entries().get(0).detail();
+        assertEquals("Captured semantic summary", projected.summary());
+        assertEquals(HistoryOrigin.Kind.TURBOISM, projected.origin().kind());
+        assertEquals("history.detail.captured-label-only", projected.degradationCode().orElseThrow());
     }
 
     @Test

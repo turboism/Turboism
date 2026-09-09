@@ -98,7 +98,7 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             }
             final TextureAtlasNativeInvocationCoordinator.Invocation invocation = current.orElseThrow();
             final TextureAtlasAuthoringState state = invocation.session().state();
-            final Optional<String> issue = validate(state, plan);
+            final Optional<String> issue = validate(state, plan, false);
             if (issue.isPresent()) {
                 return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID, issue.orElseThrow());
             }
@@ -114,7 +114,7 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
         if (!(target instanceof RuntimeTarget runtimeTarget) || !runtimeTarget.ownedBy(ownerToken)) {
             return failed(TextureAtlasLayoutFailureCode.TARGET_STALE, "The texture atlas target is stale.");
         }
-        final Optional<String> issue = validate(runtimeTarget.state(), plan);
+        final Optional<String> issue = validate(runtimeTarget.state(), plan, true);
         if (issue.isPresent()) {
             return failed(TextureAtlasLayoutFailureCode.PLAN_INVALID, issue.orElseThrow());
         }
@@ -123,9 +123,21 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
 
     private Optional<String> validate(
         final TextureAtlasAuthoringState state,
-        final TextureAtlasLayoutPlan plan
+        final TextureAtlasLayoutPlan plan,
+        final boolean completeAtlas
     ) {
         final TextureAtlasLayoutConstraints constraints = state.constraints();
+        if (completeAtlas && plan.scale() != 1D) {
+            return Optional.of("Complete-atlas authoring does not support scaled plans.");
+        }
+        if (!completeAtlas) {
+            final double requested = constraints.singlePageOptions() == null
+                ? 1D : constraints.singlePageOptions().requestedScale();
+            if ((requested == 0D && plan.scale() > 1D)
+                || (requested > 0D && Math.abs(plan.scale() - requested) > 1e-12 * requested)) {
+                return Optional.of("The plan does not respect the requested native scale.");
+            }
+        }
         if (plan.pageWidth() != constraints.pageWidth()
             || plan.pageHeight() != constraints.pageHeight()
             || plan.pageCount() > constraints.maxPages()) {
@@ -149,10 +161,12 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
             placements.add(placement.textureId());
             final TextureAtlasLayoutItem item = items.get(placement.textureId());
             if (item == null) return Optional.of("The plan contains an unknown texture ID.");
-            if (placement.rotated()
-                || placement.width() != item.width()
-                || placement.height() != item.height()) {
-                return Optional.of("The plan rotates or scales a texture without support.");
+            final boolean rotationAllowed = !completeAtlas && constraints.allowRotation();
+            final double width = Math.ceil((placement.rotated() ? item.height() : item.width()) * plan.scale());
+            final double height = Math.ceil((placement.rotated() ? item.width() : item.height()) * plan.scale());
+            if ((placement.rotated() && !rotationAllowed)
+                || placement.width() != width || placement.height() != height) {
+                return Optional.of("The plan's rotation or scaled dimensions do not match the issued input.");
             }
             if (placement.x() < constraints.edgeMargin()
                 || placement.y() < constraints.edgeMargin()
@@ -161,7 +175,7 @@ public final class RuntimeTextureAtlasLayoutService implements TextureAtlasLayou
                 return Optional.of("The plan violates the atlas edge margin.");
             }
         }
-        if (!placements.equals(items.keySet())) {
+        if (completeAtlas && !placements.equals(items.keySet())) {
             return Optional.of("The plan must place every issued texture exactly once.");
         }
         for (int leftIndex = 0; leftIndex < plan.placements().size(); leftIndex++) {

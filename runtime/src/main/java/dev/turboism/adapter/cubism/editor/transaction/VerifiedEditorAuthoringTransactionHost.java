@@ -4,6 +4,8 @@ import dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry;
 import dev.turboism.adapter.cubism.editor.history.EditorHistorySnapshotProvider;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 
 import java.util.IdentityHashMap;
@@ -214,11 +216,54 @@ public final class VerifiedEditorAuthoringTransactionHost
         final String transactionId,
         final String label
     ) {
+        return committedHistoryEntryIdInternal(
+            binding,
+            before,
+            after,
+            transactionId,
+            label,
+            Optional.empty(),
+            Optional.empty()
+        );
+    }
+
+    @Override
+    public Optional<String> committedHistoryEntryId(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final HistorySnapshot before,
+        final HistorySnapshot after,
+        final String transactionId,
+        final String label,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        return committedHistoryEntryIdInternal(
+            binding,
+            before,
+            after,
+            transactionId,
+            label,
+            Optional.of(Objects.requireNonNull(detail, "detail")),
+            Objects.requireNonNull(action, "action")
+        );
+    }
+
+    private Optional<String> committedHistoryEntryIdInternal(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final HistorySnapshot before,
+        final HistorySnapshot after,
+        final String transactionId,
+        final String label,
+        final Optional<HistoryEntryDetail> detail,
+        final Optional<HistoryAction> action
+    ) {
         Objects.requireNonNull(binding, "binding");
         Objects.requireNonNull(before, "before");
         Objects.requireNonNull(after, "after");
         Objects.requireNonNull(transactionId, "transactionId");
         Objects.requireNonNull(label, "label");
+        Objects.requireNonNull(detail, "detail");
+        Objects.requireNonNull(action, "action");
         if (!isCurrent(binding)
             || before.availability() != HistorySnapshot.Availability.AVAILABLE
             || after.availability() != HistorySnapshot.Availability.AVAILABLE
@@ -233,11 +278,14 @@ public final class VerifiedEditorAuthoringTransactionHost
         if (before.position() < 0 || before.position() > prior.size()) {
             return Optional.empty();
         }
-        final int expectedPosition = before.position() + 1;
+        if (committed.isEmpty()) return Optional.empty();
+        final int retainedPosition = retainedPosition(prior, before.position(),
+            committed.get(committed.size() - 1).significant());
+        final int expectedPosition = retainedPosition + 1;
         if (committed.size() != expectedPosition || after.position() != expectedPosition) {
             return Optional.empty();
         }
-        for (int index = 0; index < before.position(); index++) {
+        for (int index = 0; index < retainedPosition; index++) {
             if (!prior.get(index).equals(committed.get(index))) return Optional.empty();
         }
         final HistoryEntry appended = committed.get(expectedPosition - 1);
@@ -263,8 +311,42 @@ public final class VerifiedEditorAuthoringTransactionHost
             nativeEntry
         );
         if (!label.equals(nativeLabel)) return Optional.empty();
-        EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId);
+        if (detail.isPresent()) {
+            EditorHistoryMetadataRegistry.registerTransaction(
+                nativeEntry,
+                transactionId,
+                detail.orElseThrow(),
+                action
+            );
+        } else {
+            EditorHistoryMetadataRegistry.registerTransaction(nativeEntry, transactionId);
+        }
         return Optional.of(appended.entryId().orElseThrow().value());
+    }
+
+    static int retainedPosition(final List<HistoryEntry> prior, final int position, final boolean significant) {
+        if (position < 0 || position > prior.size()) throw new IllegalArgumentException("invalid position");
+        int retained = position;
+        // Exact CUndoManager.addEdit only prunes this tail when currentPos > 1.
+        if (significant && position > 1) {
+            while (retained > 0 && !prior.get(retained - 1).significant()) retained--;
+        }
+        return retained;
+    }
+
+    @Override
+    public Optional<String> prepareHistoryMetadata(
+        final EditorAuthoringTransactionCoordinator.Binding binding,
+        final Object edit,
+        final String transactionId,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        currentFor(binding);
+        synchronized (editLock) {
+            if (!editModes.containsKey(edit)) throw new IllegalStateException("root edit is not owned");
+        }
+        return Optional.of(EditorHistoryMetadataRegistry.prepareTransaction(edit, transactionId, detail, action).value());
     }
 
     @Override
