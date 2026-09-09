@@ -543,7 +543,8 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
     }
 
     private final class SessionModelTextures
-        implements dev.turboism.sdk.cubism.model.ModelTextures {
+        implements dev.turboism.sdk.cubism.model.ModelTextures,
+        dev.turboism.core.runtime.psd.PsdExportHost {
         private final long generation;
         private final dev.turboism.sdk.cubism.model.ModelTextures delegate;
         private SessionModelTextures(
@@ -552,6 +553,21 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         ) {
             this.generation = generation;
             this.delegate = Objects.requireNonNull(delegate, "delegate");
+        }
+        @Override
+        public Observation exportPsdTo(
+            final dev.turboism.sdk.cubism.id.RawImageId source,
+            final java.nio.file.Path destination,
+            final Runnable admission
+        ) {
+            Objects.requireNonNull(admission, "admission");
+            return guarded(generation, () -> {
+                if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdExportHost host)) {
+                    return Observation.unavailable();
+                }
+                return host.exportPsdTo(source, destination,
+                    () -> guardedVoid(generation, admission));
+            });
         }
         @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
             return guarded(generation, delegate::rawImages);

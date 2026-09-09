@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.core.runtime.psd.PsdExportHost;
+import java.nio.file.Path;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.ModelImageId;
@@ -277,7 +279,7 @@ final class EditorTextureAccess {
         Object apply(Object edit);
     }
 
-    private final class EditorTextures implements ModelTextures {
+    private final class EditorTextures implements ModelTextures, PsdExportHost {
         private final String identity;
         private final Object source;
         private final Object model;
@@ -391,6 +393,19 @@ final class EditorTextureAccess {
         @Override
         public TextureRelationsSnapshot relations() {
             return relationAccess.relations(identity, source, model);
+        }
+
+        @Override
+        public Observation exportPsdTo(final RawImageId sourceId, final Path destination, final Runnable admission) {
+            Objects.requireNonNull(admission, "admission");
+            final EditorRawImagePsdAccess access = new EditorRawImagePsdAccess(resolver, (id, currentModel) -> {
+                admission.run();
+                modelGuard.requireCurrent(id, currentModel);
+            });
+            final var result = access.exportPsd(identity, source, model, sourceId, destination);
+            final var integrity = result.integrityVerification();
+            return new Observation(result.status().name(), integrity.status().name(), result.outputReadable(),
+                integrity.rootNameMatches() && integrity.dimensionsMatch() && integrity.layerTreeMatches());
         }
 
         @Override

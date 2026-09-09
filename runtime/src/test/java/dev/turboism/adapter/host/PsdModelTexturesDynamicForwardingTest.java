@@ -1,5 +1,7 @@
 package dev.turboism.adapter.host;
 
+import dev.turboism.core.runtime.psd.PsdExportHost;
+import java.nio.file.Path;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
@@ -70,8 +72,17 @@ class PsdModelTexturesDynamicForwardingTest {
         assertSame(REVISION, delegateTextures.replaceRevision);
         assertEquals(PsdExportResult.Status.UNAVAILABLE, export.toCompletableFuture().join().status());
         assertEquals(PsdReplaceResult.Status.UNAVAILABLE, replace.toCompletableFuture().join().status());
+        final int[] admissions = {0};
+        final Path destination = Path.of("synthetic.psd");
+        final PsdExportHost port = (PsdExportHost) sessionTextures;
+        assertEquals("UNAVAILABLE", port.exportPsdTo(SOURCE, destination, () -> admissions[0]++).nativeStatus());
+        assertSame(destination, delegateTextures.destination);
+        assertEquals(1, admissions[0]);
 
         access.deactivate();
+        assertThrows(IllegalStateException.class, delegateTextures.admission::run);
+        assertThrows(IllegalStateException.class, () -> port.exportPsdTo(SOURCE, destination, () -> { }));
+        assertEquals(1, admissions[0]);
         assertThrows(
             IllegalStateException.class,
             () -> sessionTextures.exportRawImagePsd(SOURCE)
@@ -101,13 +112,23 @@ class PsdModelTexturesDynamicForwardingTest {
         };
     }
 
-    private static final class RecordingTextures implements ModelTextures {
+    private static final class RecordingTextures implements ModelTextures, PsdExportHost {
         private RawImageId exportSource;
         private RawImageId replaceTarget;
         private PsdEditFile replaceFile;
         private PsdFileRevision replaceRevision;
         private CompletionStage<PsdExportResult> exportStage;
         private CompletionStage<PsdReplaceResult> replaceStage;
+        private Runnable admission;
+        private Path destination;
+
+        @Override
+        public Observation exportPsdTo(final RawImageId source, final Path destination, final Runnable admission) {
+            this.destination = destination;
+            this.admission = admission;
+            admission.run();
+            return Observation.unavailable();
+        }
 
         @Override public List<RawTexture> rawImages() { return List.of(); }
         @Override public List<ModelImageGroup> modelImageGroups() { return List.of(); }
