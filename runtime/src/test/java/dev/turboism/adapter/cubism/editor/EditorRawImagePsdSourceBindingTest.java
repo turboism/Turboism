@@ -146,7 +146,7 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
-    void reportsTheVerifiedStructuralCandidateButNotUnsupportedPixelClaims(@TempDir final Path temp) {
+    void reportsTheVerifiedStructuralCandidateAndWrittenExportObservations(@TempDir final Path temp) {
         final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
 
         final EditorRawImagePsdAccess.ExportResult result = export(
@@ -165,17 +165,100 @@ class EditorRawImagePsdSourceBindingTest {
         assertTrue(verification.dimensionsMatch());
         assertTrue(verification.layerTreeMatches());
         assertTrue(verification.editorLayerIdsObserved());
-        assertTrue(verification.editorLayerIdsMatch());
-        assertFalse(verification.psdLayerIdsVerified());
-        assertFalse(verification.pixelLayerBoundsVerified());
-        assertFalse(verification.usablePixelsVerified());
-        assertFalse(verification.specialBlendVerified());
+        assertTrue(verification.psdLayerIdsVerified());
+        assertTrue(verification.pixelLayerBoundsVerified());
+        assertTrue(verification.usablePixelsVerified());
+        assertTrue(verification.opacityVerified(), verification.detail());
+        assertTrue(verification.visibleVerified());
+        assertTrue(verification.specialBlendVerified());
+        assertTrue(verification.transparencyShapesVerified());
+        assertTrue(verification.clippingObserved());
+        assertTrue(verification.clippingMatch());
+        assertFalse(verification.clippingVerified());
+        assertTrue(verification.detail().contains("null preserved without GUID fallback"));
         assertTrue(verification.detail().contains("remain unverified"));
-        assertTrue(verification.detail().contains("not treated as persisted-PSD equality"));
+        assertTrue(verification.detail().contains("were not compared"));
 
         // The reconstructed root deliberately gets a new GUID; root host identity is not a
         // fidelity dimension and must not turn an otherwise matching observation into a mismatch.
         assertNotEquals(fixture.rawA.guid.value, SyntheticSourceFixture.constructedRootGuid);
+    }
+
+    @Test
+    void reportsSaveWrittenFidelityMismatches(@TempDir final Path temp) {
+        final Map<SyntheticSourceFixture.ParseMode, String> cases = Map.of(
+            SyntheticSourceFixture.ParseMode.CHANGE_PSD_LAYER_ID, "PSD layer ID",
+            SyntheticSourceFixture.ParseMode.CHANGE_BOUNDS, "pixel bounds",
+            SyntheticSourceFixture.ParseMode.CHANGE_PIXELS, "usable ARGB pixels",
+            SyntheticSourceFixture.ParseMode.CHANGE_OPACITY, "opacity255",
+            SyntheticSourceFixture.ParseMode.CHANGE_VISIBILITY, "visibility",
+            SyntheticSourceFixture.ParseMode.CHANGE_BLEND, "PSD blend value",
+            SyntheticSourceFixture.ParseMode.CHANGE_TRANSPARENCY_SHAPES, "transparency-shape state"
+        );
+        for (final Map.Entry<SyntheticSourceFixture.ParseMode, String> entry : cases.entrySet()) {
+            final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
+            SyntheticSourceFixture.parseMode = entry.getKey();
+            final EditorRawImagePsdAccess.ExportResult result = export(
+                fixture,
+                new RawImageId("raw-a"),
+                temp.resolve(entry.getKey().name().toLowerCase() + ".psd")
+            );
+            assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+            assertEquals(
+                EditorRawImagePsdIntegrityAccess.VerificationStatus.MISMATCH,
+                result.integrityVerification().status(),
+                entry.getKey().name()
+            );
+            assertTrue(
+                result.integrityVerification().detail().contains(entry.getValue()),
+                entry.getKey().name()
+            );
+        }
+    }
+
+    @Test
+    void observesClippingButDoesNotCertifyTheNonSerializedAttribute(@TempDir final Path temp) {
+        final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
+        SyntheticSourceFixture.parseMode = SyntheticSourceFixture.ParseMode.CHANGE_CLIPPING;
+        final EditorRawImagePsdAccess.ExportResult result = export(
+            fixture,
+            new RawImageId("raw-a"),
+            temp.resolve("clipping.psd")
+        );
+        final EditorRawImagePsdIntegrityAccess.Verification verification = result.integrityVerification();
+
+        assertEquals(EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED, verification.status());
+        assertTrue(verification.clippingObserved(), verification.detail());
+        assertFalse(verification.clippingMatch());
+        assertFalse(verification.clippingVerified());
+        assertTrue(verification.detail().contains("does not serialize isClipping()"));
+    }
+
+    @Test
+    void keepsPixelObservationGapsExplicitAndBounded(@TempDir final Path temp) {
+        for (final SyntheticSourceFixture.ParseMode mode : List.of(
+            SyntheticSourceFixture.ParseMode.OVERSIZE_PIXELS,
+            SyntheticSourceFixture.ParseMode.THROW_PIXEL_READ
+        )) {
+            final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
+            SyntheticSourceFixture.parseMode = mode;
+            final EditorRawImagePsdAccess.ExportResult result = export(
+                fixture,
+                new RawImageId("raw-a"),
+                temp.resolve(mode.name().toLowerCase() + ".psd")
+            );
+            final EditorRawImagePsdIntegrityAccess.Verification verification =
+                result.integrityVerification();
+
+            assertEquals(
+                EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
+                verification.status(),
+                mode.name()
+            );
+            assertTrue(verification.usablePixelsObserved(), mode.name());
+            assertFalse(verification.usablePixelsVerified(), mode.name());
+            assertTrue(verification.detail().contains("observation gaps"), mode.name());
+        }
     }
 
     @Test
@@ -209,7 +292,7 @@ class EditorRawImagePsdSourceBindingTest {
                 );
                 assertTrue(verification.layerTreeMatches());
                 assertTrue(verification.editorLayerIdsObserved());
-                assertFalse(verification.editorLayerIdsMatch());
+                assertTrue(verification.detail().contains("were not compared"), entry.getKey().name());
                 assertTrue(verification.detail().contains(entry.getValue()), entry.getKey().name());
             } else {
                 assertEquals(
@@ -220,12 +303,7 @@ class EditorRawImagePsdSourceBindingTest {
                 assertTrue(verification.detail().contains(entry.getValue()), entry.getKey().name());
             }
             if (entry.getKey() == SyntheticSourceFixture.ParseMode.RENAME) {
-                assertTrue(verification.editorLayerIdsMatch(), "renaming must not masquerade as an ID mismatch");
             }
-            assertFalse(verification.psdLayerIdsVerified());
-            assertFalse(verification.pixelLayerBoundsVerified());
-            assertFalse(verification.usablePixelsVerified());
-            assertFalse(verification.specialBlendVerified());
         }
     }
 
@@ -427,6 +505,235 @@ class EditorRawImagePsdSourceBindingTest {
             )
         );
         selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_ENTRY_OPACITY_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_ENTRY_OPACITY_ALIAS,
+                SyntheticSourceFixture.LayerEntry.class,
+                "getOpacity255",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_ENTRY_VISIBLE_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_ENTRY_VISIBLE_ALIAS,
+                SyntheticSourceFixture.LayerEntry.class,
+                "isVisible",
+                "()Z"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_ENTRY_CLIPPING_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_ENTRY_CLIPPING_ALIAS,
+                SyntheticSourceFixture.LayerEntry.class,
+                "isClipping",
+                "()Z"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_ENTRY_BLEND_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_ENTRY_BLEND_ALIAS,
+                SyntheticSourceFixture.LayerEntry.class,
+                "getBlend",
+                "()" + reference(SyntheticSourceFixture.Blend.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_ENTRY_TRANSPARENCY_SHAPES_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_ENTRY_TRANSPARENCY_SHAPES_ALIAS,
+                SyntheticSourceFixture.LayerEntry.class,
+                "isTransparencyShapesLayer",
+                "()Z"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.BLEND_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.BLEND_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.Blend.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.BLEND_PSD_VALUE_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.BLEND_PSD_VALUE_ALIAS,
+                SyntheticSourceFixture.Blend.class,
+                "c",
+                "()" + reference(SyntheticSourceFixture.PsdBlend.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.PSD_BLEND_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.PSD_BLEND_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.PsdBlend.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.PSD_BLEND_KEY_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.PSD_BLEND_KEY_ALIAS,
+                SyntheticSourceFixture.PsdBlend.class,
+                "a",
+                "()Ljava/lang/String;"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_IDENTIFIER_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.LAYER_IDENTIFIER_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.LayerIdentifier.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_IDENTIFIER_ID_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_IDENTIFIER_ID_ALIAS,
+                SyntheticSourceFixture.LayerIdentifier.class,
+                "getLayerId",
+                "()Ljava/lang/String;"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_GROUP_LAYER_IDENTIFIER_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_GROUP_LAYER_IDENTIFIER_ALIAS,
+                SyntheticSourceFixture.LayerGroup.class,
+                "getLayerIdentifier",
+                "()" + reference(SyntheticSourceFixture.LayerIdentifier.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.LAYER_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.PixelLayer.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_LAYER_IDENTIFIER_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_LAYER_IDENTIFIER_ALIAS,
+                SyntheticSourceFixture.PixelLayer.class,
+                "getLayerIdentifier",
+                "()" + reference(SyntheticSourceFixture.LayerIdentifier.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_BOUNDS_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_BOUNDS_ALIAS,
+                SyntheticSourceFixture.PixelLayer.class,
+                "getBoundsOnImageDoc",
+                "()" + reference(SyntheticSourceFixture.Rect.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.LAYER_IMAGE_RESOURCE_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.LAYER_IMAGE_RESOURCE_ALIAS,
+                SyntheticSourceFixture.PixelLayer.class,
+                "getImageResource",
+                "()" + reference(SyntheticSourceFixture.ImageResource.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.RECT_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.RECT_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.Rect.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.RECT_X_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.RECT_X_ALIAS,
+                SyntheticSourceFixture.Rect.class,
+                "getX",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.RECT_Y_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.RECT_Y_ALIAS,
+                SyntheticSourceFixture.Rect.class,
+                "getY",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.RECT_WIDTH_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.RECT_WIDTH_ALIAS,
+                SyntheticSourceFixture.Rect.class,
+                "getWidth",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.RECT_HEIGHT_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.RECT_HEIGHT_ALIAS,
+                SyntheticSourceFixture.Rect.class,
+                "getHeight",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.ImageResource.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_IMAGE_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_IMAGE_ALIAS,
+                SyntheticSourceFixture.ImageResource.class,
+                "getImage",
+                "()" + reference(SyntheticSourceFixture.WritableImage.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_CLASS_ALIAS,
+            StaticSelector.classSelector(
+                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_CLASS_ALIAS,
+                internal(SyntheticSourceFixture.WritableImage.class)
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_WIDTH_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_WIDTH_ALIAS,
+                SyntheticSourceFixture.WritableImage.class,
+                "getWidth",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_HEIGHT_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_HEIGHT_ALIAS,
+                SyntheticSourceFixture.WritableImage.class,
+                "getHeight",
+                "()I"
+            )
+        );
+        selectors.put(
+            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_ARGB_ALIAS,
+            instanceMethod(
+                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_ARGB_ALIAS,
+                SyntheticSourceFixture.WritableImage.class,
+                "getArgb",
+                "(II)I"
+            )
+        );
+        selectors.put(
             EditorRawImagePsdSelectorContract.GUID_VALUE_ALIAS,
             instanceMethod(
                 EditorRawImagePsdSelectorContract.GUID_VALUE_ALIAS,
@@ -606,9 +913,43 @@ class EditorRawImagePsdSourceBindingTest {
                 new LayerGroup(
                     prefix + "-group",
                     "Artwork",
+                    "psd-" + prefix + "-group",
+                    192,
+                    true,
+                    new Blend("normal"),
+                    false,
+                    false,
                     List.of(
-                        new LayerEntry(prefix + "-line", "Line"),
-                        new LayerEntry(prefix + "-color", "Color")
+                        new PixelLayer(
+                            prefix + "-line",
+                            "Line",
+                            "psd-" + prefix + "-line",
+                            192,
+                            true,
+                            new Blend("normal"),
+                            false,
+                            false,
+                            new Rect(10, 20, 2, 2),
+                            new ImageResource(new WritableImage(2, 2, new int[] {
+                                0xFFFF0000, 0xFF00FF00,
+                                0xFF0000FF, 0xFFFFFFFF
+                            }))
+                        ),
+                        new PixelLayer(
+                            prefix + "-color",
+                            "Color",
+                            null,
+                            160,
+                            true,
+                            new Blend("multiply"),
+                            false,
+                            true,
+                            new Rect(30, 40, 2, 2),
+                            new ImageResource(new WritableImage(2, 2, new int[] {
+                                0x80000000, 0x80FFFFFF,
+                                0xFF123456, 0xFF654321
+                            }))
+                        )
                     )
                 )
             );
@@ -648,6 +989,16 @@ class EditorRawImagePsdSourceBindingTest {
             REORDER,
             RENAME,
             CHANGE_LAYER_ID,
+            CHANGE_PSD_LAYER_ID,
+            CHANGE_BOUNDS,
+            CHANGE_PIXELS,
+            CHANGE_OPACITY,
+            CHANGE_VISIBILITY,
+            CHANGE_BLEND,
+            CHANGE_TRANSPARENCY_SHAPES,
+            CHANGE_CLIPPING,
+            OVERSIZE_PIXELS,
+            THROW_PIXEL_READ,
             CHANGE_DIMENSIONS,
             INVALID_TREE
         }
@@ -704,13 +1055,163 @@ class EditorRawImagePsdSourceBindingTest {
             }
         }
 
+        public static final class LayerIdentifier {
+            private final String layerId;
+
+            public LayerIdentifier(final String layerId) {
+                this.layerId = layerId;
+            }
+
+            public String getLayerId() {
+                record("layer-id");
+                return layerId;
+            }
+        }
+
+        public static final class Rect {
+            private final int x;
+            private final int y;
+            private final int width;
+            private final int height;
+
+            public Rect(final int x, final int y, final int width, final int height) {
+                this.x = x;
+                this.y = y;
+                this.width = width;
+                this.height = height;
+            }
+
+            public int getX() {
+                record("bounds-x");
+                return x;
+            }
+
+            public int getY() {
+                record("bounds-y");
+                return y;
+            }
+
+            public int getWidth() {
+                record("bounds-width");
+                return width;
+            }
+
+            public int getHeight() {
+                record("bounds-height");
+                return height;
+            }
+        }
+
+        public static final class PsdBlend {
+            private final String key;
+
+            public PsdBlend(final String key) {
+                this.key = key;
+            }
+
+            public String a() {
+                record("psd-blend-key");
+                return key;
+            }
+        }
+
+        public static final class Blend {
+            private final PsdBlend psdValue;
+
+            public Blend(final String key) {
+                this.psdValue = new PsdBlend(key);
+            }
+
+            public PsdBlend c() {
+                record("blend-psd-value");
+                return psdValue;
+            }
+        }
+
+        public static final class WritableImage {
+            private final int width;
+            private final int height;
+            private final int[] pixels;
+            private final boolean throwOnRead;
+
+            public WritableImage(final int width, final int height, final int[] pixels) {
+                this(width, height, pixels, false);
+            }
+
+            public WritableImage(
+                final int width,
+                final int height,
+                final int[] pixels,
+                final boolean throwOnRead
+            ) {
+                this.width = width;
+                this.height = height;
+                this.pixels = pixels;
+                this.throwOnRead = throwOnRead;
+            }
+
+            public int getWidth() {
+                record("image-width");
+                return width;
+            }
+
+            public int getHeight() {
+                record("image-height");
+                return height;
+            }
+
+            public int getArgb(final int x, final int y) {
+                record("image-argb");
+                if (throwOnRead) throw new IllegalStateException("synthetic pixel read failure");
+                return pixels[y * width + x];
+            }
+        }
+
+        public static final class ImageResource {
+            private final WritableImage image;
+
+            public ImageResource(final WritableImage image) {
+                this.image = image;
+            }
+
+            public WritableImage getImage() {
+                record("image-resource-image");
+                return image;
+            }
+        }
+
         public static class LayerEntry {
             private final Guid guid;
             private final String name;
+            private final LayerIdentifier layerIdentifier;
+            private final int opacity255;
+            private final boolean visible;
+            private final Blend blend;
+            private final boolean clipping;
+            private final boolean transparencyShapes;
 
             public LayerEntry(final String guid, final String name) {
+                this(guid, name, "psd-" + guid, 192, true, new Blend("normal"), false, false);
+            }
+
+            protected LayerEntry(
+                final String guid,
+                final String name,
+                final String layerId,
+                final int opacity255,
+                final boolean visible,
+                final Blend blend,
+                final boolean clipping,
+                final boolean transparencyShapes
+            ) {
                 this.guid = new Guid(guid);
                 this.name = name;
+                this.layerIdentifier = new LayerIdentifier(layerId);
+                this.opacity255 = opacity255;
+                this.visible = visible;
+                this.blend = blend;
+                this.clipping = clipping;
+                this.transparencyShapes = transparencyShapes;
             }
 
             public Guid getGuid() {
@@ -722,18 +1223,95 @@ class EditorRawImagePsdSourceBindingTest {
                 record("layer-name");
                 return name;
             }
+
+            public int getOpacity255() {
+                record("layer-opacity");
+                return opacity255;
+            }
+
+            public boolean isVisible() {
+                record("layer-visible");
+                return visible;
+            }
+
+            public Blend getBlend() {
+                record("layer-blend");
+                return blend;
+            }
+
+            public boolean isClipping() {
+                record("layer-clipping");
+                return clipping;
+            }
+
+            public boolean isTransparencyShapesLayer() {
+                record("layer-transparency");
+                return transparencyShapes;
+            }
+        }
+
+        public static final class PixelLayer extends LayerEntry {
+            private final LayerIdentifier layerIdentifier;
+            private final Rect bounds;
+            private final ImageResource imageResource;
+
+            public PixelLayer(
+                final String guid,
+                final String name,
+                final String layerId,
+                final int opacity255,
+                final boolean visible,
+                final Blend blend,
+                final boolean clipping,
+                final boolean transparencyShapes,
+                final Rect bounds,
+                final ImageResource imageResource
+            ) {
+                super(guid, name, layerId, opacity255, visible, blend, clipping, transparencyShapes);
+                this.layerIdentifier = new LayerIdentifier(layerId);
+                this.bounds = bounds;
+                this.imageResource = imageResource;
+            }
+
+            public LayerIdentifier getLayerIdentifier() {
+                record("pixel-layer-identifier");
+                return layerIdentifier;
+            }
+
+            public Rect getBoundsOnImageDoc() {
+                record("layer-bounds");
+                return bounds;
+            }
+
+            public ImageResource getImageResource() {
+                record("layer-image-resource");
+                return imageResource;
+            }
         }
 
         public static final class LayerGroup extends LayerEntry {
+            private final LayerIdentifier layerIdentifier;
             private final List<LayerEntry> children;
 
             public LayerGroup(
                 final String guid,
                 final String name,
+                final String layerId,
+                final int opacity255,
+                final boolean visible,
+                final Blend blend,
+                final boolean clipping,
+                final boolean transparencyShapes,
                 final List<LayerEntry> children
             ) {
-                super(guid, name);
+                super(guid, name, layerId, opacity255, visible, blend, clipping, transparencyShapes);
+                this.layerIdentifier = new LayerIdentifier(layerId);
                 this.children = children;
+            }
+
+            public LayerIdentifier getLayerIdentifier() {
+                record("group-layer-identifier");
+                return layerIdentifier;
             }
 
             public List<LayerEntry> getChildren() {
@@ -885,27 +1463,92 @@ class EditorRawImagePsdSourceBindingTest {
             ) {
                 final ArrayList<LayerEntry> copied = new ArrayList<>(entries.size());
                 for (final LayerEntry entry : entries) {
-                    final String originalId = entry.guid.value;
-                    final String copiedId = mode == ParseMode.CHANGE_LAYER_ID
-                        ? originalId + "-changed"
-                        : originalId;
+                    final String originalGuid = entry.guid.value;
+                    final String copiedGuid = mode == ParseMode.CHANGE_LAYER_ID
+                        ? originalGuid + "-changed"
+                        : originalGuid;
                     final String copiedName = mode == ParseMode.RENAME
                         ? entry.name + " (reparsed)"
                         : entry.name;
+                    final String copiedPsdId = switch (mode) {
+                        case CHANGE_PSD_LAYER_ID -> entry.layerIdentifier.layerId == null
+                            ? "generated-psd-id"
+                            : entry.layerIdentifier.layerId + "-changed";
+                        default -> entry.layerIdentifier.layerId;
+                    };
+                    final int copiedOpacity = mode == ParseMode.CHANGE_OPACITY
+                        ? entry.opacity255 + 1
+                        : entry.opacity255;
+                    final boolean copiedVisible = mode == ParseMode.CHANGE_VISIBILITY
+                        ? !entry.visible
+                        : entry.visible;
+                    final String copiedBlendKey = mode == ParseMode.CHANGE_BLEND
+                        ? "screen"
+                        : entry.blend.psdValue.key;
+                    final boolean copiedClipping = mode == ParseMode.CHANGE_CLIPPING
+                        ? !entry.clipping
+                        : entry.clipping;
+                    final boolean copiedTransparencyShapes = mode == ParseMode.CHANGE_TRANSPARENCY_SHAPES
+                        ? !entry.transparencyShapes
+                        : entry.transparencyShapes;
                     if (entry instanceof LayerGroup group) {
                         copied.add(new LayerGroup(
-                            copiedId,
+                            copiedGuid,
                             copiedName,
+                            copiedPsdId,
+                            copiedOpacity,
+                            copiedVisible,
+                            new Blend(copiedBlendKey),
+                            copiedClipping,
+                            copiedTransparencyShapes,
                             copyEntries(group.children, mode)
                         ));
+                    } else if (entry instanceof PixelLayer pixel) {
+                        final Rect copiedBounds = mode == ParseMode.CHANGE_BOUNDS
+                            ? new Rect(
+                                pixel.bounds.x + 1,
+                                pixel.bounds.y,
+                                pixel.bounds.width,
+                                pixel.bounds.height
+                            )
+                            : pixel.bounds;
+                        copied.add(new PixelLayer(
+                            copiedGuid,
+                            copiedName,
+                            copiedPsdId,
+                            copiedOpacity,
+                            copiedVisible,
+                            new Blend(copiedBlendKey),
+                            copiedClipping,
+                            copiedTransparencyShapes,
+                            copiedBounds,
+                            new ImageResource(copyImage(pixel.imageResource.image, mode))
+                        ));
                     } else {
-                        copied.add(new LayerEntry(copiedId, copiedName));
+                        throw new IllegalStateException("unexpected synthetic layer entry type");
                     }
                 }
                 if (mode == ParseMode.REORDER && copied.size() > 1) {
                     Collections.reverse(copied);
                 }
                 return List.copyOf(copied);
+            }
+
+            private static WritableImage copyImage(
+                final WritableImage source,
+                final ParseMode mode
+            ) {
+                if (mode == ParseMode.OVERSIZE_PIXELS) {
+                    return new WritableImage(5_000, 5_000, new int[0]);
+                }
+                if (mode == ParseMode.THROW_PIXEL_READ) {
+                    return new WritableImage(source.width, source.height, source.pixels, true);
+                }
+                final int[] pixels = source.pixels.clone();
+                if (mode == ParseMode.CHANGE_PIXELS && pixels.length > 0) {
+                    pixels[0] ^= 0x00000001;
+                }
+                return new WritableImage(source.width, source.height, pixels);
             }
         }
     }
