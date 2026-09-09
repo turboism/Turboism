@@ -1,0 +1,34 @@
+name: Allocate product build identity
+on:
+  workflow_call:
+    inputs:
+      expected_source_sha:
+        required: true
+        type: string
+    outputs:
+      build_number:
+        value: ${{ jobs.allocate.outputs.build_number }}
+      run_attempt:
+        value: ${{ jobs.allocate.outputs.run_attempt }}
+permissions:
+  contents: write
+jobs:
+  allocate:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      build_number: ${{ steps.identity.outputs.build_number }}
+      run_attempt: ${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify caller and allocate an immutable identity
+        id: identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+        run: |
+          test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
+          python3 scripts/release/build-identity.py allocate --source "$GITHUB_SHA"
