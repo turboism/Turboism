@@ -375,120 +375,149 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
 
     @Override
     public HostAdapterConnection connect(final HostInstanceDescriptor descriptor) throws Exception {
+        return connectWithWiring(
+            descriptor,
+            this::panelMaterial,
+            VerifiedHostAdapterConnector::productionUiResourceOwner
+        );
+    }
+
+    /**
+     * Package-private trusted composition seam for focused Runtime tests. Production callers stay
+     * pinned to {@link #productionUiResourceOwner(PanelMaterial, RuntimeHostAdapters)} above.
+     */
+    HostAdapterConnection connectForTesting(
+        final HostInstanceDescriptor descriptor,
+        final PanelMaterialFactory panelMaterialFactory,
+        final UiResourceOwnerFactory resourceOwnerFactory
+    ) throws Exception {
+        return connectWithWiring(
+            descriptor,
+            Objects.requireNonNull(panelMaterialFactory, "panelMaterialFactory"),
+            Objects.requireNonNull(resourceOwnerFactory, "resourceOwnerFactory")
+        );
+    }
+
+    private HostAdapterConnection connectWithWiring(
+        final HostInstanceDescriptor descriptor,
+        final PanelMaterialFactory panelMaterialFactory,
+        final UiResourceOwnerFactory resourceOwnerFactory
+    ) throws Exception {
         RuntimeCoreModelBackend ownedCore = null;
         try {
-        Objects.requireNonNull(descriptor, "descriptor");
-        final HostVerificationEvidence evidence = descriptor.verificationEvidence();
-        final RuntimeHostAdapters adapters = factory.create(evidence);
-        final AppearanceHostProvider appearanceProvider = appearanceProviderFactory.create(evidence.projectWorkspace());
-        final dev.turboism.ui.workspace.WorkspaceHostProvider workspace =
-            evidence.workspaceControl().isPresent()
-                ? dev.turboism.ui.workspace.WorkspaceHostProviderFactory.create(
-                    workspaceResolverFactory.create(evidence.workspaceControl().orElseThrow())
-                )
-                : null;
-        if (evidence.editorModel().isEmpty()) {
+            Objects.requireNonNull(descriptor, "descriptor");
+            final HostVerificationEvidence evidence = descriptor.verificationEvidence();
+            final RuntimeHostAdapters adapters = factory.create(evidence);
+            final AppearanceHostProvider appearanceProvider = appearanceProviderFactory.create(evidence.projectWorkspace());
+            final dev.turboism.ui.workspace.WorkspaceHostProvider workspace =
+                evidence.workspaceControl().isPresent()
+                    ? dev.turboism.ui.workspace.WorkspaceHostProviderFactory.create(
+                        workspaceResolverFactory.create(evidence.workspaceControl().orElseThrow())
+                    )
+                    : null;
+            if (evidence.editorModel().isEmpty()) {
+                ownedCore = coreBackendFactory.create(evidence);
+                final RuntimeCoreModelBackend core = ownedCore;
+                final HostAdapterConnection base = HostAdapterConnection.of(
+                    adapters,
+                    UnavailableCubismModelAccess.INSTANCE,
+                    null,
+                    appearanceProvider,
+                    core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
+                    core
+                );
+                if (workspace == null) {
+                    return base;
+                }
+                // Workspace control is the one independent slice: it composes on its own even
+                // without a verified editor-model slice; UI slices still fail closed.
+                return new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        return base.adapters();
+                    }
+
+                    @Override
+                    public dev.turboism.ui.workspace.WorkspaceHostProvider workspaceProvider() {
+                        return workspace;
+                    }
+
+                    @Override
+                    public AppearanceHostProvider appearanceProvider() {
+                        return base.appearanceProvider();
+                    }
+
+                    @Override
+                    public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
+                        return base.coreRuntimeInfo();
+                    }
+
+                    @Override
+                    public void close() throws Exception {
+                        base.close();
+                    }
+                };
+            }
             ownedCore = coreBackendFactory.create(evidence);
             final RuntimeCoreModelBackend core = ownedCore;
-            final HostAdapterConnection base = HostAdapterConnection.of(
-                adapters,
-                UnavailableCubismModelAccess.INSTANCE,
-                null,
-                appearanceProvider,
-                core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
+            final VerifiedMemberResolver resolver = editorResolverFactory.create(
+                evidence.editorModel().orElseThrow()
+            );
+            if (core != null) {
+                resolveBorrowedModel(resolver, descriptor.sessionId()).ifPresent(binding ->
+                    core.publishBorrowedModel(binding.model(), binding.identity())
+                );
+            }
+            final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission =
+                editorAdmission(evidence.editorModel().orElseThrow(), resolver);
+            final CubismModelAccess modelAccess = editorAccessFactory.create(
+                resolver,
+                descriptor.sessionId(),
                 core
             );
-            if (workspace == null) {
-                return base;
-            }
-            // Workspace control is the one independent slice: it composes on its own even
-            // without a verified editor-model slice; UI slices still fail closed.
-            return new HostAdapterConnection() {
-                @Override
-                public RuntimeHostAdapters adapters() {
-                    return base.adapters();
-                }
-
-                @Override
-                public dev.turboism.ui.workspace.WorkspaceHostProvider workspaceProvider() {
-                    return workspace;
-                }
-
-                @Override
-                public AppearanceHostProvider appearanceProvider() {
-                    return base.appearanceProvider();
-                }
-
-                @Override
-                public dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntimeInfo() {
-                    return base.coreRuntimeInfo();
-                }
-
-                @Override
-                public void close() throws Exception {
-                    base.close();
-                }
-            };
-        }
-        ownedCore = coreBackendFactory.create(evidence);
-        final RuntimeCoreModelBackend core = ownedCore;
-        final VerifiedMemberResolver resolver = editorResolverFactory.create(
-            evidence.editorModel().orElseThrow()
-        );
-        if (core != null) {
-            resolveBorrowedModel(resolver, descriptor.sessionId()).ifPresent(binding ->
-                core.publishBorrowedModel(binding.model(), binding.identity())
+            final TextureAtlasDataModelCapture textureAtlasCapture =
+                new TextureAtlasDataModelCapture();
+            final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
+                resolver,
+                descriptor.sessionId(),
+                textureAtlasCapture
             );
-        }
-        final dev.turboism.mapping.verification.EditorModelAdmissionEvidence editorAdmission =
-            editorAdmission(evidence.editorModel().orElseThrow(), resolver);
-        final CubismModelAccess modelAccess = editorAccessFactory.create(
-            resolver,
-            descriptor.sessionId(),
-            core
-        );
-        final TextureAtlasDataModelCapture textureAtlasCapture =
-            new TextureAtlasDataModelCapture();
-        final TextureAtlasLayoutProvider textureAtlasProvider = textureAtlasProvider(
-            resolver,
-            descriptor.sessionId(),
-            textureAtlasCapture
-        );
-        final ToolbarMaterial toolbar = toolbarMaterial(evidence);
-        final PanelMaterial panel = panelMaterial(evidence);
-        final TopMenuMaterial topMenu = topMenuMaterial(evidence);
-        final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
-        if (toolbar == null
-            && panel == null
-            && topMenu == null
-            && overlay == null
-            && workspace == null
-            && textureAtlasProvider == null
-            && (editorUiPluginResources == null || editorUiActionRouter == null)) {
-            return HostAdapterConnection.of(
+            final ToolbarMaterial toolbar = toolbarMaterial(evidence);
+            final PanelMaterial panel = panelMaterialFactory.create(evidence);
+            final TopMenuMaterial topMenu = topMenuMaterial(evidence);
+            final OverlayMaterial overlay = optionalOverlayMaterial(evidence);
+            if (toolbar == null
+                && panel == null
+                && topMenu == null
+                && overlay == null
+                && workspace == null
+                && textureAtlasProvider == null
+                && (editorUiPluginResources == null || editorUiActionRouter == null)) {
+                return HostAdapterConnection.of(
+                    adapters,
+                    modelAccess,
+                    resolver,
+                    appearanceProvider,
+                    core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
+                    core
+                );
+            }
+            return connection(
                 adapters,
                 modelAccess,
                 resolver,
+                editorAdmission,
+                toolbar,
+                panel,
+                topMenu,
+                overlay,
                 appearanceProvider,
-                core == null ? DynamicCoreRuntimeInfo.unavailableRuntime() : core.coreRuntimeInfo(),
-                core
+                core,
+                workspace,
+                textureAtlasCapture,
+                textureAtlasProvider,
+                resourceOwnerFactory
             );
-        }
-        return connection(
-            adapters,
-            modelAccess,
-            resolver,
-            editorAdmission,
-            toolbar,
-            panel,
-            topMenu,
-            overlay,
-            appearanceProvider,
-            core,
-            workspace,
-            textureAtlasCapture,
-            textureAtlasProvider
-        );
         } catch (Throwable failure) {
             closeAfterFailure(failure, ownedCore);
             rethrowConnectionFailure(failure);
@@ -653,6 +682,28 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         );
     }
 
+    private static RuntimeUiResourceService productionUiResourceOwner(
+        final PanelMaterial panel,
+        final RuntimeHostAdapters adapters
+    ) {
+        CubismNativeIconResolver iconResolver = null;
+        try {
+            iconResolver = CubismNativeIconResolver.preload(
+                panel.resolver(), PANEL_ICON_ANCHOR_ALIAS
+            );
+            return RuntimeUiResourceService.connected(
+                iconResolver,
+                adapters.themeStatus(),
+                () -> RuntimeUiResourceService.DEFAULT_SCALE_PERCENT
+            );
+        } catch (RuntimeException | LinkageError optionalFailure) {
+            // The resolver is not yet owned by RuntimeUiResourceService when construction fails.
+            // Release it here so optional icon failure cannot leak a partially-created cache.
+            closeAfterFailure(optionalFailure, iconResolver);
+            throw optionalFailure;
+        }
+    }
+
     private TopMenuMaterial topMenuMaterial(final HostVerificationEvidence evidence) throws Exception {
         if (evidence.topMenu().isEmpty()
             || topMenuResolverFactory == null
@@ -696,11 +747,11 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         final RuntimeCoreModelBackend core,
         final dev.turboism.ui.workspace.WorkspaceHostProvider workspace,
         final TextureAtlasDataModelCapture textureAtlasCapture,
-        final TextureAtlasLayoutProvider textureAtlasProvider
+        final TextureAtlasLayoutProvider textureAtlasProvider,
+        final UiResourceOwnerFactory resourceOwnerFactory
     ) throws Exception {
         final dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator layoutCoordinator =
             new dev.turboism.ui.workspace.layout.WorkspaceLayoutCoordinator();
-        CubismNativeIconResolver iconResolver = null;
         RuntimeUiResourceService resourceOwner = null;
         dev.turboism.ui.workspace.layout.WorkspaceLayoutHostProvider layoutProvider = null;
         dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations panelOperations = null;
@@ -719,20 +770,9 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     );
                 } else {
                     try {
-                        iconResolver = CubismNativeIconResolver.preload(
-                            panel.resolver(), PANEL_ICON_ANCHOR_ALIAS);
-                        resourceOwner = RuntimeUiResourceService.connected(
-                            iconResolver,
-                            adapters.themeStatus(),
-                            () -> RuntimeUiResourceService.DEFAULT_SCALE_PERCENT
-                        );
+                        resourceOwner = resourceOwnerFactory.create(panel, adapters);
                     } catch (RuntimeException | LinkageError optionalFailure) {
-                        if (resourceOwner != null) {
-                            closeAfterFailure(optionalFailure, resourceOwner);
-                        } else {
-                            closeAfterFailure(optionalFailure, iconResolver);
-                        }
-                        iconResolver = null;
+                        closeAfterFailure(optionalFailure, resourceOwner);
                         resourceOwner = null;
                         dev.turboism.runtime.log.RuntimeDiagnostics.error(
                             "embedded-panels",
@@ -762,7 +802,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                     owner == null ? (reference, disabled) -> Optional.empty() : owner::resolve
                 );
             final RuntimeUiResourceService installedResourceOwner = resourceOwner;
-            final CubismNativeIconResolver installedIconResolver = iconResolver;
             final dev.turboism.ui.workspace.layout.WorkspaceLayoutHostProvider installedLayoutProvider =
                 layoutProvider;
             final dev.turboism.ui.panel.VerifiedEmbeddedPanelHostOperations installedPanelOperations =
@@ -1057,8 +1096,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
                 }
                 if (installedResourceOwner != null) {
                     first = closeCleanup(first, installedResourceOwner);
-                } else if (installedIconResolver != null) {
-                    first = closeCleanup(first, installedIconResolver);
                 }
                 if (core != null) {
                     first = closeCleanup(first, core);
@@ -1091,8 +1128,6 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         }
         if (resourceOwner != null) {
             closeAfterFailure(failure, resourceOwner);
-        } else if (iconResolver != null) {
-            closeAfterFailure(failure, iconResolver);
         }
         rethrowConnectionFailure(failure);
         throw new AssertionError("unreachable");
@@ -1208,7 +1243,7 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
     ) {
     }
 
-    private record PanelMaterial(
+    record PanelMaterial(
         VerifiedMemberResolver resolver,
         EmbeddedPanelVerificationManifest.AdmissionEvidence admission
     ) {
@@ -1224,6 +1259,16 @@ final class VerifiedHostAdapterConnector implements HostAdapterConnector {
         VerifiedMemberResolver resolver,
         BoundingBoxOverlayButtonVerificationManifest.AdmissionEvidence admission
     ) {
+    }
+
+    @FunctionalInterface
+    interface PanelMaterialFactory {
+        PanelMaterial create(HostVerificationEvidence evidence) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface UiResourceOwnerFactory {
+        RuntimeUiResourceService create(PanelMaterial panel, RuntimeHostAdapters adapters);
     }
 
     @FunctionalInterface
