@@ -118,22 +118,23 @@ final class EditorRawImagePsdReplaceAccess {
             return ReplaceResult.staleBeforeNative(failure);
         }
 
-        final ReplaceResult inputFailure = validateInputs(
+        final InputValidation validation = validateInputs(
             appController,
             document,
             oldLayeredImages,
             incomingParsedLayeredImage,
             stableStage
         );
-        if (inputFailure != null) {
-            return inputFailure;
+        if (validation.failure() != null) {
+            return validation.failure();
         }
+        final List<Object> targets = validation.targets();
 
         final Object editMode;
         final Object editingValue;
         try {
             editMode = resolver.invoke(
-                EditorRawImagePsdReplaceSelectorContract.CURRENT_EDIT_MODE_ALIAS,
+                "cubism.editor-command.canvas.edit-mode",
                 document
             );
             if (editMode == null) {
@@ -143,7 +144,7 @@ final class EditorRawImagePsdReplaceAccess {
                 );
             }
             editingValue = resolver.invoke(
-                EditorRawImagePsdReplaceSelectorContract.EDITING_STATE_ALIAS,
+                "cubism.editor-command.canvas.is-editing",
                 editMode
             );
         } catch (RuntimeException failure) {
@@ -175,10 +176,10 @@ final class EditorRawImagePsdReplaceAccess {
         final Object nativeProcess;
         try {
             nativeProcess = resolver.readStaticField(
-                EditorRawImagePsdReplaceSelectorContract.PSD_IMPORT_PROCESS_INSTANCE_ALIAS
+                "cubism.editor-model.psd-import-process.instance"
             );
             if (!resolver.isInstance(
-                EditorRawImagePsdReplaceSelectorContract.PSD_IMPORT_PROCESS_CLASS_ALIAS,
+                "cubism.editor-model.psd-import-process.class",
                 nativeProcess
             )) {
                 return ReplaceResult.unavailable(
@@ -190,12 +191,11 @@ final class EditorRawImagePsdReplaceAccess {
             return ReplaceResult.unavailable(ReplaceFailurePhase.NATIVE_RECEIVER, failure);
         }
 
-        final List<Object> targets = copyTargets(oldLayeredImages);
         boolean nativeReturned = false;
         RuntimeException nativeFailure = null;
         try {
             resolver.invoke(
-                EditorRawImagePsdReplaceSelectorContract.PSD_IMPORT_REPLACE_ALIAS,
+                "cubism.editor-model.psd-import-process.replace",
                 nativeProcess,
                 appController,
                 incomingParsedLayeredImage,
@@ -243,96 +243,171 @@ final class EditorRawImagePsdReplaceAccess {
         return ReplaceResult.nativeReturnedUnverified();
     }
 
-    private ReplaceResult validateInputs(
+    private InputValidation validateInputs(
         final Object appController,
         final Object document,
         final List<?> oldLayeredImages,
         final Object incomingParsedLayeredImage,
         final Path stableStage
     ) {
-        if (appController == null || document == null || oldLayeredImages == null
-            || incomingParsedLayeredImage == null || stableStage == null) {
-            return ReplaceResult.invalidInput(
-                ReplaceFailurePhase.INPUT,
-                "app controller, document, target list, incoming object, and stage are required"
+        if (appController == null || document == null || incomingParsedLayeredImage == null || stableStage == null) {
+            return new InputValidation(
+                ReplaceResult.invalidInput(
+                    ReplaceFailurePhase.INPUT,
+                    "app controller, document, target list, incoming object, and stage are required"
+                ),
+                null
             );
         }
+        if (oldLayeredImages == null) {
+            return new InputValidation(
+                ReplaceResult.invalidInput(
+                    ReplaceFailurePhase.TARGETS,
+                    "old CLayeredImage target list must not be null"
+                ),
+                null
+            );
+        }
+
+        final List<Object> targets;
+        try {
+            targets = snapshotTargets(oldLayeredImages);
+        } catch (TargetSnapshotException failure) {
+            return new InputValidation(
+                ReplaceResult.invalidInput(ReplaceFailurePhase.TARGETS, failure.getMessage()),
+                null
+            );
+        } catch (RuntimeException failure) {
+            return new InputValidation(
+                ReplaceResult.unavailable(ReplaceFailurePhase.TARGETS, failure),
+                null
+            );
+        }
+
         try {
             if (!resolver.isInstance(
-                EditorRawImagePsdReplaceSelectorContract.APP_CONTROLLER_CLASS_ALIAS,
+                "cubism.editor-model.app-controller.class",
                 appController
             )) {
-                return ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.INPUT,
-                    "app controller is not the exact verified CEAppCtrl type"
+                return new InputValidation(
+                    ReplaceResult.invalidInput(
+                        ReplaceFailurePhase.INPUT,
+                        "app controller is not the exact verified CEAppCtrl type"
+                    ),
+                    null
                 );
             }
             if (!resolver.isInstance(
-                EditorRawImagePsdReplaceSelectorContract.MODELING_DOCUMENT_CLASS_ALIAS,
+                "cubism.editor-model.modeling-document.class",
                 document
             )) {
-                return ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.INPUT,
-                    "document is not the exact verified CModelingDocument type"
+                return new InputValidation(
+                    ReplaceResult.invalidInput(
+                        ReplaceFailurePhase.INPUT,
+                        "document is not the exact verified CModelingDocument type"
+                    ),
+                    null
                 );
             }
             if (!resolver.isInstance(
-                EditorRawImagePsdReplaceSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
+                "cubism.editor-model.layered-image.class",
                 incomingParsedLayeredImage
             )) {
-                return ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.INPUT,
-                    "incoming object is not the exact verified CLayeredImage type"
+                return new InputValidation(
+                    ReplaceResult.invalidInput(
+                        ReplaceFailurePhase.INPUT,
+                        "incoming object is not the exact verified CLayeredImage type"
+                    ),
+                    null
                 );
             }
 
-            if (oldLayeredImages.isEmpty()) {
-                return ReplaceResult.invalidInput(
-                    ReplaceFailurePhase.TARGETS,
-                    "old CLayeredImage target list must not be empty"
+            if (targets.isEmpty()) {
+                return new InputValidation(
+                    ReplaceResult.invalidInput(
+                        ReplaceFailurePhase.TARGETS,
+                        "old CLayeredImage target list must not be empty"
+                    ),
+                    null
                 );
             }
             final IdentityHashMap<Object, Boolean> seen = new IdentityHashMap<>();
-            for (final Object target : oldLayeredImages) {
-                if (target == null) {
-                    return ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.TARGETS,
-                        "old CLayeredImage target list must not contain null"
-                    );
-                }
+            for (final Object target : targets) {
                 if (target == incomingParsedLayeredImage) {
-                    return ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.TARGETS,
-                        "incoming parsed CLayeredImage must not also be an old target"
+                    return new InputValidation(
+                        ReplaceResult.invalidInput(
+                            ReplaceFailurePhase.TARGETS,
+                            "incoming parsed CLayeredImage must not also be an old target"
+                        ),
+                        null
                     );
                 }
                 if (seen.put(target, Boolean.TRUE) != null) {
-                    return ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.TARGETS,
-                        "old CLayeredImage target list contains an identity duplicate"
+                    return new InputValidation(
+                        ReplaceResult.invalidInput(
+                            ReplaceFailurePhase.TARGETS,
+                            "old CLayeredImage target list contains an identity duplicate"
+                        ),
+                        null
                     );
                 }
                 if (!resolver.isInstance(
-                    EditorRawImagePsdReplaceSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
+                    "cubism.editor-model.layered-image.class",
                     target
                 )) {
-                    return ReplaceResult.invalidInput(
-                        ReplaceFailurePhase.TARGETS,
-                        "old target is not the exact verified CLayeredImage type"
+                    return new InputValidation(
+                        ReplaceResult.invalidInput(
+                            ReplaceFailurePhase.TARGETS,
+                            "old target is not the exact verified CLayeredImage type"
+                        ),
+                        null
                     );
                 }
             }
         } catch (RuntimeException failure) {
-            return ReplaceResult.unavailable(ReplaceFailurePhase.INPUT, failure);
+            return new InputValidation(
+                ReplaceResult.unavailable(ReplaceFailurePhase.INPUT, failure),
+                null
+            );
         }
-        return null;
+        return new InputValidation(null, targets);
     }
 
-    private static List<Object> copyTargets(final List<?> oldLayeredImages) {
-        final List<Object> targets = new ArrayList<>(oldLayeredImages.size());
-        targets.addAll(oldLayeredImages);
-        return List.copyOf(targets);
+    private static List<Object> snapshotTargets(final List<?> oldLayeredImages) {
+        final List<Object> snapshot = new ArrayList<>();
+        try {
+            for (final Object target : oldLayeredImages) {
+                if (target == null) {
+                    throw new TargetSnapshotException(
+                        "old CLayeredImage target list must not contain null"
+                    );
+                }
+                snapshot.add(target);
+            }
+        } catch (TargetSnapshotException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new TargetSnapshotException(
+                "old CLayeredImage target list could not be snapshotted",
+                failure
+            );
+        }
+        return List.copyOf(snapshot);
     }
+
+    private record InputValidation(ReplaceResult failure, List<Object> targets) {
+    }
+
+    private static final class TargetSnapshotException extends RuntimeException {
+        private TargetSnapshotException(final String detail) {
+            super(detail);
+        }
+
+        private TargetSnapshotException(final String detail, final Throwable cause) {
+            super(detail, cause);
+        }
+    }
+
 
     private static StageState inspectStage(final Path stage) throws IOException {
         try {
@@ -422,6 +497,7 @@ final class EditorRawImagePsdReplaceAccess {
             final ReplaceFailurePhase phase,
             final String detail
         ) {
+            // UNAVAILABLE never certifies the current guard, including failures observed after it ran.
             return new ReplaceResult(
                 ReplaceStatus.UNAVAILABLE,
                 false,

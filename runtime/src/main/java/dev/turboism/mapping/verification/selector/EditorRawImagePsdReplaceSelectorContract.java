@@ -46,8 +46,9 @@ public final class EditorRawImagePsdReplaceSelectorContract {
         "cubism.editor-model.psd-import.group-undo.class";
 
     /**
-     * Aliases needed by this internal slice. Production admission is intentionally a later
-     * manifest/registry integration step; this contract does not make a host binding available.
+     * Aliases invoked by this internal slice and therefore required for production admission.
+     * Transaction evidence is deliberately kept out of this set: the native five-argument entry
+     * owns that boundary and the adapter never resolves or invokes begin/end/GroupUndo members.
      */
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         APP_CONTROLLER_CLASS_ALIAS,
@@ -57,7 +58,14 @@ public final class EditorRawImagePsdReplaceSelectorContract {
         LAYERED_IMAGE_CLASS_ALIAS,
         PSD_IMPORT_PROCESS_CLASS_ALIAS,
         PSD_IMPORT_PROCESS_INSTANCE_ALIAS,
-        PSD_IMPORT_REPLACE_ALIAS,
+        PSD_IMPORT_REPLACE_ALIAS
+    );
+
+    /**
+     * Report-only exact evidence for the transaction boundary observed in the native method body.
+     * These aliases are verified by static evidence tests, but are not production admission.
+     */
+    public static final Set<String> TRANSACTION_EVIDENCE_ALIASES = Set.of(
         NATIVE_EDIT_MODE_CLASS_ALIAS,
         NATIVE_BEGIN_EDIT_ALIAS,
         NATIVE_END_EDIT_ALIAS,

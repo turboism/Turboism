@@ -179,6 +179,30 @@ class EditorRawImagePsdReplaceAccessTest {
     }
 
     @Test
+    void unavailableAfterThePreGuardDoesNotClaimTheGuardPassed(@TempDir final Path temp) throws Exception {
+        final AtomicInteger guardCalls = new AtomicInteger();
+        final EditorRawImagePsdReplaceAccess.ReplaceResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> guardCalls.incrementAndGet()
+        ).replacePsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdReplaceNativeFixture.SyntheticAppController(),
+            new EditorRawImagePsdReplaceNativeFixture.SyntheticDocument(null),
+            List.of(layer("old")),
+            layer("incoming"),
+            readyStage(temp)
+        );
+
+        assertEquals(EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE, result.status());
+        assertEquals(EditorRawImagePsdReplaceAccess.ReplaceFailurePhase.EDITING_STATE, result.failurePhase());
+        assertFalse(result.preCurrentGuardPassed());
+        assertFalse(result.postCurrentGuardPassed());
+        assertFalse(result.nativeInvocationAttempted());
+        assertEquals(1, guardCalls.get());
+    }
+
+    @Test
     void rejectsEmptyAndIdentityDuplicateTargetsBeforeStateOrNativeInvocation(@TempDir final Path temp)
         throws Exception {
         final var app = new EditorRawImagePsdReplaceNativeFixture.SyntheticAppController();
@@ -213,6 +237,49 @@ class EditorRawImagePsdReplaceAccessTest {
         assertEquals(EditorRawImagePsdReplaceAccess.ReplaceFailurePhase.TARGETS, repeated.failurePhase());
         assertFalse(repeated.nativeInvocationAttempted());
         assertTrue(EditorRawImagePsdReplaceNativeFixture.events().isEmpty());
+    }
+
+    @Test
+    void snapshotsAChangingTargetListOnceAndUsesThatSnapshotForValidationAndNative(@TempDir final Path temp)
+        throws Exception {
+        final var validatedTarget = layer("validated");
+        final var replacementTarget = layer("replacement");
+        final AtomicInteger iteratorCalls = new AtomicInteger();
+        final List<EditorRawImagePsdReplaceNativeFixture.SyntheticLayeredImage> mutableTargets =
+            new java.util.AbstractList<>() {
+                @Override
+                public EditorRawImagePsdReplaceNativeFixture.SyntheticLayeredImage get(final int index) {
+                    throw new AssertionError("snapshot must use one iterator, not indexed rereads");
+                }
+
+                @Override
+                public int size() {
+                    return 1;
+                }
+
+                @Override
+                public java.util.Iterator<EditorRawImagePsdReplaceNativeFixture.SyntheticLayeredImage> iterator() {
+                    final int read = iteratorCalls.getAndIncrement();
+                    return List.of(read == 0 ? validatedTarget : replacementTarget).iterator();
+                }
+            };
+
+        final EditorRawImagePsdReplaceAccess.ReplaceResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).replacePsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdReplaceNativeFixture.SyntheticAppController(),
+            document(false),
+            mutableTargets,
+            layer("incoming"),
+            readyStage(temp)
+        );
+
+        assertEquals(EditorRawImagePsdReplaceAccess.ReplaceStatus.NATIVE_RETURNED_UNVERIFIED, result.status());
+        assertEquals(List.of(validatedTarget), EditorRawImagePsdReplaceNativeFixture.lastTargets);
+        assertEquals(1, iteratorCalls.get());
     }
 
     @Test
@@ -290,6 +357,8 @@ class EditorRawImagePsdReplaceAccessTest {
             "session-a", new Object(), app, document(false), List.of(layer("old")), layer("incoming"), stage
         );
         assertEquals(EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE, unsupported.status());
+        assertFalse(unsupported.preCurrentGuardPassed());
+        assertFalse(unsupported.postCurrentGuardPassed());
         assertTrue(EditorRawImagePsdReplaceNativeFixture.events().isEmpty());
 
         EditorRawImagePsdReplaceNativeFixture.reset();
@@ -299,6 +368,8 @@ class EditorRawImagePsdReplaceAccessTest {
             "session-a", new Object(), app, document(false), List.of(layer("old")), layer("incoming"), stage
         );
         assertEquals(EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE, unauthorized.status());
+        assertFalse(unauthorized.preCurrentGuardPassed());
+        assertFalse(unauthorized.postCurrentGuardPassed());
         assertTrue(EditorRawImagePsdReplaceNativeFixture.events().isEmpty());
     }
 
@@ -420,20 +491,6 @@ class EditorRawImagePsdReplaceAccessTest {
                         + "Ljava/io/File;"
                         + reference(EditorRawImagePsdReplaceNativeFixture.SyntheticDocument.class)
                         + "Ljava/util/List;)V"
-                )
-            );
-            selectors.put(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_EDIT_MODE_CLASS_ALIAS,
-                StaticSelector.classSelector(
-                    EditorRawImagePsdReplaceSelectorContract.NATIVE_EDIT_MODE_CLASS_ALIAS,
-                    internal(EditorRawImagePsdReplaceNativeFixture.SyntheticNativeEditMode.class)
-                )
-            );
-            selectors.put(
-                EditorRawImagePsdReplaceSelectorContract.NATIVE_GROUP_UNDO_CLASS_ALIAS,
-                StaticSelector.classSelector(
-                    EditorRawImagePsdReplaceSelectorContract.NATIVE_GROUP_UNDO_CLASS_ALIAS,
-                    internal(EditorRawImagePsdReplaceNativeFixture.SyntheticGroupUndo.class)
                 )
             );
         }
