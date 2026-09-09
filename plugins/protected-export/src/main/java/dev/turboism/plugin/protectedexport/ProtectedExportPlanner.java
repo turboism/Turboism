@@ -24,6 +24,8 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -106,13 +108,14 @@ final class ProtectedExportPlanner {
             drawablesById
         );
 
-        final Set<String> reservedStrings = sourceStrings(parts, parameters, readDeformers, drawables);
+        final Set<String> sourceIds = sourceStrings(drawables);
+        final Set<String> sourceNames = sourceNames(drawables);
         return new ProtectedExportPlan(
             deformerOrder,
             drawables.stream().map(DrawableSnapshot::id).toList(),
             parts.stream().map(PartSnapshot::id).toList(),
             parameters.stream().map(ParameterSnapshot::id).toList(),
-            obfuscate(drawables, reservedStrings),
+            obfuscate(drawables, sourceIds, sourceNames),
             parts.stream().map(PartSnapshot::toPlanSnapshot).toList()
         );
     }
@@ -182,10 +185,12 @@ final class ProtectedExportPlanner {
         for (Drawable drawable : drawables) {
             final ArtMeshId id = requireId(drawable.id(), "ArtMesh");
             final String guid = text(drawable.guid(), "ArtMesh GUID");
+            final String name = text(drawable.name(), "ArtMesh name");
             rejectMorphTargets(drawable.morphTargets(), "ArtMesh");
             result.add(new DrawableSnapshot(
                 id,
                 guid,
+                name,
                 requiredOptional(drawable.parentPartId(), "ArtMesh parent Part"),
                 requiredOptional(drawable.parentDeformerId(), "ArtMesh parent Deformer"),
                 snapshot(drawable.getParameterBindings(), "ArtMesh parameter binding")
@@ -394,8 +399,31 @@ final class ProtectedExportPlanner {
             }
         }
         final Map<PartId, Integer> state = new HashMap<>();
-        for (PartId id : parts.keySet()) {
-            visitPartParent(id, parts, state);
+        final List<PartId> stableIds = parts.keySet().stream()
+            .sorted(Comparator.comparing(PartId::value))
+            .toList();
+        for (PartId start : stableIds) {
+            final List<PartId> chain = new ArrayList<>();
+            PartId cursor = start;
+            while (true) {
+                final int current = state.getOrDefault(cursor, 0);
+                if (current == 2) {
+                    break;
+                }
+                if (current == 1) {
+                    throw invalid("Part hierarchy cycle at " + cursor.value());
+                }
+                state.put(cursor, 1);
+                chain.add(cursor);
+                final Optional<PartId> parent = parts.get(cursor).parentId();
+                if (parent.isEmpty()) {
+                    break;
+                }
+                cursor = parent.orElseThrow();
+            }
+            for (PartId visited : chain) {
+                state.put(visited, 2);
+            }
         }
     }
 
@@ -404,64 +432,37 @@ final class ProtectedExportPlanner {
             .filter(value -> value.parentId().isEmpty())
             .sorted(Comparator.comparing(value -> value.id().value()))
             .toList();
-        final Map<PartId, Integer> state = new HashMap<>();
-        final List<PartSnapshot> result = new ArrayList<>();
-        for (PartSnapshot root : roots) {
-            appendPart(root, parts, state, result);
-        }
-        for (PartSnapshot part : parts.values().stream()
+        final List<PartSnapshot> starts = new ArrayList<>(roots);
+        starts.addAll(parts.values().stream()
             .sorted(Comparator.comparing(value -> value.id().value()))
-            .toList()) {
-            appendPart(part, parts, state, result);
+            .toList());
+        final Set<PartId> emitted = new HashSet<>();
+        final List<PartSnapshot> result = new ArrayList<>();
+        for (PartSnapshot start : starts) {
+            if (emitted.contains(start.id())) {
+                continue;
+            }
+            final Deque<PartId> pending = new ArrayDeque<>();
+            pending.push(start.id());
+            while (!pending.isEmpty()) {
+                final PartId id = pending.pop();
+                if (!emitted.add(id)) {
+                    continue;
+                }
+                final PartSnapshot part = parts.get(id);
+                result.add(part);
+                final List<PartId> children = part.childIds().stream()
+                    .sorted(Comparator.comparing(PartId::value))
+                    .toList();
+                for (int index = children.size() - 1; index >= 0; index--) {
+                    pending.push(children.get(index));
+                }
+            }
         }
         if (result.size() != parts.size()) {
             throw invalid("Part hierarchy is unavailable or ambiguous");
         }
         return List.copyOf(result);
-    }
-
-    private static void visitPartParent(
-        final PartId id,
-        final Map<PartId, PartSnapshot> parts,
-        final Map<PartId, Integer> state
-    ) {
-        final int current = state.getOrDefault(id, 0);
-        if (current == 1) {
-            throw invalid("Part hierarchy cycle at " + id.value());
-        }
-        if (current == 2) {
-            return;
-        }
-        state.put(id, 1);
-        final Optional<PartId> parent = parts.get(id).parentId();
-        if (parent.isPresent()) {
-            visitPartParent(parent.orElseThrow(), parts, state);
-        }
-        state.put(id, 2);
-    }
-
-    private static void appendPart(
-        final PartSnapshot part,
-        final Map<PartId, PartSnapshot> parts,
-        final Map<PartId, Integer> state,
-        final List<PartSnapshot> result
-    ) {
-        final int current = state.getOrDefault(part.id(), 0);
-        if (current == 1) {
-            throw invalid("Part hierarchy cycle at " + part.id().value());
-        }
-        if (current == 2) {
-            return;
-        }
-        state.put(part.id(), 1);
-        result.add(part);
-        final List<PartId> children = part.childIds().stream()
-            .sorted(Comparator.comparing(PartId::value))
-            .toList();
-        for (PartId childId : children) {
-            appendPart(parts.get(childId), parts, state, result);
-        }
-        state.put(part.id(), 2);
     }
 
     private static void validateDeformerParents(
@@ -512,6 +513,7 @@ final class ProtectedExportPlanner {
                 children.computeIfAbsent(parent, ignored -> new ArrayList<>()).add(deformer)
             );
         }
+        children.values().forEach(list -> list.sort(Comparator.comparing(value -> value.id().value())));
         final List<DeformerSnapshot> stable = deformers.stream()
             .sorted(Comparator.comparing(value -> value.id().value()))
             .toList();
@@ -532,51 +534,57 @@ final class ProtectedExportPlanner {
     }
 
     private static void visitDeformer(
-        final DeformerSnapshot deformer,
+        final DeformerSnapshot start,
         final Map<DeformerId, List<DeformerSnapshot>> children,
         final Map<DeformerId, Integer> state,
         final List<DeformerId> result
     ) {
-        final DeformerId id = deformer.id();
-        final int current = state.getOrDefault(id, 0);
-        if (current == 1) {
-            throw invalid("deformer hierarchy cycle at " + id.value());
+        final Deque<DeformerFrame> pending = new ArrayDeque<>();
+        pending.push(new DeformerFrame(start, false));
+        while (!pending.isEmpty()) {
+            final DeformerFrame frame = pending.pop();
+            final DeformerSnapshot deformer = frame.deformer();
+            final DeformerId id = deformer.id();
+            final int current = state.getOrDefault(id, 0);
+            if (frame.expanded()) {
+                if (current != 1) {
+                    continue;
+                }
+                result.add(id);
+                state.put(id, 2);
+                continue;
+            }
+            if (current == 1) {
+                throw invalid("deformer hierarchy cycle at " + id.value());
+            }
+            if (current == 2) {
+                continue;
+            }
+            state.put(id, 1);
+            pending.push(new DeformerFrame(deformer, true));
+            final List<DeformerSnapshot> stableChildren = children.getOrDefault(id, List.of());
+            for (int index = stableChildren.size() - 1; index >= 0; index--) {
+                pending.push(new DeformerFrame(stableChildren.get(index), false));
+            }
         }
-        if (current == 2) {
-            return;
-        }
-        state.put(id, 1);
-        final List<DeformerSnapshot> stableChildren = new ArrayList<>(
-            children.getOrDefault(id, List.of())
-        );
-        stableChildren.sort(Comparator.comparing(value -> value.id().value()));
-        for (DeformerSnapshot child : stableChildren) {
-            visitDeformer(child, children, state, result);
-        }
-        result.add(id);
-        state.put(id, 2);
     }
 
-    private Set<String> sourceStrings(
-        final List<PartSnapshot> parts,
-        final List<ParameterSnapshot> parameters,
-        final List<DeformerSnapshot> deformers,
-        final List<DrawableSnapshot> drawables
-    ) {
-        final Set<String> result = new HashSet<>();
-        parts.forEach(part -> {
-            result.add(text(part.id().value(), "Part ID"));
-            result.add(text(part.name(), "Part name"));
-        });
-        parameters.forEach(parameter -> result.add(text(parameter.id().value(), "Parameter ID")));
-        deformers.forEach(deformer -> result.add(text(deformer.id().value(), "deformer ID")));
-        drawables.forEach(drawable -> result.add(text(drawable.id().value(), "ArtMesh ID")));
-        return Set.copyOf(result);
+    private static Set<String> sourceStrings(final List<DrawableSnapshot> drawables) {
+        return Set.copyOf(drawables.stream()
+            .map(drawable -> text(drawable.id().value(), "ArtMesh ID"))
+            .toList());
+    }
+
+    private static Set<String> sourceNames(final List<DrawableSnapshot> drawables) {
+        return Set.copyOf(drawables.stream()
+            .map(DrawableSnapshot::name)
+            .toList());
     }
 
     private Map<ArtMeshId, ProtectedExportPlan.ArtMeshTarget> obfuscate(
         final List<DrawableSnapshot> drawables,
-        final Set<String> reservedStrings
+        final Set<String> reservedIds,
+        final Set<String> reservedNames
     ) {
         final Map<ArtMeshId, ProtectedExportPlan.ArtMeshTarget> result = new LinkedHashMap<>();
         final Set<String> usedNames = new HashSet<>();
@@ -593,7 +601,8 @@ final class ProtectedExportPlanner {
                 final String suffix = hash.substring(0, length);
                 final String name = OBFUSCATED_NAME_PREFIX + suffix;
                 final String idToken = TARGET_ID_PREFIX + suffix;
-                if (reservedStrings.contains(name) || reservedStrings.contains(idToken)
+                if (reservedNames.contains(name) || reservedNames.contains(idToken)
+                    || reservedIds.contains(name) || reservedIds.contains(idToken)
                     || usedNames.contains(name) || usedIds.contains(idToken)) {
                     continue;
                 }
@@ -606,7 +615,7 @@ final class ProtectedExportPlanner {
                 break;
             }
             if (!allocated) {
-                throw invalid("ArtMesh GUID hash collision or target ID conflict");
+                throw invalid("ArtMesh GUID collision or target ID conflict");
             }
         }
         return result;
@@ -731,9 +740,13 @@ final class ProtectedExportPlanner {
         }
     }
 
+    private record DeformerFrame(DeformerSnapshot deformer, boolean expanded) {
+    }
+
     private record DrawableSnapshot(
         ArtMeshId id,
         String guid,
+        String name,
         Optional<PartId> parentPartId,
         Optional<DeformerId> parentDeformerId,
         List<ParameterBinding> bindings
@@ -741,6 +754,7 @@ final class ProtectedExportPlanner {
         private DrawableSnapshot {
             id = requireId(id, "ArtMesh");
             guid = text(guid, "ArtMesh GUID");
+            name = text(name, "ArtMesh name");
             parentPartId = requiredOptional(parentPartId, "ArtMesh parent Part");
             parentDeformerId = requiredOptional(parentDeformerId, "ArtMesh parent Deformer");
             bindings = List.copyOf(bindings);
