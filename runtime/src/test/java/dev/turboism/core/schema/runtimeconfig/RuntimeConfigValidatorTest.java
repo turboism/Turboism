@@ -47,6 +47,14 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsOptionalUseTextIconBoolean() {
+        final ObjectNode root = base();
+        root.put("useTextIcon", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
     void acceptsCubismJvmLauncherSelection() {
         final ObjectNode root = base();
         root.withObject("launcher").put("cubismJvm", "graalvm");
@@ -118,6 +126,14 @@ class RuntimeConfigValidatorTest {
     void rejectsSeparateExportFlagOfWrongType() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("separateExportSaveDirectory", "yes");
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsUseTextIconOfWrongType() {
+        final ObjectNode root = base();
+        root.put("useTextIcon", "yes");
+
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
     }
 
