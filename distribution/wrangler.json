@@ -9,5 +9,6 @@
   "durable_objects": { "bindings": [{ "name": "REGISTRY", "class_name": "ReleaseRegistry" }] },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ReleaseRegistry"] }],
   "triggers": { "crons": ["7,22,37,52 * * * *"] },
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  "r2_buckets": [{ "binding": "DOWNLOADS", "bucket_name": "turboism-downloads" }]
 }

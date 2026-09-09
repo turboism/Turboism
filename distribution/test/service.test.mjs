@@ -25,3 +25,8 @@ test('GET conditional responses and HEAD work; sync error never sends 304',async
 test('single HTTP ranges support offsets and suffixes, reject multipart and unsatisfiable offsets',()=>{
  assert.deepEqual(parseRange('bytes=10-19',100),{offset:10,length:10});assert.deepEqual(parseRange('bytes=-10',100),{offset:90,length:10});assert.deepEqual(parseRange('bytes=10-',100),{offset:10,length:90});assert.equal(parseRange('bytes=100-',100),false);assert.equal(parseRange('bytes=0-1,3-4',100),false);
 });
+test('Workers-compatible metadata fetch uses manual redirects and rejects redirects rather than following them',async()=>{
+ let observed;
+ await assert.rejects(()=>synchronize(null,{},async(_url,init)=>{observed=init.redirect;return new Response(null,{status:302,headers:{Location:'https://untrusted.invalid'}});}),/302/);
+ assert.equal(observed,'manual');
+});

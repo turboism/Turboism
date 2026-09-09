@@ -1,3 +1,4 @@
+import { hasVerifiedBytes } from './mirror.mjs';
 /** Single-range downloads only. The registry admits keys, this module never proxies GitHub. */
 export function parseRange(header,size){
  if(!header)return null;const m=/^bytes=(\d*)-(\d*)$/.exec(header);if(!m||(!m[1]&&!m[2]))return false;
@@ -9,7 +10,7 @@ export function parseRange(header,size){
 }
 export async function serveFile(request,bucket,asset){
  if(!bucket)return new Response('Official mirror is not configured',{status:503,headers:{'Cache-Control':'no-store','Retry-After':'300'}});
- const head=await bucket.head(asset.key);if(!head||head.size!==asset.size)return new Response('File not mirrored',{status:503,headers:{'Cache-Control':'no-store'}});
+ const head=await bucket.head(asset.key);if(!hasVerifiedBytes(head,asset))return new Response('File not mirrored',{status:503,headers:{'Cache-Control':'no-store'}});
  const etag='"'+asset.sha256+'"',headers=new Headers({'Content-Type':asset.mediaType,'Content-Disposition':`attachment; filename="${asset.name}"`,'Content-Length':String(asset.size),'Accept-Ranges':'bytes',ETag:etag,'X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':'*','Access-Control-Expose-Headers':'ETag, Content-Length, Content-Range, Accept-Ranges','Cache-Control':'public, max-age=0, s-maxage=60, must-revalidate'});
  if((request.headers.get('if-none-match')??'').split(',').some(x=>x.trim().replace(/^W\//,'')===etag||x.trim()==='*'))return new Response(null,{status:304,headers});
  if(request.method==='HEAD')return new Response(null,{headers});

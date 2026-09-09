@@ -1,6 +1,7 @@
-import { REPOSITORY,ORIGIN,CHANNELS,classify,compareVersions,parseRelease,buildReceipt } from './protocol.mjs';
+import { mirrorRelease,mirrorFingerprint } from './mirror.mjs';
+import { REPOSITORY,CHANNELS,classify,compareVersions,parseRelease,buildReceipt } from './protocol.mjs';
 export async function github(path,fetcher=fetch){
- const response=await fetcher(`https://api.github.com/repos/${REPOSITORY}${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Turboism-Release-Sync'},redirect:'error',signal:AbortSignal.timeout(15000)});
+ const response=await fetcher(`https://api.github.com/repos/${REPOSITORY}${path}`,{headers:{Accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','User-Agent':'Turboism-Release-Sync'},redirect:'manual',signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw new Error(`GitHub HTTP ${response.status}`);
  if(!response.headers.get('content-type')?.includes('application/json'))throw new Error('GitHub returned non-JSON');
  const length=Number(response.headers.get('content-length')??0);if(length>4*1024*1024)throw new Error('GitHub document too large');
@@ -14,17 +15,7 @@ async function sourceFor(tag,fetcher){
  for(let i=0;obj?.type==='tag'&&i<4;i++){if(!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid tag');obj=(await github(`/git/tags/${obj.sha}`,fetcher)).value.object;}
  if(obj?.type!=='commit'||!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid source commit');return obj.sha;
 }
-export function fingerprint(release){return JSON.stringify([release.sourceRevision,...release.assets.flatMap(a=>[a,a.checksum]).map(a=>[a.name,a.size,a.sha256])]);}
-async function mirrors(release,env){
- if(!env.DOWNLOADS)return release;
- const marker=await env.DOWNLOADS.get(`mirrors/${release.tag}.json`);if(!marker)return release;
- let saved;try{saved=await marker.json();}catch{return release;}
- if(saved.schemaVersion!==1||saved.fingerprint!==fingerprint(release))return release;
- const assets=release.assets.flatMap(a=>[a,a.checksum]);
- const heads=await Promise.all(assets.map(a=>env.DOWNLOADS.head(a.key)));
- if(heads.some((o,i)=>!o||o.size!==assets[i].size))return release;
- return {...release,assets:release.assets.map(a=>({...a,checksum:{...a.checksum,url:`${ORIGIN}/${a.checksum.key}`},sources:[{id:'official',url:`${ORIGIN}/${a.key}`},...a.sources]}))};
-}
+export const fingerprint=mirrorFingerprint;
 /** Only published product releases are observed. No software builds or tags are created. */
 export async function synchronize(previous,env={},fetcher=fetch){
  const raws=[];let done=false;
@@ -42,7 +33,7 @@ export async function synchronize(previous,env={},fetcher=fetch){
    if(receipt){const result=(await github(`/contents/entries/${receipt.runId}-${receipt.runAttempt}.json?ref=build-ledger`,fetcher)).value;identity=JSON.parse(atob(result.content.replace(/\s/g,'')));}
    let release=parseRelease(raw,source,identity);const key=release.tag;
    if(known[key]&&fingerprint(known[key].release)!==fingerprint(release))throw new Error('Immutable release conflict');
-   release=await mirrors(release,env);known[key]={active:true,release:{tag:release.tag,sourceRevision:release.sourceRevision,assets:release.assets}};releases.push(release);
+   release=await mirrorRelease(release,env.DOWNLOADS,fetcher);known[key]={active:true,release:{tag:release.tag,sourceRevision:release.sourceRevision,assets:release.assets}};releases.push(release);
   }catch(error){errors[channel]=String(error.message??'RELEASE_INVALID').slice(0,120);}
  }
  return {schemaVersion:1,syncedAt:new Date().toISOString(),releases,known,errors};
