@@ -625,6 +625,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             return "{\"type\":\"paired-snapshot\",\"phase\":\""
                 + WindowsHistoryManagerValidationProbe.json(phase)
                 + "\",\"nativeEvidence\":\"same-edt-read-only-manager-sampler\""
+                + ",\"nativePairing\":\"ordinal-label-supporting-only\""
+                + ",\"nativeStableIdMatch\":false"
                 + ",\"sdkEvidence\":\"captured-operation-metadata\""
                 + ",\"nativeUiCoverage\":\"not-proven-by-seed\""
                 + ",\"observedAt\":\"" + WindowsHistoryManagerValidationProbe.json(observedAt)
