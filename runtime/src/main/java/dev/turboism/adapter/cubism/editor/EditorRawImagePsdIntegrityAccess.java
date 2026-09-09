@@ -10,14 +10,19 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Package-private export-fidelity observation for a verified {@code CLayeredImage}.
+ * Package-private export-fidelity observation for a typed {@code CLayeredImage}.
  *
  * <p>This is deliberately a comparison of observations, not a user-edit validator. The root
  * layered-image GUID is not read or compared: a reparsed {@code CLayeredImage} is expected to
- * have a different host object identity. The exact selectors currently prove the canvas
- * dimensions, ordered group/pixel tree, layer-entry names, and layer-entry GUID observations.
- * They do not expose a verified PSD layer ID, per-pixel-layer bounds, usable-pixel buffer, or
- * special-blend fidelity, so those dimensions remain explicitly unverified.</p>
+ * have a different host object identity. The 5.3.02 {@code save(File, Progress)} bytecode rebuilds
+ * the output from width, height, and root-layer state without reading source {@code psdDoc}; its
+ * layer helper writes PSD layer identifiers from {@code CLayerIdentifier.getLayerId()}, not from
+ * editor {@code CLayerEntry.guid}. The {@code ACLayerEntry(CLayeredImage)} constructor also
+ * allocates a fresh {@code CLayerGuid}, so editor layer-entry GUIDs are observations only. There
+ * is no verified evidence in this slice that those GUIDs are written into a PSD and preserved by
+ * reparsing, so regenerated GUIDs must not gate a structural match. The selectors do not expose a
+ * verified PSD layer ID, per-pixel-layer bounds, usable-pixel buffer, or special-blend fidelity,
+ * so those dimensions remain explicitly unverified.</p>
  */
 final class EditorRawImagePsdIntegrityAccess {
     private final VerifiedMemberResolver resolver;
@@ -26,7 +31,7 @@ final class EditorRawImagePsdIntegrityAccess {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
     }
 
-    /** Captures one typed PSD-backed layered-image observation on the host thread. */
+    /** Captures one typed layered-image observation on the host thread; source PSD metadata is optional. */
     Snapshot captureOnHostThread(final Object layeredImage) {
         if (!EditorHostThread.isCurrent()) {
             throw new IllegalStateException("PSD integrity capture must run on the Editor host thread");
@@ -37,14 +42,6 @@ final class EditorRawImagePsdIntegrityAccess {
             layeredImage,
             "layered image"
         );
-        final Object psdDocument = resolver.invoke(
-            "cubism.editor-model.layered-image.psd-doc",
-            layeredImage
-        );
-        if (psdDocument == null
-            || !resolver.isInstance("cubism.editor-model.psd-document.class", psdDocument)) {
-            throw unavailable("layered image has no typed PSD document");
-        }
         final String name = string(
             resolver.invoke("cubism.editor-model.layered-image.name", layeredImage),
             "layered image name"
@@ -83,14 +80,12 @@ final class EditorRawImagePsdIntegrityAccess {
             && sameEditorLayerIds(before.layers(), after.layers());
         final boolean structuralMatch = rootNameMatches
             && dimensionsMatch
-            && layerTreeMatches
-            && editorLayerIdsMatch;
+            && layerTreeMatches;
         final String detail = structuralMatch
-            ? "verified root name, canvas dimensions, ordered layer/group tree, layer names, and "
-                + "Editor layer-entry GUID observations; PSD layer IDs, pixel bounds, usable pixels, "
-                + "and special-blend fidelity remain unverified"
-            : mismatchDetail(rootNameMatches, dimensionsMatch, layerTreeMatches, editorLayerIdsObserved,
-                editorLayerIdsMatch);
+            ? "verified root name, canvas dimensions, ordered layer/group tree, and layer names; "
+                + "Editor layer-entry GUIDs were observed but not treated as persisted-PSD equality; "
+                + "PSD layer IDs, pixel bounds, usable pixels, and special-blend fidelity remain unverified"
+            : mismatchDetail(rootNameMatches, dimensionsMatch, layerTreeMatches);
         return new Verification(
             structuralMatch ? VerificationStatus.MATCHED_UNVERIFIED : VerificationStatus.MISMATCH,
             rootNameMatches,
@@ -186,18 +181,15 @@ final class EditorRawImagePsdIntegrityAccess {
     private static String mismatchDetail(
         final boolean rootNameMatches,
         final boolean dimensionsMatch,
-        final boolean layerTreeMatches,
-        final boolean editorLayerIdsObserved,
-        final boolean editorLayerIdsMatch
+        final boolean layerTreeMatches
     ) {
         final ArrayList<String> mismatches = new ArrayList<>();
         if (!rootNameMatches) mismatches.add("root name");
         if (!dimensionsMatch) mismatches.add("canvas dimensions");
         if (!layerTreeMatches) mismatches.add("ordered layer/group tree or layer names");
-        if (!editorLayerIdsObserved) mismatches.add("Editor layer-entry GUID observation");
-        else if (!editorLayerIdsMatch) mismatches.add("Editor layer-entry GUIDs");
         return "export observations differ in " + String.join(", ", mismatches)
-            + "; PSD layer IDs, pixel bounds, usable pixels, and special-blend fidelity remain unverified";
+            + "; Editor layer-entry GUIDs are observations only; PSD layer IDs, pixel bounds, usable pixels, "
+            + "and special-blend fidelity remain unverified";
     }
 
     private void requireInstance(final String alias, final Object value, final String label) {

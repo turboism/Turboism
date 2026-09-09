@@ -16,7 +16,9 @@ import java.util.Set;
  * image collection. Names, paths, and caller-supplied objects are not identity substitutes. The
  * caller must have already established the current model/source pairing with its current-model
  * guard; no verified model-to-source ownership selector exists in this slice. An exact
- * {@code CLayeredImage} type check therefore proves only native shape, not model ownership.</p>
+ * {@code CLayeredImage} type check therefore proves only native shape, not model ownership. A
+ * source PSD document is not required: a raw image with a valid native layer resource may be
+ * exported, while the absence of that document does not classify the resource as PSD.</p>
  */
 final class EditorRawImagePsdSourceBinding {
     private final VerifiedMemberResolver resolver;
@@ -31,7 +33,7 @@ final class EditorRawImagePsdSourceBinding {
     }
 
     /**
-     * Resolves exactly one PSD-backed raw image from the supplied current model source.
+     * Resolves exactly one raw image from the supplied current model source.
      * Must be called inside the caller's one host-thread/current-model boundary.
      */
     BindingResult bindOnHostThread(final Object modelSource, final RawImageId targetId) {
@@ -102,26 +104,6 @@ final class EditorRawImagePsdSourceBinding {
                 );
             }
             final EditorRawImagePsdAccess.RawImageCandidate<Object> candidate = selection.candidate();
-            final Object psdDocument = resolver.invoke(
-                "cubism.editor-model.layered-image.psd-doc",
-                candidate.nativeSource()
-            );
-            if (psdDocument == null) {
-                return new BindingResult(
-                    BindingStatus.NOT_PSD,
-                    null,
-                    null,
-                    "selected raw image has no typed PSD document"
-                );
-            }
-            if (!resolver.isInstance("cubism.editor-model.psd-document.class", psdDocument)) {
-                return new BindingResult(
-                    BindingStatus.INVALID,
-                    null,
-                    null,
-                    "selected raw image PSD document has an unverified native type"
-                );
-            }
             final EditorRawImagePsdIntegrityAccess.Snapshot snapshot =
                 integrityAccess.captureOnHostThread(candidate.nativeSource());
             return new BindingResult(
@@ -175,7 +157,6 @@ final class EditorRawImagePsdSourceBinding {
         MATCHED,
         NOT_FOUND,
         DUPLICATE_ID,
-        NOT_PSD,
         INVALID,
         UNAVAILABLE
     }

@@ -93,7 +93,7 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
-    void rejectsAnOrdinaryImageWithoutTypedPsdEvidence(@TempDir final Path temp) {
+    void exportsAnOrdinaryImageWithoutRequiringSourcePsdDocument(@TempDir final Path temp) {
         final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
         final SyntheticSourceFixture.LayeredImage ordinary =
             SyntheticSourceFixture.ordinary("raw-ordinary", "ordinary.png");
@@ -105,10 +105,22 @@ class EditorRawImagePsdSourceBindingTest {
             temp.resolve("ordinary.psd")
         );
 
-        assertEquals(EditorRawImagePsdAccess.ExportStatus.BOUND_SOURCE_INVALID, result.status());
-        assertEquals("SOURCE_BINDING_NOT_PSD", result.failureType());
-        assertNull(SyntheticSourceFixture.lastSavedSource);
-        assertTrue(SyntheticSourceFixture.events().stream().noneMatch("save"::equals));
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertTrue(result.saveReturned());
+        assertTrue(result.outputReadable());
+        assertSame(ordinary, SyntheticSourceFixture.lastSavedSource);
+        assertEquals(
+            EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
+            result.integrityVerification().status()
+        );
+        assertNull(ordinary.psdDoc);
+        assertTrue(SyntheticSourceFixture.events().contains("save"));
+        assertTrue(SyntheticSourceFixture.events().contains("parse"));
+        assertTrue(SyntheticSourceFixture.events().contains("construct"));
+        assertFalse(
+            SyntheticSourceFixture.events().contains("image-psd-doc"),
+            "source PSD document must not be required or queried for ordinary raw export"
+        );
     }
 
     @Test
@@ -159,6 +171,7 @@ class EditorRawImagePsdSourceBindingTest {
         assertFalse(verification.usablePixelsVerified());
         assertFalse(verification.specialBlendVerified());
         assertTrue(verification.detail().contains("remain unverified"));
+        assertTrue(verification.detail().contains("not treated as persisted-PSD equality"));
 
         // The reconstructed root deliberately gets a new GUID; root host identity is not a
         // fidelity dimension and must not turn an otherwise matching observation into a mismatch.
@@ -166,11 +179,11 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
-    void reportsOrderedTreeNameIdAndDimensionMismatchesWithoutSuccess(@TempDir final Path temp) {
+    void reportsStructuralMismatchesAndObservesRegeneratedLayerIds(@TempDir final Path temp) {
         final Map<SyntheticSourceFixture.ParseMode, String> cases = Map.of(
             SyntheticSourceFixture.ParseMode.REORDER, "ordered layer/group tree",
             SyntheticSourceFixture.ParseMode.RENAME, "ordered layer/group tree",
-            SyntheticSourceFixture.ParseMode.CHANGE_LAYER_ID, "Editor layer-entry GUIDs",
+            SyntheticSourceFixture.ParseMode.CHANGE_LAYER_ID, "Editor layer-entry GUIDs were observed",
             SyntheticSourceFixture.ParseMode.CHANGE_DIMENSIONS, "canvas dimensions"
         );
 
@@ -187,12 +200,25 @@ class EditorRawImagePsdSourceBindingTest {
                 result.integrityVerification();
 
             assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
-            assertEquals(
-                EditorRawImagePsdIntegrityAccess.VerificationStatus.MISMATCH,
-                verification.status(),
-                entry.getKey().name()
-            );
-            assertTrue(verification.detail().contains(entry.getValue()), entry.getKey().name());
+
+            if (entry.getKey() == SyntheticSourceFixture.ParseMode.CHANGE_LAYER_ID) {
+                assertEquals(
+                    EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
+                    verification.status(),
+                    entry.getKey().name()
+                );
+                assertTrue(verification.layerTreeMatches());
+                assertTrue(verification.editorLayerIdsObserved());
+                assertFalse(verification.editorLayerIdsMatch());
+                assertTrue(verification.detail().contains(entry.getValue()), entry.getKey().name());
+            } else {
+                assertEquals(
+                    EditorRawImagePsdIntegrityAccess.VerificationStatus.MISMATCH,
+                    verification.status(),
+                    entry.getKey().name()
+                );
+                assertTrue(verification.detail().contains(entry.getValue()), entry.getKey().name());
+            }
             if (entry.getKey() == SyntheticSourceFixture.ParseMode.RENAME) {
                 assertTrue(verification.editorLayerIdsMatch(), "renaming must not masquerade as an ID mismatch");
             }
