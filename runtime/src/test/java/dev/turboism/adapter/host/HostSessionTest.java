@@ -40,6 +40,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import javax.swing.SwingUtilities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -244,6 +245,59 @@ class HostSessionTest {
 
         session.refresh();
         assertEquals(2, connections.get());
+    }
+
+    @Test
+    void unchangedConnectionRefreshesPresentationWithoutReconnectingAndKeepsEdtIngressHealthy()
+        throws Exception {
+        final AtomicInteger connections = new AtomicInteger();
+        final AtomicInteger presentationRefreshes = new AtomicInteger();
+        final AtomicInteger offEdtSampling = new AtomicInteger();
+        final AtomicInteger edtPresentationRefreshes = new AtomicInteger();
+        final HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> {
+                connections.incrementAndGet();
+                return new HostAdapterConnection() {
+                    @Override
+                    public RuntimeHostAdapters adapters() {
+                        return HostSessionTest.adapters("session-a");
+                    }
+
+                    @Override
+                    public void refreshPresentation() {
+                        if (SwingUtilities.isEventDispatchThread()) {
+                            edtPresentationRefreshes.incrementAndGet();
+                        } else {
+                            // The concrete connection uses this boundary to protect optional
+                            // presentation sampling; HostSession only delegates the refresh.
+                            offEdtSampling.incrementAndGet();
+                        }
+                        presentationRefreshes.incrementAndGet();
+                    }
+
+                    @Override
+                    public void close() {
+                    }
+                };
+            }
+        );
+
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+        assertEquals(1, connections.get());
+        assertEquals(1, presentationRefreshes.get());
+        assertEquals(1, offEdtSampling.get());
+        assertEquals(0, edtPresentationRefreshes.get());
+
+        final AtomicReference<HostSession.State> edtState = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> edtState.set(session.refresh()));
+        assertEquals(HostSession.State.ACTIVE, edtState.get());
+        assertEquals(1, connections.get());
+        assertEquals(2, presentationRefreshes.get());
+        assertEquals(1, offEdtSampling.get(), "EDT ingress must not sample presentation state");
+        assertEquals(1, edtPresentationRefreshes.get());
+        session.close();
     }
 
     @Test

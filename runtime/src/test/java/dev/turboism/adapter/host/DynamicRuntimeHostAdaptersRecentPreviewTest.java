@@ -12,6 +12,10 @@ import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureRequest;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotCaptureResult;
 import dev.turboism.sdk.cubism.screenshot.ScreenshotImage;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconAvailability;
+import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 import org.junit.jupiter.api.Test;
 
 import java.io.File;
@@ -247,6 +251,39 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
             "after deactivate the view must fail closed");
     }
 
+    @Test
+    void stableUiResourceViewRebindsToTheNewOwnerAndOldViewCloses() throws Exception {
+        final DynamicRuntimeHostAdapters dynamic = new DynamicRuntimeHostAdapters();
+        final UiIconRef reference = new UiIconRef(CubismIcon.ART_MESH);
+        final MutableUiResourceOwner firstOwner = new MutableUiResourceOwner();
+        final MutableUiResourceOwner secondOwner = new MutableUiResourceOwner();
+        final RuntimeHostAdapters safe = RuntimeHostAdapters.safeMode();
+
+        dynamic.connect(RuntimeHostAdapters.withUiResources(safe, firstOwner.sdkView()));
+        final UiResourceService stableView = dynamic.view().uiResources();
+        final UiResourceService capturedOldOwnerView = firstOwner.sdkView();
+        assertEquals(UiIconAvailability.AVAILABLE, stableView.availability(reference));
+
+        firstOwner.close();
+        assertEquals(
+            UiIconAvailability.SERVICE_UNAVAILABLE,
+            capturedOldOwnerView.availability(reference),
+            "a captured old owner view must close with its owner"
+        );
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, stableView.availability(reference));
+
+        dynamic.connect(RuntimeHostAdapters.withUiResources(safe, secondOwner.sdkView()));
+        assertEquals(
+            UiIconAvailability.AVAILABLE,
+            stableView.availability(reference),
+            "the stable view must resolve the replacement owner"
+        );
+
+        dynamic.deactivate();
+        secondOwner.close();
+        assertEquals(UiIconAvailability.SERVICE_UNAVAILABLE, stableView.availability(reference));
+    }
+
     private static final java.util.concurrent.atomic.AtomicInteger triggerCalls =
         new java.util.concurrent.atomic.AtomicInteger();
 
@@ -356,5 +393,21 @@ final class DynamicRuntimeHostAdaptersRecentPreviewTest {
             safe.recentPreviews(),
             safe.autoBackup()
         );
+    }
+
+    private static final class MutableUiResourceOwner implements AutoCloseable {
+        private volatile boolean closed;
+        private final UiResourceService sdkView = reference -> closed
+            ? UiIconAvailability.SERVICE_UNAVAILABLE
+            : UiIconAvailability.AVAILABLE;
+
+        UiResourceService sdkView() {
+            return sdkView;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
     }
 }

@@ -6,6 +6,9 @@ import dev.turboism.adapter.cubism.backup.AutoBackupAdapter;
 import dev.turboism.adapter.ui.StatusToolbarAdapter;
 import dev.turboism.adapter.ui.UiSurfaceAdapter;
 import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.resource.UiIconAvailability;
+import dev.turboism.sdk.ui.resource.UiIconRef;
+import dev.turboism.sdk.ui.resource.UiResourceService;
 
 import java.io.File;
 import java.util.List;
@@ -229,6 +232,12 @@ final class DynamicRuntimeHostAdapters {
                 ) {
                     return call(adapters -> adapters.autoBackup()
                         .saveDocumentFor(matchFile, documentUids, timestampMillis));
+                }
+            },
+            new UiResourceService() {
+                @Override
+                public UiIconAvailability availability(final UiIconRef reference) {
+                    return call(adapters -> adapters.uiResources().availability(reference));
                 }
             }
         );

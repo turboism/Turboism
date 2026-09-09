@@ -16,6 +16,15 @@ interface HostAdapterConnection extends AutoCloseable {
 
     RuntimeHostAdapters adapters();
 
+    /**
+     * Refreshes presentation-only state for already-installed host UI roots.
+     *
+     * <p>The default is intentionally a no-op so existing connection implementations retain
+     * their behaviour.</p>
+     */
+    default void refreshPresentation() {
+    }
+
     default CubismModelAccess modelAccess() {
         return UnavailableCubismModelAccess.INSTANCE;
     }
