@@ -28,7 +28,7 @@ import dev.turboism.task.RuntimePluginTaskScheduler;
 import dev.turboism.ui.RuntimeUiScheduler;
 import dev.turboism.ui.UiHostStateSource;
 import dev.turboism.userfile.RuntimeUserFileAccessService;
-import dev.turboism.userfile.UserFileGrantSource;
+import dev.turboism.userfile.SwingUserFileGrantSource;
 
 import java.io.IOException;
 import java.nio.file.Path;
@@ -319,6 +319,9 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             dev.turboism.ui.settings.ProcessSettingsContributions.forHost(hostAccess)
         );
     }
+    static SwingUserFileGrantSource newUserFileGrantSource() {
+        return new SwingUserFileGrantSource();
+    }
 
     private RuntimeUserFileAccessService userFiles(
         final PluginDescriptor descriptor,
@@ -328,7 +331,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final CleanupEvidenceCollector evidence
     ) {
         return new RuntimeUserFileAccessService(
-            descriptor.id(), permissions, UserFileGrantSource.unavailable(), tasks, scope,
+            descriptor.id(), permissions, newUserFileGrantSource(), tasks, scope,
             evidence, failureCollector
         );
     }
