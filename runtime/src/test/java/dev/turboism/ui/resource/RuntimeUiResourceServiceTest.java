@@ -31,6 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RuntimeUiResourceServiceTest {
     private static final UiIconRef ART_MESH = new UiIconRef(CubismIcon.ART_MESH);
+    private static final UiIconRef PART = new UiIconRef(CubismIcon.PART);
 
     @Test
     void unavailableServicePreservesTheSdkCompatibilityDefault() {
@@ -44,6 +45,27 @@ class RuntimeUiResourceServiceTest {
             UiIconAvailability.SERVICE_UNAVAILABLE,
             UiResourceService.unavailable().availability(ART_MESH)
         );
+    }
+
+    @Test
+    void resolvesPartAcrossTheNativePresentationVariants() {
+        final NativeIconVariant enabled =
+            new NativeIconVariant(CubismIcon.PART, NativeIconVariant.Theme.LIGHT, 150, false);
+        final NativeIconVariant disabled =
+            new NativeIconVariant(CubismIcon.PART, NativeIconVariant.Theme.LIGHT, 150, true);
+        final RuntimeUiResourceService service = new RuntimeUiResourceService(
+            new CubismNativeIconResolver(
+                Map.of(enabled, image(24, 0xff123456), disabled, image(24, 0xff654321)),
+                UiIconAvailability.RESOURCE_UNAVAILABLE
+            ),
+            null,
+            150
+        );
+
+        assertEquals(UiIconAvailability.AVAILABLE, service.availability(PART));
+        assertEquals(0xff123456, paintedColor(service.resolve(PART, false).orElseThrow()));
+        assertEquals(0xff654321, paintedColor(service.resolve(PART, true).orElseThrow()));
+        service.close();
     }
 
     @Test

@@ -21,14 +21,27 @@ class CubismNativeIconResolverTest {
     @TempDir Path temporary;
 
     @Test
-    void catalogHasExactlyTheReviewedSixtyVariantsAndTwoArtifacts() {
-        assertEquals(60, CubismNativeIconCatalog.resources().size());
+    void catalogHasExactlyTheReviewedEightyVariantsAndTwoArtifacts() {
+        assertEquals(80, CubismNativeIconCatalog.resources().size());
         for (var entry : CubismNativeIconCatalog.resources().entrySet()) {
             final NativeIconVariant key = entry.getKey();
             assertEquals(16 * key.scalePercent() / 100, key.physicalSize());
             assertTrue(entry.getValue().matches("[0-9a-f]{64}"));
             assertTrue(key.resourcePath().startsWith("res/image_"));
             assertFalse(key.resourcePath().contains(".."));
+        }
+        for (CubismIcon icon : CubismIcon.values()) {
+            assertEquals(20L, CubismNativeIconCatalog.resources().keySet().stream()
+                .filter(key -> key.icon() == icon).count());
+        }
+        for (var theme : NativeIconVariant.Theme.values()) {
+            for (boolean disabled : new boolean[] {false, true}) {
+                for (int scale : new int[] {100, 125, 150, 175, 200}) {
+                    final var part = new NativeIconVariant(CubismIcon.PART, theme, scale, disabled);
+                    assertTrue(CubismNativeIconCatalog.resources().containsKey(part));
+                    assertTrue(part.resourcePath().contains("/Folder-Colored_16x16_"));
+                }
+            }
         }
         assertSame(dev.turboism.mapping.verification.ReviewedHostArtifacts.CUBISM_5_2_03,
             CubismNativeIconCatalog.artifact("5.2.03").orElseThrow());
