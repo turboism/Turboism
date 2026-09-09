@@ -4,13 +4,18 @@ import org.junit.jupiter.api.Test;
 import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.ui.resource.CubismIcon;
+import dev.turboism.sdk.ui.resource.UiIconRef;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.action.UiActionEvent;
 import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.PanelTabSelection;
+import dev.turboism.sdk.ui.PanelView;
+import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.ui.action.EditorUiActionRouter;
 
 import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
 import java.awt.BorderLayout;
 import java.awt.event.ContainerEvent;
 import java.awt.event.ContainerListener;
@@ -18,6 +23,7 @@ import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.Icon;
 import javax.swing.JMenu;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
@@ -613,6 +619,64 @@ class VerifiedEmbeddedPanelHostOperationsTest {
     }
 
     @Test
+    void productionContentRendererUsesInjectedIconResolverAndRefreshesInPlace() throws Exception {
+        final UiIconRef reference = new UiIconRef(CubismIcon.ART_MESH);
+        final Icon icon = new Icon() {
+            @Override public void paintIcon(
+                final java.awt.Component component, final java.awt.Graphics graphics,
+                final int x, final int y) { }
+            @Override public int getIconWidth() { return 16; }
+            @Override public int getIconHeight() { return 16; }
+        };
+        final AtomicReference<Optional<Icon>> presentation =
+            new AtomicReference<>(Optional.of(icon));
+        final InstallHost host = new InstallHost(
+            (requested, disabled) -> requested.equals(reference) ? presentation.get() : Optional.empty()
+        );
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
+
+        runOnEdt(() -> {
+            host.operations.bindHostGeneration(1);
+            handleRef.set(host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                    "turboism.core",
+                    "icon-pane",
+                    "Icon Pane",
+                    "window",
+                    100,
+                    PanelView.toggle(
+                        "icon-entry",
+                        UiInlineLabel.icon(reference, "图形网格"),
+                        false,
+                        "history.icon"
+                    ),
+                    false
+                ),
+                (actionId, event) -> { }
+            ));
+        });
+
+        final FakePaletteId paletteId = host.paletteId("icon-pane");
+        final JPanel wrapper = (JPanel) host.nativeContainer(paletteId).component();
+        final InlineLabelCheckBox first = (InlineLabelCheckBox) wrapper.getComponent(0);
+        assertEquals(1, first.resolvedIconCount());
+        assertEquals(1, host.operations.retainedStableContentRootCountForTest());
+
+        final java.awt.Component firstRoot = wrapper.getComponent(0);
+        presentation.set(Optional.empty());
+        host.operations.refreshPresentation();
+
+        assertSame(wrapper, host.nativeContainer(paletteId).component());
+        assertSame(firstRoot, wrapper.getComponent(0));
+        final InlineLabelCheckBox refreshed = (InlineLabelCheckBox) wrapper.getComponent(0);
+        assertEquals(0, refreshed.resolvedIconCount());
+        assertTrue(refreshed.renderedFallbackText().contains("图形网格"));
+
+        handleRef.get().close();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+    }
+
+    @Test
     void installRegistersCheckMenuItemInPaletteMenuMapAndCleansBothOnClose() throws Exception {
         final InstallHost host = installHost();
         final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handleRef = new AtomicReference<>();
@@ -1076,6 +1140,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         assertTrue(host.log.contains("close:" + host.paletteId("test-pane")));
         assertEquals("update-window-menu", host.log.get(host.log.size() - 2));
         assertEquals("repaint", host.log.get(host.log.size() - 1));
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
     }
 
     /** Runs a body on the EDT, rethrowing failures on the caller thread. */
@@ -1125,6 +1190,10 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         private boolean failOnAddPalette;
 
         InstallHost() {
+            this((reference, disabled) -> Optional.empty());
+        }
+
+        InstallHost(final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
             FakeApp.HOST = this;
             final List<StaticSelector> selectors = List.of(
                 StaticSelector.staticMethod(
@@ -1443,14 +1512,17 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     "(Z)V"
                 )
             );
+            final VerifiedMemberResolver panelResolver = TestVerifiedResolvers.create(
+                "adapter.editor-ui.embedded-panel",
+                Set.of("cubism.editor-ui.embedded-panel"),
+                selectors,
+                VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
+            );
             operations = new VerifiedEmbeddedPanelHostOperations(
-                TestVerifiedResolvers.create(
-                    "adapter.editor-ui.embedded-panel",
-                    Set.of("cubism.editor-ui.embedded-panel"),
-                    selectors,
-                    VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
-                ),
-                (pluginId, actionId) -> { }
+                panelResolver,
+                (pluginId, actionId) -> { },
+                dev.turboism.i18n.CubismHostLocale.resolve(),
+                iconResolver
             );
         }
 

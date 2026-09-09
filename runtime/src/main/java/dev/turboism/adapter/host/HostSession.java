@@ -242,6 +242,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                 reconnectSceneBridgeIfNeeded(
                     descriptor.verificationEvidence().projectWorkspace()
                 );
+                refreshActivePresentation();
                 return state();
             }
             editorUiLifecycle.replacing();
@@ -885,6 +886,28 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         if (sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.DISCONNECTED
             || sceneState == dev.turboism.ui.table.SceneTableHostOperations.State.FAILED) {
             sceneTableHost.connect(evidence.verifiedArtifact(), evidence.hostClassLoader());
+        }
+    }
+
+    private void refreshActivePresentation() {
+        final HostAdapterConnection connection;
+        synchronized (lifecycleMonitor) {
+            connection = activeConnection;
+        }
+        if (connection == null) {
+            return;
+        }
+        try {
+            // The connection owns the optional resource thread boundary. The session refresh
+            // remains bootstrap-owned, but direct callers must not be able to break host health.
+            connection.refreshPresentation();
+        } catch (Throwable failure) {
+            // Presentation refresh is optional and must not destabilize an active host session.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "host-session",
+                "Host presentation refresh failed safely",
+                failure
+            );
         }
     }
 
