@@ -1,0 +1,75 @@
+name: Validate distribution implementation
+on:
+  push:
+    branches: [feat/distribution-builds-20260909]
+    paths: [.github/workflows/apply-distribution.yml]
+permissions:
+  contents: write
+concurrency:
+  group: distribution-implementation-review
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Apply the exact locally verified source
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git diff --exit-code 50024c5403bbe7d213a13e23c09bd2ad580fbf6e HEAD -- . ':(exclude).github/workflows/apply-distribution.yml'
+          python3 - <<'PY'
+          import os,json,base64,hashlib,urllib.request,subprocess
+          from pathlib import Path
+          ids=['50e6e576d4513d38767cee028d153e6727b15980','1fe68c7c8edb7a625c75b9ae532db3d5a755491b','29b02c8fce0579f57d529e6e053bb2ea82649cdb','f22fd8685e105b62aabb04fe59b32d2eb9f66d24','16352abd54c533c525c72f995eaff3e875dda844','e6e738fd07a375f300b9a767793cfc8fe7401736']
+          def blob(sha):
+            req=urllib.request.Request('https://api.github.com/repos/turboism/Turboism/git/blobs/'+sha,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+            with urllib.request.urlopen(req,timeout=30) as response:value=json.load(response)
+            data=base64.b64decode(value['content']);assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
+            return data
+          patch=b''.join(blob(sha) for sha in ids)
+          assert hashlib.sha256(patch).hexdigest()=='6f1953990947a23ebe0d46ffb5def66449ea62d6a103a3dba8b8877f30e6c2e5'
+          p=Path(os.environ['RUNNER_TEMP'])/'distribution.patch';p.write_bytes(patch)
+          subprocess.run(['git','apply','--check',str(p)],check=True)
+          subprocess.run(['git','apply','--index',str(p)],check=True)
+          subprocess.run(['git','diff','--cached','--check'],check=True)
+          PY
+      - run: node --test distribution/test/*.test.mjs
+      - run: python3 -m unittest discover -s scripts/release -p test_build_identity.py
+      - run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
+      - run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Compile Gradle configuration without building or publishing a release
+        run: ./gradlew --no-daemon help --console=plain
+      - name: Validate Worker bundling without a production credential
+        run: npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir artifacts/worker
+      - name: Commit only the checked source
+        run: |
+          git rm .github/workflows/apply-distribution.yml
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat: add independent release API, GitHub sync and global product build identity'
+          git push origin HEAD:refs/heads/feat/distribution-builds-20260909
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/tested-commit.txt
+          git archive HEAD > artifacts/source.tar
+      - name: Retain review evidence
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git diff --cached > artifacts/candidate.patch
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: distribution-verified
+          path: artifacts
+          retention-days: 7
