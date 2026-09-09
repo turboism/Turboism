@@ -13,7 +13,7 @@ import java.util.HashSet;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
-/** Test-only, read-only smoke probe. Does not claim the complete 025 relation matrix. */
+/** Test-only relation smoke with opt-in native-export observation; never full 025 acceptance. */
 public final class TextureRelationsHostProbe implements TurboismPlugin {
     private PluginContext context;
     private volatile boolean stopped;
@@ -37,12 +37,14 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
 
     private void run(final String runId) {
         final Properties result = new Properties();
+        final boolean exportObservation = Boolean.getBoolean("turboism.validation.textures.exportObservation");
         result.setProperty("schemaVersion", "1");
         result.setProperty("runId", runId);
-        result.setProperty("profile", "025-relations-read-only-smoke");
+        result.setProperty("profile", exportObservation
+            ? "025-native-export-observation" : "025-relations-read-only-smoke");
         result.setProperty("expectedHostVersion", "5.3.02");
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
-        result.setProperty("writeUndoPersistence", "NOT_APPLICABLE: read-only smoke; no authoring mutation");
+        result.setProperty("writeUndoPersistence", "NOT_TESTED: no model replacement or save");
         result.setProperty("full025Acceptance", "NOT_TESTED");
         result.setProperty("sharedAndMultipleInputsMatrix", "NOT_TESTED: requires dedicated fixture expectations");
         try {
@@ -97,13 +99,16 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
             result.setProperty("modelImageCount", Integer.toString(snapshot.modelImages().size()));
             result.setProperty("artMeshCount", Integer.toString(snapshot.artMeshInputs().size()));
             result.setProperty("assertion", "available nonempty relation graph with resolved mesh links");
+            if (exportObservation) observeExport(result);
             result.setProperty("expected", "true");
             result.setProperty("actual", "true");
             result.setProperty("status", "PASS");
         } catch (Throwable error) {
             if (stopped) return;
             result.setProperty("status", "FAIL");
-            result.setProperty("expected", "available nonempty coherent relation graph");
+            result.setProperty("expected", exportObservation
+                ? "coherent relation graph and readable structural native export observation"
+                : "available nonempty coherent relation graph");
             result.setProperty("actual", error.toString());
             if (error.getCause() != null) result.setProperty("cause", error.getCause().toString());
             final StringWriter trace = new StringWriter();
@@ -115,7 +120,7 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
             final var dir = context.paths().stateDir();
             Files.createDirectories(dir);
             final var output = new StringWriter();
-            result.store(output, "025 read-only smoke; not full feature acceptance");
+            result.store(output, "025 bounded host probe; not full feature acceptance");
             Files.writeString(dir.resolve("relations-result.pending"), output.toString());
             Files.move(dir.resolve("relations-result.pending"), dir.resolve("relations-result.properties"),
                 StandardCopyOption.REPLACE_EXISTING);
@@ -127,6 +132,48 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         }
     }
 
+    private void observeExport(final Properties result) throws Exception {
+        final AtomicReference<java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult>> stage =
+            new AtomicReference<>();
+        final AtomicReference<Throwable> failure = new AtomicReference<>();
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                if (stopped) throw new IllegalStateException("Probe stopped");
+                final var document = context.cubism().activeDocument().orElseThrow();
+                final var model = context.cubism().model().active();
+                final String relativePath = document.relativePath();
+                final String basename = relativePath.substring(relativePath.lastIndexOf('/') + 1);
+                if (!document.documentId().equals(result.getProperty("documentId"))
+                    || !model.id().value().equals(result.getProperty("modelId"))
+                    || !basename.equals(result.getProperty("fixture.expected"))) {
+                    throw new IllegalStateException("Task fixture changed before export observation");
+                }
+                final var textures = model.textures();
+                final var raw = textures.relations().rawImages();
+                if (raw.size() != 1) throw new IllegalStateException("Export observation requires exactly one raw image");
+                result.setProperty("export.source", raw.get(0).id().value());
+                stage.set(textures.exportRawImagePsd(raw.get(0).id()));
+            } catch (Throwable error) { failure.set(error); }
+        });
+        if (failure.get() != null) throw new IllegalStateException("Export invocation failed", failure.get());
+        // Never await a native dispatch on the EDT.
+        final var exported = stage.get().toCompletableFuture().get(120, java.util.concurrent.TimeUnit.SECONDS);
+        result.setProperty("export.status", exported.status().name());
+        result.setProperty("export.diagnostic", exported.diagnostic());
+        result.setProperty("export.fileIssued", Boolean.toString(exported.file().isPresent()));
+        result.setProperty("export.fullFidelity", "NOT_VERIFIED");
+        validateExportObservation(exported);
+        result.setProperty("assertion", "native export readable and structural match; SDK fails closed without file capability");
+    }
+
+    static void validateExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported) {
+        if (exported.status() != dev.turboism.sdk.cubism.psd.PsdExportResult.Status.FAILED
+            || exported.file().isPresent() || exported.initialRevision().isPresent()
+            || !"PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=MATCHED_UNVERIFIED;readable=true;structure=true"
+                .equals(exported.diagnostic())) {
+            throw new IllegalStateException("Native readable/structural observation with fail-closed SDK result was not obtained");
+        }
+    }
     static void validate(final TextureRelationsSnapshot snapshot) {
         if (snapshot == null || !snapshot.isAvailable() || snapshot.binding().isBlank()
             || snapshot.rawImages().isEmpty() || snapshot.modelImages().isEmpty()
