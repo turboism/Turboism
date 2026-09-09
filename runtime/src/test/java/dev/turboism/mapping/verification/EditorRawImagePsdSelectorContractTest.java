@@ -205,6 +205,10 @@ class EditorRawImagePsdSelectorContractTest {
             EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
             EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS
         )));
+        assertTrue(
+            aliases.containsAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES),
+            "draft mapping pack misses an admitted PSD selector alias"
+        );
     }
 
     @Test

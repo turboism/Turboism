@@ -12931,6 +12931,517 @@
       },
       "intermediary": "",
       "descriptor": "(Lcom/live2d/cubism/CEAppCtrl;Lcom/live2d/cubism/doc/resources/CLayeredImage;Ljava/io/File;Lcom/live2d/cubism/doc/modeling/CModelingDocument;Ljava/util/List;)V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_entry_opacity",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-entry.opacity",
+      "runtime": "getOpacity255",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/ACLayerEntry",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_entry_blend",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-entry.blend",
+      "runtime": "getBlend",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/ACLayerEntry",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/psd/blend/ACBlend;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_entry_transparency_shapes",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-entry.transparency-shapes",
+      "runtime": "isTransparencyShapesLayer",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/ACLayerEntry",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.blend",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.blend.class",
+      "runtime": "com/live2d/graphics/psd/blend/ACBlend",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/blend/ACBlend",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.blend_psd_value",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.blend.psd-value",
+      "runtime": "c",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/blend/ACBlend",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/psd/layer/a;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.psd_blend",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.psd-blend.class",
+      "runtime": "com/live2d/graphics/psd/layer/a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/layer/a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.psd_blend_key",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.psd-blend.key",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/layer/a",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/String;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.layer_identifier",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-identifier.class",
+      "runtime": "com/live2d/cubism/doc/resources/CLayerIdentifier",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayerIdentifier",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_identifier_id",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-identifier.id",
+      "runtime": "getLayerId",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayerIdentifier",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Ljava/lang/String;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_group_layer_identifier",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer-group.layer-identifier",
+      "runtime": "getLayerIdentifier",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayerGroup",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/resources/CLayerIdentifier;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.layer",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer.class",
+      "runtime": "com/live2d/cubism/doc/resources/CLayer",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayer",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_layer_identifier",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer.layer-identifier",
+      "runtime": "getLayerIdentifier",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayer",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/resources/CLayerIdentifier;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_bounds",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer.bounds",
+      "runtime": "getBoundsOnImageDoc",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayer",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/type/CRect;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layer_image_resource",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.layer.image-resource",
+      "runtime": "getImageResource",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayer",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/CImageResource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.rect",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.rect.class",
+      "runtime": "com/live2d/type/CRect",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CRect",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.rect_x",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.rect.x",
+      "runtime": "getX",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CRect",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.rect_y",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.rect.y",
+      "runtime": "getY",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CRect",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.rect_width",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.rect.width",
+      "runtime": "getWidth",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CRect",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.rect_height",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.rect.height",
+      "runtime": "getHeight",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/type/CRect",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.image_resource",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.image-resource.class",
+      "runtime": "com/live2d/graphics/CImageResource",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageResource",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.image_resource_image",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.image-resource.image",
+      "runtime": "getImage",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CImageResource",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/graphics/CWritableImage;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.writable_image",
+      "kind": "class",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.writable-image.class",
+      "runtime": "com/live2d/graphics/CWritableImage",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.writable_image_width",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.writable-image.width",
+      "runtime": "getWidth",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.writable_image_height",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.writable-image.height",
+      "runtime": "getHeight",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.writable_image_argb",
+      "kind": "method",
+      "owner": "editor-model-read",
+      "name": "cubism.editor-model.writable-image.argb",
+      "runtime": "getArgb",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/CWritableImage",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(II)I"
     }
   ],
   "metadata": {

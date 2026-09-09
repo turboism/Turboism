@@ -44,6 +44,56 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.layer-entry.visible";
     public static final String LAYER_ENTRY_CLIPPING_ALIAS =
         "cubism.editor-model.layer-entry.clipping";
+    public static final String LAYER_ENTRY_OPACITY_ALIAS =
+        "cubism.editor-model.layer-entry.opacity";
+    public static final String LAYER_ENTRY_BLEND_ALIAS =
+        "cubism.editor-model.layer-entry.blend";
+    public static final String LAYER_ENTRY_TRANSPARENCY_SHAPES_ALIAS =
+        "cubism.editor-model.layer-entry.transparency-shapes";
+    public static final String BLEND_CLASS_ALIAS =
+        "cubism.editor-model.blend.class";
+    public static final String BLEND_PSD_VALUE_ALIAS =
+        "cubism.editor-model.blend.psd-value";
+    public static final String PSD_BLEND_CLASS_ALIAS =
+        "cubism.editor-model.psd-blend.class";
+    public static final String PSD_BLEND_KEY_ALIAS =
+        "cubism.editor-model.psd-blend.key";
+    public static final String LAYER_IDENTIFIER_CLASS_ALIAS =
+        "cubism.editor-model.layer-identifier.class";
+    public static final String LAYER_IDENTIFIER_ID_ALIAS =
+        "cubism.editor-model.layer-identifier.id";
+    public static final String LAYER_GROUP_LAYER_IDENTIFIER_ALIAS =
+        "cubism.editor-model.layer-group.layer-identifier";
+    public static final String LAYER_CLASS_ALIAS =
+        "cubism.editor-model.layer.class";
+    public static final String LAYER_LAYER_IDENTIFIER_ALIAS =
+        "cubism.editor-model.layer.layer-identifier";
+    public static final String LAYER_BOUNDS_ALIAS =
+        "cubism.editor-model.layer.bounds";
+    public static final String LAYER_IMAGE_RESOURCE_ALIAS =
+        "cubism.editor-model.layer.image-resource";
+    public static final String RECT_CLASS_ALIAS =
+        "cubism.editor-model.rect.class";
+    public static final String RECT_X_ALIAS =
+        "cubism.editor-model.rect.x";
+    public static final String RECT_Y_ALIAS =
+        "cubism.editor-model.rect.y";
+    public static final String RECT_WIDTH_ALIAS =
+        "cubism.editor-model.rect.width";
+    public static final String RECT_HEIGHT_ALIAS =
+        "cubism.editor-model.rect.height";
+    public static final String IMAGE_RESOURCE_CLASS_ALIAS =
+        "cubism.editor-model.image-resource.class";
+    public static final String IMAGE_RESOURCE_IMAGE_ALIAS =
+        "cubism.editor-model.image-resource.image";
+    public static final String WRITABLE_IMAGE_CLASS_ALIAS =
+        "cubism.editor-model.writable-image.class";
+    public static final String WRITABLE_IMAGE_WIDTH_ALIAS =
+        "cubism.editor-model.writable-image.width";
+    public static final String WRITABLE_IMAGE_HEIGHT_ALIAS =
+        "cubism.editor-model.writable-image.height";
+    public static final String WRITABLE_IMAGE_ARGB_ALIAS =
+        "cubism.editor-model.writable-image.argb";
     public static final String LAYER_GROUP_CLASS_ALIAS =
         "cubism.editor-model.layer-group.class";
     public static final String LAYER_GROUP_CHILDREN_ALIAS =
@@ -80,8 +130,33 @@ public final class EditorRawImagePsdSelectorContract {
         LAYER_ENTRY_NAME_ALIAS,
         LAYER_ENTRY_VISIBLE_ALIAS,
         LAYER_ENTRY_CLIPPING_ALIAS,
+        LAYER_ENTRY_OPACITY_ALIAS,
+        LAYER_ENTRY_BLEND_ALIAS,
+        LAYER_ENTRY_TRANSPARENCY_SHAPES_ALIAS,
         LAYER_GROUP_CLASS_ALIAS,
         LAYER_GROUP_CHILDREN_ALIAS,
+        LAYER_GROUP_LAYER_IDENTIFIER_ALIAS,
+        LAYER_CLASS_ALIAS,
+        LAYER_LAYER_IDENTIFIER_ALIAS,
+        LAYER_BOUNDS_ALIAS,
+        LAYER_IMAGE_RESOURCE_ALIAS,
+        LAYER_IDENTIFIER_CLASS_ALIAS,
+        LAYER_IDENTIFIER_ID_ALIAS,
+        RECT_CLASS_ALIAS,
+        RECT_X_ALIAS,
+        RECT_Y_ALIAS,
+        RECT_WIDTH_ALIAS,
+        RECT_HEIGHT_ALIAS,
+        IMAGE_RESOURCE_CLASS_ALIAS,
+        IMAGE_RESOURCE_IMAGE_ALIAS,
+        WRITABLE_IMAGE_CLASS_ALIAS,
+        WRITABLE_IMAGE_WIDTH_ALIAS,
+        WRITABLE_IMAGE_HEIGHT_ALIAS,
+        WRITABLE_IMAGE_ARGB_ALIAS,
+        BLEND_CLASS_ALIAS,
+        BLEND_PSD_VALUE_ALIAS,
+        PSD_BLEND_CLASS_ALIAS,
+        PSD_BLEND_KEY_ALIAS,
         GUID_VALUE_ALIAS,
         LAYERED_IMAGE_NAME_ALIAS,
         LAYERED_IMAGE_WIDTH_ALIAS,
