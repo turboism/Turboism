@@ -14,22 +14,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
-        with:
-          fetch-depth: 0
-          persist-credentials: false
+        with: {fetch-depth: 0, persist-credentials: false}
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
-        with:
-          node-version: '22'
+        with: {node-version: '22'}
       - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
-        with:
-          distribution: temurin
-          java-version: '17'
-          cache: gradle
-      - name: Apply the SHA-256-bound reviewed source
+        with: {distribution: temurin, java-version: '17', cache: gradle}
+      - name: Apply exact reviewed patches
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          set -euo pipefail
           git diff --exit-code 3d4a48c5bef08639fbdf4253b29bc75b8c8ed21b HEAD -- . ':(exclude).github/workflows/apply-nightly-review.yml'
           python3 - <<'PY'
           import os,json,base64,gzip,hashlib,urllib.request,subprocess
@@ -37,17 +30,17 @@ jobs:
           ids=['320b47a4ad50df313e347a92cfe24bcc3ca28059','185261f5ff3ad068895922e5f6d16418c2f7a94d','b8b7b8f8f4d1aefbe4c6f0d949b7080b2a272a7c','f23ab6a860fd7a5d8967851e8779c85ef84836d5','d8829a19f86a4cc85b596d2ddd6d678dea8e02e4','2238112eaa49957ecd98d936bb82a7a7bf4bf7b1','48e55e2a092a615c67c42aa0e0915ceb590cf1f5','563c00c16b8d3f5473319427f2268da3035b28a7']
           def blob(sha):
             req=urllib.request.Request('https://api.github.com/repos/turboism/Turboism/git/blobs/'+sha,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
-            with urllib.request.urlopen(req,timeout=30) as response:value=json.load(response)
-            data=base64.b64decode(value['content']);assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
+            with urllib.request.urlopen(req,timeout=30) as r:v=json.load(r)
+            data=base64.b64decode(v['content']);assert hashlib.sha1(('blob '+str(len(data))+'\0').encode()+data).hexdigest()==sha
             return data
           patch=gzip.decompress(base64.b64decode(b''.join(blob(s) for s in ids),validate=True))
           assert hashlib.sha256(patch).hexdigest()=='1fad323ebe0ce708e1a6d17706ec98428f89a58a4d0867078f914dd4a086cd28'
-          p=Path(os.environ['RUNNER_TEMP'])/'nightly.patch';p.write_bytes(patch)
-          subprocess.run(['git','apply','--check',str(p)],check=True)
-          subprocess.run(['git','apply','--index',str(p)],check=True)
+          for index,data in enumerate([patch,blob('87968926ceeb6363eff9abf986342eb183aff319')]):
+            p=Path(os.environ['RUNNER_TEMP'])/f'nightly-{index}.patch';p.write_bytes(data)
+            subprocess.run(['git','apply','--check',str(p)],check=True);subprocess.run(['git','apply','--index',str(p)],check=True)
           subprocess.run(['git','diff','--cached','--check'],check=True)
           PY
-      - name: Run Nightly, allocator, stable-publisher and distribution regressions
+      - name: Run all release regressions and source checks
         run: |
           python3 -m unittest discover -s scripts/test -p '*nightly*.py'
           python3 -m unittest discover -s scripts/release -p test_build_identity.py
@@ -57,19 +50,16 @@ jobs:
           node --test distribution/test/*.test.mjs
           python3 scripts/check_remote_hygiene.py --worktree
       - name: Install Windows installer compiler
+        run: sudo apt-get update && sudo apt-get install --yes --no-install-recommends nsis
+      - name: Full Nightly package verification without a public release or real allocation
         run: |
-          sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends nsis
-      - name: Full Nightly packaging smoke test, without allocating or publishing a release
-        run: |
-          set -euo pipefail
           BASE="$(python3 -c 'import sys;from pathlib import Path;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;print(framework_version(Path.cwd()))')"
           export TURBOISM_BUILD_NUMBER=900000 TURBOISM_SOURCE_REVISION="$GITHUB_SHA" TURBOISM_NIGHTLY_VERSION="$BASE-0.nightly.900000"
           ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_NIGHTLY_VERSION" -PturboismRelease=true --console=plain
           bash packaging/windows-installer/assemble-release.sh "$TURBOISM_NIGHTLY_VERSION"
           python3 scripts/release/verify-release.py --channel nightly --version "$TURBOISM_NIGHTLY_VERSION" --dist build/windows-installer/dist --release-plugins packaging/release-plugins.txt --windows-stage build/windows-installer/staging
           (cd build/windows-installer/dist && sha256sum -c *.sha256)
-      - name: Store only checked Git objects for owner-side branch update
+      - name: Store checked Git objects, without updating any branch
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -84,18 +74,15 @@ jobs:
           paths=subprocess.check_output(['git','diff','--cached','--name-only','-z']).decode().split('\0');entries=[]
           for name in filter(None,paths):
             p=Path(name)
-            if p.exists():
-              mode=subprocess.check_output(['git','ls-files','--stage',name]).decode().split()[0]
-              entries.append({'path':name,'mode':mode,'type':'blob','content':p.read_text()})
+            if p.exists():entries.append({'path':name,'mode':subprocess.check_output(['git','ls-files','--stage',name]).decode().split()[0],'type':'blob','content':p.read_text()})
             else:entries.append({'path':name,'mode':'100644','type':'blob','sha':None})
           tree=api('/git/trees',{'base_tree':api('/git/commits/'+parent)['tree']['sha'],'tree':entries})['sha']
-          assert tree==subprocess.check_output(['git','write-tree']).decode().strip(),'Remote candidate tree differs from tested tree'
+          assert tree==subprocess.check_output(['git','write-tree']).decode().strip()
           commit=api('/git/commits',{'message':'feat: publish changed-only Nightly builds at 04:20 Asia/Shanghai','tree':tree,'parents':[parent]})['sha']
-          Path('artifacts').mkdir(exist_ok=True);Path('artifacts/tested-commit.txt').write_text(commit+'\n')
-          print('VERIFIED_CANDIDATE_COMMIT='+commit)
+          Path('artifacts').mkdir(exist_ok=True);Path('artifacts/tested-commit.txt').write_text(commit+'\n');print('VERIFIED_CANDIDATE_COMMIT='+commit)
           subprocess.run(['git','archive','--format=tar','--output=artifacts/source.tar',tree],check=True)
           PY
-      - name: Retain verification evidence, not installable smoke packages
+      - name: Retain evidence, not smoke installers
         if: always()
         run: |
           mkdir -p artifacts
@@ -103,7 +90,4 @@ jobs:
           find build -path '*/test-results/*' -name '*.xml' -print0 2>/dev/null | tar --null -T - -czf artifacts/junit-results.tar.gz || true
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
-        with:
-          name: verified-nightly-implementation
-          path: artifacts
-          retention-days: 7
+        with: {name: verified-nightly-implementation, path: artifacts, retention-days: 7}
