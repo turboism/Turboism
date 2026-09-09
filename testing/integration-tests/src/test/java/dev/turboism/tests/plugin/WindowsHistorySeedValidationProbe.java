@@ -42,7 +42,13 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         "group",
         "undo",
         "redo",
-        "restored"
+        "restored",
+        "artmesh-baseline",
+        "artmesh-write-1",
+        "artmesh-write-2",
+        "artmesh-third-write",
+        "artmesh-undo",
+        "artmesh-redo"
     );
 
     private PluginContext context;
@@ -722,15 +728,10 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             }
 
             final WindowsHistoryManagerValidationProbe.ManagerSnapshot document = snapshot.document();
-            if (document == null || absent(document.identity())) {
-                errors.add("native-document-manager-identity-missing");
-            }
-            final WindowsHistoryManagerValidationProbe.ManagerSnapshot[] managers = {
-                snapshot.document(), snapshot.current(), snapshot.main(), snapshot.linked()
-            };
-            for (WindowsHistoryManagerValidationProbe.ManagerSnapshot manager : managers) {
-                validateNativeManager(manager, errors);
-            }
+            validateNativeManager(document, errors, "DOCUMENT", true);
+            validateNativeManager(snapshot.current(), errors, "CURRENT", false);
+            validateNativeManager(snapshot.main(), errors, "MAIN", false);
+            validateNativeManager(snapshot.linked(), errors, "LINKED", false);
             if (sdk != null && document != null
                 && (document.position() != sdk.position()
                     || document.totalEntries() != sdk.totalEntries())) {
@@ -751,34 +752,58 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
         private static void validateNativeManager(
             final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
-            final List<String> errors
+            final List<String> errors,
+            final String expectedName,
+            final boolean required
         ) {
             if (manager == null) {
-                errors.add("native-manager-snapshot-missing");
+                errors.add(expectedName + (required
+                    ? "-native-manager-missing"
+                    : "-native-manager-snapshot-missing"));
                 return;
             }
+            if (!expectedName.equals(manager.name())) {
+                errors.add(expectedName + "-native-manager-name-mismatch");
+            }
+            if (!required && isAbsentOptionalManager(manager, expectedName)) return;
+            if (absent(manager.identity())) errors.add(expectedName + "-native-manager-identity-missing");
             if (manager.entries() == null) {
-                errors.add(manager.name() + "-native-sequence-missing");
+                errors.add(expectedName + "-native-sequence-missing");
                 return;
             }
-            if (manager.totalEntries() < 0) errors.add(manager.name() + "-native-total-invalid");
+            if (manager.totalEntries() < 0) errors.add(expectedName + "-native-total-invalid");
             if (manager.position() < 0 || manager.position() > manager.entries().size()) {
-                errors.add(manager.name() + "-native-position-invalid");
+                errors.add(expectedName + "-native-position-invalid");
             }
             if (manager.totalEntries() > manager.entries().size()) {
-                errors.add(manager.name() + "-native-sequence-truncated");
+                errors.add(expectedName + "-native-sequence-truncated");
             }
             for (int index = 0; index < manager.entries().size(); index++) {
                 final WindowsHistoryManagerValidationProbe.Entry entry = manager.entries().get(index);
                 if (entry == null || entry.index() != index) {
-                    errors.add(manager.name() + "-native-sequence-index-mismatch");
+                    errors.add(expectedName + "-native-sequence-index-mismatch");
                 }
                 if (entry == null || entry.detail() == null) {
-                    errors.add(manager.name() + "-native-detail-missing");
+                    errors.add(expectedName + "-native-detail-missing");
                 } else {
-                    validateNativeDetail(entry.detail(), manager.name(), errors);
+                    validateNativeDetail(entry.detail(), expectedName, errors);
                 }
             }
+        }
+
+        private static boolean isAbsentOptionalManager(
+            final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
+            final String expectedName
+        ) {
+            return ("CURRENT".equals(expectedName) || "MAIN".equals(expectedName) || "LINKED".equals(expectedName))
+                && expectedName.equals(manager.name())
+                && "null".equals(manager.identity())
+                && manager.position() == -1
+                && !manager.canUndo()
+                && !manager.canRedo()
+                && manager.totalEntries() == 0
+                && manager.entries() != null
+                && manager.entries().isEmpty();
         }
 
         private static void validateNativeDetail(
@@ -868,7 +893,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 .append(json(phase))
                 .append("\",\"status\":\"")
                 .append(status ? "PASS" : "FAIL")
-                .append("\",\"errors\":[");
+                .append("\",\"nativePairing\":\"ordinal-label-supporting-only\"")
+                .append(",\"nativeStableIdMatch\":false,\"errors\":[");
             for (int index = 0; index < errors.size(); index++) {
                 if (index > 0) result.append(',');
                 result.append('\"').append(json(errors.get(index))).append('\"');

@@ -17,6 +17,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class WindowsHistorySeedValidationProbeTest {
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    private static final List<String> MAIN_REQUIRED_PHASES = List.of(
+        "baseline", "write-1", "write-2", "third-write", "group", "undo", "redo", "restored"
+    );
+    private static final List<String> REQUIRED_PHASES = List.of(
+        "baseline", "write-1", "write-2", "third-write", "group", "undo", "redo", "restored",
+        "artmesh-baseline", "artmesh-write-1", "artmesh-write-2", "artmesh-third-write",
+        "artmesh-undo", "artmesh-redo"
+    );
+
     @Test
     void choosesFiniteDistinctValueInsideRange() {
         final float selected = WindowsHistorySeedValidationProbe.alternate(0.0F, -1.0F, 1.0F);
@@ -63,8 +72,76 @@ class WindowsHistorySeedValidationProbeTest {
             assertEquals("baseline", pair.get("phase").asText());
             assertEquals("same-edt-read-only-manager-sampler", pair.get("nativeEvidence").asText());
             assertEquals("captured-operation-metadata", pair.get("sdkEvidence").asText());
+            assertEquals("ordinal-label-supporting-only", pair.get("nativePairing").asText());
+            assertEquals(false, pair.get("nativeStableIdMatch").asBoolean());
+            final JsonNode pairingValidation = JSON.readTree(lines.get(1));
+            assertEquals("paired-validation", pairingValidation.get("type").asText());
+            assertEquals("PASS", pairingValidation.get("status").asText());
+            assertEquals("ordinal-label-supporting-only", pairingValidation.get("nativePairing").asText());
+            assertEquals(false, pairingValidation.get("nativeStableIdMatch").asBoolean());
             assertTrue(pair.has("nativeManagers"));
             assertTrue(pair.has("sdkHistory"));
+            assertEquals("FAIL", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
+    @Test
+    void omittedArtmeshCheckpointCannotProducePass() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-artmesh-omission", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            for (String phase : MAIN_REQUIRED_PHASES) {
+                evidence.pairedSample(phase, snapshot("entry-1"));
+            }
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            final JsonNode missing = JSON.readTree(lines.get(lines.size() - 2));
+            assertEquals("paired-validation", missing.get("type").asText());
+            assertTrue(missing.get("errors").toString().contains("artmesh-baseline"));
+            assertEquals("FAIL", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
+    @Test
+    void exactAbsentOptionalManagerSentinelIsAccepted() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-optional-manager", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            for (String phase : REQUIRED_PHASES) {
+                evidence.pairedSample(phase, snapshotWithOptionalAbsence("entry-1"));
+            }
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            final JsonNode pair = JSON.readTree(lines.get(0));
+            assertEquals("null", pair.get("nativeManagers").get(1).get("identity").asText());
+            assertEquals("PASS", JSON.readTree(lines.get(1)).get("status").asText());
+            assertEquals("PASS", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
+    @Test
+    void malformedOptionalManagerSentinelCannotProducePass() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-malformed-manager", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            for (String phase : REQUIRED_PHASES) {
+                evidence.pairedSample(phase, snapshotWithMalformedOptionalManager("entry-1"));
+            }
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            assertTrue(lines.stream().anyMatch(line -> line.contains("CURRENT-native-manager-identity-missing")));
             assertEquals("FAIL", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
         } finally {
             Files.deleteIfExists(artifact);
@@ -79,7 +156,8 @@ class WindowsHistorySeedValidationProbeTest {
                 new WindowsHistorySeedValidationProbe.Evidence(artifact);
             evidence.pairedSample("baseline", snapshot("entry-1"));
             evidence.pairedFailure("write-1", new IllegalStateException("sampler failed"));
-            for (String phase : List.of("write-2", "third-write", "group", "undo", "redo", "restored")) {
+            for (String phase : REQUIRED_PHASES) {
+                if (phase.equals("baseline") || phase.equals("write-1")) continue;
                 evidence.pairedSample(phase, snapshot("entry-1"));
             }
             evidence.summary();
@@ -100,7 +178,8 @@ class WindowsHistorySeedValidationProbeTest {
                 new WindowsHistorySeedValidationProbe.Evidence(artifact);
             evidence.pairedSample("baseline", snapshot("entry-1"));
             evidence.pairedSample("write-1", snapshot("different-entry"));
-            for (String phase : List.of("write-2", "third-write", "group", "undo", "redo", "restored")) {
+            for (String phase : REQUIRED_PHASES) {
+                if (phase.equals("baseline") || phase.equals("write-1")) continue;
                 evidence.pairedSample(phase, snapshot("entry-1"));
             }
             evidence.summary();
@@ -119,9 +198,7 @@ class WindowsHistorySeedValidationProbeTest {
         try {
             final WindowsHistorySeedValidationProbe.Evidence evidence =
                 new WindowsHistorySeedValidationProbe.Evidence(artifact);
-            for (String phase : List.of(
-                "baseline", "write-1", "write-2", "third-write", "group", "undo", "redo", "restored"
-            )) {
+            for (String phase : REQUIRED_PHASES) {
                 evidence.pairedSample(phase, snapshot("entry-1"));
             }
             evidence.summary();
@@ -168,6 +245,36 @@ class WindowsHistorySeedValidationProbeTest {
                 "AVAILABLE", 1L, 1L, ids.length, true, false,
                 "history-document-1", "history-manager-1", ids.length, sdkEntries
             )
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.Snapshot snapshotWithOptionalAbsence(final String... ids) {
+        final WindowsHistoryManagerValidationProbe.Snapshot base = snapshot(ids);
+        return new WindowsHistoryManagerValidationProbe.Snapshot(
+            base.observedAt(), base.thread(), base.edt(), base.hostLoader(), base.documentIdentity(),
+            base.currentModeClass(), base.currentModeIdentity(), base.document(),
+            absentManager("CURRENT"), absentManager("MAIN"), absentManager("LINKED"), base.sdkHistory()
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.Snapshot snapshotWithMalformedOptionalManager(
+        final String... ids
+    ) {
+        final WindowsHistoryManagerValidationProbe.Snapshot base = snapshot(ids);
+        final WindowsHistoryManagerValidationProbe.ManagerSnapshot malformed =
+            new WindowsHistoryManagerValidationProbe.ManagerSnapshot(
+                "CURRENT", "null", -1, false, false, 0, base.current().entries()
+            );
+        return new WindowsHistoryManagerValidationProbe.Snapshot(
+            base.observedAt(), base.thread(), base.edt(), base.hostLoader(), base.documentIdentity(),
+            base.currentModeClass(), base.currentModeIdentity(), base.document(), malformed,
+            base.main(), base.linked(), base.sdkHistory()
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.ManagerSnapshot absentManager(final String name) {
+        return new WindowsHistoryManagerValidationProbe.ManagerSnapshot(
+            name, "null", -1, false, false, 0, List.of()
         );
     }
 
