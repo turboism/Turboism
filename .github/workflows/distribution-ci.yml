@@ -26,6 +26,17 @@ jobs:
       - name: Build identity and publisher regression tests
         if: ${{ hashFiles('scripts/release/test_build_identity.py') != '' }}
         run: python3 -m unittest discover -s scripts/release -p 'test*identity*.py'
+      - name: Existing publisher regression tests
+        run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
+      - name: Remote source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Compile the Gradle identity and installer configuration
+        run: ./gradlew --no-daemon help --console=plain
       - name: Retain exact source for independent review
         if: always()
         run: |

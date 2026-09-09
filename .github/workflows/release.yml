@@ -1,5 +1,5 @@
 # Candidate builder for immutable vMAJOR.MINOR.PATCH framework releases.
-# This workflow has read-only repository permissions and no production secrets.
+# Candidate builds are read-only; a separate allocator writes only the build ledger.
 # Explicit protected GitHub promotion owns remote tag/release creation.
 
 name: Product release candidate
@@ -23,7 +23,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  allocate-build:
+    if: github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
+    uses: ./.github/workflows/allocate-build.yml
+    with:
+      expected_source_sha: ${{ inputs.expected_source_sha }}
   build:
+    needs: allocate-build
+    permissions:
+      contents: read
+    env:
+      TURBOISM_BUILD_NUMBER: ${{ needs.allocate-build.outputs.build_number }}
+      TURBOISM_SOURCE_REVISION: ${{ github.sha }}
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-22.04
     steps:
@@ -42,6 +55,7 @@ jobs:
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
           test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"
           test "$(git rev-parse HEAD)" = "$EXPECTED_SOURCE_SHA"
+          test '${{ needs.allocate-build.outputs.run_attempt }}' = "$GITHUB_RUN_ATTEMPT" || { echo '::error::A rebuilt candidate needs a new identity. Re-run ALL jobs, including allocate-build.'; exit 1; }
 
       - name: Check complete public history hygiene
         run: python3 scripts/check_remote_hygiene.py --all
@@ -168,6 +182,11 @@ jobs:
             CHANGELOG.md "${{ steps.version.outputs.version }}" \
             > build/release-orchestrator/release-notes.md
 
+      - name: Write allocated build identity into the candidate evidence
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/release/build-identity.py receipt --source "$GITHUB_SHA" --output build/release-orchestrator/build-identity.json
+
       - name: Upload verified candidate payload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
@@ -176,6 +195,7 @@ jobs:
             build/windows-installer/dist
             build/windows-installer/staging
             build/release-orchestrator/candidate.json
+            build/release-orchestrator/build-identity.json
             build/release-orchestrator/framework-artifacts.json
             build/release-orchestrator/release-notes.md
           retention-days: 7
