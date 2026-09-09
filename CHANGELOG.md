@@ -6,9 +6,25 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.43.10] - 2026-09-09
+
+### Added
+
+- Current-page texture-atlas packing with an explicit scale contract and guarded native packing integration.
+- Captured semantic history timeline with stable navigation and a configurable core toolbar icon.
+- Independent release API, GitHub release synchronization, verified streaming mirrors, and globally allocated product build identities.
+
 ### Changed
 
 - Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
+- Adopted the reviewed SDK v8 current-page texture layout contract.
+- Added four-language project and installation documentation and task-contained local host validation supervision.
+
+### Fixed
+
+- Hardened the multi-version Scene palette bridge, added exact Cubism 5.3.03 routing, and preserved unified palette cleanup.
+- Matched the core toolbar image to the host home icon size.
+- Hardened host validation environment handling and rejection of malformed outcomes.
 
 ## [0.43.9] - 2026-09-06
 
