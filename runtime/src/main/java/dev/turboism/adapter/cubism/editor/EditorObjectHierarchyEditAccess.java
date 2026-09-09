@@ -453,8 +453,12 @@ final class EditorObjectHierarchyEditAccess {
         final String identity,
         final Object modelSource,
         final Object model,
-        final Object nodeSource
+        final Object nodeSource,
+        final Runnable currentDeformerCheck
     ) {
+        final Runnable checkedCurrentDeformer = Objects.requireNonNull(
+            currentDeformerCheck, "currentDeformerCheck"
+        );
         requireApplyToChildrenAuthorized();
         currentGuard.requireCurrent(identity, model);
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
@@ -475,9 +479,15 @@ final class EditorObjectHierarchyEditAccess {
             "cubism.editor-model.update-manager.set-selection",
             updateManager, document, List.of(guid), Boolean.FALSE, Boolean.TRUE
         );
+        // sendEvent=true may synchronously re-enter the host; re-run the caller's exact source and
+        // identity guard before using the one-shot native command.
+        checkedCurrentDeformer.run();
+        final Object currentApp = requireCurrentApplyToChildrenState(
+            identity, document, modelSource, model, nodeSource, targetGuidValue
+        );
         resolver.invoke(
             "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
-            app
+            currentApp
         );
         requireRemovedByGuid(modelSource, targetGuidValue);
     }
@@ -499,6 +509,76 @@ final class EditorObjectHierarchyEditAccess {
                     "Cubism did not apply the deformer to child elements; target GUID still present after native command."
                 );
             }
+        }
+    }
+
+    private Object requireCurrentApplyToChildrenState(
+        final String identity,
+        final Object expectedDocument,
+        final Object expectedModelSource,
+        final Object expectedModel,
+        final Object expectedNodeSource,
+        final String targetGuidValue
+    ) {
+        final Object currentApp = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object currentDocument = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", currentApp
+        );
+        if (currentDocument != expectedDocument) {
+            throw new IllegalStateException(
+                "Cubism active document changed during apply-to-children selection."
+            );
+        }
+        final Object currentModelSource = resolver.invoke(
+            "cubism.editor-model.modeling-document.model-source", currentDocument
+        );
+        if (currentModelSource != expectedModelSource) {
+            throw new IllegalStateException(
+                "Cubism active model source changed during apply-to-children selection."
+            );
+        }
+        final Object currentModel = resolver.invoke(
+            "cubism.editor-model.model-source.current-instance", currentModelSource
+        );
+        if (currentModel != expectedModel) {
+            throw new IllegalStateException(
+                "Cubism active model changed during apply-to-children selection."
+            );
+        }
+        currentGuard.requireCurrent(identity, expectedModel);
+        requireCurrentDeformerInstance(
+            expectedModelSource, expectedNodeSource, targetGuidValue
+        );
+        return currentApp;
+    }
+
+    private void requireCurrentDeformerInstance(
+        final Object modelSource,
+        final Object nodeSource,
+        final String targetGuidValue
+    ) {
+        boolean targetInstancePresent = false;
+        int matchingGuidCount = 0;
+        for (Object candidate : iterable(
+            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+            "Editor Deformer source collection"
+        )) {
+            final Object guid = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.guid", candidate
+            );
+            final String candidateGuidValue = requireValidGuidValue(
+                resolver.invoke("cubism.editor-model.guid.value", guid),
+                "Deformer"
+            );
+            if (targetGuidValue.equals(candidateGuidValue)) {
+                matchingGuidCount++;
+                targetInstancePresent |= candidate == nodeSource;
+            }
+        }
+        if (!targetInstancePresent || matchingGuidCount != 1) {
+            throw new IllegalStateException(
+                "The selected Deformer instance or GUID changed during apply-to-children selection."
+            );
         }
     }
 

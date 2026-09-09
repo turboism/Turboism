@@ -3034,7 +3034,13 @@ final class EditorObjectReadAccess {
             final Object nodeSource = nativeSourceOf(deformer, "Deformer");
             requireCurrentDeformerSource(identity, source, model, nodeSource);
             requireHierarchyEditAccess();
-            hierarchyEditAccess.applyToChildren(identity, source, model, nodeSource);
+            hierarchyEditAccess.applyToChildren(
+                identity,
+                source,
+                model,
+                nodeSource,
+                () -> requireCurrentDeformerSource(identity, source, model, nodeSource)
+            );
         }
     }
 

@@ -580,6 +580,66 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.document.deleteCount);
     }
 
+    @Test
+    void rejectsReentrantActiveDocumentSwitchBeforeNativeInvocation() {
+        final Fixture original = new Fixture();
+        final Fixture replacement = new Fixture();
+        Host.document = original.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+        final int[] callbacks = {0};
+        original.updateManager.selectionCallback = () -> {
+            callbacks[0]++;
+            Host.document = replacement.document;
+        };
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> model.deformers().applyToChildren(target)
+        );
+
+        assertEquals(1, callbacks[0]);
+        assertEquals(1, original.updateManager.selectionCalls.size());
+        assertEquals(
+            original.document,
+            original.updateManager.selectionCalls.get(0).source()
+        );
+        assertEquals(0, original.document.applyCount);
+        assertEquals(0, replacement.document.applyCount);
+        assertEquals(0, original.deformerSet.removedByCommand);
+        assertEquals(0, replacement.deformerSet.removedByCommand);
+    }
+
+    @Test
+    void rejectsReentrantSameIdDeformerReplacementBeforeNativeInvocation() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+        final Guid originalGuid = fixture.warpSource.guid;
+        final int[] callbacks = {0};
+        fixture.updateManager.selectionCallback = () -> {
+            callbacks[0]++;
+            fixture.replaceDeformerWithSameId();
+        };
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> model.deformers().applyToChildren(target)
+        );
+
+        assertEquals(1, callbacks[0]);
+        assertEquals(1, fixture.updateManager.selectionCalls.size());
+        assertEquals(0, fixture.document.applyCount);
+        assertEquals(0, fixture.deformerSet.removedByCommand);
+        assertTrue(fixture.warpSource != fixture.deformerSet.sources.get(0));
+        assertTrue(originalGuid != fixture.deformerSet.sources.get(0).guid);
+    }
+
     // ------------------------------------------------------------------
     // resolver + selectors
     // ------------------------------------------------------------------
@@ -1240,11 +1300,15 @@ class EditorObjectHierarchyEditAccessTest {
 
     public static final class UpdateManager {
         final List<SelectionCall> selectionCalls = new ArrayList<>();
+        Runnable selectionCallback;
         public void setSelection(final Object source, final List<?> guids, final boolean append, final boolean sendEvent) {
             selectionCalls.add(new SelectionCall(source, new ArrayList<>(guids), append, sendEvent));
             if (source instanceof Document document && !guids.isEmpty()) {
                 document.source.pendingDeleteSource = document.source.findByGuid((Guid) guids.get(0));
             }
+            final Runnable callback = selectionCallback;
+            selectionCallback = null;
+            if (sendEvent && callback != null) callback.run();
         }
         public record SelectionCall(Object source, List<Object> guids, boolean append, boolean sendEvent) { }
     }
