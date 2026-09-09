@@ -19,6 +19,8 @@ public final class EditorRawImagePsdNativeFixture {
     public static File constructedTarget;
     public static String constructedName;
     public static SyntheticProgress lastProgress;
+    public static final SyntheticProgress DEFAULT_PROGRESS = new SyntheticProgress();
+    public static Runnable afterSave = () -> {};
 
     private EditorRawImagePsdNativeFixture() {
     }
@@ -37,6 +39,7 @@ public final class EditorRawImagePsdNativeFixture {
         constructedTarget = null;
         constructedName = null;
         lastProgress = null;
+        afterSave = () -> {};
     }
 
     public static List<String> events() {
@@ -69,7 +72,7 @@ public final class EditorRawImagePsdNativeFixture {
 
         public static SyntheticProgress e() {
             record("progress");
-            return new SyntheticProgress();
+            return DEFAULT_PROGRESS;
         }
     }
 
@@ -137,6 +140,7 @@ public final class EditorRawImagePsdNativeFixture {
                 throw new IllegalStateException("fixture save failure");
             }
             if (swallowSave) {
+                afterSave.run();
                 return;
             }
             try {
@@ -144,6 +148,7 @@ public final class EditorRawImagePsdNativeFixture {
             } catch (IOException exception) {
                 throw new IllegalStateException("fixture output failure", exception);
             }
+            afterSave.run();
         }
 
         public SyntheticLayeredImage(

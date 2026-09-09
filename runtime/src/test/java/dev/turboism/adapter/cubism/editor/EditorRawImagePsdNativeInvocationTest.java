@@ -9,12 +9,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -34,6 +37,7 @@ class EditorRawImagePsdNativeInvocationTest {
     void savesWithConcreteProgressThenParsesAndReconstructsOnOneHostThread(@TempDir final Path temp)
         throws Exception {
         final Path target = temp.resolve("export.psd");
+        Files.createFile(target);
         final Object model = new Object();
         final EditorRawImagePsdNativeFixture.SyntheticLayeredImage source =
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source");
@@ -53,6 +57,10 @@ class EditorRawImagePsdNativeInvocationTest {
             EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED,
             result.status()
         );
+        assertEquals(
+            EditorRawImagePsdAccess.TargetPathSafety.FINAL_PATH_NOFOLLOW_PRE_AND_POST,
+            result.targetPathSafety()
+        );
         assertTrue(result.saveReturned());
         assertTrue(result.outputReadable());
         assertEquals(
@@ -70,13 +78,15 @@ class EditorRawImagePsdNativeInvocationTest {
         assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.constructedTarget);
         assertEquals("raw-source", EditorRawImagePsdNativeFixture.constructedName);
         assertNotNull(EditorRawImagePsdNativeFixture.lastProgress);
+        assertSame(EditorRawImagePsdNativeFixture.DEFAULT_PROGRESS, EditorRawImagePsdNativeFixture.lastProgress);
         assertTrue(Files.isRegularFile(target));
     }
 
     @Test
-    void observesANormalVoidSaveThatSwallowsItsFailure(@TempDir final Path temp) {
+    void observesANormalVoidSaveThatSwallowsItsFailure(@TempDir final Path temp) throws Exception {
         EditorRawImagePsdNativeFixture.swallowSave = true;
         final Path target = temp.resolve("swallowed.psd");
+        Files.createFile(target);
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
@@ -91,10 +101,16 @@ class EditorRawImagePsdNativeInvocationTest {
         assertTrue(result.saveReturned());
         assertFalse(result.outputReadable());
         assertEquals(
+            EditorRawImagePsdAccess.TargetPathSafety.FINAL_PATH_NOFOLLOW_PRE_AND_POST,
+            result.targetPathSafety()
+        );
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.TARGET_POSTCHECK, result.failurePhase());
+        assertEquals(
             List.of("progress", "name", "save"),
             EditorRawImagePsdNativeFixture.events()
         );
-        assertFalse(Files.exists(target));
+        assertTrue(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS));
+        assertEquals(0, Files.size(target));
     }
 
     @Test
@@ -138,6 +154,99 @@ class EditorRawImagePsdNativeInvocationTest {
             List.of("progress", "name", "save", "parse"),
             EditorRawImagePsdNativeFixture.events()
         );
+    }
+
+    @Test
+    void rejectsExistingNonEmptyTargetBeforeNativeSave(@TempDir final Path temp) throws Exception {
+        final Path target = temp.resolve("existing.psd");
+        Files.writeString(target, "old-psd");
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            target
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.TARGET_REJECTED, result.status());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.TARGET_PRECHECK, result.failurePhase());
+        assertEquals(
+            EditorRawImagePsdAccess.TargetPathSafety.FINAL_PATH_NOFOLLOW_PRE_ONLY,
+            result.targetPathSafety()
+        );
+        assertFalse(result.saveReturned());
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+        assertEquals("old-psd", Files.readString(target));
+    }
+
+    @Test
+    void rejectsSymbolicLinkTargetBeforeNativeSave(@TempDir final Path temp) throws Exception {
+        final Path linkedFile = temp.resolve("existing.psd");
+        Files.writeString(linkedFile, "old-psd");
+        final Path target = temp.resolve("link.psd");
+        Files.createSymbolicLink(target, linkedFile.getFileName());
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            target
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.TARGET_REJECTED, result.status());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.TARGET_PRECHECK, result.failurePhase());
+        assertEquals(
+            EditorRawImagePsdAccess.TargetPathSafety.FINAL_PATH_NOFOLLOW_PRE_ONLY,
+            result.targetPathSafety()
+        );
+        assertFalse(result.saveReturned());
+        assertTrue(Files.isSymbolicLink(target));
+        assertEquals("old-psd", Files.readString(linkedFile));
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+    }
+
+    @Test
+    void rejectsDocumentSwitchAfterNativeSaveBeforeReadableResult(@TempDir final Path temp)
+        throws Exception {
+        final Path target = temp.resolve("switched.psd");
+        final Object model = new Object();
+        final Object replacement = new Object();
+        final AtomicReference<Object> currentModel = new AtomicReference<>(model);
+        final AtomicInteger guardCalls = new AtomicInteger();
+        EditorRawImagePsdNativeFixture.afterSave = () -> currentModel.set(replacement);
+
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> access(
+                resolver("5.3.02", true),
+                (identity, checkedModel) -> {
+                    assertEquals("session-a", identity);
+                    guardCalls.incrementAndGet();
+                    if (currentModel.get() != checkedModel) {
+                        throw new IllegalStateException("document switched during PSD export");
+                    }
+                }
+            ).exportPsd(
+                "session-a",
+                model,
+                new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+                target
+            )
+        );
+
+        assertEquals("document switched during PSD export", failure.getMessage());
+        assertEquals(2, guardCalls.get());
+        assertEquals(
+            List.of("progress", "name", "save", "parse", "construct"),
+            EditorRawImagePsdNativeFixture.events()
+        );
+        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
+        assertTrue(Files.isRegularFile(target, LinkOption.NOFOLLOW_LINKS));
+        assertTrue(Files.size(target) > 0);
     }
 
     @Test
