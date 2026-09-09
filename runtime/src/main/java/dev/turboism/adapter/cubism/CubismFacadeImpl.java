@@ -1729,7 +1729,13 @@ public final class CubismFacadeImpl implements CubismFacade {
                     final dev.turboism.sdk.cubism.model.Deformer deformer
                 ) {
                     requireModelWrite("model.deformers.remove");
-                    values.remove(unwrapDeformer(deformer));
+                    values.remove(unwrapDeformer(wrapperOwner, deformer));
+                }
+                @Override public void applyToChildren(
+                    final dev.turboism.sdk.cubism.model.Deformer deformer
+                ) {
+                    requireModelWrite("model.deformers.applyToChildren");
+                    values.applyToChildren(unwrapDeformer(wrapperOwner, deformer));
                 }
             };
         }
@@ -1866,15 +1872,19 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     private dev.turboism.sdk.cubism.model.Deformer unwrapDeformer(
+        final Object expectedOwner,
         final dev.turboism.sdk.cubism.model.Deformer value
     ) {
-        if (value instanceof PermissionCheckedWarpDeformer checked) {
+        if (value instanceof PermissionCheckedWarpDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.warp;
         }
-        if (value instanceof PermissionCheckedRotationDeformer checked) {
+        if (value instanceof PermissionCheckedRotationDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.rotation;
         }
-        if (value instanceof PermissionCheckedDeformer checked) {
+        if (value instanceof PermissionCheckedDeformer checked
+            && checked.ownedBy(expectedOwner)) {
             return checked.delegate;
         }
         throw new IllegalArgumentException(
@@ -2006,7 +2016,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             final int index
         ) {
             requireModelWrite("artMesh.setParentDeformer");
-            delegate.setParent(unwrapDeformer(parent), index);
+            delegate.setParent(unwrapDeformer(wrapperOwner, parent), index);
         }
         @Override public boolean visible() {
             requireModelRead("artMesh.visible");
@@ -2175,6 +2185,9 @@ public final class CubismFacadeImpl implements CubismFacade {
             this.wrapperOwner = Objects.requireNonNull(wrapperOwner, "wrapperOwner");
             this.delegate = Objects.requireNonNull(delegate, "delegate");
         }
+        final boolean ownedBy(final Object owner) {
+            return wrapperOwner == owner;
+        }
         @Override public dev.turboism.sdk.ui.appearance.model.DeformerAppearance ui() {
             requireModelRead("deformer.ui");
             return delegate.ui();
@@ -2213,7 +2226,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             final int index
         ) {
             requireModelWrite("deformer.setParentDeformer");
-            delegate.setParent(unwrapDeformer(parent), index);
+            delegate.setParent(unwrapDeformer(wrapperOwner, parent), index);
         }
         @Override public boolean visible() { requireModelRead("deformer.visible"); return delegate.visible(); }
         @Override public void setVisible(final boolean visible) {

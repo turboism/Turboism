@@ -1027,6 +1027,65 @@ class CubismFacadeImplTest {
         assertEquals(4, mutations[0]);
     }
 
+
+    @Test
+    void deformerApplyToChildrenChecksPermissionAndWrapperOwnerBeforeForwarding() {
+        final Deformer backend = new Deformer() {
+            @Override public DeformerId id() { return new DeformerId("WarpA"); }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final int[] calls = {0};
+        final Deformer[] forwarded = {null};
+        final Deformers backendDeformers = new Deformers() {
+            @Override public List<Deformer> all() { return List.of(backend); }
+            @Override public Deformer find(final DeformerId id) { return backend; }
+            @Override public void applyToChildren(final Deformer deformer) {
+                calls[0]++;
+                forwarded[0] = deformer;
+            }
+        };
+        final CubismModel model = new CubismModel() {
+            @Override public ModelId id() { return new ModelId("model-1"); }
+            @Override public Parameters parameters() { throw new UnsupportedOperationException(); }
+            @Override public Parts parts() { throw new UnsupportedOperationException(); }
+            @Override public Drawables drawables() { throw new UnsupportedOperationException(); }
+            @Override public Deformers deformers() { return backendDeformers; }
+            @Override public Glues glues() { throw new UnsupportedOperationException(); }
+            @Override public void update() { throw new UnsupportedOperationException(); }
+        };
+        final CubismFacadeImpl denied = facadeWith(
+            sampleSource(), new ArrayList<>(),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION)),
+            () -> model
+        );
+        final Deformers deniedDeformers = denied.model().active().deformers();
+        final Deformer deniedWrapper = deniedDeformers.find(new DeformerId("WarpA"));
+
+        assertThrows(CubismPermissionException.class,
+            () -> deniedDeformers.applyToChildren(deniedWrapper));
+        assertEquals(0, calls[0]);
+
+        final CubismFacadeImpl allowed = facadeWith(
+            sampleSource(), new ArrayList<>(),
+            List.of(
+                permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                permission(CubismFacadeImpl.MODEL_WRITE_PERMISSION)
+            ),
+            () -> model
+        );
+        final Deformers allowedDeformers = allowed.model().active().deformers();
+        assertThrows(IllegalArgumentException.class,
+            () -> allowedDeformers.applyToChildren(deniedWrapper));
+        assertEquals(0, calls[0]);
+
+        allowedDeformers.applyToChildren(
+            allowedDeformers.find(new DeformerId("WarpA"))
+        );
+        assertEquals(1, calls[0]);
+        assertTrue(forwarded[0] == backend);
+    }
+
     @Test
     void legacyConstructorsKeepUnifiedModelAccessExplicitlyUnavailable() {
         final CubismFacadeImpl facade = facadeWith(
