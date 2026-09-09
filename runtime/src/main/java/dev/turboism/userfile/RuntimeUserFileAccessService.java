@@ -124,9 +124,25 @@ public final class RuntimeUserFileAccessService
         this.io = new UserFileIoExecutor(pluginId, tasks);
         try {
             Objects.requireNonNull(scope, "scope").register(this);
-        } catch (RuntimeException exception) {
-            io.close();
+        } catch (RuntimeException | Error exception) {
+            closeAfterRegistrationFailure(exception);
             throw exception;
+        }
+    }
+
+    private void closeAfterRegistrationFailure(final Throwable original) {
+        if (source instanceof AutoCloseable closeable) {
+            try {
+                closeable.close();
+            } catch (Throwable failure) {
+                original.addSuppressed(failure);
+                reportSourceCloseFailure(failure);
+            }
+        }
+        try {
+            io.close();
+        } catch (Throwable failure) {
+            original.addSuppressed(failure);
         }
     }
 
@@ -368,14 +384,37 @@ public final class RuntimeUserFileAccessService
         if (source instanceof AutoCloseable closeable) {
             try {
                 closeable.close();
-            } catch (Exception ignored) {
-                // A chooser close must not prevent the remaining owned I/O from closing.
+            } catch (Throwable failure) {
+                reportSourceCloseFailure(failure);
             }
         }
         io.close();
         synchronized (lifecycleLock) {
             grants.clear();
             pendingRequests.clear();
+        }
+    }
+
+    private void reportSourceCloseFailure(final Throwable sourceFailure) {
+        try {
+            cleanupEvidence.cleanupFailed();
+        } catch (Throwable failure) {
+            sourceFailure.addSuppressed(failure);
+        }
+        try {
+            failureSink.record(RuntimeFailureDomain.STORAGE, new RuntimeFailure(
+                "USER_FILE_SOURCE_CLOSE_FAILED",
+                "ERROR",
+                "cleanup",
+                pluginId,
+                "user-file.source.close",
+                null,
+                "User-file grant source close failed safely.",
+                null,
+                1
+            ));
+        } catch (Throwable failure) {
+            sourceFailure.addSuppressed(failure);
         }
     }
 

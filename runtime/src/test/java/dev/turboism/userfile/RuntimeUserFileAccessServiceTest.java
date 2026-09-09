@@ -3,6 +3,7 @@ package dev.turboism.userfile;
 import dev.turboism.core.runtime.DefaultWorkBudgetPolicy;
 import dev.turboism.core.runtime.work.PluginWorkExecutorRegistry;
 import dev.turboism.core.runtime.RuntimeScheduler;
+import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.core.runtime.sidecar.SidecarDispatcher;
 import dev.turboism.failure.RuntimeFailureCollector;
 import dev.turboism.sdk.permission.PermissionIds;
@@ -21,12 +22,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.lang.reflect.Field;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,6 +38,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class RuntimeUserFileAccessServiceTest {
 
@@ -371,17 +375,128 @@ class RuntimeUserFileAccessServiceTest {
         );
     }
 
+    @Test
+    void sourceCloseFailureIsReportedAndIoExecutorStillCloses() throws Exception {
+        final class FailingSource implements UserFileGrantSource, AutoCloseable {
+            private final AtomicInteger closeCalls = new AtomicInteger();
+
+            @Override
+            public CompletionStage<UserFileGrantSource.Decision> request(
+                final UserFileRequest request
+            ) {
+                return CompletableFuture.completedFuture(UserFileGrantSource.Decision.unavailable());
+            }
+
+            @Override
+            public void close() {
+                closeCalls.incrementAndGet();
+                throw new IllegalStateException("C:/Users/private/source-close");
+            }
+        }
+
+        final FailingSource source = new FailingSource();
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final RuntimeUserFileAccessService service = service(
+            permissions(UserFileMode.READ),
+            source,
+            failures,
+            evidence
+        );
+
+        service.close();
+
+        assertEquals(1, source.closeCalls.get());
+        assertTrue(ioExecutor(service).isShutdown());
+        assertEquals(1, evidence.snapshot().failures());
+        final var collected = failures.snapshot().storageFailures();
+        assertEquals(1, collected.size());
+        assertEquals("USER_FILE_SOURCE_CLOSE_FAILED", collected.get(0).code());
+        assertEquals(null, collected.get(0).relativePath());
+        assertFalse(collected.get(0).message().contains("C:/Users"));
+    }
+
+    @Test
+    void registrationFailureTearsDownOwnedSourceWithoutMaskingOriginalException() throws Exception {
+        scope = new DisposableScope();
+        runtimeScheduler = new RuntimeScheduler(
+            new DefaultWorkBudgetPolicy(),
+            new PluginWorkExecutorRegistry(1, 32, ignored -> { }, Clock.systemUTC()),
+            SidecarDispatcher.noop(),
+            ignored -> { }
+        );
+        tasks = new RuntimePluginTaskScheduler(PLUGIN_ID, runtimeScheduler, scope);
+        scope.close();
+
+        final class FailingSource implements UserFileGrantSource, AutoCloseable {
+            private final AtomicInteger closeCalls = new AtomicInteger();
+
+            @Override
+            public CompletionStage<UserFileGrantSource.Decision> request(
+                final UserFileRequest request
+            ) {
+                return CompletableFuture.completedFuture(UserFileGrantSource.Decision.unavailable());
+            }
+
+            @Override
+            public void close() {
+                closeCalls.incrementAndGet();
+                throw new IllegalStateException("source close failed");
+            }
+        }
+
+        final FailingSource source = new FailingSource();
+        final RuntimeFailureCollector failures = new RuntimeFailureCollector();
+        final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
+        final IllegalStateException original = assertThrows(
+            IllegalStateException.class,
+            () -> new RuntimeUserFileAccessService(
+                PLUGIN_ID,
+                permissions(UserFileMode.READ),
+                source,
+                tasks,
+                scope,
+                evidence,
+                failures
+            )
+        );
+
+        assertEquals("DisposableScope is already closed", original.getMessage());
+        assertEquals(1, source.closeCalls.get());
+        assertEquals(1, original.getSuppressed().length);
+        assertEquals("source close failed", original.getSuppressed()[0].getMessage());
+        assertEquals(1, evidence.snapshot().failures());
+        assertEquals(
+            "USER_FILE_SOURCE_CLOSE_FAILED",
+            failures.snapshot().storageFailures().get(0).code()
+        );
+    }
+
     private RuntimeUserFileAccessService service(
         final Set<String> permissions,
         final UserFileGrantSource source
     ) {
-        return service(permissions, source, new RuntimeFailureCollector());
+        return service(
+            permissions,
+            source,
+            new RuntimeFailureCollector(),
+            new CleanupEvidenceCollector()
+        );
     }
 
     private RuntimeUserFileAccessService service(
         final Set<String> permissions,
         final UserFileGrantSource source,
         final RuntimeFailureCollector failures
+    ) {
+        return service(permissions, source, failures, new CleanupEvidenceCollector());
+    }
+
+    private RuntimeUserFileAccessService service(
+        final Set<String> permissions,
+        final UserFileGrantSource source,
+        final RuntimeFailureCollector failures,
+        final CleanupEvidenceCollector evidence
     ) {
         if (scope == null) {
             scope = new DisposableScope();
@@ -399,9 +514,20 @@ class RuntimeUserFileAccessServiceTest {
             source,
             tasks,
             scope,
-            new dev.turboism.cleanup.CleanupEvidenceCollector(),
+            evidence,
             failures
         );
+    }
+
+    private static ThreadPoolExecutor ioExecutor(
+        final RuntimeUserFileAccessService service
+    ) throws ReflectiveOperationException {
+        final Field ioField = RuntimeUserFileAccessService.class.getDeclaredField("io");
+        ioField.setAccessible(true);
+        final Object io = ioField.get(service);
+        final Field executorField = io.getClass().getDeclaredField("executor");
+        executorField.setAccessible(true);
+        return (ThreadPoolExecutor) executorField.get(io);
     }
 
     private static Set<String> permissions(final UserFileMode mode) {
