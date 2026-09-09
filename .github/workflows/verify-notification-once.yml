@@ -1,0 +1,39 @@
+name: Verify release notification once
+on:
+  push:
+    branches: [ci/verify-release-notification-20260909]
+    paths: [.github/workflows/verify-notification-once.yml]
+permissions:
+  contents: read
+  actions: write
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Dispatch the existing main notification and verify its exact run
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import os,json,time,datetime,urllib.request
+          root='https://api.github.com/repos/turboism/Turboism';token=os.environ['GH_TOKEN']
+          def api(path,body=None):
+            req=urllib.request.Request(root+path,headers={'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'},data=None if body is None else json.dumps(body).encode(),method='GET' if body is None else 'POST')
+            with urllib.request.urlopen(req,timeout=30) as r:
+              text=r.read();return json.loads(text) if text else None
+          head=api('/git/ref/heads/main')['object']['sha']
+          start=datetime.datetime.now(datetime.timezone.utc).isoformat().replace('+00:00','Z')
+          api('/actions/workflows/notify-release-api.yml/dispatches',{'ref':'main'})
+          for i in range(60):
+            runs=api('/actions/workflows/notify-release-api.yml/runs?event=workflow_dispatch&per_page=10')['workflow_runs']
+            matches=[r for r in runs if r['head_sha']==head and r['created_at']>=start[:19]+'Z']
+            if matches:
+              run=matches[0]
+              if run['status']=='completed':
+                print(json.dumps({'run':run['id'],'url':run['html_url'],'source':run['head_sha'],'conclusion':run['conclusion']}))
+                assert run['conclusion']=='success','The real OIDC notification failed; do not substitute a forged credential'
+                break
+            time.sleep(5)
+          else:raise RuntimeError('Notification did not complete')
+          PY
