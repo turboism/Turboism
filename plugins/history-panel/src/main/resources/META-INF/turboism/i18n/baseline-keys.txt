@@ -1,5 +1,8 @@
 history.button.tooltip
 history.entry.affected
+history.entry.action.add
+history.entry.action.remove
+history.entry.action.set
 history.entry.change.add
 history.entry.change.remove
 history.entry.change.set
@@ -15,6 +18,9 @@ history.entry.no-detail
 history.entry.origin.turboism
 history.entry.target.named
 history.entry.target.unknown
+history.icon.art-mesh
+history.icon.rotation-deformer
+history.icon.warp-deformer
 history.panel.count
 history.panel.title
 history.panel.unavailable
