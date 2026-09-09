@@ -109,7 +109,7 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
     private final DockTreeTraversal traversal;
     private final dev.turboism.ui.action.EditorUiActionRouter actionRouter;
     private final Map<Object, NativePanel> panels = new IdentityHashMap<>();
-    private final Map<Object, JPanel> stableContentRoots = new IdentityHashMap<>();
+    private final Map<Object, JPanel> stableContentRoots = java.util.Collections.synchronizedMap(new IdentityHashMap<>());
     private final Map<Object, FloatingPanel> floatingPanels = new IdentityHashMap<>();
     private final Map<Object, Long> lastFloatMillis = new IdentityHashMap<>();
     private final FloatingFrameLifecycle floatingFrameLifecycle = new FloatingFrameLifecycle();
@@ -151,22 +151,37 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         if (generation <= 0) {
             throw new IllegalArgumentException("generation must be positive");
         }
-        hostGeneration = generation;
-        hostActive = true;
+        synchronized (stableContentRoots) {
+            hostGeneration = generation;
+            hostActive = true;
+        }
     }
 
     @Override
     public void invalidateHost() {
-        hostActive = false;
+        // Invalidate and clear under the same small lock used by refresh/install snapshots. This
+        // must not dispatch synchronously to the EDT: a queued host operation may be waiting on
+        // that thread, and invalidation is the lifecycle fence that must release it.
+        synchronized (stableContentRoots) {
+            hostActive = false;
+            // A connection may be disposed before its provider registration gets a chance to close
+            // every handle. Drop refresh roots here as the final lifecycle boundary; handles remain
+            // idempotently closeable and cannot resurrect a disposed presentation.
+            stableContentRoots.clear();
+        }
     }
 
     /** Refreshes presentation-only state in all retained embedded/floating content roots. */
     public void refreshPresentation() {
         onEdt(() -> {
-            if (!hostActive) {
-                return null;
+            final List<JPanel> roots;
+            synchronized (stableContentRoots) {
+                if (!hostActive) {
+                    return null;
+                }
+                roots = List.copyOf(stableContentRoots.values());
             }
-            for (JPanel root : List.copyOf(stableContentRoots.values())) {
+            for (JPanel root : roots) {
                 try {
                     SwingPanelViewRenderer.refreshInlineLabelPresentation(root);
                     root.revalidate();
@@ -244,6 +259,11 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
         final EmbeddedPanelContributionDescriptor descriptor,
         final BiConsumer<String, Optional<UiActionEvent>> action
     ) {
+        synchronized (stableContentRoots) {
+            if (hostGeneration != Long.MIN_VALUE) {
+                requireActiveHost(hostGeneration);
+            }
+        }
         final NativeDock dock = resolveDock();
         final String nativeId = "turboism:" + descriptor.pluginId() + ":" + descriptor.contributionId();
         final Object paletteId = resolver.construct(PALETTE_ID_CREATE, nativeId);
@@ -267,7 +287,12 @@ public final class VerifiedEmbeddedPanelHostOperations implements EmbeddedPanelH
             // roots are never nested inside one another.
             stableContentRoot = new JPanel(new BorderLayout());
             stableContentRoot.add(contentRoot, BorderLayout.CENTER);
-            stableContentRoots.put(palette, stableContentRoot);
+            synchronized (stableContentRoots) {
+                if (hostGeneration != Long.MIN_VALUE) {
+                    requireActiveHost(hostGeneration);
+                }
+                stableContentRoots.put(palette, stableContentRoot);
+            }
             final Object content = resolver.construct(SWING_CONTAINER_CREATE, stableContentRoot);
             resolver.invoke(PALETTE_SET_PANEL, palette, content, 340, 300);
 

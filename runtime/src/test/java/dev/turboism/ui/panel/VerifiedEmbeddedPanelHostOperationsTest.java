@@ -49,7 +49,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
-class VerifiedEmbeddedPanelHostOperationsTest {
+public class VerifiedEmbeddedPanelHostOperationsTest {
 
     @Test
     void deferredEdtDispatchReturnsWhileTheEdtIsBusy() throws Exception {
@@ -1143,6 +1143,36 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         assertEquals(0, host.operations.retainedStableContentRootCountForTest());
     }
 
+    @Test
+    void invalidatingHostDropsRetainedRootsAndRefreshCannotResurrectThem() throws Exception {
+        final InstallHost host = installHost();
+        final AtomicReference<EmbeddedPanelHostOperations.PanelHandle> handle = new AtomicReference<>();
+        runOnEdt(() -> {
+            host.operations.bindHostGeneration(1);
+            handle.set(host.operations.addPanel(
+                new EmbeddedPanelContributionDescriptor(
+                    "turboism.core",
+                    "invalidated-pane",
+                    "Invalidated Pane",
+                    "window",
+                    100,
+                    new PanelView.Text("content"),
+                    false
+                ),
+                (actionId, event) -> { }
+            ));
+        });
+
+        assertEquals(1, host.operations.retainedStableContentRootCountForTest());
+        host.operations.invalidateHost();
+        host.operations.refreshPresentation();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+
+        handle.get().close();
+        host.operations.refreshPresentation();
+        assertEquals(0, host.operations.retainedStableContentRootCountForTest());
+    }
+
     /** Runs a body on the EDT, rethrowing failures on the caller thread. */
     private static void runOnEdt(final Runnable body) throws Exception {
         final Throwable[] failure = new Throwable[1];
@@ -1173,7 +1203,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         return new InstallHost();
     }
 
-    static final class InstallHost {
+    public static final class InstallHost {
         private final List<String> log = new ArrayList<>();
         private final HashMap<FakePaletteId, FakeCheckMenuItem> paletteMenuMap = new HashMap<>();
         private final FakePaletteManager paletteManager = new FakePaletteManager(this);
@@ -1185,15 +1215,16 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         private final FakeWorkspace workspace = new FakeWorkspace(this);
         private final FakeApp app = new FakeApp(this);
         private final VerifiedEmbeddedPanelHostOperations operations;
+        private final VerifiedMemberResolver resolver;
         private FakePaletteBox firstPaletteBox;
         private Component workspaceTree;
         private boolean failOnAddPalette;
 
-        InstallHost() {
+        public InstallHost() {
             this((reference, disabled) -> Optional.empty());
         }
 
-        InstallHost(final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
+        public InstallHost(final BiFunction<UiIconRef, Boolean, Optional<Icon>> iconResolver) {
             FakeApp.HOST = this;
             final List<StaticSelector> selectors = List.of(
                 StaticSelector.staticMethod(
@@ -1274,6 +1305,12 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                     FakePaletteManager.class,
                     "getCurrentWorkspace",
                     descriptor(FakeWorkspace.class)
+                ),
+                method(
+                    "cubism.ui-panel.palette.id",
+                    FakePalette.class,
+                    "getPaletteId",
+                    descriptor(FakePaletteId.class)
                 ),
                 method(
                     "cubism.ui-panel.workspace.activate",
@@ -1518,6 +1555,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
                 selectors,
                 VerifiedEmbeddedPanelHostOperationsTest.class.getClassLoader()
             );
+            this.resolver = panelResolver;
             operations = new VerifiedEmbeddedPanelHostOperations(
                 panelResolver,
                 (pluginId, actionId) -> { },
@@ -1526,7 +1564,14 @@ class VerifiedEmbeddedPanelHostOperationsTest {
             );
         }
 
-        private FakePaletteId paletteId(final String contributionId) {
+        public VerifiedMemberResolver resolver() {
+            return resolver;
+        }
+        public int retainedStableContentRootCount() {
+            return operations.retainedStableContentRootCountForTest();
+        }
+
+        public FakePaletteId paletteId(final String contributionId) {
             return new FakePaletteId("turboism:turboism.core:" + contributionId);
         }
 
@@ -1535,7 +1580,7 @@ class VerifiedEmbeddedPanelHostOperationsTest {
         }
 
         /** The native Swing container the palette was given exactly once. */
-        private FakeSwingContainer nativeContainer(final FakePaletteId paletteId) {
+        public FakeSwingContainer nativeContainer(final FakePaletteId paletteId) {
             return (FakeSwingContainer) paletteManager.getPalette(paletteId).getPanelWidget();
         }
     }
