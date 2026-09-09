@@ -49,7 +49,7 @@ public final class CubismNativeIconResolver implements AutoCloseable {
         final UiIconAvailability unavailable
     ) {
         this.unavailable = Objects.requireNonNull(unavailable, "unavailable");
-        if (unavailable == UiIconAvailability.AVAILABLE || prepared.size() > 60) {
+        if (unavailable == UiIconAvailability.AVAILABLE || prepared.size() > 80) {
             throw new IllegalArgumentException("invalid native icon cache");
         }
         images = new HashMap<>();

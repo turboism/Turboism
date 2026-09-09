@@ -25,6 +25,7 @@ public record NativeIconVariant(CubismIcon icon, Theme theme, int scalePercent, 
             case ART_MESH -> "Artmesh";
             case WARP_DEFORMER -> "WarpDef";
             case ROTATION_DEFORMER -> "RotDef";
+            case PART -> "Folder";
         };
         return "res/image_" + (theme == Theme.LIGHT ? "light" : "dark") + "/icons/" + object
             + "-Colored_16x16_" + (disabled ? "Disabled" : "Default") + ".scale-" + scalePercent + ".png";

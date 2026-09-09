@@ -13,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class UiResourceServiceContractTest {
     @Test
     void referencesAreClosedImmutableKeysNotNativeHandles() {
-        assertEquals(List.of("ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER"),
+        assertEquals(List.of("ART_MESH", "WARP_DEFORMER", "ROTATION_DEFORMER", "PART"),
             Arrays.stream(CubismIcon.values()).map(Enum::name).toList());
         assertTrue(UiIconRef.class.isRecord());
         assertEquals(1, UiIconRef.class.getRecordComponents().length);
