@@ -37,6 +37,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.cubism.transaction.TransactionManager;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutService;
 import dev.turboism.sdk.permission.CubismPermissionException;
+import dev.turboism.sdk.permission.PermissionIds;
 
 import java.time.Clock;
 import java.util.List;
@@ -1177,6 +1178,43 @@ public final class CubismFacadeImpl implements CubismFacade {
                 @Override public dev.turboism.sdk.cubism.model.TextureRelationsSnapshot relations() {
                     requireModelRead("model.textures.relations");
                     return textures.relations();
+                }
+                @Override
+                public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult>
+                    exportRawImagePsd(
+                        final dev.turboism.sdk.cubism.id.RawImageId source
+                    ) {
+                    requireModelRead("model.textures.exportRawImagePsd");
+                    permissionGate.require(
+                        PermissionIds.TURBOISM_FILE_WRITE,
+                        "model.textures.exportRawImagePsd"
+                    );
+                    return textures.exportRawImagePsd(
+                        Objects.requireNonNull(source, "source")
+                    );
+                }
+
+                @Override
+                public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdReplaceResult>
+                    replaceRawImagePsd(
+                        final dev.turboism.sdk.cubism.id.RawImageId target,
+                        final dev.turboism.sdk.cubism.psd.PsdEditFile file,
+                        final dev.turboism.sdk.cubism.psd.PsdFileRevision revision
+                    ) {
+                    requireModelWrite("model.textures.replaceRawImagePsd");
+                    permissionGate.require(
+                        PermissionIds.TURBOISM_FILE_READ,
+                        "model.textures.replaceRawImagePsd"
+                    );
+                    permissionGate.require(
+                        PermissionIds.TURBOISM_FILE_WRITE,
+                        "model.textures.replaceRawImagePsd"
+                    );
+                    return textures.replaceRawImagePsd(
+                        Objects.requireNonNull(target, "target"),
+                        Objects.requireNonNull(file, "file"),
+                        Objects.requireNonNull(revision, "revision")
+                    );
                 }
                 @Override public void addModelImageGroup(final String name) {
                     requireModelWrite("model.textures.addModelImageGroup");

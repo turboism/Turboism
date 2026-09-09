@@ -11,12 +11,17 @@ import dev.turboism.sdk.cubism.model.ModelImageGroup;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.model.RawTexture;
+import dev.turboism.sdk.cubism.psd.PsdEditFile;
+import dev.turboism.sdk.cubism.psd.PsdExportResult;
+import dev.turboism.sdk.cubism.psd.PsdFileRevision;
+import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import java.util.function.LongSupplier;
+import java.util.concurrent.CompletionStage;
 
 /**
  * Exact, generation-bound Editor projection of the model texture library.
@@ -386,6 +391,26 @@ final class EditorTextureAccess {
         @Override
         public TextureRelationsSnapshot relations() {
             return relationAccess.relations(identity, source, model);
+        }
+
+        @Override
+        public CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
+            Objects.requireNonNull(source, "source");
+            modelGuard.requireCurrent(identity, model);
+            return ModelTextures.super.exportRawImagePsd(source);
+        }
+
+        @Override
+        public CompletionStage<PsdReplaceResult> replaceRawImagePsd(
+            final RawImageId target,
+            final PsdEditFile file,
+            final PsdFileRevision revision
+        ) {
+            Objects.requireNonNull(target, "target");
+            Objects.requireNonNull(file, "file");
+            Objects.requireNonNull(revision, "revision");
+            modelGuard.requireCurrent(identity, model);
+            return ModelTextures.super.replaceRawImagePsd(target, file, revision);
         }
 
         @Override
