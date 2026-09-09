@@ -22,6 +22,7 @@ public final class NativeResourceHostAgent {
     private static Path directory;
     private static volatile boolean aborted;
     private static volatile WeakReference<?> closedDocument;
+    private static volatile NativeImageRetainObservation.Snapshot closedImageCohort;
 
     public static void premain(String args, Instrumentation instrumentation) {
         Path home = Path.of(System.getProperty("turboism.validation.textureUpload.home"));
@@ -98,6 +99,7 @@ public final class NativeResourceHostAgent {
                     phase("closed.begin");
                     Thread.sleep(120_000);
                     RESULT.setProperty("documentWeakCleared", Boolean.toString(document.refersTo(null)));
+                    if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain.closed");
                     NativeAtlasWorkflow.onEdt(() -> {
                         Object app = verifiedApp.getMethod("access$get_instance$cp").invoke(null);
                         require(((List<?>) call(app, "getAllDocs")).isEmpty(), "document reopened during closed window");
@@ -114,6 +116,10 @@ public final class NativeResourceHostAgent {
                 RESULT.setProperty("documentWeakClearedAtSamplerEnd", Boolean.toString(closedDocument.refersTo(null)));
                 RESULT.setProperty("weakFinal.epochMillis", Long.toString(System.currentTimeMillis()));
             }
+            if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain.final");
+            RESULT.setProperty("retain.attributionStatus",
+                    "COMPLETE".equals(RESULT.getProperty("retain.beforeZoom.status"))
+                    && "COMPLETE".equals(RESULT.getProperty("retain.beforeClose.status")) ? "COMPLETE" : "INCOMPLETE");
             require(!driver.isAlive(), "workload exceeded bounded observation window");
             if (failure.get() != null) throw new IllegalStateException("native workload failed", failure.get());
             if (recording != null) { recording.stop(); recording.dump(directory.resolve("profile.jfr")); }
@@ -179,6 +185,8 @@ public final class NativeResourceHostAgent {
         Object app = identity[0], doc = identity[1], view = identity[2];
         float originalCamera = (Float) identity[3], originalScale = (Float) identity[5];
         RESULT.setProperty("cameraScale.before", Float.toString(originalScale));
+        phase("idle.end");
+        observeImages(app, doc, view, frame, "beforeZoom");
         phase("zoom.begin");
         try {
             for (int index = 0; index < 60; index++) {
@@ -225,6 +233,8 @@ public final class NativeResourceHostAgent {
         });
         phase("restored.begin");
         Thread.sleep(30_000);
+        phase("restored.end");
+        closedImageCohort = observeImages(app, doc, view, frame, "beforeClose");
         WeakReference<?> weak = new WeakReference<>(doc);
         require(!aborted, "observer aborted; refusing document close");
         NativeAtlasWorkflow.onEdt(() -> {
@@ -240,6 +250,26 @@ public final class NativeResourceHostAgent {
             Thread.sleep(100);
         }
         throw new IllegalStateException("native document close did not complete");
+    }
+
+    private static NativeImageRetainObservation.Snapshot observeImages(
+            Object app, Object doc, Object view, Frame frame, String name) throws Exception {
+        require(!aborted, "observer aborted; refusing image observation");
+        phase("retain." + name + ".begin");
+        NativeImageRetainObservation.Snapshot snapshot = (NativeImageRetainObservation.Snapshot) NativeAtlasWorkflow.onEdt(() -> {
+            checkIdentity(app, doc, view, frame);
+            String undo = undoState(doc);
+            require(!Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")), "refusing observation of dirty document");
+            NativeImageRetainObservation.Snapshot captured = NativeImageRetainObservation.captureHost(doc, app.getClass());
+            checkIdentity(app, doc, view, frame);
+            require(undo.equals(undoState(doc)) && !Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")),
+                    "image observation changed authoring state");
+            return captured;
+        });
+        snapshot.write(RESULT, "retain." + name);
+        RESULT.setProperty("retain.hostJarSha256", HOST_SHA);
+        phase("retain." + name + ".end");
+        return snapshot;
     }
 
     private static void checkIdentity(Object app, Object doc, Object view, Frame frame) throws Exception {
