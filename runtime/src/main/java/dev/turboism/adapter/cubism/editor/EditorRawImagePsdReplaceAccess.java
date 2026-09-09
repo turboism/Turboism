@@ -497,10 +497,10 @@ final class EditorRawImagePsdReplaceAccess {
             final ReplaceFailurePhase phase,
             final String detail
         ) {
-            // UNAVAILABLE never certifies the current guard, including failures observed after it ran.
+            // Availability admission precedes the guard; all later unavailable phases follow its success.
             return new ReplaceResult(
                 ReplaceStatus.UNAVAILABLE,
-                false,
+                phase != ReplaceFailurePhase.AVAILABILITY,
                 false,
                 false,
                 false,

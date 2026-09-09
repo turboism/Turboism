@@ -179,7 +179,7 @@ class EditorRawImagePsdReplaceAccessTest {
     }
 
     @Test
-    void unavailableAfterThePreGuardDoesNotClaimTheGuardPassed(@TempDir final Path temp) throws Exception {
+    void unavailableAfterThePreGuardPreservesObservedGuardSuccess(@TempDir final Path temp) throws Exception {
         final AtomicInteger guardCalls = new AtomicInteger();
         final EditorRawImagePsdReplaceAccess.ReplaceResult result = access(
             resolver("5.3.02", true),
@@ -196,7 +196,7 @@ class EditorRawImagePsdReplaceAccessTest {
 
         assertEquals(EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE, result.status());
         assertEquals(EditorRawImagePsdReplaceAccess.ReplaceFailurePhase.EDITING_STATE, result.failurePhase());
-        assertFalse(result.preCurrentGuardPassed());
+        assertTrue(result.preCurrentGuardPassed());
         assertFalse(result.postCurrentGuardPassed());
         assertFalse(result.nativeInvocationAttempted());
         assertEquals(1, guardCalls.get());
