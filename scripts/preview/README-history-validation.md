@@ -41,6 +41,10 @@ metadata from one same-EDT sample, with explicit provenance fields such as
 metadata is not native UI coverage: `nativeUiCoverage=not-proven-by-seed` must
 not be promoted to a UI-readiness claim. The standalone manager probe remains
 available when separate native UI interaction evidence is needed.
+The native sampler has no native stable ID for these entries. The explicit
+`nativePairing=ordinal-label-supporting-only` and
+`nativeStableIdMatch=false` fields make the ordinal presentation-label comparison
+supporting evidence only; it is never a native stable-ID match.
 
 A seed PASS requires the terminal exact line
 `{"type":"summary","status":"PASS"}`, all required paired phases, valid
@@ -49,12 +53,19 @@ sample, and every existing semantic, grouping, navigation and restoration
 check. The writer bounds JSON strings and the complete JSONL artifact at 2 MiB;
 missing, failed, over-bound or mismatched evidence cannot produce PASS. The
 terminal summary is always the final seed line when the artifact can be written.
+The mandatory set also includes the six Artmesh temporal checkpoints:
+`artmesh-baseline`, `artmesh-write-1`, `artmesh-write-2`,
+`artmesh-third-write`, `artmesh-undo` and `artmesh-redo`.
 
 Native observation is read-only: no native writes, hooks, field enumeration,
 unknown-object stringification, or automatic native Undo/Redo discovery was
 added. Existing native class selectors, scalar/list allowlist and depth/node/
 string/entry bounds remain unchanged. Native unsupported/degraded facts remain
 explicitly reported rather than being presented as SDK capture.
+`CURRENT`, `MAIN` and `LINKED` may be absent only when the sampler emits the
+exact sentinel `identity="null", position=-1, canUndo=false, canRedo=false,
+totalEntries=0, entries=[]`. The required `DOCUMENT` manager and SDK history
+may not use that sentinel; malformed or missing snapshots fail closed.
 
 ## Build and manager scheduling
 
@@ -78,3 +89,9 @@ Exact-host acceptance still requires the parent-owned managed run, official
 `CubismEditor5.bat` launch, fresh isolated fixture, normal exit and authoritative
 cleanup evidence. This implementation does not claim those results or native
 UI coverage.
+Normal-exit gap: this slice adds no close trigger, client script or plugin-owned
+normal-close marker. A seed summary is only the probe result, not host PASS. The
+current Runner still needs its supported version-specific evidence—5.2.03 runtime
+log markers `Stopping Turboism Developer Preview` and `Turboism core shutdown`, or
+5.3.02 `cubism-console.txt` marker `-- successfully exited pid:<N> --`—plus
+supervisor cleanup evidence.
