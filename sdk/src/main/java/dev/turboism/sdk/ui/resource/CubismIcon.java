@@ -9,5 +9,6 @@ package dev.turboism.sdk.ui.resource;
 public enum CubismIcon {
     ART_MESH,
     WARP_DEFORMER,
-    ROTATION_DEFORMER
+    ROTATION_DEFORMER,
+    PART
 }
