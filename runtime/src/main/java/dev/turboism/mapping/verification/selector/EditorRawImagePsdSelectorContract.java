@@ -24,6 +24,8 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.layered-image.class";
     public static final String LAYERED_IMAGE_GUID_ALIAS =
         "cubism.editor-model.layered-image.guid";
+    public static final String LAYERED_IMAGE_NAME_ALIAS =
+        "cubism.editor-model.layered-image.name";
     public static final String LAYERED_IMAGE_PSD_DOC_ALIAS =
         "cubism.editor-model.layered-image.psd-doc";
     public static final String LAYERED_IMAGE_CHILDREN_ALIAS =
@@ -56,6 +58,10 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.layered-image.from-psd";
     public static final String LAYERED_IMAGE_SAVE_PSD_ALIAS =
         "cubism.editor-model.layered-image.save-psd";
+    public static final String PSD_PROGRESS_CLASS_ALIAS =
+        "cubism.editor-model.psd-progress.class";
+    public static final String PSD_PROGRESS_DEFAULT_ALIAS =
+        "cubism.editor-model.psd-progress.default";
 
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         MODEL_SOURCE_TEXTURE_MANAGER_ALIAS,
@@ -73,12 +79,15 @@ public final class EditorRawImagePsdSelectorContract {
         LAYER_GROUP_CLASS_ALIAS,
         LAYER_GROUP_CHILDREN_ALIAS,
         GUID_VALUE_ALIAS,
+        LAYERED_IMAGE_NAME_ALIAS,
         PSD_DOCUMENT_CLASS_ALIAS,
         PSD_DOCUMENT_COMPANION_ALIAS,
         PSD_DOCUMENT_COMPANION_CLASS_ALIAS,
         PSD_DOCUMENT_PARSE_FILE_ALIAS,
         LAYERED_IMAGE_FROM_PSD_ALIAS,
-        LAYERED_IMAGE_SAVE_PSD_ALIAS
+        LAYERED_IMAGE_SAVE_PSD_ALIAS,
+        PSD_PROGRESS_CLASS_ALIAS,
+        PSD_PROGRESS_DEFAULT_ALIAS
     );
 
     private EditorRawImagePsdSelectorContract() {

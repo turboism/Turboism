@@ -133,6 +133,26 @@ class EditorRawImagePsdSelectorContractTest {
             1,
             8
         );
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
+            StaticSelector.Kind.CLASS,
+            "com/live2d/util/a/a",
+            "",
+            "",
+            1,
+            0
+        );
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/util/a/a",
+            "e",
+            "()Lcom/live2d/util/a/a;",
+            9,
+            0
+        );
     }
 
     @Test
@@ -147,7 +167,9 @@ class EditorRawImagePsdSelectorContractTest {
             EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_CLASS_ALIAS,
             EditorRawImagePsdSelectorContract.PSD_DOCUMENT_PARSE_FILE_ALIAS,
             EditorRawImagePsdSelectorContract.LAYERED_IMAGE_FROM_PSD_ALIAS,
-            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_SAVE_PSD_ALIAS
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_SAVE_PSD_ALIAS,
+            EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
+            EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS
         )));
     }
 
