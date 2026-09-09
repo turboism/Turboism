@@ -566,6 +566,32 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
             return guarded(generation, delegate::relations);
         }
 
+        @Override
+        public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdExportResult>
+            exportRawImagePsd(final dev.turboism.sdk.cubism.id.RawImageId source) {
+            return guarded(
+                generation,
+                () -> delegate.exportRawImagePsd(Objects.requireNonNull(source, "source"))
+            );
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<dev.turboism.sdk.cubism.psd.PsdReplaceResult>
+            replaceRawImagePsd(
+                final dev.turboism.sdk.cubism.id.RawImageId target,
+                final dev.turboism.sdk.cubism.psd.PsdEditFile file,
+                final dev.turboism.sdk.cubism.psd.PsdFileRevision revision
+            ) {
+            return guarded(
+                generation,
+                () -> delegate.replaceRawImagePsd(
+                    Objects.requireNonNull(target, "target"),
+                    Objects.requireNonNull(file, "file"),
+                    Objects.requireNonNull(revision, "revision")
+                )
+            );
+        }
+
         @Override public void addModelImageGroup(final String name) {
             guardedVoid(generation, () -> delegate.addModelImageGroup(name));
         }
