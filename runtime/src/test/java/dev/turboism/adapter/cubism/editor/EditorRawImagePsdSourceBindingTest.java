@@ -167,7 +167,11 @@ class EditorRawImagePsdSourceBindingTest {
         assertTrue(verification.editorLayerIdsObserved());
         assertTrue(verification.psdLayerIdsVerified());
         assertTrue(verification.pixelLayerBoundsVerified());
-        assertTrue(verification.usablePixelsVerified());
+        assertFalse(verification.usablePixelsObserved());
+        assertFalse(verification.usablePixelsMatch());
+        assertFalse(verification.usablePixelsVerified());
+        assertTrue(verification.detail().contains("usable pixels"));
+        assertTrue(verification.detail().contains("not performed"));
         assertTrue(verification.opacityVerified(), verification.detail());
         assertTrue(verification.visibleVerified());
         assertTrue(verification.specialBlendVerified());
@@ -189,7 +193,6 @@ class EditorRawImagePsdSourceBindingTest {
         final Map<SyntheticSourceFixture.ParseMode, String> cases = Map.of(
             SyntheticSourceFixture.ParseMode.CHANGE_PSD_LAYER_ID, "PSD layer ID",
             SyntheticSourceFixture.ParseMode.CHANGE_BOUNDS, "pixel bounds",
-            SyntheticSourceFixture.ParseMode.CHANGE_PIXELS, "usable ARGB pixels",
             SyntheticSourceFixture.ParseMode.CHANGE_OPACITY, "opacity255",
             SyntheticSourceFixture.ParseMode.CHANGE_VISIBILITY, "visibility",
             SyntheticSourceFixture.ParseMode.CHANGE_BLEND, "PSD blend value",
@@ -235,48 +238,19 @@ class EditorRawImagePsdSourceBindingTest {
     }
 
     @Test
-    void keepsPixelObservationGapsExplicitAndBounded(@TempDir final Path temp) {
-        for (final SyntheticSourceFixture.ParseMode mode : List.of(
-            SyntheticSourceFixture.ParseMode.OVERSIZE_PIXELS,
-            SyntheticSourceFixture.ParseMode.THROW_PIXEL_READ
-        )) {
-            final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
-            SyntheticSourceFixture.parseMode = mode;
-            final EditorRawImagePsdAccess.ExportResult result = export(
-                fixture,
-                new RawImageId("raw-a"),
-                temp.resolve(mode.name().toLowerCase() + ".psd")
-            );
-            final EditorRawImagePsdIntegrityAccess.Verification verification =
-                result.integrityVerification();
+    void productionExportDoesNotReadImagePixels(@TempDir final Path temp) {
+        final SyntheticSourceFixture fixture = SyntheticSourceFixture.standard();
+        final EditorRawImagePsdAccess.ExportResult result = export(
+            fixture,
+            new RawImageId("raw-a"),
+            temp.resolve("no-pixel-read.psd")
+        );
 
-            assertEquals(
-                EditorRawImagePsdIntegrityAccess.VerificationStatus.MATCHED_UNVERIFIED,
-                verification.status(),
-                mode.name()
-            );
-            assertTrue(verification.usablePixelsObserved(), mode.name());
-            assertFalse(verification.usablePixelsVerified(), mode.name());
-            assertTrue(verification.detail().contains("observation gaps"), mode.name());
-        }
-    }
-
-    @Test
-    void sharesOnePixelBudgetAcrossLayersAndSkipsLaterArgbReads() {
-        final SyntheticSourceFixture.LayeredImage image =
-            SyntheticSourceFixture.cumulativePixelBudgetImage();
-
-        final EditorRawImagePsdIntegrityAccess.Snapshot snapshot = capture(image);
-        final List<String> events = SyntheticSourceFixture.events();
-
-        assertEquals(1L, events.stream().filter("image-argb"::equals).count());
-        assertTrue(snapshot.layers().get(0).pixels().observed());
-        assertEquals(1L, snapshot.layers().get(0).pixels().pixelsCompared());
-        final EditorRawImagePsdIntegrityAccess.PixelObservation skipped =
-            snapshot.layers().get(1).pixels();
-        assertFalse(skipped.observed());
-        assertTrue(skipped.detail().contains("shared limit"));
-        assertTrue(skipped.detail().contains("ARGB reads were skipped"));
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED, result.status());
+        assertTrue(result.outputReadable());
+        assertFalse(SyntheticSourceFixture.events().contains("image-resource-image"));
+        assertFalse(SyntheticSourceFixture.events().contains("writable-image-width"));
+        assertFalse(SyntheticSourceFixture.events().contains("writable-image-height"));
     }
 
     @Test
@@ -304,6 +278,7 @@ class EditorRawImagePsdSourceBindingTest {
             Integer.toString(EditorRawImagePsdIntegrityAccess.MAX_LAYER_NODES)
         ));
     }
+
 
     @Test
     void reportsStructuralMismatchesAndObservesRegeneratedLayerIds(@TempDir final Path temp) {
@@ -685,15 +660,6 @@ class EditorRawImagePsdSourceBindingTest {
             )
         );
         selectors.put(
-            EditorRawImagePsdSelectorContract.LAYER_IMAGE_RESOURCE_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.LAYER_IMAGE_RESOURCE_ALIAS,
-                SyntheticSourceFixture.PixelLayer.class,
-                "getImageResource",
-                "()" + reference(SyntheticSourceFixture.ImageResource.class)
-            )
-        );
-        selectors.put(
             EditorRawImagePsdSelectorContract.RECT_CLASS_ALIAS,
             StaticSelector.classSelector(
                 EditorRawImagePsdSelectorContract.RECT_CLASS_ALIAS,
@@ -734,56 +700,6 @@ class EditorRawImagePsdSourceBindingTest {
                 SyntheticSourceFixture.Rect.class,
                 "getHeight",
                 "()I"
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_CLASS_ALIAS,
-            StaticSelector.classSelector(
-                EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_CLASS_ALIAS,
-                internal(SyntheticSourceFixture.ImageResource.class)
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_IMAGE_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.IMAGE_RESOURCE_IMAGE_ALIAS,
-                SyntheticSourceFixture.ImageResource.class,
-                "getImage",
-                "()" + reference(SyntheticSourceFixture.WritableImage.class)
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_CLASS_ALIAS,
-            StaticSelector.classSelector(
-                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_CLASS_ALIAS,
-                internal(SyntheticSourceFixture.WritableImage.class)
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_WIDTH_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_WIDTH_ALIAS,
-                SyntheticSourceFixture.WritableImage.class,
-                "getWidth",
-                "()I"
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_HEIGHT_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_HEIGHT_ALIAS,
-                SyntheticSourceFixture.WritableImage.class,
-                "getHeight",
-                "()I"
-            )
-        );
-        selectors.put(
-            EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_ARGB_ALIAS,
-            instanceMethod(
-                EditorRawImagePsdSelectorContract.WRITABLE_IMAGE_ARGB_ALIAS,
-                SyntheticSourceFixture.WritableImage.class,
-                "getArgb",
-                "(II)I"
             )
         );
         selectors.put(
@@ -1008,44 +924,6 @@ class EditorRawImagePsdSourceBindingTest {
             );
         }
 
-        static LayeredImage cumulativePixelBudgetImage() {
-            final PixelLayer small = new PixelLayer(
-                "budget-small-guid",
-                "Small",
-                "budget-small-id",
-                255,
-                true,
-                new Blend("normal"),
-                false,
-                false,
-                new Rect(0, 0, 1, 1),
-                new ImageResource(new WritableImage(1, 1, new int[] {0xFF010203}))
-            );
-            final int remainingExceedingWidth = Math.toIntExact(
-                EditorRawImagePsdIntegrityAccess.MAX_PIXEL_SAMPLES
-            );
-            final PixelLayer large = new PixelLayer(
-                "budget-large-guid",
-                "Large",
-                "budget-large-id",
-                255,
-                true,
-                new Blend("normal"),
-                false,
-                false,
-                new Rect(0, 0, remainingExceedingWidth, 1),
-                new ImageResource(new WritableImage(remainingExceedingWidth, 1, new int[0]))
-            );
-            return new LayeredImage(
-                "budget-root-guid",
-                "Budget",
-                1,
-                1,
-                null,
-                List.of(small, large)
-            );
-        }
-
         static LayeredImage deepLayerTree() {
             LayerEntry nested = new LayerGroup(
                 "deep-leaf-guid",
@@ -1108,6 +986,7 @@ class EditorRawImagePsdSourceBindingTest {
             );
         }
 
+
         static void reset() {
             synchronized (EVENTS) {
                 EVENTS.clear();
@@ -1144,14 +1023,11 @@ class EditorRawImagePsdSourceBindingTest {
             CHANGE_LAYER_ID,
             CHANGE_PSD_LAYER_ID,
             CHANGE_BOUNDS,
-            CHANGE_PIXELS,
             CHANGE_OPACITY,
             CHANGE_VISIBILITY,
             CHANGE_BLEND,
             CHANGE_TRANSPARENCY_SHAPES,
             CHANGE_CLIPPING,
-            OVERSIZE_PIXELS,
-            THROW_PIXEL_READ,
             CHANGE_DIMENSIONS,
             INVALID_TREE
         }
@@ -1285,37 +1161,25 @@ class EditorRawImagePsdSourceBindingTest {
             private final int width;
             private final int height;
             private final int[] pixels;
-            private final boolean throwOnRead;
 
             public WritableImage(final int width, final int height, final int[] pixels) {
-                this(width, height, pixels, false);
-            }
-
-            public WritableImage(
-                final int width,
-                final int height,
-                final int[] pixels,
-                final boolean throwOnRead
-            ) {
                 this.width = width;
                 this.height = height;
                 this.pixels = pixels;
-                this.throwOnRead = throwOnRead;
             }
 
             public int getWidth() {
-                record("image-width");
+                record("writable-image-width");
                 return width;
             }
 
             public int getHeight() {
-                record("image-height");
+                record("writable-image-height");
                 return height;
             }
 
             public int getArgb(final int x, final int y) {
                 record("image-argb");
-                if (throwOnRead) throw new IllegalStateException("synthetic pixel read failure");
                 return pixels[y * width + x];
             }
         }
@@ -1691,16 +1555,7 @@ class EditorRawImagePsdSourceBindingTest {
                 final WritableImage source,
                 final ParseMode mode
             ) {
-                if (mode == ParseMode.OVERSIZE_PIXELS) {
-                    return new WritableImage(5_000, 5_000, new int[0]);
-                }
-                if (mode == ParseMode.THROW_PIXEL_READ) {
-                    return new WritableImage(source.width, source.height, source.pixels, true);
-                }
                 final int[] pixels = source.pixels.clone();
-                if (mode == ParseMode.CHANGE_PIXELS && pixels.length > 0) {
-                    pixels[0] ^= 0x00000001;
-                }
                 return new WritableImage(source.width, source.height, pixels);
             }
         }

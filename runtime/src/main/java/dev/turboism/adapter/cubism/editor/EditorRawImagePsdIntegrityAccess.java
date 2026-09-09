@@ -2,8 +2,6 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -16,24 +14,18 @@ import java.util.Objects;
  * {@code save(File, Progress)} implementation rebuilds the PSD from the current layered-image
  * dimensions and root state; it does not require the source {@code psdDoc}. Its layer helper writes
  * names, visibility, PSD blend values, opacity, transparency-shape state, layer IDs from
- * {@code CLayerIdentifier.getLayerId()}, pixel bounds, and the current {@code CImageResource}
- * image. Editor {@code CLayerGuid}s are observed only: the reparsing constructor allocates fresh
- * editor GUIDs, and there is no verified evidence that those GUIDs are PSD-persisted identifiers.
- * A missing native layer ID is therefore retained as {@code null}, never replaced with an editor
- * GUID. Clipping is observed but remains unverified because the exact save helper does not read
- * {@code isClipping()}. Pixel values use one shared per-capture sample budget plus bounded
- * node and recursion-depth budgets. Cubism 5.3.02 exposes {@code CWritableImage.getIntBuffer()},
- * but its exact bytecode returns raw {@code DataBufferInt} storage or {@code null}; it does not
- * establish an ARGB-normalized, contiguous-row contract for every image type. This observer
- * therefore retains verified {@code getArgb()} reads with conservative budgets and does not
- * claim host-thread performance validation. This class does not expose host
- * objects or restrict edits made after export.</p>
+ * {@code CLayerIdentifier.getLayerId()}, and pixel bounds. Editor {@code CLayerGuid}s are observed
+ * only: the reparsing constructor allocates fresh editor GUIDs, and there is no verified evidence
+ * that those GUIDs are PSD-persisted identifiers. A missing native layer ID is retained as
+ * {@code null}, never replaced with an editor GUID. Clipping is observed but remains unverified
+ * because the exact save helper does not read {@code isClipping()}. Runtime deliberately does not
+ * read {@code CImageResource.getImage()} or {@code CWritableImage.getArgb(int, int)}; pixel
+ * fidelity is neither observed nor compared here. External PSD matching remains a Cubism-native
+ * concern. This class does not expose host objects or restrict edits made after export.</p>
  */
 final class EditorRawImagePsdIntegrityAccess {
-    static final long MAX_PIXEL_SAMPLES = 16_777_216L;
     static final int MAX_LAYER_NODES = 16_384;
     static final int MAX_TREE_DEPTH = 256;
-    private static final String DIGEST_ALGORITHM = "SHA-256";
 
     private final VerifiedMemberResolver resolver;
 
@@ -102,11 +94,8 @@ final class EditorRawImagePsdIntegrityAccess {
             comparison.boundsComplete,
             comparison.boundsMatch
         );
-        final boolean usablePixelsVerified = comparison.verified(
-            comparison.pixelsAny,
-            comparison.pixelsComplete,
-            comparison.pixelsMatch
-        );
+        // Kept for internal result-shape compatibility; runtime pixel observation is not performed.
+        final boolean usablePixelsVerified = false;
         final boolean opacityVerified = comparison.verified(
             comparison.opacityAny,
             comparison.opacityComplete,
@@ -146,8 +135,8 @@ final class EditorRawImagePsdIntegrityAccess {
             comparison.boundsAny,
             comparison.boundsMatch,
             pixelLayerBoundsVerified,
-            comparison.pixelsAny,
-            comparison.pixelsMatch,
+            false,
+            false,
             usablePixelsVerified,
             comparison.opacityAny,
             comparison.opacityMatch,
@@ -227,7 +216,6 @@ final class EditorRawImagePsdIntegrityAccess {
                     ),
                     attributes,
                     BoundsObservation.notApplicable(),
-                    PixelObservation.notApplicable(),
                     readLayers(
                         resolver.invoke("cubism.editor-model.layer-group.children", entry),
                         visited,
@@ -248,7 +236,6 @@ final class EditorRawImagePsdIntegrityAccess {
                     ),
                     attributes,
                     readBounds(entry),
-                    readPixels(entry, budget),
                     List.of()
                 ));
             }
@@ -365,85 +352,6 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-    private PixelObservation readPixels(final Object layer, final ObservationBudget budget) {
-        try {
-            if (budget.pixelBudgetExhausted()) {
-                return PixelObservation.unavailable(
-                    "capture pixel budget was already exhausted; ARGB reads were skipped"
-                );
-            }
-            final Object resource = resolver.invoke(
-                "cubism.editor-model.layer.image-resource",
-                layer
-            );
-            if (resource == null) {
-                return PixelObservation.unavailable("pixel layer image resource is null");
-            }
-            requireInstance(
-                "cubism.editor-model.image-resource.class",
-                resource,
-                "pixel layer image resource"
-            );
-            final Object image = resolver.invoke(
-                "cubism.editor-model.image-resource.image",
-                resource
-            );
-            if (image == null) {
-                return PixelObservation.unavailable("CImageResource.getImage() returned null");
-            }
-            requireInstance("cubism.editor-model.writable-image.class", image, "writable pixel image");
-            final int width = dimension(
-                resolver.invoke("cubism.editor-model.writable-image.width", image),
-                "writable image width"
-            );
-            final int height = dimension(
-                resolver.invoke("cubism.editor-model.writable-image.height", image),
-                "writable image height"
-            );
-            final long sampleCount;
-            try {
-                sampleCount = Math.multiplyExact((long) width, (long) height);
-            } catch (ArithmeticException failure) {
-                return PixelObservation.unavailable(
-                    "ARGB scan size overflowed the bounded pixel observer"
-                );
-            }
-            if (!budget.tryReservePixels(sampleCount)) {
-                return PixelObservation.unavailable(width, height, budget.pixelBudgetDetail());
-            }
-            final MessageDigest digest = messageDigest();
-            for (int y = 0; y < height; y++) {
-                for (int x = 0; x < width; x++) {
-                    final int argb = integer(
-                        resolver.invoke(
-                            "cubism.editor-model.writable-image.argb",
-                            image,
-                            x,
-                            y
-                        ),
-                        "ARGB pixel"
-                    );
-                    digest.update((byte) (argb >>> 24));
-                    digest.update((byte) (argb >>> 16));
-                    digest.update((byte) (argb >>> 8));
-                    digest.update((byte) argb);
-                }
-            }
-            return new PixelObservation(
-                true,
-                true,
-                width,
-                height,
-                hex(digest.digest()),
-                sampleCount,
-                "row-major ARGB digest observed from CImageResource.getImage()"
-            );
-        } catch (RuntimeException failure) {
-            return PixelObservation.unavailable(
-                "current CImageResource.getImage() pixels could not be observed: " + message(failure)
-            );
-        }
-    }
 
     private String editorLayerGuid(final Object entry) {
         try {
@@ -472,7 +380,6 @@ final class EditorRawImagePsdIntegrityAccess {
             compareAttributes(left.attributes(), right.attributes(), nodePath, comparison);
             if (left.kind() == LayerKind.PIXEL) {
                 compareBounds(left.bounds(), right.bounds(), nodePath, comparison);
-                comparePixels(left.pixels(), right.pixels(), nodePath, comparison);
             }
             compareLayerFacts(left.children(), right.children(), nodePath, comparison);
         }
@@ -564,30 +471,6 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-    private static void comparePixels(
-        final PixelObservation left,
-        final PixelObservation right,
-        final String path,
-        final Comparison comparison
-    ) {
-        comparison.pixelsAny = true;
-        if (!left.applicable() || !right.applicable()) {
-            comparison.pixelsComplete = false;
-            comparison.blocker(path + " pixel observation applicability differs");
-            return;
-        }
-        if (!left.observed() || !right.observed()) {
-            comparison.pixelsComplete = false;
-            comparison.blocker(path + " usable pixels: " + firstUnavailable(left, right));
-            return;
-        }
-        if (left.width() != right.width()
-            || left.height() != right.height()
-            || !Objects.equals(left.digest(), right.digest())) {
-            comparison.pixelsMatch = false;
-            comparison.difference(path + " usable ARGB pixels");
-        }
-    }
 
     private static boolean sameTree(final List<LayerNode> before, final List<LayerNode> after) {
         if (before.size() != after.size()) return false;
@@ -630,7 +513,6 @@ final class EditorRawImagePsdIntegrityAccess {
         if (layerTreeMatches) validated.add("ordered layer/group tree and layer names");
         if (psdLayerIdsVerified) validated.add("PSD layer IDs via CLayerIdentifier.getLayerId (null preserved without GUID fallback)");
         if (pixelLayerBoundsVerified) validated.add("pixel layer bounds");
-        if (usablePixelsVerified) validated.add("bounded row-major ARGB pixel digests");
         if (opacityVerified) validated.add("opacity255");
         if (visibleVerified) validated.add("visibility");
         if (blendVerified) validated.add("serialized PSD blend value");
@@ -639,7 +521,7 @@ final class EditorRawImagePsdIntegrityAccess {
         final ArrayList<String> unverified = new ArrayList<>();
         if (!psdLayerIdsVerified) unverified.add("PSD layer IDs");
         if (!pixelLayerBoundsVerified) unverified.add("pixel layer bounds");
-        if (!usablePixelsVerified) unverified.add("usable pixels");
+        unverified.add("usable pixels (not performed; runtime does not read CImageResource.getImage/getArgb)");
         if (!opacityVerified) unverified.add("opacity255");
         if (!visibleVerified) unverified.add("visibility");
         if (!blendVerified) unverified.add("serialized PSD blend value");
@@ -719,22 +601,6 @@ final class EditorRawImagePsdIntegrityAccess {
         return number;
     }
 
-    private static MessageDigest messageDigest() {
-        try {
-            return MessageDigest.getInstance(DIGEST_ALGORITHM);
-        } catch (NoSuchAlgorithmException failure) {
-            throw new IllegalStateException("required digest algorithm is unavailable", failure);
-        }
-    }
-
-    private static String hex(final byte[] bytes) {
-        final StringBuilder result = new StringBuilder(bytes.length * 2);
-        for (final byte value : bytes) {
-            result.append(Character.forDigit((value >>> 4) & 0x0f, 16));
-            result.append(Character.forDigit(value & 0x0f, 16));
-        }
-        return result.toString();
-    }
 
     private static String message(final Throwable failure) {
         return failure.getMessage() == null ? failure.getClass().getSimpleName() : failure.getMessage();
@@ -746,36 +612,13 @@ final class EditorRawImagePsdIntegrityAccess {
 
     private static final class ObservationBudget {
         private int nodes;
-        private long pixels;
-        private boolean pixelBudgetExhausted;
 
         boolean tryVisitNode() {
             if (nodes >= MAX_LAYER_NODES) return false;
             nodes++;
             return true;
         }
-
-        boolean tryReservePixels(final long requested) {
-            if (pixelBudgetExhausted || requested < 0
-                || requested > MAX_PIXEL_SAMPLES - pixels) {
-                pixelBudgetExhausted = true;
-                return false;
-            }
-            pixels += requested;
-            return true;
-        }
-
-        boolean pixelBudgetExhausted() {
-            return pixelBudgetExhausted;
-        }
-
-        String pixelBudgetDetail() {
-            return "capture pixel budget exceeded: requested pixels would pass the shared limit of "
-                + MAX_PIXEL_SAMPLES + "; ARGB reads were skipped"
-                + " (already reserved " + pixels + ")";
-        }
     }
-
     private interface Observation {
         boolean observed();
 
@@ -799,7 +642,6 @@ final class EditorRawImagePsdIntegrityAccess {
         LayerIdObservation psdLayerId,
         LayerAttributes attributes,
         BoundsObservation bounds,
-        PixelObservation pixels,
         List<LayerNode> children
     ) {
         LayerNode {
@@ -808,7 +650,6 @@ final class EditorRawImagePsdIntegrityAccess {
             psdLayerId = Objects.requireNonNull(psdLayerId, "psdLayerId");
             attributes = Objects.requireNonNull(attributes, "attributes");
             bounds = Objects.requireNonNull(bounds, "bounds");
-            pixels = Objects.requireNonNull(pixels, "pixels");
             children = List.copyOf(Objects.requireNonNull(children, "children"));
             if (kind == LayerKind.PIXEL && !children.isEmpty()) {
                 throw new IllegalArgumentException("pixel layer cannot have children");
@@ -867,33 +708,6 @@ final class EditorRawImagePsdIntegrityAccess {
         }
     }
 
-    record PixelObservation(
-        boolean applicable,
-        boolean observed,
-        int width,
-        int height,
-        String digest,
-        long pixelsCompared,
-        String detail
-    ) implements Observation {
-        PixelObservation {
-            detail = Objects.requireNonNull(detail, "detail");
-            if (width < 0 || height < 0) throw new IllegalArgumentException("pixel dimensions must be non-negative");
-            if (pixelsCompared < 0) throw new IllegalArgumentException("pixels compared must be non-negative");
-        }
-
-        static PixelObservation notApplicable() {
-            return new PixelObservation(false, true, 0, 0, null, 0, "not a pixel layer");
-        }
-
-        static PixelObservation unavailable(final String detail) {
-            return unavailable(0, 0, detail);
-        }
-
-        static PixelObservation unavailable(final int width, final int height, final String detail) {
-            return new PixelObservation(true, false, width, height, null, 0, detail);
-        }
-    }
 
     enum LayerKind {
         PIXEL,
@@ -988,9 +802,6 @@ final class EditorRawImagePsdIntegrityAccess {
         boolean boundsAny;
         boolean boundsComplete = true;
         boolean boundsMatch = true;
-        boolean pixelsAny;
-        boolean pixelsComplete = true;
-        boolean pixelsMatch = true;
         boolean opacityAny;
         boolean opacityComplete = true;
         boolean opacityMatch = true;

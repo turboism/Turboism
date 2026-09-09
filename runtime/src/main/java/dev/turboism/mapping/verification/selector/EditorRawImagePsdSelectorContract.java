@@ -70,8 +70,6 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.layer.layer-identifier";
     public static final String LAYER_BOUNDS_ALIAS =
         "cubism.editor-model.layer.bounds";
-    public static final String LAYER_IMAGE_RESOURCE_ALIAS =
-        "cubism.editor-model.layer.image-resource";
     public static final String RECT_CLASS_ALIAS =
         "cubism.editor-model.rect.class";
     public static final String RECT_X_ALIAS =
@@ -82,18 +80,6 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.rect.width";
     public static final String RECT_HEIGHT_ALIAS =
         "cubism.editor-model.rect.height";
-    public static final String IMAGE_RESOURCE_CLASS_ALIAS =
-        "cubism.editor-model.image-resource.class";
-    public static final String IMAGE_RESOURCE_IMAGE_ALIAS =
-        "cubism.editor-model.image-resource.image";
-    public static final String WRITABLE_IMAGE_CLASS_ALIAS =
-        "cubism.editor-model.writable-image.class";
-    public static final String WRITABLE_IMAGE_WIDTH_ALIAS =
-        "cubism.editor-model.writable-image.width";
-    public static final String WRITABLE_IMAGE_HEIGHT_ALIAS =
-        "cubism.editor-model.writable-image.height";
-    public static final String WRITABLE_IMAGE_ARGB_ALIAS =
-        "cubism.editor-model.writable-image.argb";
     public static final String LAYER_GROUP_CLASS_ALIAS =
         "cubism.editor-model.layer-group.class";
     public static final String LAYER_GROUP_CHILDREN_ALIAS =
@@ -139,7 +125,6 @@ public final class EditorRawImagePsdSelectorContract {
         LAYER_CLASS_ALIAS,
         LAYER_LAYER_IDENTIFIER_ALIAS,
         LAYER_BOUNDS_ALIAS,
-        LAYER_IMAGE_RESOURCE_ALIAS,
         LAYER_IDENTIFIER_CLASS_ALIAS,
         LAYER_IDENTIFIER_ID_ALIAS,
         RECT_CLASS_ALIAS,
@@ -147,12 +132,6 @@ public final class EditorRawImagePsdSelectorContract {
         RECT_Y_ALIAS,
         RECT_WIDTH_ALIAS,
         RECT_HEIGHT_ALIAS,
-        IMAGE_RESOURCE_CLASS_ALIAS,
-        IMAGE_RESOURCE_IMAGE_ALIAS,
-        WRITABLE_IMAGE_CLASS_ALIAS,
-        WRITABLE_IMAGE_WIDTH_ALIAS,
-        WRITABLE_IMAGE_HEIGHT_ALIAS,
-        WRITABLE_IMAGE_ARGB_ALIAS,
         BLEND_CLASS_ALIAS,
         BLEND_PSD_VALUE_ALIAS,
         PSD_BLEND_CLASS_ALIAS,
