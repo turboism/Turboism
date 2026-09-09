@@ -6986,6 +6986,28 @@
       "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.psd_progress",
+      "alias": "cubism.editor-model.psd-progress.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/util/a/a",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.psd_progress_default",
+      "alias": "cubism.editor-model.psd-progress.default",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/util/a/a",
+      "memberName": "e",
+      "descriptor": "()Lcom/live2d/util/a/a;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
     }
   ]
 }

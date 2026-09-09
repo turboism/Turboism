@@ -1,0 +1,345 @@
+package dev.turboism.adapter.cubism.editor;
+
+import dev.turboism.mapping.verification.StaticSelector;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+/** Synthetic, host-free coverage for T011 native-shaped save/parse invocation. */
+class EditorRawImagePsdNativeInvocationTest {
+    @BeforeEach
+    void resetFixture() {
+        EditorRawImagePsdNativeFixture.reset();
+    }
+
+    @Test
+    void savesWithConcreteProgressThenParsesAndReconstructsOnOneHostThread(@TempDir final Path temp)
+        throws Exception {
+        final Path target = temp.resolve("export.psd");
+        final Object model = new Object();
+        final EditorRawImagePsdNativeFixture.SyntheticLayeredImage source =
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source");
+        final EditorRawImagePsdAccess access = access(resolver("5.3.02", true), (identity, current) -> {
+            assertEquals("session-a", identity);
+            assertSame(model, current);
+        });
+
+        final EditorRawImagePsdAccess.ExportResult result = access.exportPsd(
+            "session-a",
+            model,
+            source,
+            target
+        );
+
+        assertEquals(
+            EditorRawImagePsdAccess.ExportStatus.READABLE_UNVERIFIED,
+            result.status()
+        );
+        assertTrue(result.saveReturned());
+        assertTrue(result.outputReadable());
+        assertEquals(
+            EditorRawImagePsdAccess.LayerCompleteness.UNVERIFIED,
+            result.layerCompleteness()
+        );
+        assertEquals(
+            List.of("progress", "name", "save", "parse", "construct"),
+            EditorRawImagePsdNativeFixture.events()
+        );
+        assertTrue(EditorRawImagePsdNativeFixture.edtEvents().stream().allMatch(Boolean::booleanValue));
+        assertFalse(EditorRawImagePsdNativeFixture.parseFirstFlag);
+        assertFalse(EditorRawImagePsdNativeFixture.parseSecondFlag);
+        assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.parseTarget);
+        assertEquals(target.toFile(), EditorRawImagePsdNativeFixture.constructedTarget);
+        assertEquals("raw-source", EditorRawImagePsdNativeFixture.constructedName);
+        assertNotNull(EditorRawImagePsdNativeFixture.lastProgress);
+        assertTrue(Files.isRegularFile(target));
+    }
+
+    @Test
+    void observesANormalVoidSaveThatSwallowsItsFailure(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.swallowSave = true;
+        final Path target = temp.resolve("swallowed.psd");
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            target
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.OUTPUT_MISSING, result.status());
+        assertTrue(result.saveReturned());
+        assertFalse(result.outputReadable());
+        assertEquals(
+            List.of("progress", "name", "save"),
+            EditorRawImagePsdNativeFixture.events()
+        );
+        assertFalse(Files.exists(target));
+    }
+
+    @Test
+    void reportsAThrownSaveWithoutAttemptingToParse(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.throwOnSave = true;
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            temp.resolve("thrown.psd")
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.NATIVE_FAILURE, result.status());
+        assertFalse(result.saveReturned());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.SAVE, result.failurePhase());
+        assertNotNull(result.failureType());
+        assertNotNull(result.failureMessage());
+        assertEquals(List.of("progress", "name", "save"), EditorRawImagePsdNativeFixture.events());
+    }
+
+    @Test
+    void reportsAParserFailureAfterSaveReturned(@TempDir final Path temp) {
+        EditorRawImagePsdNativeFixture.throwOnParse = true;
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            temp.resolve("parse-failure.psd")
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.PARSE_FAILED, result.status());
+        assertTrue(result.saveReturned());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.PARSE, result.failurePhase());
+        assertEquals(
+            List.of("progress", "name", "save", "parse"),
+            EditorRawImagePsdNativeFixture.events()
+        );
+    }
+
+    @Test
+    void rejectsABoundSourceOutsideTheVerifiedLayeredImageType(@TempDir final Path temp) {
+        final EditorRawImagePsdAccess.ExportResult result = access(
+            resolver("5.3.02", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new Object(),
+            temp.resolve("wrong-source.psd")
+        );
+
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.BOUND_SOURCE_INVALID, result.status());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.SOURCE_IDENTITY, result.failurePhase());
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+    }
+
+    @Test
+    void rejectsUnsupportedOrUnauthorizedPlansBeforeCallingNative(@TempDir final Path temp) {
+        final EditorRawImagePsdAccess.ExportResult unauthorized = access(
+            resolver("5.3.02", false),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            temp.resolve("unauthorized.psd")
+        );
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.UNAVAILABLE, unauthorized.status());
+        assertEquals(EditorRawImagePsdAccess.FailurePhase.AVAILABILITY, unauthorized.failurePhase());
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+
+        EditorRawImagePsdNativeFixture.reset();
+        final EditorRawImagePsdAccess.ExportResult unsupported = access(
+            resolver("5.3.03", true),
+            (identity, model) -> { }
+        ).exportPsd(
+            "session-a",
+            new Object(),
+            new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+            temp.resolve("unsupported.psd")
+        );
+        assertEquals(EditorRawImagePsdAccess.ExportStatus.UNAVAILABLE, unsupported.status());
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+    }
+
+    @Test
+    void rejectsStaleCurrentModelBeforeProgressOrNativeInvocation(@TempDir final Path temp) {
+        final Object model = new Object();
+        final IllegalStateException failure = assertThrows(
+            IllegalStateException.class,
+            () -> access(
+                resolver("5.3.02", true),
+                (identity, current) -> {
+                    assertEquals("session-a", identity);
+                    assertSame(model, current);
+                    throw new IllegalStateException("stale model generation");
+                }
+            ).exportPsd(
+                "session-a",
+                model,
+                new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
+                temp.resolve("stale.psd")
+            )
+        );
+
+        assertEquals("stale model generation", failure.getMessage());
+        assertTrue(EditorRawImagePsdNativeFixture.events().isEmpty());
+    }
+
+    private static EditorRawImagePsdAccess access(
+        final VerifiedMemberResolver resolver,
+        final EditorObjectReadAccess.CurrentGuard guard
+    ) {
+        return new EditorRawImagePsdAccess(resolver, guard);
+    }
+
+    private static VerifiedMemberResolver resolver(
+        final String version,
+        final boolean authorized
+    ) {
+        final Map<String, StaticSelector> selectors = new LinkedHashMap<>();
+        for (String alias : EditorRawImagePsdSelectorContract.REQUIRED_ALIASES) {
+            selectors.put(alias, StaticSelector.classSelector(alias, "java/lang/Object"));
+        }
+        if (authorized) {
+            selectors.put(
+                EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
+                StaticSelector.classSelector(
+                    EditorRawImagePsdSelectorContract.PSD_PROGRESS_CLASS_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticProgress.class)
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS,
+                StaticSelector.staticMethod(
+                    EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticProgressFactory.class),
+                    "e",
+                    "()" + reference(EditorRawImagePsdNativeFixture.SyntheticProgress.class),
+                    StaticSelector.ACCESS_PUBLIC
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
+                StaticSelector.classSelector(
+                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticLayeredImage.class)
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_NAME_ALIAS,
+                instanceMethod(
+                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_NAME_ALIAS,
+                    EditorRawImagePsdNativeFixture.SyntheticLayeredImage.class,
+                    "getName",
+                    "()Ljava/lang/String;"
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_SAVE_PSD_ALIAS,
+                instanceMethod(
+                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_SAVE_PSD_ALIAS,
+                    EditorRawImagePsdNativeFixture.SyntheticLayeredImage.class,
+                    "save",
+                    "(Ljava/io/File;"
+                        + reference(EditorRawImagePsdNativeFixture.SyntheticProgress.class)
+                        + ")V"
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS,
+                StaticSelector.classSelector(
+                    EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticParsed.class)
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS,
+                StaticSelector.field(
+                    EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticPsdDocument.class),
+                    "a",
+                    reference(EditorRawImagePsdNativeFixture.SyntheticCompanion.class),
+                    StaticSelector.ACCESS_PUBLIC | StaticSelector.ACCESS_STATIC
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_PARSE_FILE_ALIAS,
+                instanceMethod(
+                    EditorRawImagePsdSelectorContract.PSD_DOCUMENT_PARSE_FILE_ALIAS,
+                    EditorRawImagePsdNativeFixture.SyntheticCompanion.class,
+                    "a",
+                    "(Ljava/io/File;ZZ)"
+                        + reference(EditorRawImagePsdNativeFixture.SyntheticParsed.class)
+                )
+            );
+            selectors.put(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_FROM_PSD_ALIAS,
+                StaticSelector.constructor(
+                    EditorRawImagePsdSelectorContract.LAYERED_IMAGE_FROM_PSD_ALIAS,
+                    internal(EditorRawImagePsdNativeFixture.SyntheticLayeredImage.class),
+                    "(" + reference(EditorRawImagePsdNativeFixture.SyntheticParsed.class)
+                        + "Ljava/io/File;Ljava/lang/String;)V",
+                    StaticSelector.ACCESS_PUBLIC
+                )
+            );
+        }
+        final Set<String> capabilities = authorized
+            ? Set.of(EditorRawImagePsdSelectorContract.CAPABILITY_ID)
+            : Set.of("fixture.other");
+        return TestVerifiedResolvers.create(
+            version,
+            EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
+            capabilities,
+            new ArrayList<>(selectors.values()),
+            EditorRawImagePsdNativeFixture.class.getClassLoader()
+        );
+    }
+
+    private static StaticSelector instanceMethod(
+        final String alias,
+        final Class<?> owner,
+        final String name,
+        final String descriptor
+    ) {
+        return StaticSelector.method(
+            alias,
+            internal(owner),
+            name,
+            descriptor,
+            StaticSelector.ACCESS_PUBLIC
+        );
+    }
+
+    private static String internal(final Class<?> type) {
+        return type.getName().replace('.', '/');
+    }
+
+    private static String reference(final Class<?> type) {
+        return "L" + internal(type) + ";";
+    }
+}
