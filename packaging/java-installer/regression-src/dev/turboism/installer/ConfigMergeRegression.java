@@ -292,7 +292,7 @@ public final class ConfigMergeRegression {
             String legacyText = "{\"worktreeId\":\"legacy-runtime\","
                     + "\"pluginDirs\":[\"custom-plugins\"],\"logLevel\":\"DEBUG\","
                     + "\"disabledPlugins\":[\"dev.turboism.plugin.fixture\"],"
-                    + "\"cubismJvm\":\"bundled\"}";
+                    + "\"useTextIcon\":true,\"cubismJvm\":\"bundled\"}";
             Files.writeString(cfg, legacyText, StandardCharsets.UTF_8);
             Map<String, Object> legacy = ConfigMerge.loadExisting(dir);
             check("schema-less legacy config is admitted as v0",
@@ -304,7 +304,8 @@ public final class ConfigMergeRegression {
             check("v0 migration preserves user settings",
                     "DEBUG".equals(migrated.get("logLevel"))
                             && List.of("custom-plugins").equals(migrated.get("pluginDirs"))
-                            && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins")));
+                            && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins"))
+                            && Boolean.TRUE.equals(migrated.get("useTextIcon")));
             @SuppressWarnings("unchecked")
             Map<String, Object> launcher = (Map<String, Object>) migrated.get("launcher");
             check("v0 migration moves legacy JVM choice into launcher",
@@ -341,6 +342,7 @@ public final class ConfigMergeRegression {
         config.put("logLevel", "INFO");
         config.put("maxLogStorageMiB", 100L);
         config.put("safeMode", Boolean.FALSE);
+        config.put("useTextIcon", Boolean.TRUE);
         config.put("hooks", Map.of(
                 "disabledIds", List.of(),
                 "denylistedClasses", List.of(),
@@ -382,6 +384,9 @@ public final class ConfigMergeRegression {
         Map<String, Object> badSafeMode = validRuntimeConfig();
         badSafeMode.put("safeMode", "false");
         invalid.add(badSafeMode);
+        Map<String, Object> badUseTextIcon = validRuntimeConfig();
+        badUseTextIcon.put("useTextIcon", "true");
+        invalid.add(badUseTextIcon);
         Map<String, Object> badHooks = validRuntimeConfig();
         badHooks.put("hooks", Map.of("startup", Map.of("skipSplash", "false")));
         invalid.add(badHooks);
@@ -425,7 +430,8 @@ public final class ConfigMergeRegression {
         check("selection preserves user-owned worktree and plugin paths",
                 "user-runtime".equals(updated.get("worktreeId"))
                         && List.of("custom-plugins").equals(updated.get("pluginDirs")));
-        check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel")));
+        check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel"))
+                && Boolean.TRUE.equals(updated.get("useTextIcon")));
         ConfigMerge.validateCurrent(updated);
 
         Map<String, Object> sameSetDifferentOrder = new LinkedHashMap<>(updated);
