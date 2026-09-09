@@ -21,10 +21,12 @@ public record ModelImageGroupRelation(
         projectTreeVisible = Objects.requireNonNull(projectTreeVisible, "projectTreeVisible");
     }
 
+    /** Returns the group's display name, not a stable resource identity. */
     public String groupName() {
         return group.groupName();
     }
 
+    /** Returns the memo captured in the group projection. */
     public String memo() {
         return group.memo();
     }

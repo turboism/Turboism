@@ -60,6 +60,7 @@ public record TextureRelationsSnapshot(
         );
     }
 
+    /** Returns whether the adapter supplied a relation projection. */
     public boolean isAvailable() {
         return availability == Availability.AVAILABLE;
     }
@@ -74,11 +75,13 @@ public record TextureRelationsSnapshot(
         return artMeshInputs;
     }
 
+    /** Finds the first raw image with this non-null identity in this snapshot. */
     public Optional<RawImageDetails> rawImage(final RawImageId id) {
         Objects.requireNonNull(id, "id");
         return rawImages.stream().filter(value -> value.id().equals(id)).findFirst();
     }
 
+    /** Finds the first model image with this non-null identity in this snapshot. */
     public Optional<ModelImageRelation> modelImage(final ModelImageId id) {
         Objects.requireNonNull(id, "id");
         return modelImages.stream().filter(value -> value.id().equals(id)).findFirst();

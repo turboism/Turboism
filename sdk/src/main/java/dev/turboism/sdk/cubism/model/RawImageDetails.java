@@ -32,14 +32,17 @@ public record RawImageDetails(
         projectTreeVisible = Objects.requireNonNull(projectTreeVisible, "projectTreeVisible");
     }
 
+    /** Returns the owning raw-image identity, not a layer or model-image ID. */
     public RawImageId id() {
         return rawImage.id();
     }
 
+    /** Returns captured raw-image metadata; alias for {@link #rawImage()}. */
     public RawTexture rawTexture() {
         return rawImage;
     }
 
+    /** Returns the host replacement flag captured by this snapshot. */
     public boolean isReplaced() {
         return replaced;
     }

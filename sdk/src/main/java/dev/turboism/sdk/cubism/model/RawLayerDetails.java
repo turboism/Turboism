@@ -34,6 +34,7 @@ public record RawLayerDetails(
         }
     }
 
+    /** Returns the host layer-entry identity, distinct from the numeric PSD layer ID. */
     public RawLayerId rawLayerId() {
         return id;
     }
