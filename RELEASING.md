@@ -160,3 +160,28 @@ Release notes are always extracted from the exact version section of `CHANGELOG.
 Core release behavior belongs in tracked scripts, tests, and workflows. Do not place release decisions or credentials in `AGENTS.md`, `.claude/`, local specifications, or operator prompts. Optional user-level automation may only invoke this CLI.
 
 The framework workflow never receives the Plugin Directory signing key or Cloudflare credentials. The signing key remains in the Plugin Directory signing environment; Cloudflare credentials remain in the Updates service environment.
+
+## Product build identity and the new release API
+
+All numbered product candidates use the reusable `allocate-build.yml` workflow.
+It atomically reserves a number in the independent `build-ledger` branch using
+fast-forward-only Git ref updates. Stable, beta and future nightly workflows must
+reuse this allocator; do not use each workflow's `run_number` as a global counter.
+A reservation binds `version`, `channel`, source SHA, run ID and run attempt.
+Repeated allocation of the same identity is idempotent; a rebuilt attempt gets a
+new number. Failed builds may leave gaps without consuming a new product version.
+Re-run **all candidate jobs**, including the allocator, when rebuilding a failure.
+Publishing/retrying/mirroring already built files does not allocate a new number.
+
+CI stamps numbered product JARs with `Turboism-Build-Number` and
+`Turboism-Source-Revision`, and retains `build-identity.json` inside the Actions
+candidate bundle (not as a ninth public Release asset). Protected promotion checks
+the receipt against the ledger and packaged JARs and publishes an identical
+machine-readable comment in the Release notes. History without a receipt retains
+an unknown build number; do not backfill it from dates or legacy numbering.
+
+The new `api.turboism.dev` service synchronizes published GitHub Releases through
+OIDC-authenticated notification plus a 15-minute scheduled reconciliation. It does
+not invoke the legacy coordinated Updates publisher or require manual JSON edits.
+Publishing a beta/nightly build still requires an explicitly reviewed product
+candidate; this change does not start automatic nightly software publication.

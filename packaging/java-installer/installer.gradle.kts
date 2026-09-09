@@ -605,12 +605,28 @@ tasks.named("izPackCreateInstaller") {
     // the generated installer.xml references these by path; changes must rebuild the jar
     inputs.dir(javaInstallerPayloadDir)
     inputs.file(installerListenerJarTask.flatMap { it.archiveFile })
+    inputs.property("turboismBuildNumber", providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse(""))
+    inputs.property("turboismBuildSource", providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse(""))
     // The JAR and its SHA-256 sidecar are both declared outputs: deleting only
     // the sidecar marks the task out-of-date and recreates it next invocation.
     outputs.file(distDir.map { it.file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile })
     outputs.file(distDir.map { it.file("TurboismInstaller-${requireInstallerVersion()}.jar.sha256").asFile })
     doLast {
         val jar = distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile
+        // IzPack produces this archive outside Gradle's Jar task type. Stamp it
+        // before calculating its checksum; publication never mutates these bytes.
+        val buildNumber = providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse("").get()
+        if (buildNumber.isNotEmpty()) {
+            java.nio.file.FileSystems.newFileSystem(jar.toPath(), emptyMap<String, String>()).use { zip ->
+                val path = zip.getPath("/META-INF/MANIFEST.MF")
+                val modified = java.nio.file.Files.getLastModifiedTime(path)
+                val mf = java.nio.file.Files.newInputStream(path).use { java.util.jar.Manifest(it) }
+                mf.mainAttributes.putValue("Turboism-Build-Number", buildNumber)
+                mf.mainAttributes.putValue("Turboism-Source-Revision", providers.environmentVariable("TURBOISM_SOURCE_REVISION").get())
+                java.nio.file.Files.newOutputStream(path).use { mf.write(it) }
+                java.nio.file.Files.setLastModifiedTime(path, modified)
+            }
+        }
         val shaFile = distDir.get().file("${jar.name}.sha256").asFile
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         jar.inputStream().use { input ->
