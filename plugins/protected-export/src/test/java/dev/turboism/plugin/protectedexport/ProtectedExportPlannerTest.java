@@ -248,6 +248,36 @@ class ProtectedExportPlannerTest {
     }
 
     @Test
+    void reservesPartParameterAndDeformerIdsAcrossTheWholeModel() {
+        for (String family : List.of("Part", "Parameter", "Deformer")) {
+            final Fixture fixture = validFixture();
+            final String reserved = "@0123456789abcdef";
+            switch (family) {
+                case "Part" -> {
+                    final PartId id = new PartId(reserved);
+                    fixture.root.answers().put("id", id);
+                    fixture.childPart.answers().put("parentId", Optional.of(id));
+                    fixture.secondaryDrawable.answers().put("parentPartId", Optional.of(id));
+                }
+                case "Parameter" -> fixture.parameter.answers().put("id", new ParameterId(reserved));
+                case "Deformer" -> {
+                    final DeformerId id = new DeformerId(reserved);
+                    fixture.rootDeformer.answers().put("id", id);
+                    fixture.childDeformer.answers().put("parentDeformerId", Optional.of(id));
+                }
+                default -> throw new AssertionError(family);
+            }
+            final ProtectedExportPlan plan = new ProtectedExportPlanner(guid ->
+                guid.equals("guid-a") ? "0123456789abcdef" + "0".repeat(48) : fullHash('b')
+            ).plan(fixture.model);
+            assertEquals("@0123456789abcdef0",
+                plan.artMeshTargets().get(new ArtMeshId("mesh-a")).idToken(), family);
+            assertEquals(0, fixture.mutations.mutatorCalls.get());
+            assertEquals(0, fixture.model.updateCalls.get());
+        }
+    }
+
+    @Test
     void rejectsGlueNonNormalInstancesUnknownParametersAndUnsupportedFamilies() {
         final Fixture glue = validFixture();
         glue.model.glues = List.of(proxy(Glue.class, Map.of(), glue.mutations).value());
