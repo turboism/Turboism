@@ -288,6 +288,49 @@ class HistoryPanelServiceTest {
     }
 
     @Test
+    void preservesMaxLengthSupplementaryDisplayNameInRichFallback() {
+        final String maxName = "💠".repeat(128);
+        assertEquals(256, maxName.length(), "supplementary name reaches the SDK UTF-16 bound");
+        final HistorySnapshot snapshot = available(
+            1,
+            1,
+            1,
+            List.of(richEntry(
+                0,
+                "max-name",
+                "ART_MESH",
+                maxName,
+                HistoryChange.Operation.SET,
+                Optional.of("multiplyColor"),
+                HistoryEditContext.Kind.OBJECT
+            )),
+            true,
+            false
+        );
+
+        final PanelView.Toggle row = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
+
+        assertNotNull(row.inlineLabel());
+        assertEquals(HistoryPanelService.moveActionId("max-name"), row.actionId());
+        assertEquals("1 Set multiply color Artmesh icon " + maxName, row.label());
+        assertTrue(row.label().endsWith(maxName), "the complete captured name remains literal");
+        assertEquals(row.label(), row.inlineLabel().fallbackText());
+        assertTrue(
+            row.inlineLabel().runs().stream()
+                .filter(UiInlineLabel.TextRun.class::isInstance)
+                .map(UiInlineLabel.TextRun.class::cast)
+                .allMatch(run -> run.text().length() <= UiInlineLabel.MAX_RUN_TEXT_LENGTH),
+            "every generated text run stays within the SDK bound"
+        );
+        assertTrue(
+            row.inlineLabel().fallbackText().length() <= UiInlineLabel.MAX_TOTAL_TEXT_LENGTH,
+            "the complete fallback stays within the SDK bound"
+        );
+    }
+
+    @Test
     void unknownPropertyTargetOrContextKeepsConservativeTextFallback() {
         final HistorySnapshot snapshot = available(
             1,
@@ -598,7 +641,7 @@ class HistoryPanelServiceTest {
             context(contextKind)
         );
         final HistoryEntryDetail detail = new HistoryEntryDetail(
-            "Rich " + displayName,
+            "Rich entry",
             HistoryAction.DetailLevel.FULL,
             HistoryOrigin.hostUnattributed(),
             List.of(target),

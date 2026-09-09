@@ -286,12 +286,12 @@ public final class HistoryPanelService {
 
         final IconSpec iconSpec = icon.orElseThrow();
         final List<UiInlineLabel.Run> runs = new ArrayList<>();
-        runs.add(UiInlineLabel.textRun((entryIndex + 1) + " " + action.orElseThrow() + " "));
+        appendBoundedTextRuns(runs, (entryIndex + 1) + " " + action.orElseThrow() + " ");
         runs.add(UiInlineLabel.iconRun(
             new UiIconRef(iconSpec.icon()),
             localization.text(iconSpec.fallbackKey())
         ));
-        runs.add(UiInlineLabel.textRun(" " + displayName.orElseThrow()));
+        appendBoundedTextRuns(runs, " " + displayName.orElseThrow());
 
         final StringBuilder metadata = new StringBuilder();
         if (detail.origin().kind() == HistoryOrigin.Kind.TURBOISM) {
@@ -305,9 +305,29 @@ public final class HistoryPanelService {
         }
         metadata.append(unavailable);
         if (!metadata.isEmpty()) {
-            runs.add(UiInlineLabel.textRun(metadata.toString()));
+            appendBoundedTextRuns(runs, metadata.toString());
         }
         return Optional.of(UiInlineLabel.of(runs));
+    }
+
+    private static void appendBoundedTextRuns(
+        final List<UiInlineLabel.Run> runs,
+        final String text
+    ) {
+        int start = 0;
+        while (start < text.length()) {
+            int end = Math.min(start + UiInlineLabel.MAX_RUN_TEXT_LENGTH, text.length());
+            if (end < text.length()
+                && Character.isHighSurrogate(text.charAt(end - 1))
+                && Character.isLowSurrogate(text.charAt(end))) {
+                end--;
+            }
+            if (end == start) {
+                end = text.offsetByCodePoints(start, 1);
+            }
+            runs.add(UiInlineLabel.textRun(text.substring(start, end)));
+            start = end;
+        }
     }
 
     private Optional<String> richAction(final HistoryChange change) {
