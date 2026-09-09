@@ -15,6 +15,7 @@ import dev.turboism.adapter.cubism.service.read.CubismReadPermissionGate;
 import dev.turboism.adapter.cubism.service.clipmask.CubismClipMaskServiceImpl;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
 import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.cubism.core.CoreRuntimeInfo;
 import dev.turboism.adapter.host.PluginScopedCubismModelAccess;
@@ -224,6 +225,18 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
                 ? authoring
                 : NativeLabelColorAuthoring.unavailable()
         );
+        final RuntimePsdExportService psdExportService;
+        if (pluginTasks == null) {
+            psdExportService = null;
+        } else {
+            psdExportService = new RuntimePsdExportService(
+                dependencies.descriptor().id(),
+                permissionChecker,
+                activeScope::get,
+                pluginTasks
+            );
+            dependencies.disposableScope().register(psdExportService);
+        }
         final CubismFacadeImpl facade = new CubismFacadeImpl(
             dependencies.hostSnapshotSource(),
             permissionGate,
@@ -239,7 +252,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
             history,
-            authoringTransactions
+            authoringTransactions,
+            psdExportService
         );
         final CubismReadCapabilityServiceImpl readCapabilityService = new CubismReadCapabilityServiceImpl(
             facade,
