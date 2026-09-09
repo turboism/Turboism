@@ -23,9 +23,27 @@ import java.nio.file.StandardOpenOption;
 import java.util.Optional;
 import java.util.concurrent.Callable;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /** Manual-test-only SDK writer that creates and restores Parameter and native Artmesh Undo items. */
 public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
+
+    private static final long MAX_EVIDENCE_BYTES = WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES;
+    private static final long TERMINAL_RESERVE_BYTES = 2_048L;
+    private static final int MAX_PAIRED_SAMPLES = 16;
+    private static final List<String> REQUIRED_PAIRED_PHASES = List.of(
+        "baseline",
+        "write-1",
+        "write-2",
+        "third-write",
+        "group",
+        "undo",
+        "redo",
+        "restored"
+    );
 
     private PluginContext context;
     private Thread worker;
@@ -66,10 +84,11 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             final float first = valueAt(minimum, maximum, 0.17F);
             final float second = valueAt(minimum, maximum, 0.43F);
             final float third = valueAt(minimum, maximum, 0.71F);
+            capturePaired(evidence, "baseline");
 
-            writeValue(parameter, evidence, "write-1", id, first);
-            writeValue(parameter, evidence, "write-2", id, second);
-            writeValue(parameter, evidence, "write-3", id, third);
+            writeValue(parameter, evidence, "write-1", "write-1", id, first);
+            writeValue(parameter, evidence, "write-2", "write-2", id, second);
+            writeValue(parameter, evidence, "write-3", "third-write", id, third);
             final HistorySnapshot history = context.cubism().history().snapshot();
             Thread.sleep(5_000L);
             final HistorySnapshot navigationHistory = context.cubism().history().snapshot();
@@ -92,6 +111,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 HistorySnapshot.Availability.AVAILABLE.name(),
                 attempted.snapshot().availability().name()
             );
+            capturePaired(evidence, "undo");
 
             final HistorySnapshot movedSnapshot = attempted.snapshot();
             final HistoryMoveResult returnedToTip = context.cubism().history().moveTo(
@@ -106,6 +126,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 "outcome=MOVED,value=" + third,
                 "outcome=" + returnedToTip.outcome().name() + ",value=" + afterReturn
             );
+            capturePaired(evidence, "redo");
 
             final AuthoringTransactionResult<Void> grouped = onEdt(() ->
                 context.cubism().authoringTransactions().execute(
@@ -118,6 +139,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 )
             );
             final HistorySnapshot groupedHistory = context.cubism().history().snapshot();
+            capturePaired(evidence, "group");
             final String groupedEntryId = grouped.receipt()
                 .flatMap(receipt -> receipt.historyEntryId())
                 .orElse("");
@@ -187,10 +209,21 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 append(artifact,
                     "{\"type\":\"error\",\"class\":\"" + json(exception.getClass().getName())
                         + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n"
-                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n");
+                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n", true);
             } catch (Exception ignored) {
                 context.logger().error("History seed evidence could not be written", exception);
             }
+        }
+    }
+
+    private void capturePaired(final Evidence evidence, final String phase) {
+        try {
+            final WindowsHistoryManagerValidationProbe.Snapshot snapshot = onEdt(
+                () -> WindowsHistoryManagerValidationProbe.sample(context)
+            );
+            evidence.pairedSample(phase, snapshot);
+        } catch (Exception exception) {
+            evidence.pairedFailure(phase, exception);
         }
     }
 
@@ -249,18 +282,21 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final Color first = artMeshProbeColorA();
         final Color second = artMeshProbeColorB();
         final HistorySnapshot baseline = context.cubism().history().snapshot();
+        capturePaired(evidence, "artmesh-baseline");
 
         HistorySnapshot projected = baseline;
         try {
             onEdt(() -> { drawable.setMultiplyColor(first); return null; });
             final Optional<HistorySnapshot> firstAdvance = awaitHistoryAdvance(baseline, 50);
             final HistorySnapshot knownFirst = firstAdvance.orElseGet(() -> context.cubism().history().snapshot());
+            capturePaired(evidence, "artmesh-write-1");
 
             onEdt(() -> { drawable.setMultiplyColor(second); return null; });
             projected = awaitHistoryAdvance(knownFirst, 100)
                 .orElseThrow(() -> new IllegalStateException(
                     "Timed out waiting for known Artmesh color transition"
                 ));
+            capturePaired(evidence, "artmesh-write-2");
             final HistoryEntry entry = projected.entries().get(projected.position() - 1);
             evidence.entry("artmesh-captured-entry", entry);
             evidence.nestedDetails("artmesh-captured-child", entry.detail());
@@ -319,6 +355,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             final HistoryEntry firstEntry = knownFirst.entries().get(knownFirst.position() - 1);
             onEdt(() -> { drawable.setMultiplyColor(new Color(0.2F, 0.4F, 0.6F, 1.0F)); return null; });
             final HistorySnapshot third = awaitHistoryAdvance(projected, 100).orElseThrow();
+            capturePaired(evidence, "artmesh-third-write");
             evidence.check("artmesh-capture-stable-after-third-write",
                 sameSemanticEntry(firstEntry, third) && sameSemanticEntry(entry, third),
                 "both earlier entries retain exact frozen detail", "first=" + sameSemanticEntry(firstEntry, third)
@@ -330,6 +367,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             evidence.check("artmesh-capture-stable-after-undo",
                 back.outcome() == HistoryMoveResult.Outcome.MOVED && sameSemanticEntry(entry, back.snapshot())
                     && sameSemanticEntry(firstEntry, back.snapshot()), "MOVED with frozen details", back.outcome().name());
+            capturePaired(evidence, "artmesh-undo");
             final HistoryMoveResult redo = onEdt(() -> {
                 final HistorySnapshot fresh = context.cubism().history().snapshot();
                 return context.cubism().history().moveTo(fresh.generation(), fresh.revision(), third.position());
@@ -337,6 +375,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             evidence.check("artmesh-capture-stable-after-redo",
                 redo.outcome() == HistoryMoveResult.Outcome.MOVED && sameSemanticEntry(entry, redo.snapshot())
                     && sameSemanticEntry(firstEntry, redo.snapshot()), "MOVED with frozen details", redo.outcome().name());
+            capturePaired(evidence, "artmesh-redo");
         } finally {
             final HistorySnapshot current = context.cubism().history().snapshot();
             final HistoryMoveResult restored = context.cubism().history().moveTo(
@@ -352,6 +391,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 "outcome=" + restored.outcome().name()
                     + ",position=" + restored.snapshot().position()
             );
+            capturePaired(evidence, "restored");
             Thread.sleep(2_000L);
         }
     }
@@ -457,6 +497,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final Parameter parameter,
         final Evidence evidence,
         final String phase,
+        final String pairedPhase,
         final String id,
         final float value
     ) throws Exception {
@@ -464,6 +505,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         final float actual = awaitValue(parameter, value);
         evidence.check(phase, same(value, actual), "parameter=" + id + ",value=" + value, "parameter=" + id + ",value=" + actual);
         Thread.sleep(750L);
+        capturePaired(evidence, pairedPhase);
     }
 
     static float valueAt(final float minimum, final float maximum, final float fraction) {
@@ -532,6 +574,18 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     private static void append(final Path artifact, final String value) throws Exception {
+        append(artifact, value, false);
+    }
+
+    private static void append(final Path artifact, final String value, final boolean terminal) throws Exception {
+        final byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        final long existing = Files.exists(artifact) ? Files.size(artifact) : 0L;
+        final long reserve = terminal ? 0L : TERMINAL_RESERVE_BYTES;
+        if (bytes.length > MAX_EVIDENCE_BYTES
+            || existing > MAX_EVIDENCE_BYTES - reserve
+            || existing + bytes.length > MAX_EVIDENCE_BYTES - reserve) {
+            throw new IllegalStateException("History seed evidence budget exhausted");
+        }
         Files.writeString(
             artifact,
             value,
@@ -541,11 +595,12 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         );
     }
 
-    private static final class Evidence {
+    static final class Evidence {
         private final Path artifact;
         private boolean passed = true;
+        private final Map<String, WindowsHistoryManagerValidationProbe.Snapshot> pairedSamples = new LinkedHashMap<>();
 
-        private Evidence(final Path artifact) {
+        Evidence(final Path artifact) {
             this.artifact = artifact;
         }
 
@@ -571,6 +626,254 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not write evidence check", exception);
             }
+        }
+
+        void pairedSample(
+            final String phase,
+            final WindowsHistoryManagerValidationProbe.Snapshot snapshot
+        ) {
+            final List<String> errors = new ArrayList<>();
+            final boolean acceptedPhase = phase != null
+                && !phase.isBlank()
+                && !pairedSamples.containsKey(phase)
+                && pairedSamples.size() < MAX_PAIRED_SAMPLES;
+            if (phase == null || phase.isBlank()) errors.add("paired-phase-missing");
+            if (pairedSamples.containsKey(phase)) errors.add("paired-phase-duplicate");
+            if (pairedSamples.size() >= MAX_PAIRED_SAMPLES && !pairedSamples.containsKey(phase)) {
+                errors.add("paired-sample-limit");
+            }
+            if (snapshot == null) {
+                errors.add("paired-snapshot-missing");
+            } else {
+                errors.addAll(validateSnapshot(snapshot));
+                final WindowsHistoryManagerValidationProbe.Snapshot previous = lastSample();
+                if (previous != null) errors.addAll(validateContinuity(previous, snapshot));
+            }
+            if (acceptedPhase && snapshot != null) pairedSamples.put(phase, snapshot);
+            final boolean status = errors.isEmpty();
+            passed &= status;
+            try {
+                if (snapshot != null) append(artifact, snapshot.pairedJson(phase) + "\n");
+                append(artifact, pairedValidationJson(phase, status, errors));
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not write paired history evidence", exception);
+            }
+        }
+
+        void pairedFailure(final String phase, final Exception exception) {
+            passed = false;
+            try {
+                append(artifact,
+                    "{\"type\":\"paired-snapshot-failure\",\"phase\":\"" + json(phase)
+                        + "\",\"errorType\":\"" + json(exception.getClass().getName())
+                        + "\",\"message\":\"" + json(exception.getMessage()) + "\"}\n");
+            } catch (Exception writeFailure) {
+                throw new IllegalStateException("Could not write paired history failure", writeFailure);
+            }
+        }
+
+        private WindowsHistoryManagerValidationProbe.Snapshot lastSample() {
+            WindowsHistoryManagerValidationProbe.Snapshot last = null;
+            for (WindowsHistoryManagerValidationProbe.Snapshot sample : pairedSamples.values()) {
+                last = sample;
+            }
+            return last;
+        }
+
+        private static List<String> validateSnapshot(
+            final WindowsHistoryManagerValidationProbe.Snapshot snapshot
+        ) {
+            final List<String> errors = new ArrayList<>();
+            if (!snapshot.edt()) errors.add("paired-snapshot-not-edt");
+            if (absent(snapshot.documentIdentity())) errors.add("native-document-identity-missing");
+            if (absent(snapshot.currentModeIdentity())) errors.add("native-mode-identity-missing");
+            if (absent(snapshot.hostLoader())) errors.add("native-classloader-identity-missing");
+
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot sdk = snapshot.sdkHistory();
+            if (sdk == null) {
+                errors.add("sdk-history-missing");
+            } else {
+                if (!"AVAILABLE".equals(sdk.availability())) errors.add("sdk-history-unavailable");
+                if (sdk.totalEntries() < 0) errors.add("sdk-sequence-total-invalid");
+                if (absent(sdk.documentBindingId()) || absent(sdk.managerBindingId())) {
+                    errors.add("sdk-binding-identity-missing");
+                }
+                if (sdk.entries() == null) {
+                    errors.add("sdk-sequence-missing");
+                } else {
+                    if (sdk.entries().size() > WindowsHistoryManagerValidationProbe.MAX_ENTRIES) {
+                        errors.add("sdk-sequence-over-bound");
+                    }
+                    if (sdk.totalEntries() > sdk.entries().size()) errors.add("sdk-sequence-truncated");
+                    if (sdk.position() < 0 || sdk.position() > sdk.entries().size()) {
+                        errors.add("sdk-position-invalid");
+                    }
+                    for (int index = 0; index < sdk.entries().size(); index++) {
+                        final WindowsHistoryManagerValidationProbe.SdkEntry entry = sdk.entries().get(index);
+                        if (entry == null || entry.index() != index) errors.add("sdk-sequence-index-mismatch");
+                        if (entry == null || entry.entryId() == null || entry.entryId().isBlank()) {
+                            errors.add("sdk-entry-identity-missing");
+                        }
+                        if (entry != null && (entry.detailJson() == null || entry.detailJson().isBlank())) {
+                            errors.add("sdk-detail-missing");
+                        }
+                    }
+                }
+            }
+
+            final WindowsHistoryManagerValidationProbe.ManagerSnapshot document = snapshot.document();
+            if (document == null || absent(document.identity())) {
+                errors.add("native-document-manager-identity-missing");
+            }
+            final WindowsHistoryManagerValidationProbe.ManagerSnapshot[] managers = {
+                snapshot.document(), snapshot.current(), snapshot.main(), snapshot.linked()
+            };
+            for (WindowsHistoryManagerValidationProbe.ManagerSnapshot manager : managers) {
+                validateNativeManager(manager, errors);
+            }
+            if (sdk != null && document != null
+                && (document.position() != sdk.position()
+                    || document.totalEntries() != sdk.totalEntries())) {
+                errors.add("native-sdk-sequence-mismatch");
+            }
+            if (sdk != null && document != null && sdk.entries() != null && document.entries() != null) {
+                final int overlap = Math.min(sdk.entries().size(), document.entries().size());
+                for (int index = 0; index < overlap; index++) {
+                    final WindowsHistoryManagerValidationProbe.SdkEntry sdkEntry = sdk.entries().get(index);
+                    final WindowsHistoryManagerValidationProbe.Entry nativeEntry = document.entries().get(index);
+                    if (sdkEntry == null || nativeEntry == null || !same(sdkEntry.label(), nativeEntry.label())) {
+                        errors.add("native-sdk-entry-sequence-mismatch");
+                    }
+                }
+            }
+            return errors;
+        }
+
+        private static void validateNativeManager(
+            final WindowsHistoryManagerValidationProbe.ManagerSnapshot manager,
+            final List<String> errors
+        ) {
+            if (manager == null) {
+                errors.add("native-manager-snapshot-missing");
+                return;
+            }
+            if (manager.entries() == null) {
+                errors.add(manager.name() + "-native-sequence-missing");
+                return;
+            }
+            if (manager.totalEntries() < 0) errors.add(manager.name() + "-native-total-invalid");
+            if (manager.position() < 0 || manager.position() > manager.entries().size()) {
+                errors.add(manager.name() + "-native-position-invalid");
+            }
+            if (manager.totalEntries() > manager.entries().size()) {
+                errors.add(manager.name() + "-native-sequence-truncated");
+            }
+            for (int index = 0; index < manager.entries().size(); index++) {
+                final WindowsHistoryManagerValidationProbe.Entry entry = manager.entries().get(index);
+                if (entry == null || entry.index() != index) {
+                    errors.add(manager.name() + "-native-sequence-index-mismatch");
+                }
+                if (entry == null || entry.detail() == null) {
+                    errors.add(manager.name() + "-native-detail-missing");
+                } else {
+                    validateNativeDetail(entry.detail(), manager.name(), errors);
+                }
+            }
+        }
+
+        private static void validateNativeDetail(
+            final WindowsHistoryManagerValidationProbe.NativeDetail detail,
+            final String managerName,
+            final List<String> errors
+        ) {
+            if (detail == null) {
+                errors.add(managerName + "-native-detail-missing");
+                return;
+            }
+            if (detail.truncated()) errors.add(managerName + "-native-detail-truncated");
+            if ("history.detail.decoder-failed".equals(detail.degradationCode())) {
+                errors.add(managerName + "-native-detail-failed");
+            }
+            if (detail.childDetails() == null) {
+                errors.add(managerName + "-native-child-details-missing");
+                return;
+            }
+            for (WindowsHistoryManagerValidationProbe.NativeDetail child : detail.childDetails()) {
+                if (child != null) validateNativeDetail(child, managerName, errors);
+                else errors.add(managerName + "-native-child-detail-missing");
+            }
+        }
+
+        private static List<String> validateContinuity(
+            final WindowsHistoryManagerValidationProbe.Snapshot previous,
+            final WindowsHistoryManagerValidationProbe.Snapshot current
+        ) {
+            final List<String> errors = new ArrayList<>();
+            if (!same(previous.hostLoader(), current.hostLoader())) errors.add("host-classloader-identity-mismatch");
+            if (!same(previous.documentIdentity(), current.documentIdentity())) {
+                errors.add("native-document-identity-mismatch");
+            }
+            if (!same(previous.currentModeClass(), current.currentModeClass())
+                || !same(previous.currentModeIdentity(), current.currentModeIdentity())) {
+                errors.add("native-mode-identity-mismatch");
+            }
+            if (previous.document() != null && current.document() != null
+                && !same(previous.document().identity(), current.document().identity())) {
+                errors.add("native-manager-identity-mismatch");
+            }
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot left = previous.sdkHistory();
+            final WindowsHistoryManagerValidationProbe.SdkHistorySnapshot right = current.sdkHistory();
+            if (left == null || right == null) {
+                errors.add("sdk-history-identity-missing");
+                return errors;
+            }
+            if (left.generation() != right.generation()) errors.add("sdk-generation-mismatch");
+            if (!same(left.documentBindingId(), right.documentBindingId())
+                || !same(left.managerBindingId(), right.managerBindingId())) {
+                errors.add("sdk-binding-identity-mismatch");
+            }
+            if (left.entries() == null || right.entries() == null) {
+                errors.add("sdk-sequence-missing");
+                return errors;
+            }
+            if (right.totalEntries() < left.totalEntries()) errors.add("sdk-sequence-shortened");
+            final int overlap = Math.min(left.entries().size(), right.entries().size());
+            for (int index = 0; index < overlap; index++) {
+                final WindowsHistoryManagerValidationProbe.SdkEntry previousEntry = left.entries().get(index);
+                final WindowsHistoryManagerValidationProbe.SdkEntry currentEntry = right.entries().get(index);
+                final String previousId = previousEntry == null ? null : previousEntry.entryId();
+                final String currentId = currentEntry == null ? null : currentEntry.entryId();
+                if (previousId == null || previousId.isBlank() || currentId == null || currentId.isBlank()
+                    || !previousId.equals(currentId)) {
+                    errors.add("sdk-sequence-identity-mismatch");
+                }
+            }
+            return errors;
+        }
+
+        private static boolean absent(final String value) {
+            return value == null || value.isBlank() || "null".equals(value);
+        }
+
+        private static boolean same(final String left, final String right) {
+            return left == null ? right == null : left.equals(right);
+        }
+
+        private static String pairedValidationJson(
+            final String phase,
+            final boolean status,
+            final List<String> errors
+        ) {
+            final StringBuilder result = new StringBuilder("{\"type\":\"paired-validation\",\"phase\":\"")
+                .append(json(phase))
+                .append("\",\"status\":\"")
+                .append(status ? "PASS" : "FAIL")
+                .append("\",\"errors\":[");
+            for (int index = 0; index < errors.size(); index++) {
+                if (index > 0) result.append(',');
+                result.append('\"').append(json(errors.get(index))).append('\"');
+            }
+            return result.append("]}\n").toString();
         }
 
         void entry(final String name, final HistoryEntry entry) {
@@ -639,10 +942,20 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
 
         void summary() throws Exception {
-            append(artifact,
+            final List<String> missing = REQUIRED_PAIRED_PHASES.stream()
+                .filter(phase -> !pairedSamples.containsKey(phase))
+                .toList();
+            if (!missing.isEmpty()) {
+                passed = false;
+                append(artifact, pairedValidationJson("summary", false, missing));
+            }
+            append(
+                artifact,
                 passed
                     ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n"
-                    : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n");
+                    : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                true
+            );
         }
     }
 }
