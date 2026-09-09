@@ -25,6 +25,7 @@ include(
     "plugins:psd-import",
     "plugins:psd-clip-mask-import",
     "plugins:atlas-maxrects-bssf",
+    "plugins:protected-export",
     "plugins:texture-atlas-stats",
     "plugins:physics-editor",
     "plugins:history-panel",
