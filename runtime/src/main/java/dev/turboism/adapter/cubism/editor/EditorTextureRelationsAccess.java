@@ -120,6 +120,7 @@ final class EditorTextureRelationsAccess {
     private static final String ART_MESH_CLASS = "cubism.editor-model.art-mesh.class";
     private static final String ART_MESH_SOURCE = "cubism.editor-model.art-mesh.source";
     private static final String OBJECT_ID = "cubism.editor-model.parameter-controllable-source.id";
+    private static final String OBJECT_ID_VALUE = "cubism.editor-model.id.value";
     private static final String GUID_VALUE = "cubism.editor-model.guid.value";
 
     private final VerifiedMemberResolver resolver;
@@ -422,7 +423,8 @@ final class EditorTextureRelationsAccess {
             if (instance == null) {
                 throw unavailable("Editor ArtMesh source has no active instance.");
             }
-            final String id = guidValue(resolver.invoke(OBJECT_ID, objectSource), "ArtMesh");
+            final String id = stringValue(
+                resolver.invoke(OBJECT_ID_VALUE, resolver.invoke(OBJECT_ID, objectSource)), "ArtMesh ID");
             if (!ids.add(id)) {
                 throw unavailable("Editor ArtMesh identifiers are not unique.");
             }

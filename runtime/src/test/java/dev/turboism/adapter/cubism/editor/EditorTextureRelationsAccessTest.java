@@ -410,8 +410,9 @@ class EditorTextureRelationsAccessTest {
         putMethod(selectors, "cubism.editor-model.art-mesh-source.texture-input-extension", ArtMeshSource.class,
             "getTextureInputExtension", "()Ljava/lang/Object;");
         putMethod(selectors, "cubism.editor-model.parameter-controllable-source.id", ArtMeshSource.class,
-            "getId", desc(HostId.class));
+            "getId", desc(SourceId.class));
         putMethod(selectors, "cubism.editor-model.guid.value", HostId.class, "value", "()Ljava/lang/String;");
+        putMethod(selectors, "cubism.editor-model.id.value", SourceId.class, "getIdString", "()Ljava/lang/String;");
 
         final Set<String> capabilities = authorized
             ? Set.of(EditorTextureRelationsSelectorContract.CAPABILITY_ID)
@@ -956,16 +957,20 @@ class EditorTextureRelationsAccessTest {
         }
     }
 
+    // Native CObjectID and GUID are unrelated types; using one fixture class hid a host failure.
+    public record SourceId(String value) {
+        public String getIdString() { return value; }
+    }
     public static final class ArtMeshSource {
-        private final HostId id;
+        private final SourceId id;
         private final Object textureInputExtension;
 
         ArtMeshSource(final HostId id, final Object textureInputExtension) {
-            this.id = id;
+            this.id = new SourceId(id.value());
             this.textureInputExtension = textureInputExtension;
         }
 
-        public HostId getId() {
+        public SourceId getId() {
             return id;
         }
 
