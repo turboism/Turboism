@@ -18,6 +18,8 @@ import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry;
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
+import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.RuntimePsdExportService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -90,6 +92,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorUi textureAtlasEditorUi;
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
+    private final RuntimePsdExportService psdExportService;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -243,6 +246,40 @@ public final class CubismFacadeImpl implements CubismFacade {
         this(
             source,
             permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            (RuntimePsdExportService) null
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final RuntimePsdExportService psdExportService
+    ) {
+        this(
+            source,
+            permissionGate,
             new ImmutableSnapshotFactory(),
             unavailableTransactionManager(),
             modelAccess,
@@ -254,7 +291,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             activeScope,
             textureAtlasEditorUi,
             textureAtlasEditorSession,
-            textureAtlasAlgorithms
+            textureAtlasAlgorithms,
+            psdExportService
         );
     }
 
@@ -331,6 +369,48 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms
+        );
+        this.history = Objects.requireNonNull(history, "history");
+        this.authoringTransactions = Objects.requireNonNull(
+            authoringTransactions,
+            "authoringTransactions"
+        );
+    }
+
+    /** Full production construction seam with the optional runtime PSD observation service. */
+    public CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutCoordinator textureAtlasLayouts,
+        final dev.turboism.adapter.cubism.textureatlas.TextureAtlasNativeInvocationCoordinator nativeInvocations,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final CubismHistory history,
+        final AuthoringTransactionService authoringTransactions,
+        final RuntimePsdExportService psdExportService
+    ) {
+        this(
+            source,
+            permissionGate,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            nativeInvocations,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            psdExportService
         );
         this.history = Objects.requireNonNull(history, "history");
         this.authoringTransactions = Objects.requireNonNull(
@@ -702,6 +782,42 @@ public final class CubismFacadeImpl implements CubismFacade {
         final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms
     ) {
+        this(
+            source,
+            permissionGate,
+            snapshotFactory,
+            transactionManager,
+            modelAccess,
+            coreRuntime,
+            parameterLifecycle,
+            partLifecycle,
+            textureAtlasLayouts,
+            editorObjectLifecycle,
+            activeScope,
+            textureAtlasEditorUi,
+            textureAtlasEditorSession,
+            textureAtlasAlgorithms,
+            null
+        );
+    }
+
+    CubismFacadeImpl(
+        final HostSnapshotSource source,
+        final CubismPermissionGate permissionGate,
+        final ImmutableSnapshotFactory snapshotFactory,
+        final TransactionManager transactionManager,
+        final CubismModelAccess modelAccess,
+        final dev.turboism.sdk.cubism.core.CoreRuntimeInfo coreRuntime,
+        final ParameterLifecycleCoordinator parameterLifecycle,
+        final PartLifecycleCoordinator partLifecycle,
+        final TextureAtlasLayoutService textureAtlasLayouts,
+        final EditorObjectLifecycleCoordinator editorObjectLifecycle,
+        final BooleanSupplier activeScope,
+        final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
+        final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
+        final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
+        final RuntimePsdExportService psdExportService
+    ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
         this.snapshotFactory = Objects.requireNonNull(snapshotFactory, "snapshotFactory");
@@ -721,6 +837,7 @@ public final class CubismFacadeImpl implements CubismFacade {
         this.textureAtlasAlgorithms = textureAtlasAlgorithms == null
             ? new RuntimeTextureAtlasLayoutAlgorithmRegistry()
             : textureAtlasAlgorithms;
+        this.psdExportService = psdExportService;
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -1189,9 +1306,12 @@ public final class CubismFacadeImpl implements CubismFacade {
                         PermissionIds.TURBOISM_FILE_WRITE,
                         "model.textures.exportRawImagePsd"
                     );
-                    return textures.exportRawImagePsd(
-                        Objects.requireNonNull(source, "source")
-                    );
+                    final dev.turboism.sdk.cubism.id.RawImageId rawImage =
+                        Objects.requireNonNull(source, "source");
+                    if (psdExportService != null && textures instanceof PsdExportHost exportHost) {
+                        return psdExportService.exportRawImagePsd(exportHost, rawImage);
+                    }
+                    return textures.exportRawImagePsd(rawImage);
                 }
 
                 @Override
