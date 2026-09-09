@@ -1526,6 +1526,11 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                 delegate.remove(unwrapDeformer(generation, deformer))
             );
         }
+        @Override public void applyToChildren(final Deformer deformer) {
+            guardedVoid(generation, () ->
+                delegate.applyToChildren(unwrapDeformer(generation, deformer))
+            );
+        }
     }
 
     private final class SessionDeformer implements Deformer {

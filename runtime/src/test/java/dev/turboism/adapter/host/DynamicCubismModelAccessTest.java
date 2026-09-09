@@ -34,6 +34,7 @@ import dev.turboism.sdk.cubism.model.Part;
 import dev.turboism.sdk.cubism.model.PhysicsSettings;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
 import dev.turboism.sdk.cubism.model.Deformers;
+import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Glues;
 import dev.turboism.sdk.cubism.model.IntSequence;
 import dev.turboism.sdk.cubism.model.Parts;
@@ -192,6 +193,49 @@ class DynamicCubismModelAccessTest {
         access.connect(() -> modelWithDrawable(drawable(null, true, null)));
         final Drawable unsupported = access.active().drawables().find(new ArtMeshId("ArtMeshA"));
         assertThrows(UnsupportedOperationException.class, unsupported::guid);
+    }
+
+
+    @Test
+    void sessionDeformersForwardApplyToChildrenOnceAndRejectStaleWrapper() {
+        final DynamicCubismModelAccess access = new DynamicCubismModelAccess();
+        final Deformer backend = new Deformer() {
+            @Override public DeformerId id() { return new DeformerId("WarpA"); }
+            @Override public int parentDeformerIndex() { return -1; }
+            @Override public IntSequence parameters() { return emptyInts(); }
+        };
+        final AtomicReference<Deformer> forwarded = new AtomicReference<>();
+        final int[] calls = {0};
+        final Deformers backendDeformers = new Deformers() {
+            @Override public List<Deformer> all() { return List.of(backend); }
+            @Override public Deformer find(final DeformerId id) { return backend; }
+            @Override public void applyToChildren(final Deformer deformer) {
+                calls[0]++;
+                forwarded.set(deformer);
+            }
+        };
+        final CubismModel base = model("model-a", parameter(1.0F));
+        final CubismModel backendModel = new CubismModel() {
+            @Override public ModelId id() { return base.id(); }
+            @Override public Parameters parameters() { return base.parameters(); }
+            @Override public Parts parts() { throw unsupported(); }
+            @Override public Drawables drawables() { throw unsupported(); }
+            @Override public Deformers deformers() { return backendDeformers; }
+            @Override public Glues glues() { throw unsupported(); }
+            @Override public void update() { throw unsupported(); }
+        };
+        access.connect(() -> backendModel);
+
+        final CubismModel session = access.active();
+        final Deformers sessionDeformers = session.deformers();
+        final Deformer wrapped = sessionDeformers.find(new DeformerId("WarpA"));
+        sessionDeformers.applyToChildren(wrapped);
+
+        assertEquals(1, calls[0]);
+        assertSame(backend, forwarded.get());
+        access.deactivate();
+        assertThrows(IllegalStateException.class,
+            () -> sessionDeformers.applyToChildren(wrapped));
     }
 
     @Test

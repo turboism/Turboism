@@ -444,6 +444,64 @@ final class EditorObjectHierarchyEditAccess {
         );
     }
 
+    /**
+     * Executes the exact native 5.3.02 candidate after selecting the target deformer. Child
+     * semantics remain owned by Cubism; this path deliberately avoids generic DELETE, Undo, and
+     * refresh/dirty envelopes used by ordinary hierarchy edits.
+     */
+    void applyToChildren(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final Object nodeSource
+    ) {
+        requireApplyToChildrenAuthorized();
+        currentGuard.requireCurrent(identity, model);
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        final Object document = resolver.invoke(
+            "cubism.editor-model.app-controller.current-document", app
+        );
+        final Object guid = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.guid", nodeSource
+        );
+        final String targetGuidValue = requireValidGuidValue(
+            resolver.invoke("cubism.editor-model.guid.value", guid),
+            "Target Deformer"
+        );
+        final Object updateManager = resolver.invoke(
+            "cubism.editor-model.app-controller.update-manager", app
+        );
+        resolver.invoke(
+            "cubism.editor-model.update-manager.set-selection",
+            updateManager, document, List.of(guid), Boolean.FALSE, Boolean.TRUE
+        );
+        resolver.invoke(
+            "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
+            app
+        );
+        requireRemovedByGuid(modelSource, targetGuidValue);
+    }
+
+    private void requireRemovedByGuid(final Object modelSource, final String targetGuidValue) {
+        for (Object candidate : iterable(
+            resolver.invoke("cubism.editor-model.model-source.all-deformers", modelSource),
+            "Editor Deformer source collection"
+        )) {
+            final Object guid = resolver.invoke(
+                "cubism.editor-model.parameter-controllable-source.guid", candidate
+            );
+            final String candidateGuidValue = requireValidGuidValue(
+                resolver.invoke("cubism.editor-model.guid.value", guid),
+                "Deformer"
+            );
+            if (targetGuidValue.equals(candidateGuidValue)) {
+                throw new IllegalStateException(
+                    "Cubism did not apply the deformer to child elements; target GUID still present after native command."
+                );
+            }
+        }
+    }
+
     // ------------------------------------------------------------------
     // rename — set-local-name on the shared base class
     // ------------------------------------------------------------------
@@ -763,6 +821,23 @@ final class EditorObjectHierarchyEditAccess {
         );
     }
 
+    private boolean applyToChildrenAuthorized() {
+        if (!resolver.isExactCubismVersion("5.3.02")) return false;
+        return resolver.authorizesFeature(
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID,
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES
+        );
+    }
+
+    private void requireApplyToChildrenAuthorized() {
+        if (!applyToChildrenAuthorized()) {
+            throw new UnsupportedOperationException(
+                "Apply deformer to child elements is unavailable without exact verified host evidence."
+            );
+        }
+    }
+
     private boolean renameAuthorized() {
         return resolver.authorizesFeature(
             EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
@@ -949,6 +1024,16 @@ final class EditorObjectHierarchyEditAccess {
         }
         flatten(grid.controlPoints());
         return grid;
+    }
+
+    private static String requireValidGuidValue(final Object rawValue, final String subject) {
+        if (!(rawValue instanceof String value) || value.isBlank()) {
+            throw new IllegalStateException(
+                subject + " GUID value is invalid; the Apply deformer to child elements "
+                    + "operation must not proceed or report success."
+            );
+        }
+        return value;
     }
 
     private static Iterable<?> iterable(final Object value, final String label) {
