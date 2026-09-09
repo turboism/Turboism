@@ -3,7 +3,7 @@ on:
   release:
     types: [published, edited, deleted, unpublished, prereleased, released]
   workflow_run:
-    workflows: ['Publish verified GitHub release']
+    workflows: ['Publish verified GitHub release', 'Product release candidate']
     types: [completed]
   workflow_dispatch:
 permissions:

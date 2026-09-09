@@ -1,12 +1,26 @@
-# Candidate builder for immutable vMAJOR.MINOR.PATCH framework releases.
+# One source-bound build entry for stable, beta and changed-only nightly.
+# 20:20 UTC = 04:20 next day in Asia/Shanghai (UTC+08:00).
 # Candidate builds are read-only; a separate allocator writes only the build ledger.
 # Explicit protected GitHub promotion owns remote tag/release creation.
 
 name: Product release candidate
 
 on:
+  schedule:
+    - cron: '20 20 * * *'
   workflow_dispatch:
     inputs:
+      channel:
+        description: Stable/Beta produce reviewed candidates; Nightly publishes automatically only for new main changes
+        type: choice
+        options: [stable, beta, nightly]
+        default: stable
+        required: true
+      version:
+        description: Beta requires the committed base plus beta.N/rc.N/alpha.N; leave blank for Stable/Nightly
+        type: string
+        required: false
+        default: ''
       expected_source_sha:
         description: Exact main commit to build; mismatches fail rather than follow a moving branch
         required: true
@@ -23,22 +37,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  preflight:
+    if: github.repository == 'turboism/Turboism' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    outputs:
+      should_build: ${{ steps.target.outputs.should_build }}
+      channel: ${{ steps.target.outputs.channel }}
+      version: ${{ steps.target.outputs.version }}
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Check the pinned source and skip unchanged Nightly before allocation
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          CHANNEL: ${{ github.event_name == 'schedule' && 'nightly' || inputs.channel }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ]; then test "$EXPECTED_SOURCE_SHA" = "$GITHUB_SHA"; fi
+          python3 scripts/release/product-build.py preflight --source "$GITHUB_SHA" --channel "$CHANNEL" --version "$VERSION"
   allocate-build:
-    if: github.ref == 'refs/heads/main'
+    needs: preflight
+    if: needs.preflight.outputs.should_build == 'true'
     permissions:
       contents: write
     uses: ./.github/workflows/allocate-build.yml
     with:
-      expected_source_sha: ${{ inputs.expected_source_sha }}
+      expected_source_sha: ${{ github.sha }}
+      channel: ${{ needs.preflight.outputs.channel }}
+      version: ${{ needs.preflight.outputs.version }}
   build:
-    needs: allocate-build
+    needs: [preflight, allocate-build]
     permissions:
       contents: read
     env:
       TURBOISM_BUILD_NUMBER: ${{ needs.allocate-build.outputs.build_number }}
       TURBOISM_SOURCE_REVISION: ${{ github.sha }}
-    if: github.ref == 'refs/heads/main'
+      TURBOISM_BUILD_VERSION: ${{ needs.allocate-build.outputs.build_version }}
+      TURBOISM_BUILD_CHANNEL: ${{ needs.allocate-build.outputs.build_channel }}
+      ORG_GRADLE_PROJECT_turboismRelease: 'true'
+    if: needs.preflight.outputs.should_build == 'true'
     runs-on: ubuntu-22.04
+    timeout-minutes: 60
     steps:
       - name: Check out immutable candidate revision
         uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
@@ -49,7 +92,7 @@ jobs:
 
       - name: Verify requested source identity
         env:
-          EXPECTED_SOURCE_SHA: ${{ inputs.expected_source_sha }}
+          EXPECTED_SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
           [[ "$EXPECTED_SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
@@ -65,6 +108,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          if [ "$TURBOISM_BUILD_CHANNEL" != stable ]; then
+            echo "version=$TURBOISM_BUILD_VERSION" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
           VERSION="$(python3 - <<'PY'
           import re
           from pathlib import Path
@@ -96,6 +143,7 @@ jobs:
           sudo apt-get install --yes --no-install-recommends nsis
 
       - name: Validate store eligibility policy
+        if: needs.preflight.outputs.channel == 'stable'
         id: policy
         run: |
           OUTPUT="$(python3 scripts/release/prepare-market-release.py \
@@ -106,13 +154,13 @@ jobs:
           echo "eligible=${ELIGIBLE:-0}" >> "$GITHUB_OUTPUT"
 
       - name: Validate and build eligible plugin metadata
-        if: steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
         env:
           TURBOISM_WORKTREE_ID: market-publish
         run: ./gradlew --no-daemon validatePluginMeta verifyFirstPartyPluginMetadata
 
       - name: Stage all eligible plugin candidates
-        if: steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
         run: |
           python3 scripts/release/prepare-market-release.py \
             --repo-root "$GITHUB_WORKSPACE" \
@@ -139,12 +187,14 @@ jobs:
           )
           python3 scripts/release/verify-release.py \
             --version "${{ steps.version.outputs.version }}" \
+            --channel "$TURBOISM_BUILD_CHANNEL" \
             --dist build/windows-installer/dist \
             --release-plugins packaging/release-plugins.txt \
             --windows-stage build/windows-installer/staging \
             --manifest-output build/release-orchestrator/framework-artifacts.json
 
       - name: Generate deterministic release candidate
+        if: needs.preflight.outputs.channel == 'stable'
         run: |
           # Local-only tag after all build/payload checks; never push from this job.
           python3 scripts/release/promote-github-release.py candidate-tag \
@@ -177,6 +227,7 @@ jobs:
           PY
 
       - name: Extract release notes from changelog
+        if: needs.preflight.outputs.channel == 'stable'
         run: |
           python3 scripts/release/extract-release-notes.py \
             CHANGELOG.md "${{ steps.version.outputs.version }}" \
@@ -185,7 +236,16 @@ jobs:
       - name: Write allocated build identity into the candidate evidence
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 scripts/release/build-identity.py receipt --source "$GITHUB_SHA" --output build/release-orchestrator/build-identity.json
+        run: python3 scripts/release/build-identity.py receipt --source "$GITHUB_SHA" --version "$TURBOISM_BUILD_VERSION" --channel "$TURBOISM_BUILD_CHANNEL" --output build/release-orchestrator/build-identity.json
+
+      - name: Prepare immutable Beta or Nightly candidate evidence
+        if: needs.preflight.outputs.channel != 'stable'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp -a build/windows-installer/dist build/release-orchestrator/dist
+          python3 scripts/release/product-build.py prepare --source "$GITHUB_SHA" --channel "$TURBOISM_BUILD_CHANNEL" --version "$TURBOISM_BUILD_VERSION"
+          rm -r build/release-orchestrator/dist
 
       - name: Upload verified candidate payload
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -194,6 +254,7 @@ jobs:
           path: |
             build/windows-installer/dist
             build/windows-installer/staging
+            build/release-orchestrator/prerelease-candidate.json
             build/release-orchestrator/candidate.json
             build/release-orchestrator/build-identity.json
             build/release-orchestrator/framework-artifacts.json
@@ -202,7 +263,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload market publication bundle
-        if: steps.policy.outputs.eligible != '0'
+        if: needs.preflight.outputs.channel == 'stable' && steps.policy.outputs.eligible != '0'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: turboism-market-release-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
@@ -216,5 +277,39 @@ jobs:
             echo '## Candidate verified — no official tag or Release was published'
             echo "Source: $GITHUB_SHA"
             echo "Candidate run: $GITHUB_RUN_ID; attempt: $GITHUB_RUN_ATTEMPT"
-            echo 'Review the artifacts, then explicitly dispatch release-github-only.yml.'
+            if [ "$TURBOISM_BUILD_CHANNEL" = nightly ]; then
+              echo 'The separate Nightly publishing job will revalidate this identity before publication.'
+            else
+              echo 'Review the artifacts, then explicitly dispatch release-github-only.yml.'
+            fi
+            echo "Channel: $TURBOISM_BUILD_CHANNEL; version: $TURBOISM_BUILD_VERSION; Build: $TURBOISM_BUILD_NUMBER"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  publish-nightly:
+    needs: [preflight, allocate-build, build]
+    if: needs.preflight.outputs.channel == 'nightly' && needs.build.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    permissions:
+      contents: write
+      actions: read
+    concurrency:
+      group: turboism-production-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: turboism-release-candidate-${{ github.sha }}-${{ github.run_id }}-${{ needs.allocate-build.outputs.run_attempt }}
+          path: build/nightly-candidate
+      - name: Revalidate the exact successful build and publish only Nightly
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_ATTEMPT: ${{ needs.allocate-build.outputs.run_attempt }}
+        run: |
+          cp -a build/nightly-candidate/windows-installer/dist build/nightly-candidate/release-orchestrator/dist
+          python3 scripts/release/product-build.py publish-nightly --source "$GITHUB_SHA" --channel nightly --attempt "$CANDIDATE_ATTEMPT" --bundle build/nightly-candidate/release-orchestrator
