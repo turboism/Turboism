@@ -15,7 +15,7 @@ import java.util.Set;
 public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
-        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale",
+        "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale", "useTextIcon",
         "safeMode", "diagnostics", "hooks", "launcher"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
@@ -137,6 +137,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
         validateStringArray(node, "disabledPlugins", "disabledPlugins", errors, source);
 
         validateOptionalBoolean(node, "safeMode", errors, source);
+        validateOptionalBoolean(node, "useTextIcon", errors, source);
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source);
 

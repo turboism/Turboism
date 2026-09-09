@@ -7,11 +7,18 @@ import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
 import dev.turboism.adapter.cubism.model.RuntimeModelObjectCreateProvider;
 import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.adapter.cubism.editor.transaction.EditorRefreshRequirement;
+import dev.turboism.adapter.cubism.editor.transaction.EditorUndoContribution;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionProvider;
 import dev.turboism.adapter.cubism.editor.transaction.RuntimeAuthoringTransactionService;
 import dev.turboism.adapter.cubism.editor.transaction.VerifiedEditorAuthoringTransactionHost;
 import dev.turboism.sdk.cubism.clipmask.ClipMaskReplacement;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ModelId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -42,6 +49,7 @@ import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -440,70 +448,210 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     }
 
     private void setParameterValue(
+            final String expectedIdentity,
+            final Object expectedModel,
+            final ParameterId id,
+            final float value
+        ) {
+            if (!Float.isFinite(value)) {
+                throw new IllegalArgumentException("value must be finite");
+            }
+            if (!resolver.authorizesFeature(
+                EditorParameterValueWriteSelectorContract.ADAPTER_SLICE_ID,
+                EditorParameterValueWriteSelectorContract.CAPABILITY_ID,
+                EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES
+            )) {
+                throw new UnsupportedOperationException(
+                    "Parameter value editing is unavailable without exact verified host evidence."
+                );
+            }
+            final Binding currentBinding = binding();
+            if (!currentBinding.identity().equals(expectedIdentity)
+                || currentBinding.model() != expectedModel) {
+                throw new IllegalStateException(
+                    "Cubism model reference is stale for the active Editor model generation."
+                );
+            }
+
+            final ParameterBinding parameterBinding = parameter(expectedModel, id);
+            final float oldValue = number(resolver.invoke(
+                "cubism.editor-model.parameter.value",
+                parameterBinding.parameter()
+            ));
+            final Object source = resolver.invoke(
+                "cubism.editor-model.parameter.source",
+                parameterBinding.parameter()
+            );
+            final float minimum = number(resolver.invoke(
+                "cubism.editor-model.parameter-source.minimum",
+                source
+            ));
+            final float maximum = number(resolver.invoke(
+                "cubism.editor-model.parameter-source.maximum",
+                source
+            ));
+            final float expectedValue = Math.max(minimum, Math.min(value, maximum));
+            if (Float.compare(oldValue, expectedValue) == 0) {
+                return;
+            }
+
+            if (!resolver.authorizesFeature(
+                "adapter.editor-model.readwrite",
+                "cubism.editor-history.read",
+                EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+            )) {
+                setParameterValueWithoutHistory(
+                    expectedIdentity,
+                    expectedModel,
+                    id,
+                    source,
+                    expectedValue
+                );
+                return;
+            }
+
+            final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+            final Object mainFrame = resolver.invoke(
+                "cubism.editor-model.app-controller.main-frame",
+                app
+            );
+            final Object palette = resolver.invoke(
+                "cubism.editor-model.main-frame.parameter-palette",
+                mainFrame
+            );
+            final Object paletteView = resolver.invoke(
+                "cubism.editor-model.parameter-palette.view",
+                palette
+            );
+            final Object operation = resolver.invoke(
+                "cubism.editor-model.parameter-palette-view.operation",
+                paletteView
+            );
+            final Object parameterSet = resolver.invoke(
+                "cubism.editor-model.model.parameter-set",
+                expectedModel
+            );
+            final EditorAuthoringTransactionCoordinator.Binding participation =
+                authoringParticipationBinding();
+            final String operationId = "cubism.parameter.set-value";
+            final String label = "Turboism: Set Parameter Value";
+            final HistoryEntryDetail detail = new HistoryEntryDetail(
+                "Set parameter " + id.value(),
+                HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.turboism(participation.pluginId(), operationId),
+                List.of(new HistoryTarget(
+                    "PARAMETER",
+                    Optional.of(id.value()),
+                    Optional.empty()
+                )),
+                List.of(HistoryChange.set(
+                    0,
+                    "value",
+                    Float.toString(oldValue),
+                    Float.toString(expectedValue)
+                )),
+                Optional.empty(),
+                Optional.empty()
+            );
+
+            authoringCoordinator.mutate(
+                participation,
+                new EditorUndoContribution(
+                    operationId,
+                    currentBinding.identity() + ":parameter:" + id.value(),
+                    label,
+                    (edit, transactionLabel) -> {
+                        final Object parameterUndo = resolver.construct(
+                            "cubism.editor-model.simple-undo.create",
+                            transactionLabel,
+                            parameterSet,
+                            null
+                        );
+                        final Object accepted = resolver.invoke(
+                            "cubism.editor-model.undo.add",
+                            edit,
+                            parameterUndo,
+                            Boolean.TRUE
+                        );
+                        if (!(accepted instanceof Boolean admitted) || !admitted) {
+                            throw new IllegalStateException(
+                                "Cubism rejected the Editor Parameter Undo entry."
+                            );
+                        }
+                    },
+                    () -> resolver.invoke(
+                        "cubism.editor-model.parameter-operation.set-value",
+                        operation,
+                        source,
+                        Float.valueOf(expectedValue)
+                    ),
+                    () -> Float.compare(number(resolver.invoke(
+                        "cubism.editor-model.parameter.value",
+                        parameter(expectedModel, id).parameter()
+                    )), expectedValue) == 0,
+                    () -> resolver.invoke(
+                        "cubism.editor-model.parameter-operation.set-value",
+                        operation,
+                        source,
+                        Float.valueOf(oldValue)
+                    ),
+                    () -> Float.compare(number(resolver.invoke(
+                        "cubism.editor-model.parameter.value",
+                        parameter(expectedModel, id).parameter()
+                    )), oldValue) == 0,
+                    EnumSet.of(
+                        EditorRefreshRequirement.PARAMETER_PALETTE,
+                        EditorRefreshRequirement.CANVAS,
+                        EditorRefreshRequirement.MARK_DIRTY
+                    ),
+                    detail
+                ).withCaptureAfter(() -> {
+                    requireCurrent(expectedIdentity, expectedModel);
+                    final float actual = number(resolver.invoke(
+                        "cubism.editor-model.parameter.value", parameter(expectedModel, id).parameter()
+                    ));
+                    return new HistoryEntryDetail(
+                        detail.summary(), HistoryAction.DetailLevel.FULL, detail.origin(), detail.targets(),
+                        List.of(HistoryChange.set(0, "value", Float.toString(oldValue), Float.toString(actual))),
+                        Optional.empty(), Optional.empty()
+                    );
+                })
+            );
+
+            requireCurrent(expectedIdentity, expectedModel);
+            final float finalValue = number(resolver.invoke(
+                "cubism.editor-model.parameter.value",
+                parameter(expectedModel, id).parameter()
+            ));
+            if (Float.compare(finalValue, expectedValue) != 0) {
+                throw new IllegalStateException("Editor parameter value postcondition failed.");
+            }
+        }
+
+    private void setParameterValueWithoutHistory(
         final String expectedIdentity,
         final Object expectedModel,
         final ParameterId id,
-        final float value
+        final Object source,
+        final float expectedValue
     ) {
-        if (!Float.isFinite(value)) {
-            throw new IllegalArgumentException("value must be finite");
-        }
-        if (!resolver.authorizesFeature(
-            EditorParameterValueWriteSelectorContract.ADAPTER_SLICE_ID,
-            EditorParameterValueWriteSelectorContract.CAPABILITY_ID,
-            EditorParameterValueWriteSelectorContract.REQUIRED_ALIASES
-        )) {
-            throw new UnsupportedOperationException(
-                "Parameter value editing is unavailable without exact verified host evidence."
-            );
-        }
-        final Binding currentBinding = binding();
-        if (!currentBinding.identity().equals(expectedIdentity)
-            || currentBinding.model() != expectedModel) {
-            throw new IllegalStateException(
-                "Cubism model reference is stale for the active Editor model generation."
-            );
-        }
-        final ParameterBinding binding = parameter(expectedModel, id);
-        final float oldValue = number(resolver.invoke(
-            "cubism.editor-model.parameter.value", binding.parameter()
-        ));
-        final Object source = resolver.invoke(
-            "cubism.editor-model.parameter.source", binding.parameter()
-        );
-        final float minimum = number(resolver.invoke(
-            "cubism.editor-model.parameter-source.minimum", source
-        ));
-        final float maximum = number(resolver.invoke(
-            "cubism.editor-model.parameter-source.maximum", source
-        ));
-        final float expectedValue = Math.max(minimum, Math.min(value, maximum));
-        if (Float.compare(oldValue, expectedValue) == 0) {
-            return;
-        }
         final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object document = resolver.invoke(
-            "cubism.editor-model.app-controller.current-document", app
+            "cubism.editor-model.app-controller.current-document",
+            app
         );
-        final boolean historyAuthorized = resolver.authorizesFeature(
-            "adapter.editor-model.readwrite",
-            "cubism.editor-history.read",
-            dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract.REQUIRED_ALIASES
-        );
-        final Object historyManager = historyAuthorized
-            ? resolver.invoke("cubism.editor-history.document.undo-manager", document)
-            : null;
-        final java.util.List<?> historyBefore = historyAuthorized
-            ? historyEntries(historyManager)
-            : java.util.List.of();
         final Object parameterSet = resolver.invoke(
-            "cubism.editor-model.model.parameter-set", expectedModel
+            "cubism.editor-model.model.parameter-set",
+            expectedModel
         );
         final Object editMode = resolver.invoke(
-            "cubism.editor-model.modeling-document.edit-mode", document
+            "cubism.editor-model.modeling-document.edit-mode",
+            document
         );
         final Object undo = resolver.invoke(
-            "cubism.editor-model.edit-mode.begin", editMode, "Turboism: Set Parameter Value"
+            "cubism.editor-model.edit-mode.begin",
+            editMode,
+            "Turboism: Set Parameter Value"
         );
         boolean completed = false;
         try {
@@ -520,19 +668,24 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
                 Boolean.TRUE
             );
             final Object completePack = resolver.invoke(
-                "cubism.editor-model.app-controller.complete-pack", app
+                "cubism.editor-model.app-controller.complete-pack",
+                app
             );
             final Object mainFrame = resolver.invoke(
-                "cubism.editor-model.app-controller.main-frame", app
+                "cubism.editor-model.app-controller.main-frame",
+                app
             );
             final Object palette = resolver.invoke(
-                "cubism.editor-model.main-frame.parameter-palette", mainFrame
+                "cubism.editor-model.main-frame.parameter-palette",
+                mainFrame
             );
             final Object paletteView = resolver.invoke(
-                "cubism.editor-model.parameter-palette.view", palette
+                "cubism.editor-model.parameter-palette.view",
+                palette
             );
             final Object operation = resolver.invoke(
-                "cubism.editor-model.parameter-palette-view.operation", paletteView
+                "cubism.editor-model.parameter-palette-view.operation",
+                paletteView
             );
             resolver.invoke(
                 "cubism.editor-model.parameter-operation.set-value",
@@ -562,32 +715,14 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         }
         requireCurrent(expectedIdentity, expectedModel);
         final float finalValue = number(resolver.invoke(
-            "cubism.editor-model.parameter.value", parameter(expectedModel, id).parameter()
+            "cubism.editor-model.parameter.value",
+            parameter(expectedModel, id).parameter()
         ));
-        if (historyAuthorized) {
-            dev.turboism.adapter.cubism.editor.history.EditorHistoryMetadataRegistry.registerAppended(
-                historyBefore,
-                historyEntries(historyManager),
-                new dev.turboism.sdk.cubism.history.HistoryAction(
-                    dev.turboism.sdk.cubism.history.HistoryAction.Kind.SET_PARAMETER_VALUE,
-                    "PARAMETER",
-                    id.value(),
-                    "value",
-                    java.util.Optional.of(Float.toString(oldValue)),
-                    java.util.Optional.of(Float.toString(finalValue)),
-                    dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.FULL
-                )
-            );
-    }
+        if (Float.compare(finalValue, expectedValue) != 0) {
+            throw new IllegalStateException("Editor parameter value postcondition failed.");
         }
+    }
 
-    private java.util.List<?> historyEntries(final Object manager) {
-        if (!resolver.isInstance("cubism.editor-history.manager.class", manager)) {
-            return java.util.List.of();
-        }
-        final Object entries = resolver.invoke("cubism.editor-history.manager.entries", manager);
-        return entries instanceof java.util.List<?> values ? java.util.List.copyOf(values) : java.util.List.of();
-    }
 
     private void updateParameterDefinition(
         final String expectedIdentity,

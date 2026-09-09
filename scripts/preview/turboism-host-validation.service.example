@@ -1,0 +1,24 @@
+# Opt-in user unit: review checkout and login display/auth environment first.
+# Copy to ~/.config/systemd/user/turboism-host-validation.service only after
+# acceptance. Never install/start this unit from a build or another Agent's job.
+[Unit]
+Description=Turboism local serial host-validation queue
+
+[Service]
+Type=simple
+# Replace only the EnvironmentFile placeholder in your private installed unit.
+# The actual checkout path is TURBOISM_HOST_VALIDATION_CHECKOUT in that .env.
+EnvironmentFile=/path/to/turboism/.env
+# WorkingDirectory does not expand environment variables. env --chdir does;
+# ${...} is one systemd argument even when the configured path contains spaces.
+ExecStart=/usr/bin/env --chdir=${TURBOISM_HOST_VALIDATION_CHECKOUT} /usr/bin/python3 scripts/preview/host_validation.py serve
+UMask=0077
+Restart=no
+# Stop only the worker; its SIGTERM handler drains the owned attempt. Do not
+# systemd-kill a Cubism/Proton process tree whose cleanup is still being verified.
+KillMode=process
+TimeoutStopSec=infinity
+SendSIGKILL=no
+
+[Install]
+WantedBy=default.target

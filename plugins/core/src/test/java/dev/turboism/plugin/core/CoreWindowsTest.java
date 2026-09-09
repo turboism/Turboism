@@ -1,7 +1,11 @@
 package dev.turboism.plugin.core;
 
 import dev.turboism.sdk.i18n.PluginLocalization;
+import dev.turboism.sdk.runtime.RuntimeLogReader;
+import dev.turboism.sdk.runtime.RuntimeSettings;
+import dev.turboism.sdk.runtime.RuntimeSettingsService;
 import org.junit.jupiter.api.Test;
+import javax.swing.JCheckBox;
 
 import java.nio.file.Files;
 import java.util.Locale;
@@ -32,6 +36,54 @@ class CoreWindowsTest {
         }
         @Override public boolean contains(final String key) { return true; }
     };
+
+    @Test
+    void textIconCheckboxDefaultsAndRoundTripsWithoutChangingOtherSettings() {
+        final RuntimeSettings initial = new RuntimeSettings(
+            true, "DEBUG", 256, true, false, true, true, "ja", false
+        );
+        final RuntimeSettings[] saved = {initial};
+        final RuntimeSettingsService service = new RuntimeSettingsService() {
+            @Override public RuntimeSettings read() { return saved[0]; }
+            @Override public RuntimeSettings save(final RuntimeSettings value) {
+                return saved[0] = value;
+            }
+            @Override public RuntimeSettingsService.DockCleanupResult cleanEmptyDocks() {
+                return new RuntimeSettingsService.DockCleanupResult("done");
+            }
+        };
+        final CoreWindows windows = new CoreWindows(
+            I18N, service, java.util.List::of, plugins(), RuntimeLogReader.unavailable()
+        );
+        try {
+            final JCheckBox checkbox = windows.createUseTextIconCheckBox(saved[0]);
+            assertFalse(checkbox.isSelected());
+            checkbox.setSelected(true);
+            saved[0] = service.save(CoreWindows.settingsFromControls(
+                saved[0].safeMode(), saved[0].logLevel(), saved[0].maxLogStorageMiB(),
+                saved[0].skipStartupUpdateCheck(), saved[0].skipStartupSplash(),
+                saved[0].skipStartupInformation(), saved[0].separateExportSaveDirectory(),
+                saved[0].locale(), checkbox.isSelected()
+            ));
+            assertEquals(
+                new RuntimeSettings(true, "DEBUG", 256, true, false, true, true, "ja", true),
+                saved[0]
+            );
+
+            final JCheckBox reopened = windows.createUseTextIconCheckBox(saved[0]);
+            assertTrue(reopened.isSelected());
+            reopened.setSelected(false);
+            saved[0] = service.save(CoreWindows.settingsFromControls(
+                saved[0].safeMode(), saved[0].logLevel(), saved[0].maxLogStorageMiB(),
+                saved[0].skipStartupUpdateCheck(), saved[0].skipStartupSplash(),
+                saved[0].skipStartupInformation(), saved[0].separateExportSaveDirectory(),
+                saved[0].locale(), reopened.isSelected()
+            ));
+            assertEquals(initial, saved[0]);
+        } finally {
+            windows.close();
+        }
+    }
 
     @Test
     void settingsOkClosesOnlyAfterASuccessfulSave() {
@@ -224,5 +276,18 @@ class CoreWindowsTest {
         final String version = CoreWindows.frameworkVersion();
         assertTrue(version.matches("\\d+\\.\\d+\\.\\d+"), "framework version: " + version);
         assertEquals(System.getProperty("turboism.expectedFrameworkVersion"), version);
+    }
+
+    private static CorePluginManagement plugins() {
+        return new CorePluginManagement() {
+            @Override public java.util.List<PluginInfo> plugins() { return java.util.List.of(); }
+            @Override public OperationResult install() { return OperationResult.rejected("unavailable"); }
+            @Override public OperationResult uninstall(final String id) {
+                return OperationResult.rejected("unavailable");
+            }
+            @Override public OperationResult setEnabled(final String id, final boolean enabled) {
+                return OperationResult.rejected("unavailable");
+            }
+        };
     }
 }

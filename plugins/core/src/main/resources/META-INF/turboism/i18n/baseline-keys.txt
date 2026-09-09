@@ -133,6 +133,7 @@ settings.tab.maintenance
 settings.tab.performance
 settings.tab.runtime
 settings.tab.startup
+settings.use-text-icon
 window.about.title
 window.logs.title
 window.plugin-details.title

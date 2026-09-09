@@ -10,7 +10,8 @@ public record HistoryEntry(
     boolean significant,
     Optional<HistoryAction> action,
     Optional<HistoryEntryId> entryId,
-    Optional<String> transactionId
+    Optional<String> transactionId,
+    HistoryEntryDetail detail
 ) {
 
     public HistoryEntry(final int index, final String label, final boolean significant) {
@@ -20,7 +21,8 @@ public record HistoryEntry(
             significant,
             Optional.empty(),
             Optional.empty(),
-            Optional.empty()
+            Optional.empty(),
+            HistoryEntryDetail.labelOnly(label)
         );
     }
 
@@ -30,7 +32,34 @@ public record HistoryEntry(
         final boolean significant,
         final Optional<HistoryAction> action
     ) {
-        this(index, label, significant, action, Optional.empty(), Optional.empty());
+        this(
+            index,
+            label,
+            significant,
+            action,
+            Optional.empty(),
+            Optional.empty(),
+            defaultDetail(label, action)
+        );
+    }
+
+    public HistoryEntry(
+        final int index,
+        final String label,
+        final boolean significant,
+        final Optional<HistoryAction> action,
+        final Optional<HistoryEntryId> entryId,
+        final Optional<String> transactionId
+    ) {
+        this(
+            index,
+            label,
+            significant,
+            action,
+            entryId,
+            transactionId,
+            defaultDetail(label, action)
+        );
     }
 
     public HistoryEntry {
@@ -40,20 +69,34 @@ public record HistoryEntry(
         entryId = Objects.requireNonNull(entryId, "entryId");
         transactionId = Objects.requireNonNull(transactionId, "transactionId")
             .map(HistoryEntry::normalizedTransactionId);
+        detail = Objects.requireNonNull(detail, "detail");
         if (transactionId.isPresent() && entryId.isEmpty()) {
             throw new IllegalArgumentException(
                 "transactionId requires a stable history entry identity"
             );
         }
+        if (action.isPresent() && !detail.isCompatibleWith(action.orElseThrow())) {
+            throw new IllegalArgumentException("action must not conflict with semantic detail");
+        }
     }
 
-    /**
-     * @return how much is known about this entry: the structured action's detail level when one was
-     *     resolved, otherwise {@code LABEL_ONLY}, meaning only the host's display label is trustworthy
-     */
+    /** @return the trusted semantic detail level for this entry. */
     public HistoryAction.DetailLevel detailLevel() {
-        return action.map(HistoryAction::detailLevel)
-            .orElse(HistoryAction.DetailLevel.LABEL_ONLY);
+        return detail.detailLevel();
+    }
+
+    private static HistoryEntryDetail defaultDetail(
+        final String label,
+        final Optional<HistoryAction> action
+    ) {
+        final Optional<HistoryAction> trustedAction = Objects.requireNonNull(action, "action");
+        return trustedAction
+            .map(value -> HistoryEntryDetail.fromAction(
+                label,
+                value,
+                HistoryOrigin.hostUnattributed()
+            ))
+            .orElseGet(() -> HistoryEntryDetail.labelOnly(label));
     }
 
     private static String normalizedTransactionId(final String value) {

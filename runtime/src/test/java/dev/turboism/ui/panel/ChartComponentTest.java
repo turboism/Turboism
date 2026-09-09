@@ -190,9 +190,11 @@ class ChartComponentTest {
             assertTrue(text[1] - text[0] + 1 <= fontHeight + 2,
                 "the value block must be one text line");
             assertTrue(text[2] <= 40, "the value must be left-aligned (minX=" + text[2] + ")");
-            assertTrue(text[3] - text[2] + 1 >= 30,
-                "the block must be the formatted value text, not a short placeholder (width="
-                    + (text[3] - text[2] + 1) + ")");
+            final int renderedWidth = text[3] - text[2] + 1;
+            final int expectedValueWidth = component.getFontMetrics(FONT).stringWidth("2.5 %");
+            assertTrue(renderedWidth >= expectedValueWidth - 1,
+                "the block must include the full formatted value text (width="
+                    + renderedWidth + "; expected at least " + expectedValueWidth + ")");
             assertEquals(66, baseline[0],
                 "the only other block must be the single baseline row at the bottom");
             assertEquals(66, baseline[1],

@@ -243,6 +243,7 @@ public final class RuntimeConfigRepository {
             dev.turboism.sdk.runtime.RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB
         );
         root.put("safeMode", false);
+        root.put("useTextIcon", false);
         final ObjectNode hooks = root.putObject("hooks");
         hooks.putArray("disabledIds");
         hooks.putArray("denylistedClasses");
