@@ -16,19 +16,21 @@ import java.util.Objects;
 /**
  * Package-private T003/T011 seam for PSD raw-image targeting and native export validation.
  *
- * <p>The caller supplies a raw-image native object already bound by the ID-based selector and a
- * runtime-owned target. The binding is an internal precondition, not a proof performed here:
- * the class check below only verifies the native runtime type and does not establish that the
- * object belongs to the supplied current model or RawImageId. Production binding remains
- * unconnected. The native save and parse calls are kept inside one synchronous
- * {@link EditorHostThread} boundary. This slice does not replace a raw image, open an editor,
- * create an Undo entry, or expose a host object or {@link Path} through the SDK. Final-path
+ * <p>The ID-based overload resolves the selected raw image from the current model-source texture
+ * manager before entering the native save/parse sequence. The low-level bound-source overload is
+ * retained only as an internal synthetic/native seam; its type check is not an ownership proof and
+ * production binding remains an explicit caller precondition for that primitive. The native save
+ * and parse calls are kept inside one synchronous {@link EditorHostThread} boundary. This slice does
+ * not replace a raw image, open an editor, create an Undo entry, or expose a host object or
+ * {@link Path} through the SDK. Final-path
  * {@link LinkOption#NOFOLLOW_LINKS} checks happen immediately before and after save; they do not
  * eliminate parent-path or general TOCTOU races, and this class is not a security registry.</p>
  */
 final class EditorRawImagePsdAccess {
     private final VerifiedMemberResolver resolver;
     private final EditorObjectReadAccess.CurrentGuard currentGuard;
+    private final EditorRawImagePsdIntegrityAccess integrityAccess;
+    private final EditorRawImagePsdSourceBinding sourceBinding;
 
     EditorRawImagePsdAccess(
         final VerifiedMemberResolver resolver,
@@ -36,25 +38,18 @@ final class EditorRawImagePsdAccess {
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        this.integrityAccess = new EditorRawImagePsdIntegrityAccess(resolver);
+        this.sourceBinding = new EditorRawImagePsdSourceBinding(resolver, integrityAccess);
     }
 
     /**
-     * Exports one explicitly bound native {@code CLayeredImage} and reparses its output.
-     * The caller must establish that binding as an internal precondition; this adapter's exact
-     * native-type check is not ownership verification, and production binding is not connected.
+     * Low-level internal native export primitive for synthetic invocation coverage.
      *
-     * <p>The verified {@code com.live2d.util.a.a.e()} factory supplies the concrete synchronous
-     * progress object required by {@code CLayeredImage.save(File, Progress)}. Its bytecode returns
-     * the native shared default instance, whose cancellation/status state is delegated to its
-     * internal state object and therefore reused; this adapter never treats it as a callback,
-     * resets it, or exposes it. A normal {@code void} return is not enough for success: the target
-     * must be a non-empty regular file, {@code CPsdDocument.Companion.a(File, false, false)} must
-     * return the exact parsed type, and the exact {@code CLayeredImage(parsed, file, name)}
-     * constructor must accept it. Parsed layer completeness remains explicitly unverified. The
-     * runtime-owned target may be absent or an existing zero-length ordinary file; existing
-     * non-empty files, symbolic links, and other file types are rejected.</p>
+     * <p>This method accepts an explicitly bound native value only for the isolated native seam;
+     * its type check is not an ownership proof. Production ID-based export uses the overload below
+     * and never accepts a caller-supplied native object.</p>
      */
-    ExportResult exportPsd(
+    ExportResult exportBoundPsd(
         final String identity,
         final Object model,
         final Object boundNativeSource,
@@ -84,11 +79,75 @@ final class EditorRawImagePsdAccess {
 
         return EditorHostThread.dispatch(
             "Cubism PSD raw-image export",
-            () -> exportOnHostThread(identity, model, boundNativeSource, target)
+            () -> exportBoundOnHostThread(identity, model, boundNativeSource, target)
+        );
+    }
+
+    /**
+     * Resolves the current model-source raw image by exact {@link RawImageId}, saves it, and
+     * reparses the output inside one synchronous host-thread/current-model boundary.
+     */
+    ExportResult exportPsd(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final RawImageId sourceId,
+        final Path target
+    ) {
+        Objects.requireNonNull(identity, "identity");
+        Objects.requireNonNull(modelSource, "modelSource");
+        Objects.requireNonNull(model, "model");
+        Objects.requireNonNull(sourceId, "sourceId");
+        Objects.requireNonNull(target, "target");
+
+        if (!resolver.isExactCubismVersion(EditorRawImagePsdSelectorContract.SUPPORTED_CUBISM_VERSION)) {
+            return ExportResult.unavailable(
+                target,
+                "unsupported Cubism version: " + resolver.cubismVersion()
+            );
+        }
+        if (!resolver.authorizesFeature(
+            EditorRawImagePsdSelectorContract.ADAPTER_SLICE_ID,
+            EditorRawImagePsdSelectorContract.CAPABILITY_ID,
+            EditorRawImagePsdSelectorContract.REQUIRED_ALIASES
+        )) {
+            return ExportResult.unavailable(
+                target,
+                "PSD raw-image export lacks the complete exact selector authorization"
+            );
+        }
+
+        return EditorHostThread.dispatch(
+            "Cubism PSD raw-image export",
+            () -> exportOnHostThread(identity, modelSource, model, sourceId, target)
         );
     }
 
     private ExportResult exportOnHostThread(
+        final String identity,
+        final Object modelSource,
+        final Object model,
+        final RawImageId sourceId,
+        final Path target
+    ) {
+        currentGuard.requireCurrent(identity, model);
+        final EditorRawImagePsdSourceBinding.BindingResult binding =
+            sourceBinding.bindOnHostThread(modelSource, sourceId);
+        if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
+            return ExportResult.bindingRejected(target, binding);
+        }
+        final ExportResult result = exportNativeOnHostThread(
+            binding.candidate().nativeSource(),
+            target,
+            binding.snapshot()
+        );
+        if (result.saveReturned()) {
+            currentGuard.requireCurrent(identity, model);
+        }
+        return result;
+    }
+
+    private ExportResult exportBoundOnHostThread(
         final String identity,
         final Object model,
         final Object boundNativeSource,
@@ -106,6 +165,15 @@ final class EditorRawImagePsdAccess {
         final Object boundNativeSource,
         final Path target
     ) {
+        return exportNativeOnHostThread(boundNativeSource, target, null);
+    }
+
+    private ExportResult exportNativeOnHostThread(
+        final Object boundNativeSource,
+        final Path target,
+        final EditorRawImagePsdIntegrityAccess.Snapshot beforeSnapshot
+    ) {
+
         final File targetFile = target.toFile();
         boolean saveReturned = false;
         TargetPathSafety pathSafety = TargetPathSafety.NOT_CHECKED;
@@ -126,7 +194,7 @@ final class EditorRawImagePsdAccess {
             }
             phase = FailurePhase.PROGRESS;
             final Object progress = requireNativeValue(
-                EditorRawImagePsdSelectorContract.PSD_PROGRESS_DEFAULT_ALIAS,
+                "cubism.editor-model.psd-progress.default",
                 resolver.invokeStatic("cubism.editor-model.psd-progress.default")
             );
 
@@ -160,7 +228,7 @@ final class EditorRawImagePsdAccess {
 
             phase = FailurePhase.PARSE;
             final Object companion = requireNativeValue(
-                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS,
+                "cubism.editor-model.psd-document.companion",
                 resolver.readStaticField("cubism.editor-model.psd-document.companion")
             );
             final Object parsed = resolver.invoke(
@@ -199,7 +267,24 @@ final class EditorRawImagePsdAccess {
                     "parsed PSD did not reconstruct as the verified CLayeredImage type"
                 );
             }
-            return ExportResult.readableUnverified(target, pathSafety);
+            EditorRawImagePsdIntegrityAccess.Verification integrityVerification;
+            if (beforeSnapshot == null) {
+                integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                    "source binding snapshot was not supplied; export fidelity was not compared"
+                );
+            } else {
+                try {
+                    final EditorRawImagePsdIntegrityAccess.Snapshot afterSnapshot =
+                        integrityAccess.captureOnHostThread(reconstructed);
+                    integrityVerification = integrityAccess.verify(beforeSnapshot, afterSnapshot);
+                } catch (RuntimeException failure) {
+                    integrityVerification = EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                        "reparsed PSD was readable but export fidelity could not be observed: "
+                            + message(failure)
+                    );
+                }
+            }
+            return ExportResult.readableUnverified(target, pathSafety, integrityVerification);
         } catch (IOException exception) {
             return ExportResult.targetCheckFailed(target, saveReturned, pathSafety, phase, exception);
         } catch (RuntimeException exception) {
@@ -304,7 +389,8 @@ final class EditorRawImagePsdAccess {
         LayerCompleteness layerCompleteness,
         FailurePhase failurePhase,
         String failureType,
-        String failureMessage
+        String failureMessage,
+        EditorRawImagePsdIntegrityAccess.Verification integrityVerification
     ) {
         ExportResult {
             Objects.requireNonNull(status, "status");
@@ -312,6 +398,34 @@ final class EditorRawImagePsdAccess {
             Objects.requireNonNull(targetPathSafety, "targetPathSafety");
             Objects.requireNonNull(layerCompleteness, "layerCompleteness");
             Objects.requireNonNull(failurePhase, "failurePhase");
+            Objects.requireNonNull(integrityVerification, "integrityVerification");
+        }
+
+        ExportResult(
+            final ExportStatus status,
+            final Path target,
+            final TargetPathSafety targetPathSafety,
+            final boolean saveReturned,
+            final boolean outputReadable,
+            final LayerCompleteness layerCompleteness,
+            final FailurePhase failurePhase,
+            final String failureType,
+            final String failureMessage
+        ) {
+            this(
+                status,
+                target,
+                targetPathSafety,
+                saveReturned,
+                outputReadable,
+                layerCompleteness,
+                failurePhase,
+                failureType,
+                failureMessage,
+                EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                    "export integrity was not captured for this result"
+                )
+            );
         }
 
         private static ExportResult unavailable(final Path target, final String detail) {
@@ -342,6 +456,26 @@ final class EditorRawImagePsdAccess {
                 FailurePhase.SOURCE_IDENTITY,
                 "BOUND_SOURCE_TYPE",
                 "bound native source is not the exact verified CLayeredImage type"
+            );
+        }
+
+        private static ExportResult bindingRejected(
+            final Path target,
+            final EditorRawImagePsdSourceBinding.BindingResult binding
+        ) {
+            final ExportStatus status = binding.status() == EditorRawImagePsdSourceBinding.BindingStatus.UNAVAILABLE
+                ? ExportStatus.UNAVAILABLE
+                : ExportStatus.BOUND_SOURCE_INVALID;
+            return new ExportResult(
+                status,
+                target,
+                TargetPathSafety.NOT_CHECKED,
+                false,
+                false,
+                LayerCompleteness.UNVERIFIED,
+                FailurePhase.SOURCE_BINDING,
+                "SOURCE_BINDING_" + binding.status().name(),
+                binding.detail()
             );
         }
 
@@ -428,6 +562,20 @@ final class EditorRawImagePsdAccess {
             final Path target,
             final TargetPathSafety pathSafety
         ) {
+            return readableUnverified(
+                target,
+                pathSafety,
+                EditorRawImagePsdIntegrityAccess.Verification.unavailable(
+                    "source binding snapshot was not supplied; export fidelity was not compared"
+                )
+            );
+        }
+
+        private static ExportResult readableUnverified(
+            final Path target,
+            final TargetPathSafety pathSafety,
+            final EditorRawImagePsdIntegrityAccess.Verification integrityVerification
+        ) {
             return new ExportResult(
                 ExportStatus.READABLE_UNVERIFIED,
                 target,
@@ -437,7 +585,8 @@ final class EditorRawImagePsdAccess {
                 LayerCompleteness.UNVERIFIED,
                 FailurePhase.NONE,
                 null,
-                null
+                null,
+                integrityVerification
             );
         }
 
@@ -491,6 +640,7 @@ final class EditorRawImagePsdAccess {
         AVAILABILITY,
         TARGET_PRECHECK,
         SOURCE_IDENTITY,
+        SOURCE_BINDING,
         PROGRESS,
         SOURCE_NAME,
         SAVE,
