@@ -35,10 +35,12 @@ public record TextureInputBinding(
         }
     }
 
+    /** Creates a resolved model-image input; the ID must be non-null. */
     public static TextureInputBinding modelImage(final ModelImageId id) {
         return modelImage(id, ResolutionState.RESOLVED);
     }
 
+    /** Creates a model-image input; a null ID is allowed only when unresolved. */
     public static TextureInputBinding modelImage(
         final ModelImageId id,
         final ResolutionState resolutionState
@@ -51,10 +53,12 @@ public record TextureInputBinding(
         );
     }
 
+    /** Creates a resolved atlas input; the ID must be non-null. */
     public static TextureInputBinding atlas(final TextureAtlasId id) {
         return atlas(id, ResolutionState.RESOLVED);
     }
 
+    /** Creates an atlas input; a null ID is allowed only when unresolved. */
     public static TextureInputBinding atlas(
         final TextureAtlasId id,
         final ResolutionState resolutionState
@@ -67,6 +71,7 @@ public record TextureInputBinding(
         );
     }
 
+    /** Represents an input whose kind and identity could not be determined. */
     public static TextureInputBinding unknown() {
         return new TextureInputBinding(
             Kind.UNKNOWN,
@@ -76,6 +81,7 @@ public record TextureInputBinding(
         );
     }
 
+    /** Represents an input whose details are unavailable from the adapter. */
     public static TextureInputBinding unavailable() {
         return new TextureInputBinding(
             Kind.UNKNOWN,
@@ -85,6 +91,7 @@ public record TextureInputBinding(
         );
     }
 
+    /** Returns whether this input carries a resolved, typed resource identity. */
     public boolean isResolved() {
         return resolutionState == ResolutionState.RESOLVED;
     }

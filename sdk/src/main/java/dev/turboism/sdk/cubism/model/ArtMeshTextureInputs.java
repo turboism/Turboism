@@ -22,10 +22,12 @@ public record ArtMeshTextureInputs(
         }
     }
 
+    /** Returns the ArtMesh identity; alias for {@link #id()}. */
     public ArtMeshId artMeshId() {
         return id;
     }
 
+    /** Returns the zero-based current input index, or empty when unknown. */
     public OptionalInt currentIndex() {
         return currentInputIndex;
     }

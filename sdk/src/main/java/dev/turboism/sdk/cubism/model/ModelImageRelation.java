@@ -36,18 +36,22 @@ public record ModelImageRelation(
         }
     }
 
+    /** Returns the model-image identity; alias for {@link #id()}. */
     public ModelImageId modelImageId() {
         return id;
     }
 
+    /** Returns the model-image metadata captured in this relation. */
     public ModelImageEntry entry() {
         return modelImage;
     }
 
+    /** Returns immutable ordered layer inputs grouped by raw-image identity. */
     public Map<RawImageId, List<RawLayerBinding>> layerInputsByRawImage() {
         return inputsByRawImage;
     }
 
+    /** Returns the captured users of this model image, which may be shared. */
     public List<ArtMeshId> artMeshIds() {
         return usingArtMeshIds;
     }
