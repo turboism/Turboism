@@ -65,6 +65,7 @@ public final class EditorTextureRelationsSelectorContract {
             "cubism.editor-model.art-mesh-source.class",
             "cubism.editor-model.art-mesh.class",
             "cubism.editor-model.art-mesh.source",
+            "cubism.editor-model.id.value",
             "cubism.editor-model.parameter-controllable-source.id"
         ));
         return Set.copyOf(aliases);
