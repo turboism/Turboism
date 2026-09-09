@@ -65,7 +65,7 @@ class MainToolbarHomeEntryServiceTest {
             sha256Resource("/icons/main-toolbar-home-hover.png")
         );
         assertEquals(
-            "36b4fc5a09bac5f3325f88ea0419b8ba9b53e0cebc67f4a154731f3b5328213e",
+            "2a0017255b5e310c48d2725a25e4e9665e0b26af11272d53dfda7c45f7e2b3f4",
             sha256Resource("/icons/main-toolbar-installer.png")
         );
         try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream("/icons/main-toolbar-installer.png")) {
@@ -74,6 +74,11 @@ class MainToolbarHomeEntryServiceTest {
             assertNotNull(icon, "installer toolbar icon must decode as a PNG");
             assertEquals(32, icon.getWidth(), "installer toolbar icon width");
             assertEquals(32, icon.getHeight(), "installer toolbar icon height");
+            final int[] bounds = alphaBounds(icon);
+            assertEquals(7, bounds[0], "installer icon left padding");
+            assertEquals(6, bounds[1], "installer icon top padding");
+            assertEquals(18, bounds[2], "installer icon visible width");
+            assertEquals(20, bounds[3], "installer icon visible height");
         }
     }
 
@@ -162,6 +167,25 @@ class MainToolbarHomeEntryServiceTest {
                 MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes())
             );
         }
+    }
+
+    private static int[] alphaBounds(final BufferedImage image) {
+        int minX = image.getWidth();
+        int minY = image.getHeight();
+        int maxX = -1;
+        int maxY = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) > 0) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        assertTrue(maxX >= minX && maxY >= minY, "icon must contain visible pixels");
+        return new int[] {minX, minY, maxX - minX + 1, maxY - minY + 1};
     }
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
         return service(uiHost, new RuntimeSettings(false, "INFO", false, false, false));
