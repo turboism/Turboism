@@ -31,6 +31,8 @@ public final class RuntimeExportSettingsContributionRegistry
     static final String PROCEED_UNEXPECTED_KEY = "export-settings.proceed-unexpected";
     static final String CALLBACK_DRAIN_TIMEOUT_KEY = "export-settings.callback-drain-timeout";
     private static final long CALLBACK_DRAIN_TIMEOUT_MILLIS = 5_000L;
+    static final String CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY =
+        "export-settings.callback-active-during-scope-close";
 
     private final String pluginId;
     private final long generation;
@@ -39,6 +41,9 @@ public final class RuntimeExportSettingsContributionRegistry
     private final ThreadLocal<Integer> callbackDepth = ThreadLocal.withInitial(() -> 0);
     private boolean closed;
     private int activeCallbacks;
+    private boolean closeReturnedReentrantly;
+    private boolean closeDrainTimedOut;
+    private boolean closeDrainInterrupted;
 
     public RuntimeExportSettingsContributionRegistry(final String pluginId, final long generation) {
         this.pluginId = requireText(pluginId, "pluginId");
@@ -170,13 +175,58 @@ public final class RuntimeExportSettingsContributionRegistry
     }
 
     /**
+     * Runtime-only lifecycle evidence for integration and shutdown diagnostics. The reentrant and
+     * drain-failure flags are sticky so a direct callback close is never reported as a quiet
+     * successful teardown.
+     */
+    public record LifecycleSnapshot(
+        boolean closed,
+        int activeCallbacks,
+        boolean closeReturnedReentrantly,
+        boolean closeDrainTimedOut,
+        boolean closeDrainInterrupted
+    ) {
+    }
+
+    /** Returns a synchronized snapshot without exposing plugin callback state or host objects. */
+    public LifecycleSnapshot lifecycleSnapshot() {
+        synchronized (lifecycleLock) {
+            return new LifecycleSnapshot(
+                closed,
+                activeCallbacks,
+                closeReturnedReentrantly,
+                closeDrainTimedOut,
+                closeDrainInterrupted
+            );
+        }
+    }
+
+    /**
+     * Scope closeable for the preview composition. It is registered after every other plugin
+     * closeable, so a callback that re-enters unload fails scope disposal before the shutdown
+     * stages are allowed to release the plugin classloader.
+     */
+    public AutoCloseable scopeCloseGuard() {
+        return () -> {
+            close();
+            final LifecycleSnapshot snapshot = lifecycleSnapshot();
+            if (snapshot.activeCallbacks() > 0 || snapshot.closeReturnedReentrantly()) {
+                throw new IllegalStateException(CALLBACK_ACTIVE_DURING_SCOPE_CLOSE_KEY);
+            }
+            if (snapshot.closeDrainTimedOut() || snapshot.closeDrainInterrupted()) {
+                throw new IllegalStateException(CALLBACK_DRAIN_TIMEOUT_KEY);
+            }
+        };
+    }
+
+    /**
      * Plugin scope cleanup. New callbacks are rejected immediately; an already leased
      * callback is allowed to finish, with a bounded drain for a different closing thread.
+     * A callback-thread close returns directly and leaves sticky lifecycle evidence for the
+     * scope guard and later shutdown diagnostics.
      */
     @Override
     public void close() {
-        final boolean reentrant;
-        final long deadline;
         synchronized (lifecycleLock) {
             if (closed) {
                 return;
@@ -184,15 +234,16 @@ public final class RuntimeExportSettingsContributionRegistry
             closed = true;
             contributions.clear();
             lifecycleLock.notifyAll();
-            reentrant = callbackDepth.get() > 0;
-            deadline = System.nanoTime()
-                + CALLBACK_DRAIN_TIMEOUT_MILLIS * 1_000_000L;
-            if (reentrant) {
+            if (callbackDepth.get() > 0) {
+                closeReturnedReentrantly = true;
                 return;
             }
+            final long deadline = System.nanoTime()
+                + CALLBACK_DRAIN_TIMEOUT_MILLIS * 1_000_000L;
             while (activeCallbacks > 0) {
                 final long remainingNanos = deadline - System.nanoTime();
                 if (remainingNanos <= 0L) {
+                    closeDrainTimedOut = true;
                     throw new IllegalStateException(CALLBACK_DRAIN_TIMEOUT_KEY);
                 }
                 try {
@@ -200,6 +251,7 @@ public final class RuntimeExportSettingsContributionRegistry
                     lifecycleLock.wait(millis);
                 } catch (InterruptedException interrupted) {
                     Thread.currentThread().interrupt();
+                    closeDrainInterrupted = true;
                     throw new IllegalStateException(CALLBACK_DRAIN_TIMEOUT_KEY, interrupted);
                 }
             }

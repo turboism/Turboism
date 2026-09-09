@@ -299,8 +299,12 @@ public final class CorePluginContext implements PluginContext {
             runtimeSettings,
             fileChooserHistory
         );
-        this.exportSettingsContributionService =
-            Objects.requireNonNull(exportSettings, "exportSettings");
+        // Reuse the existing exact-version/safe-mode interceptor. The getter below returns this
+        // service directly; registration is inert and does not claim native host readiness.
+        this.exportSettingsContributionService = editorApiAvailability.wrapForTesting(
+            Objects.requireNonNull(exportSettings, "exportSettings"),
+            ExportSettingsContributionService.class
+        );
     }
 
     private static DefaultCubismServicesFactory servicesFactory(
