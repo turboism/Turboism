@@ -34,16 +34,21 @@ public final class TextureRelationsHostProbeTest {
         final String observation = "PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=MATCHED_UNVERIFIED;readable=true;structure=true";
         TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.FAILED,
             observation, rawId, Optional.empty(), Optional.empty()));
+        for (final String integrity : List.of("MATCHED_UNVERIFIED", "MISMATCH", "UNAVAILABLE")) {
+            TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.FAILED,
+                observation.replace("MATCHED_UNVERIFIED", integrity).replace("structure=true", "structure=false"),
+                rawId, Optional.empty(), Optional.empty()));
+        }
         for (final var invalid : List.of(
             new PsdExportResult(PsdExportResult.Status.UNAVAILABLE, observation, rawId, Optional.empty(), Optional.empty()),
-            new PsdExportResult(PsdExportResult.Status.FAILED, observation.replace("structure=true", "structure=false"),
+            new PsdExportResult(PsdExportResult.Status.FAILED, observation.replace("readable=true", "readable=false"),
                 rawId, Optional.empty(), Optional.empty()),
             new PsdExportResult(PsdExportResult.Status.FAILED, "not observed", rawId, Optional.empty(), Optional.empty()))) {
             try { TextureRelationsHostProbe.validateExportObservation(invalid); }
             catch (IllegalStateException expected) { continue; }
             throw new AssertionError("Expected export observation rejection");
         }
-        System.out.println("PASS: 4 export-observation assertion cases; not host evidence");
+        System.out.println("PASS: 7 readable-v2 export-observation assertion cases; not host evidence");
     }
     static TextureRelationsSnapshot snapshot(List<RawImageDetails> raw, List<ModelImageRelation> images,
         List<ArtMeshTextureInputs> meshes) {
