@@ -156,12 +156,46 @@ class EditorRawImagePsdSelectorContractTest {
     }
 
     @Test
+    void recordPinsTheLayeredImageDimensionsUsedByIntegrityObservation() throws Exception {
+        final Map<String, StaticSelector> selectors = new HashMap<>();
+        for (final StaticSelector selector : new StaticVerificationRecordLoader()
+            .load(RECORD_PATH)
+            .record()
+            .selectors()) {
+            selectors.put(selector.alias(), selector);
+        }
+
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_WIDTH_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/cubism/doc/resources/CLayeredImage",
+            "getWidth",
+            "()I",
+            17,
+            8
+        );
+        assertShape(
+            selectors,
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_HEIGHT_ALIAS,
+            StaticSelector.Kind.METHOD,
+            "com/live2d/cubism/doc/resources/CLayeredImage",
+            "getHeight",
+            "()I",
+            17,
+            8
+        );
+    }
+
+    @Test
     void draftMappingPackCarriesEveryNewPsdSelectorAlias() throws Exception {
         final var pack = new ObjectMapper().readTree(DRAFT_PACK_PATH.toFile());
         final Set<String> aliases = new HashSet<>();
         pack.get("entries").forEach(entry -> aliases.add(entry.get("name").asText()));
 
         assertTrue(aliases.containsAll(Set.of(
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_WIDTH_ALIAS,
+            EditorRawImagePsdSelectorContract.LAYERED_IMAGE_HEIGHT_ALIAS,
             EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS,
             EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_ALIAS,
             EditorRawImagePsdSelectorContract.PSD_DOCUMENT_COMPANION_CLASS_ALIAS,
