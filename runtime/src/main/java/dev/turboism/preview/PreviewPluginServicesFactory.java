@@ -6,6 +6,7 @@ import dev.turboism.adapter.host.RuntimeHostAdapterAccess;
 import dev.turboism.cleanup.CleanupEvidenceCollector;
 import dev.turboism.config.RuntimeTypedPluginConfigRegistry;
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.exportsettings.RuntimeExportSettingsContributionRegistry;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -199,6 +200,11 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
         final PluginHomePaths paths = TurboismHomeLayout.create(home).plugin(descriptor.id());
         final CleanupEvidenceCollector evidence = new CleanupEvidenceCollector();
         final RuntimePluginTaskScheduler tasks = tasks(descriptor, scope, evidence);
+        final RuntimeExportSettingsContributionRegistry exportSettings =
+            new RuntimeExportSettingsContributionRegistry(
+                descriptor.id(), Objects.requireNonNull(eventOwner, "eventOwner").key().generation()
+            );
+        scope.register(exportSettings);
         final Set<String> permissions = permissionIds(descriptor);
         final CorePluginContext.Dependencies dependencies = dependencies(
             descriptor, paths, uiScheduler, scope, eventOwner, classLoader
@@ -224,6 +230,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
                 },
                 mcpConnections
             ),
+            exportSettings,
             evidence
         );
     }
@@ -369,6 +376,7 @@ record PreviewPluginServices(
     RuntimeUserFileAccessService userFiles,
     RuntimeAsyncHostReadService hostReads,
     dev.turboism.sdk.mcp.McpConnectionService mcpConnections,
+    RuntimeExportSettingsContributionRegistry exportSettings,
     CleanupEvidenceCollector cleanupEvidence
 ) {
 }

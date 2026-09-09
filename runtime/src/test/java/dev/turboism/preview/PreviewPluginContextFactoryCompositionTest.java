@@ -91,6 +91,10 @@ class PreviewPluginContextFactoryCompositionTest {
                         PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
                         scope
                     ).context();
+                    assertInstanceOf(
+                        dev.turboism.exportsettings.RuntimeExportSettingsContributionRegistry.class,
+                        context.exportSettings()
+                    );
                     final RuntimeUserFileAccessService userFiles =
                         assertInstanceOf(RuntimeUserFileAccessService.class, context.userFiles());
                     actualSource.set(assertInstanceOf(SwingUserFileGrantSource.class, sourceOf(userFiles)));

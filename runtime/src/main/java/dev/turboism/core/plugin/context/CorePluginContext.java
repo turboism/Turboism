@@ -26,6 +26,7 @@ import dev.turboism.screenshot.RuntimeScreenshotCaptureService;
 import dev.turboism.sdk.action.ActionRegistry;
 import dev.turboism.sdk.appearance.AppearanceService;
 import dev.turboism.sdk.cubism.CubismFacade;
+import dev.turboism.sdk.cubism.export.ExportSettingsContributionService;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
 import dev.turboism.sdk.cubism.recentfile.RecentFileService;
 import dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService;
@@ -100,6 +101,8 @@ public final class CorePluginContext implements PluginContext {
     private final PluginStorage pluginStorage;
     private volatile ScriptService scriptService = ScriptService.unavailable();
     private volatile McpConnectionService mcpConnectionService = McpConnectionService.unavailable();
+    private volatile ExportSettingsContributionService exportSettingsContributionService =
+        ExportSettingsContributionService.unavailable();
     private final UserFileAccessService userFileAccessService;
     private final AsyncHostReadService asyncHostReadService;
     private final MeshMirrorAxisService meshMirrorAxisService;
@@ -271,6 +274,33 @@ public final class CorePluginContext implements PluginContext {
             runtimeSettings,
             fileChooserHistory
         );
+    }
+
+    public CorePluginContext(
+        final Dependencies dependencies,
+        final RuntimeHostAdapterAccess hostAccess,
+        final PluginLocalization localization,
+        final PluginTaskScheduler taskScheduler,
+        final PluginStorage pluginStorage,
+        final UserFileAccessService userFileAccessService,
+        final AsyncHostReadService asyncHostReadService,
+        final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
+        final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory,
+        final ExportSettingsContributionService exportSettings
+    ) {
+        this(
+            dependencies,
+            hostAccess,
+            localization,
+            taskScheduler,
+            pluginStorage,
+            userFileAccessService,
+            asyncHostReadService,
+            runtimeSettings,
+            fileChooserHistory
+        );
+        this.exportSettingsContributionService =
+            Objects.requireNonNull(exportSettings, "exportSettings");
     }
 
     private static DefaultCubismServicesFactory servicesFactory(
@@ -844,6 +874,11 @@ public final class CorePluginContext implements PluginContext {
         return userFileAccessService == null
             ? PluginContext.super.userFiles()
             : userFileAccessService;
+    }
+
+    @Override
+    public ExportSettingsContributionService exportSettings() {
+        return exportSettingsContributionService;
     }
 
     @Override

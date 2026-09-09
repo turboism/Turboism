@@ -145,7 +145,7 @@ final class PreviewPluginContextFactory implements AutoCloseable {
                 services.dependencies().withConfig(services.typedConfig()), hostAccess,
                 services.localization(), services.taskScheduler(), services.pluginStorage(),
                 services.userFiles(), services.hostReads(), null,
-                fileChooserHistory
+                fileChooserHistory, services.exportSettings()
             );
             context.installScriptService(new dev.turboism.script.RuntimeScriptService(
                 home,
