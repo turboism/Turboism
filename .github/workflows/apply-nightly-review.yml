@@ -35,7 +35,8 @@ jobs:
             return data
           patch=gzip.decompress(base64.b64decode(b''.join(blob(s) for s in ids),validate=True))
           assert hashlib.sha256(patch).hexdigest()=='1fad323ebe0ce708e1a6d17706ec98428f89a58a4d0867078f914dd4a086cd28'
-          for index,data in enumerate([patch,blob('87968926ceeb6363eff9abf986342eb183aff319'),blob('45d15b36fb03ba97235bf2dfecd81fa8abdc1160')]):
+          patches=[patch]+[blob(s) for s in ['87968926ceeb6363eff9abf986342eb183aff319','45d15b36fb03ba97235bf2dfecd81fa8abdc1160','a0b2c1694e67b6cdae3e23850c14621bf897ed21']]
+          for index,data in enumerate(patches):
             p=Path(os.environ['RUNNER_TEMP'])/f'nightly-{index}.patch';p.write_bytes(data)
             subprocess.run(['git','apply','--check',str(p)],check=True);subprocess.run(['git','apply','--index',str(p)],check=True)
           subprocess.run(['git','diff','--cached','--check'],check=True)
@@ -55,6 +56,7 @@ jobs:
         run: |
           BASE="$(python3 -c 'import sys;from pathlib import Path;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;print(framework_version(Path.cwd()))')"
           export TURBOISM_BUILD_NUMBER=900000 TURBOISM_SOURCE_REVISION="$GITHUB_SHA" TURBOISM_NIGHTLY_VERSION="$BASE-0.nightly.900000"
+          ./gradlew --no-daemon checkSdkV7ExactApiCompatibility -PinstallerVersion="$TURBOISM_NIGHTLY_VERSION" -PturboismRelease=true --console=plain
           ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_NIGHTLY_VERSION" -PturboismRelease=true --console=plain
           bash packaging/windows-installer/assemble-release.sh "$TURBOISM_NIGHTLY_VERSION"
           python3 scripts/release/verify-release.py --channel nightly --version "$TURBOISM_NIGHTLY_VERSION" --dist build/windows-installer/dist --release-plugins packaging/release-plugins.txt --windows-stage build/windows-installer/staging
