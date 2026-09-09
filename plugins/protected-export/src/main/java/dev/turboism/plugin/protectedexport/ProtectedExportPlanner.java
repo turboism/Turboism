@@ -108,7 +108,7 @@ final class ProtectedExportPlanner {
             drawablesById
         );
 
-        final Set<String> sourceIds = sourceStrings(drawables);
+        final Set<String> sourceIds = sourceStrings(parts, parameters, readDeformers, drawables);
         final Set<String> sourceNames = sourceNames(drawables);
         return new ProtectedExportPlan(
             deformerOrder,
@@ -569,10 +569,18 @@ final class ProtectedExportPlanner {
         }
     }
 
-    private static Set<String> sourceStrings(final List<DrawableSnapshot> drawables) {
-        return Set.copyOf(drawables.stream()
-            .map(drawable -> text(drawable.id().value(), "ArtMesh ID"))
-            .toList());
+    private static Set<String> sourceStrings(
+        final List<PartSnapshot> parts,
+        final List<ParameterSnapshot> parameters,
+        final List<DeformerSnapshot> deformers,
+        final List<DrawableSnapshot> drawables
+    ) {
+        final Set<String> ids = new HashSet<>();
+        parts.forEach(part -> ids.add(text(part.id().value(), "Part ID")));
+        parameters.forEach(parameter -> ids.add(text(parameter.id().value(), "Parameter ID")));
+        deformers.forEach(deformer -> ids.add(text(deformer.id().value(), "deformer ID")));
+        drawables.forEach(drawable -> ids.add(text(drawable.id().value(), "ArtMesh ID")));
+        return Set.copyOf(ids);
     }
 
     private static Set<String> sourceNames(final List<DrawableSnapshot> drawables) {
