@@ -21,6 +21,7 @@ public record RawLayerBinding(
         clippingAvailability = Objects.requireNonNull(clippingAvailability, "clippingAvailability");
     }
 
+    /** Returns the bound raw-layer identity, not the owning raw-image ID. */
     public RawLayerId id() {
         return rawLayerId;
     }
