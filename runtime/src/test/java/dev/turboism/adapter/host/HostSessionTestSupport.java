@@ -1,6 +1,7 @@
 package dev.turboism.adapter.host;
 
 import dev.turboism.adapter.RuntimeHostAdapters;
+import dev.turboism.mapping.verification.VerifiedMemberResolver;
 
 import java.nio.file.Path;
 
@@ -18,6 +19,22 @@ public final class HostSessionTestSupport {
         final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters
     ) {
         return new HostSession(source, descriptor -> HostAdapterConnection.of(adapters.apply(descriptor)));
+    }
+
+    /** Test-only variant that supplies a synthetic exact-version resolver for lifecycle gates. */
+    public static HostSession connectedSession(
+        final HostInstanceSource source,
+        final java.util.function.Function<HostInstanceDescriptor, RuntimeHostAdapters> adapters,
+        final java.util.function.Function<HostInstanceDescriptor, VerifiedMemberResolver> editorModelResolvers
+    ) {
+        return new HostSession(
+            source,
+            descriptor -> HostAdapterConnection.of(
+                adapters.apply(descriptor),
+                UnavailableCubismModelAccess.INSTANCE,
+                editorModelResolvers.apply(descriptor)
+            )
+        );
     }
 
     public static HostInstanceDescriptor descriptor(final String sessionId) {

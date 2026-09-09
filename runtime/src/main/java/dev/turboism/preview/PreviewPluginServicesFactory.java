@@ -210,7 +210,7 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             descriptor, paths, uiScheduler, scope, eventOwner, classLoader
         );
         final RuntimePluginLocalization pluginLocalization = localization(descriptor, classLoader);
-        return new PreviewPluginServices(
+        final PreviewPluginServices services = new PreviewPluginServices(
             dependencies, pluginLocalization, tasks,
             storage(descriptor, paths, permissions, tasks, scope, evidence),
             typedConfig(
@@ -233,6 +233,11 @@ final class PreviewPluginServicesFactory implements AutoCloseable {
             exportSettings,
             evidence
         );
+        // Register last: DisposableScope closes in reverse order, so this guard runs before the
+        // registry and every other plugin resource. A failed guard makes shutdown retain the
+        // classloader instead of claiming a clean unload while a callback is still running.
+        scope.register(exportSettings.scopeCloseGuard());
+        return services;
     }
 
     private CorePluginContext.Dependencies dependencies(

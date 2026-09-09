@@ -18,17 +18,23 @@ public record ExportSettingsContribution(
     String labelKey,
     ExportSettingsDecisionCallback callback
 ) {
+    private static final int MAX_KEY_LENGTH = 128;
 
     public ExportSettingsContribution {
-        optionId = requireText(optionId, "optionId");
-        labelKey = requireText(labelKey, "labelKey");
+        optionId = requireKey(optionId, "optionId");
+        labelKey = requireKey(labelKey, "labelKey");
         callback = Objects.requireNonNull(callback, "callback");
     }
 
-    private static String requireText(final String value, final String name) {
+    private static String requireKey(final String value, final String name) {
         Objects.requireNonNull(value, name);
-        if (value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+        if (value.isBlank() || value.length() > MAX_KEY_LENGTH) {
+            throw new IllegalArgumentException(
+                name + " must contain 1-" + MAX_KEY_LENGTH + " characters"
+            );
+        }
+        if (!value.matches("[a-z0-9][a-z0-9._-]{0,127}")) {
+            throw new IllegalArgumentException(name + " must be a lowercase config key");
         }
         return value;
     }

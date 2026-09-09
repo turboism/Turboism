@@ -5,6 +5,8 @@ import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
 import dev.turboism.adapter.host.HostInstanceDescriptor;
 import dev.turboism.adapter.host.HostSession;
 import dev.turboism.adapter.host.HostSessionTestSupport;
+import dev.turboism.mapping.verification.TestVerifiedResolvers;
+import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.core.plugin.context.CorePluginContext;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.failure.RuntimeFailureCollector;
@@ -16,6 +18,9 @@ import dev.turboism.sdk.cubism.ArtMeshSnapshot;
 import dev.turboism.sdk.cubism.DeformerSnapshot;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.CubismEditorApiUnavailableException;
+import dev.turboism.sdk.cubism.export.ExportSettingsContribution;
+import dev.turboism.sdk.cubism.export.ExportSettingsDecision;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ParameterSnapshot;
@@ -30,6 +35,7 @@ import dev.turboism.sdk.ui.UserFileLifetime;
 import dev.turboism.sdk.ui.UserFileMode;
 import dev.turboism.sdk.ui.UserFileRequest;
 import dev.turboism.sdk.plugin.DisposableScope;
+import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,6 +44,7 @@ import java.nio.file.Files;
 import java.lang.reflect.Field;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
@@ -68,7 +75,8 @@ class PreviewPluginContextFactoryCompositionTest {
         final AtomicReference<SwingUserFileGrantSource> actualSource = new AtomicReference<>();
         final HostSession session = HostSessionTestSupport.connectedSession(
             () -> Optional.ofNullable(current.get()),
-            ignored -> adapters("preview-project")
+            ignored -> adapters("preview-project"),
+            ignored -> exportSettingsResolver()
         );
         final RuntimeScheduler scheduler = PreviewRuntimeTestSupport.rejectedScheduler();
         final Path home = tempDir.resolve("home");
@@ -91,9 +99,9 @@ class PreviewPluginContextFactoryCompositionTest {
                         PreviewPluginContextFactoryCompositionTest.class.getClassLoader(),
                         scope
                     ).context();
-                    assertInstanceOf(
-                        dev.turboism.exportsettings.RuntimeExportSettingsContributionRegistry.class,
-                        context.exportSettings()
+                    assertThrows(
+                        CubismEditorApiUnavailableException.class,
+                        () -> context.exportSettings().contribute(exportContribution())
                     );
                     final RuntimeUserFileAccessService userFiles =
                         assertInstanceOf(RuntimeUserFileAccessService.class, context.userFiles());
@@ -114,6 +122,9 @@ class PreviewPluginContextFactoryCompositionTest {
 
                     current.set(HostSessionTestSupport.descriptor("preview-project"));
                     assertEquals(HostSession.State.ACTIVE, session.refresh());
+                    final Registration exportRegistration = context.exportSettings()
+                        .contribute(exportContribution());
+                    exportRegistration.close();
 
                     assertEquals(
                         "preview-project",
@@ -135,6 +146,17 @@ class PreviewPluginContextFactoryCompositionTest {
                     assertEquals(HostSession.State.SAFE_MODE, session.refresh());
                     assertTrue(context.cubism().activeProject().isEmpty());
                     assertTrue(context.cubismRead().activeProject().isEmpty());
+                    assertThrows(
+                        CubismEditorApiUnavailableException.class,
+                        () -> context.exportSettings().contribute(exportContribution())
+                    );
+                    current.set(HostSessionTestSupport.descriptor("preview-project-closed"));
+                    assertEquals(HostSession.State.ACTIVE, session.refresh());
+                    scope.close();
+                    assertThrows(
+                        IllegalStateException.class,
+                        () -> context.exportSettings().contribute(exportContribution())
+                    );
                 } finally {
                     scope.close();
                 }
@@ -225,6 +247,26 @@ class PreviewPluginContextFactoryCompositionTest {
         final Field field = RuntimeUserFileAccessService.class.getDeclaredField("source");
         field.setAccessible(true);
         return (UserFileGrantSource) field.get(service);
+    }
+
+    private static ExportSettingsContribution exportContribution() {
+        return new ExportSettingsContribution(
+            "option-1",
+            "label.key",
+            (selected, documentId, modelId) -> ExportSettingsDecision.proceedUnchanged()
+        );
+    }
+
+    private static dev.turboism.mapping.verification.VerifiedMemberResolver exportSettingsResolver() {
+        // This synthetic version-only resolver drives the existing host-version gate; it does not
+        // attest native selectors or make this inert registry host-ready.
+        return TestVerifiedResolvers.create(
+            "5.3.02",
+            "fixture.export-settings",
+            Set.of("export-settings"),
+            List.of(StaticSelector.classSelector("fixture.host", "example/Host")),
+            PreviewPluginContextFactoryCompositionTest.class.getClassLoader()
+        );
     }
 
     private static RuntimeHostAdapters adapters(final String projectId) {
