@@ -1,0 +1,43 @@
+name: Nightly implementation checks
+on:
+  push:
+    branches: [feat/nightly-0420-20260909]
+  pull_request:
+    paths: ['scripts/release/**', 'scripts/test/*nightly*', 'packaging/**', 'gradle/**', '.github/workflows/*nightly*', '.github/workflows/allocate-build.yml', '.github/workflows/notify-release-api.yml', 'distribution/**']
+permissions:
+  contents: read
+concurrency:
+  group: nightly-checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Nightly and existing publisher regression tests
+        run: |
+          python3 -m unittest discover -s scripts/test -p '*nightly*.py'
+          python3 -m unittest discover -s scripts/release -p test_build_identity.py
+          python3 -m unittest discover -s scripts/test -p test_release_promotion.py
+          node --test distribution/test/*.test.mjs
+      - name: Source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Retain the exact checked source
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git archive HEAD > artifacts/source.tar
+          git rev-parse HEAD > artifacts/commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: nightly-source-and-checks
+          path: artifacts
+          retention-days: 7
