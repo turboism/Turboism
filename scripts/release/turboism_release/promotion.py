@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from .build_identity import verify_receipt
 from .candidate import _load_script, framework_artifacts
 from .contracts import ReleaseError, read_document
 from .versions import CHANGELOG_HEADING, SOURCE_SHA, STRICT_VERSION, compare_versions, framework_version, git_source
@@ -167,6 +168,9 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
     run = github.api(f"actions/runs/{run_id}")
     validate_run(run, run_id, source_sha, attempt)
     tag, dist, notes, expected = verify_bundle(source_root, bundle_root, run, source_sha)
+    receipt = verify_receipt(github, source_root, bundle_root, tag[1:], source_sha, str(run_id), run["run_attempt"])
+    if receipt is not None:
+        notes += "\n\n<!-- turboism-build-v1 " + json.dumps(receipt, sort_keys=True, separators=(",", ":")) + " -->\n"
     binding = None
     if run["event"] == "workflow_dispatch":
         identity = {"source": source_sha, "tag": tag, "assets": expected, "notes": notes}
