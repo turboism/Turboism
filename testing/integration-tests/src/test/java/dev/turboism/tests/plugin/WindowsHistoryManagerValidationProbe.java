@@ -20,12 +20,12 @@ import java.util.Locale;
 /** Manual-test-only, read-only exact-host probe for Cubism's public Undo manager surface. */
 public final class WindowsHistoryManagerValidationProbe implements CubismPlugin {
 
-    private static final int POLL_MILLIS = 100;
-    private static final int MAX_ENTRIES = 256;
-    private static final int MAX_DETAIL_DEPTH = 4;
-    private static final int MAX_DETAIL_NODES = 64;
-    private static final int MAX_DETAIL_STRING = 256;
-    private static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
+    static final int POLL_MILLIS = 100;
+    static final int MAX_ENTRIES = 256;
+    static final int MAX_DETAIL_DEPTH = 4;
+    static final int MAX_DETAIL_NODES = 64;
+    static final int MAX_DETAIL_STRING = 256;
+    static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
 
     private PluginContext context;
     private Timer timer;
@@ -102,6 +102,14 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     }
 
     private Snapshot snapshot() throws Exception {
+        return sample(context);
+    }
+
+    /**
+     * Read the native manager and SDK projection together without owning an evidence file.
+     * The caller must arrange for this method to run on the host EDT.
+     */
+    static Snapshot sample(final PluginContext context) throws Exception {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("History probe snapshot must run on EDT");
         }
@@ -139,11 +147,11 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             manager("CURRENT", currentManager),
             manager("MAIN", mainManager),
             manager("LINKED", linkedManager),
-            sdkHistory()
+            sdkHistory(context)
         );
     }
 
-    private SdkHistorySnapshot sdkHistory() {
+    static SdkHistorySnapshot sdkHistory(final PluginContext context) {
         final HistorySnapshot history = context.cubism().history().snapshot();
         final int count = Math.min(history.entries().size(), MAX_ENTRIES);
         final List<SdkEntry> entries = new ArrayList<>(count);
@@ -415,7 +423,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     }
 
     private void append(final String line) throws Exception {
-        if (Files.exists(evidence) && Files.size(evidence) + line.length() + 1L > MAX_EVIDENCE_BYTES) {
+        if (Files.exists(evidence)
+            && Files.size(evidence) + line.getBytes(StandardCharsets.UTF_8).length + 1L > MAX_EVIDENCE_BYTES) {
             evidenceFull = true;
             throw new IllegalStateException("History probe evidence budget exhausted");
         }
@@ -489,6 +498,12 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             return new NativeDetail(
                 family, entryClass, "", "", "", "", "", -1, 0, List.of(), List.of(), false, false, code
             );
+        }
+
+        boolean truncated() {
+            return (degradationCode != null && (degradationCode.contains("truncat")
+                || degradationCode.equals("history.detail.node-or-depth-limit")))
+                || (childDetails != null && childDetails.stream().anyMatch(NativeDetail::truncated));
         }
 
         String json() {
@@ -602,6 +617,28 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                 + "\",\"currentModeClass\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeClass)
                 + "\",\"currentModeIdentity\":\"" + WindowsHistoryManagerValidationProbe.json(currentModeIdentity)
                 + "\",\"managers\":[" + document.json() + "," + current.json() + "," + main.json() + "," + linked.json() + "]"
+                + ",\"sdkHistory\":" + sdkHistory.json() + "}";
+        }
+
+
+        String pairedJson(final String phase) {
+            return "{\"type\":\"paired-snapshot\",\"phase\":\""
+                + WindowsHistoryManagerValidationProbe.json(phase)
+                + "\",\"nativeEvidence\":\"same-edt-read-only-manager-sampler\""
+                + ",\"sdkEvidence\":\"captured-operation-metadata\""
+                + ",\"nativeUiCoverage\":\"not-proven-by-seed\""
+                + ",\"observedAt\":\"" + WindowsHistoryManagerValidationProbe.json(observedAt)
+                + "\",\"thread\":\"" + WindowsHistoryManagerValidationProbe.json(thread)
+                + "\",\"edt\":" + edt
+                + ",\"hostLoader\":\"" + WindowsHistoryManagerValidationProbe.json(hostLoader)
+                + "\",\"documentIdentity\":\""
+                + WindowsHistoryManagerValidationProbe.json(documentIdentity)
+                + "\",\"currentModeClass\":\""
+                + WindowsHistoryManagerValidationProbe.json(currentModeClass)
+                + "\",\"currentModeIdentity\":\""
+                + WindowsHistoryManagerValidationProbe.json(currentModeIdentity)
+                + "\",\"nativeManagers\":[" + document.json() + "," + current.json()
+                + "," + main.json() + "," + linked.json() + "]"
                 + ",\"sdkHistory\":" + sdkHistory.json() + "}";
         }
     }

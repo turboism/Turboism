@@ -25,6 +25,8 @@ for class_name in \
   'WindowsHistorySeedValidationProbe$State' \
   WindowsHistoryManagerValidationProbe \
   'WindowsHistoryManagerValidationProbe$State' \
+  'WindowsHistoryManagerValidationProbe$Snapshot' \
+  'WindowsHistoryManagerValidationProbe$NativeDetail' \
   WindowsHistoryFloatProbe; do
   printf 'class fixture\n' > "$class_root/$class_name.class"
 done
@@ -44,5 +46,34 @@ for probe in \
     exit 1
   fi
 done
+seed_jar="$bundle_root/plugins/history-seed-validation-probe.jar"
+for entry in \
+  'dev/turboism/tests/plugin/WindowsHistorySeedValidationProbe.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$NativeDetail.class'; do
+  if ! jar tf "$seed_jar" | grep -Fxq "$entry"; then
+    printf 'error: seed package is missing embedded sampler dependency %s\n' "$entry" >&2
+    exit 1
+  fi
+done
 
-printf '[test] history validation probe packaging includes declared base i18n catalogs\n'
+printf '[test] history validation probe packaging includes i18n and embedded native sampler dependencies\n'
+wrapper="$repo_root/scripts/preview/run-history-primary-validation.sh"
+[ -x "$wrapper" ] || {
+  printf 'error: history primary capability wrapper is missing or not executable\n' >&2
+  exit 1
+}
+if grep -Eq -- '--remote-pre-|--client-script|collect-history-validation' "$wrapper"; then
+  printf 'error: history primary wrapper contains a hook/client/collector dependency\n' >&2
+  exit 1
+fi
+for required_text in \
+  'run-cubism-host-validation.sh' \
+  '--result-file' \
+  'data/dev.turboism.validation.history-seed/history-seed.jsonl'; do
+  grep -Fq -- "$required_text" "$wrapper" || {
+    printf 'error: history primary wrapper is missing %s\n' "$required_text" >&2
+    exit 1
+  }
+done

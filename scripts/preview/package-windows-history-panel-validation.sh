@@ -58,7 +58,8 @@ tmp="$(mktemp -d "$repo_root/build/.history-panel-probe.XXXXXX")"
 trap 'rm -rf "$tmp"' EXIT
 mkdir -p "$tmp/$probe_class_dir" "$tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
-  \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \) \
+  \( -name "$seed_class.class" -o -name "$seed_class\$*.class" \
+     -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
   -exec cp {} "$tmp/$probe_class_dir/" \;
 cp "$seed_descriptor" "$tmp/META-INF/turboism/plugin.json"
 : > "$tmp/META-INF/turboism/i18n/messages.properties"
@@ -76,6 +77,16 @@ fi
 if ! jar tf "$bundle_root/plugins/history-seed-validation-probe.jar" \
   | grep -Fxq 'META-INF/turboism/i18n/messages.properties'; then
   printf 'error: seed probe package is missing its declared base i18n catalog\n' >&2
+  exit 1
+fi
+if ! jar tf "$bundle_root/plugins/history-seed-validation-probe.jar" \
+  | grep -Fxq "$probe_class_dir/$probe_class.class"; then
+  printf 'error: seed probe package is missing the embedded native sampler class\n' >&2
+  exit 1
+fi
+if ! jar tf "$bundle_root/plugins/history-seed-validation-probe.jar" \
+  | grep -Fxq "$probe_class_dir/$probe_class\$Snapshot.class"; then
+  printf 'error: seed probe package is missing embedded sampler dependencies\n' >&2
   exit 1
 fi
 
