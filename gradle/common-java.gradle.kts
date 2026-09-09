@@ -20,12 +20,29 @@ val turboismReleaseBuild = providers.gradleProperty("turboismRelease")
     .get()
 rootProject.extra["turboismReleaseBuild"] = turboismReleaseBuild
 
+// CI identity is separate from the public product version. Local builds remain unnumbered.
+val turboismBuildNumber = providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse("").get()
+val turboismBuildSource = providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse("").get()
+if (turboismBuildNumber.isNotEmpty()) {
+    if (!turboismBuildNumber.matches(Regex("[1-9][0-9]*")) ||
+        turboismBuildNumber.toLongOrNull()?.let { it < 9007199254740991L } != true ||
+        !turboismBuildSource.matches(Regex("[a-f0-9]{40}"))) {
+        throw GradleException("Invalid allocated Turboism build identity")
+    }
+}
+
 allprojects {
     group = "dev.turboism"
     version = if (turboismReleaseBuild) turboismFrameworkVersion else "$turboismFrameworkVersion-SNAPSHOT"
     tasks.withType<Jar>().configureEach {
         isPreserveFileTimestamps = false
         isReproducibleFileOrder = true
+        if (turboismBuildNumber.isNotEmpty()) {
+            manifest.attributes(
+                "Turboism-Build-Number" to turboismBuildNumber,
+                "Turboism-Source-Revision" to turboismBuildSource
+            )
+        }
     }
 }
 
