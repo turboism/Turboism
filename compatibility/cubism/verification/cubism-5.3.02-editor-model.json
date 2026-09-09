@@ -46,6 +46,7 @@
     "cubism.editor-model.part-structure.write",
     "cubism.editor-model.part-tree.read",
     "cubism.editor-model.physics.read",
+    "cubism.editor-model.psd.raw-image.export",
     "cubism.editor-model.psd.snapshot.read",
     "cubism.editor-model.read",
     "cubism.editor-model.rotation-deformer.parameter-bindings.write",
@@ -6917,6 +6918,72 @@
       "memberName": "getTextureAtlasGuid",
       "descriptor": "()Lcom/live2d/type/CTextureAtlasGuid;",
       "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.psd_document",
+      "alias": "cubism.editor-model.psd-document.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.field.psd_document_companion",
+      "alias": "cubism.editor-model.psd-document.companion",
+      "kind": "field",
+      "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument",
+      "memberName": "a",
+      "descriptor": "Lcom/live2d/graphics/psd/CPsdDocument$a;",
+      "requiredAccessFlags": 9,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.class.psd_document_companion",
+      "alias": "cubism.editor-model.psd-document-companion.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument$a",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.psd_document_parse_file",
+      "alias": "cubism.editor-model.psd-document.parse-file",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument$a",
+      "memberName": "a",
+      "descriptor": "(Ljava/io/File;ZZ)Lcom/live2d/graphics/psd/CPsdDocument;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.constructor.layered_image_from_psd",
+      "alias": "cubism.editor-model.layered-image.from-psd",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+      "memberName": "<init>",
+      "descriptor": "(Lcom/live2d/graphics/psd/CPsdDocument;Ljava/io/File;Ljava/lang/String;)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.layered_image_save_psd",
+      "alias": "cubism.editor-model.layered-image.save-psd",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+      "memberName": "save",
+      "descriptor": "(Ljava/io/File;Lcom/live2d/util/a/a;)V",
+      "requiredAccessFlags": 1,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
     }

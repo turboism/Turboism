@@ -12666,6 +12666,128 @@
       },
       "intermediary": "",
       "descriptor": "()Lcom/live2d/type/CTextureAtlasGuid;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.psd_document",
+      "kind": "class",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.psd-document.class",
+      "runtime": "com/live2d/graphics/psd/CPsdDocument",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.field.psd_document_companion",
+      "kind": "field",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.psd-document.companion",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument",
+        "requiredAccessFlags": 9,
+        "forbiddenAccessFlags": 0
+      },
+      "intermediary": "",
+      "descriptor": "Lcom/live2d/graphics/psd/CPsdDocument$a;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.class.psd_document_companion",
+      "kind": "class",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.psd-document-companion.class",
+      "runtime": "com/live2d/graphics/psd/CPsdDocument$a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument$a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.psd_document_parse_file",
+      "kind": "method",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.psd-document.parse-file",
+      "runtime": "a",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics/psd/CPsdDocument$a",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Ljava/io/File;ZZ)Lcom/live2d/graphics/psd/CPsdDocument;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.constructor.layered_image_from_psd",
+      "kind": "constructor",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.layered-image.from-psd",
+      "runtime": "<init>",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Lcom/live2d/graphics/psd/CPsdDocument;Ljava/io/File;Ljava/lang/String;)V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_model.method.layered_image_save_psd",
+      "kind": "method",
+      "owner": "editor-model-psd-export",
+      "name": "cubism.editor-model.layered-image.save-psd",
+      "runtime": "save",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/resources/CLayeredImage",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Ljava/io/File;Lcom/live2d/util/a/a;)V"
     }
   ],
   "metadata": {
