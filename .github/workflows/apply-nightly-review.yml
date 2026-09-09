@@ -35,7 +35,7 @@ jobs:
             return data
           patch=gzip.decompress(base64.b64decode(b''.join(blob(s) for s in ids),validate=True))
           assert hashlib.sha256(patch).hexdigest()=='1fad323ebe0ce708e1a6d17706ec98428f89a58a4d0867078f914dd4a086cd28'
-          for index,data in enumerate([patch,blob('87968926ceeb6363eff9abf986342eb183aff319')]):
+          for index,data in enumerate([patch,blob('87968926ceeb6363eff9abf986342eb183aff319'),blob('45d15b36fb03ba97235bf2dfecd81fa8abdc1160')]):
             p=Path(os.environ['RUNNER_TEMP'])/f'nightly-{index}.patch';p.write_bytes(data)
             subprocess.run(['git','apply','--check',str(p)],check=True);subprocess.run(['git','apply','--index',str(p)],check=True)
           subprocess.run(['git','diff','--cached','--check'],check=True)
