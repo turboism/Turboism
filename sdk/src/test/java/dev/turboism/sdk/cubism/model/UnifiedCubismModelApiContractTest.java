@@ -103,6 +103,26 @@ class UnifiedCubismModelApiContractTest {
         assertTrue(ids.contains("cubism.editor.project.export"));
     }
 
+
+    @Test
+    void deformersApplyToChildrenIsExact5302SurfaceWithFailClosedDefault() throws Exception {
+        final Method method = Deformers.class.getMethod("applyToChildren", Deformer.class);
+        assertEquals(void.class, method.getReturnType());
+        assertTrue(method.isDefault());
+        assertEquals(
+            List.of("5.3.02"),
+            List.of(method.getAnnotation(dev.turboism.sdk.CubismEditor.class).value())
+        );
+
+        final Deformers stub = new Deformers() {
+            @Override public List<Deformer> all() { return List.of(); }
+            @Override public Deformer find(final DeformerId id) {
+                throw new NoSuchElementException(id.value());
+            }
+        };
+        assertThrows(UnsupportedOperationException.class, () -> stub.applyToChildren(null));
+    }
+
     @Test
     void semanticOperationEventsValidateCorrelationAndPreserveOpaqueSubjects() {
         final CubismOperationEvent event = new CubismOperationEvent(

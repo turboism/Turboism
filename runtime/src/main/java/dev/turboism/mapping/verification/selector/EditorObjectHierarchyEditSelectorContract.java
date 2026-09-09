@@ -20,6 +20,11 @@ public final class EditorObjectHierarchyEditSelectorContract {
     public static final String ART_MESH_CREATE_CAPABILITY_ID =
         "cubism.editor-model.object-hierarchy.art-mesh.create";
 
+
+    /** Candidate-only capability for the exact Cubism 5.3.02 apply-to-children command. */
+    public static final String APPLY_TO_CHILDREN_CAPABILITY_ID =
+        "cubism.editor-model.object-hierarchy.apply-deformer-to-children";
+
     /** Aliases required by every mutation (create/delete/reparent/rename). */
     private static final Set<String> COMMON_ALIASES = Set.of(
         "cubism.editor-model.app-controller.instance",
@@ -181,6 +186,22 @@ public final class EditorObjectHierarchyEditSelectorContract {
             "cubism.editor-model.part-source.add-child",
             "cubism.editor-model.parameter-controllable-source.set-local-name"
         )
+    );
+
+
+    /** Exact aliases required by the 5.3.02 apply-to-children candidate. */
+    public static final Set<String> APPLY_TO_CHILDREN_5302_ONLY_ALIASES = Set.of(
+        "cubism.editor-model.app-controller.command-delete-deformer-and-set-param"
+    );
+    public static final Set<String> APPLY_TO_CHILDREN_REQUIRED_ALIASES = Set.of(
+        "cubism.editor-model.app-controller.instance",
+        "cubism.editor-model.app-controller.current-document",
+        "cubism.editor-model.app-controller.update-manager",
+        "cubism.editor-model.parameter-controllable-source.guid",
+        "cubism.editor-model.guid.value",
+        "cubism.editor-model.update-manager.set-selection",
+        "cubism.editor-model.model-source.all-deformers",
+        "cubism.editor-model.app-controller.command-delete-deformer-and-set-param"
     );
 
     private static Set<String> unionAll(final Set<String>... sets) {

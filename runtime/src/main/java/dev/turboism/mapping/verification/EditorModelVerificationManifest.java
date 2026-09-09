@@ -77,7 +77,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "41b9b93d6e1e38f65b1b7af5d146b7394d935cdf7d2a8b5ef6bceed17defb744",
+        "e116d34689f4caf0cf91dfab16f7a6875b16840b1d5963797e1d2828dc24d052",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -637,7 +637,10 @@ public final class EditorModelVerificationManifest {
                 )
             ),
             union(
-                EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                union(
+                    EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES,
+                    EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_REQUIRED_ALIASES
+                ),
                 union(
                     EditorObjectHierarchyEditSelectorContract.RENAME_REQUIRED_ALIASES,
                     union(
@@ -753,6 +756,14 @@ public final class EditorModelVerificationManifest {
         return Set.copyOf(values);
     }
 
+    private static Set<String> withoutApplyToChildren5302OnlyAliases(final Set<String> source) {
+        final java.util.HashSet<String> values = new java.util.HashSet<>(source);
+        values.removeAll(
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
+        );
+        return Set.copyOf(values);
+    }
+
     private static final Set<String> CUBISM_5303_ONLY_ALIASES = Set.of(
         "cubism.editor-model.keyform-grid.keyforms-on-grid",
         "cubism.editor-model.keyform-on-grid.form-guid",
@@ -773,7 +784,9 @@ public final class EditorModelVerificationManifest {
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
     public static Set<String> cubism5303StaticAliases() {
-        final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        final java.util.HashSet<String> values = new java.util.HashSet<>(
+            withoutApplyToChildren5302OnlyAliases(REQUIRED_ALIASES)
+        );
         values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
         values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
@@ -802,7 +815,7 @@ public final class EditorModelVerificationManifest {
     static PinnedVerifiedResolverWorkflow.RuntimeScope cubism5303RuntimeScope() {
         return new PinnedVerifiedResolverWorkflow.RuntimeScope(
             cubism5303Capabilities(),
-            cubism5303StaticAliases()
+            withoutApplyToChildren5302OnlyAliases(cubism5303StaticAliases())
         );
     }
 
@@ -1467,6 +1480,9 @@ public final class EditorModelVerificationManifest {
      */
     public static Set<String> cubism52Aliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
+        values.removeAll(
+            EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_5302_ONLY_ALIASES
+        );
         values.removeAll(EditorModelInstanceReadSelectorContract.ONION_SKIN_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.removeAll(dev.turboism.adapter.cubism.textureatlas.VerifiedCubism5302TextureAtlasSelectorContract.STATISTICS_ALIASES);

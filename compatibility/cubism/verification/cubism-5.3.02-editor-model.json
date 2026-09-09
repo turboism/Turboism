@@ -685,6 +685,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_model.method.app_command_delete_deformer_and_set_param",
+      "alias": "cubism.editor-model.app-controller.command-delete-deformer-and-set-param",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+      "memberName": "command_deleteDeformerAndSetParam",
+      "descriptor": "()V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_model.method.complete_pack",
       "alias": "cubism.editor-model.app-controller.complete-pack",
       "kind": "method",

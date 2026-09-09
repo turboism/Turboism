@@ -440,6 +440,146 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
     }
 
+
+    @Test
+    void appliesDeformerToChildrenThroughExactNativeCommandOnce() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+
+        model.deformers().applyToChildren(target);
+
+        assertEquals(1, fixture.updateManager.selectionCalls.size());
+        final var selection = fixture.updateManager.selectionCalls.get(0);
+        assertEquals(fixture.document, selection.source());
+        assertEquals(List.of(fixture.warpSource.guid), selection.guids());
+        assertFalse(selection.append());
+        assertTrue(selection.sendEvent());
+        assertEquals(1, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+        assertEquals(0, fixture.deformerSet.removedDirectly);
+        assertEquals(1, fixture.deformerSet.removedByCommand);
+        assertEquals(0, fixture.editMode.edits.size());
+        assertEquals(0, fixture.source.updateCount);
+        assertEquals(0, fixture.pack.deformerRefreshCount);
+        assertEquals(0, fixture.pack.repaintCount);
+        assertFalse(fixture.document.dirty);
+        assertEquals(1, model.deformers().all().size());
+        assertThrows(
+            NoSuchElementException.class,
+            () -> model.deformers().find(new DeformerId("WarpA"))
+        );
+    }
+
+    @Test
+    void rejectsInvalidTargetGuidBeforeSelectionOrNativeWrite() {
+        final Fixture fixture = new Fixture();
+        fixture.warpSource.guid = new Guid(" ");
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
+
+        assertEquals(0, fixture.updateManager.selectionCalls.size());
+        assertEquals(0, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+        assertEquals(0, fixture.deformerSet.removedDirectly);
+        assertEquals(0, fixture.deformerSet.removedByCommand);
+        assertEquals(0, fixture.editMode.edits.size());
+    }
+
+    @Test
+    void rejectsApplyToChildrenWhenNativePostconditionStillContainsTargetGuid() {
+        final Fixture fixture = new Fixture();
+        fixture.source.applyNoop = true;
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+
+        assertThrows(IllegalStateException.class, () -> model.deformers().applyToChildren(target));
+
+        assertEquals(1, fixture.updateManager.selectionCalls.size());
+        assertEquals(1, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+        assertEquals(0, fixture.deformerSet.removedDirectly);
+        assertEquals(0, fixture.deformerSet.removedByCommand);
+        assertEquals(2, fixture.deformerSet.sources.size());
+        assertEquals(2, model.deformers().all().size());
+        assertEquals(0, fixture.editMode.edits.size());
+        assertEquals(0, fixture.source.updateCount);
+        assertEquals(0, fixture.pack.deformerRefreshCount);
+        assertEquals(0, fixture.pack.repaintCount);
+        assertFalse(fixture.document.dirty);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"5.2.03", "5.3.03"})
+    void rejectsApplyToChildrenOutsideTheExact5302Candidate(final String cubismVersion) {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver(cubismVersion), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+
+        assertThrows(UnsupportedOperationException.class,
+            () -> model.deformers().applyToChildren(target));
+
+        assertEquals(0, fixture.updateManager.selectionCalls.size());
+        assertEquals(0, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+        assertEquals(0, fixture.deformerSet.removedDirectly);
+        assertEquals(0, fixture.deformerSet.removedByCommand);
+        assertEquals(0, fixture.editMode.edits.size());
+    }
+
+    @Test
+    void rejectsForeignDeformerBeforeNativeInvocation() {
+        final Fixture foreignFixture = new Fixture();
+        Host.document = foreignFixture.document;
+        final var foreignModel = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "foreign-session"
+        ).active();
+        final var foreign = foreignModel.deformers().find(new DeformerId("WarpA"));
+
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+
+        assertThrows(IllegalStateException.class,
+            () -> model.deformers().applyToChildren(foreign));
+        assertEquals(0, fixture.updateManager.selectionCalls.size());
+        assertEquals(0, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+    }
+
+    @Test
+    void rejectsStaleDeformerBeforeNativeInvocation() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            resolver("5.3.02"), "session-a"
+        ).active();
+        final var target = model.deformers().find(new DeformerId("WarpA"));
+        fixture.replaceDeformerWithSameId();
+
+        assertThrows(IllegalStateException.class,
+            () -> model.deformers().applyToChildren(target));
+        assertEquals(0, fixture.updateManager.selectionCalls.size());
+        assertEquals(0, fixture.document.applyCount);
+        assertEquals(0, fixture.document.deleteCount);
+    }
+
     // ------------------------------------------------------------------
     // resolver + selectors
     // ------------------------------------------------------------------
@@ -452,6 +592,9 @@ class EditorObjectHierarchyEditAccessTest {
         capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
         capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
+        if ("5.3.02".equals(cubismVersion)) {
+            capabilities.add(EditorObjectHierarchyEditSelectorContract.APPLY_TO_CHILDREN_CAPABILITY_ID);
+        }
         return TestVerifiedResolvers.create(
             cubismVersion,
             EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
@@ -485,6 +628,7 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.app-controller.complete-pack", Host.class, "completePack", desc(CompletePack.class)));
         selectors.add(method("cubism.editor-model.app-controller.update-manager", Host.class, "updateManager", desc(UpdateManager.class)));
         selectors.add(method("cubism.editor-model.app-controller.command-delete", Host.class, "commandDelete", "()V"));
+        selectors.add(method("cubism.editor-model.app-controller.command-delete-deformer-and-set-param", Host.class, "commandDeleteDeformerAndSetParam", "()V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.update-manager.class", internal(UpdateManager.class)));
         selectors.add(method("cubism.editor-model.update-manager.set-selection", UpdateManager.class, "setSelection", "(Ljava/lang/Object;Ljava/util/List;ZZ)V"));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.modeling-document.class", internal(Document.class)));
@@ -658,6 +802,10 @@ class EditorObjectHierarchyEditAccessTest {
             document.deleteCount++;
             document.source.commandDelete();
         }
+        public void commandDeleteDeformerAndSetParam() {
+            document.applyCount++;
+            document.source.commandDeleteDeformerAndSetParam();
+        }
     }
 
     public static final class Document {
@@ -666,6 +814,7 @@ class EditorObjectHierarchyEditAccessTest {
         final CompletePack pack = new CompletePack();
         final UpdateManager updateManager = new UpdateManager();
         int deleteCount;
+        int applyCount;
         boolean dirty;
         Document(final ModelSource source) { this.source = source; }
         public ModelSource modelSource() { return source; }
@@ -684,6 +833,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Model model = new Model(this);
         int updateCount;
         int hierarchyUpdateCount;
+        boolean applyNoop;
 
         public String name() { return "Fixture Model"; }
         public Id guid() { return guid; }
@@ -730,6 +880,13 @@ class EditorObjectHierarchyEditAccessTest {
             }
         }
 
+        void commandDeleteDeformerAndSetParam() {
+            if (applyNoop) return;
+            if (pendingDeleteSource instanceof ACDeformerSource deformer) {
+                deformerSet.removeByCommand(deformer);
+            }
+        }
+
         ObjectSource pendingDeleteSource;
     }
 
@@ -757,7 +914,7 @@ class EditorObjectHierarchyEditAccessTest {
     public static class ObjectSource {
         Id id;
         final ModelSource modelSource;
-        final Guid guid = new Guid();
+        Guid guid = new Guid();
         String localName;
         PartSource parent;
         Guid targetDeformerGuid;
@@ -1302,13 +1459,22 @@ class EditorObjectHierarchyEditAccessTest {
         public ACDrawableSource targetB() { return null; }
     }
 
-    public static final class Id {
+    public static class Id {
         final String value;
         public Id(final String value) { this.value = value; }
         public String value() { return value; }
     }
 
-    public static final class Guid {
+    public static final class Guid extends Id {
+        private static int counter;
+
+        public Guid() {
+            super("guid-" + (++counter));
+        }
+
+        Guid(final String value) {
+            super(value);
+        }
     }
 
     private static final class Fixture {
@@ -1371,6 +1537,15 @@ class EditorObjectHierarchyEditAccessTest {
             source.partSet.sources.add(replacement);
             source.model.parts.clear();
             source.model.parts.add(new HostPart(replacement));
+        }
+
+
+        void replaceDeformerWithSameId() {
+            final WarpDeformerSource replacement = new WarpDeformerSource("WarpA", source);
+            source.deformerSet.sources.clear();
+            source.deformerSet.sources.add(replacement);
+            source.model.deformers.clear();
+            source.model.deformers.add(new Warp(replacement));
         }
     }
 }

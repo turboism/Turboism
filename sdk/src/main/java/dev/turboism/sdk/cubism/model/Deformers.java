@@ -1,5 +1,6 @@
 package dev.turboism.sdk.cubism.model;
 
+import dev.turboism.sdk.CubismEditor;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -40,6 +41,15 @@ public interface Deformers {
     /** Deletes {@code deformer} through the native selection + native DELETE command path. */
     default void remove(Deformer deformer) {
         throw unavailable("Deformer deletion");
+    }
+
+    /**
+     * Applies {@code deformer} to its child elements through the exact Cubism 5.3.02 native
+     * command path. The host owns the child-element semantics.
+     */
+    @CubismEditor({"5.3.02"})
+    default void applyToChildren(Deformer deformer) {
+        throw unavailable("Apply deformer to child elements");
     }
 
     private static UnsupportedOperationException unavailable(final String feature) {
