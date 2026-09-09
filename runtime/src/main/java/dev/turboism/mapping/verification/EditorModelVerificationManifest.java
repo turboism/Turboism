@@ -39,6 +39,7 @@ import dev.turboism.mapping.verification.selector.EditorPartStructureSelectorCon
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPsdSnapshotSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorRawImagePsdSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorTextureRelationsSelectorContract;
 import java.util.List;
@@ -75,7 +76,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "dc6634669a42999d8b67ece53ea48036d0a7ffa37bd065da75341d04840acfed",
+        "86399c217504777cd3219409c0f35230fbc8e68189135a4c6818bda13d4eef56",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -691,7 +692,7 @@ public final class EditorModelVerificationManifest {
         }
         return record.toManifest(
             ADAPTER_SLICE_ID,
-            ObjectContextMenuVerificationManifest.capabilities(CAPABILITY_IDS),
+            ObjectContextMenuVerificationManifest.capabilities(cubism5302Capabilities()),
             ObjectContextMenuVerificationManifest.aliases(cubism5302Aliases())
         );
     }
@@ -718,7 +719,13 @@ public final class EditorModelVerificationManifest {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeAll(CUBISM_5303_ONLY_ALIASES);
         values.addAll(EditorTextureRelationsSelectorContract.REQUIRED_ALIASES);
+        values.addAll(EditorRawImagePsdSelectorContract.REQUIRED_ALIASES);
         return Set.copyOf(values);
+    }
+
+    /** Exact PSD export/parse capability admitted only for the reviewed Cubism 5.3.02 record. */
+    public static Set<String> cubism5302Capabilities() {
+        return union(CAPABILITY_IDS, Set.of(EditorRawImagePsdSelectorContract.CAPABILITY_ID));
     }
 
     /** Full exact-JAR selector roster carried by the independent 5.3.03 static record. */
