@@ -12,7 +12,7 @@ concurrency:
 jobs:
   verify:
     runs-on: ubuntu-22.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
@@ -21,13 +21,16 @@ jobs:
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
-      - name: Release and API regression tests
+      - name: Release, channel and API regression tests
         run: |
           python3 -m unittest discover -s scripts/release -p 'test_*.py'
           python3 -m unittest discover -s scripts/test -p 'test_release*.py'
+          python3 -m unittest discover -s scripts/test -p 'test_build_channels.py'
+          python3 -m unittest discover -s scripts/test -p 'test_nightly.py'
+          python3 -m unittest discover -s scripts/test -p 'test_prerelease.py'
+          python3 -m unittest discover -s scripts/test -p 'test_product_cli.py'
           node --test distribution/test/*.test.mjs
-      - name: Verify source hygiene
-        run: python3 scripts/check_remote_hygiene.py --worktree
+          python3 scripts/check_remote_hygiene.py --worktree
       - name: Retain exact tested source
         if: always()
         run: |
@@ -37,6 +40,66 @@ jobs:
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: unified-channel-checks
+          name: unified-channel-source
+          path: artifacts
+          retention-days: 7
+  package-check:
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [beta, nightly]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Check local metadata and successive channel inputs without cleaning
+        run: |
+          ./gradlew --no-daemon -q printBuildInfo
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=beta --console=plain
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=nightly --console=plain
+          ./gradlew --no-daemon :runtime:test --tests dev.turboism.core.FrameworkBuildInfoTest -PturboismChannel=stable --console=plain
+      - name: Install Windows installer compiler
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends nsis
+      - name: Resolve explicit QA-only identity, without allocating or publishing a product build
+        env:
+          CHANNEL: ${{ matrix.channel }}
+        run: |
+          BASE=$(python3 -c 'import sys;sys.path.insert(0,"scripts/release");from turboism_release.versions import framework_version;from pathlib import Path;print(framework_version(Path.cwd()))')
+          if [ "$CHANNEL" = beta ]; then VERSION="$BASE-beta.1"; NUMBER=900000001; else VERSION="$BASE-0.nightly.900000002"; NUMBER=900000002; fi
+          echo "TURBOISM_BUILD_VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TURBOISM_BUILD_CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
+          echo "TURBOISM_BUILD_NUMBER=$NUMBER" >> "$GITHUB_ENV"
+          echo "TURBOISM_SOURCE_REVISION=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+          echo "ORG_GRADLE_PROJECT_turboismRelease=true" >> "$GITHUB_ENV"
+      - name: Run the full release gate with the selected channel
+        run: ./gradlew --no-daemon checkRelease -PinstallerVersion="$TURBOISM_BUILD_VERSION" -PturboismRelease=true --console=plain
+      - name: Verify all four real packages and their embedded identity
+        run: |
+          bash packaging/windows-installer/assemble-release.sh "$TURBOISM_BUILD_VERSION"
+          python3 scripts/release/verify-release.py --channel "$TURBOISM_BUILD_CHANNEL" --version "$TURBOISM_BUILD_VERSION" --dist build/windows-installer/dist --release-plugins packaging/release-plugins.txt --windows-stage build/windows-installer/staging --manifest-output build/qa-manifest.json
+          python3 scripts/test/verify_built_identity.py > build/qa-identity.json
+          git diff --exit-code
+      - name: Retain reports only, never QA installers
+        if: always()
+        run: |
+          mkdir -p artifacts
+          cp build/qa-manifest.json build/qa-identity.json artifacts/ 2>/dev/null || true
+          find build -path '*/test-results/*' -name '*.xml' -print0 | tar --null -T - -czf artifacts/junit-results.tar.gz
+          git rev-parse HEAD > artifacts/commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: channel-package-${{ matrix.channel }}
           path: artifacts
           retention-days: 7
