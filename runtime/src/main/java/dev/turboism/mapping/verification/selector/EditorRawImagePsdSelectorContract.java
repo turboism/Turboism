@@ -26,6 +26,10 @@ public final class EditorRawImagePsdSelectorContract {
         "cubism.editor-model.layered-image.guid";
     public static final String LAYERED_IMAGE_NAME_ALIAS =
         "cubism.editor-model.layered-image.name";
+    public static final String LAYERED_IMAGE_WIDTH_ALIAS =
+        "cubism.editor-model.layered-image.width";
+    public static final String LAYERED_IMAGE_HEIGHT_ALIAS =
+        "cubism.editor-model.layered-image.height";
     public static final String LAYERED_IMAGE_PSD_DOC_ALIAS =
         "cubism.editor-model.layered-image.psd-doc";
     public static final String LAYERED_IMAGE_CHILDREN_ALIAS =
@@ -80,6 +84,8 @@ public final class EditorRawImagePsdSelectorContract {
         LAYER_GROUP_CHILDREN_ALIAS,
         GUID_VALUE_ALIAS,
         LAYERED_IMAGE_NAME_ALIAS,
+        LAYERED_IMAGE_WIDTH_ALIAS,
+        LAYERED_IMAGE_HEIGHT_ALIAS,
         PSD_DOCUMENT_CLASS_ALIAS,
         PSD_DOCUMENT_COMPANION_ALIAS,
         PSD_DOCUMENT_COMPANION_CLASS_ALIAS,

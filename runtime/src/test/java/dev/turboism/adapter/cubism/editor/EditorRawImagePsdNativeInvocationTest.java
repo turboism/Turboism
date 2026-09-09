@@ -46,7 +46,7 @@ class EditorRawImagePsdNativeInvocationTest {
             assertSame(model, current);
         });
 
-        final EditorRawImagePsdAccess.ExportResult result = access.exportPsd(
+        final EditorRawImagePsdAccess.ExportResult result = access.exportBoundPsd(
             "session-a",
             model,
             source,
@@ -90,7 +90,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -119,7 +119,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -140,7 +140,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -163,7 +163,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -190,7 +190,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -230,7 +230,7 @@ class EditorRawImagePsdNativeInvocationTest {
                         throw new IllegalStateException("document switched during PSD export");
                     }
                 }
-            ).exportPsd(
+            ).exportBoundPsd(
                 "session-a",
                 model,
                 new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -254,7 +254,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult result = access(
             resolver("5.3.02", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new Object(),
@@ -271,7 +271,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult unauthorized = access(
             resolver("5.3.02", false),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -285,7 +285,7 @@ class EditorRawImagePsdNativeInvocationTest {
         final EditorRawImagePsdAccess.ExportResult unsupported = access(
             resolver("5.3.03", true),
             (identity, model) -> { }
-        ).exportPsd(
+        ).exportBoundPsd(
             "session-a",
             new Object(),
             new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
@@ -307,7 +307,7 @@ class EditorRawImagePsdNativeInvocationTest {
                     assertSame(model, current);
                     throw new IllegalStateException("stale model generation");
                 }
-            ).exportPsd(
+            ).exportBoundPsd(
                 "session-a",
                 model,
                 new EditorRawImagePsdNativeFixture.SyntheticLayeredImage("raw-source"),
