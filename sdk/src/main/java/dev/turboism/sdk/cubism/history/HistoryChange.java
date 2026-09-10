@@ -11,7 +11,8 @@ public record HistoryChange(
     Optional<String> property,
     Optional<String> before,
     Optional<String> after,
-    HistoryEditContext context
+    HistoryEditContext context,
+    Optional<HistoryRelationChange> relation
 ) {
 
     private static final int MAX_PROPERTY_LENGTH = 128;
@@ -25,6 +26,17 @@ public record HistoryChange(
         before = normalizedOptional(before, "before", MAX_VALUE_LENGTH, true);
         after = normalizedOptional(after, "after", MAX_VALUE_LENGTH, true);
         context = Objects.requireNonNull(context, "context");
+        relation = Objects.requireNonNull(relation, "relation");
+        if (relation.isPresent()) {
+            validateRelation(
+                operation,
+                targetIndex,
+                property,
+                before,
+                after,
+                context
+            );
+        }
     }
 
     /**
@@ -50,8 +62,21 @@ public record HistoryChange(
                 HistoryEditContext.Kind.UNKNOWN,
                 Optional.empty(),
                 List.of()
-            )
+            ),
+            Optional.empty()
         );
+    }
+
+    /** Creates a change with a verified edit context and no direct relation. */
+    public HistoryChange(
+        final Operation operation,
+        final Optional<Integer> targetIndex,
+        final Optional<String> property,
+        final Optional<String> before,
+        final Optional<String> after,
+        final HistoryEditContext context
+    ) {
+        this(operation, targetIndex, property, before, after, context, Optional.empty());
     }
 
     /** Creates a complete SET change for one indexed target. */
@@ -71,7 +96,8 @@ public record HistoryChange(
                 HistoryEditContext.Kind.OBJECT,
                 Optional.empty(),
                 List.of()
-            )
+            ),
+            Optional.empty()
         );
     }
 
@@ -80,6 +106,30 @@ public record HistoryChange(
             throw new IllegalArgumentException("targetIndex must not be negative");
         }
         return value;
+    }
+
+    private static void validateRelation(
+        final Operation operation,
+        final Optional<Integer> targetIndex,
+        final Optional<String> property,
+        final Optional<String> before,
+        final Optional<String> after,
+        final HistoryEditContext context
+    ) {
+        if (operation != Operation.SET) {
+            throw new IllegalArgumentException("relation changes must use SET operation");
+        }
+        if (targetIndex.isEmpty()) {
+            throw new IllegalArgumentException("relation changes require targetIndex");
+        }
+        if (property.isPresent() || before.isPresent() || after.isPresent()) {
+            throw new IllegalArgumentException(
+                "relation changes must not contain scalar property or values"
+            );
+        }
+        if (context.kind() != HistoryEditContext.Kind.OBJECT) {
+            throw new IllegalArgumentException("relation changes require OBJECT context");
+        }
     }
 
     private static Optional<String> normalizedOptional(

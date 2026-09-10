@@ -45,6 +45,15 @@ class HistoryEntryCompatibilityContractTest {
             Optional.class,
             HistoryEditContext.class
         ));
+        assertNotNull(HistoryChange.class.getConstructor(
+            HistoryChange.Operation.class,
+            Optional.class,
+            Optional.class,
+            Optional.class,
+            Optional.class,
+            HistoryEditContext.class,
+            Optional.class
+        ));
     }
 
     @Test
