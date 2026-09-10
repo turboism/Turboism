@@ -47,8 +47,9 @@ val releaseBuild = rootProject.extra["turboismReleaseBuild"] as Boolean
 val strictVersion = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
 
 fun validateInstallerVersion(version: String): String {
-    if (!strictVersion.matches(version)) {
-        throw GradleException("installerVersion must be strict MAJOR.MINOR.PATCH: $version")
+    val prerelease = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-(?:(?:alpha|beta|rc)\\.(?:0|[1-9][0-9]*)|0\\.nightly\\.[1-9][0-9]*)$")
+    if (!strictVersion.matches(version) && !prerelease.matches(version)) {
+        throw GradleException("installerVersion must be a canonical published product version: $version")
     }
     if (version != frameworkVersion) {
         throw GradleException(
@@ -607,6 +608,8 @@ tasks.named("izPackCreateInstaller") {
     inputs.file(installerListenerJarTask.flatMap { it.archiveFile })
     inputs.property("turboismBuildNumber", providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse(""))
     inputs.property("turboismBuildSource", providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse(""))
+    inputs.property("turboismBuildChannel", providers.environmentVariable("TURBOISM_BUILD_CHANNEL").orElse(""))
+    inputs.property("turboismBuildVersion", providers.environmentVariable("TURBOISM_BUILD_VERSION").orElse(""))
     // The JAR and its SHA-256 sidecar are both declared outputs: deleting only
     // the sidecar marks the task out-of-date and recreates it next invocation.
     outputs.file(distDir.map { it.file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile })
@@ -622,6 +625,8 @@ tasks.named("izPackCreateInstaller") {
                 val modified = java.nio.file.Files.getLastModifiedTime(path)
                 val mf = java.nio.file.Files.newInputStream(path).use { java.util.jar.Manifest(it) }
                 mf.mainAttributes.putValue("Turboism-Build-Number", buildNumber)
+                mf.mainAttributes.putValue("Turboism-Channel", providers.environmentVariable("TURBOISM_BUILD_CHANNEL").get())
+                mf.mainAttributes.putValue("Turboism-Version", requireInstallerVersion())
                 mf.mainAttributes.putValue("Turboism-Source-Revision", providers.environmentVariable("TURBOISM_SOURCE_REVISION").get())
                 java.nio.file.Files.newOutputStream(path).use { mf.write(it) }
                 java.nio.file.Files.setLastModifiedTime(path, modified)

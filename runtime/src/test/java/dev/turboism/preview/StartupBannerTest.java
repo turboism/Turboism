@@ -52,6 +52,9 @@ final class StartupBannerTest {
 
     @Test
     void readsThePackagedFrameworkVersion() {
-        assertTrue(StartupBanner.frameworkVersion().matches("\\d+\\.\\d+\\.\\d+"));
+        final var info = dev.turboism.core.FrameworkBuildInfo.current();
+        assertEquals(info.version(), StartupBanner.frameworkVersion());
+        assertEquals(info.displayVersion(), StartupBanner.frameworkDisplayVersion());
+        assertTrue(!info.version().equals("unknown"));
     }
 }
