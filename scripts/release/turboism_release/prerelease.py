@@ -8,7 +8,7 @@ from pathlib import Path
 from .build_identity import identity, read_optional_receipt, verify_receipt
 from .candidate import _load_script
 from .channels import channel_for, require_version, resolve_version, NIGHTLY
-from .promotion import ensure_tag, tag_binding
+from .promotion import ensure_tag, find_release, release_by_id, tag_binding
 from .versions import framework_version
 
 SCRIPTS = Path(__file__).resolve().parents[1]
@@ -130,7 +130,7 @@ def publish(github, dist, receipt, manifest, notes):
     require(set(expected) == names_for(version) and len(manifest['artifacts']) == 8, 'Prerelease requires eight verified files')
     binding = hashlib.sha256(json.dumps({'receipt':receipt,'assets':expected,'notes':notes},sort_keys=True).encode()).hexdigest()
     bound = tag_binding(github,tag,source,binding)
-    raw = github.api(f'releases/tags/{tag}',optional=True)
+    raw = find_release(github,tag)
     if raw is not None:
         require(bound and raw.get('body') == notes, 'Existing release has a different source/notes binding')
         missing_assets(raw,expected,tag)
@@ -141,10 +141,10 @@ def publish(github, dist, receipt, manifest, notes):
                          'name':f'Turboism {version}','body':notes,'draft':True,'prerelease':True,"make_latest":"false"})
     for name in missing_assets(raw,expected,tag):
         github.upload(tag,Path(dist)/name)
-    raw = github.api(f'releases/tags/{tag}')
+    raw = release_by_id(github,raw)
     require(not missing_assets(raw,expected,tag) and tag_binding(github,tag,source,binding), 'Prerelease upload verification failed')
     if raw['draft']:
         github.api(f"releases/{raw['id']}",method='PATCH',data={'draft':False,'prerelease':True,"make_latest":"false"})
-    final = github.api(f'releases/tags/{tag}')
+    final = release_by_id(github,raw)
     require(final['draft'] is False and final.get('published_at') and not missing_assets(final,expected,tag), 'Prerelease publication not confirmed')
     return tag

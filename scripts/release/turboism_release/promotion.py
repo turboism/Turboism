@@ -162,6 +162,35 @@ def ensure_tag(github, tag, source_sha, binding=None):
     require(tag_binding(github, tag, source_sha, binding), "tag binding was not persisted")
 
 
+
+def find_release(github, tag):
+    """Resolve a release by tag, including unpublished drafts.
+
+    GitHub's ``releases/tags/{tag}`` endpoint returns HTTP 404 for draft
+    releases, so a draft is only observable through the paginated list API.
+    ``None`` therefore still means "no release exists for this tag"; a lookup
+    that only used the tag endpoint would recreate a draft or abort a resume.
+    """
+    raw = github.api(f"releases/tags/{tag}", optional=True)
+    if raw is not None:
+        return raw
+    for page in range(1, 101):
+        batch = github.api(f"releases?per_page=100&page={page}")
+        require(isinstance(batch, list), "invalid GitHub release list")
+        for candidate in batch:
+            if candidate.get("tag_name") == tag:
+                return candidate
+        if len(batch) < 100:
+            return None
+    raise ReleaseError("release enumeration exceeded the safety limit; not treating it as absence")
+
+
+def release_by_id(github, release):
+    """Read mutable release state; unlike the tag lookup this works for drafts."""
+    require(isinstance(release, dict) and isinstance(release.get("id"), int),
+            "release identity is unavailable")
+    return github.api(f"releases/{release['id']}")
+
 def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confirmation):
     require(confirmation == f"publish-github-only:{source_sha}", "explicit source confirmation required")
     require(re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id)), "invalid candidate run id")
@@ -193,7 +222,7 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
         binding = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":"))
                                  .encode("utf-8")).hexdigest()
     bound = tag_binding(github, tag, source_sha, binding)
-    release = github.api(f"releases/tags/{tag}", optional=True)
+    release = find_release(github, tag)
     if release is not None:
         require(bound, "release exists without its annotated tag")
         missing_assets(release, expected, tag)
@@ -214,12 +243,12 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
             "body": notes, "draft": True, "prerelease": False})
     for name in missing_assets(release, expected, tag):
         github.upload(tag, dist / name)
-    release = github.api(f"releases/tags/{tag}")
+    release = release_by_id(github, release)
     require(not missing_assets(release, expected, tag), "release uploads incomplete")
     require(tag_binding(github, tag, source_sha, binding), "release tag disappeared")
     github.api(f"releases/{release['id']}", method="PATCH", data={
         "name": f"Turboism {tag[1:]}", "body": notes, "draft": False, "make_latest": "true"})
-    final = github.api(f"releases/tags/{tag}")
+    final = release_by_id(github, release)
     require(not missing_assets(final, expected, tag) and final["draft"] is False,
             "release did not become published")
     return tag
