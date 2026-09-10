@@ -531,6 +531,95 @@ class CubismHistoryContractTest {
     }
 
     @Test
+    void relationFullRejectsSelfParentByTypeAndIdButAllowsCrossTypeSameId() {
+        final HistoryTarget childPart = new HistoryTarget(
+            "PART",
+            Optional.of("A"),
+            Optional.of("Child A")
+        );
+        final HistoryTarget selfBefore = new HistoryTarget(
+            "PART",
+            Optional.of("A"),
+            Optional.of("Old parent label")
+        );
+        final HistoryTarget selfAfter = new HistoryTarget(
+            "PART",
+            Optional.of("A"),
+            Optional.of("New parent label")
+        );
+        final HistoryTarget otherParent = new HistoryTarget(
+            "PART",
+            Optional.of("B"),
+            Optional.of("Other parent")
+        );
+
+        assertThrows(IllegalArgumentException.class, () -> fullDetail(childPart, new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(new HistoryRelationChange(
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET, Optional.of(selfBefore)
+                ),
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET, Optional.of(otherParent)
+                )
+            ))
+        )));
+        assertThrows(IllegalArgumentException.class, () -> fullDetail(childPart, new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(new HistoryRelationChange(
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET, Optional.of(otherParent)
+                ),
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET, Optional.of(selfAfter)
+                )
+            ))
+        )));
+
+        final HistoryTarget childMesh = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("A"),
+            Optional.of("Mesh A")
+        );
+        final HistoryTarget sameIdPart = new HistoryTarget(
+            "PART",
+            Optional.of("A"),
+            Optional.of("Part A")
+        );
+        final HistoryChange crossTypeChange = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(new HistoryRelationChange(
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.ROOT, Optional.empty()
+                ),
+                new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET, Optional.of(sameIdPart)
+                )
+            ))
+        );
+
+        assertEquals(HistoryAction.DetailLevel.FULL, fullDetail(childMesh, crossTypeChange).detailLevel());
+    }
+
+    @Test
     void relationValidationAllowsDeformerParentFamily() {
         final HistoryTarget child = new HistoryTarget(
             "WARP_DEFORMER",

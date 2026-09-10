@@ -252,6 +252,8 @@ public record HistoryEntryDetail(
         }
         validateFullEndpoint(relation.kind(), relation.before(), "before");
         validateFullEndpoint(relation.kind(), relation.after(), "after");
+        rejectSelfParent(child, relation.before(), "before");
+        rejectSelfParent(child, relation.after(), "after");
         if (sameEndpointIdentity(relation.before(), relation.after())) {
             throw new IllegalArgumentException(
                 "FULL relation change must change direct relation identity"
@@ -284,6 +286,20 @@ public record HistoryEntryDetail(
         if (!legalParent) {
             throw new IllegalArgumentException(
                 "FULL relation " + name + " endpoint has an illegal parent type: " + target.type()
+            );
+        }
+    }
+
+    private static void rejectSelfParent(
+        final HistoryTarget child,
+        final HistoryRelationChange.Endpoint endpoint,
+        final String name
+    ) {
+        if (endpoint.state() != HistoryRelationChange.State.TARGET) return;
+        final HistoryTarget parent = endpoint.target().orElseThrow();
+        if (child.type().equals(parent.type()) && child.id().equals(parent.id())) {
+            throw new IllegalArgumentException(
+                "FULL relation " + name + " endpoint must not be the child itself"
             );
         }
     }
