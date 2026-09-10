@@ -31,8 +31,14 @@ class HistoryPanelI18nTest {
         "history.entry.action.add",
         "history.entry.action.remove",
         "history.icon.art-mesh",
+        "history.icon.part",
+        "history.icon.rotation-deformer",
         "history.icon.warp-deformer",
-        "history.icon.rotation-deformer"
+        "history.relation.deformer-parent.detach.infix",
+        "history.relation.deformer-parent.set.infix",
+        "history.relation.deformer-parent.set.suffix",
+        "history.relation.part-membership.join.infix",
+        "history.relation.part-membership.detach.infix"
     );
 
     @Test
