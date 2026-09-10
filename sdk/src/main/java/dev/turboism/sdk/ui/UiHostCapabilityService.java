@@ -120,20 +120,22 @@ public interface UiHostCapabilityService {
     }
 
     /**
-     * Returns the Cubism Editor UI language (host JVM locale), used by plugins
-     * to select localized presentation.
+     * Returns the Cubism Editor UI language in effect for this process — the
+     * language Cubism applied from {@code File → Environment Settings → General →
+     * Language} — used by plugins to select localized presentation.
      *
      * <p>Returns the <b>effective UI language</b>: zh builds are normalized to
      * {@code zh-Hans}/{@code zh-Hant} (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/zh-MO →
-     * zh-Hant, other script-less zh such as Wine-rewritten zh-US → zh-Hans);
-     * non-zh languages are returned unchanged. The raw host JVM locale may be
-     * rewritten by Proton/Wine (e.g. {@code zh-US}) and does not represent the
-     * actual UI language.</p>
+     * zh-Hant, other script-less zh such as the Wine-rewritten zh-US → zh-Hans);
+     * non-zh languages are returned unchanged. The launcher's
+     * {@code -Duser.language} only selects the build's language version and may be
+     * rewritten by Proton/Wine (e.g. {@code zh-US}); it does not track the host
+     * setting.</p>
      *
      * @return the current effective Cubism UI language, never {@code null}
      */
     default java.util.Locale hostLocale() {
-        return java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY);
+        return java.util.Locale.getDefault();
     }
 
     /**
