@@ -14,6 +14,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   saved setting to the process default locale after this runtime attaches, the effective locale is
   re-resolved once the verified host is ACTIVE; an explicit `-Dturboism.locale` or `config.json` locale
   still outranks the host.
+- The framework's own `ResourceBundle` catalogs now carry the complete zh-Hans/zh-Hant/en/ja/ko
+  matrix. `dev.turboism.ui.panel` was missing `messages_en.properties` and
+  `messages_zh_Hans.properties`, so a Simplified Chinese host silently fell through to the legacy
+  script-less `messages_zh.properties`. That catalog is kept as an optional compatibility alias, but
+  it can no longer stand in for the script-suffixed one.
+
+### Added
+
+- Framework message catalogs are now held to the same locale matrix as the official plugins by
+  `verifyFrameworkCatalogs`. Plugins already fail loudly on an incomplete catalog set; the framework
+  resolves its chrome through `ResourceBundle`, where a missing catalog degraded silently to English.
+  The new gate also rejects a framework module shipping catalogs outside the verified roots.
 
 ## [0.43.10] - 2026-09-09
 
