@@ -216,6 +216,79 @@ class WindowsHistorySeedValidationProbeTest {
         }
     }
 
+    @Test
+    void completeGroupWithUnavailablePostStateCanPassAllFourteenPhases() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-group-post-state", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            final WindowsHistoryManagerValidationProbe.NativeDetail detail = group(
+                1,
+                List.of(simpleUnavailable()),
+                ""
+            );
+            pairAll(evidence, snapshotWithNativeDetail(detail, "entry-1"));
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            assertTrue(lines.stream()
+                .filter(line -> line.contains("\"type\":\"paired-validation\""))
+                .allMatch(line -> line.contains("\"status\":\"PASS\"")));
+            assertTrue(lines.stream().anyMatch(line ->
+                line.contains("history.detail.post-state-unavailable")));
+            assertEquals("PASS", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
+    @Test
+    void actualGroupTruncationCannotProducePassAcrossAllFourteenPhases() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-group-truncated", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            final WindowsHistoryManagerValidationProbe.NativeDetail detail = group(
+                2,
+                List.of(simpleUnavailable()),
+                "history.detail.group-truncated"
+            );
+            pairAll(evidence, snapshotWithNativeDetail(detail, "entry-1"));
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            assertTrue(lines.stream().anyMatch(line ->
+                line.contains("DOCUMENT-native-detail-truncated")));
+            assertEquals("FAIL", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
+    @Test
+    void decoderFailureInsideCompleteGroupCannotProducePassAcrossAllFourteenPhases() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-group-decoder-failure", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            final WindowsHistoryManagerValidationProbe.NativeDetail failed =
+                WindowsHistoryManagerValidationProbe.NativeDetail.degraded(
+                    "com.live2d.undo.SimpleUndo",
+                    "FAILED",
+                    "history.detail.decoder-failed"
+                );
+            pairAll(evidence, snapshotWithNativeDetail(group(1, List.of(failed), ""), "entry-1"));
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            assertTrue(lines.stream().anyMatch(line ->
+                line.contains("DOCUMENT-native-detail-failed")));
+            assertEquals("FAIL", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
+    }
+
     private static WindowsHistoryManagerValidationProbe.Snapshot snapshot(final String... ids) {
         final List<WindowsHistoryManagerValidationProbe.Entry> nativeEntries = new ArrayList<>();
         final List<WindowsHistoryManagerValidationProbe.SdkEntry> sdkEntries = new ArrayList<>();
@@ -246,6 +319,66 @@ class WindowsHistorySeedValidationProbeTest {
                 "history-document-1", "history-manager-1", ids.length, sdkEntries
             )
         );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.Snapshot snapshotWithNativeDetail(
+        final WindowsHistoryManagerValidationProbe.NativeDetail detail,
+        final String... ids
+    ) {
+        final List<WindowsHistoryManagerValidationProbe.Entry> nativeEntries = new ArrayList<>();
+        final List<WindowsHistoryManagerValidationProbe.SdkEntry> sdkEntries = new ArrayList<>();
+        for (int index = 0; index < ids.length; index++) {
+            nativeEntries.add(new WindowsHistoryManagerValidationProbe.Entry(
+                index, "entry-" + index, true, detail
+            ));
+            sdkEntries.add(new WindowsHistoryManagerValidationProbe.SdkEntry(
+                index, ids[index], "entry-" + index, "{}"
+            ));
+        }
+        final WindowsHistoryManagerValidationProbe.ManagerSnapshot document = manager(
+            "DOCUMENT", nativeEntries, ids.length
+        );
+        return new WindowsHistoryManagerValidationProbe.Snapshot(
+            "2024-01-01T00:00:00Z", "AWT-EventQueue-0", true, "loader@1",
+            "document@1", "ModelingMode", "mode@1", document,
+            manager("CURRENT", nativeEntries, ids.length),
+            manager("MAIN", nativeEntries, ids.length),
+            manager("LINKED", nativeEntries, ids.length),
+            new WindowsHistoryManagerValidationProbe.SdkHistorySnapshot(
+                "AVAILABLE", 1L, 1L, ids.length, true, false,
+                "history-document-1", "history-manager-1", ids.length, sdkEntries
+            )
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.NativeDetail simpleUnavailable() {
+        return new WindowsHistoryManagerValidationProbe.NativeDetail(
+            "SIMPLE", "com.live2d.undo.SimpleUndo", "target", "", "", "", "", -1,
+            0, List.of(), List.of(), true, false, "history.detail.post-state-unavailable"
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.NativeDetail group(
+        final int observedChildCount,
+        final List<WindowsHistoryManagerValidationProbe.NativeDetail> children,
+        final String degradationCode
+    ) {
+        return new WindowsHistoryManagerValidationProbe.NativeDetail(
+            "GROUP", "com.live2d.undo.GroupUndo", "", "", "", "", "", -1,
+            observedChildCount,
+            children.stream().map(WindowsHistoryManagerValidationProbe.NativeDetail::entryClass).toList(),
+            children,
+            false,
+            false,
+            degradationCode
+        );
+    }
+
+    private static void pairAll(
+        final WindowsHistorySeedValidationProbe.Evidence evidence,
+        final WindowsHistoryManagerValidationProbe.Snapshot snapshot
+    ) {
+        for (String phase : REQUIRED_PHASES) evidence.pairedSample(phase, snapshot);
     }
 
     private static WindowsHistoryManagerValidationProbe.Snapshot snapshotWithOptionalAbsence(final String... ids) {

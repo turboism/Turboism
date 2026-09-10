@@ -322,18 +322,32 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final ArrayList<String> childClasses = new ArrayList<>();
         final ArrayList<NativeDetail> childDetails = new ArrayList<>();
         final int count = Math.min(children.size(), MAX_DETAIL_NODES - nodes[0]);
-        boolean truncated = observed != children.size() || children.size() > count;
         for (int index = 0; index < count; index++) {
             final NativeDetail child = nativeDetail(children.get(index), depth + 1, visited, nodes);
             childClasses.add(child.entryClass());
             childDetails.add(child);
-            if (!child.degradationCode().isEmpty()) truncated = true;
         }
+        final boolean truncated = groupTruncated(observed, children.size(), count, childDetails);
         return new NativeDetail(
             "GROUP", className, "", "", "", "", "", -1,
             observed, List.copyOf(childClasses), List.copyOf(childDetails), false, false,
             truncated ? "history.detail.group-truncated" : ""
         );
+    }
+
+    /**
+     * Calculates whether group projection omitted traversal facts.
+     * Package-private so focused probe tests exercise the same aggregation decision.
+     */
+    static boolean groupTruncated(
+        final int observedChildCount,
+        final int returnedChildCount,
+        final int projectedChildCount,
+        final List<NativeDetail> childDetails
+    ) {
+        return observedChildCount != returnedChildCount
+            || returnedChildCount > projectedChildCount
+            || childDetails.stream().anyMatch(child -> child.truncated());
     }
 
     private static NativeDetail propertyDetail(final Object entry, final String className) throws Exception {
