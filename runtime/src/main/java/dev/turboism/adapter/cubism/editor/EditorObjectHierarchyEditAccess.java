@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -551,16 +552,20 @@ final class EditorObjectHierarchyEditAccess {
                 writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
                 return;
             }
-            case CAPTURE -> authoringCoordinator.mutate(binding, plan.contribution(
-                (edit, transactionLabel) -> admitObjectUndo(
-                    edit,
-                    modelSource,
-                    nodeSource,
-                    transactionLabel,
-                    "cubism.editor-model.complete-pack.update-deformer-palette",
-                    kindLabel + " hierarchy"
-                )
-            ));
+            case CAPTURE -> {
+                final boolean attachesNatively = plan.attachesThroughPartHandler();
+                authoringCoordinator.mutate(binding, plan.contribution(
+                    (edit, transactionLabel) -> admitRelationUndo(
+                        edit,
+                        modelSource,
+                        nodeSource,
+                        plan,
+                        transactionLabel,
+                        kindLabel
+                    ),
+                    attachesNatively ? () -> { } : plan.nativeMutation()
+                ));
+            }
         }
     }
 
@@ -680,7 +685,6 @@ final class EditorObjectHierarchyEditAccess {
         try {
             admitObjectUndo(
                 edit,
-                app,
                 modelSource,
                 objectSource,
                 action,
@@ -700,21 +704,56 @@ final class EditorObjectHierarchyEditAccess {
         }
     }
 
-    private void admitObjectUndo(
+    /**
+     * Admits the native Undo entry for a captured relation.
+     *
+     * <p>Part membership attaches through the host Part handler, whose
+     * {@code addChild}/{@code addPartChild} pair performs the detach/attach and hands back the Undo
+     * entry that restores it. A plain {@code CPartSource.addChild} changes both parents without
+     * recording restorable state, and a parent-owned all-edit entry does not restore the relation
+     * either (verified on exact 5.3.02 hosts). Deformer membership stays on the child, whose
+     * target-deformer state Undo does restore.</p>
+     */
+    private void admitRelationUndo(
         final Object edit,
         final Object modelSource,
-        final Object objectSource,
+        final Object childSource,
+        final HierarchyRelationCapture.Plan plan,
         final String transactionLabel,
-        final String paletteAlias,
-        final String operation
+        final String kindLabel
     ) {
-        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
-        admitObjectUndo(edit, app, modelSource, objectSource, transactionLabel, paletteAlias, operation);
+        final String palette = "cubism.editor-model.complete-pack.update-deformer-palette";
+        if (!plan.attachesThroughPartHandler()) {
+            admitObjectUndo(
+                edit,
+                modelSource,
+                childSource,
+                transactionLabel,
+                palette,
+                kindLabel + " hierarchy"
+            );
+            return;
+        }
+        final Object parentSource = plan.requestedMembershipParent().orElseThrow();
+        final Object parentHandler = resolver.invoke(
+            "cubism.editor-model.part-source.handler",
+            parentSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.part-handler.class", parentHandler)) {
+            throw unavailable("Editor Part Undo handler is unavailable.");
+        }
+        final Object attachUndo = resolver.invoke(
+            "cubism.editor-model.part-handler.add-part-child",
+            parentHandler,
+            childSource,
+            Integer.valueOf(plan.requestedIndex())
+        );
+        requireUndoAccepted(edit, attachUndo, kindLabel + " hierarchy");
+        registerUndoListener(attachUndo, modelSource, palette);
     }
 
     private void admitObjectUndo(
         final Object edit,
-        final Object app,
         final Object modelSource,
         final Object objectSource,
         final String transactionLabel,
@@ -734,6 +773,16 @@ final class EditorObjectHierarchyEditAccess {
             transactionLabel
         );
         requireUndoAccepted(edit, objectUndo, operation);
+        registerUndoListener(objectUndo, modelSource, paletteAlias);
+    }
+
+    /** Registers the instance refresh a native Undo/Redo of one relation or object entry triggers. */
+    private void registerUndoListener(
+        final Object undo,
+        final Object modelSource,
+        final String paletteAlias
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
         final Object listener = resolver.createFunctionalProxy(
             "cubism.editor-model.undo-listener.class",
             ignored -> {
@@ -742,7 +791,7 @@ final class EditorObjectHierarchyEditAccess {
                 return null;
             }
         );
-        resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
+        resolver.invoke("cubism.editor-model.undo.add-listener", undo, listener);
     }
 
     private void writeCreatedSource(

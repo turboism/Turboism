@@ -546,9 +546,51 @@ public final class HierarchyRelationCapture {
             return decision;
         }
 
-        /** Builds the coordinator contribution for a captured relation. */
+        /**
+         * Returns whether the native attach must go through the host Part handler.
+         *
+         * <p>Part membership is parent-side state. {@code CPartSource.addChild} changes both parents
+         * without recording restorable state, so Undo of a captured row leaves the Part parent
+         * unchanged on exact 5.3.02 hosts (verified: the native DOCUMENT entry moves, both cached
+         * and freshly read parents stay on the new Part, while child-side state such as parameters,
+         * ArtMesh colour and Deformer parent does restore). {@code PartHandler.addPartChild}
+         * performs the same detach/attach and returns the Undo entry that restores it.</p>
+         */
+        public boolean attachesThroughPartHandler() {
+            return relationKind == HistoryRelationChange.Kind.PART_MEMBERSHIP;
+        }
+
+        /** Returns the requested parent Part, when this plan captures Part membership. */
+        public Optional<Object> requestedMembershipParent() {
+            if (relationKind != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
+                return Optional.empty();
+            }
+            return Optional.of(requestedParentSource);
+        }
+
+        /** Returns the requested insertion index; negative appends. */
+        public int requestedIndex() {
+            return requestedIndex;
+        }
+
+        /**
+         * Returns the native mutation for a capture whose Undo admission does not already perform
+         * it. A Part-handler admission attaches the child itself.
+         */
+        public Runnable nativeMutation() {
+            return this::mutateNative;
+        }
+
+        /**
+         * Builds the coordinator contribution for a captured relation.
+         *
+         * @param undoAdmission admits the native Undo entry; a Part-handler admission also applies
+         *                      the native attach, in which case {@code nativeMutation} is a no-op
+         * @param nativeMutation the native mutation to run when the admission only records state
+         */
         public EditorUndoContribution contribution(
-            final EditorUndoContribution.UndoAdmission undoAdmission
+            final EditorUndoContribution.UndoAdmission undoAdmission,
+            final Runnable nativeMutation
         ) {
             if (decision != Decision.CAPTURE) {
                 throw new IllegalStateException("a non-capture hierarchy plan has no contribution");
@@ -563,7 +605,7 @@ public final class HierarchyRelationCapture {
                 targetIdentity,
                 label,
                 undoAdmission,
-                this::mutateNative,
+                nativeMutation,
                 this::applied,
                 this::compensate,
                 this::restored,

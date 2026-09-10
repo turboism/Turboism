@@ -2,6 +2,8 @@ package dev.turboism.tests.plugin;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.model.Color;
 import org.junit.jupiter.api.Test;
 
@@ -9,8 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -23,7 +27,9 @@ class WindowsHistorySeedValidationProbeTest {
     private static final List<String> REQUIRED_PHASES = List.of(
         "baseline", "write-1", "write-2", "third-write", "group", "undo", "redo", "restored",
         "artmesh-baseline", "artmesh-write-1", "artmesh-write-2", "artmesh-third-write",
-        "artmesh-undo", "artmesh-redo"
+        "artmesh-undo", "artmesh-redo",
+        "relation-baseline", "relation-write-1", "relation-write-2", "relation-undo",
+        "relation-redo"
     );
 
     @Test
@@ -217,7 +223,7 @@ class WindowsHistorySeedValidationProbeTest {
     }
 
     @Test
-    void completeGroupWithUnavailablePostStateCanPassAllFourteenPhases() throws Exception {
+    void completeGroupWithUnavailablePostStateCanPassAllRequiredPhases() throws Exception {
         final Path artifact = Files.createTempFile("history-seed-group-post-state", ".jsonl");
         try {
             final WindowsHistorySeedValidationProbe.Evidence evidence =
@@ -243,7 +249,7 @@ class WindowsHistorySeedValidationProbeTest {
     }
 
     @Test
-    void actualGroupTruncationCannotProducePassAcrossAllFourteenPhases() throws Exception {
+    void actualGroupTruncationCannotProducePassAcrossAllRequiredPhases() throws Exception {
         final Path artifact = Files.createTempFile("history-seed-group-truncated", ".jsonl");
         try {
             final WindowsHistorySeedValidationProbe.Evidence evidence =
@@ -266,7 +272,7 @@ class WindowsHistorySeedValidationProbeTest {
     }
 
     @Test
-    void decoderFailureInsideCompleteGroupCannotProducePassAcrossAllFourteenPhases() throws Exception {
+    void decoderFailureInsideCompleteGroupCannotProducePassAcrossAllRequiredPhases() throws Exception {
         final Path artifact = Files.createTempFile("history-seed-group-decoder-failure", ".jsonl");
         try {
             final WindowsHistorySeedValidationProbe.Evidence evidence =
@@ -419,5 +425,87 @@ class WindowsHistorySeedValidationProbeTest {
         return new WindowsHistoryManagerValidationProbe.ManagerSnapshot(
             name, "native-" + name, position, true, false, entries.size(), entries
         );
+    }
+
+    @Test
+    void capturedEndpointMustEqualTheObservedNativeParent() {
+        final WindowsHistorySeedValidationProbe.NativeParent partParent =
+            new WindowsHistorySeedValidationProbe.NativeParent(Optional.of("PartA"), Optional.empty());
+        assertTrue(WindowsHistorySeedValidationProbe.endpointMatches(
+            target("PART", "PartA", "Part A"), partParent));
+        assertFalse(WindowsHistorySeedValidationProbe.endpointMatches(
+            target("PART", "PartB", "Part B"), partParent));
+        assertTrue(WindowsHistorySeedValidationProbe.endpointMatches(
+            target("WARP_DEFORMER", "WarpA", "Warp A"),
+            new WindowsHistorySeedValidationProbe.NativeParent(Optional.empty(), Optional.of("WarpA"))));
+        assertFalse(WindowsHistorySeedValidationProbe.endpointMatches(
+            root(), partParent));
+        assertTrue(WindowsHistorySeedValidationProbe.endpointMatches(
+            root(),
+            new WindowsHistorySeedValidationProbe.NativeParent(Optional.empty(), Optional.empty())));
+    }
+
+    @Test
+    void capturedEndpointWithoutIdentityOrNameCannotMatch() {
+        final WindowsHistorySeedValidationProbe.NativeParent partParent =
+            new WindowsHistorySeedValidationProbe.NativeParent(Optional.of("PartA"), Optional.empty());
+        assertFalse(WindowsHistorySeedValidationProbe.endpointMatches(
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget("PART", Optional.of("PartA"), Optional.empty()))
+            ),
+            partParent));
+        assertFalse(WindowsHistorySeedValidationProbe.endpointMatches(
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty()),
+            partParent));
+        assertFalse(WindowsHistorySeedValidationProbe.endpointMatches(root(), new WindowsHistorySeedValidationProbe.NativeParent(
+            Optional.empty(), Optional.of("WarpA"))));
+    }
+
+    @Test
+    void capturedEndpointDescriptionKeepsStateAndIdentity() {
+        assertEquals("PART:PartA", WindowsHistorySeedValidationProbe.describeEndpoint(
+            target("PART", "PartA", "Part A")));
+        assertEquals("ROOT", WindowsHistorySeedValidationProbe.describeEndpoint(root()));
+        assertEquals(
+            "UNKNOWN",
+            WindowsHistorySeedValidationProbe.describeEndpoint(new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.UNKNOWN,
+                Optional.empty()
+            ))
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint target(
+        final String type,
+        final String id,
+        final String displayName
+    ) {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.TARGET,
+            Optional.of(new HistoryTarget(type, Optional.of(id), Optional.of(displayName)))
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint root() {
+        return new HistoryRelationChange.Endpoint(HistoryRelationChange.State.ROOT, Optional.empty());
+    }
+
+    @Test
+    void recordedObservationDoesNotGateTheSummary() throws Exception {
+        final Path artifact = Files.createTempFile("history-seed-observation", ".jsonl");
+        try {
+            final WindowsHistorySeedValidationProbe.Evidence evidence =
+                new WindowsHistorySeedValidationProbe.Evidence(artifact);
+            pairAll(evidence, snapshot("entry-1"));
+            evidence.observation("relation-deformer-parent-from-root", "known gap", "level=PARTIAL");
+            evidence.summary();
+
+            final List<String> lines = Files.readAllLines(artifact);
+            assertTrue(lines.stream().anyMatch(line -> line.contains("\"type\":\"observation\"")));
+            assertEquals("PASS", JSON.readTree(lines.get(lines.size() - 1)).get("status").asText());
+        } finally {
+            Files.deleteIfExists(artifact);
+        }
     }
 }

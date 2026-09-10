@@ -690,7 +690,9 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(0, fixture.editMode.edits.size());
 
         final Fixture rejected = new Fixture();
-        rejected.childPart.handlerUnavailable = true;
+        // Part membership attaches through the requested parent Part handler, so an unavailable
+        // handler must reject the write before any mutation.
+        rejected.rootPart.handlerUnavailable = true;
         Host.document = rejected.document;
         final VerifiedMemberResolver rejectedResolver = centralResolver("5.3.02");
         final var rejectedModel = new EditorBackedCubismModelAccess(
@@ -771,6 +773,7 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT,
             detail.changes().get(1).relation().orElseThrow().kind());
         assertEquals(2, detail.group().orElseThrow().children().size());
+        // One host attach Undo entry for the Part membership, one child-side entry for the move.
         assertEquals(2, fixture.editMode.edits.get(0).children.size());
     }
 
@@ -1035,6 +1038,9 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.parameter-controllable-source.target-deformer-source", ObjectSource.class, "targetDeformerSource", desc(ObjectSource.class)));
         selectors.add(StaticSelector.classSelector("cubism.editor-model.parameter-controllable-handler.class", internal(ACParameterControllableHandler.class)));
         selectors.add(method("cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit", ACParameterControllableHandler.class, "undo", "(Ljava/lang/String;)" + type(Undo.class)));
+        selectors.add(method("cubism.editor-model.part-source.handler", PartSource.class, "partHandler", "()" + type(PartHandler.class)));
+        selectors.add(StaticSelector.classSelector("cubism.editor-model.part-handler.class", internal(PartHandler.class)));
+        selectors.add(method("cubism.editor-model.part-handler.add-part-child", PartHandler.class, "addPartChild", "(" + type(ObjectSource.class) + "I)" + type(Undo.class)));
         selectors.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updatePartPalette", "(Z)V"));
         selectors.add(method("cubism.editor-model.complete-pack.update-deformer-palette", CompletePack.class, "updateDeformerPalette", "(Z)V"));
         selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaintCanvas", "(Z)V"));
@@ -1350,6 +1356,11 @@ class EditorObjectHierarchyEditAccessTest {
             }
         }
 
+        /** Mirrors the host PartHandler: attaches the child and returns the Undo entry for it. */
+        public PartHandler partHandler() {
+            return handlerUnavailable ? null : new PartHandler(this);
+        }
+
         public void removeChild(final ObjectSource child) {
             removeChildCalls++;
             children.remove(child);
@@ -1556,6 +1567,26 @@ class EditorObjectHierarchyEditAccessTest {
         public Undo undo(final String name) {
             final Undo undo = new Undo();
             source.currentUndo = undo;
+            return undo;
+        }
+    }
+
+    public static final class PartHandler {
+        final PartSource source;
+        PartHandler(final PartSource source) { this.source = source; }
+        public Undo addPartChild(final ObjectSource child, final int index) {
+            final Undo undo = new Undo();
+            final Undo previousParentUndo = source.currentUndo;
+            final Undo previousChildUndo = child.currentUndo;
+            // The host attach entry records the detach/attach inverse for both ends.
+            source.currentUndo = undo;
+            child.currentUndo = undo;
+            try {
+                source.addChild(child, index);
+            } finally {
+                source.currentUndo = previousParentUndo;
+                child.currentUndo = previousChildUndo;
+            }
             return undo;
         }
     }
