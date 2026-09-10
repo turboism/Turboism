@@ -3,6 +3,7 @@ package dev.turboism.plugin.historypanel.service;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryId;
@@ -285,6 +286,193 @@ class HistoryPanelServiceTest {
         assertEquals("3 Remove Rotation deformer icon Rotation name", rows.get(2).label());
         assertFalse(rows.get(0).label().contains("Move"), rows.get(0).label());
         assertTrue(rows.get(0).label().contains("<literal>&mesh"), rows.get(0).label());
+    }
+
+    @Test
+    void rendersTypedRelationsFromCapturedEndpointsWithStableActions() {
+        final HistoryTarget joinMesh = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("join-mesh"),
+            Optional.of("Mesh join")
+        );
+        final HistoryTarget childA = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("mesh-a"),
+            Optional.of("A frozen")
+        );
+        final HistoryTarget oldWarpB = new HistoryTarget(
+            "WARP_DEFORMER",
+            Optional.of("warp-b"),
+            Optional.of("B captured")
+        );
+        final HistoryTarget newRotationC = new HistoryTarget(
+            "ROTATION_DEFORMER",
+            Optional.of("rotation-c"),
+            Optional.of("C captured")
+        );
+        final HistoryTarget deformerChild = new HistoryTarget(
+            "WARP_DEFORMER",
+            Optional.of("warp-child"),
+            Optional.of("Deformer child")
+        );
+        final HistoryTarget oldRotation = new HistoryTarget(
+            "ROTATION_DEFORMER",
+            Optional.of("rotation-old"),
+            Optional.of("Old deformer")
+        );
+        final HistoryTarget partJoinChild = new HistoryTarget(
+            "ROTATION_DEFORMER",
+            Optional.of("rotation-join"),
+            Optional.of("Part join")
+        );
+        final HistoryTarget partParent = new HistoryTarget(
+            "PART",
+            Optional.of("part-parent"),
+            Optional.of("Part parent")
+        );
+        final HistoryTarget partChild = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("part-child"),
+            Optional.of("Part child")
+        );
+        final HistoryTarget oldPart = new HistoryTarget(
+            "PART",
+            Optional.of("part-old"),
+            Optional.of("Old part")
+        );
+
+        final List<HistoryEntry> entries = List.of(
+            relationEntry(
+                0,
+                "deformer-root-join",
+                List.of(joinMesh),
+                0,
+                HistoryRelationChange.Kind.DEFORMER_PARENT,
+                rootEndpoint(),
+                targetEndpoint(oldWarpB),
+                HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.hostUnattributed(),
+                Optional.empty()
+            ),
+            relationEntry(
+                1,
+                "deformer-reparent",
+                List.of(new HistoryTarget("PART", Optional.of("decoy"), Optional.of("Decoy")), childA),
+                1,
+                HistoryRelationChange.Kind.DEFORMER_PARENT,
+                targetEndpoint(oldWarpB),
+                targetEndpoint(newRotationC),
+                HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.hostUnattributed(),
+                Optional.empty()
+            ),
+            relationEntry(
+                2,
+                "deformer-detach",
+                List.of(deformerChild),
+                0,
+                HistoryRelationChange.Kind.DEFORMER_PARENT,
+                targetEndpoint(oldRotation),
+                rootEndpoint(),
+                HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.hostUnattributed(),
+                Optional.empty()
+            ),
+            relationEntry(
+                3,
+                "part-root-join",
+                List.of(partJoinChild),
+                0,
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                rootEndpoint(),
+                targetEndpoint(partParent),
+                HistoryAction.DetailLevel.FULL,
+                HistoryOrigin.hostUnattributed(),
+                Optional.empty()
+            ),
+            relationEntry(
+                4,
+                "part-detach",
+                List.of(partChild),
+                0,
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                targetEndpoint(oldPart),
+                rootEndpoint(),
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.turboism("relation.test", "detach"),
+                Optional.of("history.detail.relation-partial")
+            ),
+            relationEntry(
+                5,
+                "unknown-relation",
+                List.of(joinMesh),
+                0,
+                HistoryRelationChange.Kind.PART_MEMBERSHIP,
+                unknownEndpoint(),
+                targetEndpoint(partParent),
+                HistoryAction.DetailLevel.PARTIAL,
+                HistoryOrigin.hostUnattributed(),
+                Optional.of("history.detail.relation-unknown")
+            )
+        );
+        final HistorySnapshot snapshot = available(6, 6, 6, entries, true, false);
+
+        final List<PanelView.Toggle> rows = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        );
+
+        assertEquals(6, rows.size());
+        for (int index = 0; index < rows.size(); index++) {
+            assertEquals(
+                HistoryPanelService.moveActionId(entries.get(index).entryId().orElseThrow().value()),
+                rows.get(index).actionId()
+            );
+        }
+        assertEquals(
+            List.of(CubismIcon.ART_MESH, CubismIcon.WARP_DEFORMER),
+            icons(rows.get(0))
+        );
+        assertEquals(
+            "1 Artmesh icon Mesh join is set under Warp deformer icon B captured as its child",
+            rows.get(0).label()
+        );
+        assertEquals(
+            List.of(CubismIcon.ART_MESH, CubismIcon.ROTATION_DEFORMER),
+            icons(rows.get(1))
+        );
+        assertEquals(
+            "2 Artmesh icon A frozen is set under Rotation deformer icon C captured as its child",
+            rows.get(1).label()
+        );
+        assertTrue(rows.get(1).label().contains("A frozen"), rows.get(1).label());
+        assertTrue(rows.get(1).label().contains("C captured"), rows.get(1).label());
+        assertFalse(rows.get(1).label().contains("Decoy"), rows.get(1).label());
+        assertEquals(
+            "3 Warp deformer icon Deformer child leaves deformer Rotation deformer icon Old deformer",
+            rows.get(2).label()
+        );
+        assertEquals(
+            List.of(CubismIcon.ROTATION_DEFORMER, CubismIcon.PART),
+            icons(rows.get(3))
+        );
+        assertEquals(
+            "4 Rotation deformer icon Part join joins Part icon Part parent",
+            rows.get(3).label()
+        );
+        assertEquals(
+            "5 Artmesh icon Part child leaves part Part icon Old part · Turboism (relation.test) · partial detail",
+            rows.get(4).label()
+        );
+        assertEquals(
+            List.of(CubismIcon.ART_MESH, CubismIcon.PART),
+            icons(rows.get(4))
+        );
+        assertTrue(rows.get(4).label().contains("Turboism (relation.test)"), rows.get(4).label());
+        assertTrue(rows.get(4).label().contains("partial detail"), rows.get(4).label());
+        assertTrue(rows.get(5).inlineLabel() == null, "unknown relation falls back to text-only row");
+        assertTrue(rows.get(5).label().contains("unknown-relation"), rows.get(5).label());
+        assertTrue(rows.get(5).label().contains("partial detail"), rows.get(5).label());
+        assertFalse(rows.get(5).label().contains("joins"), rows.get(5).label());
     }
 
     @Test
@@ -616,6 +804,77 @@ class HistoryPanelServiceTest {
             .filter(UiInlineLabel.IconRun.class::isInstance)
             .findFirst()
             .orElseThrow();
+    }
+
+    private static List<CubismIcon> icons(final PanelView.Toggle toggle) {
+        return toggle.inlineLabel().runs().stream()
+            .filter(UiInlineLabel.IconRun.class::isInstance)
+            .map(UiInlineLabel.IconRun.class::cast)
+            .map(run -> run.icon().icon())
+            .toList();
+    }
+
+    private static HistoryEntry relationEntry(
+        final int index,
+        final String entryId,
+        final List<HistoryTarget> targets,
+        final int childIndex,
+        final HistoryRelationChange.Kind kind,
+        final HistoryRelationChange.Endpoint before,
+        final HistoryRelationChange.Endpoint after,
+        final HistoryAction.DetailLevel detailLevel,
+        final HistoryOrigin origin,
+        final Optional<String> degradation
+    ) {
+        final HistoryRelationChange relation = new HistoryRelationChange(kind, before, after);
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(childIndex),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            context(HistoryEditContext.Kind.OBJECT),
+            Optional.of(relation)
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Relation " + entryId,
+            detailLevel,
+            origin,
+            targets,
+            List.of(change),
+            Optional.empty(),
+            degradation
+        );
+        return new HistoryEntry(
+            index,
+            "Native relation " + entryId,
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId(entryId)),
+            Optional.empty(),
+            detail
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint targetEndpoint(final HistoryTarget target) {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.TARGET,
+            Optional.of(target)
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint rootEndpoint() {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.ROOT,
+            Optional.empty()
+        );
+    }
+
+    private static HistoryRelationChange.Endpoint unknownEndpoint() {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.UNKNOWN,
+            Optional.empty()
+        );
     }
 
     private static HistoryEntry richEntry(
@@ -1134,6 +1393,15 @@ class HistoryPanelServiceTest {
                 case "history.icon.art-mesh" -> "Artmesh icon";
                 case "history.icon.warp-deformer" -> "Warp deformer icon";
                 case "history.icon.rotation-deformer" -> "Rotation deformer icon";
+                case "history.icon.part" -> "Part icon";
+                case "history.relation.deformer-parent.set.infix" -> " is set under ";
+                case "history.relation.deformer-parent.set.suffix" -> " as its child";
+                case "history.relation.part-membership.join.infix" -> " joins ";
+                case "history.relation.part-membership.join.suffix" -> "";
+                case "history.relation.deformer-parent.detach.infix" -> " leaves deformer ";
+                case "history.relation.deformer-parent.detach.suffix" -> "";
+                case "history.relation.part-membership.detach.infix" -> " leaves part ";
+                case "history.relation.part-membership.detach.suffix" -> "";
                 case "history.target.art-mesh" -> "Artmesh";
                 case "history.target.parameter" -> "Parameter";
                 case "history.target.part" -> "Part";
