@@ -310,7 +310,7 @@ public final class HistoryPanelService {
         return Optional.of(UiInlineLabel.of(runs));
     }
 
-    private static void appendBoundedTextRuns(
+    static void appendBoundedTextRuns(
         final List<UiInlineLabel.Run> runs,
         final String text
     ) {
