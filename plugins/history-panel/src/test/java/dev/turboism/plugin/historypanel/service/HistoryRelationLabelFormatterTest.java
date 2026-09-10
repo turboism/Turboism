@@ -6,16 +6,26 @@ import dev.turboism.sdk.ui.UiInlineLabel;
 import dev.turboism.sdk.ui.resource.CubismIcon;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
+import java.text.MessageFormat;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class HistoryRelationLabelFormatterTest {
-    private static final PluginLocalization LOCALIZATION = new ChineseLocalization();
+    private static final String CATALOG_PREFIX = "META-INF/turboism/i18n/";
+    private static final PluginLocalization LOCALIZATION = catalog(
+        "messages_zh_Hans.properties",
+        Locale.SIMPLIFIED_CHINESE
+    );
 
     @Test
     void formatsDeformerParentWithTypedChildAndParentIcons() {
@@ -34,8 +44,8 @@ class HistoryRelationLabelFormatterTest {
             HistoryRelationLabelFormatter.Endpoint.target(target("ROTATION_DEFORMER", "rotation-b", "B2"))
         ).orElseThrow();
 
-        assertEquals("图形网格图标 A 设置为 弯曲变形器图标 B 的子级", artMeshToWarp.fallbackText());
-        assertEquals("弯曲变形器图标 A2 设置为 旋转变形器图标 B2 的子级", warpToRotation.fallbackText());
+        assertEquals("图形网格图标 A 设置为 曲面变形器图标 B 的子级", artMeshToWarp.fallbackText());
+        assertEquals("曲面变形器图标 A2 设置为 旋转变形器图标 B2 的子级", warpToRotation.fallbackText());
         assertEquals(
             List.of(CubismIcon.ART_MESH, CubismIcon.WARP_DEFORMER),
             icons(artMeshToWarp)
@@ -106,11 +116,11 @@ class HistoryRelationLabelFormatterTest {
         ).orElseThrow();
 
         assertEquals(
-            "图形网格图标 A 移出变形器 弯曲变形器图标 Old parent",
+            "图形网格图标 A 移出变形器 曲面变形器图标 Old parent",
             deformerDetach.fallbackText()
         );
         assertEquals(
-            "弯曲变形器图标 A2 移出部件 部件图标 Old part",
+            "曲面变形器图标 A2 移出部件 部件图标 Old part",
             partDetach.fallbackText()
         );
     }
@@ -132,12 +142,65 @@ class HistoryRelationLabelFormatterTest {
             HistoryRelationLabelFormatter.Endpoint.target(target("PART", "part-d", "D"))
         ).orElseThrow();
 
-        assertEquals("图形网格图标 A 设置为 弯曲变形器图标 B 的子级", deformerJoin.fallbackText());
+        assertEquals("图形网格图标 A 设置为 曲面变形器图标 B 的子级", deformerJoin.fallbackText());
         assertEquals("图形网格图标 C 加入 部件图标 D", partJoin.fallbackText());
         assertFalse(deformerJoin.fallbackText().contains("root"));
         assertFalse(partJoin.fallbackText().contains("root"));
     }
 
+    @Test
+    void formatsJoinAndDetachWithJapaneseOperationOrder() {
+        final PluginLocalization japanese = catalog("messages_ja.properties", Locale.JAPANESE);
+        final HistoryRelationLabelFormatter formatter = new HistoryRelationLabelFormatter(japanese);
+        final HistoryTarget child = target("ART_MESH", "mesh-a", "A");
+        final HistoryTarget parent = target("PART", "part-c", "C");
+
+        final UiInlineLabel join = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            child,
+            HistoryRelationLabelFormatter.Endpoint.root(),
+            HistoryRelationLabelFormatter.Endpoint.target(parent)
+        ).orElseThrow();
+        final UiInlineLabel detach = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            child,
+            HistoryRelationLabelFormatter.Endpoint.target(parent),
+            HistoryRelationLabelFormatter.Endpoint.root()
+        ).orElseThrow();
+
+        assertEquals("アートメッシュアイコン A を パーツアイコン C に追加", join.fallbackText());
+        assertEquals("アートメッシュアイコン A を パーツアイコン C から移動", detach.fallbackText());
+    }
+
+    @Test
+    void formatsJoinAndDetachWithKoreanParticlesAndOperationOrder() {
+        final PluginLocalization korean = catalog("messages_ko.properties", Locale.KOREAN);
+        final HistoryRelationLabelFormatter formatter = new HistoryRelationLabelFormatter(korean);
+        final HistoryTarget parent = target("PART", "part-c", "C");
+
+        final UiInlineLabel join = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            target("ART_MESH", "mesh-a", "A"),
+            HistoryRelationLabelFormatter.Endpoint.root(),
+            HistoryRelationLabelFormatter.Endpoint.target(parent)
+        ).orElseThrow();
+        final UiInlineLabel detach = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            target("ART_MESH", "mesh-a", "A"),
+            HistoryRelationLabelFormatter.Endpoint.target(parent),
+            HistoryRelationLabelFormatter.Endpoint.root()
+        ).orElseThrow();
+        final UiInlineLabel batchimJoin = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            target("ART_MESH", "mesh-batchim", "점"),
+            HistoryRelationLabelFormatter.Endpoint.root(),
+            HistoryRelationLabelFormatter.Endpoint.target(parent)
+        ).orElseThrow();
+
+        assertEquals("아트메쉬 아이콘 A를 파트 아이콘 C에 추가", join.fallbackText());
+        assertEquals("아트메쉬 아이콘 A를 파트 아이콘 C에서 이동", detach.fallbackText());
+        assertEquals("아트메쉬 아이콘 점을 파트 아이콘 C에 추가", batchimJoin.fallbackText());
+    }
 
     @Test
     void rejectsUnknownStatesInvalidOldParentsAndNonChanges() {
@@ -341,36 +404,40 @@ class HistoryRelationLabelFormatterTest {
         return true;
     }
 
-    private static final class ChineseLocalization implements PluginLocalization {
-        @Override
-        public Locale locale() {
-            return Locale.SIMPLIFIED_CHINESE;
+    private static PluginLocalization catalog(final String fileName, final Locale locale) {
+        final String resource = CATALOG_PREFIX + fileName;
+        try (InputStream stream = HistoryRelationLabelFormatterTest.class
+            .getClassLoader()
+            .getResourceAsStream(resource)) {
+            if (stream == null) {
+                throw new AssertionError("missing catalog resource " + resource);
+            }
+            final Properties properties = new Properties();
+            properties.load(new StringReader(new String(stream.readAllBytes(), StandardCharsets.UTF_8)));
+            return new CatalogLocalization(locale, properties);
+        } catch (IOException exception) {
+            throw new AssertionError("could not read catalog resource " + resource, exception);
         }
+    }
 
+    private record CatalogLocalization(Locale locale, Properties properties) implements PluginLocalization {
         @Override
         public String text(final String key) {
-            return switch (key) {
-                case "history.icon.art-mesh" -> "图形网格图标";
-                case "history.icon.warp-deformer" -> "弯曲变形器图标";
-                case "history.icon.rotation-deformer" -> "旋转变形器图标";
-                case "history.icon.part" -> "部件图标";
-                case "history.relation.deformer-parent.set.infix" -> "设置为";
-                case "history.relation.deformer-parent.set.suffix" -> "的子级";
-                case "history.relation.part-membership.join.infix" -> "加入";
-                case "history.relation.deformer-parent.detach.infix" -> "移出变形器";
-                case "history.relation.part-membership.detach.infix" -> "移出部件";
-                default -> throw new AssertionError("unexpected localization key: " + key);
-            };
+            final String value = properties.getProperty(key);
+            if (value == null) {
+                throw new AssertionError("missing localization key " + key);
+            }
+            return value;
         }
 
         @Override
         public String format(final String key, final Object... arguments) {
-            return text(key);
+            return new MessageFormat(text(key), locale).format(arguments);
         }
 
         @Override
         public boolean contains(final String key) {
-            return true;
+            return properties.containsKey(key);
         }
     }
 }
