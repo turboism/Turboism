@@ -7,8 +7,15 @@ import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.model.Color;
+import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.id.DeformerId;
+import dev.turboism.sdk.cubism.model.Deformer;
+import dev.turboism.sdk.cubism.model.Part;
+import dev.turboism.sdk.cubism.model.PartId;
 import dev.turboism.sdk.cubism.model.Parameter;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
@@ -33,7 +40,8 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     private static final long MAX_EVIDENCE_BYTES = WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES;
     private static final long TERMINAL_RESERVE_BYTES = 2_048L;
-    private static final int MAX_PAIRED_SAMPLES = 16;
+    private static final int MAX_PAIRED_SAMPLES = 20;
+    private static final String INTERNAL_ROOT_PART = "__RootPart__";
     private static final List<String> REQUIRED_PAIRED_PHASES = List.of(
         "baseline",
         "write-1",
@@ -48,7 +56,12 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         "artmesh-write-2",
         "artmesh-third-write",
         "artmesh-undo",
-        "artmesh-redo"
+        "artmesh-redo",
+        "relation-baseline",
+        "relation-write-1",
+        "relation-write-2",
+        "relation-undo",
+        "relation-redo"
     );
 
     private PluginContext context;
@@ -208,6 +221,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                 evidence.entry("seed-entry-" + index, entry);
                 assertParameterSemanticDetail(evidence, "seed-entry-" + index, entry, id);
             }
+            validateRelationCapturedSemantic(evidence);
             validateArtMeshCapturedSemantic(evidence);
             evidence.summary();
         } catch (Exception exception) {
@@ -402,6 +416,440 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         }
     }
 
+    /** One direct native parent observation: at most one of Part or Deformer is present. */
+    record NativeParent(Optional<String> partId, Optional<String> deformerId) {
+        String text() {
+            return "part=" + partId.orElse("ROOT") + ",deformer=" + deformerId.orElse("ROOT");
+        }
+    }
+
+    /**
+     * Captures and verifies direct relation semantics for one Artmesh: a Part membership and a
+     * second direct relation (deformer parent when the fixture exposes a Deformer, otherwise a
+     * second Part membership). Parent identity is discovered at runtime and every captured
+     * endpoint is compared against the native direct parent observed immediately before the write,
+     * so no fixture name is hard-coded and a missing operand fails loudly.
+     */
+    private void validateRelationCapturedSemantic(final Evidence evidence) throws Exception {
+        evidence.event("phase", "relation-sdk-captured-semantic");
+        // One access owns the child and every parent operand: a Part obtained from another
+        // access belongs to a different model generation and cannot be applied to this child.
+        final CubismModel model = onEdt(() -> context.cubism().model().active());
+        final Drawable drawable = awaitDrawable(model);
+        final String childId = onEdt(() -> drawable.id().value());
+        final List<Part> parts = onEdt(() -> model.parts().all());
+        final List<Deformer> deformers = onEdt(() -> model.deformers().all());
+        final List<String> partIds = onEdt(() -> parts.stream().map(part -> part.id().value()).toList());
+        final List<String> deformerIds = onEdt(() -> deformers.stream()
+            .map(deformer -> deformer.id().value()).toList());
+        final NativeParent original = observeNativeParent(drawable);
+        evidence.event(
+            "relation-inventory",
+            "child=" + childId + ";parts=" + partIds + ";deformers=" + deformerIds
+                + ";original=" + original.text()
+        );
+
+        final List<String> candidates = partIds.stream()
+            .filter(id -> !id.equals(original.partId().orElse(null)))
+            .filter(id -> !INTERNAL_ROOT_PART.equals(id))
+            .toList();
+        final Optional<String> membershipTarget = candidates.stream().findFirst();
+        evidence.check(
+            "relation-part-membership-target",
+            membershipTarget.isPresent(),
+            "a real Part exists that is not the current direct parent",
+            "parts=" + partIds + ",currentPart=" + original.partId().orElse("ROOT")
+        );
+        if (membershipTarget.isEmpty()) {
+            return;
+        }
+        final String membershipId = membershipTarget.orElseThrow();
+        final Part membershipParent = onEdt(() -> model.parts().find(new PartId(membershipId)));
+
+        final HistorySnapshot baseline = context.cubism().history().snapshot();
+        capturePaired(evidence, "relation-baseline");
+        final NativeParent beforeMembership = observeNativeParent(drawable);
+        onEdt(() -> { drawable.setParent(membershipParent, -1); return null; });
+        final HistorySnapshot membershipHistory = awaitHistoryAdvance(baseline, 100)
+            .orElseThrow(() -> new IllegalStateException(
+                "Timed out waiting for Part membership relation capture"
+            ));
+        capturePaired(evidence, "relation-write-1");
+        final HistoryEntry membershipEntry = membershipHistory.entries()
+            .get(membershipHistory.position() - 1);
+        evidence.entry("relation-membership-entry", membershipEntry);
+        evidence.nestedDetails("relation-membership-child", membershipEntry.detail());
+        validateCapturedRelation(
+            evidence,
+            "relation-part-membership-captured",
+            membershipEntry,
+            childId,
+            "PART_MEMBERSHIP",
+            beforeMembership,
+            "PART",
+            membershipId
+        );
+        final NativeParent afterMembership = observeNativeParent(drawable);
+        evidence.check(
+            "relation-part-membership-native-applied",
+            afterMembership.partId().filter(membershipId::equals).isPresent(),
+            "native parentPartId=" + membershipId,
+            afterMembership.text()
+        );
+
+        final Optional<String> secondTarget = candidates.stream()
+            .filter(id -> !id.equals(membershipId))
+            .findFirst();
+        evidence.check(
+            "relation-second-direct-target",
+            secondTarget.isPresent(),
+            "a second Part exists that is not the current or first target parent",
+            "parts=" + partIds + ";first=" + membershipId
+        );
+        if (secondTarget.isEmpty()) {
+            return;
+        }
+        final String secondId = secondTarget.orElseThrow();
+        final Part secondParent = onEdt(() -> model.parts().find(new PartId(secondId)));
+        final NativeParent beforeSecond = observeNativeParent(drawable);
+        onEdt(() -> { drawable.setParent(secondParent, -1); return null; });
+        final HistorySnapshot secondHistory = awaitHistoryAdvance(membershipHistory, 100)
+            .orElseThrow(() -> new IllegalStateException(
+                "Timed out waiting for the second direct relation capture"
+            ));
+        capturePaired(evidence, "relation-write-2");
+        final HistoryEntry secondEntry = secondHistory.entries().get(secondHistory.position() - 1);
+        evidence.entry("relation-second-entry", secondEntry);
+        evidence.nestedDetails("relation-second-child", secondEntry.detail());
+        validateCapturedRelation(
+            evidence,
+            "relation-second-captured",
+            secondEntry,
+            childId,
+            "PART_MEMBERSHIP",
+            beforeSecond,
+            "PART",
+            secondId
+        );
+        evidence.check(
+            "relation-first-entry-frozen",
+            sameSemanticEntry(membershipEntry, secondHistory),
+            "the first relation entry keeps its exact captured detail",
+            "frozen=" + sameSemanticEntry(membershipEntry, secondHistory)
+        );
+        final NativeParent afterSecond = observeNativeParent(drawable);
+
+        final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
+        evidence.check(
+            "relation-undo-moved",
+            undone.outcome() == HistoryMoveResult.Outcome.MOVED,
+            HistoryMoveResult.Outcome.MOVED.name(),
+            undone.outcome().name()
+        );
+        // Native Undo is applied outside the calling thread, so the parent is awaited rather than
+        // sampled once.
+        final NativeParent afterUndo = awaitNativeParent(drawable, beforeSecond);
+        // Diagnostic: distinguish a stale handle from a native Undo that did not revert the
+        // relation. A fresh model access must agree with the cached handle.
+        evidence.observation(
+            "relation-undo-parent-reread",
+            "the cached handle agrees with a fresh model access",
+            "cached=" + afterUndo.text() + ";fresh=" + rereadParentViaFreshAccess(childId)
+        );
+        capturePaired(evidence, "relation-undo");
+        evidence.check(
+            "relation-undo-restores-first-parent",
+            afterUndo.equals(beforeSecond),
+            beforeSecond.text(),
+            afterUndo.text()
+        );
+
+        final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
+        evidence.check(
+            "relation-redo-moved",
+            redone.outcome() == HistoryMoveResult.Outcome.MOVED,
+            HistoryMoveResult.Outcome.MOVED.name(),
+            redone.outcome().name()
+        );
+        final NativeParent afterRedo = awaitNativeParent(drawable, afterSecond);
+        evidence.observation(
+            "relation-redo-parent-reread",
+            "the cached handle agrees with a fresh model access",
+            "cached=" + afterRedo.text() + ";fresh=" + rereadParentViaFreshAccess(childId)
+        );
+        capturePaired(evidence, "relation-redo");
+        evidence.check(
+            "relation-redo-reapplies-second-parent",
+            afterRedo.equals(afterSecond),
+            afterSecond.text(),
+            afterRedo.text()
+        );
+        observeUncapturedDeformerRoute(evidence, model, drawable, deformerIds);
+        restoreOriginalParent(evidence, model, drawable, original);
+    }
+
+    /**
+     * Documents the reviewed gap for a root-to-deformer write. The current writer captures only
+     * an existing direct relation, so a Deformer parent set from the model root stays on the
+     * legacy path and produces an unattributed entry. This is an observation, not a gate.
+     */
+    private void observeUncapturedDeformerRoute(
+        final Evidence evidence,
+        final CubismModel model,
+        final Drawable drawable,
+        final List<String> deformerIds
+    ) throws Exception {
+        if (deformerIds.isEmpty()) {
+            evidence.observation(
+                "relation-deformer-parent-from-root",
+                "not applicable: the fixture exposes no Deformer",
+                "deformers=" + deformerIds
+            );
+            return;
+        }
+        final NativeParent beforeWrite = observeNativeParent(drawable);
+        if (beforeWrite.deformerId().isPresent()) {
+            evidence.observation(
+                "relation-deformer-parent-from-root",
+                "not applicable: the Artmesh already has a direct Deformer parent",
+                beforeWrite.text()
+            );
+            return;
+        }
+        final String deformerId = deformerIds.get(0);
+        final HistorySnapshot before = context.cubism().history().snapshot();
+        onEdt(() -> {
+            drawable.setTargetDeformer(Optional.of(new DeformerId(deformerId)));
+            return null;
+        });
+        final HistorySnapshot after = awaitHistoryAdvance(before, 100).orElse(context.cubism().history().snapshot());
+        evidence.observation(
+            "relation-deformer-parent-from-root",
+            "known gap: root-to-Deformer capture is not implemented; entry stays unattributed",
+            "deformer=" + deformerId + "," + describeCurrentEntry(after)
+        );
+        final NativeParent applied = observeNativeParent(drawable);
+        evidence.observation(
+            "relation-deformer-parent-native-applied",
+            "native deformer parent applied without a captured relation",
+            applied.text()
+        );
+        if (deformerIds.size() < 2) {
+            return;
+        }
+        // Discriminating experiment: the child now has a direct Deformer parent, so the second
+        // write is a captured target-to-target relation whose state lives on the child. If native
+        // Undo restores that parent but not the Part parent, the gap is parent-side state.
+        final String secondDeformer = deformerIds.get(1);
+        final HistorySnapshot beforeSecond = context.cubism().history().snapshot();
+        onEdt(() -> {
+            drawable.setTargetDeformer(Optional.of(new DeformerId(secondDeformer)));
+            return null;
+        });
+        final HistorySnapshot afterSecond =
+            awaitHistoryAdvance(beforeSecond, 100).orElse(context.cubism().history().snapshot());
+        evidence.observation(
+            "relation-deformer-second-write",
+            "target-to-target Deformer reparent is captured",
+            "to=" + secondDeformer + "," + describeCurrentEntry(afterSecond)
+                + ",native=" + observeNativeParent(drawable).text()
+        );
+        final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
+        Thread.sleep(1_500L);
+        evidence.observation(
+            "relation-deformer-undo-restores",
+            "native Undo restores the previous Deformer parent",
+            "outcome=" + undone.outcome().name() + ",native=" + observeNativeParent(drawable).text()
+        );
+        final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
+        Thread.sleep(1_500L);
+        evidence.observation(
+            "relation-deformer-redo-reapplies",
+            "native Redo reapplies the second Deformer parent",
+            "outcome=" + redone.outcome().name() + ",native=" + observeNativeParent(drawable).text()
+        );
+    }
+
+    private String describeCurrentEntry(final HistorySnapshot snapshot) {
+        if (snapshot.position() <= 0 || snapshot.position() > snapshot.entries().size()) {
+            return "no observable entry";
+        }
+        final HistoryEntryDetail detail = snapshot.entries().get(snapshot.position() - 1).detail();
+        return "level=" + detail.detailLevel().name()
+            + ",origin=" + detail.origin().kind().name()
+            + ",changes=" + detail.changes().size()
+            + ",relation=" + detail.changes().stream()
+                .anyMatch(change -> change.relation().isPresent());
+    }
+
+    private void restoreOriginalParent(
+        final Evidence evidence,
+        final CubismModel model,
+        final Drawable drawable,
+        final NativeParent original
+    ) throws Exception {
+        if (original.partId().isPresent()) {
+            final String partId = original.partId().orElseThrow();
+            final Part part = onEdt(() -> model.parts().find(new PartId(partId)));
+            onEdt(() -> { drawable.setParent(part, -1); return null; });
+        }
+        if (original.deformerId().isPresent()) {
+            final String deformerId = original.deformerId().orElseThrow();
+            onEdt(() -> {
+                drawable.setTargetDeformer(Optional.of(new DeformerId(deformerId)));
+                return null;
+            });
+        } else {
+            onEdt(() -> { drawable.setTargetDeformer(Optional.empty()); return null; });
+        }
+        final NativeParent restored = observeNativeParent(drawable);
+        evidence.check(
+            "relation-fixture-parent-restored",
+            restored.partId().equals(original.partId())
+                && restored.deformerId().equals(original.deformerId()),
+            original.text(),
+            restored.text()
+        );
+        Thread.sleep(2_000L);
+    }
+
+    /** Records one relation check against the observed native direct parent before the write. */
+    private void validateCapturedRelation(
+        final Evidence evidence,
+        final String checkName,
+        final HistoryEntry entry,
+        final String childId,
+        final String expectedKind,
+        final NativeParent before,
+        final String expectedAfterType,
+        final String expectedAfterId
+    ) throws Exception {
+        final HistoryEntryDetail detail = entry.detail();
+        evidence.detail(checkName + "-semantic", detail);
+        final Optional<HistoryChange> relationChange = detail.changes().stream()
+            .filter(change -> change.relation().isPresent())
+            .findFirst();
+        final HistoryRelationChange relation = relationChange
+            .flatMap(HistoryChange::relation)
+            .orElse(null);
+        final HistoryTarget afterTarget = relation == null
+            ? null
+            : relation.after().target().orElse(null);
+        final boolean targetsMatch = detail.targets().size() == 1
+            && detail.targets().get(0).type().equals("ART_MESH")
+            && detail.targets().get(0).id().filter(childId::equals).isPresent();
+        final boolean beforeMatches = relation != null && endpointMatches(relation.before(), before);
+        final boolean afterMatches = relation != null
+            && relation.after().state() == HistoryRelationChange.State.TARGET
+            && afterTarget != null
+            && afterTarget.type().equals(expectedAfterType)
+            && afterTarget.id().filter(expectedAfterId::equals).isPresent()
+            && afterTarget.displayName().isPresent();
+        final boolean valid = entry.entryId().isPresent()
+            && entry.action().isEmpty()
+            && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+            && detail.origin().kind() == dev.turboism.sdk.cubism.history.HistoryOrigin.Kind.TURBOISM
+            && targetsMatch
+            && detail.changes().size() == 1
+            && relation != null
+            && relation.kind().name().equals(expectedKind)
+            && relationChange.map(change -> change.operation() == HistoryChange.Operation.SET).orElse(false)
+            && beforeMatches
+            && afterMatches;
+        evidence.check(
+            checkName,
+            valid,
+            "entryId,noLegacyAction,FULL,TURBOISM,ART_MESH:" + childId + ",1 change,SET,kind="
+                + expectedKind + ",before=" + before.text() + ",after=" + expectedAfterType
+                + ":" + expectedAfterId + " with captured name",
+            "entryId=" + entry.entryId().isPresent()
+                + ",action=" + entry.action().isPresent()
+                + ",level=" + detail.detailLevel().name()
+                + ",origin=" + detail.origin().kind().name()
+                + ",targets=" + detail.targets().size()
+                + ",changes=" + detail.changes().size()
+                + ",kind=" + (relation == null ? "" : relation.kind().name())
+                + ",before=" + describeEndpoint(relation == null ? null : relation.before())
+                + ",after=" + describeEndpoint(relation == null ? null : relation.after())
+        );
+    }
+
+    /** Matches one captured endpoint against the native direct parent observed before the write. */
+    static boolean endpointMatches(
+        final HistoryRelationChange.Endpoint endpoint,
+        final NativeParent observed
+    ) {
+        if (endpoint.state() == HistoryRelationChange.State.ROOT) {
+            return observed.partId().isEmpty() && observed.deformerId().isEmpty();
+        }
+        if (endpoint.state() != HistoryRelationChange.State.TARGET) {
+            return false;
+        }
+        final HistoryTarget target = endpoint.target().orElse(null);
+        if (target == null || target.displayName().isEmpty()) {
+            return false;
+        }
+        if (target.type().equals("PART")) {
+            return observed.partId().filter(id -> target.id().filter(id::equals).isPresent()).isPresent();
+        }
+        return target.type().endsWith("DEFORMER")
+            && observed.deformerId().filter(id -> target.id().filter(id::equals).isPresent()).isPresent();
+    }
+
+    static String describeEndpoint(final HistoryRelationChange.Endpoint endpoint) {
+        if (endpoint == null) {
+            return "";
+        }
+        if (endpoint.state() != HistoryRelationChange.State.TARGET) {
+            return endpoint.state().name();
+        }
+        final HistoryTarget target = endpoint.target().orElse(null);
+        return target == null ? "TARGET" : target.type() + ":" + target.id().orElse("");
+    }
+
+    /** Reads the ArtMesh Part parent through a freshly obtained model access. */
+    private String rereadParentViaFreshAccess(final String childId) throws Exception {
+        return onEdt(() -> {
+            final CubismModel fresh = context.cubism().model().active();
+            return fresh.drawables().all().stream()
+                .filter(candidate -> candidate.id().value().equals(childId))
+                .findFirst()
+                .map(candidate -> candidate.parentPartId().map(PartId::value).orElse("ROOT"))
+                .orElse("ABSENT");
+        });
+    }
+
+    /** Waits for the native direct parent to reach the expected state after an Undo/Redo move. */
+    private NativeParent awaitNativeParent(
+        final Drawable drawable,
+        final NativeParent expected
+    ) throws Exception {
+        NativeParent observed = observeNativeParent(drawable);
+        for (int attempt = 0; attempt < 50 && !observed.equals(expected)
+            && !Thread.currentThread().isInterrupted(); attempt++) {
+            Thread.sleep(100L);
+            observed = observeNativeParent(drawable);
+        }
+        return observed;
+    }
+
+    private NativeParent observeNativeParent(final Drawable drawable) throws Exception {
+        return onEdt(() -> new NativeParent(
+            drawable.parentPartId().map(PartId::value),
+            drawable.parentDeformerId().map(DeformerId::value)
+        ));
+    }
+
+    static String deformerType(final Deformer deformer) {
+        if (deformer instanceof dev.turboism.sdk.cubism.model.WarpDeformer) {
+            return "WARP_DEFORMER";
+        }
+        if (deformer instanceof dev.turboism.sdk.cubism.model.RotationDeformer) {
+            return "ROTATION_DEFORMER";
+        }
+        return "DEFORMER";
+    }
+
     static boolean sameSemanticEntry(final HistoryEntry expected, final HistorySnapshot actual) {
         return expected.entryId().isPresent() && actual.entries().stream()
             .filter(entry -> entry.entryId().equals(expected.entryId()))
@@ -424,10 +872,14 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
     }
 
     private Drawable awaitDrawable() throws Exception {
+        return awaitDrawable(onEdt(() -> context.cubism().model().active()));
+    }
+
+    private Drawable awaitDrawable(final CubismModel model) throws Exception {
         Exception unavailable = null;
         for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
             try {
-                return onEdt(() -> context.cubism().model().active().drawables().all().stream()
+                return onEdt(() -> model.drawables().all().stream()
                     .findFirst()
                     .orElseThrow(() -> new IllegalStateException("No writable Artmesh is available")));
             } catch (Exception exception) {
@@ -631,6 +1083,21 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
                         + "\",\"actual\":\"" + json(actual) + "\"}\n");
             } catch (Exception exception) {
                 throw new IllegalStateException("Could not write evidence check", exception);
+            }
+        }
+
+        /**
+         * Records a non-gating observation. Observations document a known and reviewed host
+         * behaviour without turning it into a required assertion.
+         */
+        void observation(final String name, final String expected, final String actual) {
+            try {
+                append(artifact,
+                    "{\"type\":\"observation\",\"name\":\"" + json(name)
+                        + "\",\"expected\":\"" + json(expected)
+                        + "\",\"actual\":\"" + json(actual) + "\"}\n");
+            } catch (Exception exception) {
+                throw new IllegalStateException("Could not write evidence observation", exception);
             }
         }
 
