@@ -60,7 +60,7 @@ public final class RuntimePluginLocalization implements PluginLocalization {
 
     /**
      * Loads one plugin's catalogs, resolving the locale afresh from the operator property, the host
-     * display locale and the JVM display locale.
+     * locale and the JVM display locale.
      *
      * <p>Prefer {@code createResolved} for plugins loaded after startup, so that every plugin shares
      * the single locale the runtime already settled on. Loading never fails on a bad catalog: an
@@ -74,7 +74,8 @@ public final class RuntimePluginLocalization implements PluginLocalization {
      * @param i18n the plugin's declared base name and locale list; must not be {@code null}
      * @param explicitLocale the configured locale tag, or {@code null}/{@code system} to defer to the
      *     host and JVM locales
-     * @param displayLocale the Cubism host's display locale, consulted after the explicit choice
+     * @param displayLocale the Cubism host locale (the language Cubism applied from its
+     *     Environment Settings), consulted after the explicit choice
      * @param jvmDisplayLocale the JVM display locale, consulted last before the base catalog
      * @param diagnostics sink for every rejected locale and unusable catalog; must not be
      *     {@code null}
