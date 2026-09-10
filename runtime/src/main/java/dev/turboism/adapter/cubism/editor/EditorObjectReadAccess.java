@@ -2109,6 +2109,19 @@ final class EditorObjectReadAccess {
                     "No Editor Deformer has id " + targetId.value()
                 );
             }
+            if (hierarchyEditAccess != null && hierarchyEditAccess.relationCaptureAvailable()) {
+                hierarchyEditAccess.setParent(
+                    identity,
+                    modelSource,
+                    model,
+                    current.source(),
+                    source,
+                    true,
+                    -1,
+                    "ArtMesh"
+                );
+                return;
+            }
             target = resolver.construct("cubism.editor-model.deformer-id.create", targetId.value());
         } else {
             target = null;
