@@ -303,6 +303,7 @@ public final class NativeResourceHostAgent {
             checkIdentity(app, doc, view, frame);
             require(undo.equals(undoState(doc)) && !Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")),
                     "ownership observation changed authoring state");
+            auditStaticRoots(app, verifiedApp, weak, name);
             return captured;
         });
         snapshot.write(RESULT, "ownership." + name);
@@ -317,10 +318,19 @@ public final class NativeResourceHostAgent {
             require(frame.isVisible(), "task window absent during closed ownership observation");
             Object app = verifiedApp.getMethod("access$get_instance$cp").invoke(null);
             require(((List<?>) call(app, "getAllDocs")).isEmpty(), "document reopened before closed ownership observation");
-            return NativeCloseOwnershipObservation.captureHost(app, verifiedApp, weak);
+            NativeCloseOwnershipObservation.Snapshot captured = NativeCloseOwnershipObservation.captureHost(app, verifiedApp, weak);
+            auditStaticRoots(app, verifiedApp, weak, name);
+            return captured;
         });
         snapshot.write(RESULT, "ownership." + name);
         phase("ownership." + name + ".end");
+    }
+
+    /** Runs after the ownership capture of the same phase so that any class initialization cannot affect it. */
+    private static void auditStaticRoots(Object app, Class<?> verifiedApp, NativeCloseOwnershipObservation.WeakPair weak,
+                                         String name) {
+        NativeStaticRootAudit.Result audited = NativeStaticRootAudit.auditHost(app, verifiedApp, weak);
+        audited.write(RESULT, "staticRoots." + name);
     }
 
     private static void checkIdentity(Object app, Object doc, Object view, Frame frame) throws Exception {
