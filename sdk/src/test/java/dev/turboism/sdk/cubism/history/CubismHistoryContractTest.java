@@ -388,6 +388,219 @@ class CubismHistoryContractTest {
         assertThrows(IllegalArgumentException.class, () -> fullDetail(artMesh, emptyKeyform));
     }
 
+    @Test
+    void relationEndpointsRequireImmutableTargetIdsAndRejectInvalidStatePayloads() {
+        final HistoryTarget target = new HistoryTarget(
+            "PART",
+            Optional.of("PartA"),
+            Optional.of("Part A")
+        );
+        final HistoryRelationChange.Endpoint captured = new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.TARGET,
+            Optional.of(target)
+        );
+        final HistoryRelationChange.Endpoint root = new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.ROOT,
+            Optional.empty()
+        );
+        final HistoryRelationChange.Endpoint unknown = new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.UNKNOWN,
+            Optional.empty()
+        );
+
+        assertEquals(target, captured.target().orElseThrow());
+        assertEquals(HistoryRelationChange.State.ROOT, root.state());
+        assertEquals(HistoryRelationChange.State.UNKNOWN, unknown.state());
+        assertThrows(IllegalArgumentException.class, () ->
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.TARGET, Optional.empty())
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget("PART", Optional.empty(), Optional.of("Part")))
+            )
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.ROOT, Optional.of(target))
+        );
+        assertThrows(IllegalArgumentException.class, () ->
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.of(target))
+        );
+    }
+
+    @Test
+    void relationFullAndPartialValidationPreservesDirectIdentityRules() {
+        final HistoryTarget child = new HistoryTarget(
+            "ART_MESH",
+            Optional.of("ArtMesh1"),
+            Optional.of("Face")
+        );
+        final HistoryTarget beforeParent = new HistoryTarget(
+            "PART",
+            Optional.of("PartA"),
+            Optional.of("Part A")
+        );
+        final HistoryTarget afterParent = new HistoryTarget(
+            "PART",
+            Optional.of("PartB"),
+            Optional.of("Part B")
+        );
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(beforeParent)
+            ),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(afterParent)
+            )
+        );
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+
+        assertEquals(HistoryAction.DetailLevel.FULL, fullDetail(child, change).detailLevel());
+
+        final HistoryRelationChange noOp = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            relation.before(),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget(
+                    "PART", Optional.of("PartA"), Optional.of("Renamed Part A")
+                ))
+            )
+        );
+        assertThrows(IllegalArgumentException.class, () -> fullDetail(child, new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(noOp)
+        )));
+
+        final HistoryRelationChange unknownAfter = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            relation.before(),
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty())
+        );
+        final HistoryChange partialChange = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(unknownAfter)
+        );
+        final HistoryEntryDetail partial = new HistoryEntryDetail(
+            "Unknown relation",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(child),
+            List.of(partialChange),
+            Optional.empty(),
+            Optional.of("history.capture.after-unavailable")
+        );
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, partial.detailLevel());
+        assertThrows(IllegalArgumentException.class, () -> fullDetail(child, partialChange));
+
+        final HistoryRelationChange invalidParent = new HistoryRelationChange(
+            HistoryRelationChange.Kind.DEFORMER_PARENT,
+            relation.before(),
+            relation.after()
+        );
+        assertThrows(IllegalArgumentException.class, () -> fullDetail(child, new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(invalidParent)
+        )));
+    }
+
+    @Test
+    void relationValidationAllowsDeformerParentFamily() {
+        final HistoryTarget child = new HistoryTarget(
+            "WARP_DEFORMER",
+            Optional.of("Warp1"),
+            Optional.of("Warp")
+        );
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.DEFORMER_PARENT,
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget(
+                    "WARP_DEFORMER", Optional.of("WarpParent"), Optional.of("Warp Parent")
+                ))
+            ),
+            new HistoryRelationChange.Endpoint(
+                HistoryRelationChange.State.TARGET,
+                Optional.of(new HistoryTarget(
+                    "ROTATION_DEFORMER", Optional.of("RotationParent"), Optional.of("Rotation Parent")
+                ))
+            )
+        );
+        final HistoryChange change = new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        );
+
+        assertEquals(HistoryAction.DetailLevel.FULL, fullDetail(child, change).detailLevel());
+    }
+
+    @Test
+    void relationChangesRejectScalarDuplicatesAndNonObjectShapes() {
+        final HistoryRelationChange relation = new HistoryRelationChange(
+            HistoryRelationChange.Kind.PART_MEMBERSHIP,
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.ROOT, Optional.empty()),
+            new HistoryRelationChange.Endpoint(HistoryRelationChange.State.UNKNOWN, Optional.empty())
+        );
+        assertThrows(IllegalArgumentException.class, () -> new HistoryChange(
+            HistoryChange.Operation.ADD,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.of("parent"),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of()),
+            Optional.of(relation)
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
+            new HistoryEditContext(HistoryEditContext.Kind.UNKNOWN, Optional.empty(), List.of()),
+            Optional.of(relation)
+        ));
+    }
+
     private static HistoryEntryDetail fullDetail(
         final HistoryTarget target,
         final HistoryChange change
