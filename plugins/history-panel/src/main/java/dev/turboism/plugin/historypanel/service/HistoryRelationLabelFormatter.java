@@ -21,7 +21,7 @@ final class HistoryRelationLabelFormatter {
 
     /**
      * Formats a frozen direct relation transition without depending on the SDK relation DTO.
-     * ROOT is renderable only as the new endpoint of a detach from a captured target; UNKNOWN
+     * Verified ROOT supports ROOT→TARGET joins and TARGET→ROOT detaches; UNKNOWN and other
      * and all other incomplete endpoint transitions remain conservative fallbacks.
      */
     Optional<UiInlineLabel> format(
@@ -37,52 +37,32 @@ final class HistoryRelationLabelFormatter {
             return Optional.empty();
         }
 
-        if (before.state() == State.TARGET && after.state() == State.TARGET) {
+        if (after.state() == State.TARGET) {
+            final HistoryTarget newParent = after.target().orElseThrow();
             final ChangeKind changeKind = relationKind == RelationKind.PART_MEMBERSHIP
                 ? ChangeKind.JOIN
                 : ChangeKind.SET;
-            return render(
-                relationKind,
-                changeKind,
-                child,
-                after.target().orElseThrow()
-            );
+            if (before.state() == State.ROOT) {
+                return render(relationKind, changeKind, child, newParent);
+            }
+            if (before.state() == State.TARGET) {
+                final HistoryTarget oldParent = before.target().orElseThrow();
+                if (!validRelation(relationKind, child, oldParent)
+                    || sameIdentity(child, oldParent)
+                    || sameIdentity(oldParent, newParent)) {
+                    return Optional.empty();
+                }
+                return render(relationKind, changeKind, child, newParent);
+            }
         }
         if (before.state() == State.TARGET && after.state() == State.ROOT) {
-            return render(
-                relationKind,
-                ChangeKind.DETACH,
-                child,
-                before.target().orElseThrow()
-            );
+            final HistoryTarget oldParent = before.target().orElseThrow();
+            if (!validRelation(relationKind, child, oldParent) || sameIdentity(child, oldParent)) {
+                return Optional.empty();
+            }
+            return render(relationKind, ChangeKind.DETACH, child, oldParent);
         }
         return Optional.empty();
-    }
-
-    /**
-     * Temporary operand adapter for callers that already captured the direct destination and old
-     * parent. A null destination on DETACH represents the frozen ROOT endpoint; a target
-     * destination on DETACH is rejected rather than treated as a guessed replacement parent.
-     */
-    Optional<UiInlineLabel> format(
-        final RelationKind relationKind,
-        final ChangeKind changeKind,
-        final HistoryTarget child,
-        final HistoryTarget directDestination,
-        final HistoryTarget previousParent
-    ) {
-        if (relationKind == null || changeKind == null || !validTarget(child)) {
-            return Optional.empty();
-        }
-        if (changeKind == ChangeKind.DETACH && directDestination != null) {
-            return Optional.empty();
-        }
-
-        final HistoryTarget parent = switch (changeKind) {
-            case SET, JOIN -> directDestination;
-            case DETACH -> previousParent;
-        };
-        return render(relationKind, changeKind, child, parent);
     }
 
     private Optional<UiInlineLabel> render(
@@ -157,8 +137,9 @@ final class HistoryRelationLabelFormatter {
             && iconFor(target.type()).isPresent();
     }
 
-    private static boolean sameIdentity(final HistoryTarget child, final HistoryTarget parent) {
-        return child.id().orElseThrow().equals(parent.id().orElseThrow());
+    private static boolean sameIdentity(final HistoryTarget left, final HistoryTarget right) {
+        return left.type().equals(right.type())
+            && left.id().orElseThrow().equals(right.id().orElseThrow());
     }
 
     private static boolean validRelation(
@@ -234,7 +215,7 @@ final class HistoryRelationLabelFormatter {
         PART_MEMBERSHIP
     }
 
-    enum ChangeKind {
+    private enum ChangeKind {
         SET,
         JOIN,
         DETACH
