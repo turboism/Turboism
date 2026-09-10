@@ -23,6 +23,7 @@ public final class NativeResourceHostAgent {
     private static volatile boolean aborted;
     private static volatile WeakReference<?> closedDocument;
     private static volatile NativeImageRetainObservation.Snapshot closedImageCohort;
+    private static volatile NativeCloseOwnershipObservation.WeakPair closedWeak;
 
     public static void premain(String args, Instrumentation instrumentation) {
         Path home = Path.of(System.getProperty("turboism.validation.textureUpload.home"));
@@ -93,11 +94,14 @@ public final class NativeResourceHostAgent {
                     require(Files.isRegularFile(ready), "memory-ready marker absent");
                     phase("idle.begin");
                     Thread.sleep(30_000);
-                    WeakReference<?> document = cameraAndClose(verifiedApp, frame);
+                    ClosedHandles handles = cameraAndClose(verifiedApp, frame);
+                    WeakReference<?> document = handles.document();
                     closedDocument = document;
+                    closedWeak = handles.pair();
                     // Strong document/view/manager locals die with cameraAndClose; no heap walk or forced collection.
                     phase("closed.begin");
                     Thread.sleep(120_000);
+                    observeOwnershipClosed(verifiedApp, frame, "closed120", closedWeak);
                     RESULT.setProperty("documentWeakCleared", Boolean.toString(document.refersTo(null)));
                     if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain.closed");
                     NativeAtlasWorkflow.onEdt(() -> {
@@ -120,6 +124,14 @@ public final class NativeResourceHostAgent {
             RESULT.setProperty("retain.attributionStatus",
                     "COMPLETE".equals(RESULT.getProperty("retain.beforeZoom.status"))
                     && "COMPLETE".equals(RESULT.getProperty("retain.beforeClose.status")) ? "COMPLETE" : "INCOMPLETE");
+            if (closedWeak != null) {
+                observeOwnershipClosed(verifiedApp, frame, "closedFinal", closedWeak);
+            }
+            boolean ownershipComplete = true;
+            for (String name : List.of("idle", "beforeClose", "closed120", "closedFinal")) {
+                ownershipComplete &= "COMPLETE".equals(RESULT.getProperty("ownership." + name + ".status"));
+            }
+            RESULT.setProperty("ownership.attributionStatus", ownershipComplete ? "COMPLETE" : "INCOMPLETE");
             require(!driver.isAlive(), "workload exceeded bounded observation window");
             if (failure.get() != null) throw new IllegalStateException("native workload failed", failure.get());
             if (recording != null) { recording.stop(); recording.dump(directory.resolve("profile.jfr")); }
@@ -169,7 +181,7 @@ public final class NativeResourceHostAgent {
         });
     }
 
-    private static WeakReference<?> cameraAndClose(Class<?> appType, Frame frame) throws Exception {
+    private static ClosedHandles cameraAndClose(Class<?> appType, Frame frame) throws Exception {
         Object[] identity = (Object[]) NativeAtlasWorkflow.onEdt(() -> {
             Object app = appType.getMethod("access$get_instance$cp").invoke(null);
             Object doc = call(app, "getCurrentDoc"), view = call(app, "getCurrentViewContext");
@@ -185,8 +197,12 @@ public final class NativeResourceHostAgent {
         Object app = identity[0], doc = identity[1], view = identity[2];
         float originalCamera = (Float) identity[3], originalScale = (Float) identity[5];
         RESULT.setProperty("cameraScale.before", Float.toString(originalScale));
+        NativeCloseOwnershipObservation.WeakPair handles = new NativeCloseOwnershipObservation.WeakPair(
+                new WeakReference<>(doc), new WeakReference<>(call(doc, "getModelSource")),
+                ((java.io.File) call(doc, "getFile")).getPath());
         phase("idle.end");
         observeImages(app, doc, view, frame, "beforeZoom");
+        observeOwnershipOpen(app, appType, doc, view, frame, "idle", handles);
         phase("zoom.begin");
         try {
             for (int index = 0; index < 60; index++) {
@@ -235,6 +251,7 @@ public final class NativeResourceHostAgent {
         Thread.sleep(30_000);
         phase("restored.end");
         closedImageCohort = observeImages(app, doc, view, frame, "beforeClose");
+        observeOwnershipOpen(app, appType, doc, view, frame, "beforeClose", handles);
         WeakReference<?> weak = new WeakReference<>(doc);
         require(!aborted, "observer aborted; refusing document close");
         NativeAtlasWorkflow.onEdt(() -> {
@@ -246,7 +263,7 @@ public final class NativeResourceHostAgent {
         });
         long until = System.nanoTime() + 15_000_000_000L;
         while (System.nanoTime() < until) {
-            if (Boolean.TRUE.equals(NativeAtlasWorkflow.onEdt(() -> ((List<?>) call(app, "getAllDocs")).isEmpty()))) return weak;
+            if (Boolean.TRUE.equals(NativeAtlasWorkflow.onEdt(() -> ((List<?>) call(app, "getAllDocs")).isEmpty()))) return new ClosedHandles(weak, handles);
             Thread.sleep(100);
         }
         throw new IllegalStateException("native document close did not complete");
@@ -270,6 +287,40 @@ public final class NativeResourceHostAgent {
         RESULT.setProperty("retain.hostJarSha256", HOST_SHA);
         phase("retain." + name + ".end");
         return snapshot;
+    }
+
+    private record ClosedHandles(WeakReference<?> document, NativeCloseOwnershipObservation.WeakPair pair) { }
+
+    private static void observeOwnershipOpen(Object app, Class<?> verifiedApp, Object doc, Object view, Frame frame,
+                                             String name, NativeCloseOwnershipObservation.WeakPair weak) throws Exception {
+        require(!aborted, "observer aborted; refusing ownership observation");
+        phase("ownership." + name + ".begin");
+        NativeCloseOwnershipObservation.Snapshot snapshot = (NativeCloseOwnershipObservation.Snapshot) NativeAtlasWorkflow.onEdt(() -> {
+            checkIdentity(app, doc, view, frame);
+            String undo = undoState(doc);
+            require(!Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")), "refusing observation of dirty document");
+            NativeCloseOwnershipObservation.Snapshot captured = NativeCloseOwnershipObservation.captureHost(app, verifiedApp, weak);
+            checkIdentity(app, doc, view, frame);
+            require(undo.equals(undoState(doc)) && !Boolean.TRUE.equals(call(doc, "isModifiedAfterSaving")),
+                    "ownership observation changed authoring state");
+            return captured;
+        });
+        snapshot.write(RESULT, "ownership." + name);
+        phase("ownership." + name + ".end");
+    }
+
+    private static void observeOwnershipClosed(Class<?> verifiedApp, Frame frame, String name,
+                                               NativeCloseOwnershipObservation.WeakPair weak) throws Exception {
+        require(!aborted, "observer aborted; refusing ownership observation");
+        phase("ownership." + name + ".begin");
+        NativeCloseOwnershipObservation.Snapshot snapshot = (NativeCloseOwnershipObservation.Snapshot) NativeAtlasWorkflow.onEdt(() -> {
+            require(frame.isVisible(), "task window absent during closed ownership observation");
+            Object app = verifiedApp.getMethod("access$get_instance$cp").invoke(null);
+            require(((List<?>) call(app, "getAllDocs")).isEmpty(), "document reopened before closed ownership observation");
+            return NativeCloseOwnershipObservation.captureHost(app, verifiedApp, weak);
+        });
+        snapshot.write(RESULT, "ownership." + name);
+        phase("ownership." + name + ".end");
     }
 
     private static void checkIdentity(Object app, Object doc, Object view, Frame frame) throws Exception {

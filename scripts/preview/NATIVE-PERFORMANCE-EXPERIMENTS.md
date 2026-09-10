@@ -1,6 +1,6 @@
 # 原生性能实验台账
 
-最后更新：2026-09-07。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+最后更新：2026-09-10（I26 关闭期持有链只读切片轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
 
 本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
 
@@ -12,6 +12,7 @@
 4. 重试必须引用旧编号，并写明改变了什么：实现、输入、精确宿主、观测协议或可证伪假设。新观测器可能扰动 GC/时序，不跨批次拼接百分比。
 5. 原因分为**已证实**和**可能/未定**；不能把一次成功重跑当成前一次失败的根因证明。
 6. 终态判定包含 runner、身份、原文件 hash、正常退出和清理；辅助结果 `status=PASS` 不足以覆盖整轮 FAIL。只提交摘要/代码，不提交模型、官方 JAR 或含 licensing 信息的原始日志。
+7. 性能证据必须先落盘到持久位置再登记：私有证据**禁止只存放在 `/tmp`**（临时目录会被清理，导致已登记 SHA256 无法复算，I24 已发生一次）。持久位置为性能 worktree 的 `build/` 与操作者本地状态目录下的性能证据归档；台账只写相对路径、用途和 SHA256，不写机器绝对路径。
 
 ## 快速索引
 
@@ -525,3 +526,37 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **证据/复现**：私有 `/tmp/turboism-native-close-jfr-20260909/` 保存两份小型SystemGC导出、close-path/view-close字节码、summarize.py及summary.json；脚本断言每轮恰有一个BCI39关闭事件、两个关闭SystemGC且栈不截断，通过。summary记录原JFR与导出SHA。分析脚本SHA256=`6a3984122cf11c83508e7f2860fba9c0b590f5eff8acbb90c2241e9e9260ed8a`，summary=`04a76196f4d27015e381079e87a82e670d3a19156cc012d386f30d25bb90cbb0`，close-path dump=`1791ab6210eaca416d5bc2e64efd68bbe0b11836fb75770515e2eb0c2dcccd37`。官方JAR重新计算仍988ef6a8…f8c84f21；模型条目class仍`0f20228aa254318207203b82142594cb0e454020ca1ee0b2eb7900e538c12d35`，CModelingDocument=`7ca4f69d9304e38d15adf0cce4750873b3d9325cac296a02e617d5c491d72188`。
 - **有效程度/禁止原样重试**：新增收益NONE，未实施生产修复；本轮价值为用既有实机证据否定一个优先假设，避免额外Hook与无变化重跑。下一步不是强制dispose注册条目，而是定位关闭后的真实拥有者，并区分对象存活和committed/RSS。只有新的条目身份/持有者证据才重提登记表修复。
 - **环境与实施边界**：性能worktree起点c72145efc且干净；main由其他工作推进至2cef29231，相比836c0ad9e只有工具栏图标及对应测试变化。main83→当前队列核心差异仍仅manifest接受5303，未改变worker、未整合新main或覆盖脏改动。Paseo MCP无工具，CLI确认daemon可达且pi provider available；本次顺序分析未委派。CodeGraph延用此前该worktree不可用的已知限制，实际依据为精确字节码和JFR，未伪称图查询。管理器只读status显示workerOnline、host idle；没有启动宿主、采堆快照、改官方工件或杀任何进程。
+
+
+### I24 — 接手轮只读核查、证据归档与后续计划（2026-09-09）
+
+- **接手/核实方式**：新接手代理只读核查性能分支状态、SpecKit024全量文档、本台账、4份子代理报告与review-receipt、`build/` 验收产物是否存在。未启动宿主、未跑门禁、未做性能测量、未改源码或官方工件；本轮所有数字均为既有证据引用，不是新测量。
+- **分支状态**：`feat/cubism-native-performance-20260905` @ `a700980af`，性能worktree工作树干净；比集成基线 `83a49168` 多18个自有提交，落后当前main（`caba7a5f5`，0.43.10发布准备）12个提交；未合并、未推送main。SpecKit024的T001–T008全部完成，Status=Implemented。
+- **证据丢失（重要）**：I19–I23引用的私有临时证据目录已**全部从 `/tmp` 消失**（close-jfr、close-lifecycle、retain-observer、pool 0700/0730-r1、retain 0700/0720-r1、lease-prototype、memory-admission、retain-attribution）。台账内SHA256仍保留，结论可在文字层追溯，但已无法再本地复算校验；`I23` 的JFR反证可由归档中的 `rs-p1.jfr`/`rs-p2.jfr` 重新导出。
+- **归档动作**：已把性能worktree `build/` 下现存证据（`native-followup` 全量除两个超大派生JSON、`native-retain-attribution`、`main-integration`、`build/` 根目录 javap/log/txt/json）复制到操作者本地状态目录下的 `turboism/performance-evidence/20260909-handover/`，共169个文件/40.3MiB，并生成 `MANIFEST.sha256`（含未归档的4个超大派生文件SHA256）与说明README。未归档：`rs-p1-events.json`、`rs-p1-stacks.json`、`heavy-load-deep-jfr.json`、`heavy-load-jfr.json`（可由已归档的原始JFR再生）。本台账新增使用规则7。
+- **遗留欠账（本轮未解决）**：①P08-a离线复现补丁已父核验 `git apply --check` 通过但**NOT_RUN**（曾受阻于队列占用）；②4份子代理报告中 image-pool、cpu-gpu 的父链变为null，父方判定身份溯源待澄清，不能算身份已核验交付，且cpu-gpu报告有1处BCI表述错误（已由review-receipt纠正）；③性能分支落后main 12个提交，最后一次main增量接入后未再完整复核门禁；④本台账头部日期此前过期（本轮修正）。
+- **裁决与执行顺序**：用户批准三项——启动N07窄切片（关闭后原生视图/历史持有链只读归因，占一次实机窗口）、证据持久化并立规则、允许对当前main 12个提交做只读审阅与受影响门禁（不合并main）。顺序：证据归档（本轮完成）→ main增量只读审阅 → 冻结并实现N07只读切片与离线门禁 → 一次exact5302只读实机观测与独立复核。优先级2为P08-a离线复现；优先级3为N02-b池内部登记事务窗口静态复核。继续禁止：E/P系列原样重试、N03 ROI、N04清理、CPU repaint coalesce、清登记表/dispose/强制GC/采堆快照、合并或推送main。
+- **有效程度**：本轮新增内存/CPU/GPU收益**NONE**；产出为状态核实、证据持久化与后续切片授权，不构成任何优化验收。
+
+
+### I25 — main 增量只读审阅与整合面评估（2026-09-09）
+
+- **范围/方式**：只读审阅 main 自合并基点 `83a49168` 后的 12 个提交（8 个普通提交 + 4 个合并提交，最新 `caba7a5f5` 为 0.43.10 发布准备）。未合并、未推送、未构建、未改 main 或 worker；仅用 `git diff`、`git log`、`git merge-tree --write-tree` 计算。
+- **变更面**：132 个文件、+8764/−128；主体是 Atlas 当前页打包链（validation/texture-atlas-current-page 证据与脚本、sdk/runtime/plugins 的 textureatlas 契约、api-contracts 基线）、发布渠道脚本（scripts/release、distribution、.github/workflows）与兼容性清单（compatibility/cubism/verification 的 5.2.03/5.3.02/5.3.03 editor-model 记录）。
+- **与本任务工具面的关系**：main 只动了两处相关文件——`host_validation.py` 一行（unsupported exact host version 集合由 {5203,5302} 扩为 {5203,5302,5303}）与 `host-validation-tasks.json`（+37 行，新增 Atlas 队列任务项）；另加 Atlas 专用脚本/README/测试（package-atlas-queue-probe、run-atlas-host-validation、test_atlas_host_validation、test_sdk_v8_linkage、test_texture_atlas_sdk_linkage）及 `test_host_validation_scheduler.py`（+24 行）。计时/内存 observer、containment、evidence、transport 与内存观测三文件在 main 无变化；本任务固定 5302，准入集合扩大不改变本切片身份约束。
+- **整合面**：双方自基点起同时修改的文件仅 `gradle/verification.gradle.kts`，且落在不同区段（本分支在 checkCompletedCommit 依赖加入 checkPerformanceProbeReports；main 在 checkRelease 依赖加入四个 SDK/Atlas 检查）。`git merge-tree --write-tree HEAD main` 结果为**无冲突自动合并**（仅计算，未执行）。
+- **本分支在同名工具文件上在先**：相对 main，本分支另有 `host_validation_queue.py`(+55/−6) 与 `host-validation-local-transport.sh`(+27) 的自有改动，属 I15/I17 已记录并验证过的准入/传输工作，不是 main 漂移。
+- **受影响离线门禁（本轮实跑，无宿主）**：`scripts/check_remote_hygiene.py --worktree` = clean；`scripts/test/check_host_validation_scheduler.sh` PASS（11 scheduler + 46 queue + 12 evidence tests 及配套 shell 检查，exit0）。覆盖本轮台账改动与队列工具面。
+- **判定/后续**：整合风险低，可在需要时自动合并；但**本轮仍未整合**，合并后必须重跑受影响门禁并重新准备身份固定的实机准入才能沿用旧证据；5303 准入扩大不得用于本任务的 5302 结论。
+
+### I26 — N07 关闭期原生持有链只读归因：切片冻结、探针实现与离线验证（2026-09-10）
+
+- **范围/方式**：为回答“关闭后登记表/视图链是否仍强持有文档与模型源”，在性能worktree冻结 SpecKit `028-native-close-ownership`（spec/plan/research/data-model/quickstart/tasks/checklists），并实现只读探针 `NativeCloseOwnershipObservation` 与宿主接入点。**未运行宿主**：本轮所有结论都来自字节码交叉复核、合成回归与离线门禁，不构成任何性能收益或持有链结论。
+- **字节码复核（新发现，纠正了切片假设）**：从已装 5302 JAR（SHA `988ef6a8...`）重算类哈希与台账一致（registry `a.e`、entry base `a.b.a`、model entry `a.b.b`、`CModelingDocument`、`CEViewContext`、`CEAppCtrl`、`CModelSource`）。关键点：base 的 `b()` 返回的是加载器包装器 `doc.a.f`，`c()` 只等价于 `b() != null`；`doc.a.b.b` **不覆写** `b()`，其自有 `CModelSource` 只经 `f()` 暴露。因此只用 `b()`/`c()` 无法证明原生源仍被持有，探针改为在命中的具体类上解析 `f()`（返回类型名字必须严格等于 `com.live2d.cubism.doc.model.CModelSource`，不加载宿主类），并单独报告 `fixtureCarriedSourceIsRecordedSource`（仅用 `refersTo` 做身份比较）。此发现已写入 `research.md`，属对 N07 假设的必要修正。
+- **探针不变量**：只读；不 remove/dispose/clear/强制GC；不比较宿主 equals/hashCode/toString；不调用 `getFilteredImage()`/图像获取接口；registry 列表与视图历史的实例、长度和元素身份在遍历前后一致才判 COMPLETE，否则 PARTIAL/`unstable`；越界报 PARTIAL/UNSUPPORTED 且**不发布任何计数**（计数分区暂存，仅 COMPLETE 提交），避免“未观测”与“0”混淆；快照对象只含 Properties 字段（回归用反射遍历断言）。
+- **宿主接入**：四个采集点 `ownership.idle`（开启态对照组）、`ownership.beforeClose`、`ownership.closed120`、`ownership.closedFinal`，并输出聚合 `ownership.attributionStatus=COMPLETE|INCOMPLETE`。024 已有的身份/脏文档/Undo/相机/关闭断言全部保留；采集点自身的 begin/end 阶段不计入 idle/zoom 计时，属同口径修订而非历史基线。
+- **离线验证（本轮实跑）**：`python3 -B scripts/test/test_native_close_ownership_observation.py` PASS（3 项：合成图 435 项断言、可变窗口 5 类、接入点顺序与禁用法调用点扫描）；`./gradlew --no-daemon --max-workers=1 devCheck checkResourceValidationBundle checkCubismHostValidationArguments` = 0；`scripts/test/test_native_resource_policy.py` PASS；024 回归 `scripts/test/test_native_image_retain_observation.py` PASS（566 项）。合成图覆盖：命中/未命中路径、null 与抛异常条目、重复条目、空/单/多历史视图、已清除与未清除弱引用、各类上限与截止时间扫描、错误访问器形状（`f()` 返回类型不符 → `absent`）、布局/来源不匹配 → `layout-or-origin`。
+- **未完成与限制**：exact5302 实机观测尚未执行（T007 保持未完成）；私有字段 `viewContextHistory` 的 `trySetAccessible` 在实机下是否成功需由该次运行确认，失败会记为 `UNSUPPORTED`/`access`，不会记为 0。本切片不清理任何登记项、不做 GC/堆快照，因此即使观测到存活条目也**只授权后续另立修复切片**，不代表本轮有任何优化验收。
+- **证据归档（使用规则 7）**：探针与测试源码修订、javap 转储、合成回归日志与 028 切片文档已归档到
+  `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/`（21 文件 / 1.1MiB，含 `MANIFEST.sha256`）。
+- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未运行宿主，无新测量）。
