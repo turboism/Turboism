@@ -426,7 +426,7 @@ public final class EditorAuthoringTransactionCoordinator {
         final ArrayList<HistoryEntryDetail> children = new ArrayList<>();
         final ArrayList<HistoryTarget> targets = new ArrayList<>();
         final ArrayList<HistoryChange> changes = new ArrayList<>();
-        final Map<String, Integer> targetIndexes = new LinkedHashMap<>();
+        final Map<HistoryTarget, Integer> targetIndexes = new LinkedHashMap<>();
         boolean truncated = false;
         for (final EditorUndoContribution contribution : contributions) {
             if (children.size() >= MAX_SEMANTIC_ITEMS) {
@@ -438,13 +438,12 @@ public final class EditorAuthoringTransactionCoordinator {
             final int[] remapped = new int[child.targets().size()];
             for (int index = 0; index < child.targets().size(); index++) {
                 final HistoryTarget target = child.targets().get(index);
-                final String key = contribution.targetIdentity() + "\u0000" + index;
-                final Integer existing = targetIndexes.get(key);
+                final Integer existing = targetIndexes.get(target);
                 if (existing != null) {
                     remapped[index] = existing;
                 } else if (targets.size() < MAX_SEMANTIC_ITEMS) {
                     remapped[index] = targets.size();
-                    targetIndexes.put(key, remapped[index]);
+                    targetIndexes.put(target, remapped[index]);
                     targets.add(target);
                 } else {
                     remapped[index] = -1;
@@ -469,7 +468,8 @@ public final class EditorAuthoringTransactionCoordinator {
                     change.property(),
                     change.before(),
                     change.after(),
-                    change.context()
+                    change.context(),
+                    change.relation()
                 ));
             }
         }
