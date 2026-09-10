@@ -619,3 +619,19 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **限制**：029 的审计读静态字段可能初始化其声明类（类初始化器无法取得已打开文档的活源，故命中必为应用写入），且审计被安排在**同阶段 ownership 采集之后**，初始化不可能影响该采集。审计划分为 64 持有者 / 128 扫描字段 / 250ms，本轮 34 项远未触界，`unreadable=0` 说明 `trySetAccessible` 在实机全部成功。审计不做 GC 根遍历与保留大小测量。
 - **证据归档（使用规则 7）**：`~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-static-b1/`（27 文件 / 1.1MiB：`job/` 为 job evidence/outcome/containment/heartbeat，`task/result/result.properties`、`task/evidence/`（含 381 样本 `memory-samples.jsonl`、`memory-sampler.log`、宿主与哈希证据）、`task/logs/`）；静态容器扫描产物归档在 `static-root-analysis/static-containers.txt`。归档 `MANIFEST.sha256` 已刷新。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（无优化改动）；产出为 **029 首个完整 PASS**、**审查范围内 Java 静态根的实机否定**（含开启态对照），以及将剩余方向收敛为“静态容器 / live thread / native 全局态”的可复现边界与静态容器清单。
+
+### I31 — 关闭后存活图的机制候选：`CImageResource` 静态软引用缓存（bytecode 证据，待实机只读确认）（2026-09-10）
+
+- **背景**：I27–I30 依序排除了登记表条目、控制器视图历史与审查范围内的 Java 静态根；I30 同时把剩余边界收敛为「静态容器 / live thread / native 全局态」。对静态容器做类文件扫描时发现了一条**能同时解释全部既有观测**的机制，不需要任何强根假设。
+- **bytecode 证据链（精确 JAR `988ef6a8…f8c84f21`，仅 `javap -p -c`，未加载宿主类、未启动宿主）**：
+  1. `com.live2d.graphics.CImageResource` 在 `<clinit>` 建 `private static CArrayList<CImageResource$b> cacheList` 与 `private static java.util.Timer timer`。
+  2. **构造函数**执行 `cacheList.add(new CImageResource$b(this))`，而 `CImageResource$b` 只持有 `private final SoftReference<CImageResource> a` → **每个构造过的图像资源都通过静态缓存变成“软可达”**。
+  3. 资源自身有 `private final ArrayList<CImageResource$c> retainCounter`，`CImageResource$c` 持有 `private final ICImageResourceUser a` → **资源强引用其使用者**（模型图里即持有它的 `CModelImage`）。
+  4. `<clinit>` 以 `CHECK_TIMER_SEC = 300` 为周期 `timer.schedule(new com.live2d.graphics.b(), …)`；`b.run()` 调 `CImageResource$a.f()`。
+  5. `CImageResource$a.f()` 遍历 `cacheList`：`SoftReference.get()` 为 null 的条目 `Iterator.remove()`；其余调 `archiveIfIdle()`。**循环在第一次成功 archive 后即 break**，且只要 archive 过就**自行调用 `System.gc()`**。
+  6. `archiveIfIdle()` 仅在 `image != null` 且 `lastUse < now - ARCHIVE_IMAGE_TIME_SEC*1000`（=360s）时 archive；`archive()` 只是把图重编码进 `imageFileBuf`，**不**把条目移出 `cacheList`；只有 `dispose()` 才调 `removeFromCacheList()`。
+- **为何这条机制解释全部观测**：软可达是**传递的**——`cacheList` 软引用资源 → 资源强引用 `ICImageResourceUser` → 使用者可达 `_modelSource` → `CModelSource` 的非 final `document` 反向指针。于是资源**与文档**都是**软可达**而非强可达；软可达对象**不会**被弱引用清除，显式 `System.gc()` 也只在内存压力下才清软引用。这与 848/848 资源弱引用未清、文档弱引用未清（+120s、+156s 与 sampler end）完全一致，同时登记表、视图历史与 34 项审查静态根全部为空；也解释了时间窗口：清理 tick 首次在 300s 后才触发、且只归档闲置超过 360s 的图像、每 tick 最多一个，而观测窗口（约 120–160s）落在驱逐窗口之内，且当轮 `MemAvailable` 为 6.3–9.9 GiB、软引用不会被清。
+- **尚不能宣称的**：bytecode 只证明该机制**存在且足以**保留该图，**不证明**本轮那 848 个资源在关闭时确实在 `cacheList` 中；这需要下一片做**有界只读运行期观测**（`cacheList` 大小 + 用 `refersTo` 与已记录队列比对身份）。它也不排除 live thread 与 native 根。`releasedRetainUserData_forDebug` 是另一条独立列表（此前记为 N01），本轮无需它即可解释观测。
+- **判定与后续**：把 N07/029 之后的第四方向定义为「**静态软引用缓存 + 资源→使用者强反向引用**」。若实机确认，则“848 个资源在关闭后仍存活”很可能是**设计内的软缓存保留**（驱逐取决于 JVM 软引用策略与 300s/360s 清理节拍），而非无界泄漏；相应的修复讨论应聚焦“关闭文档时是否应显式释放/驱逐”，而不是寻找新的 GC 根。修复须另立切片并单独授权，本切片不做任何清理。
+- **证据归档（使用规则 7）**：`static-root-analysis/container-and-cache/`（`containers.py`、`sweep.py`、`sweep2.py`、`containers2.py`、`static-containers.txt`（869 个去重静态容器字段）、`sweep-output.txt`（117 个元素类型可达目标的容器）、`CImageResource.javap.txt`、`CImageResource_a.javap.txt`、`cleanup-timer-task.javap.txt`、`FINDING.md`）；归档 `MANIFEST.sha256` 已刷新（170 项）。
+- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**；产出为一条**由精确 bytecode 支撑、能同时解释既有全部观测、且可被只读实机观测证伪或确认**的机制候选。
