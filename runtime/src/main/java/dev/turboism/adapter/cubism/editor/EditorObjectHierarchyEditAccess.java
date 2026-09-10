@@ -1,5 +1,8 @@
 package dev.turboism.adapter.cubism.editor;
 
+import dev.turboism.adapter.cubism.editor.history.HierarchyRelationCapture;
+import dev.turboism.adapter.cubism.editor.transaction.EditorAuthoringTransactionCoordinator;
+import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.model.ArtMeshGeometry;
@@ -13,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * Exact, generation-bound Editor authoring projection for object-hierarchy editing:
@@ -41,13 +45,31 @@ final class EditorObjectHierarchyEditAccess {
 
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard currentGuard;
+    private final EditorAuthoringTransactionCoordinator authoringCoordinator;
+    private final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding;
 
     EditorObjectHierarchyEditAccess(
         final VerifiedMemberResolver resolver,
         final EditorParameterCombinedAccess.ModelGuard currentGuard
     ) {
+        this(resolver, currentGuard, null, null);
+    }
+
+    EditorObjectHierarchyEditAccess(
+        final VerifiedMemberResolver resolver,
+        final EditorParameterCombinedAccess.ModelGuard currentGuard,
+        final EditorAuthoringTransactionCoordinator authoringCoordinator,
+        final Supplier<EditorAuthoringTransactionCoordinator.Binding> authoringBinding
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.currentGuard = Objects.requireNonNull(currentGuard, "currentGuard");
+        if ((authoringCoordinator == null) != (authoringBinding == null)) {
+            throw new IllegalArgumentException(
+                "authoringCoordinator and authoringBinding must be supplied together"
+            );
+        }
+        this.authoringCoordinator = authoringCoordinator;
+        this.authoringBinding = authoringBinding;
     }
 
     // ------------------------------------------------------------------
@@ -501,6 +523,55 @@ final class EditorObjectHierarchyEditAccess {
         requireEditAuthorized();
         currentGuard.requireCurrent(identity, model);
         rejectCycle(nodeSource, parentSource, parentIsDeformer);
+        if (!relationCaptureAvailable()) {
+            writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+            return;
+        }
+        final EditorAuthoringTransactionCoordinator.Binding binding =
+            Objects.requireNonNull(authoringBinding.get(), "authoring binding");
+        final var prepared = HierarchyRelationCapture.prepare(
+            resolver,
+            binding,
+            authoringBinding,
+            modelSource,
+            nodeSource,
+            parentSource,
+            parentIsDeformer,
+            index,
+            kindLabel
+        );
+        if (prepared.isEmpty()) {
+            writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+            return;
+        }
+        final var plan = prepared.orElseThrow();
+        switch (plan.decision()) {
+            case NO_CHANGE -> { return; }
+            case REORDER -> {
+                writeLegacyParent(modelSource, nodeSource, parentSource, parentIsDeformer, index, kindLabel);
+                return;
+            }
+            case CAPTURE -> authoringCoordinator.mutate(binding, plan.contribution(
+                (edit, transactionLabel) -> admitObjectUndo(
+                    edit,
+                    modelSource,
+                    nodeSource,
+                    transactionLabel,
+                    "cubism.editor-model.complete-pack.update-deformer-palette",
+                    kindLabel + " hierarchy"
+                )
+            ));
+        }
+    }
+
+    private void writeLegacyParent(
+        final Object modelSource,
+        final Object nodeSource,
+        final Object parentSource,
+        final boolean parentIsDeformer,
+        final int index,
+        final String kindLabel
+    ) {
         write(
             "cubism.editor-model.complete-pack.update-deformer-palette",
             kindLabel,
@@ -515,12 +586,15 @@ final class EditorObjectHierarchyEditAccess {
                     );
                     resolver.invoke(
                         "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
-                        nodeSource, parentGuid
+                        nodeSource,
+                        parentGuid
                     );
                 } else {
                     resolver.invoke(
                         "cubism.editor-model.part-source.add-child",
-                        parentSource, nodeSource, Integer.valueOf(index)
+                        parentSource,
+                        nodeSource,
+                        Integer.valueOf(index)
                     );
                 }
             }
@@ -604,33 +678,15 @@ final class EditorObjectHierarchyEditAccess {
         );
         boolean completed = false;
         try {
-            final Object handler = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-source.handler", objectSource
+            admitObjectUndo(
+                edit,
+                app,
+                modelSource,
+                objectSource,
+                action,
+                paletteAlias,
+                kindLabel
             );
-            if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
-                throw unavailable("Editor object Undo handler is unavailable.");
-            }
-            final Object objectUndo = resolver.invoke(
-                "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
-                handler, action
-            );
-            final Object accepted = resolver.invoke(
-                "cubism.editor-model.undo.add", edit, objectUndo, Boolean.TRUE
-            );
-            if (!(accepted instanceof Boolean value) || !value) {
-                throw new IllegalStateException(
-                    "Cubism rejected the " + kindLabel + " hierarchy Undo entry."
-                );
-            }
-            final Object listener = resolver.createFunctionalProxy(
-                "cubism.editor-model.undo-listener.class",
-                ignored -> {
-                    resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
-                    refresh(app, paletteAlias);
-                    return null;
-                }
-            );
-            resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
             mutation.run();
             resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
             refresh(app, paletteAlias);
@@ -642,6 +698,51 @@ final class EditorObjectHierarchyEditAccess {
                 editMode, Boolean.valueOf(!completed), null
             );
         }
+    }
+
+    private void admitObjectUndo(
+        final Object edit,
+        final Object modelSource,
+        final Object objectSource,
+        final String transactionLabel,
+        final String paletteAlias,
+        final String operation
+    ) {
+        final Object app = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+        admitObjectUndo(edit, app, modelSource, objectSource, transactionLabel, paletteAlias, operation);
+    }
+
+    private void admitObjectUndo(
+        final Object edit,
+        final Object app,
+        final Object modelSource,
+        final Object objectSource,
+        final String transactionLabel,
+        final String paletteAlias,
+        final String operation
+    ) {
+        final Object handler = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-source.handler",
+            objectSource
+        );
+        if (!resolver.isInstance("cubism.editor-model.parameter-controllable-handler.class", handler)) {
+            throw unavailable("Editor object Undo handler is unavailable.");
+        }
+        final Object objectUndo = resolver.invoke(
+            "cubism.editor-model.parameter-controllable-handler.create-undo-for-all-edit",
+            handler,
+            transactionLabel
+        );
+        requireUndoAccepted(edit, objectUndo, operation);
+        final Object listener = resolver.createFunctionalProxy(
+            "cubism.editor-model.undo-listener.class",
+            ignored -> {
+                resolver.invoke("cubism.editor-model.model-source.update-instances", modelSource);
+                refresh(app, paletteAlias);
+                return null;
+            }
+        );
+        resolver.invoke("cubism.editor-model.undo.add-listener", objectUndo, listener);
     }
 
     private void writeCreatedSource(
@@ -761,6 +862,17 @@ final class EditorObjectHierarchyEditAccess {
             EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID,
             EditorObjectHierarchyEditSelectorContract.REQUIRED_ALIASES
         );
+    }
+
+    boolean relationCaptureAvailable() {
+        return authoringCoordinator != null
+            && authoringBinding != null
+            && editAuthorized()
+            && resolver.authorizesFeature(
+                EditorHistoryReadSelectorContract.ADAPTER_SLICE_ID,
+                EditorHistoryReadSelectorContract.CAPABILITY_ID,
+                EditorHistoryReadSelectorContract.REQUIRED_ALIASES
+            );
     }
 
     private boolean renameAuthorized() {

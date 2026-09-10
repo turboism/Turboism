@@ -142,7 +142,9 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
         this.hierarchyEditAccess = new EditorObjectHierarchyEditAccess(
             resolver,
-            this::requireCurrent
+            this::requireCurrent,
+            this.authoringCoordinator,
+            this::authoringParticipationBinding
         );
 
         this.documentReadAccess = new EditorDocumentReadAccess(
