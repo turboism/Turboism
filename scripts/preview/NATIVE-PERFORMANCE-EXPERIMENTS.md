@@ -560,3 +560,16 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **证据归档（使用规则 7）**：探针与测试源码修订、javap 转储、合成回归日志与 028 切片文档已归档到
   `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/`（21 文件 / 1.1MiB，含 `MANIFEST.sha256`）。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未运行宿主，无新测量）。
+
+### I27 — N07 exact5302 只读实机观测：登记表与视图历史方向被排除，整体因既有采样协议失败（2026-09-10）
+
+- **运行身份**：prepared=`c63e7782c7beba3990600ccbd885835eff8f34abeaacd0ebfc1a1e8eadf74e93`，source HEAD=`caa3f1678`（dirtyDigest=空，工作树干净），aux jar SHA256=`b249da40ec962f728e8745892a6c81547b40d96a21719fe1ee7bc02ece8c2e62`（含探针类 `6270a536…`），fixture SHA256=`029e9a4ea13f03afdf956b63f6ee1dfd663bd9046c602b786d359bd1d0c7f80c`，主机 JAR 仍 `988ef6a8…f8c84f21`。任务作用域 manifest 声明 host-slot+performance-host，四优化 flag 与 profile 均 false，三个固定 helper 与 pin 解释器 `/usr/bin/python3.14` 齐备。提交经 main CLI，request=`native-close-ownership-20260910-b1`，job=`eec9bcdb-80ff-4178-8768-ccca95b0ca0a`，attempt=`2f273820-7906-4c4e-942f-1ba01c3ea0cd`，run=`queue-4b2460f6c0d8426cb75071112a6fe167`，label=`nr-own-b1`。
+- **整体结果：FAIL（非探针原因）**：`failure=java.lang.IllegalStateException: process memory sampling failed`，根因是既有采样器自校验 `measure-task-memory.py::validate_window` 抛 `memory sample timing gap outside 0..5 seconds`（381 个样本，最大相邻间隔 6.93s，位于 restored 窗口末 12:22:40→12:22:47；该时刻 `MemAvailable≈1.98GB`、`SwapFree≈2.2MB`，机器处于换出压力下）。因此 workload 在采样校验处中止，`ownership.closedFinal` 与聚合 `ownership.attributionStatus` 未写入。此失败模式属既有协议/环境问题，与本切片探针无关。
+- **N07 实机观测（三组均 COMPLETE）**：
+  - `ownership.idle`（开启态对照）：`registryEntries=1`、`fixtureEntryPresent=true`、`fixtureLoadedFlag=true`、`fixtureWrapperPresent=true`、`fixtureSourceAccessor=f`、`fixtureCarriedSourcePresent=true`、`fixtureCarriedSourceIsRecordedSource=true`、`historySize=1`、`historyViewsWithDocument=1`、`historyViewsReferringToDocument=1`、`documentWeakBefore/After=false`、duration≈14.7ms。
+  - `ownership.beforeClose`：同上（entry present、source 身份匹配、hist視 referring=1）、duration≈0.22ms。
+  - `ownership.closed120`（关闭后 120s）：`registryEntries=0`、`fixtureEntryPresent=false`、`historySize=0`、`historyViewsWithDocument=0`、`currentDocNull=true`、`currentViewNull=true`、`documentWeakBefore/After=false`、`sourceWeakBefore/After=false`、`referrersExamined=0`、duration≈0.11ms。
+  - 同期 024 观测仍成立：`retain.closed.resources.notCleared=848`、用户未清除计数为 0、`documentWeakCleared=false`。
+- **解释（阴性且自洽）**：关闭后静态登记表 `doc.a.e` 的实例在但**列表为空**，控制器视图历史为空、当前文档/视图为 null，而 848 个资源弱引用仍未清除。开启态对照组能读到恰好 1 条条目并把 `f()` 身份匹配到记录的 `CModelSource`，说明探针与接线有效。因此**关闭后文档/原生模型源并非由登记表条目或控制器视图历史强持有**——N07 假设的这两条链被排除，后续归因必须转向其它持有者（例如资源注册表/纹理管理侧），且需要另立切片。
+- **限制与重试条件**：整体 status=FAIL，不是 SC-002 的完整 PASS 验收；`closedFinal` 与聚合状态缺失；探针未观察到 GC 后状态（未做强制 GC，符合约束）。重试需新 job/新 label，并先确认宿主内存压力已缓解（SwapFree 不再是 MB 级），否则采样协议可能在同一点再次失败。证据（job evidence、result.properties、outcome/containment、运行日志、samples）已归档到 `~/.local/state/turboism/performance-evidence/20260910-native-close-ownership/run/nr-own-b1/`。
+- **有效程度**：新增内存/CPU/GPU 收益 **NONE**；产出为对 N07 登记表/视图历史方向的**否定性实机证据**，并暴露既有采样协议在内存压力下的失败点。
