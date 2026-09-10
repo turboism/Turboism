@@ -22,7 +22,7 @@ final class HistoryRelationLabelFormatter {
     /**
      * Formats a frozen direct relation transition without depending on the SDK relation DTO.
      * Verified ROOT supports ROOT→TARGET joins and TARGET→ROOT detaches; UNKNOWN and other
-     * and all other incomplete endpoint transitions remain conservative fallbacks.
+     * incomplete endpoint transitions remain conservative fallbacks.
      */
     Optional<UiInlineLabel> format(
         final RelationKind relationKind,
@@ -90,32 +90,60 @@ final class HistoryRelationLabelFormatter {
             new UiIconRef(childIcon.icon()),
             localization.text(childIcon.fallbackKey())
         ));
+        final String childName = child.displayName().orElseThrow();
+        final RelationPhrase phrase = phrase(relationKind, changeKind);
         HistoryPanelService.appendBoundedTextRuns(
             runs,
-            " " + child.displayName().orElseThrow() + " " + localization.text(middleKey(relationKind, changeKind)) + " "
+            " " + childName + localization.format(
+                phrase.infixKey(),
+                koreanObjectParticle(childName)
+            )
         );
         runs.add(UiInlineLabel.iconRun(
             new UiIconRef(parentIcon.icon()),
             localization.text(parentIcon.fallbackKey())
         ));
-        final String suffix = changeKind == ChangeKind.SET
-            ? " " + localization.text("history.relation.deformer-parent.set.suffix")
-            : "";
         HistoryPanelService.appendBoundedTextRuns(
             runs,
-            " " + parent.displayName().orElseThrow() + suffix
+            " " + parent.displayName().orElseThrow() + localization.text(phrase.suffixKey())
         );
         return Optional.of(UiInlineLabel.of(runs));
     }
 
-    private static String middleKey(final RelationKind relationKind, final ChangeKind changeKind) {
+    private static RelationPhrase phrase(final RelationKind relationKind, final ChangeKind changeKind) {
         return switch (changeKind) {
-            case SET -> "history.relation.deformer-parent.set.infix";
-            case JOIN -> "history.relation.part-membership.join.infix";
+            case SET -> new RelationPhrase(
+                "history.relation.deformer-parent.set.infix",
+                "history.relation.deformer-parent.set.suffix"
+            );
+            case JOIN -> new RelationPhrase(
+                "history.relation.part-membership.join.infix",
+                "history.relation.part-membership.join.suffix"
+            );
             case DETACH -> relationKind == RelationKind.DEFORMER_PARENT
-                ? "history.relation.deformer-parent.detach.infix"
-                : "history.relation.part-membership.detach.infix";
+                ? new RelationPhrase(
+                    "history.relation.deformer-parent.detach.infix",
+                    "history.relation.deformer-parent.detach.suffix"
+                )
+                : new RelationPhrase(
+                    "history.relation.part-membership.detach.infix",
+                    "history.relation.part-membership.detach.suffix"
+                );
         };
+    }
+
+    private String koreanObjectParticle(final String childName) {
+        if (localization.locale() == null || !"ko".equalsIgnoreCase(localization.locale().getLanguage())) {
+            return "";
+        }
+        final int lastCodePoint = childName.codePointBefore(childName.length());
+        if (lastCodePoint >= 0xAC00 && lastCodePoint <= 0xD7A3) {
+            return (lastCodePoint - 0xAC00) % 28 == 0 ? "를" : "을";
+        }
+        if (lastCodePoint >= 0x11A8 && lastCodePoint <= 0x11FF) {
+            return "을";
+        }
+        return "를";
     }
 
     private static boolean validEndpoint(final Endpoint endpoint) {
@@ -185,6 +213,8 @@ final class HistoryRelationLabelFormatter {
     }
 
     private record IconSpec(CubismIcon icon, String fallbackKey) { }
+
+    private record RelationPhrase(String infixKey, String suffixKey) { }
 
     record Endpoint(State state, Optional<HistoryTarget> target) {
         Endpoint {

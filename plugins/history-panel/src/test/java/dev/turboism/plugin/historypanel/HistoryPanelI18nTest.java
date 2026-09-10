@@ -35,10 +35,19 @@ class HistoryPanelI18nTest {
         "history.icon.rotation-deformer",
         "history.icon.warp-deformer",
         "history.relation.deformer-parent.detach.infix",
+        "history.relation.deformer-parent.detach.suffix",
         "history.relation.deformer-parent.set.infix",
         "history.relation.deformer-parent.set.suffix",
+        "history.relation.part-membership.detach.infix",
+        "history.relation.part-membership.detach.suffix",
         "history.relation.part-membership.join.infix",
-        "history.relation.part-membership.detach.infix"
+        "history.relation.part-membership.join.suffix"
+    );
+
+    private static final Set<String> ALLOW_BLANK_FRAGMENT_KEYS = Set.of(
+        "history.relation.part-membership.join.suffix",
+        "history.relation.deformer-parent.detach.suffix",
+        "history.relation.part-membership.detach.suffix"
     );
 
     @Test
@@ -66,10 +75,12 @@ class HistoryPanelI18nTest {
         for (final Map.Entry<String, String> catalog : CATALOGS.entrySet()) {
             final Properties properties = readCatalog(catalog.getKey());
             for (final String key : properties.stringPropertyNames()) {
-                assertFalse(
-                    properties.getProperty(key).isBlank(),
-                    "blank value for " + key + " in " + catalog.getKey()
-                );
+                if (!ALLOW_BLANK_FRAGMENT_KEYS.contains(key)) {
+                    assertFalse(
+                        properties.getProperty(key).isBlank(),
+                        "blank value for " + key + " in " + catalog.getKey()
+                    );
+                }
             }
         }
     }
