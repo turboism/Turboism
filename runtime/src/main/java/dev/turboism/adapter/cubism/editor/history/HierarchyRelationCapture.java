@@ -30,7 +30,7 @@ import java.util.function.Supplier;
  * fact.</p>
  */
 public final class HierarchyRelationCapture {
-    private static final String OPERATION_ID = "cubism.editor-model.object-hierarchy.set-parent";
+    private static final String OPERATION_ID = "history.relation.set-parent";
     private static final String PART_CHILDREN_ALIAS = "cubism.editor-model.part-source.children";
 
     private HierarchyRelationCapture() {

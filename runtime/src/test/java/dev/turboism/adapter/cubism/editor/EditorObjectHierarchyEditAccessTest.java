@@ -2,6 +2,9 @@ package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorObjectHierarchyEditSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorObjectReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWriteSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartNameSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPartTreeSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
@@ -537,23 +540,24 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @Test
-    void centralWriterCapturesDirectDeformerRelation() {
+    void publicArtMeshTargetDeformerAliasCapturesOneTypedRelation() {
         final Fixture fixture = new Fixture();
         Host.document = fixture.document;
         fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
-        final VerifiedMemberResolver resolver = centralResolver("5.3.02");
+        final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
 
-        model.drawables().find(new ArtMeshId("MeshA")).setParent(
-            model.rotationDeformers().find(new DeformerId("RotationA")),
-            -1
+        model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(
+            Optional.of(new DeformerId("RotationA"))
         );
 
         assertEquals(1, fixture.editMode.edits.size());
         assertEquals(1, fixture.document.undoManager.entries.size());
+        assertEquals(1, fixture.meshSource.setTargetCalls);
         assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
-        final HistoryRelationChange relation = lastHistoryDetail(resolver)
-            .changes().get(0).relation().orElseThrow();
+        final HistoryEntryDetail detail = lastHistoryDetail(resolver);
+        assertEquals(1, detail.changes().size());
+        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
         assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
         assertRelationTarget(relation.before(), "WARP_DEFORMER", "WarpA", "WarpA");
         assertRelationTarget(relation.after(), "ROTATION_DEFORMER", "RotationA", "RotationA");
@@ -562,6 +566,31 @@ class EditorObjectHierarchyEditAccessTest {
         assertEquals(fixture.warpSource.guid, fixture.meshSource.targetDeformerGuid);
         fixture.editMode.edits.get(0).redo();
         assertEquals(fixture.rotationSource.guid, fixture.meshSource.targetDeformerGuid);
+    }
+
+    @Test
+    void publicDeformerTargetDeformerAliasCapturesOneTypedRelation() {
+        final Fixture fixture = new Fixture();
+        fixture.warpSource.targetDeformerGuid = fixture.rotationSource.guid;
+        fixture.attachWarpTarget();
+        Host.document = fixture.document;
+        final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
+        final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
+
+        model.warpDeformers().find(new DeformerId("WarpA")).setTargetDeformer(
+            Optional.of(new DeformerId("WarpB"))
+        );
+
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(1, fixture.document.undoManager.entries.size());
+        assertEquals(1, fixture.warpSource.setTargetCalls);
+        assertEquals(fixture.warpTargetSource.guid, fixture.warpSource.targetDeformerGuid);
+        final HistoryEntryDetail detail = lastHistoryDetail(resolver);
+        assertEquals(1, detail.changes().size());
+        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
+        assertRelationTarget(relation.before(), "ROTATION_DEFORMER", "RotationA", "RotationA");
+        assertRelationTarget(relation.after(), "WARP_DEFORMER", "WarpB", "WarpB");
     }
 
     @Test
@@ -709,7 +738,7 @@ class EditorObjectHierarchyEditAccessTest {
         final Fixture fixture = new Fixture();
         fixture.meshSource.targetDeformerGuid = fixture.warpSource.guid;
         Host.document = fixture.document;
-        final VerifiedMemberResolver resolver = centralResolver("5.3.02");
+        final VerifiedMemberResolver resolver = relationAliasResolver("5.3.02");
         final var access = new EditorBackedCubismModelAccess(resolver, "session-a");
         final var service = ((RuntimeAuthoringTransactionProvider) access)
             .authoringTransactions("plugin.test");
@@ -722,9 +751,8 @@ class EditorObjectHierarchyEditAccessTest {
                     model.parts().find(new PartId("Root")),
                     0
                 );
-                model.drawables().find(new ArtMeshId("MeshA")).setParent(
-                    model.rotationDeformers().find(new DeformerId("RotationA")),
-                    -1
+                model.drawables().find(new ArtMeshId("MeshA")).setTargetDeformer(
+                    Optional.of(new DeformerId("RotationA"))
                 );
                 return "done";
             }
@@ -807,6 +835,27 @@ class EditorObjectHierarchyEditAccessTest {
             EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
             capabilities,
             selectors(),
+            Host.class.getClassLoader()
+        );
+    }
+
+    private static VerifiedMemberResolver relationAliasResolver(final String cubismVersion) {
+        final java.util.HashSet<String> capabilities = new java.util.HashSet<>();
+        capabilities.add(EditorPartNameSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorObjectReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorPartTreeSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorObjectHierarchyEditSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorObjectHierarchyEditSelectorContract.RENAME_CAPABILITY_ID);
+        capabilities.add(EditorObjectHierarchyEditSelectorContract.ART_MESH_CREATE_CAPABILITY_ID);
+        capabilities.add(EditorHistoryReadSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorPartStructureSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorInspectorDrawableWriteSelectorContract.CAPABILITY_ID);
+        capabilities.add(EditorDeformerInspectorSelectorContract.CAPABILITY_ID);
+        return TestVerifiedResolvers.create(
+            cubismVersion,
+            EditorObjectHierarchyEditSelectorContract.ADAPTER_SLICE_ID,
+            capabilities,
+            relationSelectors(),
             Host.class.getClassLoader()
         );
     }
@@ -989,6 +1038,33 @@ class EditorObjectHierarchyEditAccessTest {
         selectors.add(method("cubism.editor-model.complete-pack.update-part-palette", CompletePack.class, "updatePartPalette", "(Z)V"));
         selectors.add(method("cubism.editor-model.complete-pack.update-deformer-palette", CompletePack.class, "updateDeformerPalette", "(Z)V"));
         selectors.add(method("cubism.editor-model.complete-pack.repaint-canvas", CompletePack.class, "repaintCanvas", "(Z)V"));
+        return selectors;
+    }
+
+    /**
+     * Selectors for the public target-deformer routes. Both routes are gated on the reviewed
+     * Inspector admission, so the fixture record must carry each contract's complete
+     * required-alias inventory. Aliases this fixture never invokes are recorded with a placeholder
+     * owner because the fixture host only mirrors the members the tests actually exercise; an
+     * invoked alias must still resolve against a real fixture class.
+     */
+    private static List<StaticSelector> relationSelectors() {
+        final List<StaticSelector> selectors = new ArrayList<>(selectors());
+        selectors.add(StaticSelector.classSelector(
+            "cubism.editor-model.deformer-source.class", internal(ACDeformerSource.class)));
+        selectors.add(method(
+            "cubism.editor-model.deformer-source.guid", ObjectSource.class, "guid", desc(Guid.class)));
+        final java.util.Set<String> recorded = new java.util.HashSet<>();
+        for (final StaticSelector selector : selectors) recorded.add(selector.alias());
+        final java.util.Set<String> required =
+            new java.util.HashSet<>(EditorInspectorDrawableWriteSelectorContract.REQUIRED_ALIASES);
+        required.addAll(EditorDeformerInspectorSelectorContract.REQUIRED_ALIASES);
+        required.addAll(EditorInspectorDrawableWrite52SelectorContract.REQUIRED_ALIASES);
+        for (final String alias : required) {
+            if (!recorded.contains(alias)) {
+                selectors.add(StaticSelector.method(alias, "fixture/uninvoked/Host", "uninvoked", "()V"));
+            }
+        }
         return selectors;
     }
 
@@ -1738,6 +1814,7 @@ class EditorObjectHierarchyEditAccessTest {
         final PartSource parentPart = new PartSource("Parent", source);
         final PartSource childPart = new PartSource("Child", source);
         final WarpDeformerSource warpSource = new WarpDeformerSource("WarpA", source);
+        final WarpDeformerSource warpTargetSource = new WarpDeformerSource("WarpB", source);
         final RotationDeformerSource rotationSource = new RotationDeformerSource("RotationA", source);
         final ACDrawableSource meshSource = new ACDrawableSource("MeshA", source);
         final PartSourceSet partSet = source.partSet;
@@ -1791,6 +1868,18 @@ class EditorObjectHierarchyEditAccessTest {
             source.partSet.sources.add(replacement);
             source.model.parts.clear();
             source.model.parts.add(new HostPart(replacement));
+        }
+
+        /**
+         * Registers the spare deformer target. Kept out of the constructor so the shared fixture
+         * keeps its documented deformer/drawable counts for every other test.
+         */
+        WarpDeformerSource attachWarpTarget() {
+            source.deformerSet.add(warpTargetSource, -1);
+            childPart.addChild(warpTargetSource, -1);
+            source.deformerSet.addCount = 0;
+            childPart.addChildCalls = 0;
+            return warpTargetSource;
         }
     }
 }

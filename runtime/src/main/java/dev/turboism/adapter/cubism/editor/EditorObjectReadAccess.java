@@ -1217,12 +1217,14 @@ final class EditorObjectReadAccess {
         if (!detach && requested.orElseThrow().value().equals(value.id())) {
             throw new IllegalArgumentException("a Deformer cannot target itself");
         }
+        final Object targetSource;
         final Object targetGuid;
         if (detach) {
+            targetSource = null;
             targetGuid = rootDeformerGuid();
         } else {
             final String targetId = requested.orElseThrow().value();
-            final Object targetSource = deformerRefs(identity, modelSource, model).stream()
+            targetSource = deformerRefs(identity, modelSource, model).stream()
                 .filter(candidate -> candidate.id().equals(targetId))
                 .map(DeformerRef::source)
                 .findFirst()
@@ -1240,6 +1242,21 @@ final class EditorObjectReadAccess {
             "cubism.editor-model.deformer-source.guid", value.source()
         );
         if (currentGuid == targetGuid) return;
+        if (targetSource != null
+            && hierarchyEditAccess != null
+            && hierarchyEditAccess.relationCaptureAvailable()) {
+            hierarchyEditAccess.setParent(
+                identity,
+                modelSource,
+                model,
+                value.source(),
+                targetSource,
+                true,
+                -1,
+                "Deformer"
+            );
+            return;
+        }
         changeDeformerTarget(modelSource, model, value.source(), targetGuid);
     }
 
