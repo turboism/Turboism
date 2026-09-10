@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
@@ -58,6 +59,7 @@ public final class HistoryPanelService {
     private final PluginTaskScheduler tasks;
     private final PluginLogger logger;
     private final PluginLocalization localization;
+    private final HistoryRelationLabelFormatter relationLabelFormatter;
     private final Runnable onRefresh;
 
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -93,6 +95,7 @@ public final class HistoryPanelService {
         this.tasks = tasks;
         this.logger = Objects.requireNonNull(logger, "logger");
         this.localization = Objects.requireNonNull(localization, "localization");
+        this.relationLabelFormatter = new HistoryRelationLabelFormatter(this.localization);
         this.onRefresh = Objects.requireNonNull(onRefresh, "onRefresh");
     }
 
@@ -265,12 +268,15 @@ public final class HistoryPanelService {
     ) {
         if (detail.group().isPresent()
             || detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
-            || detail.targets().size() != 1
             || detail.changes().size() != 1) {
             return Optional.empty();
         }
         final HistoryChange change = detail.changes().get(0);
-        if (change.targetIndex().filter(index -> index == 0).isEmpty()
+        if (change.relation().isPresent()) {
+            return richRelationInlineLabel(detail, change, entryIndex, unavailable);
+        }
+        if (detail.targets().size() != 1
+            || change.targetIndex().filter(index -> index == 0).isEmpty()
             || change.context().kind() == HistoryEditContext.Kind.UNKNOWN
             || change.context().kind() == HistoryEditContext.Kind.KEYFORM
                 && change.context().coordinates().isEmpty()) {
@@ -292,7 +298,45 @@ public final class HistoryPanelService {
             localization.text(iconSpec.fallbackKey())
         ));
         appendBoundedTextRuns(runs, " " + displayName.orElseThrow());
+        appendRichMetadata(runs, detail, unavailable);
+        return Optional.of(UiInlineLabel.of(runs));
+    }
 
+    private Optional<UiInlineLabel> richRelationInlineLabel(
+        final HistoryEntryDetail detail,
+        final HistoryChange change,
+        final int entryIndex,
+        final String unavailable
+    ) {
+        final Optional<Integer> targetIndex = change.targetIndex();
+        if (targetIndex.isEmpty()
+            || targetIndex.orElseThrow() >= detail.targets().size()) {
+            return Optional.empty();
+        }
+        final Optional<HistoryRelationChange> relation = change.relation();
+        if (relation.isEmpty()) {
+            return Optional.empty();
+        }
+        final Optional<UiInlineLabel> relationLabel = relationLabelFormatter.format(
+            relation.orElseThrow(),
+            detail.targets().get(targetIndex.orElseThrow())
+        );
+        if (relationLabel.isEmpty()) {
+            return Optional.empty();
+        }
+
+        final List<UiInlineLabel.Run> runs = new ArrayList<>();
+        appendBoundedTextRuns(runs, (entryIndex + 1) + " ");
+        runs.addAll(relationLabel.orElseThrow().runs());
+        appendRichMetadata(runs, detail, unavailable);
+        return Optional.of(UiInlineLabel.of(runs));
+    }
+
+    private void appendRichMetadata(
+        final List<UiInlineLabel.Run> runs,
+        final HistoryEntryDetail detail,
+        final String unavailable
+    ) {
         final StringBuilder metadata = new StringBuilder();
         if (detail.origin().kind() == HistoryOrigin.Kind.TURBOISM) {
             metadata.append(" · ").append(localization.format(
@@ -307,7 +351,6 @@ public final class HistoryPanelService {
         if (!metadata.isEmpty()) {
             appendBoundedTextRuns(runs, metadata.toString());
         }
-        return Optional.of(UiInlineLabel.of(runs));
     }
 
     static void appendBoundedTextRuns(

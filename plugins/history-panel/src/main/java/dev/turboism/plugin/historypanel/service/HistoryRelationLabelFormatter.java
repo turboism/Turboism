@@ -1,5 +1,6 @@
 package dev.turboism.plugin.historypanel.service;
 
+import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.ui.UiInlineLabel;
@@ -20,53 +21,55 @@ final class HistoryRelationLabelFormatter {
     }
 
     /**
-     * Formats a frozen direct relation transition without depending on the SDK relation DTO.
-     * Verified ROOT supports ROOT→TARGET joins and TARGET→ROOT detaches; UNKNOWN and other
-     * incomplete endpoint transitions remain conservative fallbacks.
+     * Formats one SDK-captured direct relation transition. Verified ROOT supports ROOT→TARGET
+     * joins and TARGET→ROOT detaches; UNKNOWN and incomplete endpoint transitions remain
+     * conservative fallbacks.
      */
     Optional<UiInlineLabel> format(
-        final RelationKind relationKind,
-        final HistoryTarget child,
-        final Endpoint before,
-        final Endpoint after
+        final HistoryRelationChange relation,
+        final HistoryTarget child
     ) {
-        if (relationKind == null
+        if (relation == null
+            || relation.kind() == null
             || !validTarget(child)
-            || !validEndpoint(before)
-            || !validEndpoint(after)) {
+            || !validEndpoint(relation.before())
+            || !validEndpoint(relation.after())) {
             return Optional.empty();
         }
 
-        if (after.state() == State.TARGET) {
+        final HistoryRelationChange.Endpoint before = relation.before();
+        final HistoryRelationChange.Endpoint after = relation.after();
+        if (after.state() == HistoryRelationChange.State.TARGET) {
             final HistoryTarget newParent = after.target().orElseThrow();
-            final ChangeKind changeKind = relationKind == RelationKind.PART_MEMBERSHIP
+            final ChangeKind changeKind = relation.kind() == HistoryRelationChange.Kind.PART_MEMBERSHIP
                 ? ChangeKind.JOIN
                 : ChangeKind.SET;
-            if (before.state() == State.ROOT) {
-                return render(relationKind, changeKind, child, newParent);
+            if (before.state() == HistoryRelationChange.State.ROOT) {
+                return render(relation.kind(), changeKind, child, newParent);
             }
-            if (before.state() == State.TARGET) {
+            if (before.state() == HistoryRelationChange.State.TARGET) {
                 final HistoryTarget oldParent = before.target().orElseThrow();
-                if (!validRelation(relationKind, child, oldParent)
+                if (!validRelation(relation.kind(), child, oldParent)
                     || sameIdentity(child, oldParent)
                     || sameIdentity(oldParent, newParent)) {
                     return Optional.empty();
                 }
-                return render(relationKind, changeKind, child, newParent);
+                return render(relation.kind(), changeKind, child, newParent);
             }
         }
-        if (before.state() == State.TARGET && after.state() == State.ROOT) {
+        if (before.state() == HistoryRelationChange.State.TARGET
+            && after.state() == HistoryRelationChange.State.ROOT) {
             final HistoryTarget oldParent = before.target().orElseThrow();
-            if (!validRelation(relationKind, child, oldParent) || sameIdentity(child, oldParent)) {
+            if (!validRelation(relation.kind(), child, oldParent) || sameIdentity(child, oldParent)) {
                 return Optional.empty();
             }
-            return render(relationKind, ChangeKind.DETACH, child, oldParent);
+            return render(relation.kind(), ChangeKind.DETACH, child, oldParent);
         }
         return Optional.empty();
     }
 
     private Optional<UiInlineLabel> render(
-        final RelationKind relationKind,
+        final HistoryRelationChange.Kind relationKind,
         final ChangeKind changeKind,
         final HistoryTarget child,
         final HistoryTarget parent
@@ -76,10 +79,10 @@ final class HistoryRelationLabelFormatter {
             || !validRelation(relationKind, child, parent)) {
             return Optional.empty();
         }
-        if (changeKind == ChangeKind.SET && relationKind != RelationKind.DEFORMER_PARENT) {
+        if (changeKind == ChangeKind.SET && relationKind != HistoryRelationChange.Kind.DEFORMER_PARENT) {
             return Optional.empty();
         }
-        if (changeKind == ChangeKind.JOIN && relationKind != RelationKind.PART_MEMBERSHIP) {
+        if (changeKind == ChangeKind.JOIN && relationKind != HistoryRelationChange.Kind.PART_MEMBERSHIP) {
             return Optional.empty();
         }
 
@@ -110,7 +113,10 @@ final class HistoryRelationLabelFormatter {
         return Optional.of(UiInlineLabel.of(runs));
     }
 
-    private static RelationPhrase phrase(final RelationKind relationKind, final ChangeKind changeKind) {
+    private static RelationPhrase phrase(
+        final HistoryRelationChange.Kind relationKind,
+        final ChangeKind changeKind
+    ) {
         return switch (changeKind) {
             case SET -> new RelationPhrase(
                 "history.relation.deformer-parent.set.infix",
@@ -120,7 +126,7 @@ final class HistoryRelationLabelFormatter {
                 "history.relation.part-membership.join.infix",
                 "history.relation.part-membership.join.suffix"
             );
-            case DETACH -> relationKind == RelationKind.DEFORMER_PARENT
+            case DETACH -> relationKind == HistoryRelationChange.Kind.DEFORMER_PARENT
                 ? new RelationPhrase(
                     "history.relation.deformer-parent.detach.infix",
                     "history.relation.deformer-parent.detach.suffix"
@@ -146,7 +152,7 @@ final class HistoryRelationLabelFormatter {
         return "를";
     }
 
-    private static boolean validEndpoint(final Endpoint endpoint) {
+    private static boolean validEndpoint(final HistoryRelationChange.Endpoint endpoint) {
         if (endpoint == null || endpoint.state() == null || endpoint.target() == null) {
             return false;
         }
@@ -158,6 +164,7 @@ final class HistoryRelationLabelFormatter {
 
     private static boolean validTarget(final HistoryTarget target) {
         return target != null
+            && target.type() != null
             && target.id() != null
             && target.id().filter(value -> !value.isBlank()).isPresent()
             && target.displayName() != null
@@ -171,7 +178,7 @@ final class HistoryRelationLabelFormatter {
     }
 
     private static boolean validRelation(
-        final RelationKind relationKind,
+        final HistoryRelationChange.Kind relationKind,
         final HistoryTarget child,
         final HistoryTarget parent
     ) {
@@ -215,35 +222,6 @@ final class HistoryRelationLabelFormatter {
     private record IconSpec(CubismIcon icon, String fallbackKey) { }
 
     private record RelationPhrase(String infixKey, String suffixKey) { }
-
-    record Endpoint(State state, Optional<HistoryTarget> target) {
-        Endpoint {
-            target = target == null ? Optional.empty() : target;
-        }
-
-        static Endpoint target(final HistoryTarget target) {
-            return new Endpoint(State.TARGET, Optional.ofNullable(target));
-        }
-
-        static Endpoint root() {
-            return new Endpoint(State.ROOT, Optional.empty());
-        }
-
-        static Endpoint unknown() {
-            return new Endpoint(State.UNKNOWN, Optional.empty());
-        }
-    }
-
-    enum State {
-        TARGET,
-        ROOT,
-        UNKNOWN
-    }
-
-    enum RelationKind {
-        DEFORMER_PARENT,
-        PART_MEMBERSHIP
-    }
 
     private enum ChangeKind {
         SET,
