@@ -6,6 +6,15 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin UI language now follows the language chosen in Cubism Editor's File → Environment Settings →
+  General → Language. The launcher's `-Duser.language` only selects the build's language version and
+  never changes at runtime, so it is no longer treated as the host language. Because Cubism applies the
+  saved setting to the process default locale after this runtime attaches, the effective locale is
+  re-resolved once the verified host is ACTIVE; an explicit `-Dturboism.locale` or `config.json` locale
+  still outranks the host.
+
 ## [0.43.10] - 2026-09-09
 
 ### Added

@@ -66,7 +66,7 @@ class RuntimePluginLocalizationTest {
             assertEquals("简体", script.text("shared"));
             assertEquals("base", script.text("baseOnly"));
 
-            // zh 无 country：默认简体（跟随 Cubism -Duser.language=zh 的语言版本）。
+            // zh 无 country：默认简体（宿主只给出 zh 时的规范化结果）。
             final RuntimePluginLocalization bareChinese = localization(loader, "zh");
             assertEquals("zh-Hans", bareChinese.locale().toLanguageTag());
             assertEquals("简体", bareChinese.text("shared"));
