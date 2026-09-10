@@ -116,46 +116,39 @@ class HistoryRelationLabelFormatterTest {
     }
 
     @Test
-    void adaptsCapturedDestinationAndPreviousParentWithoutGuessingDetachDestination() {
+    void formatsVerifiedRootToTargetJoinWithoutInventingRootName() {
         final HistoryRelationLabelFormatter formatter = new HistoryRelationLabelFormatter(LOCALIZATION);
-        final HistoryTarget child = target("ART_MESH", "mesh-a", "A");
-        final HistoryTarget newParent = target("WARP_DEFORMER", "new-parent", "New parent");
-        final HistoryTarget oldParent = target("WARP_DEFORMER", "old-parent", "Old parent");
 
-        final UiInlineLabel set = formatter.format(
+        final UiInlineLabel deformerJoin = formatter.format(
             HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
-            HistoryRelationLabelFormatter.ChangeKind.SET,
-            child,
-            newParent,
-            oldParent
+            target("ART_MESH", "mesh-a", "A"),
+            HistoryRelationLabelFormatter.Endpoint.root(),
+            HistoryRelationLabelFormatter.Endpoint.target(target("WARP_DEFORMER", "warp-b", "B"))
         ).orElseThrow();
-        final UiInlineLabel detach = formatter.format(
-            HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
-            HistoryRelationLabelFormatter.ChangeKind.DETACH,
-            child,
-            null,
-            oldParent
+        final UiInlineLabel partJoin = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            target("ART_MESH", "mesh-c", "C"),
+            HistoryRelationLabelFormatter.Endpoint.root(),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "part-d", "D"))
         ).orElseThrow();
 
-        assertEquals("图形网格图标 A 设置为 弯曲变形器图标 New parent 的子级", set.fallbackText());
-        assertEquals("图形网格图标 A 移出变形器 弯曲变形器图标 Old parent", detach.fallbackText());
-        assertTrue(formatter.format(
-            HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
-            HistoryRelationLabelFormatter.ChangeKind.DETACH,
-            child,
-            newParent,
-            oldParent
-        ).isEmpty());
+        assertEquals("图形网格图标 A 设置为 弯曲变形器图标 B 的子级", deformerJoin.fallbackText());
+        assertEquals("图形网格图标 C 加入 部件图标 D", partJoin.fallbackText());
+        assertFalse(deformerJoin.fallbackText().contains("root"));
+        assertFalse(partJoin.fallbackText().contains("root"));
     }
 
+
     @Test
-    void rejectsUnknownStatesIdentitiesTypesNamesAndInvalidParentRelations() {
+    void rejectsUnknownStatesInvalidOldParentsAndNonChanges() {
         final HistoryRelationLabelFormatter formatter = new HistoryRelationLabelFormatter(LOCALIZATION);
         final HistoryTarget mesh = target("ART_MESH", "mesh-a", "A");
         final HistoryTarget warp = target("WARP_DEFORMER", "warp-b", "B");
         final HistoryTarget part = target("PART", "part-c", "C");
         final HistoryRelationLabelFormatter.Endpoint targetWarp =
             HistoryRelationLabelFormatter.Endpoint.target(warp);
+        final HistoryRelationLabelFormatter.Endpoint targetPart =
+            HistoryRelationLabelFormatter.Endpoint.target(part);
 
         assertTrue(formatter.format(null, mesh, targetWarp, targetWarp).isEmpty());
         assertTrue(formatter.format(
@@ -175,7 +168,7 @@ class HistoryRelationLabelFormatterTest {
             mesh,
             HistoryRelationLabelFormatter.Endpoint.root(),
             targetWarp
-        ).isEmpty());
+        ).isPresent());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
             mesh,
@@ -194,12 +187,53 @@ class HistoryRelationLabelFormatterTest {
             ),
             targetWarp
         ).isEmpty());
+
+        // The old endpoint must be a legal direct parent for the same relation family.
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
-            target("PART", "part-child", "Child"),
-            targetWarp,
+            mesh,
+            targetPart,
             targetWarp
         ).isEmpty());
+        assertTrue(formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            mesh,
+            targetWarp,
+            targetPart
+        ).isEmpty());
+
+        // A same-parent rename/reorder is not a reparent: compare the captured identity, not name.
+        assertTrue(formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            mesh,
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "same", "Before name")),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "same", "After name"))
+        ).isEmpty());
+
+        // Same-type child/parent identity is self and must be rejected.
+        final HistoryTarget partChild = target("PART", "self", "Self");
+        assertTrue(formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            partChild,
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "old", "Old")),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "self", "Renamed self"))
+        ).isEmpty());
+        assertTrue(formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            partChild,
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "self", "Old self")),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "new", "New"))
+        ).isEmpty());
+
+        // IDs are namespaced by target type: an Artmesh and Part may share an ID legitimately.
+        final UiInlineLabel crossTypeIdentity = formatter.format(
+            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
+            target("ART_MESH", "shared", "Mesh"),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "old-part", "Old")),
+            HistoryRelationLabelFormatter.Endpoint.target(target("PART", "shared", "Shared part"))
+        ).orElseThrow();
+        assertEquals("图形网格图标 Mesh 加入 部件图标 Shared part", crossTypeIdentity.fallbackText());
+
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
             target("UNKNOWN", "unknown", "Unknown"),
@@ -208,53 +242,32 @@ class HistoryRelationLabelFormatterTest {
         ).isEmpty());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
-            mesh,
-            HistoryRelationLabelFormatter.Endpoint.target(warp),
-            HistoryRelationLabelFormatter.Endpoint.target(warp)
-        ).isEmpty());
-        assertTrue(formatter.format(
-            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
             new HistoryTarget("ART_MESH", Optional.empty(), Optional.of("A")),
-            HistoryRelationLabelFormatter.Endpoint.target(part),
-            HistoryRelationLabelFormatter.Endpoint.target(part)
+            targetPart,
+            targetPart
         ).isEmpty());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
             new HistoryTarget("ART_MESH", Optional.of("mesh-a"), Optional.empty()),
-            HistoryRelationLabelFormatter.Endpoint.target(part),
-            HistoryRelationLabelFormatter.Endpoint.target(part)
+            targetPart,
+            targetPart
         ).isEmpty());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
             null,
-            HistoryRelationLabelFormatter.Endpoint.target(part),
-            HistoryRelationLabelFormatter.Endpoint.target(part)
+            targetPart,
+            targetPart
         ).isEmpty());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
             mesh,
             null,
-            HistoryRelationLabelFormatter.Endpoint.target(part)
+            targetPart
         ).isEmpty());
         assertTrue(formatter.format(
             HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
             mesh,
-            HistoryRelationLabelFormatter.Endpoint.target(part),
-            null
-        ).isEmpty());
-
-        assertTrue(formatter.format(
-            HistoryRelationLabelFormatter.RelationKind.PART_MEMBERSHIP,
-            HistoryRelationLabelFormatter.ChangeKind.SET,
-            mesh,
-            part,
-            null
-        ).isEmpty());
-        assertTrue(formatter.format(
-            HistoryRelationLabelFormatter.RelationKind.DEFORMER_PARENT,
-            HistoryRelationLabelFormatter.ChangeKind.JOIN,
-            mesh,
-            warp,
+            targetPart,
             null
         ).isEmpty());
     }
