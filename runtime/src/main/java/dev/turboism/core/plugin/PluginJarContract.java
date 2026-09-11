@@ -12,18 +12,24 @@ public final class PluginJarContract {
     private static final String DESCRIPTOR = "META-INF/turboism/plugin.json";
 
     /**
-     * Retired fake plugin ids (retirement slice): every valid JAR descriptor
-     * carrying one of these ids is rejected before entrypoint loading or
-     * staging, on every distribution path (installer payloads, preview
-     * discovery, manual/NSIS leftovers, renamed JARs). The installer's managed
-     * cleanup deletes identity-proven retired JARs; this boundary denies the
-     * remainder.
+     * Retired or superseded plugin ids: every valid JAR descriptor carrying one of these ids is
+     * rejected before entrypoint loading or staging, on every distribution path (installer payloads,
+     * preview discovery, manual/NSIS leftovers, renamed JARs). The installer's managed cleanup
+     * deletes identity-proven JARs; this boundary denies the remainder.
+     *
+     * <p>Two classes of id live here. The retired fakes never shipped a real feature. A superseded
+     * id shipped before being renamed: {@code dev.turboism.plugin.backup} became
+     * {@code dev.turboism.plugin.webdav} when the plugin was renamed to webdav-backup, so an
+     * upgraded install can hold both a stale {@code backup.jar} and the new
+     * {@code webdav-backup.jar}. Denying the old id guarantees a single WebDAV entry even when the
+     * stale file survives a failed deletion or a manual copy.</p>
      */
     public static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
         "dev.turboism.plugin.logfilter",
         "dev.turboism.plugin.clipmask",
         "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt");
+        "dev.turboism.plugin.renderopt",
+        "dev.turboism.plugin.backup");
 
     private PluginJarContract() {
     }
