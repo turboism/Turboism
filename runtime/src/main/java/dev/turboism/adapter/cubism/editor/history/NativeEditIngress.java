@@ -33,13 +33,17 @@ import java.util.concurrent.atomic.LongAdder;
  */
 public final class NativeEditIngress implements AutoCloseable {
 
-    /** Publishes one confirmed host-observed operation with its origin and subject. */
+    /**
+     * Publishes one confirmed host-observed operation with its origin, subject and presentation
+     * label.
+     */
     @FunctionalInterface
     public interface Publisher {
         void publish(
             CubismOperation operation,
             CubismOperationOrigin origin,
-            Optional<String> subjectId
+            Optional<String> subjectId,
+            Optional<String> label
         );
     }
 
@@ -143,8 +147,16 @@ public final class NativeEditIngress implements AutoCloseable {
         try {
             switch (event.kind()) {
                 case COMMITTED -> acceptCommit(event);
-                case UNDO -> publish(CubismOperation.UNDO, CubismOperationOrigin.UNDO);
-                case REDO -> publish(CubismOperation.REDO, CubismOperationOrigin.REDO);
+                case UNDO -> publish(
+                    CubismOperation.UNDO,
+                    CubismOperationOrigin.UNDO,
+                    event.label()
+                );
+                case REDO -> publish(
+                    CubismOperation.REDO,
+                    CubismOperationOrigin.REDO,
+                    event.label()
+                );
             }
         } catch (VirtualMachineError fatal) {
             throw fatal;
@@ -156,7 +168,11 @@ public final class NativeEditIngress implements AutoCloseable {
     private void acceptCommit(final NativeUndoIngressObserver.Event event) {
         final Optional<Object> entry = event.entry();
         if (entry.isEmpty()) {
-            publish(CubismOperation.EXECUTE_EDITOR_COMMAND, CubismOperationOrigin.HOST_UI);
+            publish(
+                CubismOperation.EXECUTE_EDITOR_COMMAND,
+                CubismOperationOrigin.HOST_UI,
+                event.label()
+            );
             return;
         }
         if (EditorHistoryMetadataRegistry.claimsProvenance(entry.orElseThrow())) {
@@ -172,19 +188,29 @@ public final class NativeEditIngress implements AutoCloseable {
             ? decoded.detail().orElse(null)
             : null;
         final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(detail);
-        publish(resolution.operation(), CubismOperationOrigin.HOST_UI, resolution.subjectId());
-    }
-
-    private void publish(final CubismOperation operation, final CubismOperationOrigin origin) {
-        publish(operation, origin, Optional.empty());
+        publish(
+            resolution.operation(),
+            CubismOperationOrigin.HOST_UI,
+            resolution.subjectId(),
+            event.label()
+        );
     }
 
     private void publish(
         final CubismOperation operation,
         final CubismOperationOrigin origin,
-        final Optional<String> subjectId
+        final Optional<String> label
     ) {
-        publisher.publish(operation, origin, subjectId);
+        publish(operation, origin, Optional.empty(), label);
+    }
+
+    private void publish(
+        final CubismOperation operation,
+        final CubismOperationOrigin origin,
+        final Optional<String> subjectId,
+        final Optional<String> label
+    ) {
+        publisher.publish(operation, origin, subjectId, label);
         published.increment();
     }
 }

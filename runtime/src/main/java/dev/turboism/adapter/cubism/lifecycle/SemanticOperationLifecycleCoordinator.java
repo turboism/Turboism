@@ -111,7 +111,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Runnable invocation
     ) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
             Objects.requireNonNull(invocation, "invocation").run();
             return !Objects.equals(before, snapshot.get());
@@ -131,7 +131,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Runnable invocation
     ) {
         final Supplier<T> snapshot = Objects.requireNonNull(state, "state");
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             final T before = snapshot.get();
             Objects.requireNonNull(invocation, "invocation").run();
             return !Objects.equals(before, finalState);
@@ -145,7 +145,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final Optional<String> subjectId,
         final Runnable invocation
     ) {
-        run(operation, origin, subjectId, () -> {
+        run(operation, origin, subjectId, Optional.empty(), () -> {
             Objects.requireNonNull(invocation, "invocation").run();
             return true;
         });
@@ -169,6 +169,28 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final CubismOperationOrigin origin,
         final Optional<String> subjectId
     ) {
+        publishObserved(operation, origin, subjectId, Optional.empty());
+    }
+
+    /**
+     * Publishes one already-performed host edit as a confirmed semantic operation, carrying the
+     * presentation label the observation established.
+     *
+     * <p>The label is presentation only. It is never an identity and never proof of what the
+     * operation changed, so a caller that cannot read an exact label must pass
+     * {@link Optional#empty()} rather than a value derived from a native name.</p>
+     *
+     * @param operation the semantical operation the observation proved
+     * @param origin the best-known source of the observed edit
+     * @param subjectId optional Turboism-owned object identity the edit applies to
+     * @param label optional human-readable name of the observed edit
+     */
+    public void publishObserved(
+        final CubismOperation operation,
+        final CubismOperationOrigin origin,
+        final Optional<String> subjectId,
+        final Optional<String> label
+    ) {
         final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
         final EnumSet<CubismOperation> operations = active.get();
         if (!operations.add(semantic)) {
@@ -180,7 +202,8 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             sequence.incrementAndGet(),
             semantic,
             Objects.requireNonNull(origin, "origin"),
-            Objects.requireNonNull(subjectId, "subjectId")
+            Objects.requireNonNull(subjectId, "subjectId"),
+            Objects.requireNonNull(label, "label")
         );
         try {
             publishCompletion(event, true);
@@ -200,6 +223,7 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         final CubismOperation operation,
         final CubismOperationOrigin origin,
         final Optional<String> subjectId,
+        final Optional<String> label,
         final Supplier<Boolean> invocation
     ) {
         final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
@@ -213,7 +237,8 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
             sequence.incrementAndGet(),
             semantic,
             Objects.requireNonNull(origin, "origin"),
-            Objects.requireNonNull(subjectId, "subjectId")
+            Objects.requireNonNull(subjectId, "subjectId"),
+            Objects.requireNonNull(label, "label")
         );
         try {
             invokeBefore(event);
