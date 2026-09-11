@@ -19,7 +19,9 @@ import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorit
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutService;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.RuntimePsdExportService;
+import dev.turboism.core.runtime.psd.RuntimePsdReplaceService;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
@@ -93,6 +95,7 @@ public final class CubismFacadeImpl implements CubismFacade {
     private final RuntimeTextureAtlasEditorSession textureAtlasEditorSession;
     private final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms;
     private final RuntimePsdExportService psdExportService;
+    private final RuntimePsdReplaceService psdReplaceService;
 
     public CubismFacadeImpl(final HostSnapshotSource source, final CubismPermissionGate permissionGate) {
         this(
@@ -257,7 +260,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
-            (RuntimePsdExportService) null
+            (RuntimePsdExportService) null,
+            (RuntimePsdReplaceService) null
         );
     }
 
@@ -275,7 +279,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
         final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
-        final RuntimePsdExportService psdExportService
+        final RuntimePsdExportService psdExportService,
+        final RuntimePsdReplaceService psdReplaceService
     ) {
         this(
             source,
@@ -292,7 +297,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
-            psdExportService
+            psdExportService,
+            psdReplaceService
         );
     }
 
@@ -394,7 +400,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
         final CubismHistory history,
         final AuthoringTransactionService authoringTransactions,
-        final RuntimePsdExportService psdExportService
+        final RuntimePsdExportService psdExportService,
+        final RuntimePsdReplaceService psdReplaceService
     ) {
         this(
             source,
@@ -410,7 +417,8 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
-            psdExportService
+            psdExportService,
+            psdReplaceService
         );
         this.history = Objects.requireNonNull(history, "history");
         this.authoringTransactions = Objects.requireNonNull(
@@ -797,6 +805,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             textureAtlasEditorUi,
             textureAtlasEditorSession,
             textureAtlasAlgorithms,
+            null,
             null
         );
     }
@@ -816,7 +825,8 @@ public final class CubismFacadeImpl implements CubismFacade {
         final RuntimeTextureAtlasEditorUi textureAtlasEditorUi,
         final RuntimeTextureAtlasEditorSession textureAtlasEditorSession,
         final RuntimeTextureAtlasLayoutAlgorithmRegistry textureAtlasAlgorithms,
-        final RuntimePsdExportService psdExportService
+        final RuntimePsdExportService psdExportService,
+        final RuntimePsdReplaceService psdReplaceService
     ) {
         this.source = Objects.requireNonNull(source, "source");
         this.permissionGate = Objects.requireNonNull(permissionGate, "permissionGate");
@@ -838,6 +848,7 @@ public final class CubismFacadeImpl implements CubismFacade {
             ? new RuntimeTextureAtlasLayoutAlgorithmRegistry()
             : textureAtlasAlgorithms;
         this.psdExportService = psdExportService;
+        this.psdReplaceService = psdReplaceService;
         this.modelAccess = permissionCheckedModelAccess(
             Objects.requireNonNull(modelAccess, "modelAccess")
         );
@@ -1330,11 +1341,17 @@ public final class CubismFacadeImpl implements CubismFacade {
                         PermissionIds.TURBOISM_FILE_WRITE,
                         "model.textures.replaceRawImagePsd"
                     );
-                    return textures.replaceRawImagePsd(
-                        Objects.requireNonNull(target, "target"),
-                        Objects.requireNonNull(file, "file"),
-                        Objects.requireNonNull(revision, "revision")
-                    );
+                    final dev.turboism.sdk.cubism.id.RawImageId rawImage =
+                        Objects.requireNonNull(target, "target");
+                    final dev.turboism.sdk.cubism.psd.PsdEditFile editFile =
+                        Objects.requireNonNull(file, "file");
+                    final dev.turboism.sdk.cubism.psd.PsdFileRevision token =
+                        Objects.requireNonNull(revision, "revision");
+                    if (psdReplaceService != null && textures instanceof PsdReplaceHost replaceHost) {
+                        return psdReplaceService.replaceRawImagePsd(
+                            replaceHost, rawImage, editFile, token);
+                    }
+                    return textures.replaceRawImagePsd(rawImage, editFile, token);
                 }
                 @Override public void addModelImageGroup(final String name) {
                     requireModelWrite("model.textures.addModelImageGroup");
