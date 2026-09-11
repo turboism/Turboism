@@ -55,10 +55,11 @@ public class PolicyWaiter {
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_missing_window_rejected(self):
-        self.run_rejection(0, 'requires 300s sampler window')
+        self.run_rejection(0, 'requires a 300s baseline or 780s extended sampler window')
 
     def test_excess_window_rejected(self):
-        self.run_rejection(301, 'requires 300s sampler window')
+        self.run_rejection(301, 'requires a 300s baseline or 780s extended sampler window')
+        self.run_rejection(600, 'requires a 300s baseline or 780s extended sampler window')
 
     def test_each_enabled_product_candidate_rejected(self):
         for option in ('imageArchiveReuse', 'floatArrayParseCache',

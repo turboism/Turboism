@@ -40,10 +40,13 @@ final class NativeSoftCacheObservation {
     private static final String HOLDER = "com.live2d.graphics.CImageResource$b";
     private static final String HOLDER_ACCESSOR = "a";
     private static final String SOFT_REFERENCE = "java.lang.ref.SoftReference";
+    private static final String DECODED_IMAGE = "image";
+    private static final String ARCHIVE_BYTES = "imageFileBuf";
     private static final int ENTRY_LIMIT = 8192;
     private static final int COMPARISON_LIMIT = 4_000_000;
     private static final String[] COUNT_KEYS =
-            {"entries", "visited", "cohortSize", "matchedCohort", "matchedDistinct"};
+            {"entries", "visited", "cohortSize", "matchedCohort", "matchedDistinct", "matchedDecoded",
+             "matchedArchived", "matchedArchivedBytes", "matchedWithArchiveBytes", "matchedUnreadable"};
 
     private NativeSoftCacheObservation() {
     }
@@ -136,6 +139,9 @@ final class NativeSoftCacheObservation {
             }
             // The holder class is package-private, so a public accessor still needs the member to be made accessible.
             if (!accessor.trySetAccessible()) throw new NoSuchMethodException(HOLDER_ACCESSOR);
+            // Best-effort resource-state fields: a resource's decoded pixels and its archived PNG bytes.
+            Field decoded = optional(owner, DECODED_IMAGE);
+            Field archived = optional(owner, ARCHIVE_BYTES);
             if (cache == null) {
                 result.add("cohortSize", cohort.size());
                 result.commit();
@@ -172,6 +178,7 @@ final class NativeSoftCacheObservation {
                     resolved[index] = true;
                     result.add("matchedCohort", 1);
                     result.note("entry:" + visited);
+                    recordResourceState(referent, decoded, archived, result);
                     break;
                 }
             }
@@ -195,6 +202,34 @@ final class NativeSoftCacheObservation {
         final String status, reason;
 
         Stop(String status, String reason) { super(reason, null, false, false); this.status = status; this.reason = reason; }
+    }
+
+    /** A missing or inaccessible field is not an error: the resource-state counters are best effort. */
+    private static Field optional(Class<?> owner, String name) {
+        try {
+            Field field = owner.getDeclaredField(name);
+            return field.trySetAccessible() ? field : null;
+        } catch (ReflectiveOperationException | RuntimeException absent) {
+            return null;
+        }
+    }
+
+    /**
+     * Classifies one matched resource: still holding decoded pixels, or archived down to PNG bytes. Only field reads
+     * are performed and the decoded image object is never touched beyond the null check.
+     */
+    private static void recordResourceState(Object resource, Field decoded, Field archived, Result result) {
+        try {
+            if (decoded == null || archived == null) { result.add("matchedUnreadable", 1); return; }
+            if (decoded.get(resource) == null) result.add("matchedArchived", 1); else result.add("matchedDecoded", 1);
+            Object bytes = archived.get(resource);
+            if (bytes instanceof byte[] buffer) {
+                result.add("matchedWithArchiveBytes", 1);
+                result.add("matchedArchivedBytes", buffer.length);
+            }
+        } catch (ReflectiveOperationException | RuntimeException unreadable) {
+            result.add("matchedUnreadable", 1);
+        }
     }
 
     /** Identity comparison of a reference the audit owns against a referent; no host method is involved. */
