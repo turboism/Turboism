@@ -427,7 +427,7 @@ def check_fx_fixture_guard_contract():
 
 
 def check_managed_graal_installer_contract():
-    """Installer-time managed GraalVM remains opt-in and reuses the pinned Java service."""
+    """Installer-time Graal provisioning is opt-in, pinned, and Java-independent."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     bridge_path = INSTALLER_NSI.parent / "install-managed-graal.ps1"
     bridge = bridge_path.read_text(encoding="utf-8")
@@ -450,26 +450,29 @@ def check_managed_graal_installer_contract():
           and "Abort" not in graal_section)
     check("GI4b config preflight precedes optional Graal payload mutation",
           text.index('Section "-写入配置"') < graal_start)
-    check("GI5 bridge invokes only the managed runtime CLI",
-          "dev.turboism.graal.ManagedGraalRuntimeCli install" in bridge
-          and "https://" not in bridge and "sha256" not in bridge.lower())
-    check("GI6 bridge requires Java 17 or newer",
-          "Test-TurboismJava17" in bridge and "-ge 17" in bridge)
-    check("GI7 bridge strips inherited Java options",
-          "JAVA_TOOL_OPTIONS" in bridge and "_JAVA_OPTIONS" in bridge
-          and "JDK_JAVA_OPTIONS" in bridge)
+    service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
+    check("GI5 native installer uses the runtime service's exact archive pins",
+          all(pin in bridge and pin in service for pin in (
+              "25.2.4", "25.0.4", "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
+              "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33")))
+    check("GI6 installation never discovers or launches Java",
+          all(token not in bridge for token in (
+              "Test-TurboismJava17", "Find-TurboismInstallerJava", "ProcessStartInfo",
+              "ManagedGraalRuntimeCli", "turboism-agent.jar", "JAVA_HOME", "Get-CubismInstallations")))
+    check("GI7 native installer records the path without changing the JVM preference",
+          "graalVmPath" in bridge and "Save-ManagedGraalConfig" in bridge
+          and "File]::Replace" in bridge)
     check("GI8 bridge avoids PowerShell's read-only HOME variable",
           not re.search(r"(?i)\$home\b", bridge))
     check("GI9 bridge persists managed Graal diagnostics",
           "managed-graal-install.log" in bridge
           and 'Join-Path $turboismHome "logs\\installer"' in bridge
           and "Add-Content -LiteralPath $LogPath" in bridge)
-    check("GI10 bridge drains and labels both output streams",
-          "BeginErrorReadLine" in bridge
-          and '"STDOUT "' in bridge
-          and '"STDERR "' in bridge
-          and "GRAAL_INSTALL_EXIT code=" in bridge
-          and "GRAAL_INSTALL_EXCEPTION" in bridge)
+    check("GI10 native installer logs terminal outcomes without blocking pipe reads",
+          "GRAAL_INSTALL_EXIT code=" in bridge and "GRAAL_INSTALL_EXCEPTION" in bridge
+          and "StandardOutput.Peek" not in bridge)
+    check("GI10b installer help no longer requires a preinstalled JVM or host probe",
+          "Java 17" not in text and "and the isolated host are verified" not in text)
     graal_create = text[text.index("Function GraalCreate"):
                         text.index("FunctionEnd", text.index("Function GraalCreate"))]
     check("GI11 Graal page rows are contiguous at 12pt",
