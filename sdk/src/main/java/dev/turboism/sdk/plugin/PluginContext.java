@@ -181,6 +181,21 @@ public interface PluginContext {
 
     List<PluginPermission> permissions();
 
+    /**
+     * Returns the optional services this context actually installed.
+     *
+     * <p>The default reports an empty set: a context that does not track installations fails
+     * closed rather than claiming services it cannot prove. Presence means the corresponding
+     * getter resolves to a usable service object; it does not imply the plugin holds the
+     * permissions that service's operations require, and version-routed members may still fail
+     * on an unsupported host.</p>
+     *
+     * @return installed optional services; never {@code null}
+     */
+    default java.util.Set<PluginService> availableServices() {
+        return java.util.Set.of();
+    }
+
     EventBus eventBus();
 
     ActionRegistry actions();
