@@ -2623,21 +2623,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append((System.nanoTime() - startedNanos) / 1_000_000L)
                 .append('\n')
                 .append("artifactCount=").append(artifacts.size()).append('\n');
-            passed = !artifacts.isEmpty();
-            for (int index = 0; index < artifacts.size(); index++) {
-                final Path artifact = artifacts.get(index);
-                final Properties properties = new Properties();
-                try (var input = Files.newInputStream(artifact)) {
-                    properties.load(input);
-                }
-                final String rawStatus = properties.getProperty("status", "MISSING");
-                final String status = rawStatus.split("\\s+", 2)[0];
-                report.append("artifact.").append(index).append(".path=")
-                    .append(artifact.getFileName()).append('\n')
-                    .append("artifact.").append(index).append(".status=")
-                    .append(status).append('\n');
-                passed &= "PASS".equals(status);
-            }
+            // Peer probes keep a non-terminal status=RUNNING placeholder in logs/ while they
+            // wait for the primary's request marker; it is evidence, not a verdict, and must
+            // not gate modes that never trigger the peer (its own phase artifact is counted
+            // once it completes with PASS/FAIL).
+            passed = summarizeArtifacts(artifacts, report);
             report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
             Files.writeString(
                 result,
@@ -2653,6 +2643,35 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } finally {
             requestAutomatedHostClose();
         }
+    }
+
+    static boolean summarizeArtifacts(
+        final java.util.List<Path> artifacts,
+        final StringBuilder report
+    ) throws Exception {
+        int terminalArtifacts = 0;
+        boolean passed = true;
+        for (int index = 0; index < artifacts.size(); index++) {
+            final Path artifact = artifacts.get(index);
+            final Properties properties = new Properties();
+            try (var input = Files.newInputStream(artifact)) {
+                properties.load(input);
+            }
+            final String rawStatus = properties.getProperty("status", "MISSING");
+            final String status = rawStatus.split("\\s+", 2)[0];
+            report.append("artifact.").append(index).append(".path=")
+                .append(artifact.getFileName()).append('\n')
+                .append("artifact.").append(index).append(".status=")
+                .append(status).append('\n');
+            if ("RUNNING".equals(status)) {
+                continue;
+            }
+            terminalArtifacts++;
+            passed &= "PASS".equals(status);
+        }
+        passed &= terminalArtifacts > 0;
+        report.append("terminalArtifactCount=").append(terminalArtifacts).append('\n');
+        return passed;
     }
 
     private enum CloseDialogHandling {
