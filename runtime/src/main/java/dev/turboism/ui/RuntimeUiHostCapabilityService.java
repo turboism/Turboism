@@ -22,6 +22,7 @@ import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.CanvasHintHandle;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
@@ -639,18 +640,21 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         return trackNotification(notification);
     }
 
-    @Override
-    public Registration notifyCanvasHint(final CanvasHintNotification notification) {
+    /**
+     * Shows a native canvas hint and returns its lifecycle handle.
+     *
+     * <p>The handle re-issues the same keyed hint on
+     * {@link CanvasHintHandle#renew()} and clears it on close. Disposal is enrolled
+     * with the plugin scope once, so renewing cannot grow that scope.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return the live hint handle
+     */
+    public CanvasHintHandle notifyCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
         permissionChecker.check(UI_CANVAS_HINT, "ui.canvas.hint");
         logCanvasHint(notification);
-        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
-            statusToolbarAdapter.notifyCanvasHint(scopedForAdapter(notification));
-        if (adapterResult.isAvailable()) {
-            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
-        }
-        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
-        return trackCanvasHint(notification);
+        return new CanvasHintHandleImpl(notification);
     }
 
     @Override
@@ -908,6 +912,56 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         final TrackedCanvasHint tracked = new TrackedCanvasHint(notification);
         canvasHints.put(notification.id(), tracked);
         return () -> canvasHints.removeIfSame(notification.id(), tracked);
+    }
+
+    /**
+     * Live canvas hint. The handle owns the newest native registration for its keyed
+     * hint and re-issues that hint on {@link CanvasHintHandle#renew()}, which is the
+     * native way to extend a hint's deadline without creating a second hint.
+     *
+     * <p>Disposal is enrolled once, not once per renew, so a long-running condition
+     * watch cannot grow the plugin's disposal scope.</p>
+     */
+    private final class CanvasHintHandleImpl implements CanvasHintHandle {
+
+        private final CanvasHintNotification scopedNotification;
+        private final java.util.concurrent.atomic.AtomicReference<Registration> current;
+        private final java.util.concurrent.atomic.AtomicBoolean closed =
+            new java.util.concurrent.atomic.AtomicBoolean();
+
+        private CanvasHintHandleImpl(final CanvasHintNotification notification) {
+            this.scopedNotification = scopedForAdapter(notification);
+            this.current = new java.util.concurrent.atomic.AtomicReference<>(show());
+            disposableScope.register(this::close);
+        }
+
+        private Registration show() {
+            final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
+                statusToolbarAdapter.notifyCanvasHint(scopedNotification);
+            if (adapterResult.isAvailable()) {
+                return adapterResult.value().orElseThrow();
+            }
+            adapterResult.diagnostic().ifPresent(RuntimeUiHostCapabilityService.this::recordDiagnostic);
+            return trackCanvasHint(scopedNotification);
+        }
+
+        @Override
+        public void renew() {
+            if (closed.get()) {
+                return;
+            }
+            // The host replaces the hint under the same key; the previous registration
+            // for that key is stale by construction and must not be closed here.
+            current.set(show());
+        }
+
+        @Override
+        public void close() {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            current.getAndSet(null).close();
+        }
     }
 
     private void recordDiagnostic(final SafeModeDiagnostic diagnostic) {

@@ -37,7 +37,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-status-bar.static",
-        "9ae812f9e546c8449682bc33dd20f6b20675e2babc932fd88274c5ac241c2051",
+        "519449c31371dba0d4c8ca1cca48ac1bfa02406f4de03569f719a39b9b937cd5",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -46,7 +46,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-status-bar.static",
-        "558b8ac184215975e3a5c7bc0ff99ba33629b58ab0bd13dce7086acb26d5712f",
+        "45404d036f99a36073eb2457a2c5c79669b94500657eac144eeaaa83223f9757",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -55,7 +55,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.ui-status-bar.static",
-        "59dfeceb7d385cc4176865c118fcb3af6a5fdf3d418fbc8a2e3bc4334a05df90",
+        "c16a15c3d44c7c1d904f80429021b2915a8ea4a8af0dfc907bfe21c1756ec575",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -116,6 +116,8 @@ public final class StatusBarVerificationManifest {
         "cubism.ui-canvas-hint.view-context.class",
         "cubism.ui-canvas-hint.view-context.show-hint",
         "cubism.ui-canvas-hint.view-context.show-hint-with-action",
+        "cubism.ui-canvas-hint.position.class",
+        "cubism.ui-canvas-hint.position.create",
         "cubism.ui-status-bar.main-frame-controller.class",
         "cubism.ui-status-bar.main-frame-controller.frame",
         "cubism.ui-status-bar.frame.class",
