@@ -8,6 +8,7 @@ import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockWriteS
 import dev.turboism.mapping.verification.selector.EditorDeformerInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorGlueInspectorSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryMoveSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorHistoryIngressSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistoryReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorInspectorDrawableWrite52SelectorContract;
@@ -66,7 +67,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
+        "0989d1921a4aa4b2ef4efcf981d27a662679dd55b1cd43fef9db6612d696debb",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -75,7 +76,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "20d08f6d03a77ab7312d597cfe5b9b80723220d0bdf459f4ee6788fd75cc92fd",
+        "fc44a0fc03fa268f78291f4315f4521d5fa246013ebba4e2beb21644570f8ec6",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -523,6 +524,9 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.manager.position",
         "cubism.editor-history.manager.can-undo",
         "cubism.editor-history.manager.can-redo",
+        "cubism.editor-history.manager.undo-state-listener",
+        "cubism.editor-history.manager.undo-state-listener-remove",
+        "cubism.editor-history.undo-state-listener.class",
         "cubism.editor-history.entry.class",
         "cubism.editor-history.entry.presentation-name",
         "cubism.editor-history.entry.significant",
@@ -773,6 +777,7 @@ public final class EditorModelVerificationManifest {
     public static Set<String> cubism5303StaticAliases() {
         final java.util.HashSet<String> values = new java.util.HashSet<>(REQUIRED_ALIASES);
         values.removeIf(alias -> alias.startsWith("cubism.editor-history.semantic."));
+        values.removeAll(EditorHistoryIngressSelectorContract.REQUIRED_ALIASES);
         values.addAll(Set.of(
             "cubism.editor-model.model-source.all-parameters",
             "cubism.editor-model.modeling-document.last-active-view",
