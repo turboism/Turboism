@@ -897,9 +897,21 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         );
     }
 
+    /**
+     * Rewrites the hint key with the plugin scope. The click action and the position
+     * override are carried through unchanged: the click action is what routes the hint
+     * to the host's clickable entry point, and both are host-facing plugin intent rather
+     * than anything the scope identifies.
+     */
     private CanvasHintNotification scopedForAdapter(final CanvasHintNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
-        return new CanvasHintNotification(scopedId, notification.message(), notification.durationSeconds());
+        return new CanvasHintNotification(
+            scopedId,
+            notification.message(),
+            notification.durationSeconds(),
+            notification.onClick(),
+            notification.position()
+        );
     }
 
     private Registration trackNotification(final StatusNotification notification) {
