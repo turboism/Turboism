@@ -89,6 +89,7 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
     private final VerifiedMemberResolver resolver;
     private final Object manager;
     private final Consumer<Event> sink;
+    private final Runnable onNotification;
     private final AtomicBoolean pending = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
     private final LongAdder notifications = new LongAdder();
@@ -120,9 +121,32 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
         final Object manager,
         final Consumer<Event> sink
     ) {
+        this(resolver, manager, sink, () -> { });
+    }
+
+    /**
+     * Creates an observer that also signals when a change is waiting to be classified.
+     *
+     * <p>{@code onNotification} runs inside the host's listener loop, so it must be enqueue-only
+     * and must not read the host: the whole point of the signal is to move the host reads out of
+     * the callback. It is exception-isolated by this class, so a scheduling failure cannot reach
+     * the host's undo admission.</p>
+     *
+     * @param resolver       the verified resolver authorised for the undo state-change selectors
+     * @param manager        the active document's native undo manager
+     * @param sink           receives classified changes during {@link #drain()}
+     * @param onNotification enqueue-only signal that a change is pending; never reads the host
+     */
+    public NativeUndoIngressObserver(
+        final VerifiedMemberResolver resolver,
+        final Object manager,
+        final Consumer<Event> sink,
+        final Runnable onNotification
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.manager = Objects.requireNonNull(manager, "manager");
         this.sink = Objects.requireNonNull(sink, "sink");
+        this.onNotification = Objects.requireNonNull(onNotification, "onNotification");
         final Object entries = this.resolver.invoke("cubism.editor-history.manager.entries", this.manager);
         final Object index = this.resolver.invoke("cubism.editor-history.manager.position", this.manager);
         if (entries instanceof List<?> values && index instanceof Number number
@@ -235,6 +259,7 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
             }
             notifications.increment();
             pending.set(true);
+            onNotification.run();
         } catch (VirtualMachineError fatal) {
             throw fatal;
         } catch (Throwable failure) {
