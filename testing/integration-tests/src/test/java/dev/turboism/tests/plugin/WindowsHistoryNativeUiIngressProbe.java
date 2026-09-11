@@ -36,6 +36,28 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final long POLL_MILLIS = 250L;
 
     /**
+     * How often a pending step re-announces its instruction.
+     *
+     * <p>The step window opens when the instruction is written, and a human who is not at the
+     * desk yet reads nothing. Re-announcing inside the same window means a late operator sees the
+     * current instruction instead of losing the step; it costs no extra time because the deadline
+     * does not move.</p>
+     */
+    private static final long REMINDER_MILLIS = 90_000L;
+
+    /** How long an edit step waits for a multi-entry action to finish committing. */
+    private static final long ACTION_SETTLE_MILLIS = 2_000L;
+
+    /**
+     * How long a navigation step waits.
+     *
+     * <p>Deliberately short: a native Undo or Redo is one atomic step, and a long settle lets the
+     * operator's next keystroke land inside this step's window, which is how the previous three
+     * runs misattributed the redo.</p>
+     */
+    private static final long NAVIGATION_SETTLE_MILLIS = 300L;
+
+    /**
      * How long one sample of the host may take.
      *
      * <p>A sample runs on the Editor thread. If that thread has stopped pumping events — because
@@ -43,7 +65,6 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * can write its verdicts and its summary instead of hanging with no terminal line.</p>
      */
     private static final long SAMPLE_TIMEOUT_MILLIS = 15_000L;
-    private static final long SETTLE_MILLIS = 2_000L;
     private static final long AWAIT_DOCUMENT_MILLIS = 240_000L;
     /**
      * How long one step waits for the operator.
@@ -113,6 +134,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private final Object lock = new Object();
     private final List<Observed> observed = new ArrayList<>();
     private PluginContext context;
+    private Path artifact;
     private Thread worker;
     private volatile boolean running;
 
@@ -191,7 +213,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     private void run() {
-        final Path artifact = context.paths().dataDir().resolve("history-native-ui-ingress.jsonl");
+        artifact = context.paths().dataDir().resolve("history-native-ui-ingress.jsonl");
         try {
             Files.createDirectories(artifact.getParent());
             if (Files.exists(artifact)) {
@@ -355,6 +377,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final long knownPosition
     ) throws Exception {
         final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
+        long nextReminder = System.currentTimeMillis() + REMINDER_MILLIS;
         while (System.currentTimeMillis() < deadline) {
             if (!running) throw new InterruptedException("Probe disabled while awaiting the operator");
             Thread.sleep(POLL_MILLIS);
@@ -367,11 +390,35 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 knownSignificant,
                 knownPosition
             )) {
-                Thread.sleep(SETTLE_MILLIS);
+                Thread.sleep(settleMillis(step));
                 return sample();
+            }
+            if (System.currentTimeMillis() >= nextReminder) {
+                nextReminder = System.currentTimeMillis() + REMINDER_MILLIS;
+                remind(step);
             }
         }
         return null;
+    }
+
+    /**
+     * Re-announces a step that is still pending, so an operator who arrives late still sees it.
+     *
+     * <p>Logged rather than published as a new prompt: the step window has not moved, and a second
+     * prompt line would read as a second step.</p>
+     */
+    private void remind(final Step step) {
+        try {
+            context.logger().info("STILL WAITING [" + step.id() + "] " + step.instruction());
+            write(
+                artifact,
+                "{\"type\":\"reminder\",\"phase\":\"" + json(step.id())
+                    + "\",\"at\":\"" + Instant.now() + "\"}\n",
+                false
+            );
+        } catch (Exception ignored) {
+            // A reminder is a courtesy; losing one must not fail the step.
+        }
     }
 
     private boolean awaitDocument() throws Exception {
@@ -482,7 +529,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (step.kind().equals("ACTION")) {
             return !currentSignificant.equals(knownSignificant);
         }
-        return currentPosition != knownPosition;
+        // Navigation is only closed by a move in its own direction. A selection also changes the
+        // position — it adds an entry — so accepting any change would let the click before the
+        // operator's real action close an Undo step, and a Redo would close an Undo step too.
+        if (step.kind().equals("UNDO")) return currentPosition < knownPosition;
+        if (step.kind().equals("REDO")) return currentPosition > knownPosition;
+        return false;
+    }
+
+    /** How long this step settles after its signal appears. */
+    static long settleMillis(final Step step) {
+        return step.kind().equals("ACTION")
+            ? ACTION_SETTLE_MILLIS
+            : NAVIGATION_SETTLE_MILLIS;
     }
 
     private static long position(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {

@@ -61,9 +61,23 @@ For every step, act once and then **wait for the next instruction to appear
 before doing anything else.** A step is closed by the first *significant*
 Edit, and a selection is not significant — clicking an object to select it does
 not consume the step, which is why the Part drag instructions say to drag rather
-than to click first. Pressing two shortcuts in quick succession is the one way to
-lose a step: the second lands inside the first step's settling window and the
-step after it has nothing left to observe.
+than to click first.
+
+Steps 7 and 8 are closed by the position moving **in their own direction**: an
+Undo by a step backwards, a Redo by a step forwards. A selection moves the
+position forwards too, so it cannot close an Undo step, but a Redo landing inside
+the Undo step's window would still end the Undo early. Press one shortcut, wait
+for the next instruction, then press the other.
+
+If a step is still pending after about a minute and a half the probe re-announces
+it in the log as `STILL WAITING [step-id] …`. That is not a new step: the window
+has not moved, and you can still perform it. A step whose instruction you never
+saw is the single most common way a run is wasted — three of the last four runs
+lost their first step this way — so read the log before you start acting.
+
+**If you are not at the desk when the run starts, that is fine**: come to the
+Editor and perform whichever instruction is currently announced. Do not catch up
+by performing several steps in a row.
 
 If a step's action fails or you are unsure it applied, say so and stop the run.
 A step with no native change is recorded as a failure rather than silently
