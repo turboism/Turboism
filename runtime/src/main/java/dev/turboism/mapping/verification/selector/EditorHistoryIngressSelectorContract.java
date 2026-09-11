@@ -23,10 +23,26 @@ public final class EditorHistoryIngressSelectorContract {
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-model.readwrite";
     public static final String CAPABILITY_ID = EditorHistoryReadSelectorContract.CAPABILITY_ID;
+
+    /**
+     * The inherited {@code beginEdit} entry of {@code com.live2d.cubism.doc.ACEditMode}, which the
+     * scene and game-data editors reach.
+     *
+     * <p>The modeling editor does not reach it: {@code CModelingEditMode_Main} overrides
+     * {@code beginEdit} and, while form animation is active, returns through
+     * {@code CModelEditAnimationHandler} without calling {@code super}. It is admitted because the
+     * scene editor ({@code CSceneEditMode}) and the game-data editor
+     * ({@code CGameDataEditMode_Main} via {@code CGameDataEditMode_Base}) both resolve their
+     * {@code beginEdit} to this one. {@code CSceneEditMode} declares no override of its own, so
+     * there is no third target.</p>
+     */
+    public static final String BASE_EDIT_ENTRY_ALIAS = "cubism.editor-history.edit-mode.begin";
+
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-history.manager.undo-state-listener",
         "cubism.editor-history.manager.undo-state-listener-remove",
-        "cubism.editor-history.undo-state-listener.class"
+        "cubism.editor-history.undo-state-listener.class",
+        BASE_EDIT_ENTRY_ALIAS
     );
 
     private EditorHistoryIngressSelectorContract() {

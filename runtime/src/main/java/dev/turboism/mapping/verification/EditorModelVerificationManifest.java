@@ -67,7 +67,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "1bd6998f859236855137cba9a882782279a7f75ed10605a03df421a0fae4d5df",
+        "84c842f26717ef7889128410b0caad9db0ee8497fea1b3d570b36c0734d4e409",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -76,7 +76,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "1c14a74f35d97aaeaec45cdff14e05f066349145e92f558f1c4010b53b22a857",
+        "5b6ae1148d7aa71536a2ab260be9fe5f1fefab742cdc9f59e8b7fd1a18011fe1",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -527,6 +527,7 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.manager.undo-state-listener",
         "cubism.editor-history.manager.undo-state-listener-remove",
         "cubism.editor-history.undo-state-listener.class",
+        "cubism.editor-history.edit-mode.begin",
         "cubism.editor-history.entry.class",
         "cubism.editor-history.entry.presentation-name",
         "cubism.editor-history.entry.significant",
