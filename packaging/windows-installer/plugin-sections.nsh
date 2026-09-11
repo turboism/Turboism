@@ -12,67 +12,67 @@ Section "-插件载荷" SecPluginPayload
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0000.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=backup.jar" "${STAGING_DIR}/plugins/backup.jar"
+      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0001.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=clipmask-viewer.jar" "${STAGING_DIR}/plugins/clipmask-viewer.jar"
+      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0002.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=cubism-tab-filter.jar" "${STAGING_DIR}/plugins/cubism-tab-filter.jar"
+      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0003.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=history-panel.jar" "${STAGING_DIR}/plugins/history-panel.jar"
+      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0004.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mcp.jar" "${STAGING_DIR}/plugins/mcp.jar"
+      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0005.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=mesh-edit-mirror-axis-enhance.jar" "${STAGING_DIR}/plugins/mesh-edit-mirror-axis-enhance.jar"
+      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0006.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=palette-label-style.jar" "${STAGING_DIR}/plugins/palette-label-style.jar"
+      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0007.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=parameter-batch-transfer.jar" "${STAGING_DIR}/plugins/parameter-batch-transfer.jar"
+      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0008.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=perf-stats.jar" "${STAGING_DIR}/plugins/perf-stats.jar"
+      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0009.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=physics-editor.jar" "${STAGING_DIR}/plugins/physics-editor.jar"
+      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0010.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=psd-clip-mask-import.jar" "${STAGING_DIR}/plugins/psd-clip-mask-import.jar"
+      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0011.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=recent-preview.jar" "${STAGING_DIR}/plugins/recent-preview.jar"
+      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0012.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=scene-palette-enhancer.jar" "${STAGING_DIR}/plugins/scene-palette-enhancer.jar"
+      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0013.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=atlas-maxrects-bssf.jar" "${STAGING_DIR}/plugins/atlas-maxrects-bssf.jar"
+      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0014.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=texture-atlas-stats.jar" "${STAGING_DIR}/plugins/texture-atlas-stats.jar"
+      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
     ${EndIf}
     ${If} ${FileExists} "$PLUGINSDIR\Turboism-plugin-plan\0015.need"
       SetOutPath "$PLUGINSDIR\Turboism-plugin-payload\plugins"
-      File "/oname=ui-theme.jar" "${STAGING_DIR}/plugins/ui-theme.jar"
+      File "/oname=webdav-backup.jar" "${STAGING_DIR}/plugins/webdav-backup.jar"
     ${EndIf}
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$INSTDIR\install-jar-payload.ps1" -SourceRoot "$PLUGINSDIR\Turboism-plugin-payload" -ManifestPath "$PLUGINSDIR\Turboism-payload-manifests\payload-plugins.sha256" -DestinationRoot "$INSTDIR"'
     Pop $0
@@ -87,14 +87,6 @@ Section "-插件载荷" SecPluginPayload
   RMDir "$PLUGINSDIR\Turboism-payload-manifests"
 SectionEnd
 
-LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_ENGLISH} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
-LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_SIMPCHINESE} "WebDAV 自动备份同步插件 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_SIMPCHINESE} "Turboism的WebDAV 自动备份同步插件。"
-LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_JAPANESE} "WebDAV 自動バックアップ同期プラグイン 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_JAPANESE} "TurboismのWebDAV 自動バックアップ同期プラグイン。"
-LangString PLUGIN_NAME_dev_turboism_plugin_backup ${LANG_KOREAN} "WebDAV 자동 백업 동기화 플러그인 0.1.0"
-LangString PLUGIN_DESC_dev_turboism_plugin_backup ${LANG_KOREAN} "Turboism WebDAV 자동 백업 동기화 플러그인입니다."
 LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Clip Mask Viewer 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer ${LANG_ENGLISH} "Read-only clip-mask duplicate checker and visualizer: Turboism tab entry, graph/table inspector window, editor selection highlight, GUID copy."
 LangString PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer ${LANG_SIMPCHINESE} "剪裁蒙版查看器 0.1.0"
@@ -215,9 +207,14 @@ LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "UI テー�
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_JAPANESE} "TurboismのUI テーマプラグイン。"
 LangString PLUGIN_NAME_dev_turboism_plugin_uitheme ${LANG_KOREAN} "UI 테마 플러그인 0.1.0"
 LangString PLUGIN_DESC_dev_turboism_plugin_uitheme ${LANG_KOREAN} "Turboism UI 테마 플러그인입니다."
-Section "$(PLUGIN_NAME_dev_turboism_plugin_backup)" SEC_dev_turboism_plugin_backup
-SectionEnd
-
+LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_ENGLISH} "WebDAV Auto-Backup Sync Plugin 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_ENGLISH} "Uploads Cubism auto-backup artifacts to a WebDAV endpoint (JDK HttpClient only)."
+LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_SIMPCHINESE} "WebDAV 自动备份同步插件 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_SIMPCHINESE} "Turboism的WebDAV 自动备份同步插件。"
+LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_JAPANESE} "WebDAV 自動バックアップ同期プラグイン 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_JAPANESE} "TurboismのWebDAV 自動バックアップ同期プラグイン。"
+LangString PLUGIN_NAME_dev_turboism_plugin_webdav ${LANG_KOREAN} "WebDAV 자동 백업 동기화 플러그인 0.1.0"
+LangString PLUGIN_DESC_dev_turboism_plugin_webdav ${LANG_KOREAN} "Turboism WebDAV 자동 백업 동기화 플러그인입니다."
 Section "$(PLUGIN_NAME_dev_turboism_plugin_clipmask_viewer)" SEC_dev_turboism_plugin_clipmask_viewer
 SectionEnd
 
@@ -263,9 +260,11 @@ SectionEnd
 Section "$(PLUGIN_NAME_dev_turboism_plugin_uitheme)" SEC_dev_turboism_plugin_uitheme
 SectionEnd
 
+Section "$(PLUGIN_NAME_dev_turboism_plugin_webdav)" SEC_dev_turboism_plugin_webdav
+SectionEnd
+
 ; 组件页悬停描述
 !insertmacro MUI_FUNCTION_DESCRIPTION_BEGIN
-  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_backup} "$(PLUGIN_DESC_dev_turboism_plugin_backup)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_clipmask_viewer} "$(PLUGIN_DESC_dev_turboism_plugin_clipmask_viewer)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_cubism_tab_filter} "$(PLUGIN_DESC_dev_turboism_plugin_cubism_tab_filter)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_historypanel} "$(PLUGIN_DESC_dev_turboism_plugin_historypanel)"
@@ -281,16 +280,11 @@ SectionEnd
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_texture_atlas_stats} "$(PLUGIN_DESC_dev_turboism_plugin_texture_atlas_stats)"
   !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_uitheme} "$(PLUGIN_DESC_dev_turboism_plugin_uitheme)"
+  !insertmacro MUI_DESCRIPTION_TEXT ${SEC_dev_turboism_plugin_webdav} "$(PLUGIN_DESC_dev_turboism_plugin_webdav)"
 !insertmacro MUI_FUNCTION_DESCRIPTION_END
 
 ; 按模式设置全部插件 Section 的选中状态（$0: 1 = 选中, 0 = 取消）
 Function SetPluginSectionsSelected
-  SectionGetFlags ${SEC_dev_turboism_plugin_backup} $1
-  IntOp $1 $1 & ${SECTION_OFF}
-  ${If} $0 == 1
-    IntOp $1 $1 | ${SF_SELECTED}
-  ${EndIf}
-  SectionSetFlags ${SEC_dev_turboism_plugin_backup} $1
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
   IntOp $1 $1 & ${SECTION_OFF}
   ${If} $0 == 1
@@ -381,24 +375,21 @@ Function SetPluginSectionsSelected
     IntOp $1 $1 | ${SF_SELECTED}
   ${EndIf}
   SectionSetFlags ${SEC_dev_turboism_plugin_uitheme} $1
+  SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
+  IntOp $1 $1 & ${SECTION_OFF}
+  ${If} $0 == 1
+    IntOp $1 $1 | ${SF_SELECTED}
+  ${EndIf}
+  SectionSetFlags ${SEC_dev_turboism_plugin_webdav} $1
 FunctionEnd
 
 ; 导出完整捆绑插件 id 清单，供前置配置提交保留无关禁用项。
 Function SetBundledPluginIds
-  StrCpy $bundledPluginIds "dev.turboism.plugin.backup;dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme"
+  StrCpy $bundledPluginIds "dev.turboism.plugin.clipmask-viewer;dev.turboism.plugin.cubism-tab-filter;dev.turboism.plugin.historypanel;dev.turboism.plugin.mcp;dev.turboism.plugin.mesh-edit-mirror-axis-enhance;dev.turboism.plugin.palette-label-style;dev.turboism.plugin.parameter-batch-transfer;dev.turboism.plugin.perf-stats;dev.turboism.plugin.physics-editor;dev.turboism.plugin.psd-clip-mask-import;dev.turboism.plugin.recent-preview;dev.turboism.plugin.scene-palette-enhancer;dev.turboism.plugin.texture-atlas;dev.turboism.plugin.texture-atlas-stats;dev.turboism.plugin.uitheme;dev.turboism.plugin.webdav"
 FunctionEnd
 
 ; 收集未勾选插件 id 到 $uncheckedPluginIds（';' 分隔）
 Function CollectUncheckedPluginIds
-  SectionGetFlags ${SEC_dev_turboism_plugin_backup} $1
-  IntOp $2 $1 & ${SF_SELECTED}
-  ${If} $2 == 0
-    ${If} $uncheckedPluginIds == ""
-      StrCpy $uncheckedPluginIds "dev.turboism.plugin.backup"
-    ${Else}
-      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.backup"
-    ${EndIf}
-  ${EndIf}
   SectionGetFlags ${SEC_dev_turboism_plugin_clipmask_viewer} $1
   IntOp $2 $1 & ${SF_SELECTED}
   ${If} $2 == 0
@@ -532,6 +523,15 @@ Function CollectUncheckedPluginIds
       StrCpy $uncheckedPluginIds "dev.turboism.plugin.uitheme"
     ${Else}
       StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.uitheme"
+    ${EndIf}
+  ${EndIf}
+  SectionGetFlags ${SEC_dev_turboism_plugin_webdav} $1
+  IntOp $2 $1 & ${SF_SELECTED}
+  ${If} $2 == 0
+    ${If} $uncheckedPluginIds == ""
+      StrCpy $uncheckedPluginIds "dev.turboism.plugin.webdav"
+    ${Else}
+      StrCpy $uncheckedPluginIds "$uncheckedPluginIds;dev.turboism.plugin.webdav"
     ${EndIf}
   ${EndIf}
 FunctionEnd

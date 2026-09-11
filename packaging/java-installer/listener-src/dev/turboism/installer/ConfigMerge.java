@@ -53,16 +53,18 @@ final class ConfigMerge {
     static final String CONFIG_FILE = "config.json";
     static final String PLUGIN_JSON_ENTRY = "META-INF/turboism/plugin.json";
     /**
-     * Retired official plugin ids (retirement slice): during a managed
-     * upgrade, a JAR below the canonical plugins directory is removed only
-     * when its embedded plugin.json id is one of these exact ids; filename
-     * alone is never authorization.
+     * Retired or superseded official plugin ids: during a managed upgrade, a JAR below the canonical
+     * plugins directory is removed only when its embedded plugin.json id is one of these exact ids;
+     * filename alone is never authorization. {@code dev.turboism.plugin.backup} is superseded by
+     * {@code dev.turboism.plugin.webdav} (the webdav-backup rename), so an upgraded install loses
+     * its stale {@code backup.jar} no matter what that file is now called.
      */
     static final Set<String> RETIRED_PLUGIN_IDS = Set.of(
             "dev.turboism.plugin.logfilter",
             "dev.turboism.plugin.clipmask",
             "dev.turboism.plugin.perfopt",
-            "dev.turboism.plugin.renderopt");
+            "dev.turboism.plugin.renderopt",
+            "dev.turboism.plugin.backup");
     static final String INSTALLATION_STATE_FILE = "cubism-installations.json";
     static final String TEMPLATE_RESOURCE = "/turboism/config.template.json";
     private static final int MAX_INSTALLATIONS = 256;
