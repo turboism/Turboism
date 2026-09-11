@@ -3,6 +3,8 @@ import {releaseNotes} from './release-notes.mjs';
 export const REPOSITORY='turboism/Turboism';
 export const ORIGIN='https://api.turboism.dev';
 export const CHANNELS=['stable','beta','nightly'];
+export const SNAPSHOT_REFRESH_MS=15*60*1000;
+export const SNAPSHOT_MAX_STALE_MS=24*60*60*1000;
 const sha=/^[a-f0-9]{64}$/;
 function require(value,message){if(!value)throw new Error(message);}
 export function versionParts(version) {
@@ -64,11 +66,14 @@ export function chooseLatest(releases,channel){
  require(CHANNELS.includes(channel),'Unknown channel');
  return releases.filter(r=>r.channel===channel).sort((a,b)=>compareVersions(b.version,a.version))[0]??null;
 }
+export function snapshotAge(snapshot){const t=Date.parse(snapshot?.syncedAt??'');return Number.isFinite(t)?Date.now()-t:Infinity;}
+export function snapshotUsable(snapshot){return Boolean(snapshot&&!snapshot.error&&snapshotAge(snapshot)<=SNAPSHOT_MAX_STALE_MS);}
 export function documentFor(snapshot,channel){
  require(CHANNELS.includes(channel),'Unknown channel');
  const common={schemaVersion:1,channel,metadataUrl:`${ORIGIN}/v1/releases/${channel}.json`};
- if(!snapshot||snapshot.error||snapshot.errors?.[channel]||Date.now()-Date.parse(snapshot.syncedAt)>30*60*1000)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
+ if(!snapshotUsable(snapshot))return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
  const selected=chooseLatest(snapshot.releases,channel);
+ if(snapshot.errors?.[channel]&&!selected)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
  const release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;
  return {...common,status:release?'ready':'not_published',updatedAt:snapshot.syncedAt,source:{repository:REPOSITORY,synchronizedAt:snapshot.syncedAt},release};
 }
