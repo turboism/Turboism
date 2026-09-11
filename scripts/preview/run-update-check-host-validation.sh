@@ -142,7 +142,6 @@ common_args=(
   --fixture-local "$fixture_src"
   --fixture-sha256 "$fixture_sha256"
   --require-fixture-unchanged
-  --jvm-option '-Dturboism.locale=en'
   --jvm-option "-Dturboism.validation.updateCheck.mode=$mode"
   --jvm-option "-Dturboism.validation.updateCheck.expectBuild=$expected_build"
   --result-file 'state/dev.turboism.validation.updatecheck/update-check-result.txt'

@@ -148,7 +148,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                 toDeliver = setSnapshotLocked(disabledSnapshot(false));
                 deliveryGeneration = generation;
             } else {
-                scheduleAutomaticLocked(initialAutomaticDelayLocked());
+                scheduleAutomaticLocked(sessionStartDelayLocked());
             }
         }
         deliver(toDeliver, deliveryGeneration);
@@ -194,7 +194,7 @@ public final class RuntimeUpdateService implements CoreUpdateService {
                     deliveryGeneration = generation;
                 }
                 if (automaticTimer == null && inFlight == null) {
-                    scheduleAutomaticLocked(initialAutomaticDelayLocked());
+                    scheduleAutomaticLocked(sessionStartDelayLocked());
                 }
             }
         }
@@ -507,10 +507,17 @@ public final class RuntimeUpdateService implements CoreUpdateService {
         else report("UPDATE_TIMER_REJECTED");
     }
 
-    private Duration initialAutomaticDelayLocked() {
-        final Optional<Instant> attempt = state.lastAutomaticAttempt();
-        if (attempt.isEmpty()) return startupDelay;
-        return remainingUntil(attempt.orElseThrow().plus(automaticInterval), startupDelay);
+    /**
+     * Delay before the first automatic check of a session.
+     *
+     * <p>Every launch checks once, shortly after startup, rather than waiting out the remainder of
+     * the interval from a previous session: a user who has just opened the editor should learn about
+     * a new release then, not up to a day later. The interval still governs the cadence of further
+     * automatic checks within the same session, which is what keeps a long-running editor from
+     * polling the service.</p>
+     */
+    private Duration sessionStartDelayLocked() {
+        return startupDelay;
     }
 
     private Duration nextAutomaticDelayLocked() {
