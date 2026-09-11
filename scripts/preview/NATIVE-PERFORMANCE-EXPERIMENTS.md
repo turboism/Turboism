@@ -793,3 +793,13 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。期间修复一处测试自身问题：`acquire` 的 lease 未关导致 `close()` 挂起（测试缺陷，非生产缺陷）。
 - **限制（不得抬高）**：离线回归证明的是**生命周期状态机正确性**（滞留路径被切断、lease 不作废、重绑定不锁死）；释放的实际内存量级未测（Core 模型对象大小随 .cmo3 而定）；**无实机测量**，端到端收益记 **NONE/pending**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条有成型的内存滞留消除路径**（文档关闭→绑定核查→lease 归零→遗忘+丢 pin+重武装），及覆盖其全部时序的离线回归。
+
+### I41 — P13 overlay 按钮侧表无界增长：有界 FIFO 驱逐 + 摘除（2026-09-11）
+
+- **范围/验证方法**：Spec Kit `037-overlay-button-cache-bound`。处理 I36 保留候选 2：`VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`（`IdentityHashMap`，以宿主 overlay 对象为键）——每个新 overlay 实例永久新增一项，仅 `cleanupCustomEntities()` 在贡献关闭/空快照时整表清除。全程 offline。
+- **为何选 FIFO+摘除而不是弱键（记录的安全分析）**：弱键会在宿主 GC 掉 overlay 时丢条目，但若其 scene 仍存活，按钮实体将滞留为幽灵按钮且永不可摘除——不可证安全。FIFO 驱逐+按该条目最后观测的 scene `detachButton` 与既有 shutdown 清理语义一致：场景活→物理摘除（正确）；场景死→宿主已回收，摘除失败走既有 fail-open 聚合通道。被逐但仍活的 overlay 下次 update 时 `existing==null` → `rebuild` 重建按钮，自愈。
+- **实现**：`MAX_CACHED_OVERLAYS=16` + `overlayOrder`（`ArrayDeque`，FIFO，仅记新键，与 map 同锁）；`customButtonEntities` 在 put 后超出上限即摘 eldest 条目、锁外逐按钮 `detachButton`（失败聚合后经回调的 fail-open 诊断通道抛出，与既有清理语义一致）；`cleanupCustomEntities` 同时清 deque。
+- **回归**：`overlayChurnBoundsTheSideTableAndDetachesEvictedButtons`——20 个不同 overlay 仅最旧 4 个被逐且其按钮出现在 `REMOVED_VOLATILE`/`Entities.REMOVED`、其余 16 个保持缓存；`anEvictedOverlayRebuildsFreshButtonsOnItsNextUpdate`——被逐 overlay 下次 update 重建新按钮（`assertNotSame`）。既有 overlay 测试全绿。
+- **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`devCheck` BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得抬高）**：宿主 overlay 对象的实际创建频率未量化（预期每视图 ~1 个）；上限值 16 是保守界而非实测最优；无实机测量，端到端收益记 **NONE**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条无界增长路径的有界化**（会话期每 overlay 一项 → 恒 ≤16 项，且被逐条目的宿主按钮被正确摘除）+ 两条离线回归。
