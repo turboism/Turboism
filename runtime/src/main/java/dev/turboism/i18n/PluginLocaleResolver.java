@@ -30,8 +30,9 @@ public final class PluginLocaleResolver {
      * Resolves the one startup locale used by runtime and plugin UI construction.
      *
      * <p>The frozen precedence is: valid {@code turboism.locale} JVM property, then a valid
-     * persisted runtime locale, then the Cubism host display locale, then the JVM display
-     * locale, then the base catalog fallback. {@code system} means "use the next source".
+     * persisted runtime locale, then the Cubism host locale applied from its Environment
+     * Settings, then the JVM display locale, then the base catalog fallback. {@code system}
+     * means "use the next source".
      * Explicit operator/config choices are limited to {@code en}, {@code ja}, {@code ko},
      * {@code zh-Hans} and {@code zh-Hant}; an arbitrary well-formed tag (for example
      * {@code fr}) is unsupported and emits a diagnostic before falling through.</p>
@@ -176,8 +177,8 @@ public final class PluginLocaleResolver {
         final String script = switch (locale.getCountry()) {
             case "CN", "SG" -> "Hans";
             case "TW", "HK", "MO" -> "Hant";
-            // 简体为默认：跟随 Cubism 宿主语言版本（-Duser.language=zh）；
-            // Wine 下的 zh-US 等无 script 中文也归 Hans。
+            // 简体为默认：宿主语言为 zh 但没有可用 script/country 时归 Hans；
+            // Wine 改写的 zh-US 等无 script 中文也归 Hans。
             default -> "Hans";
         };
         return new Locale.Builder()
