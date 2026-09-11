@@ -184,7 +184,9 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
                     failure
                 );
             }
-            transformed.add(loaded);
+            synchronized (transformed) {
+                transformed.add(loaded);
+            }
             return;
         }
     }
@@ -194,6 +196,20 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
         return installed.get();
     }
 
+    /**
+     * {@return the binary names of the hook targets that were retransformed at install time}
+     *
+     * <p>An empty result is legitimate while a target has not been loaded yet, because the
+     * registered transformers still apply to a later load. It is not legitimate once the host has
+     * loaded the target, and reporting the names separately is what makes that difference
+     * visible instead of a hook that silently observes nothing.</p>
+     */
+    public List<String> retransformedClassNames() {
+        synchronized (transformed) {
+            return transformed.stream().map(Class::getName).toList();
+        }
+    }
+
     @Override
     public void close() {
         if (!installed.compareAndSet(true, false)) return;
@@ -201,8 +217,11 @@ public final class VerifiedNativeEditBeginHookInstaller implements AutoCloseable
             instrumentation.removeTransformer(transformer);
         }
         System.getProperties().remove(CALLBACK_KEY);
-        final List<Class<?>> restore = List.copyOf(transformed);
-        transformed.clear();
+        final List<Class<?>> restore;
+        synchronized (transformed) {
+            restore = List.copyOf(transformed);
+            transformed.clear();
+        }
         for (final Class<?> loaded : restore) {
             if (!instrumentation.isModifiableClass(loaded)) continue;
             try {

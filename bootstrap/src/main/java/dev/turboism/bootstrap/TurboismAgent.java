@@ -1417,7 +1417,10 @@ public final class TurboismAgent {
             if (!NATIVE_EDIT_BEGIN_HOOK.compareAndSet(null, installer)) {
                 installer.close();
             } else {
-                runtimeInfo("TURBOISM_NATIVE_EDIT_BEGIN_HOOK installation=COMPLETE");
+                runtimeInfo(
+                    "TURBOISM_NATIVE_EDIT_BEGIN_HOOK installation=COMPLETE retransformed="
+                        + String.join(",", installer.retransformedClassNames())
+                );
             }
         } catch (Throwable failure) {
             if (installer != null) {
