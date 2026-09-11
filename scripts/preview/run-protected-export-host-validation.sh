@@ -18,7 +18,8 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-protected-export-host-validation.sh <5302> [run-label] [runner-options...]" >&2
+  echo "usage: run-protected-export-host-validation.sh <5302> [run-label] [phase] [runner-options...]" >&2
+  echo "  phase: dialog (default) | copy-binding | dialog,copy-binding" >&2
   exit 2
 fi
 
@@ -29,6 +30,21 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   run_label="$1"
   shift
 fi
+
+# Which probe phases to run inside the one host session. 'dialog' is the M1 export-settings
+# evidence; 'copy-binding' is the M2 disposable-copy bind/restore evidence.
+phase='dialog'
+if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
+  phase="$1"
+  shift
+fi
+case "$phase" in
+  dialog | copy-binding | dialog,copy-binding) ;;
+  *)
+    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, or dialog,copy-binding)" >&2
+    exit 2
+    ;;
+esac
 
 # Only the reviewed 5.3.02 artifact is admitted by the export-settings host profile, so a run
 # against any other build would produce a misleading failure rather than evidence.
@@ -83,6 +99,7 @@ exec_runner() {
     --fixture-sha256 "$fixture_sha256" \
     --require-fixture-unchanged \
     --jvm-option "-Dturboism.validation.protectedExport.exitOnComplete=true" \
+    --jvm-option "-Dturboism.validation.protectedExport.phase=$phase" \
     --result-file "$probe_result_path" \
     --result-pass-line 'status=PASS' \
     --result-fail-line 'status=FAIL' \
