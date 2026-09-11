@@ -219,6 +219,36 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         }
     }
 
+    /**
+     * Publishes the observed start of one native edit Turboism is watching.
+     *
+     * <p>This is the only phase available before the host mutates the model, so the operation is the
+     * conservative generic editor command and the label is a native name the host showed: neither is
+     * evidence of what the edit will change. The specific operation follows when the observer
+     * decodes the committed entry and calls {@link #publishObserved}, which is the call that
+     * actually establishes facts. An edit that never reaches undo therefore reports a start and no
+     * confirmation, which is the truth.</p>
+     *
+     * <p>No recursion guard is taken here: the guard exists to stop an operation nesting inside
+     * another, and this call only opens a frame. It is also how a hook that fires during a Turboism
+     * authoring transaction is suppressed before it reaches this method.</p>
+     *
+     * @param label optional native edit name, presented but never treated as an identity
+     */
+    public void publishObservedStart(final Optional<String> label) {
+        final CubismOperationEvent event = new CubismOperationEvent(
+            sequence.incrementAndGet(),
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
+            Objects.requireNonNull(label, "label")
+        );
+        final RuntimeEventBroker broker = eventBroker;
+        if (broker == null) return;
+        broker.publishRuntime(new CubismOperationLifecycleEvent.Before(event));
+        publishModelUpdateBefore(broker, event);
+    }
+
     private void run(
         final CubismOperation operation,
         final CubismOperationOrigin origin,

@@ -23,6 +23,7 @@ import java.util.function.Consumer;
 public final class NativeEditIngressSession implements AutoCloseable {
 
     private final NativeEditIngress.Publisher publisher;
+    private final NativeEditBeginBridge.BeforeSink beforeSink;
     private final Consumer<Runnable> eventThread;
     private final AtomicBoolean drainScheduled = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -40,14 +41,17 @@ public final class NativeEditIngressSession implements AutoCloseable {
      * Creates a session that never resolves a manager by itself.
      *
      * @param publisher   receives confirmed host-observed operations
+     * @param beforeSink  receives native edit starts observed at the hook, off the host stack
      * @param eventThread posts a bounded amount of work onto the host event thread; it must never
      *                    run the work inline, because the caller is the host listener loop
      */
     public NativeEditIngressSession(
         final NativeEditIngress.Publisher publisher,
+        final NativeEditBeginBridge.BeforeSink beforeSink,
         final Consumer<Runnable> eventThread
     ) {
         this.publisher = Objects.requireNonNull(publisher, "publisher");
+        this.beforeSink = Objects.requireNonNull(beforeSink, "beforeSink");
         this.eventThread = Objects.requireNonNull(eventThread, "eventThread");
     }
 
@@ -91,6 +95,11 @@ public final class NativeEditIngressSession implements AutoCloseable {
                 return false;
             }
             ingress = candidate;
+            // The hook fires from the host's edit entry, which is not the listener's thread
+            // contract, so the bridge only queues and asks this session for the same coalesced
+            // drain. Binding it here keeps one drain order: observed starts first, then the
+            // observation that the commit produced.
+            NativeEditBeginBridge.bind(beforeSink, this::requestDrain);
             manager = resolved;
             this.generation = generation;
             bindCount++;
@@ -176,6 +185,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
         }
         if (current == null) return;
         try {
+            NativeEditBeginBridge.drain(beforeSink);
             current.drain();
             synchronized (bindLock) {
                 drainCount++;
@@ -185,6 +195,11 @@ public final class NativeEditIngressSession implements AutoCloseable {
         } catch (RuntimeException ignored) {
             // A drain failure must not escape onto the host event thread.
         }
+    }
+
+    /** {@return the number of native edit starts the hook handed to this session} */
+    public long observedStartCount() {
+        return NativeEditBeginBridge.drainedCount();
     }
 
     private void requestDrain() {
@@ -204,6 +219,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
     }
 
     private void closeLocked() {
+        NativeEditBeginBridge.unbind();
         final NativeEditIngress current = ingress;
         ingress = null;
         manager = null;
