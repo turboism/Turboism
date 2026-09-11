@@ -67,11 +67,14 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     /**
      * Observes edits the Cubism user interface performed, which never enter the Turboism facade.
      * The listener itself only signals this session; every host read and publication is posted to
-     * the editor event thread, so nothing runs inside the host's undo admission.
+     * the editor event thread, so nothing runs inside the host's undo admission. A native edit
+     * start observed at the {@code beginEdit} hook is published on the same drain, so one native
+     * action reports its start before its confirmed operation.
      */
     private final dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession nativeEditIngress =
         new dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession(
             editorObjectLifecycle.semantic()::publishObserved,
+            editorObjectLifecycle.semantic()::publishObservedStart,
             javax.swing.SwingUtilities::invokeLater
         );
     private final ProjectFileLifecycleCoordinator projectFileLifecycle =

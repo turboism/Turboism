@@ -24,6 +24,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class NativeEditIngressSessionTest {
 
+    @org.junit.jupiter.api.AfterEach
+    void releaseSharedHook() {
+        // The hook bridge is process-wide by design, so a test must not leave it bound.
+        NativeEditBeginBridge.reset();
+    }
+
     @Test
     void aHostEditIsPublishedAfterTheDrainMovesOffTheHostThread() {
         final Fixture fixture = new Fixture();
@@ -121,6 +127,38 @@ class NativeEditIngressSessionTest {
     }
 
     @Test
+    void anObservedNativeEditStartIsPublishedBeforeItsConfirmedOperation() {
+        final Fixture fixture = new Fixture();
+        fixture.session.bind(1L, fixture.resolver);
+
+        // The host enters beginEdit, which queues a start and asks for a drain, and then commits,
+        // which the listener reports on the same thread before beginEdit returns.
+        NativeEditBeginBridge.ingress().accept("Add Part");
+        fixture.manager.commit(new PartMembershipEntry("BodyMesh", true));
+
+        assertEquals(1, fixture.posted.size(), "both observations share one coalesced drain");
+        assertTrue(fixture.starts.isEmpty(), "the host entry publishes nothing itself");
+
+        fixture.runPosted();
+
+        assertEquals(List.of(Optional.of("Add Part")), fixture.starts);
+        assertEquals(1, fixture.published.size(), "the commit is published after the start");
+        assertEquals(CubismOperation.SET_HIERARCHY_PARENT, fixture.published.get(0).operation());
+    }
+
+    @Test
+    void deactivatingReleasesTheHookSoAnEditIsNotQueuedForAClosedSession() {
+        final Fixture fixture = new Fixture();
+        fixture.session.bind(1L, fixture.resolver);
+        fixture.session.deactivate();
+
+        NativeEditBeginBridge.ingress().accept("Add Part");
+
+        assertTrue(fixture.posted.isEmpty(), "no drain is posted for a detached session");
+        assertEquals(1, NativeEditBeginBridge.unboundCount());
+    }
+
+    @Test
     void aPublisherFailureDoesNotEscapeTheHostEventThread() {
         final Fixture fixture = new Fixture();
         fixture.failPublications = true;
@@ -136,6 +174,7 @@ class NativeEditIngressSessionTest {
     private final class Fixture {
         private final List<Runnable> posted = new ArrayList<>();
         private final List<Published> published = new ArrayList<>();
+        private final List<Optional<String>> starts = new ArrayList<>();
         private final NativeEditIngressSession session;
         private NativeUndoIngressObserverTest.Manager manager =
             new NativeUndoIngressObserverTest.Manager();
@@ -148,6 +187,7 @@ class NativeEditIngressSessionTest {
                     if (failPublications) throw new IllegalStateException("publication failure");
                     published.add(new Published(operation, origin, subject, label));
                 },
+                starts::add,
                 posted::add
             );
         }

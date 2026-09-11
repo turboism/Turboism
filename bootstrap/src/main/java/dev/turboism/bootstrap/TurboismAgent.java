@@ -24,6 +24,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 import dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasEditorUi;
+import dev.turboism.adapter.cubism.editor.history.NativeEditBeginBridge;
+import dev.turboism.adapter.cubism.editor.history.VerifiedNativeEditBeginHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasDataModelHookInstaller;
 import dev.turboism.adapter.cubism.textureatlas.VerifiedTextureAtlasAutoLayoutHookInstaller;
 
@@ -44,6 +46,8 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedNativeEditBeginHookInstaller>
+        NATIVE_EDIT_BEGIN_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedDockTabPopupHookInstaller> DOCK_TAB_POPUP_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedFloatingFrameDisposeHookInstaller> FLOATING_FRAME_DISPOSE_HOOK =
@@ -353,6 +357,9 @@ public final class TurboismAgent {
             if (textureAtlasRuntimeAdmitted(profile, fullRuntimeAdmission)) {
                 installTextureAtlasHook(runtime, instrumentation, host);
                 installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
+            }
+            if (nativeEditBeginHookRuntimeAdmitted(profile, fullRuntimeAdmission)) {
+                installNativeEditBeginHook(runtime, instrumentation, host);
             }
             if (fullRuntimeAdmission) {
                 installPerformanceProbe(options, instrumentation, host);
@@ -834,6 +841,21 @@ public final class TurboismAgent {
         return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
     }
 
+    /**
+     * {@return whether the native edit entry hook may be installed for this host}
+     *
+     * <p>The hook needs the reviewed Editor-model resolver plus agent instrumentation, which is the
+     * same precondition the other ordinary reviewed host hooks use. It installs no capability of its
+     * own: without a bound host session the receiver only counts, and the exact selectors it skips
+     * over are still gated by the pinned records.</p>
+     */
+    static boolean nativeEditBeginHookRuntimeAdmitted(
+        final String profile,
+        final boolean fullRuntimeAdmission
+    ) {
+        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
+    }
+
     static boolean textureAtlasRuntimeAdmitted(
         final String profile,
         final boolean fullRuntimeAdmission
@@ -1031,6 +1053,7 @@ public final class TurboismAgent {
         closeFileChooserHistoryHook(runtime, "process-exit");
         closeParameterHook(runtime, "process-exit");
         closeTextureAtlasHooks(runtime, "process-exit");
+        closeNativeEditBeginHook(runtime, "process-exit");
         if (runtime == null) {
             return;
         }
@@ -1256,6 +1279,7 @@ public final class TurboismAgent {
         closeProjectLifecycleHook(RUNTIME.get(), "runtime-close");
 
         closeFileChooserHistoryHook(RUNTIME.get(), "runtime-close");
+        closeNativeEditBeginHook(RUNTIME.get(), "runtime-close");
         closeParameterHook(RUNTIME.get(), "runtime-close");
         closeTextureAtlasHooks(RUNTIME.get(), "runtime-close");
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);
@@ -1369,4 +1393,64 @@ public final class TurboismAgent {
             );
         }
     }
+
+    /**
+     * Installs the exact native {@code beginEdit} entry hooks.
+     *
+     * <p>The hook only records that an edit started; the runtime publishes it when a host session
+     * binds the bridge. Installing it before any session exists is therefore safe, and an edit made
+     * with no session attached is counted and dropped rather than published or thrown.</p>
+     */
+    private static void installNativeEditBeginHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedNativeEditBeginHookInstaller installer = null;
+        try {
+            installer = VerifiedNativeEditBeginHookInstaller.fromVerifiedResolver(
+                instrumentation,
+                runtime.editorModelResolver(),
+                host.classLoader()
+            );
+            installer.install(NativeEditBeginBridge.ingress());
+            if (!NATIVE_EDIT_BEGIN_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            } else {
+                runtimeInfo("TURBOISM_NATIVE_EDIT_BEGIN_HOOK installation=COMPLETE");
+            }
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try {
+                    installer.close();
+                } catch (Throwable ignored) {
+                    // cleanup is best effort
+                }
+            }
+            runtimeWarn("Turboism native edit entry hook disabled safely: "
+                + failure.getClass().getName());
+        }
+    }
+
+    /**
+     * Removes the native edit entry hooks and stops observing native edit starts.
+     *
+     * @param runtime the preview runtime used for reporting, may be null
+     * @param phase   the cleanup phase name used in the report
+     */
+    private static void closeNativeEditBeginHook(
+        final PreviewRuntime runtime,
+        final String phase
+    ) {
+        NativeEditBeginBridge.unbind();
+        final VerifiedNativeEditBeginHookInstaller installer = NATIVE_EDIT_BEGIN_HOOK.getAndSet(null);
+        if (installer == null) return;
+        try {
+            installer.close();
+            runtimeInfo("TURBOISM_NATIVE_EDIT_BEGIN_HOOK cleanup=COMPLETE phase=" + phase);
+        } catch (Throwable failure) {
+            runtimeWarn("Turboism native edit entry hook cleanup failed safely: phase=" + phase);
+        }
+    }
+
 }
