@@ -716,3 +716,23 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **未动但已登记的同类强点**：`BorrowedCoreModelSource.activeModel`（`runtime/.../cubism/core/BorrowedCoreModelSource.java:16`）同形且 `RuntimeCoreModelBackend.clearBorrowedModel()` **无生产调用方**（仅测试）。但清空它会作废所有已发出的 SDK lease（`CoreModelAcquisition` 的 generation 记账），属独立的行为决策，本切片按 FR-004 明确不动，作为后续候选项登记。
 - **前序 P08-a 补丁的去向**：I11 节记录的 test-only 反射诊断补丁（`/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`，现已随 `/tmp` 丢失）**未应用、未使用**；本切片用弱可达回归取代它，符合 P08-a 记录的「未来修复后的回归应检查正确生命周期释放」要求。
 - **有效程度**：本轮新增内存/CPU/GPU **实机收益 NONE**（未做测量）；产出为**两处可验证的引用边移除**（缓存三槽 + 参数写路径的数据依赖）、一条先失败后通过的离线回归、一条行为不变性回归，以及 Spec Kit 031 与 I34 判断偏差的更正。
+
+### I36 — P08 同形滞留点系统排查（只读审计）：绝大多数已清洁，两个候选保留但不动（2026-09-11）
+
+- **范围/验证方法**：用户批准继续推进后，对「我方自己强持有宿主对象、且无清除路径」这一缺陷类做系统性只读排查（不是重新访谈 P08）。方法：枚举 `runtime/src/main/java` 的**可变实例字段**（非 final，共 282 个），先按「能否持有宿主对象」收敛到 `Object` 型（共 5 个），再向上追溯持有它的对象是否长命；另抽查以对象为键/值的**长命集合**、以及 SDK wrapper 类型的字段持有者。全部结论来自源码与 CodeGraph，**未运行宿主、未改任何代码**。
+- **确认清洁（已逐个读到清除路径）**：
+  - `CoreModelLease.borrowedModel`：`close()` 内 `borrowedModel = null`。
+  - `DynamicCubismModelAccess.current`：`deactivate()` 重置为 `UnavailableCubismModelAccess.INSTANCE` 并自增 generation；`connect()` 替换旧值。
+  - `DynamicRuntimeHostAdapters.current`：同上模式，失败/拆除回 `safeMode`。
+  - `SceneTableHostOperations`：`originalHeaders` / `nativeMouseListeners` / `nativeMotionListeners` 在 detach 路径（行 756-758）全部 `clear()`。
+  - `RuntimeModelObjectService`、`RuntimeScriptHostBridge`：只持 `CubismModelAccess`/`PluginContext`，不缓存模型（`activeModel()` 每次现取）。
+  - `PaletteAppearanceCoordinator`：`removeContent(contentId)` 删除该 content 的全部 overrides，且已由 `HostSession.registerProjectContentCleanup()` 接到文档 **CLOSE** 事件；`parameterControls` 只存 folder/id/`WeakReference<Component>`，并在 126/200/339 处 `clear()`。
+  - `RuntimePaletteFilterRegistry`、`HostSession`：仅持 sink/authority/connection，连接键相同即复用、变化即整包清理，无按文档累积。
+  - `RuntimeTextureAtlasEditorUi.currentView`：本就是 `WeakReference`（即 I34 引用的先例）。
+- **候选 1（保留，不动）：`BorrowedCoreModelSource.activeModel`。** 写入来自 `publishBorrowedModel`（连接时一次 + `lazyPublishOnce` 每个新 binding identity 一次），清除路径只有 `clearBorrowedModel()`（**无生产调用方**，仅测试）与 `close()`。文档关闭后若不再有绑定，旧借用模型仍被强持有。**未修的原因**：清空会按 `CoreModelAcquisition` 的 generation 记账作废**所有已发出的 SDK lease**，属可观察行为变化，需自己的冻结范围与裁决（I35 已按 FR-004 排除）。
+- **候选 2（保留，不动）：`VerifiedBoundingBoxOverlayButtonHostOperations.buttonsByOverlay`。** 这是 `IdentityHashMap<Object, CachedButtons>`，**以宿主 overlay 对象为键**，每键持有该 overlay 的宿主按钮实体、身份复用表和最后观测到的 scene graph。它只有 `put`（行 146），键的移除仅发生在 `cleanupCustomEntities()` 的整表 `clear()`（行 355），而后者**只在 descriptors 变为空时被调用**（行 129-137）——因此同一会话里每个新的 overlay 实例都会永久新增一项，旧项不被回收。严重程度取决于宿主 overlay 的创建频率（离线无法确定）。**不能随手修的硬理由**：`cleanupCustomEntities()` 需要用 `cached.scene` 把按钮从对应场景**摘除**；若提前驱逐条目，被驱逐 overlay 的按钮就再也无法从宿主场景里摘掉。所以任何驱逐都必须同时保证摘除，属独立设计，不能为了让指标好看而拍脑袋改。
+- **为何不再扩大搜索面**（避免为形式而审计）：本轮覆盖面是「可变字段 + 长命集合 + SDK wrapper 持有者」三层；剩余未逐条读到清除路径的多为 UI host-operations（如 `CubismLogServiceHost` 的事件队列、`VerifiedRecentPreviewPopupHostOperations`），均为**有界**结构（定长队列/单值槽）而非按文档累积，继续扩面的边际收益递减。
+- **与目标的关系（不得抬高）**：本排查**没有新增任何实机收益证据**；两个候选都**未实施**。已知最大的滞留量（关闭后 228MiB 解码像素 + 最高约336MiB 归档字节）在**宿主软缓存**里，I34 已判定无支撑的清除路径——本排查只说明「我方侧除已修的 P08 外，剩下的两个候选都不便宜、也不确定」。
+- **顺带确定了实机 A/B 该不该跑（重要）**：宿主已于本轮空闲（`atlas-image-shadow`/5303 结束，`host.state=idle`），但**不应在 native-resource 负载上跑 P08 的 A/B**。理由是从已证机制可**演绎**得出：`CImageResource` 经静态 `cacheList` 软可达 → 强持 `retainCounter` 的用户（`ICImageResourceUser`）→ 属模型图 → `CModelSource` 有非 final 的 `document` 反向指针，因此**文档本身是软可达的**，而软引用只在内存压力下清除。于是修复臂与未修复臂**都**会报 `documentWeakCleared=false`，该对比**在构造上就没有区分力**，不是「尚未验证」。用制造内存压力的办法去拉开差异会让清除变得不确定、且改变的正是被测量的条件。故 031 声明**无实机测量**，Design A 不在该负载上执行；要拿到有意义的数字必须有 Design B（驱动宿主替换，或先用归档/驱逐使软缓存不再传递持有文档），而它需要独立范围与授权。见 `specs/031-editor-binding-retention/measurement.md`。
+- **未执行的实机操作**：本轮未 prepare、未 submit、未占用宿主、未改任何官方工件与共享队列状态；磁盘此时为 **99%（仅剩 8.3GB）**，判据是「即使跑了也拿不到可解释结果」，而非「跑不了」。
+- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**。产出为**一次有成型的、可复核的负面/边界结论**（7 处确认清洁 + 2 个带理由的保留候选），作用是**防止后续重复排查同一批位置**。
