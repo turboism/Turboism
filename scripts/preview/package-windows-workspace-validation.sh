@@ -10,16 +10,20 @@ bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-workspace-va
 # The legacy build/preview/<worktree>/turboism-agent.jar copy is stale by design and must
 # never be used: it silently misses record fixes until the preview bundle is regenerated.
 bootstrap_libs="$repo_root/build/worktree/$worktree_id/bootstrap/libs"
-agent_candidates=("$bootstrap_libs"/turboism-agent-*.jar)
-if [ ! -e "${agent_candidates[0]:-}" ]; then
+# :bootstrap:jar pins archiveFileName=turboism-agent.jar; the earlier versioned
+# turboism-agent-*.jar layout is no longer produced, so the canonical output name
+# is the only accepted candidate (stale versioned leftovers must never win).
+agent_jar="$bootstrap_libs/turboism-agent.jar"
+if [ ! -e "$agent_jar" ]; then
   printf 'error: no freshly built bootstrap agent jar in %s; run :bootstrap:jar first\n' "$bootstrap_libs" >&2
   exit 1
 fi
-if [ "${#agent_candidates[@]}" -gt 1 ]; then
-  printf 'error: multiple bootstrap agent jars in %s; keep exactly one\n' "$bootstrap_libs" >&2
-  exit 1
-fi
-agent_jar="${agent_candidates[0]}"
+for stale in "$bootstrap_libs"/turboism-agent-*.jar; do
+  if [ -e "$stale" ]; then
+    printf 'error: stale versioned agent jar %s in %s; remove it before packaging\n' "$stale" "$bootstrap_libs" >&2
+    exit 1
+  fi
+done
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsWorkspaceValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
@@ -29,11 +33,11 @@ agent_class_dir_rel="dev/turboism/tests/validation"
 launcher_template="$repo_root/scripts/preview/launch-workspace-validation.bat.template"
 command_helper_ps1="$repo_root/scripts/preview/submit-workspace-command.ps1"
 readme="$repo_root/scripts/preview/README-workspace-validation.md"
-record_52="$repo_root/compatibility/cubism/verification/cubism-5.2-workspace-control.json"
+record_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-workspace-control.json"
 record_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-workspace-control.json"
-record_overlay_52="$repo_root/compatibility/cubism/verification/cubism-5.2-ui-bounding-box-overlay.json"
+record_overlay_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-ui-bounding-box-overlay.json"
 record_overlay_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-ui-bounding-box-overlay.json"
-record_project_52="$repo_root/compatibility/cubism/verification/cubism-5.2-project-workspace.json"
+record_project_52="$repo_root/compatibility/cubism/verification/cubism-5.2.03-project-workspace.json"
 record_project_53="$repo_root/compatibility/cubism/verification/cubism-5.3.02-project-workspace.json"
 
 for required in \
@@ -65,19 +69,19 @@ trap 'rm -rf "${probe_tmp:-}" "${agent_tmp:-}" "${freshness_tmp:-}"' EXIT
 (
   cd "$freshness_tmp"
   jar xf "$agent_jar" \
-    META-INF/turboism/verification/cubism-5.2-workspace-control.json \
+    META-INF/turboism/verification/cubism-5.2.03-workspace-control.json \
     META-INF/turboism/verification/cubism-5.3.02-workspace-control.json \
-    META-INF/turboism/verification/cubism-5.2-ui-bounding-box-overlay.json \
+    META-INF/turboism/verification/cubism-5.2.03-ui-bounding-box-overlay.json \
     META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json \
-    META-INF/turboism/verification/cubism-5.2-project-workspace.json \
+    META-INF/turboism/verification/cubism-5.2.03-project-workspace.json \
     META-INF/turboism/verification/cubism-5.3.02-project-workspace.json
 )
 for pair in \
-  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-workspace-control.json:$record_52" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2.03-workspace-control.json:$record_52" \
   "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-workspace-control.json:$record_53" \
-  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-ui-bounding-box-overlay.json:$record_overlay_52" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2.03-ui-bounding-box-overlay.json:$record_overlay_52" \
   "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-ui-bounding-box-overlay.json:$record_overlay_53" \
-  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2-project-workspace.json:$record_project_52" \
+  "$freshness_tmp/META-INF/turboism/verification/cubism-5.2.03-project-workspace.json:$record_project_52" \
   "$freshness_tmp/META-INF/turboism/verification/cubism-5.3.02-project-workspace.json:$record_project_53"; do
   embedded="${pair%%:*}"
   current="${pair#*:}"
@@ -95,7 +99,7 @@ cp "$agent_jar" "$bundle_root/turboism-agent.jar"
 cp "$launcher_template" "$bundle_root/launch-workspace-validation.bat.template"
 cp "$command_helper_ps1" "$bundle_root/submit-workspace-command.ps1"
 cp "$readme" "$bundle_root/README.md"
-cp "$record_52" "$bundle_root/cubism-5.2-workspace-control.json"
+cp "$record_52" "$bundle_root/cubism-5.2.03-workspace-control.json"
 cp "$record_53" "$bundle_root/cubism-5.3.02-workspace-control.json"
 
 probe_tmp="$(mktemp -d "$repo_root/build/.workspace-probe.XXXXXX")"
@@ -171,7 +175,7 @@ fi
     turboism-agent.jar \
     workspace-validation-agent.jar \
     plugins/workspace-validation-probe.jar \
-    cubism-5.2-workspace-control.json \
+    cubism-5.2.03-workspace-control.json \
     cubism-5.3.02-workspace-control.json \
     launch-workspace-validation.bat.template \
     submit-workspace-command.ps1 \
