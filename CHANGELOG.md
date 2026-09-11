@@ -6,6 +6,20 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Added
+
+- Turboism now checks for stable updates against the deployed release API
+  (`api.turboism.dev/v1/releases/stable.json`) and shows the result in the Turboism panel and status
+  region. The comparison uses the authoritative build number embedded in the installed package, so a
+  lower build is never offered as an update and an equal build number with a different version is
+  treated as an identity conflict rather than an update. Installations that predate build numbers keep
+  comparing by version only and are never assigned an invented number.
+- The update checker is non-blocking and runs at most once per 24 hours, with a manual check that is
+  always available. Automatic checks have their own persistent toggle in the Startup settings tab
+  and are independent of Cubism's own update suppression.
+- The update entry opens the fixed first-party download page. No URL from the release feed is opened
+  or installed, and no installer is downloaded or executed automatically.
+
 ### Fixed
 
 - Plugin UI language now follows the language chosen in Cubism Editor's File → Environment Settings →
