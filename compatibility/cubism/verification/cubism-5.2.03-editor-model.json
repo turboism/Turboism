@@ -410,6 +410,61 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.class.part_membership_class",
+      "alias": "cubism.editor-history.semantic.part-membership.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.method.part_membership_part",
+      "alias": "cubism.editor-history.semantic.part-membership.part",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "memberName": "getPart",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartSource;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.method.part_membership_child",
+      "alias": "cubism.editor-history.semantic.part-membership.child",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "memberName": "getChild",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.method.part_membership_index",
+      "alias": "cubism.editor-history.semantic.part-membership.index",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "memberName": "getInsertIndex",
+      "descriptor": "()I",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history_semantic.method.part_membership_is_add",
+      "alias": "cubism.editor-history.semantic.part-membership.is-add",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "memberName": "isAdd",
+      "descriptor": "()Z",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_2_03.editor_history.method.document_undo_manager",
       "alias": "cubism.editor-history.document.undo-manager",
       "kind": "method",

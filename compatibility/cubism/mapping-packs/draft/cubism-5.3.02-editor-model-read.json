@@ -616,6 +616,109 @@
       "descriptor": "()Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.class.part_membership_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.part-membership.class",
+      "runtime": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.part_membership_part",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.part-membership.part",
+      "runtime": "getPart",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/parts/CPartSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.part_membership_child",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.part-membership.child",
+      "runtime": "getChild",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/ACParameterControllableSource;"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.part_membership_index",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.part-membership.index",
+      "runtime": "getInsertIndex",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()I"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.part_membership_is_add",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.part-membership.is-add",
+      "runtime": "isAdd",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/editor/Editor_Part$Undo_AddOrRemovePartChild",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Z"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_model.class.app_ctrl",
       "kind": "class",
       "owner": "editor-model-read",

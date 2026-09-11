@@ -95,6 +95,7 @@ class EditorHistorySemanticVerificationManifestTest {
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_DRAWABLE_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_DEFORMER_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ADD_REMOVE_PARAMETER_GROUP_REQUIRED_ALIASES);
+        aliases.addAll(EditorHistorySemanticSelectorContract.PART_MEMBERSHIP_REQUIRED_ALIASES);
         aliases.addAll(EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES);
         return Set.copyOf(aliases);
     }
