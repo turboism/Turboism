@@ -343,7 +343,57 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
             "cubism.editor-model.drawable-form.multiply-color"));
         degradation = first(degradation, addColorChange(resolver, before, after, context, changes, "screenColor",
             "cubism.editor-model.drawable-form.screen-color"));
+        degradation = first(degradation, addPositionsChange(resolver, before, after, context, changes));
         return degradation;
+    }
+
+    /**
+     * Compares the flattened vertex-position arrays of two snapshots of one form.
+     *
+     * <p>The projected change deliberately carries counts only: a point total per side and the
+     * number of changed points. The catalog admits exactly that much — "bounded changed-point /
+     * count information" — and forbids unbounded arrays as well as any move/deform verdict derived
+     * from coordinates, so no direction, delta or shape statistic is emitted.</p>
+     */
+    private static String addPositionsChange(
+        final VerifiedMemberResolver resolver,
+        final Object before,
+        final Object after,
+        final HistoryEditContext context,
+        final List<HistoryChange> changes
+    ) {
+        final Object beforeValue = resolver.invoke(
+            "cubism.editor-model.art-mesh-form.positions", before);
+        final Object afterValue = resolver.invoke(
+            "cubism.editor-model.art-mesh-form.positions", after);
+        if (!(beforeValue instanceof float[] left) || !(afterValue instanceof float[] right)
+            || left.length % 2 != 0 || right.length % 2 != 0) {
+            return "history.value-codec-unavailable";
+        }
+        final int changed = changedPoints(left, right);
+        if (changed == 0) return "";
+        if (changes.size() >= NativeHistoryDecodeContext.MAX_NODES) {
+            return "history.detail.node-or-depth-limit";
+        }
+        changes.add(change(
+            "vertexPositions",
+            "points=" + left.length / 2,
+            "points=" + right.length / 2 + ";changed=" + changed,
+            context
+        ));
+        return "";
+    }
+
+    private static int changedPoints(final float[] before, final float[] after) {
+        final int shared = Math.min(before.length, after.length);
+        int changed = Math.abs(before.length - after.length) / 2;
+        for (int index = 0; index + 1 < shared; index += 2) {
+            if (Float.compare(before[index], after[index]) != 0
+                || Float.compare(before[index + 1], after[index + 1]) != 0) {
+                changed++;
+            }
+        }
+        return changed;
     }
 
     private static String addNumberChange(

@@ -115,6 +115,19 @@ class NativeHistoryOperationsTest {
     }
 
     @Test
+    void aVertexPositionsChangeStaysGenericAndNeverProvesAMove() {
+        // The catalog admits vertexPositions as a bounded fact but forbids deriving a movement
+        // verdict from coordinates, so a geometry-only entry is the generic editor command.
+        final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(
+            appearance("vertexPositions")
+        );
+
+        assertEquals(CubismOperation.EXECUTE_EDITOR_COMMAND, resolution.operation());
+        assertTrue(resolution.subjectId().isEmpty(),
+            "a generic entry claims no subject");
+    }
+
+    @Test
     void aDetailMixingAppearanceWithAnotherChangeStaysGeneric() {
         // A mixed entry describes more than one fact, so no single operation is proven.
         final HistoryEntryDetail mixed = new HistoryEntryDetail(

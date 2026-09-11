@@ -264,8 +264,8 @@ class ArtMeshFormListUndoDecoderTest {
             Map.of(guid.value(), List.of(new KeyformOnGrid(accessKey)))
         );
         final Source source = new Source("ArtMesh1", "Face shadow", grid);
-        final Form before = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0));
-        final Form after = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0.2F, 0.4F, 0.6F));
+        final Form before = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0), QUAD);
+        final Form after = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0.2F, 0.4F, 0.6F), QUAD);
 
         final NativeHistoryDecodeResult result = new NativeHistoryDecoderRegistry().decode(
             resolver(),
@@ -299,8 +299,8 @@ class ArtMeshFormListUndoDecoderTest {
             Map.of(guid.value(), List.of(new KeyformOnGrid(new AccessKey(List.of()))))
         );
         final Source source = new Source("ArtMesh1", "Face shadow", grid);
-        final Form before = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0));
-        final Form after = new Form(source, guid, 0.5F, 0, color(1, 1, 1), color(0, 0, 0));
+        final Form before = new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0), QUAD);
+        final Form after = new Form(source, guid, 0.5F, 0, color(1, 1, 1), color(0, 0, 0), QUAD);
 
         final var detail = new NativeHistoryDecoderRegistry().decode(
             resolver(),
@@ -333,8 +333,8 @@ class ArtMeshFormListUndoDecoderTest {
     @Test
     void preservesMultipleFormAndPropertyChangesInUndoOrder() {
         final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
-        final Form firstBefore = new Form(source, new Guid("form-a"), 1.0F, 0, color(1, 1, 1), color(0, 0, 0));
-        final Form firstAfter = new Form(source, new Guid("form-a"), 0.5F, 10, color(1, 1, 1), color(0, 0, 0));
+        final Form firstBefore = new Form(source, new Guid("form-a"), 1.0F, 0, color(1, 1, 1), color(0, 0, 0), QUAD);
+        final Form firstAfter = new Form(source, new Guid("form-a"), 0.5F, 10, color(1, 1, 1), color(0, 0, 0), QUAD);
         final Form secondBefore = form(source, "form-b", color(1, 1, 1), color(0, 0, 0));
         final Form secondAfter = form(source, "form-b", color(0.5F, 0.6F, 0.7F), color(0.1F, 0.2F, 0.3F));
 
@@ -362,8 +362,8 @@ class ArtMeshFormListUndoDecoderTest {
         final List<Form> after = new ArrayList<>();
         for (int index = 0; index < 17; index++) {
             final Guid guid = new Guid("form-" + index);
-            before.add(new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0)));
-            after.add(new Form(source, guid, 0.5F, 1, color(0.5F, 0.5F, 0.5F), color(0.25F, 0.25F, 0.25F)));
+            before.add(new Form(source, guid, 1.0F, 0, color(1, 1, 1), color(0, 0, 0), QUAD));
+            after.add(new Form(source, guid, 0.5F, 1, color(0.5F, 0.5F, 0.5F), color(0.25F, 0.25F, 0.25F), QUAD));
         }
 
         final var detail = new NativeHistoryDecoderRegistry().decode(
@@ -410,13 +410,103 @@ class ArtMeshFormListUndoDecoderTest {
         assertEquals("history.target-unresolved", result.diagnosticId());
     }
 
+    @Test
+    void aGeometryOnlyEditDecodesToABoundedVertexPositionsChange() {
+        // This is the native canvas-edit shape: every scalar channel is unchanged and only the
+        // vertex array differs. The admitted catalog row carries counts, never coordinates, so the
+        // entry gains an exact target and form context without claiming a move or deform verdict.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final float[] moved = {2.0F, 0.0F, 3.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
+        final Form after = new Form(source, new Guid("form-default"), 1.0F, 0,
+            color(1, 1, 1), color(0, 0, 0), moved);
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new ListEntry(List.of(before), List.of(after)),
+            "Edit Artmesh"
+        ).detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        assertEquals("ArtMesh1", detail.targets().get(0).id().orElseThrow());
+        assertEquals(1, detail.changes().size());
+        final var change = detail.changes().get(0);
+        assertEquals("vertexPositions", change.property().orElseThrow());
+        assertEquals("points=4", change.before().orElseThrow());
+        assertEquals("points=4;changed=2", change.after().orElseThrow());
+        assertEquals(HistoryEditContext.Kind.DEFAULT_FORM, change.context().kind());
+    }
+
+    @Test
+    void aLiveTargetVertexDragDecodesLikeAnyOtherPostState() {
+        // 移动选定的顶点 arrives as SimpleUndo(CArtMeshForm) with no stored redo data, so the
+        // only post state is the live target at the proven tip.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final float[] dragged = {0.0F, 0.0F, 1.5F, 0.5F, 1.0F, 1.0F, 0.0F, 1.0F};
+        final Form live = new Form(source, new Guid("form-default"), 1.0F, 0,
+            color(1, 1, 1), color(0, 0, 0), dragged);
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new SimpleEntry(live, before, null),
+            "Edit Artmesh",
+            true
+        ).detail().orElseThrow();
+
+        final var change = detail.changes().get(0);
+        assertEquals("vertexPositions", change.property().orElseThrow());
+        assertEquals("points=4;changed=1", change.after().orElseThrow());
+    }
+
+    @Test
+    void addedOrRemovedPointsCountAsChangedPoints() {
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final float[] grown = {0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F, 0.5F, 0.5F};
+        final Form after = new Form(source, new Guid("form-default"), 1.0F, 0,
+            color(1, 1, 1), color(0, 0, 0), grown);
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new ListEntry(List.of(before), List.of(after)),
+            "Edit Artmesh"
+        ).detail().orElseThrow();
+
+        final var change = detail.changes().get(0);
+        assertEquals("vertexPositions", change.property().orElseThrow());
+        assertEquals("points=4", change.before().orElseThrow());
+        assertEquals("points=5;changed=1", change.after().orElseThrow());
+    }
+
+    @Test
+    void unreadablePositionsDegradeWithoutDroppingScalarChanges() {
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = new Form(source, new Guid("form-default"), 1.0F, 0,
+            color(1, 1, 1), color(0, 0, 0), null);
+        final Form after = form(source, "form-default", color(1, 0, 0), color(0, 0, 0));
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new ListEntry(List.of(before), List.of(after)),
+            "Edit Artmesh"
+        ).detail().orElseThrow();
+
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals("history.value-codec-unavailable", detail.degradationCode().orElseThrow());
+        assertEquals("multiplyColor", detail.changes().get(0).property().orElseThrow());
+        assertEquals(1, detail.changes().size());
+    }
+
+    private static final float[] QUAD = {0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
+
     private static Form form(
         final Source source,
         final String guid,
         final Color multiply,
         final Color screen
     ) {
-        return new Form(source, new Guid(guid), 1.0F, 0, multiply, screen);
+        return new Form(source, new Guid(guid), 1.0F, 0, multiply, screen, QUAD);
     }
 
     private static Color color(final float red, final float green, final float blue) {
@@ -445,6 +535,7 @@ class ArtMeshFormListUndoDecoderTest {
         selectors.add(method("cubism.editor-model.drawable-form.draw-order", Form.class, "drawOrder", "()I"));
         selectors.add(method("cubism.editor-model.drawable-form.multiply-color", Form.class, "multiply", desc(Color.class)));
         selectors.add(method("cubism.editor-model.drawable-form.screen-color", Form.class, "screen", desc(Color.class)));
+        selectors.add(method("cubism.editor-model.art-mesh-form.positions", Form.class, "positions", "()[F"));
         selectors.add(method("cubism.editor-model.float-color.red", Color.class, "red", "()F"));
         selectors.add(method("cubism.editor-model.float-color.green", Color.class, "green", "()F"));
         selectors.add(method("cubism.editor-model.float-color.blue", Color.class, "blue", "()F"));
@@ -512,7 +603,8 @@ class ArtMeshFormListUndoDecoderTest {
         public String label() { return "Grouped edit"; }
     }
 
-    record Form(Source source, Guid guid, float opacity, int drawOrder, Color multiply, Color screen) { }
+    record Form(Source source, Guid guid, float opacity, int drawOrder, Color multiply, Color screen,
+                float[] positions) { }
     record Source(HostId id, String name, Grid grid) {
         Source(final String id, final String name, final Grid grid) { this(new HostId(id), name, grid); }
     }
