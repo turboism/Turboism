@@ -125,6 +125,7 @@ public final class ProtectedExportHostProbeAgent {
             evidence.put("phases", String.join("+", phases));
 
             if (phases.contains("dialog")) {
+                ensureTextureAtlas(controller, evidence);
                 final boolean unchecked = phaseUncheckedConfirm(
                     controller, appCtrl, instrumentation, stateDir, evidence
                 );
@@ -443,12 +444,33 @@ public final class ProtectedExportHostProbeAgent {
                 }
             }
             if (copyFile != null && copyFile.isFile()) {
-                try {
-                    Files.deleteIfExists(copyFile.toPath());
-                    evidence.put(prefix + "fileRemoved", "true");
-                } catch (Throwable failure) {
-                    evidence.put(prefix + "fileRemoveFailure", text(failure));
+                // The native closeFile releases the file channel asynchronously
+                // (file-cache release + System.gc), so deletion retries briefly.
+                int attempts = 0;
+                Throwable last = null;
+                while (attempts < 20 && copyFile.isFile()) {
+                    attempts++;
+                    try {
+                        Files.deleteIfExists(copyFile.toPath());
+                    } catch (Throwable failure) {
+                        last = failure;
+                    }
+                    if (!copyFile.isFile()) {
+                        break;
+                    }
+                    System.gc();
+                    sleep(500L);
                 }
+                if (copyFile.isFile()) {
+                    evidence.put(prefix + "fileRemoveFailure",
+                        last == null ? "still present" : text(last));
+                } else {
+                    evidence.put(prefix + "fileRemoved", "true");
+                    evidence.put(prefix + "fileRemoveAttempts", Integer.toString(attempts));
+                }
+            } else if (copyFile != null) {
+                evidence.put(prefix + "fileRemoved", "true");
+                evidence.put(prefix + "fileRemoveAttempts", "0");
             }
         }
     }
@@ -578,6 +600,13 @@ public final class ProtectedExportHostProbeAgent {
             parentOf.put(guid, targetDeformerGuid(source));
         }
 
+        // A deformer's targetDeformerGuid is its parent edge; roots anchor to a
+        // non-deformer (model root / part) or to nothing. A parent GUID that does
+        // resolve to a deformer missing from the census is a genuine gap and
+        // rejects; a GUID resolving to a non-deformer object or the model root is
+        // a legitimate root anchor; a GUID resolving nowhere is dangling.
+        final Map<String, Object> objectByGuid = objectGuidMap(modelSource);
+        final String modelGuid = guidString(modelSource);
         final Map<String, Integer> depthOf = new LinkedHashMap<>();
         for (String guid : byGuid.keySet()) {
             final Set<String> visiting = new LinkedHashSet<>();
@@ -589,12 +618,24 @@ public final class ProtectedExportHostProbeAgent {
                     return null;
                 }
                 final String parent = parentOf.get(cursor);
-                if (parent == null) {
+                if (parent == null || parent.isBlank()) {
                     break;
                 }
                 if (!byGuid.containsKey(parent)) {
-                    evidence.fail("FLAT_MISSING_PARENT:" + cursor + "->" + parent);
-                    return null;
+                    final Object resolved = objectByGuid.get(parent);
+                    final String kind = parent.equals(modelGuid)
+                        ? "model-root"
+                        : resolved == null ? "absent" : resolved.getClass().getName();
+                    evidence.put("flat.parentAnchor." + cursor, parent + "=" + kind);
+                    if (resolved instanceof Object && isDeformerSource(resolved)) {
+                        evidence.fail("FLAT_MISSING_PARENT:" + cursor + "->" + parent);
+                        return null;
+                    }
+                    if (resolved == null && !parent.equals(modelGuid)) {
+                        evidence.fail("FLAT_DANGLING_PARENT:" + cursor + "->" + parent);
+                        return null;
+                    }
+                    break;
                 }
                 depth++;
                 cursor = parent;
@@ -683,6 +724,23 @@ public final class ProtectedExportHostProbeAgent {
             }
         }
         return found;
+    }
+
+    /** GUID→object over {@code getAllObjects} — used to classify deformer parents. */
+    private static Map<String, Object> objectGuidMap(final Object modelSource) {
+        final Map<String, Object> map = new LinkedHashMap<>();
+        for (Object object : asList(readNoArg(modelSource, "getAllObjects"))) {
+            final String guid = guidString(object);
+            if (guid != null) {
+                map.putIfAbsent(guid, object);
+            }
+        }
+        return map;
+    }
+
+    private static boolean isDeformerSource(final Object object) {
+        return object != null && isA(
+            object.getClass(), "com.live2d.cubism.doc.model.deformer.ACDeformerSource");
     }
 
     private static String guidString(final Object parameterControllableSource) {
@@ -899,24 +957,43 @@ public final class ProtectedExportHostProbeAgent {
                     "PROTECTED_EXPORT_CLOSE_FAILURE " + text(failure));
             }
         });
-        // Wait until the copy content reports no live documents; focus moving away
-        // alone would also satisfy the weaker check, so both are recorded.
+        // Close completion is observed through the project: IFileContent.closeFile
+        // removes the document from CEProject.getChildren(), so the copy is closed
+        // once it is no longer a project entry. getFileContentDocs() is not usable
+        // here — for a modeling document it always returns itself. Focus moving
+        // away is recorded as corroborating evidence, not the gate.
         final long deadline = System.currentTimeMillis() + BIND_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
-            final Object docs = readNoArg(content, "getFileContentDocs");
-            final boolean empty = docs instanceof List<?> list && list.isEmpty();
+            final boolean detached = !projectContains(controller, document);
             final Object current = readNoArg(controller, "getCurrentDoc");
             final boolean unfocused = current == null
                 || System.identityHashCode(current) != System.identityHashCode(document);
-            if (empty || unfocused) {
+            if (detached) {
                 evidence.put(prefix + "closed", "true");
                 evidence.put(prefix + "closeState",
-                    "docsEmpty=" + empty + ",unfocused=" + unfocused);
+                    "projectDetached=" + detached + ",unfocused=" + unfocused);
                 return;
             }
             sleep(POLL_MILLIS);
         }
         evidence.put(prefix + "closed", "timeout");
+        evidence.put(prefix + "closeState", "projectDetached=false");
+    }
+
+    /** True while {@code document} is still a child of the current project. */
+    private static boolean projectContains(final Object controller, final Object document) {
+        final Object project = readNoArg(controller, "getCurrentProject");
+        final Object children =
+            project == null ? null : readNoArg(project, "getChildren");
+        if (!(children instanceof List<?> list)) {
+            return true;
+        }
+        for (Object child : list) {
+            if (System.identityHashCode(child) == System.identityHashCode(document)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -956,6 +1033,18 @@ public final class ProtectedExportHostProbeAgent {
      */
     private static BridgeObservation wrapBridgeCallbacks(final Evidence evidence) {
         final BridgeObservation observation = new BridgeObservation();
+        // The bridge installs during agent premain, which can race this probe thread;
+        // poll briefly so a late install is still observed rather than read as absent.
+        final long deadline = System.currentTimeMillis() + 30_000L;
+        while (System.currentTimeMillis() < deadline) {
+            final Properties probe = System.getProperties();
+            synchronized (probe) {
+                if (probe.get(ATTACH_KEY) != null && probe.get(DECIDE_KEY) != null) {
+                    break;
+                }
+            }
+            sleep(POLL_MILLIS);
+        }
         final Properties properties = System.getProperties();
         synchronized (properties) {
             final Object attach = properties.get(ATTACH_KEY);
@@ -1071,6 +1160,58 @@ public final class ProtectedExportHostProbeAgent {
         }
         evidence.fail("HOST_NOT_READY");
         return false;
+    }
+
+    /**
+     * The native export pre-check ({@code al.a}) rejects with {@code CUB3-0933} when the
+     * active model has zero texture atlases, so the settings dialog is unreachable on an
+     * atlas-less fixture. When the bound document has none, the probe registers one real
+     * (empty) {@code CTextureAtlas} on the task-owned session copy — the fixture file itself
+     * is never saved. This is probe scaffolding only; production never synthesises atlases.
+     */
+    private static void ensureTextureAtlas(
+        final Object controller,
+        final Evidence evidence
+    ) {
+        try {
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object document = readNoArg(controller, "getCurrentDoc");
+                final Object source =
+                    document == null ? null : readNoArg(document, "getModelSource");
+                final Object manager =
+                    source == null ? null : readNoArg(source, "getTextureManager");
+                final Object atlases =
+                    manager == null ? null : readNoArg(manager, "getTextureAtlases");
+                if (!(atlases instanceof List<?> list)) {
+                    evidence.put("dialog.atlasInjected", "unavailable");
+                    return null;
+                }
+                if (!list.isEmpty()) {
+                    evidence.put("dialog.atlasInjected", "not-needed");
+                    return null;
+                }
+                final Class<?> atlasType = Class.forName(
+                    "com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas"
+                );
+                final java.lang.reflect.Constructor<?> ctor = atlasType.getDeclaredConstructor(
+                    Class.forName("com.live2d.cubism.doc.model.CModelSource"),
+                    String.class, int.class, int.class
+                );
+                ctor.setAccessible(true);
+                final Object atlas = ctor.newInstance(source, "pe-probe-atlas", 1024, 1024);
+                invoke(manager, "addTextureAtlas",
+                    new Class<?>[] {atlasType, int.class}, atlas, 0);
+                final Object after = readNoArg(manager, "getTextureAtlases");
+                evidence.put("dialog.atlasInjected", "true");
+                evidence.put(
+                    "dialog.atlasCountAfter",
+                    after instanceof List<?> l ? Integer.toString(l.size()) : "?"
+                );
+                return null;
+            });
+        } catch (Throwable failure) {
+            evidence.put("dialog.atlasInjected", "failed:" + text(failure));
+        }
     }
 
     /**
