@@ -30,9 +30,9 @@ EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
 # 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），项目数不变。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
-    ":plugins:backup",
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
@@ -48,6 +48,7 @@ EXPECTED_PATHS = [
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
+    ":plugins:webdav-backup",
 ]
 # 八个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
 EXCLUDED = {"bounding-box", "context-menu", "demo", "parameter",
@@ -98,8 +99,12 @@ RETIRED_IDS = [
     "dev.turboism.plugin.logfilter",
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
+    # superseded official id (webdav-backup rename), not a fake
+    "dev.turboism.plugin.backup",
 ]
-RETIRED_MODULES = ["clip-mask", "log-filter", "perf-opt", "render-opt"]
+# "backup" 是 webdav-backup 改名前的旧模块/旧交付名，升级后 plugins/backup.jar 必须
+# 消失（真实机制按内嵌旧 id 删除，此处按文件名镜像同一结果）。
+RETIRED_MODULES = ["backup", "clip-mask", "log-filter", "perf-opt", "render-opt"]
 
 REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
@@ -985,9 +990,9 @@ def check_eula_contract():
     plugin_sections = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
     check("generated plugin sections localize display names and descriptions in Korean",
           all(('LangString PLUGIN_NAME_%s ${LANG_KOREAN}' % pid) in plugin_sections
-              for pid in ("dev_turboism_plugin_backup", "dev_turboism_plugin_mcp"))
+              for pid in ("dev_turboism_plugin_webdav", "dev_turboism_plugin_mcp"))
           and all(('LangString PLUGIN_DESC_%s ${LANG_KOREAN}' % pid) in plugin_sections
-                  for pid in ("dev_turboism_plugin_backup", "dev_turboism_plugin_mcp")))
+                  for pid in ("dev_turboism_plugin_webdav", "dev_turboism_plugin_mcp")))
     generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
     check("NSIS license pages use BOM-prefixed UTF-8 EULA copies",
           'printf \'\\xef\\xbb\\xbf\'' in generator
