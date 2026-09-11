@@ -22,6 +22,11 @@
   "dependencies": [],
   "permissions": [
     {
+      "id": "turboism.ui.canvas.hint",
+      "scope": "application",
+      "reason": "Proves this host's native drawing-area hint surface accepts hints, using a probe-owned key."
+    },
+    {
       "id": "turboism.cubism.model.read",
       "scope": "application",
       "reason": "Gates the exerciser on a verified modeling document and model without mutation."

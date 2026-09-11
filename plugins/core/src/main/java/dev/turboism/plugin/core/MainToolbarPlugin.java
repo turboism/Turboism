@@ -36,6 +36,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private Registration updateHint;
     /** Identity currently shown by the hint, so a newer build replaces the message. */
     private String updateHintIdentity;
+    /** Identity the user dismissed, so acknowledging a build does not make it reappear. */
+    private String dismissedHintIdentity;
 
     public MainToolbarPlugin() {
         services = CorePluginServices.consume();
@@ -201,30 +203,40 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     /**
      * Keeps one keyed hint on the drawing area while the update is worth showing.
      *
-     * <p>The hint is replaced rather than duplicated when the offered identity changes, so a newer
-     * build never leaves the previous build's message on screen.</p>
+     * <p>The hint is informational and click-to-dismiss: clicking it acknowledges the message, it
+     * does not open anything. The hint is replaced rather than duplicated when the offered identity
+     * changes, so a newer build never leaves the previous build's message on screen, and a dismissal
+     * is remembered per identity so the message does not reappear the moment it is dismissed.</p>
      */
     private void showUpdateHint(final CoreUpdateService.Snapshot snapshot) {
         final String identity = snapshot.availableIdentity().orElse("a newer version");
+        if (identity.equals(dismissedHintIdentity)) return;
         if (updateHint != null && identity.equals(updateHintIdentity)) return;
         closeUpdateHint();
+        updateHintIdentity = identity;
         final String message = format(
             "updates.hint.available",
-            "Turboism " + identity + " is available \u2014 click to download",
+            "Turboism " + identity + " is available.",
             identity
         );
-        updateHintIdentity = identity;
         updateHint = context.uiHost().showCanvasHintWhile(
             context.uiScheduler(),
             new CanvasHintNotification(
                 UPDATE_HINT_ID,
                 message,
                 CanvasHintNotification.UNTIL_DISMISSED,
-                java.util.Optional.of(this::openUpdatePage)
+                java.util.Optional.of(this::dismissUpdateHint)
             ),
             this::updateHintStillWorthShowing
         );
         logger.info("UPDATE_HINT_SENT id=" + UPDATE_HINT_ID + " identity=" + identity);
+    }
+
+    /** Retires the hint because the user clicked it; the same identity is not shown again. */
+    private void dismissUpdateHint() {
+        dismissedHintIdentity = updateHintIdentity;
+        logger.info("UPDATE_HINT_DISMISSED identity=" + dismissedHintIdentity);
+        closeUpdateHint();
     }
 
     /**
