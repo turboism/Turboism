@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { classify, compareVersions, parseRelease, chooseLatest, buildReceipt } from '../protocol.mjs';
+import { classify, compareVersions, parseRelease, chooseLatest, buildReceipt, documentFor } from '../protocol.mjs';
 import { fixture } from './fixture.mjs';
 test('independent stable, beta and nightly channels; draft/plugin tags do not leak',()=>{
  assert.equal(classify(fixture()),'stable'); assert.equal(classify(fixture('1.3.0-beta.2',true)),'beta');
@@ -33,4 +33,11 @@ test('latest selection stays within channels and does not select by build number
  const a=parseRelease(fixture('1.3.0'),'b'.repeat(40));a.buildNumber=40;
  const b=parseRelease({...fixture('1.2.9'),id:124},'c'.repeat(40));b.buildNumber=42;
  assert.equal(chooseLatest([a,b],'stable').version,'1.3.0');assert.equal(chooseLatest([a,b],'beta'),null);
+});
+test('a previously verified release snapshot remains available during a transient sync outage',()=>{
+ const release=parseRelease(fixture(),'b'.repeat(40));
+ const snapshot={schemaVersion:1,syncedAt:new Date(Date.now()-60*60*1000).toISOString(),releases:[release],known:{},errors:{}};
+ const document=documentFor(snapshot,'stable');
+ assert.equal(document.status,'ready');
+ assert.equal(document.release.version,'1.2.3');
 });
