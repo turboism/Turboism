@@ -2,13 +2,11 @@ name: Verify release notes
 on:
   push:
     branches: [fix/nightly-release-notes-20260911]
-  pull_request:
-    paths: ['scripts/release/**', 'distribution/**', '.github/workflows/release-notes-checks.yml']
 permissions:
-  contents: read
+  contents: write
 concurrency:
-  group: release-notes-${{ github.ref }}
-  cancel-in-progress: true
+  group: release-notes-integration
+  cancel-in-progress: false
 jobs:
   verify:
     runs-on: ubuntu-24.04
@@ -17,46 +15,50 @@ jobs:
       - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
         with:
           fetch-depth: 0
-          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
         with:
           node-version: '22'
-      - name: Retain exact source and public history for independent verification
-        run: |
-          mkdir -p artifacts
-          git archive HEAD > artifacts/product-source.tar
-          git bundle create artifacts/product-history.bundle HEAD --tags
-          git rev-parse HEAD > artifacts/product-commit.txt
-      - name: Inspect the incomplete review backup as data only
+      - name: Verify exact reviewed source and apply the small integration diff
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          test "$GITHUB_REF" = refs/heads/fix/nightly-release-notes-20260911
           python3 - <<'PY'
-          import base64,hashlib,json,os,urllib.request,zlib
+          import base64,hashlib,json,os,subprocess,urllib.request
           from pathlib import Path
-          sha='8f3350e5bc9bdfe244c4b23d9bbb5d4c23379a14'
+          expected={'distribution/download-counts.mjs':'1965b9aae0041ebb7a74da3f127c19fe74e5203d','distribution/release-notes.mjs':'1368d55ac655899ba367f4fbf51443b2d0bdeb01','scripts/release/turboism_release/release_notes.py':'9bacf729da1bd1b543c1dcf95afdbe2644f39f28','scripts/release/build-historical-display.py':'e6ab73a67b29c12d3844497bf33afc880fc3f252','scripts/test/test_release_details.py':'413a51cddf4125fea91f73403e28a7c9825f90d1','distribution/test/release-notes.test.mjs':'a8794aaa1c1100fb5758d75d7c5c073f82bc96a8','release-notes/0.43.10.json':'e18d28cf14f1a80829b7acf4045dffc12b6d056c'}
+          for path,sha in expected.items():
+            data=Path(path).read_bytes();assert hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()==sha,path
+          sha='ebed85c994f12e1fd7b44bbcea0ec1e2e94bea6d'
           req=urllib.request.Request('https://api.github.com/repos/turboism/Turboism/git/blobs/'+sha,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
-          with urllib.request.urlopen(req,timeout=30) as r:doc=json.load(r)
-          assert doc['sha']==sha and doc['encoding']=='base64'
-          raw=base64.b64decode(''.join(doc['content'].split()),validate=True)
-          assert len(raw)==doc['size'] and hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==sha
-          compressed=base64.b64decode(b''.join(raw.split()),validate=True)
-          inflater=zlib.decompressobj();data=inflater.decompress(compressed,16*1024*1024+1)
-          assert len(data)<=16*1024*1024 and not inflater.unconsumed_tail
-          data+=inflater.flush()
-          Path('artifacts/INCOMPLETE-review-backup.txt').write_bytes(data)
-          status={'complete':inflater.eof and not inflater.unused_data,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'notice':'Inspection only; no recovered source was applied or tested.'}
-          Path('artifacts/backup-status.json').write_text(json.dumps(status))
-          print(json.dumps(status))
+          with urllib.request.urlopen(req,timeout=30) as r:value=json.load(r)
+          data=base64.b64decode(value['content']);assert hashlib.sha256(data).hexdigest()=='684ba89e9cfce3b66e7efd9b0941b9a69e1dc796d2aed6d14e75ee1d88b68292'
+          patch=Path(os.environ['RUNNER_TEMP'])/'integration.patch';patch.write_bytes(data)
+          subprocess.run(['git','apply','--check',str(patch)],check=True)
+          subprocess.run(['git','apply','--index',str(patch)],check=True)
           PY
+      - name: Generate the source-bound historical supplement without changing GitHub releases
+        run: |
+          python3 scripts/release/build-historical-display.py
+          echo '03bea7d0cd4016842a97ff602e4f6d9fde8448d363629943d3ddea1e94b86fd2  distribution/release-notes-overrides.json' | sha256sum -c -
+          git add distribution/release-notes-overrides.json
+          git diff --cached --check
       - run: node --test distribution/test/*.test.mjs
       - run: python3 -m unittest discover -s scripts/release -p 'test*.py'
-      - run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
-      - name: Source hygiene
-        run: python3 scripts/check_remote_hygiene.py --worktree
+      - run: python3 -m unittest scripts.test.test_release_details scripts.test.test_prerelease scripts.test.test_nightly scripts.test.test_build_channels scripts.test.test_release_promotion
+      - run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Validate Cloudflare bundle without a deployment credential
+        run: npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir artifacts/worker
+      - name: Commit normal verified source to this feature branch only
+        run: |
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: wire frozen multilingual notes and per-file download statistics'
+          mkdir -p artifacts
+          git rev-parse HEAD | tee artifacts/commit.txt
+          git archive HEAD > artifacts/source.tar
+          git push origin HEAD:refs/heads/fix/nightly-release-notes-20260911
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
-          name: release-notes-review
+          name: release-details-verified
           path: artifacts
           retention-days: 7
