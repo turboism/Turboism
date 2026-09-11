@@ -26,6 +26,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 /** Project/workspace HostOperations backed only by exact verified selectors and reviewed host types. */
 public final class VerifiedProjectWorkspaceHostOperations implements ProjectWorkspaceAdapter.HostOperations {
@@ -55,6 +56,10 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         "com.live2d.cubism.doc.gameData.CGameDataDocument";
     private static final String PHYSICS_SETTINGS_DOCUMENT_CLASS =
         "com.live2d.cubism.doc.gameData.physics.CPhysicsSettingsDocument";
+    private static final Pattern SEGMENT_DISALLOWED = Pattern.compile("[^A-Za-z0-9._-]");
+    private static final Pattern SEGMENT_DASHES = Pattern.compile("-+");
+    private static final Pattern SEGMENT_EDGES = Pattern.compile("^[-.]+|[-.]+$");
+
     private static final String IMAGE_DOCUMENT_CLASS = "com.live2d.cubism.doc.resources.g";
     private static final String IMAGE_PROJECT_ENTRY_CLASS =
         "com.live2d.cubism.doc.resources.CImageDocumentProjectEntry";
@@ -675,9 +680,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     private static String safeSegment(final String source) {
-        final String sanitized = source.replaceAll("[^A-Za-z0-9._-]", "-")
-            .replaceAll("-+", "-")
-            .replaceAll("^[-.]+|[-.]+$", "");
+        final String sanitized = SEGMENT_EDGES
+            .matcher(SEGMENT_DASHES
+                .matcher(SEGMENT_DISALLOWED.matcher(source).replaceAll("-"))
+                .replaceAll("-"))
+            .replaceAll("");
         return sanitized.isBlank() ? "unknown" : sanitized;
     }
 

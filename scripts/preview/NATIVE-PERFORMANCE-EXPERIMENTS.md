@@ -856,3 +856,21 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **归因**：在 `44fa4a4a0`（035 提交点）复测 90-doc 图：activeProject 451.8 µs ≈ HEAD 446.4 µs——**遍历收益几乎全部来自 035**（idFor O(1) + join O(C+D) + 去重构建）；039/040 在**该路径**上落入噪声（其收益在未实测的 toEntry/part-行/枚举比较路径）。基线随规模超线性增长（40doc −32% vs 90doc −52%）实证了被消除的二次项。
 - **限制（不得抬高）**：合成宿主的 `Method.invoke` 目标方法体是空的——真实宿主成员成本更高（遍历占比不同，百分比不可外推）；绝对值只对 Turboism 侧 CPU 有效；JMH 未用，数字为方向性证据而非精确基准；单线程合成 JIT 画像。
 - **有效程度**：本轮首次将 034/035 的结构改进落成**可复现的测量数**：遍历 −32%~−52%（随规模放大）、captureScope 路径 −65%~−74%、分配 −2~−3%。036/037/038/039/040 的端到端收益仍未测量（NONE/pending）。
+
+### I46 — P17 safeSegment 三次 replaceAll 逐次 Pattern.compile → 预编译常量（2026-09-12）
+
+- **范围/验证方法**：Spec Kit `042-precompiled-segment-patterns`。审计遍历内逐文档字符串处理发现 `VerifiedProjectWorkspaceHostOperations.safeSegment` 每次调用执行 3 次 `String.replaceAll`——JDK 规范即 `Pattern.compile(regex).matcher(this).replaceAll(repl)`，每次调用都重新编译。`documentBuild` 对**项目内每个文档**调一次 safeSegment → 每遍历 3×D 次 `Pattern.compile`。全程 offline。
+- **量化基线**：独立微基准中该三连替换 ~10.3µs/次（含 3 次编译）；同路径审计确认其余 `replaceAll`/`split`/`matches` 全部位于冷路径（config 校验、版本解析、归档检查、菜单标签清理），不迁移。
+- **实现**：三个表达式提升为 `private static final Pattern`（`SEGMENT_DISALLOWED`/`SEGMENT_DASHES`/`SEGMENT_EDGES`），`safeSegment` 内按原顺序 `matcher().replaceAll()` 链式应用。等价性由构造保证：同表达式、同顺序、同 JDK replaceAll 语义，Pattern 编译结果不可变且线程安全。
+- **数字（perfbench 同场景复测，两次运行）**：
+  | 场景 | 度量 | pre-042 HEAD | 042 | Δ |
+  |---|---|---|---|---|
+  | 90 doc/130 contents | `activeProject()` | 446–447 µs | 352.7–360.5 µs | **−19~21%** |
+  | 90 doc/130 contents | `observe()+versionOf` | 512–514 µs | 436.4–460.0 µs | **−10~15%** |
+  | 90 doc/130 contents | 旧四调用序列 | 900–910 µs | 744.7–752.8 µs | **−17%** |
+  | 40 doc/45 contents | `activeProject()` | 192.6–199.4 µs | 153.9 µs | **−20~23%** |
+  | 40 doc/45 contents | `observe()+versionOf` | 215.3 µs | 176.2 µs | **−18%** |
+  | 40 doc/45 contents | 旧四调用序列 | 394.6 µs | 308.0 µs | **−22%** |
+- **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；perfbench 在改后 HEAD 复测确认收益（上表）。
+- **限制（不得抬高）**：同 I45——合成宿主空方法体，绝对值不可外推端到端；收益量级随文档数线性；分配字节基本不变（字符串产物照旧，仅省编译器内部临时对象）。
+- **有效程度**：**实测 CPU 收益 YES（合成宿主遍历路径 −10~23%）**；相对接手基线 d3ee4d2a8 的累计：activeProject 917→353 µs（−61%）、observe 999→436 µs（−56%）、旧四调用 1931→745 µs（−61%）。
