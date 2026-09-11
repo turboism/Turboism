@@ -170,6 +170,11 @@ public final class RuntimePsdExportService implements AutoCloseable {
         return completion.stage();
     }
 
+    /** The one registry that issues this plugin's PSD file handles and revisions. */
+    PsdEditRegistry registry() {
+        return registry;
+    }
+
     /**
      * Closes this service without interrupting a native call or waiting for the worker to exit.
      * Queued work remains in the executor, but every queued/running operation fails its next

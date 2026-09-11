@@ -176,6 +176,11 @@ final class RuntimePsdEditFile implements PsdEditFile {
         return completion.stage();
     }
 
+    /** This handle's runtime session binding; never exposed through the SDK. */
+    PsdEditRegistry.Binding binding() {
+        return binding;
+    }
+
     /** Runtime-owned teardown used by the issuing service; publishes no plugin result. */
     void revokeInternal() {
         registry.revoke(this);
