@@ -83,6 +83,35 @@ If a step's action fails or you are unsure it applied, say so and stop the run.
 A step with no native change is recorded as a failure rather than silently
 skipped, and re-running is cheaper than decoding a mislabelled artifact.
 
+## Automated mode
+
+`TURBOISM_HISTORY_NATIVE_UI_AUTOMATE=1` on the wrapper (or
+`--jvm-option "-Dturboism.history.nativeUi.automate=true"` on the Runner) makes
+the probe drive the bounded steps itself through the real host UI. The prompt
+lines are still written and each step still closes only on the native change the
+undo manager reports — automation changes who acts, never what counts.
+
+- `parts-tree-drag`, `canvas-move`, `native-undo` and `native-redo` have actors:
+  a Parts-tree row drag, a canvas drag, and the Ctrl+Z / Ctrl+Y accelerators.
+  Undo/Redo prefer the enabled menu accelerator and only fall back to a
+  focused-window `Robot` keystroke when no menu item claims the shortcut.
+- Every other step (`deformer-assign`, `canvas-deform`, `native-parameter`,
+  `native-color`) still waits for the operator for its full window. You may act
+  on those steps exactly as in the manual run; if nobody is at the desk they are
+  recorded as `no-native-change` failures.
+- An actor that cannot resolve its control reports `unresolved:<detail>` on its
+  `actor` artifact line and the step stays open for the operator.
+- An automated run writes one bounded `ui-map` line after the baseline snapshot:
+  the visible window/component tree with class names and screen bounds. It
+  exists so the remaining steps can be targeted at real controls instead of
+  guessed ones — review it before trusting an actor result.
+
+A failed actor never produces a passing step: the step still passes only when
+the native manager moved the way the step requires. Do not touch the mouse or
+keyboard while an automated run is in progress — real input and operator input
+are indistinguishable to the undo manager, and your action would be attributed
+to the current step's window.
+
 ## What the artifact says
 
 ```text
@@ -92,7 +121,13 @@ data/dev.turboism.validation.history-native-ui/history-native-ui-ingress.jsonl
 - `paired-snapshot` lines are the native Undo managers plus the Turboism
   history, sampled on the Editor thread at a step boundary. The native side
   carries every entry's class name, its presentation name, and the fields the
-  sampler knows how to read.
+  sampler knows how to read. For a `SimpleUndo` at the manager tip the sampler
+  reads the live target as its post state — the same rule the decoder applies —
+  and marks it `history.detail.post-state-live-target`; anything else keeps
+  `post-state-unavailable`.
+- `actor` lines (automated runs only) name what the step's actor did or why it
+  could not. `ui-map` is the bounded component dump an automated run writes
+  once, after the baseline snapshot.
 - `semantic-event` lines are the events Turboism published for the step, with
   phase (`before`, `on`, `after`), operation, origin, sequence and label.
 - `check` lines are the verdicts. `hook-fired`, `observer-fired` and
@@ -122,5 +157,3 @@ are the input for the remaining decoder work; `canvas-move` and `canvas-deform`
 are a pair on purpose, because a whole-object move translates every point by the
 same vector while a deformation does not. The `before`/`on` sequence and the
 labels are the input for the entry hook's own review.
-snapshots are the input for the remaining decoder work; the `before`/`on`
-sequence and the labels are the input for the entry hook's own review.

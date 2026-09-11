@@ -25,8 +25,10 @@ import java.util.concurrent.atomic.AtomicReference;
  * instruction, waits until the native undo manager actually moves, and then records the native
  * entries the action produced together with every semantic event Turboism published for it.</p>
  *
- * <p>It changes nothing. It writes evidence, publishes nothing, and never mutates the model, so
- * the only cause of a recorded change is the operator's own action.</p>
+ * <p>Outside the bounded actor paths below it changes nothing: it writes evidence, publishes
+ * nothing, and never mutates the model itself. With {@code -Dturboism.history.nativeUi.automate}
+ * the listed actors drive the same real host UI an operator would — the recorded change is then
+ * caused by the probe's own UI action, which the artifact names per step.</p>
  */
 public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
 
@@ -34,6 +36,25 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final long TERMINAL_RESERVE_BYTES = 4_096L;
     private static final int MAX_RECORDED_EVENTS = 512;
     private static final long POLL_MILLIS = 250L;
+
+    /**
+     * Whether the probe drives the bounded native actions itself.
+     *
+     * <p>Automation is opt-in through {@code -Dturboism.history.nativeUi.automate=true}: the
+     * default stays the operator runbook. When enabled, a step with an actor performs its action
+     * through the real host UI — menu accelerators and {@code Robot} input on the visible
+     * windows — and a step without one keeps waiting for the operator. An actor that cannot
+     * resolve its control reports {@code unresolved} and the operator window stays open, so an
+     * automated run degrades to manual pacing instead of failing blind.</p>
+     */
+    static final boolean AUTOMATE =
+        Boolean.parseBoolean(System.getProperty("turboism.history.nativeUi.automate", "false"));
+
+    /** Bound on the component dump written once per run for actor targeting review. */
+    private static final int UI_MAP_MAX_COMPONENTS = 400;
+    private static final int UI_MAP_MAX_WINDOWS = 8;
+    private static final int UI_MAP_MAX_DEPTH = 12;
+    private static final int UI_MAP_MAX_CHARS = 65_536;
 
     /**
      * How often a pending step re-announces its instruction.
@@ -228,6 +249,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
             final WindowsHistoryManagerValidationProbe.Snapshot baseline = sample();
             write(artifact, paired(baseline, "baseline"), false);
+            if (AUTOMATE) {
+                write(artifact, "{\"type\":\"ui-map\",\"at\":\"" + Instant.now()
+                    + "\",\"map\":\"" + json(uiMap()) + "\"}\n", false);
+            }
             String knownSignificant = significantSequence(baseline);
             long knownPosition = position(baseline);
             boolean hookFired = false;
@@ -249,6 +274,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     false
                 );
                 context.logger().info(instruction);
+
+                if (AUTOMATE) {
+                    write(
+                        artifact,
+                        "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
+                            + "\",\"result\":\"" + json(act(step)) + "\"}\n",
+                        false
+                    );
+                }
 
                 final WindowsHistoryManagerValidationProbe.Snapshot after =
                     awaitChange(step, knownSignificant, knownPosition);
@@ -449,6 +483,341 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (sample() != null) return true;
         }
         return false;
+    }
+
+    /**
+     * Runs the bounded native action registered for this step, if any.
+     *
+     * <p>The return value is evidence, not control flow: it is written to the artifact verbatim
+     * and the step still closes only on the native change {@link #awaitChange} observes. An actor
+     * that cannot resolve its UI target, or whose action the host rejects, simply produces no
+     * significant entry and the operator window runs its course.</p>
+     */
+    String act(final Step step) {
+        try {
+            return switch (step.id()) {
+                case "parts-tree-drag" -> dragPartRow();
+                case "canvas-move" -> dragCanvas();
+                case "native-undo" -> shortcut(java.awt.event.KeyEvent.VK_Z);
+                case "native-redo" -> shortcut(java.awt.event.KeyEvent.VK_Y);
+                default -> "none";
+            };
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return "interrupted";
+        } catch (Exception failure) {
+            final String message = failure.getMessage();
+            return "failed:" + failure.getClass().getSimpleName()
+                + (message == null ? "" : ":" + message);
+        }
+    }
+
+    /**
+     * Drags one Part row onto another in the Parts palette.
+     *
+     * <p>Reuses the mesh-edit probe's exact Parts-tree discovery: it finds the tree by its
+     * listener/owner classes rather than a title, expands and scrolls the named rows into view,
+     * and returns their owner-table cell centers in screen coordinates. The drag itself is real
+     * input — Robot press, interpolated move, release — so the host's own drop handling decides
+     * whether a hierarchy entry is committed.</p>
+     */
+    private String dragPartRow() throws Exception {
+        final List<String> names = onEdt(() ->
+            context.cubism().model().active().parts().all().stream()
+                .map(dev.turboism.sdk.cubism.model.Part::name)
+                .filter(name -> name != null && !name.isBlank())
+                .distinct()
+                .toList());
+        if (names.size() < 2) return "unresolved:fewer-than-two-parts";
+        final String source = names.get(0);
+        final String target = names.get(names.size() - 1);
+        final WindowsMeshEditValidationProbe.SelectionAttempt from =
+            onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(source));
+        final WindowsMeshEditValidationProbe.SelectionAttempt to =
+            onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(target));
+        if (!from.selected() || !to.selected()) {
+            return "unresolved:from=" + from.treeDescription() + "|to=" + to.treeDescription();
+        }
+        robotDrag(from.screenX(), from.screenY(), to.screenX(), to.screenY());
+        return "dragged:" + source + "->" + target;
+    }
+
+    /**
+     * Drags inside the model canvas.
+     *
+     * <p>The canvas component is identified structurally — a canvas/GL class name first, then the
+     * largest showing leaf component inside the document window — and the pick is recorded so a
+     * run that hit the wrong surface is visible in the evidence rather than silently ambiguous.
+     * A press on empty canvas starts a marquee selection, which is insignificant and leaves the
+     * step open; a press on an object followed by the move commits the entry being reviewed.</p>
+     */
+    private String dragCanvas() throws Exception {
+        final java.awt.Component canvas = onEdt(WindowsHistoryNativeUiIngressProbe::canvasComponent);
+        if (canvas == null) return "unresolved:no-canvas-component";
+        final java.awt.Rectangle bounds = canvas.getBounds();
+        final java.awt.Point origin = new java.awt.Point(
+            Math.max(1, bounds.width / 2), Math.max(1, bounds.height / 2));
+        SwingUtilities.convertPointToScreen(origin, canvas);
+        final int dx = Math.min(60, Math.max(10, bounds.width / 8));
+        final int dy = Math.min(40, Math.max(10, bounds.height / 8));
+        robotDrag(origin.x, origin.y, origin.x + dx, origin.y + dy);
+        return "dragged:" + canvas.getClass().getName() + bounds;
+    }
+
+    /**
+     * Sends one native Ctrl+key shortcut exactly as the operator would: the enabled menu
+     * accelerator first, then a focused-window Robot keystroke when no menu item claims it.
+     */
+    private String shortcut(final int key) throws Exception {
+        if (Boolean.TRUE.equals(onEdt(() -> menuShortcut(key)))) return "menu-accelerator";
+        final java.awt.Robot robot = new java.awt.Robot();
+        final java.awt.Frame frame = onEdt(WindowsHistoryNativeUiIngressProbe::hostFrame);
+        if (frame != null) {
+            final java.awt.Rectangle bounds = frame.getBounds();
+            robot.mouseMove(bounds.x + Math.max(20, bounds.width / 2), bounds.y + 12);
+            robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+            robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        }
+        Thread.sleep(300L);
+        robot.keyPress(java.awt.event.KeyEvent.VK_CONTROL);
+        robot.keyPress(key);
+        robot.keyRelease(key);
+        robot.keyRelease(java.awt.event.KeyEvent.VK_CONTROL);
+        return "robot";
+    }
+
+    /** Clicks the enabled menu item carrying a Ctrl+key accelerator, when one exists. */
+    private static boolean menuShortcut(final int key) {
+        for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+            if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+            final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+            if (bar == null) continue;
+            for (int index = 0; index < bar.getMenuCount(); index++) {
+                final javax.swing.JMenuItem match = findMenuShortcut(bar.getMenu(index), key);
+                if (match != null && match.isEnabled()) {
+                    match.doClick(0);
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static javax.swing.JMenuItem findMenuShortcut(
+        final javax.swing.JMenuItem item,
+        final int key
+    ) {
+        if (item == null) return null;
+        final javax.swing.KeyStroke accelerator = item.getAccelerator();
+        if (accelerator != null && accelerator.getKeyCode() == key
+            && (accelerator.getModifiers() & java.awt.event.InputEvent.CTRL_DOWN_MASK) != 0) {
+            return item;
+        }
+        if (item instanceof javax.swing.JMenu menu) {
+            for (java.awt.Component component : menu.getMenuComponents()) {
+                if (component instanceof javax.swing.JMenuItem child) {
+                    final javax.swing.JMenuItem found = findMenuShortcut(child, key);
+                    if (found != null) return found;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** One Robot drag between two screen points, interpolated so the host sees real motion. */
+    private static void robotDrag(
+        final int fromX,
+        final int fromY,
+        final int toX,
+        final int toY
+    ) throws Exception {
+        final java.awt.Robot robot = new java.awt.Robot();
+        robot.mouseMove(fromX, fromY);
+        Thread.sleep(120L);
+        robot.mousePress(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+        Thread.sleep(180L);
+        final int segments = 12;
+        for (int segment = 1; segment <= segments; segment++) {
+            robot.mouseMove(
+                fromX + (toX - fromX) * segment / segments,
+                fromY + (toY - fromY) * segment / segments
+            );
+            Thread.sleep(35L);
+        }
+        Thread.sleep(180L);
+        robot.mouseRelease(java.awt.event.InputEvent.BUTTON1_DOWN_MASK);
+    }
+
+    /** The visible Cubism document window, preferring the one whose title names the model. */
+    private static java.awt.Frame hostFrame() {
+        java.awt.Frame fallback = null;
+        for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+            if (!frame.isVisible()) continue;
+            final String title = frame.getTitle();
+            if (title != null && title.contains(".cmo3")) return frame;
+            if (title != null && title.contains("Cubism")) fallback = frame;
+            if (fallback == null) fallback = frame;
+        }
+        return fallback;
+    }
+
+    /**
+     * The component most likely to be the model canvas.
+     *
+     * <p>A class whose name contains a canvas/GL marker wins; otherwise the largest showing leaf
+     * component of the document window. Nothing is picked outside the document window, so a drag
+     * can never land on a palette or a dialog.</p>
+     */
+    private static java.awt.Component canvasComponent() {
+        final java.awt.Frame frame = hostFrame();
+        if (frame == null) return null;
+        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> named =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> largest =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        collectCanvas(frame, named, largest, 0);
+        return named.get() != null ? named.get() : largest.get();
+    }
+
+    private static void collectCanvas(
+        final java.awt.Component component,
+        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> named,
+        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> largest,
+        final int depth
+    ) {
+        if (depth > UI_MAP_MAX_DEPTH || !component.isVisible()) return;
+        final String className = component.getClass().getName();
+        // Only a host/JOGL class may win by name: a Swing widget whose name happens to contain a
+        // canvas/GL marker (JToggleButton carries "gl", JViewport carries "View") would be
+        // dragged like the canvas and could toggle a mode instead of moving the model.
+        final boolean hostClass = !className.startsWith("javax.swing.")
+            && !className.startsWith("java.awt.")
+            && !className.startsWith("sun.");
+        if (component.isShowing() && named.get() == null && hostClass
+            && className.matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")) {
+            named.set(component);
+        }
+        final boolean leaf = !(component instanceof java.awt.Container container)
+            || container.getComponentCount() == 0;
+        if (component.isShowing() && leaf) {
+            final java.awt.Component current = largest.get();
+            if (current == null
+                || component.getWidth() * (long) component.getHeight()
+                    > current.getWidth() * (long) current.getHeight()) {
+                largest.set(component);
+            }
+        }
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                collectCanvas(child, named, largest, depth + 1);
+            }
+        }
+    }
+
+    /**
+     * A bounded dump of the visible component tree, written once per automated run.
+     *
+     * <p>The map exists for actor review: it records which windows, trees, tables, buttons and
+     * sliders were actually present, so a future step can be targeted at a real control instead
+     * of a guessed one. Class names and bounds only — no text longer than the existing label
+     * bound, and nothing a label-only evidence rule would not already carry.</p>
+     */
+    private String uiMap() throws Exception {
+        return onEdt(() -> {
+            final StringBuilder out = new StringBuilder(UI_MAP_MAX_CHARS);
+            final int[] seen = {0};
+            int windows = 0;
+            for (java.awt.Window window : java.awt.Window.getWindows()) {
+                if (!window.isVisible()) continue;
+                if (windows >= UI_MAP_MAX_WINDOWS || seen[0] >= UI_MAP_MAX_COMPONENTS) break;
+                windows++;
+                out.append("W:").append(window.getClass().getSimpleName())
+                    .append('(')
+                    .append(WindowsHistoryManagerValidationProbe.boundedLabel(window.getName()))
+                    .append(')')
+                    .append(boundsOf(window)).append('\n');
+                mapComponent(window, 0, out, seen);
+            }
+            return out.toString();
+        });
+    }
+
+    private static void mapComponent(
+        final java.awt.Component component,
+        final int depth,
+        final StringBuilder out,
+        final int[] seen
+    ) {
+        if (seen[0] >= UI_MAP_MAX_COMPONENTS || depth > UI_MAP_MAX_DEPTH
+            || out.length() >= UI_MAP_MAX_CHARS - 256) {
+            return;
+        }
+        seen[0]++;
+        out.append("  ".repeat(Math.min(depth, 16)))
+            .append(component.getClass().getName())
+            .append(boundsOf(component));
+        if (!component.isShowing()) out.append(":hidden");
+        if (component instanceof javax.swing.JTree tree) {
+            out.append(":rows=").append(tree.getRowCount());
+        } else if (component instanceof javax.swing.JTable table) {
+            out.append(":rows=").append(table.getRowCount())
+                .append("x").append(table.getColumnCount());
+        } else if (component instanceof javax.swing.AbstractButton button) {
+            out.append(":text=")
+                .append(WindowsHistoryManagerValidationProbe.boundedLabel(button.getText()));
+        } else if (component instanceof javax.swing.JSlider slider) {
+            out.append(":range=").append(slider.getMinimum())
+                .append('-').append(slider.getMaximum())
+                .append('=').append(slider.getValue());
+        } else if (component instanceof javax.swing.JComboBox<?> combo) {
+            out.append(":items=").append(combo.getItemCount());
+        }
+        out.append('\n');
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                mapComponent(child, depth + 1, out, seen);
+            }
+        }
+    }
+
+    private static String boundsOf(final java.awt.Component component) {
+        try {
+            final java.awt.Point origin = component.isShowing()
+                ? component.getLocationOnScreen()
+                : new java.awt.Point(0, 0);
+            return "[" + origin.x + ',' + origin.y + ','
+                + component.getWidth() + 'x' + component.getHeight() + ']';
+        } catch (java.awt.IllegalComponentStateException notShowing) {
+            return "[hidden]";
+        }
+    }
+
+    /**
+     * Runs one callable on the host event thread with a bound.
+     *
+     * <p>Same discipline as {@link #sample()}: the wait has to end even when the host thread has
+     * stopped pumping, because actor discovery must never park the worker past the step
+     * deadline.</p>
+     */
+    private static <T> T onEdt(final java.util.concurrent.Callable<T> call) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) return call.call();
+        final AtomicReference<T> result = new AtomicReference<>();
+        final AtomicReference<Exception> failure = new AtomicReference<>();
+        final CountDownLatch completed = new CountDownLatch(1);
+        SwingUtilities.invokeLater(() -> {
+            try {
+                result.set(call.call());
+            } catch (Exception exception) {
+                failure.set(exception);
+            } finally {
+                completed.countDown();
+            }
+        });
+        if (!completed.await(SAMPLE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+            throw new IllegalStateException("Cubism EDT did not accept the action in time");
+        }
+        if (failure.get() != null) throw failure.get();
+        return result.get();
     }
 
     private WindowsHistoryManagerValidationProbe.Snapshot sample() throws Exception {

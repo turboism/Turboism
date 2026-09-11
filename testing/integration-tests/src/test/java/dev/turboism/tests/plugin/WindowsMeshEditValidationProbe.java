@@ -471,7 +471,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             ));
     }
 
-    private static SelectionAttempt selectTreePath(final String displayName) {
+    static SelectionAttempt selectTreePath(final String displayName) {
         final List<String> observed = new ArrayList<>();
         final List<JTree> candidates = new ArrayList<>();
         for (Window window : Window.getWindows()) {
