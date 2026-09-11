@@ -4,7 +4,9 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.lang.instrument.Instrumentation;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
@@ -13,6 +15,7 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
@@ -74,6 +77,7 @@ public final class ProtectedExportHostProbeAgent {
     private static final long QUIESCENCE_MILLIS = 15_000L;
     private static final long IDLE_MILLIS = 6_000L;
     private static final long POLL_MILLIS = 200L;
+    private static final long BIND_TIMEOUT_MILLIS = 60_000L;
     private static final int TRIGGER_ATTEMPTS = 3;
     private static final long ATTEMPT_SETTLE_MILLIS = 15_000L;
 
@@ -115,13 +119,21 @@ public final class ProtectedExportHostProbeAgent {
             }
             final BridgeObservation bridge = wrapBridgeCallbacks(evidence);
             awaitModelDocument(controller, stateDir, evidence);
+            final List<String> phases = requestedPhases();
+            evidence.put("phases", String.join("+", phases));
 
-            phaseUncheckedConfirm(controller, appCtrl, instrumentation, stateDir, evidence);
-            if (evidence.error == null) {
-                phaseCheckedReject(controller, appCtrl, stateDir, evidence);
+            if (phases.contains("dialog")) {
+                final boolean unchecked = phaseUncheckedConfirm(
+                    controller, appCtrl, instrumentation, stateDir, evidence
+                );
+                final boolean rejected =
+                    unchecked && phaseCheckedReject(controller, appCtrl, stateDir, evidence);
+                if (rejected) {
+                    phaseCancel(controller, appCtrl, stateDir, evidence);
+                }
             }
-            if (evidence.error == null) {
-                phaseCancel(controller, appCtrl, stateDir, evidence);
+            if (phases.contains("copy-binding")) {
+                phaseCopyBinding(controller, stateDir, evidence);
             }
             bridge.report(evidence);
         } catch (Throwable failure) {
@@ -130,23 +142,37 @@ public final class ProtectedExportHostProbeAgent {
         finish(stateDir, evidence);
     }
 
+    /** Comma-separated phase list; default is the dialog-only evidence run. */
+    private static List<String> requestedPhases() {
+        final String raw = System.getProperty(
+            "turboism.validation.protectedExport.phase", "dialog"
+        );
+        final List<String> phases = new ArrayList<>();
+        for (String token : raw.split(",")) {
+            final String phase = token.trim();
+            if (!phase.isEmpty() && !phases.contains(phase)) {
+                phases.add(phase);
+            }
+        }
+        return phases.isEmpty() ? List.of("dialog") : phases;
+    }
+
     // ------------------------------------------------------------------
     // Phase 1: unchecked confirmation must continue the native export path
     // ------------------------------------------------------------------
 
-    private static void phaseUncheckedConfirm(
+    private static boolean phaseUncheckedConfirm(
         final Object controller,
         final Class<?> appCtrl,
         final Instrumentation instrumentation,
         final Path stateDir,
         final Evidence evidence
     ) {
-        boolean observed = false;
-        for (int attempt = 1; attempt <= TRIGGER_ATTEMPTS && !observed; attempt++) {
+        for (int attempt = 1; attempt <= TRIGGER_ATTEMPTS; attempt++) {
             final Set<Window> alreadyVisible = visibleWindows();
             evidence.put("triggerAttempt", Integer.toString(attempt));
             if (!triggerExport(controller, appCtrl, evidence)) {
-                break;
+                return false;
             }
             final JDialog settings = awaitExportSettingsDialog(
                 alreadyVisible, stateDir, evidence, "p1a" + attempt
@@ -158,18 +184,17 @@ public final class ProtectedExportHostProbeAgent {
             inspectSettingsDialog(settings, stateDir, evidence, "unchecked");
             confirmUnchecked(settings, evidence);
             observeContinuation(alreadyVisible, settings, stateDir, evidence, "unchecked");
-            observed = true;
+            return true;
         }
-        if (!observed) {
-            evidence.fail("EXPORT_SETTINGS_DIALOG_NOT_OBSERVED");
-        }
+        evidence.fail("EXPORT_SETTINGS_DIALOG_NOT_OBSERVED");
+        return false;
     }
 
     // ------------------------------------------------------------------
     // Phase 2: a checked candidate must be rejected by the decision gate
     // ------------------------------------------------------------------
 
-    private static void phaseCheckedReject(
+    private static boolean phaseCheckedReject(
         final Object controller,
         final Class<?> appCtrl,
         final Path stateDir,
@@ -177,21 +202,21 @@ public final class ProtectedExportHostProbeAgent {
     ) {
         final Set<Window> alreadyVisible = visibleWindows();
         if (!triggerExport(controller, appCtrl, evidence)) {
-            return;
+            return false;
         }
         final JDialog settings = awaitExportSettingsDialog(
             alreadyVisible, stateDir, evidence, "p2"
         );
         if (settings == null) {
             evidence.fail("CHECKED_SETTINGS_DIALOG_NOT_OBSERVED");
-            return;
+            return false;
         }
         inspectSettingsDialog(settings, stateDir, evidence, "checked");
         final List<JCheckBox> injected = injectedCheckBoxes(settings);
         if (injected.isEmpty()) {
             evidence.fail("CHECKED_INJECTED_OPTION_MISSING");
             dismiss(settings);
-            return;
+            return false;
         }
         try {
             onEdt(() -> {
@@ -208,7 +233,7 @@ public final class ProtectedExportHostProbeAgent {
         if (confirm == null) {
             evidence.fail("CHECKED_CONFIRM_BUTTON_MISSING");
             dismiss(settings);
-            return;
+            return false;
         }
         try {
             onEdt(() -> {
@@ -229,6 +254,7 @@ public final class ProtectedExportHostProbeAgent {
             dismiss(settings);
             evidence.put("checkedSettingsStillOpen", "dismissed");
         }
+        return true;
     }
 
     // ------------------------------------------------------------------
@@ -274,6 +300,267 @@ public final class ProtectedExportHostProbeAgent {
             dismiss(settings);
             evidence.put("cancelSettingsStillOpen", "dismissed");
         }
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: disposable-copy binding and restoration (M2)
+    //
+    // Proves that a task-owned copy of the active document can be opened
+    // natively, observed as the active backing file, and that the original
+    // document survives with file bytes, dirty flag, undo position, and
+    // selection unchanged. No mutation is performed here — mutation is
+    // admitted only after this evidence exists.
+    // ------------------------------------------------------------------
+
+    private static void phaseCopyBinding(
+        final Object controller,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        File copyFile = null;
+        Object copyDoc = null;
+        try {
+            final Object original = readNoArg(controller, "getCurrentDoc");
+            if (original == null) {
+                evidence.fail("COPY_NO_ACTIVE_DOCUMENT");
+                return;
+            }
+            final Object originalContent = readNoArg(original, "getFileContent");
+            final Object originalFileObj =
+                originalContent == null ? null : readNoArg(originalContent, "getFile");
+            if (!(originalFileObj instanceof File originalFile) || !originalFile.isFile()) {
+                evidence.fail("COPY_ORIGINAL_FILE_MISSING");
+                return;
+            }
+
+            final DocumentState before = snapshotDocument(original, evidence, "orig");
+            evidence.put("copy.origFile", originalFile.getAbsolutePath());
+            evidence.put("copy.origFileSha256", sha256(originalFile));
+
+            copyFile = new File(
+                originalFile.getParentFile(),
+                "pe-copy-" + runToken() + originalFile.getName()
+            );
+            evidence.put("copy.file", copyFile.getAbsolutePath());
+            Files.copy(originalFile.toPath(), copyFile.toPath());
+            evidence.put("copy.fileCreated", "true");
+
+            copyDoc = openAndAwaitBoundDocument(
+                controller, copyFile, evidence, "copy"
+            );
+            if (copyDoc == null) {
+                evidence.fail("COPY_OPEN_NOT_BOUND");
+                return;
+            }
+            evidence.put("copy.bound", "true");
+            evidence.put("copy.docId", Integer.toHexString(System.identityHashCode(copyDoc)));
+
+            // Restore: reopening the original file must reactivate the SAME live
+            // document (identity), not a fresh instance.
+            final Object restored = openAndAwaitBoundDocument(
+                controller, originalFile, evidence, "orig"
+            );
+            if (restored == null) {
+                evidence.fail("COPY_RESTORE_NOT_BOUND");
+                return;
+            }
+            evidence.put("copy.restored", "true");
+            evidence.put(
+                "copy.sameLiveDocument",
+                Boolean.toString(System.identityHashCode(restored) == before.docId)
+            );
+
+            final DocumentState after = snapshotDocument(restored, evidence, "restored");
+            evidence.put("copy.fileSha256Preserved",
+                Boolean.toString(sha256(originalFile)
+                    .equals(evidence.values.get("copy.origFileSha256"))));
+            evidence.put("copy.modifiedPreserved",
+                Boolean.toString(after.modified == before.modified));
+            evidence.put("copy.undoPreserved",
+                Boolean.toString(after.undoSignature.equals(before.undoSignature)));
+            evidence.put("copy.selectionPreserved",
+                Boolean.toString(after.selectionSignature.equals(before.selectionSignature)));
+        } catch (Throwable failure) {
+            evidence.fail("COPY_PHASE_FAILURE:" + failure.getClass().getName() + ":" + text(failure));
+        } finally {
+            if (copyDoc != null) {
+                try {
+                    closeDocument(controller, copyDoc, evidence);
+                } catch (Throwable failure) {
+                    evidence.put("copy.closeFailure", text(failure));
+                }
+            }
+            if (copyFile != null && copyFile.isFile()) {
+                try {
+                    Files.deleteIfExists(copyFile.toPath());
+                    evidence.put("copy.fileRemoved", "true");
+                } catch (Throwable failure) {
+                    evidence.put("copy.fileRemoveFailure", text(failure));
+                }
+            }
+        }
+    }
+
+    /** Identity + state snapshot used to prove the original document is untouched. */
+    private static final class DocumentState {
+        final int docId;
+        final boolean modified;
+        final String undoSignature;
+        final String selectionSignature;
+
+        DocumentState(final int docId, final boolean modified,
+            final String undoSignature, final String selectionSignature) {
+            this.docId = docId;
+            this.modified = modified;
+            this.undoSignature = undoSignature;
+            this.selectionSignature = selectionSignature;
+        }
+    }
+
+    private static DocumentState snapshotDocument(
+        final Object document,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final int docId = System.identityHashCode(document);
+        final Object content = readNoArg(document, "getFileContent");
+        final Object modifiedObj =
+            content == null ? null : readNoArg(content, "isModifiedAfterSaving");
+        final boolean modified = Boolean.TRUE.equals(modifiedObj);
+        final String undo = undoSignature(document);
+        final String selection = selectionSignature(document);
+        evidence.put("copy." + prefix + ".docId", Integer.toHexString(docId));
+        evidence.put("copy." + prefix + ".modified", Boolean.toString(modified));
+        evidence.put("copy." + prefix + ".undo", undo);
+        evidence.put("copy." + prefix + ".selection", selection);
+        return new DocumentState(docId, modified, undo, selection);
+    }
+
+    private static String undoSignature(final Object document) {
+        try {
+            final Object undo = readNoArg(document, "getUndoManager");
+            if (undo == null) {
+                return "none";
+            }
+            final Object pos = readNoArg(undo, "getCurrentPos");
+            final Object count = readNoArg(undo, "getEditCount");
+            final Object canUndo = readNoArg(undo, "canUndo");
+            return "pos=" + pos + ",edits=" + count + ",canUndo=" + canUndo;
+        } catch (Throwable failure) {
+            return "unavailable:" + text(failure);
+        }
+    }
+
+    private static String selectionSignature(final Object document) {
+        try {
+            final Object selector = readNoArg(document, "getSelector");
+            if (selector == null) {
+                return "none";
+            }
+            final Object count = readNoArg(selector, "getSelectedCount");
+            final Object selected = readNoArg(selector, "getSelected");
+            final int identities =
+                selected instanceof List<?> list ? listIdentityHash(list) : -1;
+            return "count=" + count + ",ids=" + Integer.toHexString(identities);
+        } catch (Throwable failure) {
+            return "unavailable:" + text(failure);
+        }
+    }
+
+    private static int listIdentityHash(final List<?> items) {
+        int hash = 1;
+        for (Object item : items) {
+            hash = 31 * hash + System.identityHashCode(item);
+        }
+        return hash;
+    }
+
+    /**
+     * Invokes {@code command_open(File, boolean)} on the EDT and waits until the
+     * active document's backing file is the requested file. Fire-and-forget like
+     * {@code triggerExport}: the command can block on a modal, so the probe must
+     * not wait for the call itself. Returns the bound document, or {@code null}
+     * if the host never bound it.
+     */
+    private static Object openAndAwaitBoundDocument(
+        final Object controller,
+        final File file,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    invoke(controller, "command_open",
+                        new Class<?>[] {File.class, boolean.class}, file, Boolean.FALSE);
+                } catch (Throwable failure) {
+                    System.out.println(
+                        "PROTECTED_EXPORT_OPEN_FAILURE " + text(failure));
+                }
+            });
+        } catch (Throwable failure) {
+            evidence.put("copy." + prefix + ".openFailure", text(failure));
+            return null;
+        }
+        final String wanted = canonical(file);
+        final long deadline = System.currentTimeMillis() + BIND_TIMEOUT_MILLIS;
+        Object lastDoc = null;
+        while (System.currentTimeMillis() < deadline) {
+            lastDoc = readNoArg(controller, "getCurrentDoc");
+            if (lastDoc != null) {
+                final Object content = readNoArg(lastDoc, "getFileContent");
+                final Object bound =
+                    content == null ? null : readNoArg(content, "getFile");
+                if (bound instanceof File boundFile && wanted.equals(canonical(boundFile))) {
+                    evidence.put("copy." + prefix + ".boundPath", boundFile.getAbsolutePath());
+                    return lastDoc;
+                }
+            }
+            sleep(POLL_MILLIS);
+        }
+        if (lastDoc != null) {
+            final Object content = readNoArg(lastDoc, "getFileContent");
+            final Object bound = content == null ? null : readNoArg(content, "getFile");
+            evidence.put("copy." + prefix + ".lastBoundPath", String.valueOf(bound));
+        }
+        return null;
+    }
+
+    private static void closeDocument(
+        final Object controller,
+        final Object document,
+        final Evidence evidence
+    ) throws Exception {
+        final Object content = readNoArg(document, "getFileContent");
+        if (content == null) {
+            return;
+        }
+        SwingUtilities.invokeLater(() -> {
+            try {
+                invokeByName(controller, "command_closeFileContent", content);
+            } catch (Throwable failure) {
+                System.out.println(
+                    "PROTECTED_EXPORT_CLOSE_FAILURE " + text(failure));
+            }
+        });
+        // Wait until the copy content reports no live documents; focus moving away
+        // alone would also satisfy the weaker check, so both are recorded.
+        final long deadline = System.currentTimeMillis() + BIND_TIMEOUT_MILLIS;
+        while (System.currentTimeMillis() < deadline) {
+            final Object docs = readNoArg(content, "getFileContentDocs");
+            final boolean empty = docs instanceof List<?> list && list.isEmpty();
+            final Object current = readNoArg(controller, "getCurrentDoc");
+            final boolean unfocused = current == null
+                || System.identityHashCode(current) != System.identityHashCode(document);
+            if (empty || unfocused) {
+                evidence.put("copy.closed", "true");
+                evidence.put("copy.closeState",
+                    "docsEmpty=" + empty + ",unfocused=" + unfocused);
+                return;
+            }
+            sleep(POLL_MILLIS);
+        }
+        evidence.put("copy.closed", "timeout");
     }
 
     /**
@@ -765,6 +1052,100 @@ public final class ProtectedExportHostProbeAgent {
         return value == null ? "?" : value.toString();
     }
 
+    /**
+     * Invokes a method found by name and exact signature anywhere on the target's class
+     * hierarchy. Used for host commands whose parameter types the probe can name
+     * ({@code command_open(File, boolean)}).
+     */
+    private static Object invoke(
+        final Object target,
+        final String name,
+        final Class<?>[] signature,
+        final Object... args
+    ) throws Exception {
+        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+            try {
+                final Method method = type.getDeclaredMethod(name, signature);
+                method.setAccessible(true);
+                return method.invoke(target, args);
+            } catch (NoSuchMethodException missing) {
+                // Keep walking up the hierarchy.
+            }
+        }
+        throw new NoSuchMethodException(name);
+    }
+
+    /**
+     * Invokes the single-argument method {@code name} whose declared parameter type accepts
+     * {@code argument}. Used for host commands whose parameter is an interface the probe must
+     * not import ({@code command_closeFileContent(IFileContent)}).
+     */
+    private static Object invokeByName(
+        final Object target,
+        final String name,
+        final Object argument
+    ) throws Exception {
+        Method candidate = null;
+        for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals(name) || method.getParameterCount() != 1
+                    || !method.getParameterTypes()[0].isInstance(argument)) {
+                    continue;
+                }
+                if (candidate != null) {
+                    throw new IllegalStateException("ambiguous host command " + name);
+                }
+                candidate = method;
+            }
+        }
+        if (candidate == null) {
+            throw new NoSuchMethodException(name);
+        }
+        candidate.setAccessible(true);
+        return candidate.invoke(target, argument);
+    }
+
+    private static String canonical(final File file) {
+        try {
+            return file.getCanonicalFile().getAbsolutePath();
+        } catch (IOException failure) {
+            return file.getAbsoluteFile().toPath().normalize().toString();
+        }
+    }
+
+    private static String sha256(final File file) {
+        try {
+            final MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            try (InputStream input = Files.newInputStream(file.toPath())) {
+                final byte[] buffer = new byte[8192];
+                int read;
+                while ((read = input.read(buffer)) >= 0) {
+                    digest.update(buffer, 0, read);
+                }
+            }
+            final StringBuilder hex = new StringBuilder();
+            for (byte value : digest.digest()) {
+                hex.append(Character.forDigit((value >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(value & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (Throwable failure) {
+            return "unavailable:" + text(failure);
+        }
+    }
+
+    /** Task-scoped token for the disposable copy name; sanitized for use as a filename. */
+    private static String runToken() {
+        String token = System.getProperty("turboism.validation.runId");
+        if (token == null || token.isBlank()) {
+            token = System.getProperty("Turboism.validation.runId");
+        }
+        if (token == null || token.isBlank()) {
+            token = Long.toString(System.currentTimeMillis(), 36);
+        }
+        return token.replaceAll("[^A-Za-z0-9_-]", "_") + "-";
+    }
+
     private static Object readNoArg(final Object target, final String name) {
         for (Class<?> type = target.getClass(); type != null; type = type.getSuperclass()) {
             try {
@@ -1030,33 +1411,65 @@ public final class ProtectedExportHostProbeAgent {
             return false;
         }
         final List<String> unmet = new ArrayList<>();
-        if (intOf(evidence, "uncheckedInjectedCheckBoxCount") < 1) {
-            unmet.add("injected option missing from the native dialog");
+        final String phases = evidence.values.getOrDefault("phases", "dialog");
+        if (phases.contains("dialog")) {
+            if (intOf(evidence, "uncheckedInjectedCheckBoxCount") < 1) {
+                unmet.add("injected option missing from the native dialog");
+            }
+            if (!"true".equals(evidence.values.get("uncheckedInjectedCheckBoxesUnselected"))) {
+                unmet.add("injected option was not default-off");
+            }
+            if (!"true".equals(evidence.values.get("confirmClicked"))) {
+                unmet.add("native confirm button not driven");
+            }
+            if (!"true".equals(evidence.values.get("uncheckedNativeContinuationObserved"))) {
+                unmet.add("unchecked confirmation did not continue the native export");
+            }
+            if (intOf(evidence, "bridgeDecideCalls") < 1) {
+                unmet.add("transformed dialog never reached the decision gate");
+            }
+            if ("true".equals(evidence.values.get("checkedConfirmClicked"))
+                && !evidence.values.getOrDefault("bridgeDecideResults", "").contains("false")) {
+                unmet.add("checked confirmation was not rejected by the decision gate");
+            }
+            if (!"true".equals(evidence.values.get("checkedNoContinuation"))) {
+                unmet.add("a checked rejection still raised a continuation window");
+            }
+            if (intOf(evidence, "bridgeCancelCalls") < 1) {
+                unmet.add("cancel path never reached the bridge cleanup");
+            }
+            if (!"true".equals(evidence.values.get("cancelNoContinuation"))) {
+                unmet.add("cancel still raised a continuation window");
+            }
         }
-        if (!"true".equals(evidence.values.get("uncheckedInjectedCheckBoxesUnselected"))) {
-            unmet.add("injected option was not default-off");
-        }
-        if (!"true".equals(evidence.values.get("confirmClicked"))) {
-            unmet.add("native confirm button not driven");
-        }
-        if (!"true".equals(evidence.values.get("uncheckedNativeContinuationObserved"))) {
-            unmet.add("unchecked confirmation did not continue the native export");
-        }
-        if (intOf(evidence, "bridgeDecideCalls") < 1) {
-            unmet.add("transformed dialog never reached the decision gate");
-        }
-        if ("true".equals(evidence.values.get("checkedConfirmClicked"))
-            && !evidence.values.getOrDefault("bridgeDecideResults", "").contains("false")) {
-            unmet.add("checked confirmation was not rejected by the decision gate");
-        }
-        if (!"true".equals(evidence.values.get("checkedNoContinuation"))) {
-            unmet.add("a checked rejection still raised a continuation window");
-        }
-        if (intOf(evidence, "bridgeCancelCalls") < 1) {
-            unmet.add("cancel path never reached the bridge cleanup");
-        }
-        if (!"true".equals(evidence.values.get("cancelNoContinuation"))) {
-            unmet.add("cancel still raised a continuation window");
+        if (phases.contains("copy-binding")) {
+            if (!"true".equals(evidence.values.get("copy.bound"))) {
+                unmet.add("task-owned copy was not bound as the active document");
+            }
+            if (!"true".equals(evidence.values.get("copy.restored"))) {
+                unmet.add("original document was not restored as active");
+            }
+            if (!"true".equals(evidence.values.get("copy.sameLiveDocument"))) {
+                unmet.add("restored original was a fresh instance, not the same live document");
+            }
+            if (!"true".equals(evidence.values.get("copy.fileSha256Preserved"))) {
+                unmet.add("original file bytes changed across the copy session");
+            }
+            if (!"true".equals(evidence.values.get("copy.modifiedPreserved"))) {
+                unmet.add("original dirty flag changed across the copy session");
+            }
+            if (!"true".equals(evidence.values.get("copy.undoPreserved"))) {
+                unmet.add("original undo state changed across the copy session");
+            }
+            if (!"true".equals(evidence.values.get("copy.selectionPreserved"))) {
+                unmet.add("original selection changed across the copy session");
+            }
+            if (!"true".equals(evidence.values.get("copy.closed"))) {
+                unmet.add("task-owned copy document was not closed");
+            }
+            if (!"true".equals(evidence.values.get("copy.fileRemoved"))) {
+                unmet.add("task-owned copy file was not removed");
+            }
         }
         if (!unmet.isEmpty()) {
             evidence.fail("UNMET:" + String.join("; ", unmet));

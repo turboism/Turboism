@@ -162,10 +162,15 @@
       "resources": {"host-slot": 1}
     },
     "protected-export": {
-      "description": "Protected-export export-settings hook validation for the reviewed 5.3.02 editor: the contributed option must be visible in the native Embedded-Model Export Settings dialog and default-off, an unchecked confirmation must continue the native export path unchanged, a checked candidate must be rejected by the decision gate without a continuation window, and a cancel must reach the bridge cleanup without a continuation window. The staged candidate plugin is not part of any release.",
+      "description": "Protected-export export-settings hook validation for the reviewed 5.3.02 editor: the contributed option must be visible in the native Embedded-Model Export Settings dialog and default-off, an unchecked confirmation must continue the native export path unchanged, a checked candidate must be rejected by the decision gate without a continuation window, and a cancel must reach the bridge cleanup without a continuation window. The copy-binding variant additionally proves the disposable-copy open/restore path before any mutation is admitted. The staged candidate plugin is not part of any release.",
       "command": "scripts/preview/run-protected-export-host-validation.sh",
       "versions": ["5302"],
-      "arguments": ["{version}", "{runLabel}"],
+      "variants": {
+        "dialog": ["{version}", "{runLabel}", "dialog"],
+        "copy-binding": ["{version}", "{runLabel}", "copy-binding"],
+        "full": ["{version}", "{runLabel}", "dialog,copy-binding"]
+      },
+      "defaultVariant": "dialog",
       "resources": {"host-slot": 1}
     },
     "recent-preview": {
