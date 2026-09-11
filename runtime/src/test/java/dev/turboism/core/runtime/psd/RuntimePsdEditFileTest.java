@@ -44,7 +44,6 @@ class RuntimePsdEditFileTest {
         final AtomicBoolean active = new AtomicBoolean(true);
         final RuntimePsdEditFile file = handle(
             registry, allocation, recording(active, permissions), active, launched::set);
-        registry.register(BINDING, file, allocation.temporary);
 
         final PsdFileOperationResult result = await(file.openInDefaultApplication());
 
@@ -64,7 +63,6 @@ class RuntimePsdEditFileTest {
             throw new CubismPermissionException("permission denied");
         };
         final RuntimePsdEditFile file = handle(registry, allocation, denyAll, active, launched::set);
-        registry.register(BINDING, file, allocation.temporary);
 
         final PsdFileOperationResult result = await(file.openInDefaultApplication());
 
@@ -80,7 +78,6 @@ class RuntimePsdEditFileTest {
         final AtomicBoolean active = new AtomicBoolean(true);
         final RuntimePsdEditFile file = handle(
             registry, allocation, allowAll(), active, path -> { });
-        registry.register(BINDING, file, allocation.temporary);
 
         registry.revoke(file);
         assertEquals(
@@ -107,7 +104,6 @@ class RuntimePsdEditFileTest {
         final AtomicBoolean active = new AtomicBoolean(true);
         final RuntimePsdEditFile file = handle(
             registry, allocation, allowAll(), active, path -> { });
-        registry.register(BINDING, file, allocation.temporary);
 
         final List<PsdFileRevision> delivered = new ArrayList<>();
         file.observeSaves(revision -> {
@@ -131,7 +127,6 @@ class RuntimePsdEditFileTest {
         final AtomicBoolean active = new AtomicBoolean(true);
         final RuntimePsdEditFile file = handle(
             registry, allocation, allowAll(), active, path -> { });
-        registry.register(BINDING, file, allocation.temporary);
 
         for (int i = 0; i < RuntimePsdEditFile.MAX_SUBSCRIPTIONS; i++) {
             file.observeSaves(revision -> { });
@@ -147,14 +142,19 @@ class RuntimePsdEditFileTest {
         assertTrue(Files.exists(allocation.temporary.validatedPath()));
     }
 
+    /**
+     * Reproduces the service issuance path: register, capture the export baseline, issue it, then
+     * start watching with an inert scheduler so these tests never race a background pass.
+     */
     private RuntimePsdEditFile handle(
         final PsdEditRegistry registry,
         final Allocation allocation,
         final PermissionChecker permissionChecker,
         final AtomicBoolean active,
         final PsdDefaultApplicationLauncher launcher
-    ) {
-        return new RuntimePsdEditFile(
+    ) throws IOException {
+        final PsdStableSnapshot.Snapshot baseline = PsdStableSnapshot.capture(allocation.temporary);
+        final RuntimePsdEditFile file = new RuntimePsdEditFile(
             "test.plugin",
             BINDING,
             allocation.temporary,
@@ -163,8 +163,14 @@ class RuntimePsdEditFileTest {
             active::get,
             Runnable::run,
             Runnable::run,
-            launcher
+            launcher,
+            (task, delayMillis) -> () -> { },
+            System::nanoTime,
+            baseline.sha256()
         );
+        registry.register(BINDING, file, allocation.temporary);
+        file.beginWatching(registry.issueRevision(BINDING, file, baseline));
+        return file;
     }
 
     private Allocation allocation() throws IOException {
