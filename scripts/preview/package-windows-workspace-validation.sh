@@ -105,12 +105,16 @@ cp "$record_53" "$bundle_root/cubism-5.3.02-workspace-control.json"
 probe_tmp="$(mktemp -d "$repo_root/build/.workspace-probe.XXXXXX")"
 agent_tmp=""
 trap 'rm -rf "${probe_tmp:-}" "${agent_tmp:-}" "${freshness_tmp:-}"' EXIT
-mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism"
+mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsWorkspaceValidationProbe.class' \
      -o -name 'WindowsWorkspaceValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
+# PluginJarContract requires the declared i18n base-name catalog to exist in the jar,
+# even for a probe that localizes nothing; ship an empty default catalog.
+printf '# Workspace validation probe: no localized messages.\n' \
+  > "$probe_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$probe_tmp"
   mapfile -t probe_classes < <(
@@ -121,7 +125,8 @@ cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
   )
   jar --create --file "$bundle_root/plugins/workspace-validation-probe.jar" \
     "${probe_classes[@]}" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/workspace-validation-probe.jar" \
   | grep -Eq 'WindowsWorkspaceValidationProbeTest|\.java$'; then
