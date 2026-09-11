@@ -69,6 +69,12 @@ public final class SoftCacheAuditTest {
         static CImageResource make() { CImageResource r = new CImageResource(); cacheList.add(new b(r)); return r; }
         static void clear() { cacheList.clear(); }
         void archive() { this.image = null; this.imageFileBuf = new byte[1024]; }
+        static int created = 7, disposed = 2, byteDataBytes = 4096;
+        public static final int access$getCreatedCount$cp() { return created; }
+        public static final int access$getDisposedCount$cp() { return disposed; }
+        public static final int access$getByteDataBytes$cp() { return byteDataBytes; }
+        public static final boolean access$getDEBUG$cp() { return false; }
+        public static final ArrayList<?> access$getDEBUG_IMAGES$cp() { return new ArrayList<>(); }
     }
     public static final class b {
         private final SoftReference<CImageResource> a;
@@ -124,6 +130,28 @@ public final class SoftCacheAuditTest {
         prop(matched, "cohortSize", "1");
         prop(matched, "matchedCohort", "1");
         prop(matched, "matchedDistinct", "1");
+
+        // 1d. The host's own public counters are read without touching any instance.
+        CImageResource.clear();
+        CImageResource counted = CImageResource.make();
+        List<WeakReference<?>> counterCohort = new ArrayList<>();
+        counterCohort.add(new WeakReference<>(counted));
+        var counters = run(CImageResource.class, b.class, counterCohort, 100, 1000, 250_000_000L);
+        prop(counters, "hostCreated", "7");
+        prop(counters, "hostDisposed", "2");
+        prop(counters, "hostLive", "5");
+        prop(counters, "hostArchivedBytes", "4096");
+        prop(counters, "hostDebugEnabled", "false");
+        prop(counters, "hostDebugImages", "0");
+
+        // 1e. A host without those accessors reports "unreadable" instead of a fabricated zero.
+        BareResource.clear();
+        BareResource plain = BareResource.make();
+        List<WeakReference<?>> plainCohort = new ArrayList<>();
+        plainCohort.add(new WeakReference<>(plain));
+        var noCounters = run(BareResource.class, BareHolder.class, plainCohort, 100, 1000, 250_000_000L);
+        prop(noCounters, "hostCreated", "unreadable");
+        prop(noCounters, "hostLive", "unreadable");
 
         // 1a. Decoded vs archived resources are counted separately, with the archived byte total.
         CImageResource.clear();
