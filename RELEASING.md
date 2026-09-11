@@ -61,6 +61,11 @@ base's dated `CHANGELOG.md` section and merge the intended source to main. Beta
 release notes use that reviewed base section; Beta's precise prerelease version
 is selected in the workflow input, not by rewriting the stable base for every try.
 Do **not** push a public version tag to trigger a build.
+Reviewed Simplified Chinese and Japanese notes for that base live in
+`release-notes/<version>.json`, bound to the SHA-256 of the trimmed English section.
+A stale `englishSha256` fails promotion instead of reusing old text, and a base
+without that file is published with its English notes only. Nightly notes are
+generated from a frozen published baseline; they take no reviewed file.
 
 ```bash
 # Default is a dry run; --submit actually dispatches GitHub Actions.
