@@ -43,7 +43,16 @@ final class NativeSoftCacheObservation {
     private static final String DECODED_IMAGE = "image";
     private static final String ARCHIVE_BYTES = "imageFileBuf";
     private static final int ENTRY_LIMIT = 8192;
-    private static final int COMPARISON_LIMIT = 4_000_000;
+    private static final int COMPARISON_LIMIT = 20_000_000;
+    /** Diagnostic budget for one capture. O(entries) once the O(entries x cohort) matching work completes. */
+    private static final long CAPTURE_BUDGET_NS = 1_000_000_000L;
+    /**
+     * The host's own public static counters. Reading these quantifies the whole process without dereferencing a single
+     * soft reference, and they are the only way to see the entries outside the retained cohort.
+     */
+    private static final String[] HOST_COUNTERS = {
+            "access$getCreatedCount$cp", "access$getDisposedCount$cp", "access$getByteDataBytes$cp",
+            "access$getDEBUG$cp", "access$getDEBUG_IMAGES$cp"};
     private static final String[] COUNT_KEYS =
             {"entries", "visited", "cohortSize", "matchedCohort", "matchedDistinct", "matchedDecoded",
              "matchedArchived", "matchedArchivedBytes", "matchedWithArchiveBytes", "matchedUnreadable"};
@@ -108,7 +117,7 @@ final class NativeSoftCacheObservation {
                     throw new ClassNotFoundException("origin mismatch");
                 }
             }
-            long remaining = Math.max(0, 250_000_000L - (System.nanoTime() - start));
+            long remaining = Math.max(0, CAPTURE_BUDGET_NS - (System.nanoTime() - start));
             result = audit(loader, owner, holder, cohort, new Limits(ENTRY_LIMIT, COMPARISON_LIMIT, remaining),
                     System::nanoTime);
         } catch (ReflectiveOperationException | SecurityException problem) {
@@ -131,6 +140,7 @@ final class NativeSoftCacheObservation {
             if (!Modifier.isStatic(field.getModifiers()) || field.getType().isPrimitive() || !field.trySetAccessible()) {
                 throw new NoSuchFieldException(CACHE_FIELD);
             }
+            readHostCounters(owner, result);
             Object cache = field.get(null);
             Method accessor = holder.getMethod(HOLDER_ACCESSOR);
             if (Modifier.isStatic(accessor.getModifiers()) || accessor.getParameterCount() != 0
@@ -202,6 +212,40 @@ final class NativeSoftCacheObservation {
         final String status, reason;
 
         Stop(String status, String reason) { super(reason, null, false, false); this.status = status; this.reason = reason; }
+    }
+
+    /**
+     * Reads the host's own aggregate counters. These are public static accessors on a public class, so this is a plain
+     * reflective call on a synthetic accessor: no host instance is touched and no soft reference is dereferenced.
+     */
+    private static void readHostCounters(Class<?> owner, Result result) {
+        for (String name : HOST_COUNTERS) {
+            String key = switch (name) {
+                case "access$getCreatedCount$cp" -> "hostCreated";
+                case "access$getDisposedCount$cp" -> "hostDisposed";
+                case "access$getByteDataBytes$cp" -> "hostArchivedBytes";
+                case "access$getDEBUG$cp" -> "hostDebugEnabled";
+                default -> "hostDebugImages";
+            };
+            try {
+                Method accessor = owner.getMethod(name);
+                accessor.setAccessible(true);
+                Object value = accessor.invoke(null);
+                if (value instanceof Number number) result.values.setProperty(key, Long.toString(number.longValue()));
+                else if (value instanceof Boolean flag) result.values.setProperty(key, flag.toString());
+                else if (value instanceof java.util.List<?> list) result.values.setProperty(key, Integer.toString(list.size()));
+                else result.values.setProperty(key, "unsupported");
+            } catch (ReflectiveOperationException | RuntimeException unreadable) {
+                result.values.setProperty(key, "unreadable");
+            }
+        }
+        try {
+            long created = Long.parseLong(result.values.getProperty("hostCreated", ""));
+            long disposed = Long.parseLong(result.values.getProperty("hostDisposed", ""));
+            result.values.setProperty("hostLive", Long.toString(created - disposed));
+        } catch (NumberFormatException unavailable) {
+            result.values.setProperty("hostLive", "unreadable");
+        }
     }
 
     /** A missing or inaccessible field is not an error: the resource-state counters are best effort. */
