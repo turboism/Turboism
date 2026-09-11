@@ -133,6 +133,41 @@ class MethodHandleCacheTest {
     }
 
     @Test
+    void declaredOverloadsCollectsEveryHierarchyMatchAndCachesTheList() {
+        final List<Method> first = MethodHandleCache.declaredOverloads(Derived.class, "setValue", 1);
+        // the subclass declares none, so both matches come from the superclass walk
+        assertEquals(2, first.size());
+        assertTrue(first.stream().allMatch(m ->
+            m.getName().equals("setValue") && m.getParameterCount() == 1));
+        final List<Method> second = MethodHandleCache.declaredOverloads(Derived.class, "setValue", 1);
+        assertSame(first, second, "repeated lookups must return the cached list instance");
+        // a miss resolves once and stays an immutable empty list
+        final List<Method> missing = MethodHandleCache.declaredOverloads(Base.class, "absent", 0);
+        assertTrue(missing.isEmpty());
+        assertSame(missing, MethodHandleCache.declaredOverloads(Base.class, "absent", 0));
+    }
+
+    @Test
+    void declaredFieldUpWalksTheHierarchyAndCachesTheHit() throws Exception {
+        final Field first = MethodHandleCache.declaredFieldUp(Derived.class, "secret");
+        assertEquals("secret", first.getName());
+        assertSame(first, MethodHandleCache.declaredFieldUp(Derived.class, "secret"),
+            "repeated lookups must return the cached Field instance");
+        // the Base key space resolves the same member through its own walk (distinct handle
+        // instances per key; the JDK hands out a fresh Field per resolution)
+        assertEquals(Base.class,
+            MethodHandleCache.declaredFieldUp(Base.class, "secret").getDeclaringClass());
+        // caller-side access applies to the shared handle
+        assertTrue(first.trySetAccessible());
+        assertEquals(7, first.get(new Derived()));
+        // misses are never cached
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredFieldUp(Base.class, "missing"));
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredFieldUp(Base.class, "missing"));
+    }
+
+    @Test
     void concurrentLookupsResolveEveryKeyExactlyOnceAndReturnSameHandles() throws Exception {
         final int threads = 8;
         final int lookupsPerThread = 200;
