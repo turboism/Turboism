@@ -94,47 +94,39 @@ final class HistoryRelationLabelFormatter {
             localization.text(childIcon.fallbackKey())
         ));
         final String childName = child.displayName().orElseThrow();
-        final RelationPhrase phrase = phrase(relationKind, changeKind);
-        HistoryPanelService.appendBoundedTextRuns(
-            runs,
-            " " + childName + localization.format(
-                phrase.infixKey(),
-                koreanObjectParticle(childName)
-            )
-        );
+        final String pattern = localization.text(phrase(relationKind, changeKind));
+        final int parentSlot = pattern.indexOf(PARENT_SLOT);
+        if (parentSlot < 0) {
+            return Optional.empty();
+        }
+        // One localized pattern per phrase carries the whole wording, so a language that needs no
+        // trailing words does not have to store a blank catalog value. The parent-name slot splits
+        // it into the text after the child and the text after the parent.
+        final String infix = pattern.substring(0, parentSlot)
+            .replace(PARTICLE_SLOT, koreanObjectParticle(childName));
+        final String suffix = pattern.substring(parentSlot + PARENT_SLOT.length());
+        HistoryPanelService.appendBoundedTextRuns(runs, " " + childName + infix);
         runs.add(UiInlineLabel.iconRun(
             new UiIconRef(parentIcon.icon()),
             localization.text(parentIcon.fallbackKey())
         ));
         HistoryPanelService.appendBoundedTextRuns(
             runs,
-            " " + parent.displayName().orElseThrow() + localization.text(phrase.suffixKey())
+            " " + parent.displayName().orElseThrow() + suffix
         );
         return Optional.of(UiInlineLabel.of(runs));
     }
 
-    private static RelationPhrase phrase(
+    private static String phrase(
         final HistoryRelationChange.Kind relationKind,
         final ChangeKind changeKind
     ) {
         return switch (changeKind) {
-            case SET -> new RelationPhrase(
-                "history.relation.deformer-parent.set.infix",
-                "history.relation.deformer-parent.set.suffix"
-            );
-            case JOIN -> new RelationPhrase(
-                "history.relation.part-membership.join.infix",
-                "history.relation.part-membership.join.suffix"
-            );
+            case SET -> "history.relation.deformer-parent.set";
+            case JOIN -> "history.relation.part-membership.join";
             case DETACH -> relationKind == HistoryRelationChange.Kind.DEFORMER_PARENT
-                ? new RelationPhrase(
-                    "history.relation.deformer-parent.detach.infix",
-                    "history.relation.deformer-parent.detach.suffix"
-                )
-                : new RelationPhrase(
-                    "history.relation.part-membership.detach.infix",
-                    "history.relation.part-membership.detach.suffix"
-                );
+                ? "history.relation.deformer-parent.detach"
+                : "history.relation.part-membership.detach";
         };
     }
 
@@ -221,7 +213,10 @@ final class HistoryRelationLabelFormatter {
 
     private record IconSpec(CubismIcon icon, String fallbackKey) { }
 
-    private record RelationPhrase(String infixKey, String suffixKey) { }
+    /** Argument marker for the language-specific object particle; empty outside Korean. */
+    private static final String PARTICLE_SLOT = "{0}";
+    /** Argument marker for the parent name, which is rendered as its own icon run. */
+    private static final String PARENT_SLOT = "{1}";
 
     private enum ChangeKind {
         SET,

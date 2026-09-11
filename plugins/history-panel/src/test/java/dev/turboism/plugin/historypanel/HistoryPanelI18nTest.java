@@ -34,20 +34,10 @@ class HistoryPanelI18nTest {
         "history.icon.part",
         "history.icon.rotation-deformer",
         "history.icon.warp-deformer",
-        "history.relation.deformer-parent.detach.infix",
-        "history.relation.deformer-parent.detach.suffix",
-        "history.relation.deformer-parent.set.infix",
-        "history.relation.deformer-parent.set.suffix",
-        "history.relation.part-membership.detach.infix",
-        "history.relation.part-membership.detach.suffix",
-        "history.relation.part-membership.join.infix",
-        "history.relation.part-membership.join.suffix"
-    );
-
-    private static final Set<String> ALLOW_BLANK_FRAGMENT_KEYS = Set.of(
-        "history.relation.part-membership.join.suffix",
-        "history.relation.deformer-parent.detach.suffix",
-        "history.relation.part-membership.detach.suffix"
+        "history.relation.deformer-parent.detach",
+        "history.relation.deformer-parent.set",
+        "history.relation.part-membership.detach",
+        "history.relation.part-membership.join"
     );
 
     @Test
@@ -75,12 +65,29 @@ class HistoryPanelI18nTest {
         for (final Map.Entry<String, String> catalog : CATALOGS.entrySet()) {
             final Properties properties = readCatalog(catalog.getKey());
             for (final String key : properties.stringPropertyNames()) {
-                if (!ALLOW_BLANK_FRAGMENT_KEYS.contains(key)) {
-                    assertFalse(
-                        properties.getProperty(key).isBlank(),
-                        "blank value for " + key + " in " + catalog.getKey()
-                    );
+                assertFalse(
+                    properties.getProperty(key).isBlank(),
+                    "blank value for " + key + " in " + catalog.getKey()
+                );
+            }
+        }
+    }
+
+    @Test
+    void relationPhrasesCarryBothPatternMarkersInEveryLocale() throws IOException {
+        for (final Map.Entry<String, String> catalog : CATALOGS.entrySet()) {
+            final Properties properties = readCatalog(catalog.getKey());
+            for (final String key : properties.stringPropertyNames()) {
+                if (!key.startsWith("history.relation.")) {
+                    continue;
                 }
+                final String value = properties.getProperty(key);
+                assertTrue(value.contains("{0}"), key + " must carry the particle marker");
+                assertEquals(
+                    1,
+                    value.split("\\{1\\}", -1).length - 1,
+                    key + " must carry exactly one parent marker"
+                );
             }
         }
     }
