@@ -204,7 +204,7 @@ final class HttpUpdateTransportTest {
         factory.release.countDown();
 
         assertTrue(factory.openReturned.await(2, TimeUnit.SECONDS));
-        assertTrue(connection.disconnected.get());
+        assertTrue(awaitTrue(connection.disconnected), "the late registration must still be torn down");
     }
 
     @Test
