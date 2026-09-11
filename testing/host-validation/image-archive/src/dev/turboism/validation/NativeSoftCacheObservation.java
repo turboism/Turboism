@@ -147,6 +147,8 @@ final class NativeSoftCacheObservation {
             result.add("cohortSize", cohort.size());
             long comparisons = 0;
             int visited = 0;
+            // A cohort member is resolved once: further entries cannot add information about it.
+            boolean[] resolved = new boolean[cohort.size()];
             while (visited < sizeBefore) {
                 tick(start, limits, clock);
                 if (visited >= limits.entries()) throw new Stop("PARTIAL", "entry-limit");
@@ -158,14 +160,16 @@ final class NativeSoftCacheObservation {
                 if (!(reference instanceof SoftReference)) continue;
                 Reference<?> soft = (Reference<?>) reference;
                 for (int index = 0; index < cohort.size(); index++) {
+                    if (resolved[index]) continue;
                     Reference<?> candidate = cohort.get(index);
                     if (candidate == null) continue;
                     Object referent = candidate.get();
                     if (referent == null) continue;
                     comparisons++;
                     if (comparisons > limits.comparisons()) throw new Stop("PARTIAL", "comparison-limit");
-                    if (index % 512 == 0) tick(start, limits, clock);
+                    if ((comparisons & 511) == 0) tick(start, limits, clock);
                     if (!refersTo(soft, referent)) continue;
+                    resolved[index] = true;
                     result.add("matchedCohort", 1);
                     result.note("entry:" + visited);
                     break;
