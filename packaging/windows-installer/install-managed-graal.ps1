@@ -231,7 +231,16 @@ function New-ManagedGraalConfig {
         if ($null -eq $schema -or ($schema.Value -isnot [int] -and $schema.Value -isnot [long]) -or $schema.Value -ne 1) {
             throw "Turboism config must use integer schemaVersion 1. Run the main installer to migrate it first."
         }
-    } else { $document = [pscustomobject]@{ schemaVersion = 1 } }
+    } else {
+        $document = [pscustomobject]@{
+            format = "turboism.runtime.config"
+            schemaVersion = 1
+            worktreeId = "turboism-runtime"
+            pluginDirs = @("plugins")
+            useTextIcon = $false
+            launcher = [pscustomobject]@{ cubismJvm = "graalvm" }
+        }
+    }
     $launcher = $document.PSObject.Properties["launcher"]
     if ($null -eq $launcher) {
         $document | Add-Member -NotePropertyName launcher -NotePropertyValue ([pscustomobject]@{})
