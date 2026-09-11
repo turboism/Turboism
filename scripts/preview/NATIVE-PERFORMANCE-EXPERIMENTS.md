@@ -803,3 +803,14 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`devCheck` BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：宿主 overlay 对象的实际创建频率未量化（预期每视图 ~1 个）；上限值 16 是保守界而非实测最优；无实机测量，端到端收益记 **NONE**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条无界增长路径的有界化**（会话期每 overlay 一项 → 恒 ≤16 项，且被逐条目的宿主按钮被正确摘除）+ 两条离线回归。
+
+### I42 — P14 发布不跟随绑定：文档切换 A→B 时 evaluated 读错模型（2026-09-12）
+
+- **范围/验证方法**：Spec Kit `038-publish-follows-binding`。I40 分析时记录并挂起的既有缺口：借用的 Core 模型只在**连接时**和 `lazyPublishOnce`（仅在 MODEL_UNAVAILABLE 文本时重试）内发布。宿主上同时打开 A、B 两个文档并在其间切换（无 close）时，`binding()` 解析出 B 的模型但 source 里仍发布着 A；`evaluated(I_B)` 于是 **trace A 的模型并以 I_B pin 住**——`drawable(B-id)` 未命中时报 fail-closed `NoSuchElementException`，id 撞名时更糟：**静默返回 A 的数据**（B 的 editability/动画状态全是错的）。全程 offline。
+- **实现（publish follows the binding）**：`EditorBackedCubismModelAccess.binding()` 在解出当前 document→source→model 并建好 identity 后，若 `evaluatedJoin` 已装且 `join.publishedModel() != model`（对象身份比较），即调用 `join.tryPublish(model, sessionIdentity + ":" + modelId)`。每次 `binding()` 新增的成本 = 一次 `publishedModel()` monitor 读（FR-003：已发布同模型时零额外工作）。`tryPublish` 失败 best-effort 吞掉——evaluated 路径保留 MODEL_UNAVAILABLE→lazyPublish 兜底，`lazyPublishOnce` 原样保留为 binding() 与 evaluated() 之间清除窗口的竞态兜底；036 的 dedup 重置语义不变。
+- **为什么是正确性+性能双修复**：正确性——evaluated 快照永远与**当前绑定模型**对应（SC-001）；性能——消除每次文档切换后潜在的错误 trace+pin+miss 连锁（fail-closed miss 的 NoSuchElementException 构造、错 trace 的 canvas/drawable 全量遍历均作废），也消除了「A 未关但已不绑定」模型继续强持引用的窗口（与 I40 互补：发布替换即刻丢 A，无需等 A 的 CLOSE 事件）。
+- **测试迁移（夹具语义变化）**：旧测试手动 `source.transitionTo(model,...)` 预发布；新语义下 `binding()` 自己发布，故全部迁移为 `new Fixture(model, counter)`（Fixture 现在把当前模型传入 Document→ModelSource）+ `CountingHarness`。期间修正一处夹具计数接线：`coreModel(canvasReads,...)` 会把计数器挂在 base 模型上，Fixture 构建组合模型时读一次 base → 计数 +1；改用 `lazyCoreModel(...)`（base 挂哑计数器，组合模型挂真计数器）恢复断言语义。
+- **回归**：新增 `bindingNeverPublishesWithoutACurrentDocument`（无当前文档时 binding 失败且**零发布**；文档恢复后下一次 binding 发布成功）与 `documentSwitchRepublishesAndServesTheNewModel`（SC-001：切换后 evaluated 返回 0x08 新值、发布计数=2）；更新 `evaluatedReadsRebindAfterAnIdleReleaseRepublishesUnderTheSameIdentity`（SC-003：036 的释放→同 identity 重绑定→重 trace 场景在新语义下仍不可能卡死）；`lazyPublishIsRetriedAfterTheDocumentSwitchChangesTheIdentity` 等既有 lazyPublish 测试在新语义下全绿。旧 `Harness`/`harness()` 死代码移除。
+- **验证结果**：`./gradlew :runtime:test`（全部 runtime 套件）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得抬高）**：离线回归证明的是**绑定-发布-追踪的一致性**与错误 trace 路径的消除；未量化省下的秒数/CPU；**无实机测量**，端到端收益记 **NONE/pending**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一处既有正确性缺口的修复**（切换文档即错模型）+ **一条滞留路径的即时化**（绑定移走即替换发布，不必等 CLOSE）+ 配套回归。
