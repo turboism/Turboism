@@ -287,6 +287,99 @@ class MainToolbarPluginTest {
         assertEquals(List.of(), context.uiHost().notifications());
     }
 
+    @Test
+    void updateReminderSurfacesTheDownloadButtonAndPublishesOneStatusNotification() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.10"),
+            java.util.OptionalLong.of(5L),
+            false,
+            true
+        ));
+
+        assertEquals(1, context.uiHost().notifications().size());
+        final StatusNotification notification = context.uiHost().notifications().get(0);
+        assertEquals("turboism.update", notification.id());
+        assertEquals("INFO", notification.severity());
+        assertTrue(notification.message().contains("0.43.10 (Build 5)"));
+        final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
+        assertTrue(panel.content().toString().contains(CoreUpdateService.DOWNLOAD_ACTION_ID));
+        assertTrue(panel.content().toString().contains(CoreUpdateService.MANUAL_CHECK_ACTION_ID));
+    }
+
+    @Test
+    void aQuietAutomaticUpdateFailurePublishesNoStatusNotification() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UNAVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            false,
+            false
+        ));
+
+        assertEquals(List.of(), context.uiHost().notifications());
+
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UNAVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            true,
+            false
+        ));
+        assertEquals(1, context.uiHost().notifications().size());
+        assertEquals("WARNING", context.uiHost().notifications().get(0).severity());
+    }
+
+    @Test
+    void updateDownloadActionOpensOnlyTheFixedFirstPartyPage() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final List<String> opened = new ArrayList<>();
+        dev.turboism.plugin.core.CoreWindows.setTestUpdateUrlObserver(opened::add);
+        try {
+            plugin.init(context);
+            plugin.enable();
+            context.actions().execute(CoreUpdateService.DOWNLOAD_ACTION_ID);
+        } finally {
+            dev.turboism.plugin.core.CoreWindows.clearTestUpdateUrlObserver();
+        }
+
+        assertEquals(List.of("https://turboism.dev/download"), opened);
+        assertTrue(updates.started);
+    }
+
+    @Test
+    void updatePreferenceToggleIsContributedForTheRuntimeUpdateService() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertTrue(context.uiHost().settingsContributions().stream().anyMatch(
+            contribution -> "turboism-updates-automatic".equals(contribution.id())
+        ));
+    }
+
     private static MainToolbarPlugin plugin() {
         return plugin(false);
     }
@@ -296,6 +389,82 @@ class MainToolbarPluginTest {
             new CorePluginServices(settings(useTextIcon), plugins()),
             MainToolbarPlugin::new
         );
+    }
+
+    private static MainToolbarPlugin plugin(final CoreUpdateService updates) {
+        return CorePluginServices.instantiate(
+            new CorePluginServices(
+                settings(),
+                CubismJvmSettingsService.unavailable(),
+                dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
+                plugins(),
+                CorePluginServices.FloatingPanelActions.unavailable(),
+                dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
+                updates
+            ),
+            MainToolbarPlugin::new
+        );
+    }
+
+    /** Scripted update service used to drive core UI behaviour without any network access. */
+    private static final class FakeUpdateService implements CoreUpdateService {
+        private final java.util.concurrent.CopyOnWriteArrayList<java.util.function.Consumer<Snapshot>> listeners =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
+        private volatile Snapshot current = Snapshot.idle("0.43.10 (stable, Build 4)");
+        private volatile Preferences stored = new Preferences(true);
+        private boolean started;
+        private boolean closed;
+        private int manualChecks;
+
+        @Override
+        public boolean available() {
+            return true;
+        }
+
+        @Override
+        public Snapshot snapshot() {
+            return current;
+        }
+
+        @Override
+        public Preferences preferences() {
+            return stored;
+        }
+
+        @Override
+        public void start() {
+            started = true;
+        }
+
+        @Override
+        public java.util.concurrent.CompletionStage<Snapshot> checkManual() {
+            manualChecks++;
+            return java.util.concurrent.CompletableFuture.completedFuture(current);
+        }
+
+        @Override
+        public PreferenceSaveResult savePreferences(final Preferences preferences) {
+            stored = preferences;
+            return PreferenceSaveResult.success();
+        }
+
+        @Override
+        public Registration subscribe(final java.util.function.Consumer<Snapshot> listener) {
+            listeners.add(listener);
+            return () -> listeners.remove(listener);
+        }
+
+        @Override
+        public void close() {
+            closed = true;
+        }
+
+        void publish(final Snapshot snapshot) {
+            current = snapshot;
+            for (final java.util.function.Consumer<Snapshot> listener : listeners) {
+                listener.accept(snapshot);
+            }
+        }
     }
 
     private static MainToolbarPlugin plugin(final CorePluginManagement management) {
@@ -522,9 +691,27 @@ class MainToolbarPluginTest {
         }
 
 
+        private UiScheduler uiScheduler;
+
+        /** Runs dispatched UI work inline so update snapshots can be asserted deterministically. */
+        void useInlineUiScheduler() {
+            uiScheduler = new UiScheduler() {
+                @Override
+                public Registration runOnUiThread(final Runnable work) {
+                    work.run();
+                    return () -> { };
+                }
+
+                @Override
+                public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
+                    return runOnUiThread(work);
+                }
+            };
+        }
+
         @Override
         public UiScheduler uiScheduler() {
-            return null;
+            return uiScheduler;
         }
 
         @Override
