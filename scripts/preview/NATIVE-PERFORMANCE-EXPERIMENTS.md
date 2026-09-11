@@ -914,3 +914,10 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **第二次运行（`ed8230fb`，含修复后 bundle）**：agent/probe/插件全部加载成功（`plugins=2, failures=0`，probe ENABLED），host=ACTIVE，workspace provider CONNECTED；矩阵在真实 EDT 上成功执行 12 次 provider 调用（read=6 switch=5 update=1，onEdt=12 offEdt=0）——**遍历/快照/工作区路径在真实 5.2.03 宿主上功能正确，零异常**。但矩阵在第 6 次 switch 前停滞：probe 线程卡在 `WorkspaceCoordinator.dispatchOnEdt` 的 `SwingUtilities.invokeAndWait`（**无超时**），900s 结果超时 → FAIL。判断为宿主导线的 infra flake（EDT 停滞/模态），非被测路径功能错误；turboism.log 与 console 全程零 ERROR。
 - **附带发现（技术债，未改）**：`dispatchOnEdt`/`executeCommand` 的 `invokeAndWait`/`join()` 无超时，宿主导线停滞时验证矩阵无法自愈也无法写出 FAIL。
 - **验证结果**：exact-host 功能证据 YES（ACTIVE+CONNECTED+12 次 EDT 调用零异常）；终态 PASS NO（超时 FAIL）。队列中另有 workspace-r3 重试与 `parameter:5203@document-close` 待跑。
+
+### I51 — workspace 矩阵停滞复现：确定为 updateDefault 模态对话框（非 flake）（2026-09-12）
+
+- **r3 重试（`73bddaa4`）**在同一位置停滞：agent 计数再次冻结于 `read=6 switch=5 update=1`——两次运行逐比特一致的停滞点证明非随机 flake。
+- **根因**：`updateDefault` 在 EDT 上触发宿主「保存工作区布局」类命令——5.2.03 实际会弹出需要输入布局名的**模态对话框**；modal grab 使后续 `invokeAndWait`（第 6 次 switch）永久排队，无人值守矩阵无法自愈。`WorkspaceCoordinator.dispatchOnEdt` 的 `invokeAndWait` 无超时是放大器（技术债，未改）。
+- **结论修正**：I50 的「infra flake」判断更新为「确定性 harness 限制」——workspace 矩阵的 update-default 段在当前无人值守模式下不可自动完成；已获得的 exact-host 证据（加载/连接/12 次 EDT 调用零异常）仍然有效。
+- **对后续验证的建议**：workspace 矩阵需拆分——update-default/reset-default 段要求对话框自动化或交互操作员；或在 probe 侧将该段标记为手动门。`parameter:5203@document-close` 不走该路径，不受影响。
