@@ -67,7 +67,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "0989d1921a4aa4b2ef4efcf981d27a662679dd55b1cd43fef9db6612d696debb",
+        "1bd6998f859236855137cba9a882782279a7f75ed10605a03df421a0fae4d5df",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -76,7 +76,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "fc44a0fc03fa268f78291f4315f4521d5fa246013ebba4e2beb21644570f8ec6",
+        "1c14a74f35d97aaeaec45cdff14e05f066349145e92f558f1c4010b53b22a857",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -573,6 +573,11 @@ public final class EditorModelVerificationManifest {
         "cubism.editor-history.semantic.add-remove.deformer.item",
         "cubism.editor-history.semantic.add-remove.parameter-group.class",
         "cubism.editor-history.semantic.add-remove.parameter-group.item",
+        "cubism.editor-history.semantic.part-membership.class",
+        "cubism.editor-history.semantic.part-membership.part",
+        "cubism.editor-history.semantic.part-membership.child",
+        "cubism.editor-history.semantic.part-membership.index",
+        "cubism.editor-history.semantic.part-membership.is-add",
         "object-context-menu.parameter.group-row.class",
         "object-context-menu.parameter.group-row.source",
         "object-context-menu.parameter.row-parameters",

@@ -10,6 +10,7 @@ import java.util.Set;
 public final class NativeHistoryDecoderRegistry {
 
     private final GroupUndoDecoder group = new GroupUndoDecoder();
+    private final PartMembershipDecoder partMembership = new PartMembershipDecoder();
     private final AddOrRemoveDecoder addOrRemove = new AddOrRemoveDecoder();
     private final PropertyUndoDecoder property = new PropertyUndoDecoder();
     private final SimpleUndoDecoder simple = new SimpleUndoDecoder();
@@ -43,6 +44,9 @@ public final class NativeHistoryDecoderRegistry {
             if (authorized(resolver, EditorHistorySemanticSelectorContract.GROUP_REQUIRED_ALIASES)
                 && resolver.isExactInstance("cubism.editor-history.semantic.group.class", entry)) {
                 return group.decode(entry, label, context, depth, this);
+            }
+            if (partMembership.supports(resolver, entry)) {
+                return partMembership.decode(entry, label, context, depth, this);
             }
             if (addOrRemove.supports(resolver, entry)) {
                 return addOrRemove.decode(entry, label, context, depth, this);
