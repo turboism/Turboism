@@ -15,6 +15,7 @@ import java.util.Set;
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.internal;
 import static dev.turboism.adapter.cubism.editor.history.NativeUndoIngressObserverTest.method;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -389,6 +390,34 @@ class NativeEditIngressTest {
         RotationDouble(final String localName) {
             super(localName);
         }
+    }
+
+    @Test
+    void onlyTheTipOfTheUndoListMayBeReadAsALivePostState() {
+        // A decode runs outside the host's listener loop, so the operator may have committed
+        // another edit since. A cursor behind the tail means later entries exist that could
+        // already hold a different value for the same object.
+        final Object first = new Object();
+        final Object second = new Object();
+
+        assertTrue(
+            NativeEditIngress.isCurrentTip(List.of(first), 1, first),
+            "the entry at position - 1 is the tip"
+        );
+        assertFalse(
+            NativeEditIngress.isCurrentTip(List.of(first, second), 1, first),
+            "a cursor behind the tail means later entries exist"
+        );
+        assertTrue(
+            NativeEditIngress.isCurrentTip(List.of(first, second), 2, second),
+            "the last entry with the cursor at the end is the tip"
+        );
+        assertFalse(
+            NativeEditIngress.isCurrentTip(List.of(first, second), 2, first),
+            "only the entry the cursor points at may be read"
+        );
+        assertFalse(NativeEditIngress.isCurrentTip(List.of(), 0, first), "an empty list has no tip");
+        assertFalse(NativeEditIngress.isCurrentTip(null, 1, first), "an unreadable list has no tip");
     }
 
     public static final class PartSourceDouble extends SourceBase {

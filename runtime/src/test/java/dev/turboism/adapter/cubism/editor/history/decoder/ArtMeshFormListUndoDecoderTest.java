@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 class ArtMeshFormListUndoDecoderTest {
 
@@ -138,6 +139,65 @@ class ArtMeshFormListUndoDecoderTest {
         assertEquals("#ff0000", second.changes().get(0).before().orElseThrow());
         assertEquals("#0000ff", second.changes().get(0).after().orElseThrow());
         assertEquals(first, registry.decode(resolver(), new SimpleEntry(a, a, b), "Edit").detail().orElseThrow());
+    }
+
+    @Test
+    void liveTargetStandsInForTheMissingPostStateWhenTheCallerProvesIt() {
+        // The host stores no post state at commit: SimpleUndo assigns targetData and undoData and
+        // fills redoData in lazily inside undo(). When the caller has proved the entry is still the
+        // undo manager's tip, the live target is that entry's own result and may be read.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form live = form(source, "form-default", color(0.4F, 0.8F, 1.0F), color(0, 0, 0));
+
+        final NativeHistoryDecodeResult result = new NativeHistoryDecoderRegistry().decode(
+            resolver(),
+            new SimpleEntry(live, before, null),
+            "Edit Artmesh",
+            true
+        );
+
+        assertEquals(NativeHistoryDecodeResult.Outcome.DECODED, result.outcome(), result.diagnosticId());
+        final var detail = result.detail().orElseThrow();
+        assertEquals("#ffffff", detail.changes().get(0).before().orElseThrow());
+        assertEquals("#66ccff", detail.changes().get(0).after().orElseThrow());
+    }
+
+    @Test
+    void onlyTheLastWriterOfOneFormMayReadTheLiveTarget() {
+        // A group may write the same form twice, and the live target then holds the last writer's
+        // result. Reading it for the earlier child would report that child's post state as a later
+        // one's, so the earlier child must fail closed.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form middle = form(source, "form-default", color(1.0F, 0.0F, 0.0F), color(0, 0, 0));
+        final Form shared = form(source, "form-default", color(0.0F, 0.0F, 1.0F), color(0, 0, 0));
+
+        final GroupEntry group = new GroupEntry(new ArrayList<>(List.of(
+            new SimpleEntry(shared, before, null),
+            new SimpleEntry(shared, middle, null)
+        )));
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(), group, "Grouped edit", true
+        ).detail().orElseThrow();
+        final var children = detail.group().orElseThrow().children();
+
+        assertEquals(2, children.size());
+        assertEquals(
+            "history.detail.post-state-unavailable",
+            children.get(0).degradationCode().orElseThrow(),
+            "the earlier writer of the same form must not read the live target"
+        );
+        assertFalse(
+            children.get(0).changes().size() > 0,
+            "no change may be derived for the earlier writer"
+        );
+        assertEquals(
+            "#ff0000",
+            children.get(1).changes().get(0).before().orElseThrow(),
+            "the last writer of the form may read the live target"
+        );
+        assertEquals("#0000ff", children.get(1).changes().get(0).after().orElseThrow());
     }
 
     @Test
