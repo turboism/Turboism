@@ -8,6 +8,14 @@ test('sync ignores drafts, resolves commit, no legacy requests, no fabricated ab
  const s=await synchronize(null,{},source([fixture(),{...fixture('1.3.0'),draft:true}]));
  assert.equal(s.releases.length,1);assert.equal(documentFor(s,'stable').release.version,'1.2.3');assert.equal(documentFor(s,'beta').status,'not_published');
 });
+test('transient per-channel GitHub failure keeps the last verified active release available',async()=>{
+ const old=await synchronize(null,{},source([fixture()]));
+ const flaky=async url=>{const p=new URL(url).pathname;if(p.endsWith('/releases'))return reply([fixture()]);if(p.includes('/git/ref/tags/'))return new Response('rate limited',{status:403});throw new Error('unexpected network request '+p);};
+ const next=await synchronize(old,{},flaky);
+ assert.match(next.errors.stable,/GitHub HTTP 403/);
+ assert.equal(documentFor(next,'stable').status,'ready');
+ assert.equal(documentFor(next,'stable').release.version,'1.2.3');
+});
 test('GitHub failure cannot silently become unpublished; same-version changed bytes fail',async()=>{
  await assert.rejects(()=>synchronize(null,{},async()=>new Response('rate limited',{status:403})));
  const old=await synchronize(null,{},source([fixture()]));const raw=fixture();raw.assets[0].digest='sha256:'+'c'.repeat(64);
