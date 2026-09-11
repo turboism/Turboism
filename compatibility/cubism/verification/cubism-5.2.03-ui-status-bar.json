@@ -296,6 +296,28 @@
       "requiredAccessFlags": 17,
       "forbiddenAccessFlags": 8,
       "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.class.canvas_hint_position",
+      "alias": "cubism.ui-canvas-hint.position.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_2_03.ui_status_bar.constructor.canvas_hint_position",
+      "alias": "cubism.ui-canvas-hint.position.create",
+      "kind": "constructor",
+      "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+      "memberName": "<init>",
+      "descriptor": "(FF)V",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
     }
   ]
 }
