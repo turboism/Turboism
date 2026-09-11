@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
@@ -41,7 +43,7 @@ class RuntimePsdExportServiceTest {
     Path temporaryRoot;
 
     @Test
-    void readableAndMatchingNativeObservationRemainsFailedWithoutHandle() throws Exception {
+    void readableObservationWithoutSessionBindingFailsClosedWithoutHandle() throws Exception {
         final AtomicBoolean active = new AtomicBoolean(true);
         final List<String> permissionCalls = new ArrayList<>();
         final AtomicReference<Path> destination = new AtomicReference<>();
@@ -66,7 +68,7 @@ class RuntimePsdExportServiceTest {
             assertTrue(result.file().isEmpty());
             assertTrue(result.initialRevision().isEmpty());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=EXPORTED;integrity=MATCHED;readable=true;structure=true",
+                "PSD_NATIVE_EXPORT;status=EXPORTED_UNBOUND;integrity=MATCHED;readable=true;structure=true",
                 result.diagnostic()
             );
             assertEquals(1, hostCalls.get());
@@ -75,6 +77,42 @@ class RuntimePsdExportServiceTest {
             }
             assertNotNull(destination.get());
             assertEquals("external-edit.psd", destination.get().getFileName().toString());
+        } finally {
+            service.close();
+        }
+    }
+
+    @Test
+    void readableObservationFromSessionBoundPortIssuesHandleAndBaseline() throws Exception {
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final RuntimePsdExportService service = service(active, allowAll(), Runnable::run);
+        try {
+            final SessionBoundExportHost host = new SessionBoundExportHost() {
+                @Override public String sessionIdentity() { return "session-1"; }
+
+                @Override public long generation() { return 7L; }
+
+                @Override public PsdExportHost.Observation exportPsdTo(
+                    final RawImageId source, final Path destination, final Runnable admission) {
+                    admission.run();
+                    try {
+                        Files.writeString(destination, "runtime PSD export fixture");
+                    } catch (IOException failure) {
+                        throw new IllegalStateException(failure);
+                    }
+                    return new PsdExportHost.Observation("EXPORTED", "MATCHED", true, true);
+                }
+            };
+
+            final PsdExportResult result = awaitCompletion(service.exportRawImagePsd(host, SOURCE));
+
+            assertEquals(PsdExportResult.Status.EXPORTED, result.status());
+            assertTrue(result.file().isPresent());
+            assertTrue(result.initialRevision().isPresent());
+            assertEquals(
+                "PSD_NATIVE_EXPORT;status=EXPORTED;integrity=MATCHED;readable=true;structure=true",
+                result.diagnostic()
+            );
         } finally {
             service.close();
         }
@@ -186,7 +224,8 @@ class RuntimePsdExportServiceTest {
             () -> {
                 allocations.incrementAndGet();
                 return PsdTemporaryFile.createIn(temporaryRoot);
-            }
+            },
+            file -> { }
         );
         try {
             final PsdExportHost host = (source, destination, admission) -> {
@@ -359,8 +398,8 @@ class RuntimePsdExportServiceTest {
                 return new PsdExportHost.Observation(
                     "/tmp/private.psd",
                     "exception: /secret/native-message",
-                    true,
-                    true
+                    false,
+                    false
                 );
             };
 
@@ -368,7 +407,7 @@ class RuntimePsdExportServiceTest {
 
             assertEquals(PsdExportResult.Status.FAILED, result.status());
             assertEquals(
-                "PSD_NATIVE_EXPORT;status=UNKNOWN;integrity=UNKNOWN;readable=true;structure=true",
+                "PSD_NATIVE_EXPORT;status=UNKNOWN;integrity=UNKNOWN;readable=false;structure=false",
                 result.diagnostic()
             );
             assertFalse(result.diagnostic().contains("/tmp/private.psd"));
@@ -377,6 +416,8 @@ class RuntimePsdExportServiceTest {
             service.close();
         }
     }
+
+    private interface SessionBoundExportHost extends PsdExportHost, PsdSessionBoundHost { }
 
     private RuntimePsdExportService service(
         final AtomicBoolean active,
@@ -388,7 +429,8 @@ class RuntimePsdExportServiceTest {
             permissionChecker,
             active::get,
             dispatcher,
-            () -> PsdTemporaryFile.createIn(temporaryRoot)
+            () -> PsdTemporaryFile.createIn(temporaryRoot),
+            file -> { }
         );
     }
 

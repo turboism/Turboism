@@ -163,15 +163,21 @@ public final class TextureRelationsHostProbe implements TurboismPlugin {
         result.setProperty("export.fileIssued", Boolean.toString(exported.file().isPresent()));
         result.setProperty("export.fullFidelity", "NOT_VERIFIED");
         validateExportObservation(exported);
-        result.setProperty("assertion", "native export readable; no pixel or structural admission; SDK handle not yet issued");
+        final var stopped = exported.file().orElseThrow().stop().toCompletableFuture()
+            .get(60, java.util.concurrent.TimeUnit.SECONDS);
+        result.setProperty("export.stopStatus", stopped.status().name());
+        if (stopped.status() != dev.turboism.sdk.cubism.psd.PsdFileOperationResult.Status.STOPPED) {
+            throw new IllegalStateException("Issued PSD edit handle did not stop cleanly");
+        }
+        result.setProperty("assertion", "native export readable; runtime-issued edit handle obtained and stopped; no pixel or structural admission");
     }
 
     static void validateExportObservation(final dev.turboism.sdk.cubism.psd.PsdExportResult exported) {
-        if (exported.status() != dev.turboism.sdk.cubism.psd.PsdExportResult.Status.FAILED
-            || exported.file().isPresent() || exported.initialRevision().isPresent()
+        if (exported.status() != dev.turboism.sdk.cubism.psd.PsdExportResult.Status.EXPORTED
+            || exported.file().isEmpty() || exported.initialRevision().isEmpty()
             || !exported.diagnostic().matches(
                 "PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=(MATCHED_UNVERIFIED|MISMATCH|UNAVAILABLE);readable=true;structure=(true|false)")) {
-            throw new IllegalStateException("Native readable observation without an unfinished SDK file capability was not obtained");
+            throw new IllegalStateException("Native readable export without a runtime-issued edit handle was not obtained");
         }
     }
     static void validate(final TextureRelationsSnapshot snapshot) {
