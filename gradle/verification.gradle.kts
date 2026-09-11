@@ -811,6 +811,7 @@ tasks.register("checkRelease") {
         "checkSdkV7ExactApiCompatibility",
         "checkSdkV8ExactApiCompatibility",
         "checkSdkV9ExactApiCompatibility",
+        "checkSdkV10ExactApiCompatibility",
         "checkSdkV8Linkage",
         "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,

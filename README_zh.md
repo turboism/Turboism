@@ -93,7 +93,7 @@ cd Turboism
 
 - [用户与开发者文档](https://docs.turboism.dev)
 - [架构说明](ARCHITECTURE.md)与[路线图](ROADMAP.md)
-- [SDK API 契约与兼容性](sdk/api-contracts/)及[SDK v7 迁移说明](sdk/api-contracts/sdk-api-v7-review.md)
+- [SDK API 契约与兼容性](sdk/api-contracts/)及[SDK v10 迁移说明](sdk/api-contracts/sdk-api-v10-review.md)，[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)与[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) 评审保留为历史审计
 - [示例插件](plugins/demo/README.md)
 - [Java 安装器详细说明](packaging/java-installer/README-java-installer.md)
 - [发布流程](RELEASING.md)与[更新日志](CHANGELOG.md)
