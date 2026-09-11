@@ -646,3 +646,28 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **判定口径（写入 spec/plan 与 README）**：命中只说明"该资源在该时刻仍**经此缓存**软可达"，**不等于**缺陷，也不排除 live thread / native 根；`PARTIAL`/`UNSUPPORTED` 不能排除任何方向。修复需另立切片并单独授权，本片不做任何驱逐或清理。
 - **未完成**：T006（实机运行与台账记录）与 T007（README 定稿）保持未完成。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（无优化改动）；产出为把 I31 机制候选转为可执行的只读实测方案与已通过门禁的探针。
+
+### I33 — 030 静态软引用缓存实机确认：848 个保留资源在关闭后仍经 `cacheList` 软可达（2026-09-10）
+
+- **三次运行（同一身份口径，新 prepare/新 label/新 request-id）**：
+  - `nr-soft-b1`（prepared `90231c7c…`，HEAD `313804e04`，job `a30e3bf8-…`，run `queue-315f8610…`）：workload **PASS**，但 `softCache.*` 四点全部 `UNSUPPORTED`/`access` → 探针缺陷（见下），**不作为结论**。
+  - `nr-soft-b2`（prepared `6b101bcf…`，HEAD `834ea89f7`，job `3d1f1f74-…`，run `queue-1b1bbd1b…`）：workload **PASS**；`idle` **COMPLETE**（`entries=4477`、`cohortSize=848`、`matchedCohort=848`）、`closed120`/`closedFinal` **COMPLETE**（`entries=2207`、`matchedCohort=585`）；`beforeClose` **PARTIAL**/`time-limit`（250ms 内做了冗余的 entries×cohort 比较），故聚合 `INCOMPLETE`。
+  - `nr-soft-b3`（prepared `0d06d6b7…`，HEAD `e034444b1`，job `8fb0d886-…`，run `queue-c744352b…`）：**决定性运行，四项全 COMPLETE**。
+- **nr-soft-b3 实机读数（`status=PASS`、`ownership.attributionStatus=COMPLETE`、`softCache.attributionStatus=COMPLETE`）**：
+
+  | 采集点 | status | entries | visited | cohortSize | matchedCohort | matchedDistinct | durationNs |
+  |---|---|---|---|---|---|---|---|
+  | `softCache.idle` | COMPLETE | **4477** | 4477 | 848 | **848** | 848 | 55.52 ms |
+  | `softCache.beforeClose` | COMPLETE | **4477** | 4477 | 848 | **848** | 848 | 145.22 ms |
+  | `softCache.closed120` | COMPLETE | **2207** | 2207 | 848 | **585** | 585 | 4.82 ms |
+  | `softCache.closedFinal` | COMPLETE | **2207** | 2207 | 848 | **585** | 585 | 4.70 ms |
+
+  同期 024：`retain.beforeZoom.resources=848`、`retain.beforeClose.resources=848`、`retain.closed.resources.total=848`、`notCleared=848`、`cleared=0`；`documentWeakCleared=false`、`documentWeakClearedAtSamplerEnd=false`。029 回归：三组 `staticRoots.*` 仍 `COMPLETE` 且 `holdersWithRecordedSource/Document=0`。
+- **结论（机制由实机确认，不再只是“足以解释”）**：静态 `CImageResource.cacheList` 在文档合法打开时缓存了**全部 848** 个被观测资源；关闭后缓存规模从 4477 降到 2207，**仍有 585 个** 队列资源经软引用被缓存，且在 +120s 与 sampler end 保持稳定。由于软可达是传递的（资源强引用其 `ICImageResourceUser` → `_modelSource` → `CModelSource` 的非 final `document` 反向指针），这 585 个足以让整个模型图（含其余 263 个未直接命中缓存的资源）保持**软可达**；软可达对象不会被弱引用清除，显式 `System.gc()` 在内存宽裕时也不会清软引用。**这完整解释了 024/028/029 的全部观测，且不需要任何强根**——与 I29/I30“34 项审查静态根、登记表、视图历史全部为空”完全一致，两者不再互相矛盾。
+- **关于“848 未清 vs 585 命中”不矛盾**：文档图本身仍可达时，`CModelSource.textureManager → CModelImageGroup → CModelImage → _filteredImage` 会把全部 848 个资源一并保持存活；585 是**直接**经缓存软可达的下界（`matchedDistinct` 为下界，已清引用者被跳过），不是资源存活数的上界。
+- **两个探针缺陷（已修并各自留下回归）**：
+  1. b1 的 `UNSUPPORTED`/`access`：持有者类 `CImageResource$b` 是**包私有**，跨包反射调用其 public 访问器抛 `IllegalAccessException`。修复：显式 `accessor.trySetAccessible()`；新增**跨包包私有持有者**的合成回归，并已验证该回归在还原修复后确实失败。同时新增 `failureKind` 标量便于单次运行定位。
+  2. b2 的 `beforeClose` `PARTIAL`/`time-limit`：每个缓存条目都重走整条队列，`entries×cohort` 比较超出 250ms 预算。修复：每个队列成员只解析一次（`resolved[]`），使 `matchedCohort==matchedDistinct` 成为构造性事实，且扫描在全部解析后短路；**未放宽任何时间/上限规则**，只是去掉冗余工作。
+- **已知覆盖限制（不得过度声称）**：本片沿用现有 phase 时序，因此**未观测** 300s 清理 tick 与 360s 闲置归档规则本身；只观测到缓存在两次关闭后采样之间缩小（4477→2207）。未做堆转储、GC 根遍历、保留大小测量、强制 GC 或任何驱逐/清理。命中**不等于缺陷**：软缓存加有界驱逐是合法设计；是否应在关闭文档时显式释放需另立修复切片并单独授权。也不排除 live thread / native 根（本片未覆盖）。
+- **证据归档（使用规则 7）**：`run/nr-soft-b1|b2|b3/`（各含 `job/`、`task/result/result.properties`、`task/evidence/`（含 samples 与 sampler 日志）、`task/logs/`），归档 `MANIFEST.sha256` 已刷新（249 项 / 11MiB）。
+- **有效程度**：新增内存/CPU/GPU 收益 **NONE**（无优化改动，未做任何释放）；产出为**由实机观测确认的关闭后保留机制**——静态软引用缓存 + 资源→使用者强反向引用，并把此前四条独立阴性结论（登记表、视图历史、34 项静态根、类字段型静态根）统一到一个自洽解释中。
