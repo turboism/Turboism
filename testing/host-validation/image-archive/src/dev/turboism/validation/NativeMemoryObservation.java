@@ -65,7 +65,7 @@ final class NativeMemoryObservation {
     static void observe(Path home) throws Exception {
         int seconds = Integer.parseInt(System.getProperty("turboism.validation.textureUpload.memoryIdleSeconds", "0"));
         if (seconds == 0) return;
-        if (seconds < 30 || seconds > 300) throw new IllegalArgumentException("memory idle window must be 30..300 seconds");
+        if (seconds < 30 || seconds > 900) throw new IllegalArgumentException("memory idle window must be 30..900 seconds");
         Path directory = home.resolve("state/texture-upload/memory");
         Files.createDirectories(directory);
         if (!Files.isRegularFile(directory.resolve("attached.properties"))) {

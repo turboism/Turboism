@@ -43,8 +43,14 @@ public final class NativeResourceHostAgent {
             RESULT.setProperty("runId", System.getProperty("turboism.validation.runId", ""));
             RESULT.setProperty("profile", System.getProperty("turboism.validation.resource.profile", "false"));
             require(Runtime.version().feature() == 17, "requires exact host JVM17");
-            require(Integer.getInteger("turboism.validation.textureUpload.memoryIdleSeconds", 0) == 300,
-                    "resource protocol requires 300s sampler window");
+            int idleSeconds = Integer.getInteger("turboism.validation.textureUpload.memoryIdleSeconds", 0);
+            // Two admitted cohorts: the 300s baseline, and a 780s cohort that is the earliest window able to observe
+            // the host's own 300s drain tick and 360s idle-archive rule. No other value is admitted.
+            require(idleSeconds == 300 || idleSeconds == 780,
+                    "resource protocol requires a 300s baseline or 780s extended sampler window");
+            RESULT.setProperty("samplerWindowSeconds", Integer.toString(idleSeconds));
+            RESULT.setProperty("cohort",
+                    idleSeconds == 780 ? "extended-eviction-window" : "baseline-300s");
             for (String name : List.of("imageArchiveReuse", "floatArrayParseCache", "textureUploadPreparation", "warpPositionProjection")) {
                 require(!Boolean.getBoolean("turboism.optimization." + name), "diagnostic baseline requires optimizations off");
             }
@@ -111,6 +117,18 @@ public final class NativeResourceHostAgent {
                         require(((List<?>) call(app, "getAllDocs")).isEmpty(), "document reopened during closed window");
                         return null;
                     });
+                    // Extended closed window: the drain tick fires every 300s and archives at most one entry per
+                    // tick, so +360s and +600s are the earliest instants that can observe it at all.
+                    for (int[] point : new int[][]{{360, 240_000}, {600, 240_000}}) {
+                        Thread.sleep(point[1]);
+                        String name = "closed" + point[0];
+                        observeOwnershipClosed(verifiedApp, frame, name, closedWeak);
+                        observeSoftCacheClosed(verifiedApp, frame, name);
+                        RESULT.setProperty("documentWeakClearedAt" + point[0], Boolean.toString(document.refersTo(null)));
+                        if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain." + name);
+                    }
+                    RESULT.setProperty("closed.elapsedSeconds", "600");
+                    require(!(idleSeconds == 300), "extended closed window requires the 780s sampler cohort");
                     phase("closed.end");
                 } catch (Throwable problem) { failure.set(problem); }
             }, "turboism-native-camera-workload");
@@ -131,12 +149,12 @@ public final class NativeResourceHostAgent {
                 observeSoftCacheClosed(verifiedApp, frame, "closedFinal");
             }
             boolean ownershipComplete = true;
-            for (String name : List.of("idle", "beforeClose", "closed120", "closedFinal")) {
+            for (String name : List.of("idle", "beforeClose", "closed120", "closed360", "closed600", "closedFinal")) {
                 ownershipComplete &= "COMPLETE".equals(RESULT.getProperty("ownership." + name + ".status"));
             }
             RESULT.setProperty("ownership.attributionStatus", ownershipComplete ? "COMPLETE" : "INCOMPLETE");
             boolean softCacheComplete = true;
-            for (String name : List.of("idle", "beforeClose", "closed120", "closedFinal")) {
+            for (String name : List.of("idle", "beforeClose", "closed120", "closed360", "closed600", "closedFinal")) {
                 softCacheComplete &= "COMPLETE".equals(RESULT.getProperty("softCache." + name + ".status"));
             }
             RESULT.setProperty("softCache.attributionStatus", softCacheComplete ? "COMPLETE" : "INCOMPLETE");
