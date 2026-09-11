@@ -921,3 +921,23 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **根因**：`updateDefault` 在 EDT 上触发宿主「保存工作区布局」类命令——5.2.03 实际会弹出需要输入布局名的**模态对话框**；modal grab 使后续 `invokeAndWait`（第 6 次 switch）永久排队，无人值守矩阵无法自愈。`WorkspaceCoordinator.dispatchOnEdt` 的 `invokeAndWait` 无超时是放大器（技术债，未改）。
 - **结论修正**：I50 的「infra flake」判断更新为「确定性 harness 限制」——workspace 矩阵的 update-default 段在当前无人值守模式下不可自动完成；已获得的 exact-host 证据（加载/连接/12 次 EDT 调用零异常）仍然有效。
 - **对后续验证的建议**：workspace 矩阵需拆分——update-default/reset-default 段要求对话框自动化或交互操作员；或在 probe 侧将该段标记为手动门。`parameter:5203@document-close` 不走该路径，不受影响。
+
+### I52 — parameter document-close 四轮实机：收集器两处缺陷修复，r4 终态 PASS（2026-09-12）
+
+- **r1（`queue-59e12240`）**：三个阶段 artifact 全部 PASS（modelStale/meshStale/warpStale/rotationStale
+  全 true），但 `finishAutomatedValidation` 的文件名过滤器漏掉 `*-close.txt` → 误报
+  `artifactCount=0` → FAIL。修复：过滤器补 `-close`（`6bd49a655`）。
+- **r2（`queue-f6fa3b3b`）**：主 artifact 再次 PASS，但 `artifactCount=2`——peer probe 每个会话
+  都在 logs/ 写 `status=RUNNING phase=waiting-for-primary` 占位；document-close 模式从不触发
+  peer，占位永驻 RUNNING 并参与门禁 → FAIL。
+- **r3（`queue-bdf096a6`）**：第一版占位过滤漏了 `passed` 的基准赋值（`passed` 恒 false）→ FAIL。
+  根因：`summarizeArtifacts` 无单测，focused 测试绿灯是空转。
+- **修复（`12666c6a8`）**：判定逻辑抽为包私有静态 `summarizeArtifacts`——非终态（RUNNING）文件
+  只列报为证据、不计入门禁；`passed = 存在终态 artifact 且全部 PASS`。补 3 个单测覆盖
+  PASS+RUNNING 混合 / 全 RUNNING / FAIL 场景。plugin-scope-close 语义保持：peer 终态 artifact
+  仍被计数；peer 卡死时主 artifact 的 `secondPluginUsable=false` 已经 FAIL，不依赖占位门禁。
+- **r4（`queue-a32dec96`，job `f5fc9b4b`）：终态 PASS**——本分支首个干净的 exact-host 终态通过。
+  真实 Cubism 5.2.03（jar hash `bcc6e34f…` 校验 PASS）上 document-close 四个 stale 检查全 true：
+  036 借用模型关闭释放与 038 publish 跟随绑定获实机验证。
+- **限制**：doc-close PASS 证明的是「关闭后失效语义」，不是性能指标；遍历/反射收益的实机量化
+  仍未取得（workspace 矩阵被 I51 的模态对话框挡住）。
