@@ -1,5 +1,7 @@
 # SDK v9 main/Atlas integration contract review
 
+> Superseded as the live gate by [v10](sdk-api-v10-review.md), which registers the additive canvas-hint surface. v9 remains frozen and is still audited historically by `checkRelease`; the statements below describe the original v9 acceptance.
+
 The user explicitly approved Atlas queue integration and SDK contract coordination after the merged main SDK failed the frozen v8 exact gate. This is a contract revision, not a release or a host-validation PASS. No SDK production source is changed by the original revision; revision 2 below moves the anchor without changing SDK source.
 
 ## Immutable reference
