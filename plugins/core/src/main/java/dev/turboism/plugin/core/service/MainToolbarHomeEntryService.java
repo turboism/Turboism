@@ -3,7 +3,6 @@ package dev.turboism.plugin.core.service;
 import dev.turboism.sdk.i18n.PluginLocalization;
 import dev.turboism.sdk.menu.MenuRegistry;
 import dev.turboism.plugin.core.CorePluginManagement;
-import dev.turboism.plugin.core.CoreUpdateService;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import dev.turboism.sdk.runtime.RuntimeSettingsService;
@@ -63,7 +62,6 @@ public final class MainToolbarHomeEntryService {
     private final PluginLocalization localization;
     private final RuntimeSettingsService runtimeSettings;
     private final CorePluginManagement plugins;
-    private final CoreUpdateService updates;
 
     public MainToolbarHomeEntryService(
         final UiHostCapabilityService uiHost,
@@ -99,26 +97,12 @@ public final class MainToolbarHomeEntryService {
         final RuntimeSettingsService runtimeSettings,
         final CorePluginManagement plugins
     ) {
-        this(uiHost, mainToolbar, menus, localization, runtimeSettings, plugins,
-            CoreUpdateService.unavailable());
-    }
-
-    public MainToolbarHomeEntryService(
-        final UiHostCapabilityService uiHost,
-        final MainToolbarRegistry mainToolbar,
-        final MenuRegistry menus,
-        final PluginLocalization localization,
-        final RuntimeSettingsService runtimeSettings,
-        final CorePluginManagement plugins,
-        final CoreUpdateService updates
-    ) {
         this.uiHost = Objects.requireNonNull(uiHost, "uiHost");
         this.mainToolbar = Objects.requireNonNull(mainToolbar, "mainToolbar");
         this.menus = Objects.requireNonNull(menus, "menus");
         this.localization = Objects.requireNonNull(localization, "localization");
         this.runtimeSettings = Objects.requireNonNull(runtimeSettings, "runtimeSettings");
         this.plugins = Objects.requireNonNull(plugins, "plugins");
-        this.updates = Objects.requireNonNull(updates, "updates");
     }
 
     /**
@@ -212,69 +196,8 @@ public final class MainToolbarHomeEntryService {
         uiHost.activateEmbeddedPanel(TURBOISM_PANEL_ID);
     }
 
-    private PanelView panelView() {
-        if (!updates.available()) return PanelView.column(PanelView.text(""));
-        final CoreUpdateService.Snapshot state = updates.snapshot();
-        final PanelView check = PanelView.button(
-            "turboism-update-check",
-            localized("updates.check", "Check for updates"),
-            CoreUpdateService.MANUAL_CHECK_ACTION_ID
-        );
-        return switch (state.status()) {
-            case IDLE, CHECKING -> PanelView.column(
-                PanelView.text(localized("updates.ready", "Check for Turboism updates")),
-                check
-            );
-            case UPDATE_AVAILABLE -> PanelView.column(
-                PanelView.text(format(
-                    "updates.available",
-                    "Turboism " + state.availableIdentity().orElse("a newer version") + " is available.",
-                    state.availableIdentity().orElse("a newer version")
-                )),
-                PanelView.row(
-                    PanelView.button(
-                        "turboism-update-download",
-                        localized("updates.download", "Open download page"),
-                        CoreUpdateService.DOWNLOAD_ACTION_ID
-                    ),
-                    check
-                )
-            );
-            case UP_TO_DATE -> PanelView.column(
-                PanelView.text(format(
-                    "updates.up-to-date",
-                    "Turboism " + state.localVersion() + " is up to date.",
-                    state.localVersion()
-                )),
-                check
-            );
-            case UNAVAILABLE -> PanelView.column(
-                PanelView.text(localized(
-                    "updates.unavailable", "Turboism updates are currently unavailable."
-                )),
-                check
-            );
-            case DISABLED -> PanelView.column(
-                PanelView.text(localized(
-                    "updates.disabled", "Automatic Turboism update checks are disabled."
-                )),
-                check
-            );
-            case CLOSED -> PanelView.column(
-                PanelView.text(localized(
-                    "updates.unavailable", "Turboism updates are currently unavailable."
-                ), true)
-            );
-        };
-    }
-
-    private String format(final String key, final String fallback, final Object... arguments) {
-        try {
-            final String value = localization.format(key, arguments);
-            return key.equals(value) ? fallback : value;
-        } catch (RuntimeException unavailable) {
-            return fallback;
-        }
+    private static PanelView panelView() {
+        return PanelView.column(PanelView.text(""));
     }
 
 }
