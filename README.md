@@ -91,7 +91,7 @@ The demo is development-only, not part of the release bundle. Run focused tests 
 
 - [User and developer documentation](https://docs.turboism.dev)
 - [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
-- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v7 migration notes](sdk/api-contracts/sdk-api-v7-review.md)
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v8 migration notes](sdk/api-contracts/sdk-api-v8-review.md), with the [v7 review](sdk/api-contracts/sdk-api-v7-review.md) kept as a historical audit
 - [Demo plugin](plugins/demo/README.md)
 - [Java installer details](packaging/java-installer/README-java-installer.md)
 - [Release process](RELEASING.md) and [changelog](CHANGELOG.md)
