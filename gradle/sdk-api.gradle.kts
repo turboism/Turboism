@@ -26,7 +26,7 @@ val sdkV8ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselin
 val sdkV8ExactCommit = "959ca8c359f24b80c86bb9699c8111d067e75694"
 val sdkV8ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v8-exact-reference.jar")
 val sdkV9ExactBaseline = layout.projectDirectory.file("sdk/api-contracts/baselines/sdk-api-v9-exact.json")
-val sdkV9ExactCommit = "7f8b005e953c04254e95c91925e8c93128121288"
+val sdkV9ExactCommit = "adc5ab88d8e30be6b7c572ebdcdabad09b251f7d"
 val sdkV9ExactReferenceArtifact = layout.buildDirectory.file("sdk-api-baseline/v9-exact-reference.jar")
 val sdkHistoryGradleUserHome = providers.gradleProperty("turboismSdkHistoryGradleUserHome")
     .map { file(it).canonicalFile }

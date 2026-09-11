@@ -15,6 +15,13 @@ async function sourceFor(tag,fetcher){
  for(let i=0;obj?.type==='tag'&&i<4;i++){if(!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid tag');obj=(await github(`/git/tags/${obj.sha}`,fetcher)).value.object;}
  if(obj?.type!=='commit'||!/^[a-f0-9]{40}$/.test(obj.sha))throw new Error('Invalid source commit');return obj.sha;
 }
+function transientUpstream(error){
+ const message=String(error?.message??error??'');
+ return /^GitHub HTTP (403|408|429|5\d\d)$/.test(message)||/(?:fetch failed|network|timed? ?out|timeout|aborted)/i.test(message);
+}
+function previousRelease(previous,channel,activeTags){
+ return (previous?.releases??[]).filter(r=>r.channel===channel&&activeTags.has(r.tag)).sort((a,b)=>compareVersions(b.version,a.version))[0]??null;
+}
 export const fingerprint=mirrorFingerprint;
 /** Only published product releases are observed. No software builds or tags are created. */
 export async function synchronize(previous,env={},fetcher=fetch){
@@ -34,7 +41,10 @@ export async function synchronize(previous,env={},fetcher=fetch){
    let release=parseRelease(raw,source,identity);const key=release.tag;
    if(known[key]&&fingerprint(known[key].release)!==fingerprint(release))throw new Error('Immutable release conflict');
    release=await mirrorRelease(release,env.DOWNLOADS,fetcher);known[key]={active:true,countsAsOf:new Date().toISOString(),release:{tag:release.tag,sourceRevision:release.sourceRevision,assets:release.assets}};releases.push(release);
-  }catch(error){errors[channel]=String(error.message??'RELEASE_INVALID').slice(0,120);}
+  }catch(error){
+   errors[channel]=String(error.message??'RELEASE_INVALID').slice(0,120);
+   if(transientUpstream(error)){const cached=previousRelease(previous,channel,activeTags);if(cached)releases.push(cached);}
+  }
  }
  return {schemaVersion:1,syncedAt:new Date().toISOString(),releases,known,errors};
 }
