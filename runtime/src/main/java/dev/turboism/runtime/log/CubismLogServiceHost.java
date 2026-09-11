@@ -1,6 +1,7 @@
 package dev.turboism.runtime.log;
 
 import dev.turboism.core.event.RuntimeEventBroker;
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.core.runtime.RuntimeScheduler;
 import dev.turboism.core.runtime.RuntimeTimerHandle;
 import dev.turboism.core.runtime.RuntimeTimerSubmission;
@@ -233,11 +234,16 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
     /** Converts a log4j2 LogEvent into a typed log entry (real level, no text guessing). */
     private LogEntry toEntry(final Object event) {
         try {
-            final Object level = event.getClass().getMethod("getLevel").invoke(event);
-            final String levelName = String.valueOf(level.getClass().getMethod("name").invoke(level));
-            final Object messageObject = event.getClass().getMethod("getMessage").invoke(event);
+            final Object level = MethodHandleCache.method(event.getClass(), "getLevel")
+                .invoke(event);
+            final String levelName = String.valueOf(
+                MethodHandleCache.method(level.getClass(), "name").invoke(level)
+            );
+            final Object messageObject = MethodHandleCache.method(event.getClass(), "getMessage")
+                .invoke(event);
             final String message = messageObject == null ? "" : String.valueOf(messageObject);
-            final long timestamp = (Long) event.getClass().getMethod("getTimeMillis").invoke(event);
+            final long timestamp = (Long) MethodHandleCache
+                .method(event.getClass(), "getTimeMillis").invoke(event);
             return new LogEntry(toSdkLevel(levelName), message, timestamp * 1_000_000L);
         } catch (ReflectiveOperationException | LinkageError failure) {
             return new LogEntry(LogLevel.INFO, String.valueOf(event), System.nanoTime());

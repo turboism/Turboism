@@ -2,6 +2,7 @@ package dev.turboism.core.reflect;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,8 @@ class MethodHandleCacheTest {
         public void setValue(final double value) { }
 
         private String hidden() { return "hidden"; }
+
+        private int secret = 7;
     }
 
     static final class Derived extends Base {
@@ -108,6 +111,25 @@ class MethodHandleCacheTest {
         assertTrue(invoked, "one of the cached overloads must accept a boxed Float argument");
         assertFalse(MethodHandleCache.overloads(Base.class, "setValue", 1).isEmpty());
         assertTrue(MethodHandleCache.overloads(Base.class, "missing", 1).isEmpty());
+    }
+
+    @Test
+    void declaredFieldHitsAndReturnsSameHandle() throws Exception {
+        final Field first = MethodHandleCache.declaredField(Base.class, "secret");
+        final Field second = MethodHandleCache.declaredField(Base.class, "secret");
+        assertSame(first, second, "repeated lookups must return the cached Field instance");
+        assertEquals("secret", first.getName());
+        // no access policy at resolve: the caller's trySetAccessible applies to the shared handle
+        assertTrue(first.trySetAccessible());
+        assertEquals(7, first.get(new Base()));
+        // exact-class contract: superclass fields are not found through the subclass key space...
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredField(Derived.class, "secret"));
+        // ...and misses are never cached
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredField(Base.class, "missing"));
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredField(Base.class, "missing"));
     }
 
     @Test

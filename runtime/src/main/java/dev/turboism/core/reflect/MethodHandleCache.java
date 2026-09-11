@@ -1,5 +1,6 @@
 package dev.turboism.core.reflect;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
@@ -33,7 +34,9 @@ public final class MethodHandleCache {
         /** Declared walk: exact class, then superclasses, first match by name + arity. */
         DECLARED_UP_ARITY,
         /** Public overload list by name + arity ({@link Class#getMethods}). */
-        PUBLIC_ARITY
+        PUBLIC_ARITY,
+        /** Declared field on the exact class only ({@link Class#getDeclaredField}). */
+        DECLARED_FIELD
     }
 
     private record MethodKey(Kind kind, Class<?> type, String name, List<Class<?>> parameterTypes, int arity) {
@@ -48,6 +51,7 @@ public final class MethodHandleCache {
 
     private static final ConcurrentHashMap<MethodKey, Method> METHODS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<MethodKey, List<Method>> OVERLOADS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<MethodKey, Field> FIELDS = new ConcurrentHashMap<>();
 
     private MethodHandleCache() { }
 
@@ -156,6 +160,28 @@ public final class MethodHandleCache {
         final List<Method> stored = List.copyOf(resolved);
         final List<Method> existing = OVERLOADS.putIfAbsent(key, stored);
         return existing == null ? stored : existing;
+    }
+
+    /**
+     * Declared field lookup on the exact class only, equivalent to {@link Class#getDeclaredField}.
+     *
+     * <p>Unlike the method lookups no access policy is applied at resolution time: callers keep
+     * their existing {@code canAccess}/{@code trySetAccessible} handling, whose effect persists on
+     * the shared {@link Field}. Misses are not cached, matching the method-lookup policy.</p>
+     *
+     * @throws NoSuchFieldException when the class declares no such field
+     */
+    public static Field declaredField(final Class<?> type, final String name)
+        throws NoSuchFieldException {
+        final MethodKey key = new MethodKey(Kind.DECLARED_FIELD, type, name, -1);
+        final Field cached = FIELDS.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        final Field resolved = type.getDeclaredField(name);
+        final Field existing = FIELDS.putIfAbsent(key, resolved);
+        // Return the canonical cached instance so concurrent resolvers observe the same handle.
+        return existing == null ? resolved : existing;
     }
 
     private static Method resolve(final MethodKey key, final Method method) throws NoSuchMethodException {
