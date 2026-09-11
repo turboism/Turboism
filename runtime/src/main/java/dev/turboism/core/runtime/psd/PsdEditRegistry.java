@@ -120,12 +120,16 @@ final class PsdEditRegistry implements AutoCloseable {
         if (closed) throw new IllegalStateException("PSD registry is closed");
     }
 
-    /** Runtime's document/model session identity; display names and RawImageId alone are insufficient. */
-    record Binding(String documentBinding, String modelBinding, long generation) {
+    /**
+     * Runtime's opaque document/model session identity plus its generation. Display names,
+     * RawImageId and host generation counters alone are insufficient, and this component never
+     * parses the identity: it only compares the exact runtime-issued value, so a document switch
+     * that keeps the same model id still yields a different binding.
+     */
+    record Binding(String sessionIdentity, long generation) {
         Binding {
-            Objects.requireNonNull(documentBinding, "documentBinding");
-            Objects.requireNonNull(modelBinding, "modelBinding");
-            if (documentBinding.isBlank() || modelBinding.isBlank() || generation < 0) {
+            Objects.requireNonNull(sessionIdentity, "sessionIdentity");
+            if (sessionIdentity.isBlank() || generation < 0) {
                 throw new IllegalArgumentException("invalid PSD model session binding");
             }
         }

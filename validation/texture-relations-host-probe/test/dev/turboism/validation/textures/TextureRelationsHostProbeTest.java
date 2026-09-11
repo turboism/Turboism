@@ -2,9 +2,15 @@ package dev.turboism.validation.textures;
 
 import dev.turboism.sdk.cubism.id.*;
 import dev.turboism.sdk.cubism.model.*;
+import dev.turboism.sdk.cubism.psd.PsdEditFile;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
+import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
+import dev.turboism.sdk.cubism.psd.PsdFileRevision;
+import dev.turboism.sdk.plugin.Registration;
 import java.lang.reflect.Proxy;
 import java.util.*;
+import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
 
 /** Offline smoke-assertion tests; never loads or launches Cubism. */
 public final class TextureRelationsHostProbeTest {
@@ -32,14 +38,15 @@ public final class TextureRelationsHostProbeTest {
             List.of(TextureInputBinding.unknown()), OptionalInt.empty()))));
         System.out.println("PASS: 9 offline smoke assertion cases; not host evidence");
         final String observation = "PSD_NATIVE_EXPORT;status=READABLE_UNVERIFIED;integrity=MATCHED_UNVERIFIED;readable=true;structure=true";
-        TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.FAILED,
-            observation, rawId, Optional.empty(), Optional.empty()));
+        TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.EXPORTED,
+            observation, rawId, Optional.of(editFile()), Optional.of(new PsdFileRevision() { })));
         for (final String integrity : List.of("MATCHED_UNVERIFIED", "MISMATCH", "UNAVAILABLE")) {
-            TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.FAILED,
+            TextureRelationsHostProbe.validateExportObservation(new PsdExportResult(PsdExportResult.Status.EXPORTED,
                 observation.replace("MATCHED_UNVERIFIED", integrity).replace("structure=true", "structure=false"),
-                rawId, Optional.empty(), Optional.empty()));
+                rawId, Optional.of(editFile()), Optional.of(new PsdFileRevision() { })));
         }
         for (final var invalid : List.of(
+            new PsdExportResult(PsdExportResult.Status.FAILED, observation, rawId, Optional.empty(), Optional.empty()),
             new PsdExportResult(PsdExportResult.Status.UNAVAILABLE, observation, rawId, Optional.empty(), Optional.empty()),
             new PsdExportResult(PsdExportResult.Status.FAILED, observation.replace("readable=true", "readable=false"),
                 rawId, Optional.empty(), Optional.empty()),
@@ -48,7 +55,21 @@ public final class TextureRelationsHostProbeTest {
             catch (IllegalStateException expected) { continue; }
             throw new AssertionError("Expected export observation rejection");
         }
-        System.out.println("PASS: 7 readable-v2 export-observation assertion cases; not host evidence");
+        System.out.println("PASS: 8 readable-v2 export-observation assertion cases; not host evidence");
+    }
+
+    static PsdEditFile editFile() {
+        return new PsdEditFile() {
+            @Override public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
+                throw new AssertionError("open must not run in an offline assertion");
+            }
+            @Override public Registration observeSaves(Consumer<PsdFileRevision> listener) {
+                throw new AssertionError("observe must not run in an offline assertion");
+            }
+            @Override public CompletionStage<PsdFileOperationResult> stop() {
+                throw new AssertionError("stop must not run in an offline assertion");
+            }
+        };
     }
     static TextureRelationsSnapshot snapshot(List<RawImageDetails> raw, List<ModelImageRelation> images,
         List<ArtMeshTextureInputs> meshes) {

@@ -3,6 +3,7 @@ package dev.turboism.core.runtime.psd;
 import dev.turboism.permissions.PermissionChecker;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.cubism.psd.PsdExportResult;
+import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.task.PluginCompletionFuture;
@@ -26,13 +27,13 @@ import java.util.function.Consumer;
 import java.util.regex.Pattern;
 
 /**
- * Per-plugin, runtime-private first slice for observing a raw-image PSD export.
+ * Per-plugin, runtime-private service for exporting a raw image into a controlled PSD handle.
  *
  * <p>The worker owns the temporary path and is the only code that passes it to the internal
  * {@link PsdExportHost} port. No path, host object, or native result is exposed through the SDK.
- * This slice deliberately publishes {@link PsdExportResult.Status#FAILED} for every readable
- * export because it has not yet established the evidence required to issue a persistent edit
- * handle.</p>
+ * A readable native export from a session-bound port ({@link PsdSessionBoundHost}) issues a
+ * {@link RuntimePsdEditFile} handle with an initial baseline revision; an unreadable export, or a
+ * port that cannot prove its session identity, stays failed and issues nothing.</p>
  */
 public final class RuntimePsdExportService implements AutoCloseable {
     private static final String OPERATION = "model.textures.exportRawImagePsd";
@@ -45,6 +46,8 @@ public final class RuntimePsdExportService implements AutoCloseable {
     private final BooleanSupplier activeScope;
     private final Consumer<Runnable> continuationDispatcher;
     private final TemporaryFileFactory temporaryFileFactory;
+    private final PsdEditRegistry registry = new PsdEditRegistry();
+    private final PsdDefaultApplicationLauncher launcher;
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final ExecutorService executor;
 
@@ -60,7 +63,8 @@ public final class RuntimePsdExportService implements AutoCloseable {
             permissionChecker,
             activeScope,
             Objects.requireNonNull(pluginTasks, "pluginTasks")::dispatchContinuation,
-            PsdTemporaryFile::create
+            PsdTemporaryFile::create,
+            PsdDefaultApplicationLauncher.system()
         );
     }
 
@@ -70,7 +74,8 @@ public final class RuntimePsdExportService implements AutoCloseable {
         final PermissionChecker permissionChecker,
         final BooleanSupplier activeScope,
         final Consumer<Runnable> continuationDispatcher,
-        final TemporaryFileFactory temporaryFileFactory
+        final TemporaryFileFactory temporaryFileFactory,
+        final PsdDefaultApplicationLauncher launcher
     ) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.permissionChecker = Objects.requireNonNull(permissionChecker, "permissionChecker");
@@ -80,6 +85,7 @@ public final class RuntimePsdExportService implements AutoCloseable {
             "continuationDispatcher"
         );
         this.temporaryFileFactory = Objects.requireNonNull(temporaryFileFactory, "temporaryFileFactory");
+        this.launcher = Objects.requireNonNull(launcher, "launcher");
         this.executor = new ThreadPoolExecutor(
             WORKER_COUNT,
             WORKER_COUNT,
@@ -156,8 +162,9 @@ public final class RuntimePsdExportService implements AutoCloseable {
     @Override
     public void close() {
         if (active.compareAndSet(true, false)) {
+            registry.close();
             executor.shutdown();
-        }
+    }
     }
 
     private void run(
@@ -194,7 +201,12 @@ public final class RuntimePsdExportService implements AutoCloseable {
             );
             requireOperational();
             checkPermissions();
-            return observe(source, Objects.requireNonNull(observation, "native observation"));
+            return issue(
+                source,
+                host,
+                temporary,
+                Objects.requireNonNull(observation, "native observation")
+            );
         } catch (CubismPermissionException denied) {
             return rejected(source, "PERMISSION_DENIED", "UNAVAILABLE");
         } catch (InactiveOperation inactiveOperation) {
@@ -213,22 +225,57 @@ public final class RuntimePsdExportService implements AutoCloseable {
         checkPermissions();
     }
 
-    private PsdExportResult observe(
+    private PsdExportResult issue(
         final RawImageId source,
+        final PsdExportHost host,
+        final PsdTemporaryFile allocation,
         final PsdExportHost.Observation observation
     ) {
         final String nativeStatus = safeStatus(observation.nativeStatus());
-        final PsdExportResult.Status resultStatus = "UNAVAILABLE".equals(nativeStatus)
-            ? PsdExportResult.Status.UNAVAILABLE
-            : PsdExportResult.Status.FAILED;
-        return result(
-            resultStatus,
-            source,
-            nativeStatus,
-            safeStatus(observation.integrityStatus()),
-            observation.readable(),
-            observation.structureMatches()
-        );
+        final String integrityStatus = safeStatus(observation.integrityStatus());
+        if ("UNAVAILABLE".equals(nativeStatus)) {
+            return unavailable(source, nativeStatus, integrityStatus);
+        }
+        if (!observation.readable()) {
+            return failed(source, nativeStatus, integrityStatus, false, observation.structureMatches());
+        }
+        if (!(host instanceof PsdSessionBoundHost bound)) {
+            // Fail closed: without a runtime-issued session identity a handle could be replayed
+            // across documents that share a model id.
+            return failed(
+                source, "EXPORTED_UNBOUND", integrityStatus, true, observation.structureMatches());
+        }
+        RuntimePsdEditFile file = null;
+        try {
+            final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding(
+                bound.sessionIdentity(), bound.generation());
+            file = new RuntimePsdEditFile(
+                pluginId,
+                binding,
+                allocation,
+                registry,
+                permissionChecker,
+                activeScope,
+                continuationDispatcher,
+                executor,
+                launcher
+            );
+            registry.register(binding, file, allocation);
+            final PsdFileRevision baseline = registry.issueRevision(
+                binding, file, PsdStableSnapshot.capture(allocation));
+            file.trackBaseline(baseline);
+            return new PsdExportResult(
+                PsdExportResult.Status.EXPORTED,
+                diagnostic(nativeStatus, integrityStatus, true, observation.structureMatches()),
+                source,
+                Optional.of(file),
+                Optional.of(baseline)
+            );
+        } catch (IOException | RuntimeException handleFailure) {
+            if (file != null) registry.revoke(file);
+            return failed(
+                source, "EXPORTED_HANDLE_FAILED", integrityStatus, true, observation.structureMatches());
+        }
     }
 
     private void settle(

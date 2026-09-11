@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
 import java.nio.file.Path;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -70,6 +71,7 @@ final class EditorTextureAccess {
     private final VerifiedMemberResolver resolver;
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
     private final EditorTextureRelationsAccess relationAccess;
+    private final LongSupplier generationSupplier;
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
@@ -85,7 +87,8 @@ final class EditorTextureAccess {
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
-        this.relationAccess = new EditorTextureRelationsAccess(resolver, modelGuard, generationSupplier);
+        this.generationSupplier = Objects.requireNonNull(generationSupplier, "generationSupplier");
+        this.relationAccess = new EditorTextureRelationsAccess(resolver, modelGuard, this.generationSupplier);
     }
 
     ModelTextures textures(final String identity, final Object source, final Object model) {
@@ -279,7 +282,7 @@ final class EditorTextureAccess {
         Object apply(Object edit);
     }
 
-    private final class EditorTextures implements ModelTextures, PsdExportHost {
+    private final class EditorTextures implements ModelTextures, PsdExportHost, PsdSessionBoundHost {
         private final String identity;
         private final Object source;
         private final Object model;
@@ -406,6 +409,17 @@ final class EditorTextureAccess {
             final var integrity = result.integrityVerification();
             return new Observation(result.status().name(), integrity.status().name(), result.outputReadable(),
                 integrity.rootNameMatches() && integrity.dimensionsMatch() && integrity.layerTreeMatches());
+        }
+        @Override
+        public String sessionIdentity() {
+            modelGuard.requireCurrent(identity, model);
+            return identity;
+        }
+
+        @Override
+        public long generation() {
+            modelGuard.requireCurrent(identity, model);
+            return generationSupplier.getAsLong();
         }
 
         @Override
