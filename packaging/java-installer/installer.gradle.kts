@@ -157,6 +157,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/README.en.txt.template",
     "packaging/windows-installer/README.zh.txt.template",
     "packaging/windows-installer/README.ja.txt.template",
+    "packaging/windows-installer/README.ko.txt.template",
     "packaging/windows-installer/launch-cubism-turboism.bat",
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
@@ -186,7 +187,8 @@ val customLangPackFiles = listOf(
     "CustomLangPack.xml",
     "CustomLangPack.xml_eng",
     "CustomLangPack.xml_chn",
-    "CustomLangPack.xml_jpn"
+    "CustomLangPack.xml_jpn",
+    "CustomLangPack.xml_kor"
 )// Plugin metadata parser contract and shared Windows payload staging
 // ---------------------------------------------------------------------------
 
@@ -304,7 +306,8 @@ val stageInstallerPayload by tasks.registering {
         listOf(
             "README.en.txt.template" to "README.txt",
             "README.zh.txt.template" to "README.zh.txt",
-            "README.ja.txt.template" to "README.ja.txt"
+            "README.ja.txt.template" to "README.ja.txt",
+            "README.ko.txt.template" to "README.ko.txt"
         ).forEach { (template, target) ->
             val text = file("packaging/windows-installer/$template").readText()
                 .replace("__VERSION__", version)
@@ -433,6 +436,7 @@ val generateInstallerXml by tasks.registering {
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_eng") })
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_chn") })
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_jpn") })
+    outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_kor") })
     doLast {
         val version = requireInstallerVersion()
         val stage = javaInstallerPayloadDir.get().asFile
@@ -469,7 +473,7 @@ val generateInstallerXml by tasks.registering {
                     } catch (e: Exception) {
                         throw GradleException("${jarFile.name}: malformed META-INF/turboism/plugin.json", e)
                     }
-                    listOf("eng" to "en", "chn" to "zh_Hans", "jpn" to "ja").forEach { (locale, suffix) ->
+                    listOf("eng" to "en", "chn" to "zh_Hans", "jpn" to "ja", "kor" to "ko").forEach { (locale, suffix) ->
                         val resource = "META-INF/turboism/i18n/messages_${suffix}.properties"
                         val localizedEntry = zip.getEntry(resource)
                             ?: throw GradleException("${jarFile.name}: missing installer localization $resource")
@@ -541,18 +545,19 @@ val generateInstallerXml by tasks.registering {
         }
         // r1: 选择 pack 是 metadata-only（全部插件 JAR 由 required 的 payload pack 安装，
         // 勾选只控制 disabledPlugins），IzPack 按无文件计算 0 KB 会让用户误以为异常。
-        // 说明中追加多语言备注（installer.xml 内联三语为兜底；en/zh/ja 经 CustomLangPack
+        // 说明中追加多语言备注（installer.xml 内联四语为兜底；en/zh/ja/ko 经 CustomLangPack
         // <pluginId>.description 覆盖为单语言文案，见下方 langpack 注入）。
         val noteEn = "The plugin JAR is installed with the Turboism Plugins payload; the checkbox only controls the enabled list."
         val noteZh = "插件 JAR 已随 Turboism Plugins 载荷一并安装；勾选仅控制启用列表。"
         val noteJa = "プラグイン JAR は Turboism Plugins ペイロードに含めてインストールされます。チェックボックスは有効化リストの制御のみです。"
+        val noteKo = "플러그인 JAR은 Turboism Plugins 페이로드와 함께 설치됩니다. 체크박스는 활성화 목록만 제어합니다."
         val selectionPacks = plugins.joinToString("\n") { p ->
             val title = titleOf(p)
             buildString {
                 append("        <pack id=\"").append(xmlEscape(p.id))
                 append("\" name=\"").append(xmlEscape(title))
                 append("\" required=\"no\" preselected=\"true\" installGroups=\"full,thin\">\n")
-                append("            <description>").append(xmlEscape(p.description + " " + noteEn + " / " + noteZh + " / " + noteJa)).append("</description>\n")
+                append("            <description>").append(xmlEscape(p.description + " " + noteEn + " / " + noteZh + " / " + noteJa + " / " + noteKo)).append("</description>\n")
                 append("        </pack>")
             }
         }
@@ -571,6 +576,7 @@ val generateInstallerXml by tasks.registering {
             from("packaging/java-installer/CustomLangPack.xml_eng")
             from("packaging/java-installer/CustomLangPack.xml_chn")
             from("packaging/java-installer/CustomLangPack.xml_jpn")
+            from("packaging/java-installer/CustomLangPack.xml_kor")
             into(izpackDir)
         }
         // r1: 为每个插件选择 pack 注入本地化描述。IzPack 5.2.6 的
@@ -581,7 +587,8 @@ val generateInstallerXml by tasks.registering {
             Triple("CustomLangPack.xml", "eng", noteEn),
             Triple("CustomLangPack.xml_eng", "eng", noteEn),
             Triple("CustomLangPack.xml_chn", "chn", noteZh),
-            Triple("CustomLangPack.xml_jpn", "jpn", noteJa)
+            Triple("CustomLangPack.xml_jpn", "jpn", noteJa),
+            Triple("CustomLangPack.xml_kor", "kor", noteKo)
         ).forEach { (file, locale, localeNote) ->
             val target = izpackDir.resolve(file)
             val entries = plugins.joinToString("\n") { p ->

@@ -557,10 +557,10 @@ def check_configurator_flow_contract():
         "CubismDiscoveryTitle", "CubismDiscoveryScanning", "CubismDiscoveryComplete",
         "CubismDiscoveryNone", "CubismDiscoveryFailed", "CubismDiscoveryTimeout",
     )
-    check("CF1j discovery page has English, Simplified Chinese, and Japanese text",
-          all(text.count("LangString %s " % key) == 3 for key in discovery_keys)
+    check("CF1j discovery page has English, Simplified Chinese, Japanese, and Korean text",
+          all(text.count("LangString %s " % key) == 4 for key in discovery_keys)
           and all(('LangString CubismDiscoveryTitle ${LANG_%s}' % language) in text
-                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and 'LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"' in text)
     check("CF1j1 discovery page avoids explanatory and implementation-defense wording",
           "CubismDiscoverySubtitle" not in text
@@ -830,7 +830,7 @@ def check_launcher_and_shortcut_contract():
                           text.index("FunctionEnd", text.index("Function LaunchOptionsLeave"))]
     check("L6d launch options are independent, localized, and tightly spaced",
           all(('LangString DesktopShortcutOption ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and '${NSD_CreateCheckbox} 0 30u 100% 18u "$(StartMenuOption)"' in launch_options
           and '${NSD_CreateCheckbox} 0 50u 100% 18u "$(DesktopShortcutOption)"' in launch_options
           and '${NSD_CreateCheckbox} 0 70u 100% 32u "$(BatIntegrationOption)"' in launch_options
@@ -856,7 +856,7 @@ def check_launcher_and_shortcut_contract():
           and "MUI_FINISHPAGE_RUN_NOTCHECKED" not in text
           and "MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory" in text
           and all(('LangString FinishLaunchTurboismText ${LANG_%s}' % lang) in text
-                  for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+                  for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and "FinishOpenFolderText" in text
           and 'Exec \'"$SYSDIR\\cmd.exe" /D /S /C ""$INSTDIR\\launch-cubism-turboism.bat""\'' in text
           and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat"' not in text
@@ -970,7 +970,21 @@ def check_eula_contract():
           and "EulaNativeAccept" not in text)
     check("NSIS EULA files are localized",
           all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN")))
+    on_init = text[text.index("Function .onInit"):
+                  text.index("FunctionEnd", text.index("Function .onInit"))]
+    check("NSIS registers Korean and offers a language-selection dialog before the welcome page",
+          '!insertmacro MUI_LANGUAGE "Korean"' in text
+          and "!define MUI_LANGDLL_ALLLANGUAGES" in text
+          and "!insertmacro MUI_LANGDLL_DISPLAY" in on_init)
+    check("Korean installer UI reuses the English EULA instead of inventing a translation",
+          'LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.en.txt"' in text)
+    plugin_sections = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
+    check("generated plugin sections localize display names and descriptions in Korean",
+          all(('LangString PLUGIN_NAME_%s ${LANG_KOREAN}' % pid) in plugin_sections
+              for pid in ("dev_turboism_plugin_backup", "dev_turboism_plugin_mcp"))
+          and all(('LangString PLUGIN_DESC_%s ${LANG_KOREAN}' % pid) in plugin_sections
+                  for pid in ("dev_turboism_plugin_backup", "dev_turboism_plugin_mcp")))
     generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
     check("NSIS license pages use BOM-prefixed UTF-8 EULA copies",
           'printf \'\\xef\\xbb\\xbf\'' in generator
@@ -1064,9 +1078,22 @@ def check_uninstall_config_option():
           and 'CreateDirectory "$INSTDIR\\data"' in uninstall)
     check("UC5 localized label describes retention",
           all(('LangString UnKeepConfigLabel ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and "UnDeleteConfigLabel" not in text
           and "$unDeleteConfig" not in text)
+    # 用户文档必须与卸载确认页的真实语义一致：复选框标签是「保留 config.json」
+    # 且默认勾选；此前 en/zh/ja 模板反向描述成「删除」，与实现相反。
+    readme_dir = INSTALLER_NSI.parent
+    readme_semantics = (
+        ("README.en.txt.template", "\"Keep config.json (user configuration)\"", "Also delete config.json"),
+        ("README.zh.txt.template", "「保留 config.json（用户配置）」", "同时删除 config.json"),
+        ("README.ja.txt.template", "保持する」チェック", "（ユーザー設定）も"),
+        ("README.ko.txt.template", "\"config.json(사용자 설정) 유지\"", "(사용자 설정)도 삭제"),
+    )
+    for name, keeps, deletes in readme_semantics:
+        body = (readme_dir / name).read_text(encoding="utf-8")
+        check("UC5b %s documents the retention checkbox" % name,
+              keeps in body and deletes not in body)
 
 
 def check_uninstall_postcondition():

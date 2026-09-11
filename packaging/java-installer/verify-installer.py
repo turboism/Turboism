@@ -24,7 +24,7 @@ the frozen acceptance conditions, including the R2 repairs:
       descriptors are denied by the runtime's shared PluginJarContract boundary
       before entrypoint loading; the installer removes only JARs whose embedded
       descriptor proves an exact retired id.
-  6.  Locale probes (eng/chn/jpn) observe the translated Turboism-owned
+  6.  Locale probes (eng/chn/jpn/kor) observe the translated Turboism-owned
       common-pack label, the localized wizard headline, and the localized
       Full and Lite mode names/descriptions emitted live by the installer.
   7.  Uninstall invokes the shipped generated uninstaller entrypoint
@@ -91,21 +91,26 @@ GLOBAL_LOCK = os.path.join(tempfile.gettempdir(), "iz-Turboism.tmp")
 # The three installer locales (declaration order in installer.xml <locale>).
 # The console language list is printed in that order; the indices are parsed
 # from the first run's output rather than assumed.
-LOCALES = ["eng", "chn", "jpn"]
+LOCALES = ["eng", "chn", "jpn", "kor"]
 LOCALIZED_PACK_LABEL = {
     "eng": "Turboism Core",
     "chn": "Turboism 核心",
     "jpn": "Turboism コア",
+    "kor": "Turboism 코어",
 }
 LOCALIZED_HEADLINE = {
     "eng": "Welcome",
     "chn": "欢迎",
     "jpn": "ようこそ",
+    # IzPack's bundled kor langpack leaves HelloPanel.headline untranslated (English).
+    "kor": "Welcome",
 }
 LOCALIZED_EULA_MARKER = {
     "eng": "The Simplified Chinese text is authoritative",
     "chn": "本版本以简体中文文本为正式文本",
     "jpn": "簡体字中国語文を正文とします",
+    # No Korean EULA translation exists, so the ko probe reads the English EULA text.
+    "kor": "The Simplified Chinese text is authoritative",
 }
 # Turboism-owned InstallationGroupPanel strings (CustomLangPack): the
 # install-side listener emits the localized mode name and description for
@@ -135,6 +140,14 @@ LOCALIZED_MODE = {
         "lite": ("ライトインストール（プラグインなし）",
                  "Turboism エージェントと共通ファイルのみをインストールします。ファーストパーティプラグインの JAR はコピーされません。"),
     },
+    "kor": {
+        "full": ("전체 설치(번들 플러그인 포함)",
+                 "Turboism 에이전트와 승인된 모든 공개 플러그인을 설치합니다. 다음 페이지에서 개별 플러그인을 선택 해제할 수 있습니다."),
+        "thin": ("Thin 설치(번들 플러그인 포함)",
+                 "Turboism 에이전트와 승인된 모든 공개 플러그인을 설치하며, 추가 네이티브 런타임 페이로드는 포함하지 않습니다."),
+        "lite": ("간편 설치(플러그인 없음)",
+                 "Turboism 에이전트와 공통 파일만 설치합니다. 퍼스트파티 플러그인 JAR은 복사되지 않습니다."),
+    },
 }
 UNINSTALL_DELETE_CONFIG_PROP = "turboism.uninstall.deleteConfig"
 EULA_ACKNOWLEDGEMENT_KEYS = ("independent", "license", "backup", "asIs")
@@ -156,6 +169,12 @@ EULA_ACKNOWLEDGEMENT_TEXT = {
         "Cubism には引き続き適法な許諾が必要であり、Turboism はライセンス検証を提供、代替、または回避しないことを理解します。",
         "ユーザーが許可したプラグイン、スクリプト、MCP、API、または自動化によりプロジェクト内容が変更、上書き、削除される場合があり",
         "Turboism はオープンソースであり現状有姿で提供され、継続的な互換性、無エラー、または復旧の成功は保証されないことを理解します。",
+    ),
+    "kor": (
+        "Turboism은 독립적인 서드파티 프로젝트이며 Live2D의 공식 제품이 아님을 이해합니다.",
+        "Cubism에는 여전히 적법한 허가가 필요하며, Turboism은 라이선스 검증을 제공·대체·우회하지 않음을 이해합니다.",
+        "사용자가 허용한 플러그인, 스크립트, MCP, API 또는 자동화가 프로젝트 내용을 변경·덮어쓰기·삭제할 수 있음을 이해하며",
+        "Turboism은 오픈 소스이며 있는 그대로 제공되고, 지속적인 호환성, 무오류 또는 성공적인 복구를 보장하지 않음을 이해합니다.",
     ),
 }
 
@@ -1362,12 +1381,12 @@ def assert_malformed_identity_safety(jar, payload_plugins):
 def assert_jar_layout(jar, payload, installer_xml_path):
     with zipfile.ZipFile(jar) as z:
         names = set(z.namelist())
-        for lang in ("eng", "chn", "jpn"):
+        for lang in ("eng", "chn", "jpn", "kor"):
             check("jar langpack %s" % lang, "resources/langpacks/%s.xml" % lang in names)
-        for variant in ("", "_eng", "_chn", "_jpn"):
+        for variant in ("", "_eng", "_chn", "_jpn", "_kor"):
             check("jar custom langpack %s" % (variant or "base"),
                   "resources/CustomLangPack.xml%s" % variant in names)
-        for iso3, suffix in (("eng", "_eng"), ("chn", "_chn"), ("jpn", "_jpn")):
+        for iso3, suffix in (("eng", "_eng"), ("chn", "_chn"), ("jpn", "_jpn"), ("kor", "_kor")):
             text = z.read("resources/CustomLangPack.xml" + suffix).decode("utf-8")
             for key in EULA_ACKNOWLEDGEMENT_KEYS:
                 check("jar %s localized EULA acknowledgement %s" % (iso3, key),
@@ -1396,6 +1415,8 @@ def assert_jar_layout(jar, payload, installer_xml_path):
             "resources/LicencePanel.eula_eng": "EULA.en.txt",
             "resources/LicencePanel.eula_chn": "EULA.zh-Hans.txt",
             "resources/LicencePanel.eula_jpn": "EULA.ja.txt",
+            # Korean falls back to the English EULA text (no ko translation exists).
+            "resources/LicencePanel.eula_kor": "EULA.en.txt",
         }
         for resource, staged_name in eula_resources.items():
             check("jar EULA resource %s" % resource, resource in names)

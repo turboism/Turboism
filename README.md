@@ -30,6 +30,8 @@ The Java installer can also package/install files on macOS and Linux. macOS pack
 
 Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
 
+Every Turboism installer ships in **English, Simplified Chinese, Japanese and Korean**. Choosing a language only changes the installer's own interface; the language Turboism uses at runtime still comes from `config.json` (`locale`).
+
 Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
 ```powershell
@@ -57,11 +59,11 @@ Install **Java 17 or newer**, then run:
 java -jar "TurboismInstaller-<version>.jar"
 ```
 
-Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
+Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. The wizard starts with a language-selection dialog for the four supported languages; pass `-language eng|chn|jpn|kor` to preselect one and skip that dialog. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
 
 ### EXE — recommended on Windows
 
-Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. Use the generated Turboism shortcut afterward.
+Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
 
 Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
