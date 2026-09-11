@@ -130,6 +130,58 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
     }
 
+    @Test
+    void aSelectionDoesNotSatisfyAStep() {
+        // A native selection is an ordinary undo entry. Counting it would close the step on the
+        // click that precedes the operator's real action, and the real action would land in the
+        // next step's window. The host marks every selection entry insignificant, so counting only
+        // significant entries is what keeps one action per step.
+        final List<WindowsHistoryManagerValidationProbe.Entry> afterSelection = List.of(
+            entry(0, "\u9009\u62e9\u5bf9\u8c61", false)
+        );
+        final List<WindowsHistoryManagerValidationProbe.Entry> afterSelectionAndEdit = List.of(
+            entry(0, "\u9009\u62e9\u5bf9\u8c61", false),
+            entry(1, "\u7269\u4f53\u306e\u79fb\u52d5", true)
+        );
+
+        assertEquals(0L, WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelection));
+        assertEquals(
+            0L,
+            WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelection)
+                - WindowsHistoryNativeUiIngressProbe.significantEntries(List.of()),
+            "a selection alone must leave the significant count unchanged"
+        );
+        assertEquals(
+            1L,
+            WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelectionAndEdit),
+            "the operator's real edit is what advances the count"
+        );
+        assertEquals(
+            0L,
+            WindowsHistoryNativeUiIngressProbe.significantEntries(
+                List.of(entry(2, "\u62d6\u52a8\u9009\u62e9", false))
+            ),
+            "a rubber-band selection adds no significant entry either"
+        );
+    }
+
+    private static WindowsHistoryManagerValidationProbe.Entry entry(
+        final int index,
+        final String label,
+        final boolean significant
+    ) {
+        return new WindowsHistoryManagerValidationProbe.Entry(
+            index,
+            label,
+            significant,
+            WindowsHistoryManagerValidationProbe.NativeDetail.degraded(
+                "com.live2d.undo.GroupUndo",
+                "LIMIT",
+                "history.detail.node-or-depth-limit"
+            )
+        );
+    }
+
     private static WindowsHistoryNativeUiIngressProbe.Observed event(
         final String phase,
         final long sequence,
