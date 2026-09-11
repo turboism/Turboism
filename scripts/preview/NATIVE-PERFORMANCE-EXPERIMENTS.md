@@ -891,3 +891,14 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`:runtime:test`（mesh+reflect 142 测试）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：证据为结构性（每调用全表扫描+拷贝 → 每 (Class,签名) 一次解析）+ 行为等价回归；mesh 操作的真实调用频率（每笔刷/每点/每帧）未实机量化，端到端收益记 **NONE**。
 - **有效程度**：本轮新增**结构性 CPU 改进**（镜像桥全部逐调用反射扫描收敛为缓存命中 + per-call 数组/构造器/枚举常量分配消除）；无实测秒数。
+
+### I49 — P20 反射 miss 每调用重扫+重建异常 → 永久 miss 缓存（2026-09-12）
+
+- **范围/验证方法**：Spec Kit `045-miss-caching`。`MethodHandleCache` 此前只缓存命中——探测式调用点（`invokePublic` 的 `getAnimationContent`/`getOpenedImageDocument`/`getPsdFile`/`a`、`declaredMethod` 第一段 `declaredUp` 兜底、`tryInvoke`/`invokeEither` 链）对不存在成员的 miss **每调用**全表重扫+新建异常。实测最小类上单次 miss ~2.2µs vs hit ~0.4µs，且随方法数放大（真实宿主类更大）。全程 offline。
+- **安全性论证（为何可缓存 miss）**：已加载 Class 的成员集不可变——JVMS/`Instrumentation.redefineClasses` 明确禁止增删改成员；`trySetAccessible` 失败的 "inaccessible" 结果同样永久（访问标志/模块边界定形后不变）。因此对给定 (kind,Class,name,sig) 键的 NoSuchMethod/NoSuchField 结果是永久答案。只缓存这两种异常；`SecurityException` 及其它运行时失败不缓存。
+- **实现**：`MISSES` CHM 存**规范的异常实例**并重抛（类型+消息逐字保留，栈定格于首次解析——控制流异常的装饰性差异）；`method`/`declared`/`declaredUp`/`declaredByArity`/`declaredField`/`declaredFieldUp` 全部接入；`overloads`/`declaredOverloads` 原本就以空列表隐式缓存 miss。命中路径仍 1 次 map get，miss 路径 2 次。
+- **数字（perfbench 90doc/130contents，两次运行）**：activeProject 352.7–360.5 → **301.8–303.4 µs（−14~16%）**；observe+versionOf 436–460 → **354–362 µs（−17~21%）**；legacy 745–753 → **601–615 µs（−18%）**；遍历分配 325.5→287.1 KB/op（−12%）、observe 424.4→386.0 KB/op（−9%）。
+- **回归**：`MethodHandleCacheTest` 更新 miss 断言为"重抛同一缓存实例"（5 种 kind 全覆盖）；mesh+workspace 套件全绿。
+- **验证结果**：`:runtime:test`（reflect+mesh+workspace）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得抬高）**：合成宿主类方法表远小于真实 Cubism 类——真实 miss 单次成本更高，收益预计**更大**但仍以实测为准；栈轨迹定格为已知取舍。
+- **有效程度**：**实测 CPU 收益 YES（合成遍历再 −14~21%，分配 −9~12%）**；累计对基线 d3ee4d2a8：activeProject 917→302 µs（**−67%**）、observe 999→354 µs（**−65%**）、legacy 1931→601 µs（**−69%**）。

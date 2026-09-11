@@ -53,11 +53,42 @@ class MethodHandleCacheTest {
 
     @Test
     void missingPublicMethodThrowsNoSuchMethod() {
-        assertThrows(NoSuchMethodException.class,
+        final NoSuchMethodException first = assertThrows(NoSuchMethodException.class,
             () -> MethodHandleCache.method(Base.class, "doesNotExist"));
-        // repeated misses must also throw (nothing cached for failures)
-        assertThrows(NoSuchMethodException.class,
+        // permanent misses are cached: the canonical exception instance is rethrown
+        final NoSuchMethodException second = assertThrows(NoSuchMethodException.class,
             () -> MethodHandleCache.method(Base.class, "doesNotExist"));
+        assertSame(first, second, "a permanent miss must rethrow the cached exception");
+        assertEquals(first.getMessage(), second.getMessage());
+    }
+
+    @Test
+    void missingDeclaredMembersRethrowTheCachedException() {
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declared(Derived.class, "absentDeclared")),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declared(Derived.class, "absentDeclared")));
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredUp(Derived.class, "absentUp")),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredUp(Derived.class, "absentUp")));
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredByArity(Derived.class, "absentArity", 9)),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredByArity(Derived.class, "absentArity", 9)));
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Derived.class, "absentField")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Derived.class, "absentField")));
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Derived.class, "absentFieldUp")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Derived.class, "absentFieldUp")));
     }
 
     @Test
@@ -125,11 +156,12 @@ class MethodHandleCacheTest {
         // exact-class contract: superclass fields are not found through the subclass key space...
         assertThrows(NoSuchFieldException.class,
             () -> MethodHandleCache.declaredField(Derived.class, "secret"));
-        // ...and misses are never cached
-        assertThrows(NoSuchFieldException.class,
-            () -> MethodHandleCache.declaredField(Base.class, "missing"));
-        assertThrows(NoSuchFieldException.class,
-            () -> MethodHandleCache.declaredField(Base.class, "missing"));
+        // ...and permanent misses rethrow the cached exception
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Base.class, "missing")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Base.class, "missing")));
     }
 
     @Test
@@ -160,11 +192,12 @@ class MethodHandleCacheTest {
         // caller-side access applies to the shared handle
         assertTrue(first.trySetAccessible());
         assertEquals(7, first.get(new Derived()));
-        // misses are never cached
-        assertThrows(NoSuchFieldException.class,
-            () -> MethodHandleCache.declaredFieldUp(Base.class, "missing"));
-        assertThrows(NoSuchFieldException.class,
-            () -> MethodHandleCache.declaredFieldUp(Base.class, "missing"));
+        // permanent misses rethrow the cached exception
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Base.class, "missing")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Base.class, "missing")));
     }
 
     @Test
