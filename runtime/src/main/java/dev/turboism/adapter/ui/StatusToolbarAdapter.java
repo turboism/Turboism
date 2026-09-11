@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 
 import java.util.Objects;
 import java.util.Optional;
@@ -13,8 +14,16 @@ public interface StatusToolbarAdapter {
 
     AdapterResult<Registration> notifyStatus(StatusNotification notification);
 
+    default AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        return AdapterResult.unavailable(SafeModeDiagnostic.capabilityUnavailable(
+            Capability.CANVAS_HINT.id()
+        ));
+    }
+
     enum Capability {
-        STATUS_NOTIFY("ui.status.notify");
+        STATUS_NOTIFY("ui.status.notify"),
+        CANVAS_HINT("ui.canvas.hint");
 
         private final String id;
 
@@ -34,6 +43,10 @@ public interface StatusToolbarAdapter {
         boolean supports(Capability capability);
 
         Registration notifyStatus(StatusNotification notification);
+
+        default Registration notifyCanvasHint(final CanvasHintNotification notification) {
+            throw new UnsupportedOperationException("canvas hints are not available");
+        }
     }
 
     record AdapterResult<T>(
