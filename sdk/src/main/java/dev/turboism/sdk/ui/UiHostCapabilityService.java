@@ -9,6 +9,8 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * UI-host service surface for SDK-only plugins.
@@ -196,6 +198,52 @@ public interface UiHostCapabilityService {
      * @return a handle that dismisses this message only while it remains current
      */
     Registration notifyStatus(StatusNotification notification);
+
+    /**
+     * Shows a native Cubism hint over the drawing area.
+     *
+     * <p>The host owns the native lower-right placement and visual theme. The
+     * notification id is a stable replacement key, and the returned registration
+     * dismisses only the keyed hint that is still current.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default Registration notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        throw new UnsupportedOperationException("canvas hints are not available");
+    }
+
+    /**
+     * Shows a native Cubism hint that dismisses itself when the user clicks it.
+     *
+     * <p>This is a convenience wrapper over
+     * {@link #notifyCanvasHint(CanvasHintNotification)}: it attaches a click action that
+     * closes the returned registration, so the common "click to acknowledge" case needs
+     * no handle bookkeeping in the plugin. A click replaces any action the notification
+     * already carried, and the returned registration still dismisses the hint explicitly.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default Registration notifyDismissibleCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        final AtomicReference<Registration> handle = new AtomicReference<>();
+        final AtomicBoolean clicked = new AtomicBoolean();
+        final Registration registration = notifyCanvasHint(notification.withOnClick(() -> {
+            clicked.set(true);
+            final Registration current = handle.get();
+            if (current != null) {
+                current.close();
+            }
+        }));
+        handle.set(registration);
+        if (clicked.get()) {
+            // A click that raced the handle publication must still dismiss the hint.
+            registration.close();
+        }
+        return registration;
+    }
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);
 

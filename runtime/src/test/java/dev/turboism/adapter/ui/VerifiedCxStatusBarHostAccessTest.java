@@ -4,6 +4,8 @@ import dev.turboism.mapping.verification.StaticSelector;
 import dev.turboism.mapping.verification.StatusBarVerificationManifest;
 import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -12,10 +14,10 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class VerifiedCxStatusBarHostAccessTest {
 
@@ -47,6 +49,72 @@ public class VerifiedCxStatusBarHostAccessTest {
         );
 
         assertSame(contentPane, access().contentRoot());
+    }
+
+    @Test
+    void canvasHintUsesTheCurrentViewContextAndReturnsAnExplicitDismissalHandle() {
+        SyntheticViewContext viewContext = new SyntheticViewContext();
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
+
+        Registration registration = access().showCanvasHint(
+            new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
+        );
+
+        assertEquals("Incompatible", viewContext.message);
+        assertEquals(2.5f, viewContext.durationSeconds);
+        assertEquals("screen-color", viewContext.key);
+        registration.close();
+        assertEquals("", viewContext.message);
+        assertEquals(0.0f, viewContext.durationSeconds);
+        assertEquals("screen-color", viewContext.key);
+    }
+
+    @Test
+    void canvasHintUntilDismissedUsesAFiniteNativeDeadline() {
+        SyntheticViewContext viewContext = new SyntheticViewContext();
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
+
+        Registration registration = access().showCanvasHint(
+            new CanvasHintNotification("screen-color", "Persistent", CanvasHintNotification.UNTIL_DISMISSED)
+        );
+
+        assertTrue(Float.isFinite(viewContext.durationSeconds));
+        assertTrue(viewContext.durationSeconds > 0.0f);
+        registration.close();
+    }
+
+    @Test
+    void canvasHintWithAClickActionUsesTheClickableNativeEntryPoint() {
+        SyntheticViewContext viewContext = new SyntheticViewContext();
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
+        List<String> clicks = new ArrayList<>();
+
+        Registration registration = access().showCanvasHint(new CanvasHintNotification(
+            "screen-color",
+            "Incompatible",
+            2.5f
+        ).withOnClick(() -> clicks.add("clicked")));
+
+        assertEquals("Incompatible", viewContext.message);
+        assertEquals(2.5f, viewContext.durationSeconds);
+        assertEquals("screen-color", viewContext.key);
+        assertTrue(viewContext.action != null, "a click action must reach the native entry point");
+
+        viewContext.action.clicked(new Object());
+        assertEquals(List.of("clicked"), clicks);
+
+        registration.close();
+        assertNull(viewContext.action, "closing a hint through showHint clears its action");
+    }
+
+    @Test
+    void canvasHintWithoutAClickActionStaysOnThePassiveEntryPoint() {
+        SyntheticViewContext viewContext = new SyntheticViewContext();
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
+
+        access().showCanvasHint(new CanvasHintNotification("screen-color", "Incompatible", 2.5f));
+
+        assertNull(viewContext.action, "a passive hint must not register a click action");
     }
 
     @Test
@@ -157,6 +225,7 @@ public class VerifiedCxStatusBarHostAccessTest {
         String widget = name(SyntheticWidget.class);
         String label = name(SyntheticLabel.class);
         String memoryViewer = name(SyntheticMemoryViewer.class);
+        String viewContext = name(SyntheticViewContext.class);
         return TestVerifiedResolvers.create(
             StatusBarVerificationManifest.ADAPTER_SLICE_ID,
             StatusBarVerificationManifest.CAPABILITY_IDS,
@@ -195,7 +264,15 @@ public class VerifiedCxStatusBarHostAccessTest {
                     "getText", "()Ljava/lang/String;", StaticSelector.ACCESS_PUBLIC),
                 StaticSelector.method("cubism.ui-status-bar.label.set-text", label,
                     "setText", "(Ljava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
-                StaticSelector.classSelector("cubism.ui-status-bar.memory-viewer.class", memoryViewer)
+                StaticSelector.classSelector("cubism.ui-status-bar.memory-viewer.class", memoryViewer),
+                StaticSelector.method("cubism.ui-canvas-hint.app-controller.current-view-context", appCtrl,
+                    "getCurrentViewContext", "()L" + viewContext + ";", StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.classSelector("cubism.ui-canvas-hint.view-context.class", viewContext),
+                StaticSelector.method("cubism.ui-canvas-hint.view-context.show-hint", viewContext,
+                    "showHint", "(Ljava/lang/String;FLjava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.method("cubism.ui-canvas-hint.view-context.show-hint-with-action", viewContext,
+                    "showHintWithFunc", "(Ljava/lang/String;FLjava/lang/String;L" + name(SyntheticHintAction.class)
+                        + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC)
             ),
             VerifiedCxStatusBarHostAccessTest.class.getClassLoader()
         );
@@ -205,12 +282,53 @@ public class VerifiedCxStatusBarHostAccessTest {
         return type.getName().replace('.', '/');
     }
 
+    /** Stands in for the host's Kotlin {@code Function1<GButtonEntity, Unit>} click action. */
+    public interface SyntheticHintAction {
+        void clicked(Object button);
+    }
+
+    public static final class SyntheticViewContext {
+        String message;
+        float durationSeconds;
+        String key;
+        SyntheticHintAction action;
+
+        public void showHint(final String message, final float durationSeconds, final String key) {
+            this.message = message;
+            this.durationSeconds = durationSeconds;
+            this.key = key;
+            this.action = null;
+        }
+
+        public void showHintWithFunc(
+            final String message,
+            final float durationSeconds,
+            final String key,
+            final SyntheticHintAction action,
+            final Object position
+        ) {
+            this.message = message;
+            this.durationSeconds = durationSeconds;
+            this.key = key;
+            this.action = action;
+        }
+    }
+
     public static final class SyntheticAppCtrl {
         private static SyntheticAppCtrl instance;
         private final SyntheticMainFrameCtrl mainFrameCtrl;
+        private final SyntheticViewContext viewContext;
 
         SyntheticAppCtrl(final SyntheticMainFrameCtrl mainFrameCtrl) {
+            this(mainFrameCtrl, new SyntheticViewContext());
+        }
+
+        SyntheticAppCtrl(
+            final SyntheticMainFrameCtrl mainFrameCtrl,
+            final SyntheticViewContext viewContext
+        ) {
             this.mainFrameCtrl = mainFrameCtrl;
+            this.viewContext = viewContext;
         }
 
         public static SyntheticAppCtrl instance() {
@@ -219,6 +337,10 @@ public class VerifiedCxStatusBarHostAccessTest {
 
         public SyntheticMainFrameCtrl getMainFrameCtrl() {
             return mainFrameCtrl;
+        }
+
+        public SyntheticViewContext getCurrentViewContext() {
+            return viewContext;
         }
     }
 

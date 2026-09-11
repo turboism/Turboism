@@ -37,7 +37,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.ui-status-bar.static",
-        "452e9376e407b608117972819ebabb6a93729534699e8c2f8b82271ca7f99e39",
+        "9ae812f9e546c8449682bc33dd20f6b20675e2babc932fd88274c5ac241c2051",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -46,7 +46,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.ui-status-bar.static",
-        "8ba8977755edef54e921fc300f0bbe4ba9975c2c8c1b3b6c61afc0e7da4c7f85",
+        "558b8ac184215975e3a5c7bc0ff99ba33629b58ab0bd13dce7086acb26d5712f",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -55,7 +55,7 @@ public final class StatusBarVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.ui-status-bar.static",
-        "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7",
+        "59dfeceb7d385cc4176865c118fcb3af6a5fdf3d418fbc8a2e3bc4334a05df90",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -68,7 +68,7 @@ public final class StatusBarVerificationManifest {
 
     public static final String ADAPTER_SLICE_ID = "adapter.editor-ui.status-bar";
     public static final String CAPABILITY_ID = "ui.status.notify";
-    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID);
+    public static final Set<String> CAPABILITY_IDS = Set.of(CAPABILITY_ID, "ui.canvas.hint");
 
     /** Reviewed exact Cubism versions this status-bar trust root can serve. */
     public static Set<String> reviewedCubismVersions() {
@@ -112,6 +112,10 @@ public final class StatusBarVerificationManifest {
         "cubism.ui-status-bar.app-controller.class",
         "cubism.ui-status-bar.app-controller.instance",
         "cubism.ui-status-bar.app-controller.main-frame",
+        "cubism.ui-canvas-hint.app-controller.current-view-context",
+        "cubism.ui-canvas-hint.view-context.class",
+        "cubism.ui-canvas-hint.view-context.show-hint",
+        "cubism.ui-canvas-hint.view-context.show-hint-with-action",
         "cubism.ui-status-bar.main-frame-controller.class",
         "cubism.ui-status-bar.main-frame-controller.frame",
         "cubism.ui-status-bar.frame.class",
