@@ -229,7 +229,6 @@ def assert_automated_eula_gate(jar):
 # production drift from the shared manifest or the source descriptors fails.
 MANIFEST_EXPECTED = [
     ":plugins:atlas-maxrects-bssf",
-    ":plugins:backup",
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
@@ -245,6 +244,7 @@ MANIFEST_EXPECTED = [
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
+    ":plugins:webdav-backup",
 ]
 # The eight public-exclusion modules: absent from the manifest and therefore
 # from every release payload, pack, section, and selection surface. Their
@@ -267,12 +267,15 @@ ALGORITHM_NAME = "MaxRects-BSSF Layout Algorithm"
 ALGORITHM_COMPAT_ID = "dev.turboism.plugin.texture-atlas"
 # Retired fake plugin modules and their embedded ids (retirement slice):
 # neither the manifest nor any payload may ever produce them again.
+# dev.turboism.plugin.backup is a superseded official id, not a fake: it is
+# retained here so a stale pre-rename backup.jar is denied and pruned.
 RETIRED_MODULES = ("log-filter", "clip-mask", "perf-opt", "render-opt")
 RETIRED_PLUGIN_IDS = [
     "dev.turboism.plugin.logfilter",
     "dev.turboism.plugin.clipmask",
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
+    "dev.turboism.plugin.backup",
 ]
 
 
@@ -847,8 +850,10 @@ def assert_retired_upgrade(jar, payload_plugins):
     and retired disabledPlugins ids (retirement slice): JARs whose embedded id
     is retired are removed even under a renamed filename; unreadable JARs,
     foreign-id JARs, non-JAR files and everything outside the managed plugins
-    directory are preserved with actionable diagnostics; only the four retired
-    ids are pruned from disabledPlugins; unrelated config fields survive."""
+    directory are preserved with actionable diagnostics; exactly the
+    retired/superseded ids are pruned from disabledPlugins; unrelated config
+    fields survive. The superseded webdav-backup id covers the real pre-rename
+    backup.jar, while its replacement webdav-backup.jar must survive."""
     unrelated = "dev.turboism.plugin.not-bundled"
     base = tempfile.mkdtemp(prefix="turboism-retire ")
     target = os.path.join(base, "home")
@@ -873,6 +878,10 @@ def assert_retired_upgrade(jar, payload_plugins):
     write_fixture_jar(os.path.join(plugins, "clip-mask.jar"), "dev.turboism.plugin.someone-else")
     # retained successor id under a non-payload name -> preserved
     write_fixture_jar(os.path.join(plugins, "successor-copy.jar"), "dev.turboism.plugin.clipmask-viewer")
+    # webdav-backup rename: the stale pre-rename JAR goes, its replacement stays
+    write_fixture_jar(os.path.join(plugins, "backup.jar"), "dev.turboism.plugin.backup")
+    write_fixture_jar(os.path.join(plugins, "webdav-backup-old.jar"), "dev.turboism.plugin.backup")
+    write_fixture_jar(os.path.join(plugins, "webdav-backup.jar"), "dev.turboism.plugin.webdav")
     # unreadable entries -> preserved
     with open(os.path.join(plugins, "perf-opt.jar"), "wb") as f:
         f.write(b"not a zip archive")
@@ -892,6 +901,12 @@ def assert_retired_upgrade(jar, payload_plugins):
           os.path.exists(os.path.join(plugins, "clip-mask.jar")))
     check("retained successor jar preserved",
           os.path.exists(os.path.join(plugins, "successor-copy.jar")))
+    check("stale backup.jar removed",
+          not os.path.exists(os.path.join(plugins, "backup.jar")))
+    check("renamed stale backup jar removed",
+          not os.path.exists(os.path.join(plugins, "webdav-backup-old.jar")))
+    check("webdav-backup.jar replacement preserved",
+          os.path.exists(os.path.join(plugins, "webdav-backup.jar")))
     check("unreadable jar preserved",
           os.path.exists(os.path.join(plugins, "perf-opt.jar")))
     check("non-jar file preserved", os.path.exists(os.path.join(plugins, "notes.txt")))
@@ -1568,7 +1583,7 @@ def assert_plugin_identity(payload_plugins, included_metadata, excluded_metadata
     for module, expected_name in (
             ("parameter-batch-transfer", "Parameter Batch Transfer"),
             ("perf-stats", "Performance Statistics"),
-            ("backup", "WebDAV Auto-Backup Sync Plugin"),
+            ("webdav-backup", "WebDAV Auto-Backup Sync Plugin"),
             ("mcp", "Turboism MCP Server")):
         p = by_module.get(module)
         check("payload includes %s (%s)" % (expected_name, module),

@@ -1,5 +1,4 @@
 :plugins:atlas-maxrects-bssf
-:plugins:backup
 :plugins:clipmask-viewer
 :plugins:core
 :plugins:cubism-tab-filter
@@ -15,3 +14,4 @@
 :plugins:scene-palette-enhancer
 :plugins:texture-atlas-stats
 :plugins:ui-theme
+:plugins:webdav-backup
