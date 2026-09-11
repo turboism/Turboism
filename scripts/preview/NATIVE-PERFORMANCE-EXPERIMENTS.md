@@ -874,3 +874,10 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`:runtime:test` 受影响套件 BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；perfbench 在改后 HEAD 复测确认收益（上表）。
 - **限制（不得抬高）**：同 I45——合成宿主空方法体，绝对值不可外推端到端；收益量级随文档数线性；分配字节基本不变（字符串产物照旧，仅省编译器内部临时对象）。
 - **有效程度**：**实测 CPU 收益 YES（合成宿主遍历路径 −10~23%）**；相对接手基线 d3ee4d2a8 的累计：activeProject 917→353 µs（−61%）、observe 999→436 µs（−56%）、旧四调用 1931→745 µs（−61%）。
+
+### I47 — P18 探索后否决：captureScope 的 HostProject 投影旁路（2026-09-12）
+
+- **假设**：`captureScope` 每外观调用 `source.observe()`，而 `HostSessionSnapshotSource.observe()` 把整个项目快照投影为 `Host*` 记录（90 文档 + 130 内容），captureScope 却只用 document/model/version → 每次浪费 ~30µs + ~22% 分配。
+- **实现后否决**：实现 `HostSnapshotSource.ScopeObservation` + `observeScope()`/`versionOf(ScopeObservation)` default seam + `HostSessionSnapshotSource` 覆盖 + captureScope 迁移，编译+bench 确认（observeScope 400µs vs observe 429µs，alloc 424→330KB/op）。随后核实生产接线：`RuntimeModelAppearanceAccess` 的 source 实为 `PluginScopedCubismModelAccess.AppearanceSource`——其 `observe()` 本就 `project=empty`、只走 `activeDocument()` 轻读（appController+currentDocument+一次 documentBuild+`modelAccess.active()`），**全项目遍历根本不在外观路径上**；`observe()` 的项目投影只有真正消费它的 `runtimeWithVersion()`/`runtimeSnapshot()` 付费。新 seam 在生产中只会命中 default 委托，`HostSessionSnapshotSource` 上的覆盖成为死代码 → **整体回退**（未提交）。
+- **修正认知**：外观路径的 per-call 成本 = 一次 `activeDocument()` 轻读（~2 invokes+1 docBuild）+ `binding()` 解析 + token 读，而非全量遍历。`versionOf` 深比较仅存在于 `HostSessionSnapshotSource`（runtimeWithVersion 路径），AppearanceSource 用 `activationToken`（changeKey 比对 contentId+modelId 字符串，O(1)）。
+- **有效程度**：**实测收益 NONE（否决并回退）**；产出为准确的调用方-实现归属图与「外观路径已是轻读」的确认。
