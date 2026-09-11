@@ -1,6 +1,6 @@
 # 原生性能实验台账
 
-最后更新：2026-09-11（I35 P08 Turboism 编辑器绑定强引用切片轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+最后更新：2026-09-11（I37 P09 重复快照读取量化与修复轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
 
 本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
 
@@ -31,6 +31,7 @@
 | P01 | 变形器坐标只读投影 | 数值VALIDATION_PASS；NO_PRIMARY_BENEFIT | 三指标不支持启用；默认关闭，不重跑同一实现求好样本 |
 | P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
 | P08 | Turboism 编辑器绑定陈旧强引用 | 已修复（弱引用，共两处）；离线回归先失败后通过；实机字节收益未测 | 不重复修同一槽；实机 A/B 需另设 editor binding 场景并单独授权 |
+| P09 | 版本化读取的重复宿主读 | 已量化并修复：一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1；离线回归先失败后通过；端到端收益未测 | 不重复优化同一处；单次 `activeProject()` 自身成本仍未动，属另一切片 |
 
 ## 公共实验条件与工件
 
@@ -735,4 +736,21 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **与目标的关系（不得抬高）**：本排查**没有新增任何实机收益证据**；两个候选都**未实施**。已知最大的滞留量（关闭后 228MiB 解码像素 + 最高约336MiB 归档字节）在**宿主软缓存**里，I34 已判定无支撑的清除路径——本排查只说明「我方侧除已修的 P08 外，剩下的两个候选都不便宜、也不确定」。
 - **顺带确定了实机 A/B 该不该跑（重要）**：宿主已于本轮空闲（`atlas-image-shadow`/5303 结束，`host.state=idle`），但**不应在 native-resource 负载上跑 P08 的 A/B**。理由是从已证机制可**演绎**得出：`CImageResource` 经静态 `cacheList` 软可达 → 强持 `retainCounter` 的用户（`ICImageResourceUser`）→ 属模型图 → `CModelSource` 有非 final 的 `document` 反向指针，因此**文档本身是软可达的**，而软引用只在内存压力下清除。于是修复臂与未修复臂**都**会报 `documentWeakCleared=false`，该对比**在构造上就没有区分力**，不是「尚未验证」。用制造内存压力的办法去拉开差异会让清除变得不确定、且改变的正是被测量的条件。故 031 声明**无实机测量**，Design A 不在该负载上执行；要拿到有意义的数字必须有 Design B（驱动宿主替换，或先用归档/驱逐使软缓存不再传递持有文档），而它需要独立范围与授权。见 `specs/031-editor-binding-retention/measurement.md`。
 - **未执行的实机操作**：本轮未 prepare、未 submit、未占用宿主、未改任何官方工件与共享队列状态；磁盘此时为 **99%（仅剩 8.3GB）**，判据是「即使跑了也拿不到可解释结果」，而非「跑不了」。
+
+### I37 — P09 重复快照读取：离线量化后修复，一次带版本读取从 2+3 次宿主读降到 1+1 次（2026-09-11）
+
+- **范围/验证方法**：用户继续授权后的第 2 项。P09 此前登记为「重复工作结构存在，频率/CPU 占比/收益未测」，本轮**先量化再决定**：写临时计数夹具（实现 `ProjectWorkspaceAdapter`，用 `HostSessionSnapshotSource.forSession` 包住真实的 `CubismFacadeImpl`），跑完即删。全程 offline，不占宿主。
+- **量化结果（实测，非推测）**：一次 `CubismFacadeImpl.runtimeWithVersion()` = **2 次 `activeProject()` + 3 次 `activeDocument()`**（另加 1 次 `activeModel()`，而后者本身就是又一次 document 读）。两处重复：①`runtimeSnapshot()` 先 `activeDocument()` 再 `activeModel()`，而 `HostSessionSnapshotSource.activeModel()` 就是 `activeDocument()` 过滤，文档读了两遍；②`HostSessionSnapshotSource.invalidationToken()` 为了跟上次观察比较，**又重读一次** project + document。
+- **为何值得修（不是微优化）**：①`runtimeWithVersion()` 的**唯一用途**就是「便宜地判断要不要重算」——`ParameterQueryServiceImpl.index()`、`ModelHierarchyQueryServiceImpl`、`SelectionQueryServiceImpl` 都在**每次查询**上调用它，然后拿 version 对比缓存索引；②单次 `activeProject()` 在生产适配器 `VerifiedProjectWorkspaceHostOperations.activeProject()` 里是 4 次已验宿主反射 + 完整 document 列表 + project 子节点遍历 + 每 content 资源构建 + 新建 `ProjectSnapshot`；`activeDocument()` 是 2 次反射 + 构建。即**校验成本是它保护的成果的好几倍**。
+- **修复（Spec Kit 032，`specs/032-single-host-observation/`）**：
+  1. `HostSnapshotSource` 新增「观察句柄」：`observe()`（默认由各访问器拼装）+ `versionOf(Observation)`（默认退回 `invalidationToken()`），`Observation` 携带四个投影值和一个 **opaque evidence**。
+  2. `HostSessionSnapshotSource` 覆写：**一次**适配器遍历同时产出 project/document/model/selection，把**未投影**的原始 `ProjectSnapshot`/`DocumentSnapshot` 对作为 evidence 带上；`versionOf` 用该对与基线比较，**不再重读宿主**。
+  3. `CubismFacadeImpl`：`runtimeWithVersion()`/`runtimeSnapshot()` 共用 `observeRuntime()`，模型从**已读到的** document 推导，version 取自同一次观察。
+- **为何用 opaque evidence 而不是直接比较投影值**：投影是**有损**的——`ModelSnapshot` 有 `objects` 而 `HostModel` 不带。拿投影值做基线比较会让 token **漏检**只影响 `objects` 的变化，属行为回退。opaque evidence 保住了原来的**原始记录深度相等**语义。
+- **被否定的替代方案**：①在 source 里记忆「上次读过的对」再让 `invalidationToken()` 用它——会让**只轮询 token 不读值**的调用方（如今日的 `RuntimeModelAppearanceAccess`）再也检测不到变化；②缓存 project/document 快照跨调用——那是另一套 staleness 设计。
+- **回归（先失败后通过）**：`SnapshotVersioningTest.oneVersionedReadObservesTheHostProjectAndDocumentExactlyOnce` 用计数适配器断言一次 `runtimeWithVersion()` 恰好 1 次 project + 1 次 document；**未改生产代码前实测 FAILED**（得到 2），改后 PASS。既有的 `runtimeWithVersionKeepsSnapshotPermissionGate`（权限拒绝时**不得**观察 token）继续通过——`observe()` 不算 token，token 在权限门之后才取，顺序未变。
+- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` = **178 类 / 1074 测试 / 0 失败 / 0 错误**（含三个 query-service 测试类）；`./gradlew devCheck` = BUILD SUCCESSFUL（首次因 `HostSnapshotSource` 新增公开访问器缺 javadoc 被 `checkCodeQuality` 拦住，补齐后通过）；`check_remote_hygiene.py --worktree` = clean。
+- **重构中差点丢掉的既有行为（记录）**：原 `runtimeProjectSnapshot()` 内含「project 读权限被拒时**只脱敏 project 部分**、model 部分仍可读」的逻辑。第一版重构漏了它，已恢复为 `runtimeProjectSnapshot(observed.project())` 并保留原注释；这是本轮第二次因「顺手重构」碰到权限语义，后续改动此文件应优先核对权限分支。
+- **限制（不得抬高）**：证据是**宿主读次数**这一结构量，不是秒数；本轮**未做任何墙钟/CPU 占比测量**，因此端到端收益记 **NONE**。单次 `activeProject()` 本身的成本（仍占每次查询的主要开销）**未动**，要优化它得另立切片、另找证据。
+- **有效程度**：新增内存/CPU/GPU **实测收益 NONE**；产出为**一次带失败回退的行为等价优化**（一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1）、一条先失败后通过的离线回归，以及一份可复用的离线量化方法（计数适配器包真实 facade）。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**。产出为**一次有成型的、可复核的负面/边界结论**（7 处确认清洁 + 2 个带理由的保留候选），作用是**防止后续重复排查同一批位置**。
