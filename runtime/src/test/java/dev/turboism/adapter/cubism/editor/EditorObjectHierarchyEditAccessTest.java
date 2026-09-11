@@ -617,6 +617,39 @@ class EditorObjectHierarchyEditAccessTest {
     }
 
     @Test
+    void centralWriterCapturesDeformerRootToTargetAndRestoresIt() {
+        final Fixture fixture = new Fixture();
+        // No direct Deformer parent: the child sits at the Deformer root.
+        fixture.meshSource.targetDeformerGuid = null;
+        fixture.warpSource.localName = "Warp with name";
+        Host.document = fixture.document;
+        final VerifiedMemberResolver resolver = centralResolver("5.3.02");
+        final var model = new EditorBackedCubismModelAccess(resolver, "session-a").active();
+
+        model.drawables().find(new ArtMeshId("MeshA")).setParent(
+            model.warpDeformers().find(new DeformerId("WarpA")),
+            -1
+        );
+
+        assertEquals(fixture.warpSource.guid, fixture.meshSource.targetDeformerGuid);
+        assertEquals(1, fixture.editMode.edits.size());
+        assertEquals(1, fixture.document.undoManager.entries.size());
+        final HistoryEntryDetail detail = lastHistoryDetail(resolver);
+        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        assertEquals(HistoryRelationChange.Kind.DEFORMER_PARENT, relation.kind());
+        assertEquals(HistoryRelationChange.State.ROOT, relation.before().state());
+        assertTrue(relation.before().target().isEmpty());
+        assertRelationTarget(relation.after(), "WARP_DEFORMER", "WarpA", "Warp with name");
+
+        // Undo returns the child to the Deformer root; redo re-applies the captured target.
+        fixture.editMode.edits.get(0).undo();
+        assertEquals(null, fixture.meshSource.targetDeformerGuid);
+        fixture.editMode.edits.get(0).redo();
+        assertEquals(fixture.warpSource.guid, fixture.meshSource.targetDeformerGuid);
+    }
+
+    @Test
     void centralWriterUsesActualAfterNameAndNeverRequestedName() {
         final Fixture fixture = new Fixture();
         fixture.childPart.localName = "A";
