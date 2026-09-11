@@ -149,6 +149,27 @@ final class WebDavSettingsDialogTest {
     }
 
     @Test
+    void textAndFormatFallBackToEnglishWhenTheCatalogLacksTheKey() {
+        final dev.turboism.sdk.i18n.PluginLocalization english = new MapLocalization(java.util.Map.of(
+            "backup.dialog.button.save", "Save",
+            "backup.dialog.status.invalid-config", "Invalid configuration: {0}"));
+        assertEquals("Save", WebDavSettingsDialog.text(
+            english, "backup.dialog.button.save", "Save fallback"));
+        assertEquals("Cancel fallback", WebDavSettingsDialog.text(
+            english, "backup.dialog.button.cancel", "Cancel fallback"),
+            "a missing key must fall back to the English literal");
+        assertEquals("Invalid configuration: {0}", WebDavSettingsDialog.format(
+            english, "backup.dialog.status.invalid-config", "fallback {0}", "bad url"),
+            "a present key is rendered by the catalog itself");
+        assertEquals("Connection failed: 401", WebDavSettingsDialog.format(
+            english, "backup.dialog.status.connection-failed", "Connection failed: {0}", 401),
+            "a missing key must fall back to the English pattern");
+        assertEquals("Save fallback", WebDavSettingsDialog.text(
+            null, "backup.dialog.button.save", "Save fallback"),
+            "a null catalog must not throw");
+    }
+
+    @Test
     void bothCatalogsDeclareTheRemoteTriggerKeys() throws Exception {
         for (String catalog : new String[] {"messages.properties", "messages_zh_Hans.properties"}) {
             final java.util.Properties properties = new java.util.Properties();

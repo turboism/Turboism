@@ -48,7 +48,7 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 
 ## 使い方
 
-1. **Turboism → WebDAV 备份设置** を開きます。
+1. **Turboism → WebDAV バックアップ設定** を開きます。
 2. HTTP(S) エンドポイント、リモートパス、任意のユーザー名とパスワード、トリガーモード、タイムアウト、TLS、再試行設定を入力し、保存前にエンドポイントをテストします。
 3. 同期を有効にします。設定されたトリガーが発生すると、該当するバックアップ成果物がアップロードされます。
 
@@ -65,7 +65,7 @@ Cubism のバックアップ成果物を、ユーザーが設定した WebDAV �
 | `turboism.cubism.backup.observe` | `application` | プライバシー保護された Runtime バックアップ完了の事実を監視します。厳密な成果物は開始コマンドの結果内に残ります。 |
 | `turboism.config.plugin.write` | `application` | 読み戻し確認付きの backup/webdav.cfg 書き込みパスを通じて、WebDAV エンドポイント設定を永続化します。 |
 | `turboism.action.register` | `application` | Turboism メニュー項目の背後にある backup.webdav.settings.open アクションを登録します。 |
-| `turboism.ui.menu.contribute` | `application` | Turboism メニューを通じて WebDAV 备份设置 設定ダイアログを公開します。 |
+| `turboism.ui.menu.contribute` | `application` | Turboism メニューを通じて WebDAV バックアップ設定 ダイアログを公開します。 |
 | `turboism.cubism.model.observe` | `application` | 保存トリガー型バックアップを開始するため、モデルとアニメーションの保存ライフサイクルを監視します。 |
 
 ## プライバシーとデータ

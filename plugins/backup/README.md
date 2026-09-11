@@ -48,7 +48,7 @@ This official plugin is a **store candidate**, not yet a published store listing
 
 ## How to use
 
-1. Open **Turboism → WebDAV 备份设置**.
+1. Open **Turboism → WebDAV Backup Settings**.
 2. Enter the HTTP(S) endpoint, remote path, optional username and password, trigger mode, timeout, TLS, and retry settings; test the endpoint before saving.
 3. Enable synchronization. Matching backup artifacts are uploaded when the configured trigger fires.
 
@@ -65,7 +65,7 @@ No capabilities are declared in the plugin manifest.
 | `turboism.cubism.backup.observe` | `application` | Observes privacy-safe Runtime backup completion facts; exact artifacts remain in the initiating command result. |
 | `turboism.config.plugin.write` | `application` | Persists the WebDAV endpoint settings through the backup/webdav.cfg write path with readback confirmation. |
 | `turboism.action.register` | `application` | Registers the backup.webdav.settings.open action behind the Turboism menu item. |
-| `turboism.ui.menu.contribute` | `application` | Exposes the WebDAV 备份设置 settings dialog through the Turboism menu. |
+| `turboism.ui.menu.contribute` | `application` | Exposes the WebDAV backup settings dialog through the Turboism menu. |
 | `turboism.cubism.model.observe` | `application` | Observes model and animation save lifecycle to trigger save-triggered backups. |
 
 ## Privacy and data
