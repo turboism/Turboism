@@ -3,6 +3,7 @@
 [CmdletBinding()]
 param()
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $fixtureRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("turboism-graal-test-" + [guid]::NewGuid().ToString("N"))
 [void][System.IO.Directory]::CreateDirectory($fixtureRoot)
