@@ -111,6 +111,11 @@ public final class SoftCacheAuditTest {
         prop(matched, "matchedCohort", "1");
         prop(matched, "matchedDistinct", "1");
 
+        // 1b. Two cache entries pointing at one cohort member count it once.
+        var once = run(CImageResource.class, b.class, cohort, 100, 1000, 250_000_000L);
+        prop(once, "matchedCohort", "1");
+        prop(once, "matchedDistinct", "1");
+
         // 2. An unreferenced resource is not claimed as matched.
         CImageResource.clear();
         CImageResource r3 = CImageResource.make();
