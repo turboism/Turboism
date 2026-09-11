@@ -124,6 +124,78 @@ class NativeEditIngressSessionTest {
         assertFalse(fixture.session.bind(1L, fixture.resolverWithoutManager()));
         assertFalse(fixture.session.isAttached());
         assertEquals(0, fixture.manager.listenerCount());
+        fixture.session.close();
+    }
+
+    @Test
+    void anEditorThatIsStillStartingIsBoundOnceItsDocumentAppears() throws Exception {
+        // The runtime admits a host as soon as its classes are available, which is before the
+        // Editor has built its app controller. The first resolve therefore finds nothing, and the
+        // session must not treat that as a host that will never have history.
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(25L, 40));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        assertFalse(fixture.session.isAttached(), "nothing is attached while the Editor is starting");
+
+        fixture.makeEditorReady();
+
+        awaitAttached(fixture);
+        assertEquals(1, fixture.session.bindCount());
+        assertEquals(1, fixture.manager.listenerCount(), "the real listener is registered");
+    }
+
+    @Test
+    void aDeferredRetryStopsWhenTheDisconnectCleansUp() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(25L, 40));
+        App.current = null;
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+
+        fixture.session.deactivate();
+        fixture.makeEditorReady();
+        Thread.sleep(300L);
+
+        assertFalse(
+            fixture.session.isAttached(),
+            "cleanup must not be undone by a retry that was already in flight"
+        );
+        assertEquals(0, fixture.manager.listenerCount());
+    }
+
+    @Test
+    void closingStopsTheDeferredRetryPermanently() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(25L, 40));
+        App.current = null;
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+
+        fixture.session.close();
+        fixture.makeEditorReady();
+        Thread.sleep(300L);
+
+        assertFalse(fixture.session.isAttached());
+        assertFalse(fixture.session.bind(2L, fixture.resolver), "a closed session stays closed");
+        assertEquals(0, fixture.manager.listenerCount());
+    }
+
+    @Test
+    void aDeferredRetryIsBounded() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 3));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        Thread.sleep(300L);
+
+        assertFalse(fixture.session.isAttached(), "a host that never becomes ready stays inactive");
+        assertFalse(fixture.retryStillRunning(), "the retry thread must not outlive its budget");
+    }
+
+    private static void awaitAttached(final Fixture fixture) throws Exception {
+        final long deadline = System.currentTimeMillis() + 5_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (fixture.session.isAttached()) return;
+            Thread.sleep(25L);
+        }
+        assertTrue(fixture.session.isAttached(), "the deferred bind never attached");
     }
 
     @Test
@@ -182,14 +254,34 @@ class NativeEditIngressSessionTest {
         private boolean failPublications;
 
         Fixture() {
+            this(NativeEditIngressSession.DEFAULT_RETRY);
+        }
+
+        Fixture(final NativeEditIngressSession.RetryPolicy retry) {
             this.session = new NativeEditIngressSession(
                 (operation, origin, subject, label) -> {
                     if (failPublications) throw new IllegalStateException("publication failure");
                     published.add(new Published(operation, origin, subject, label));
                 },
                 starts::add,
-                posted::add
+                posted::add,
+                retry
             );
+        }
+
+        /** Simulates the Editor finishing its own startup and publishing its app controller. */
+        void makeEditorReady() {
+            new App(manager);
+        }
+
+        boolean retryStillRunning() {
+            for (final Thread thread : Thread.getAllStackTraces().keySet()) {
+                if (thread.getName().equals("turboism-native-edit-ingress-bind")
+                    && thread.isAlive()) {
+                    return true;
+                }
+            }
+            return false;
         }
 
         void runPosted() {
