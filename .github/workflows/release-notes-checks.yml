@@ -27,7 +27,7 @@ jobs:
           git archive HEAD > artifacts/product-source.tar
           git bundle create artifacts/product-history.bundle HEAD --tags
           git rev-parse HEAD > artifacts/product-commit.txt
-      - name: Recover the existing review backup as data only
+      - name: Inspect the incomplete review backup as data only
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -44,10 +44,10 @@ jobs:
           inflater=zlib.decompressobj();data=inflater.decompress(compressed,16*1024*1024+1)
           assert len(data)<=16*1024*1024 and not inflater.unconsumed_tail
           data+=inflater.flush()
-          assert inflater.eof and not inflater.unused_data and len(data)<=16*1024*1024
-          data.decode('utf-8')
-          Path('artifacts/recovered-review.txt').write_bytes(data)
-          print('Verified review backup bytes:',len(data),'SHA256:',hashlib.sha256(data).hexdigest())
+          Path('artifacts/INCOMPLETE-review-backup.txt').write_bytes(data)
+          status={'complete':inflater.eof and not inflater.unused_data,'bytes':len(data),'sha256':hashlib.sha256(data).hexdigest(),'notice':'Inspection only; no recovered source was applied or tested.'}
+          Path('artifacts/backup-status.json').write_text(json.dumps(status))
+          print(json.dumps(status))
           PY
       - run: node --test distribution/test/*.test.mjs
       - run: python3 -m unittest discover -s scripts/release -p 'test*.py'
