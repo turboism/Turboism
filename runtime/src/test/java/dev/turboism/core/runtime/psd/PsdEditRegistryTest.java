@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 /** Registry provenance fixtures only; no plugin permissions, live host or native writes exercised. */
 class PsdEditRegistryTest {
     @TempDir Path root;
-    private final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding("document-a", "model-a", 1);
+    private final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding("session-a", 1);
 
     @Test
     void resolvesOnlyRegisteredObjectIdentityAndNeverCallsHandleCode() throws Exception {
@@ -46,16 +46,14 @@ class PsdEditRegistryTest {
     }
 
     @Test
-    void wrongDocumentModelOrGenerationCannotResolveSameHandle() throws Exception {
+    void wrongSessionOrGenerationCannotResolveSameHandle() throws Exception {
         final var registry = new PsdEditRegistry();
         final var file = new ExplosiveHandle();
         registry.register(binding, file, allocation());
         assertThrows(SecurityException.class, () -> registry.requireFile(
-            new PsdEditRegistry.Binding("document-b", "model-a", 1), file));
+            new PsdEditRegistry.Binding("session-b", 1), file));
         assertThrows(SecurityException.class, () -> registry.requireFile(
-            new PsdEditRegistry.Binding("document-a", "model-b", 1), file));
-        assertThrows(SecurityException.class, () -> registry.requireFile(
-            new PsdEditRegistry.Binding("document-a", "model-a", 2), file));
+            new PsdEditRegistry.Binding("session-a", 2), file));
     }
 
     @Test
@@ -130,7 +128,7 @@ class PsdEditRegistryTest {
         final var first = new ExplosiveHandle();
         final var second = new ExplosiveHandle();
         final var allocation = allocation();
-        final var other = new PsdEditRegistry.Binding("document-b", "model-b", 1);
+        final var other = new PsdEditRegistry.Binding("session-b", 1);
         registry.register(binding, first, allocation);
         registry.register(other, second, allocation);
         final var snapshot = PsdStableSnapshot.capture(allocation);

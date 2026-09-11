@@ -544,7 +544,8 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
 
     private final class SessionModelTextures
         implements dev.turboism.sdk.cubism.model.ModelTextures,
-        dev.turboism.core.runtime.psd.PsdExportHost {
+        dev.turboism.core.runtime.psd.PsdExportHost,
+        dev.turboism.core.runtime.psd.PsdSessionBoundHost {
         private final long generation;
         private final dev.turboism.sdk.cubism.model.ModelTextures delegate;
         private SessionModelTextures(
@@ -569,6 +570,19 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
                     () -> guardedVoid(generation, admission));
             });
         }
+        @Override
+        public String sessionIdentity() {
+            return guarded(generation, () -> {
+                if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdSessionBoundHost bound)) {
+                    throw new IllegalStateException(
+                        "The captured model session cannot prove a PSD edit binding."
+                    );
+                }
+                return bound.sessionIdentity();
+            });
+        }
+
+        @Override public long generation() { return generation; }
         @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
             return guarded(generation, delegate::rawImages);
         }
