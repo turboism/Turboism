@@ -27,12 +27,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Retired fake plugin ids must never be admitted on any load path: a valid
- * JAR descriptor carrying a retired id is rejected by the shared
+ * Retired and superseded plugin ids must never be admitted on any load path: a
+ * valid JAR descriptor carrying such an id is rejected by the shared
  * {@link dev.turboism.core.plugin.PluginJarContract} before entrypoint
  * loading, on every distribution path (installer payloads, preview discovery,
- * manual/NSIS leftovers, renamed JARs). The retained clipmask-viewer
- * successor id stays admitted.
+ * manual/NSIS leftovers, renamed JARs). The retained clipmask-viewer successor
+ * id stays admitted, while the superseded webdav-backup id
+ * ({@code dev.turboism.plugin.backup}) is denied so an upgraded install cannot
+ * expose two WebDAV entries.
  */
 class PreviewPluginRetiredIdentityIntegrationTest {
 
@@ -40,6 +42,10 @@ class PreviewPluginRetiredIdentityIntegrationTest {
     private static final String RETIRED_MARKER = "dev.turboism.test.retired-loaded";
     private static final String SUCCESSOR_ID = "dev.turboism.plugin.clipmask-viewer";
     private static final String SUCCESSOR_MARKER = "dev.turboism.test.successor-loaded";
+    private static final String SUPERSEDED_BACKUP_ID = "dev.turboism.plugin.backup";
+    private static final String SUPERSEDED_BACKUP_MARKER = "dev.turboism.test.superseded-backup-loaded";
+    private static final String WEBDAV_ID = "dev.turboism.plugin.webdav";
+    private static final String WEBDAV_MARKER = "dev.turboism.test.webdav-loaded";
 
     @TempDir
     Path temporary;
@@ -101,6 +107,56 @@ class PreviewPluginRetiredIdentityIntegrationTest {
             scheduler.shutdown();
             System.clearProperty(RETIRED_MARKER);
             System.clearProperty(SUCCESSOR_MARKER);
+        }
+    }
+
+    /**
+     * The webdav-backup rename leaves exactly one WebDAV entry behind: an upgraded
+     * install can hold both the stale pre-rename {@code backup.jar} and the new
+     * {@code webdav-backup.jar}, and only the replacement may load. This is the
+     * regression that the raw duplicate-id tie-break used to decide by filename.
+     */
+    @Test
+    void supersededWebdavBackupJarIsDeniedWhileItsReplacementLoads() throws Exception {
+        final Path home = temporary.resolve("rename-home");
+        final Path plugins = home.resolve("plugins");
+        writePlugin(plugins, temporary.resolve("stale-backup"), "backup.jar",
+            SUPERSEDED_BACKUP_ID, SUPERSEDED_BACKUP_MARKER);
+        writePlugin(plugins, temporary.resolve("replacement"), "webdav-backup.jar",
+            WEBDAV_ID, WEBDAV_MARKER);
+        final RuntimeScheduler scheduler = scheduler();
+        final HostSession host = new HostSession(Optional::empty);
+        final List<LocalPluginRuntime.PluginFailure> failures = new ArrayList<>();
+
+        try (PreviewLog log = new PreviewLog(home.resolve("logs/turboism.log"))) {
+            final var candidates = new PreviewPluginDiscovery(plugins, log).discover(failures);
+            assertFalse(candidates.containsKey(SUPERSEDED_BACKUP_ID));
+            assertTrue(candidates.containsKey(WEBDAV_ID));
+            assertEquals(1, failures.size());
+            assertEquals(SUPERSEDED_BACKUP_ID, failures.get(0).pluginId());
+            assertEquals("PLUGIN_RETIRED_ID", failures.get(0).code());
+
+            final LocalPluginRuntime runtime = new LocalPluginRuntime(home, scheduler, host.adapterAccess(), log);
+            try {
+                final LocalPluginRuntime.LoadReport report = runtime.loadAll();
+                assertEquals(1, report.loaded().stream()
+                    .filter(plugin -> plugin.id().equals(WEBDAV_ID)
+                        || plugin.id().equals(SUPERSEDED_BACKUP_ID))
+                    .count());
+                assertTrue(report.loaded().stream().anyMatch(plugin -> plugin.id().equals(WEBDAV_ID)));
+                assertTrue(report.failures().stream().anyMatch(failure ->
+                    failure.pluginId().equals(SUPERSEDED_BACKUP_ID)
+                        && "PLUGIN_RETIRED_ID".equals(failure.code())));
+                assertTrue(Boolean.getBoolean(WEBDAV_MARKER));
+                assertFalse(Boolean.getBoolean(SUPERSEDED_BACKUP_MARKER));
+            } finally {
+                runtime.close();
+            }
+        } finally {
+            host.close();
+            scheduler.shutdown();
+            System.clearProperty(WEBDAV_MARKER);
+            System.clearProperty(SUPERSEDED_BACKUP_MARKER);
         }
     }
 
