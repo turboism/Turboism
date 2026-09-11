@@ -52,7 +52,7 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
   const url=`https://github.com/${REPOSITORY}/releases/download/${raw.tag_name}/${a.name}`;
   require(a.browser_download_url===url,'Untrusted asset URL');
   const digest=a.digest.slice(7),key=`files/${digest}/${a.name}`;
-  assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id});
+  assets.set(a.name,{name:a.name,key,url,mediaType:a.name.endsWith('.zip')?'application/zip':'application/octet-stream',size:a.size,sha256:digest,assetId:a.id,downloadCount:Number.isSafeInteger(a.download_count)&&a.download_count>=0?a.download_count:null});
  }
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
