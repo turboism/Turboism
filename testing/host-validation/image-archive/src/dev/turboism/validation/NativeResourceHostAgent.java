@@ -24,6 +24,7 @@ public final class NativeResourceHostAgent {
     private static volatile WeakReference<?> closedDocument;
     private static volatile NativeImageRetainObservation.Snapshot closedImageCohort;
     private static volatile NativeCloseOwnershipObservation.WeakPair closedWeak;
+    private static volatile NativeImageRetainObservation.Snapshot softCacheCohort;
 
     public static void premain(String args, Instrumentation instrumentation) {
         Path home = Path.of(System.getProperty("turboism.validation.textureUpload.home"));
@@ -102,6 +103,7 @@ public final class NativeResourceHostAgent {
                     phase("closed.begin");
                     Thread.sleep(120_000);
                     observeOwnershipClosed(verifiedApp, frame, "closed120", closedWeak);
+                    observeSoftCacheClosed(verifiedApp, frame, "closed120");
                     RESULT.setProperty("documentWeakCleared", Boolean.toString(document.refersTo(null)));
                     if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain.closed");
                     NativeAtlasWorkflow.onEdt(() -> {
@@ -126,12 +128,18 @@ public final class NativeResourceHostAgent {
                     && "COMPLETE".equals(RESULT.getProperty("retain.beforeClose.status")) ? "COMPLETE" : "INCOMPLETE");
             if (closedWeak != null) {
                 observeOwnershipClosed(verifiedApp, frame, "closedFinal", closedWeak);
+                observeSoftCacheClosed(verifiedApp, frame, "closedFinal");
             }
             boolean ownershipComplete = true;
             for (String name : List.of("idle", "beforeClose", "closed120", "closedFinal")) {
                 ownershipComplete &= "COMPLETE".equals(RESULT.getProperty("ownership." + name + ".status"));
             }
             RESULT.setProperty("ownership.attributionStatus", ownershipComplete ? "COMPLETE" : "INCOMPLETE");
+            boolean softCacheComplete = true;
+            for (String name : List.of("idle", "beforeClose", "closed120", "closedFinal")) {
+                softCacheComplete &= "COMPLETE".equals(RESULT.getProperty("softCache." + name + ".status"));
+            }
+            RESULT.setProperty("softCache.attributionStatus", softCacheComplete ? "COMPLETE" : "INCOMPLETE");
             require(!driver.isAlive(), "workload exceeded bounded observation window");
             if (failure.get() != null) throw new IllegalStateException("native workload failed", failure.get());
             if (recording != null) { recording.stop(); recording.dump(directory.resolve("profile.jfr")); }
@@ -201,8 +209,9 @@ public final class NativeResourceHostAgent {
                 new WeakReference<>(doc), new WeakReference<>(call(doc, "getModelSource")),
                 ((java.io.File) call(doc, "getFile")).getPath());
         phase("idle.end");
-        observeImages(app, doc, view, frame, "beforeZoom");
+        softCacheCohort = observeImages(app, doc, view, frame, "beforeZoom");
         observeOwnershipOpen(app, appType, doc, view, frame, "idle", handles);
+        observeSoftCache(app, doc, view, frame, "idle");
         phase("zoom.begin");
         try {
             for (int index = 0; index < 60; index++) {
@@ -252,6 +261,7 @@ public final class NativeResourceHostAgent {
         phase("restored.end");
         closedImageCohort = observeImages(app, doc, view, frame, "beforeClose");
         observeOwnershipOpen(app, appType, doc, view, frame, "beforeClose", handles);
+        observeSoftCache(app, doc, view, frame, "beforeClose");
         WeakReference<?> weak = new WeakReference<>(doc);
         require(!aborted, "observer aborted; refusing document close");
         NativeAtlasWorkflow.onEdt(() -> {
@@ -324,6 +334,37 @@ public final class NativeResourceHostAgent {
         });
         snapshot.write(RESULT, "ownership." + name);
         phase("ownership." + name + ".end");
+    }
+
+    /** Runs after the ownership and static-root captures of the same phase. */
+    private static void observeSoftCache(Object app, Object doc, Object view, Frame frame, String name) throws Exception {
+        require(!aborted, "observer aborted; refusing soft cache observation");
+        phase("softCache." + name + ".begin");
+        NativeSoftCacheObservation.Result result = (NativeSoftCacheObservation.Result) NativeAtlasWorkflow.onEdt(() -> {
+            checkIdentity(app, doc, view, frame);
+            return NativeSoftCacheObservation.auditHost(app.getClass(), retainedCohort());
+        });
+        result.write(RESULT, "softCache." + name);
+        phase("softCache." + name + ".end");
+    }
+
+    private static void observeSoftCacheClosed(Class<?> verifiedApp, Frame frame, String name) throws Exception {
+        require(!aborted, "observer aborted; refusing soft cache observation");
+        phase("softCache." + name + ".begin");
+        NativeSoftCacheObservation.Result result = (NativeSoftCacheObservation.Result) NativeAtlasWorkflow.onEdt(() -> {
+            require(frame.isVisible(), "task window absent during closed soft cache observation");
+            Object app = verifiedApp.getMethod("access$get_instance$cp").invoke(null);
+            require(((List<?>) call(app, "getAllDocs")).isEmpty(), "document reopened before closed soft cache observation");
+            return NativeSoftCacheObservation.auditHost(verifiedApp, retainedCohort());
+        });
+        result.write(RESULT, "softCache." + name);
+        phase("softCache." + name + ".end");
+    }
+
+    /** The retained cohort of the most recent image observation; empty when that capture did not run. */
+    private static List<WeakReference<?>> retainedCohort() {
+        NativeImageRetainObservation.Snapshot snapshot = softCacheCohort;
+        return snapshot == null ? List.of() : snapshot.resources;
     }
 
     /** Runs after the ownership capture of the same phase so that any class initialization cannot affect it. */
