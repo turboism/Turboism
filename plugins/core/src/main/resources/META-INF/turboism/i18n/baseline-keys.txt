@@ -133,7 +133,17 @@ settings.tab.maintenance
 settings.tab.performance
 settings.tab.runtime
 settings.tab.startup
+settings.updates.automatic
 settings.use-text-icon
+updates.available
+updates.check
+updates.checking
+updates.disabled
+updates.download
+updates.open-failed
+updates.ready
+updates.unavailable
+updates.up-to-date
 window.about.title
 window.logs.title
 window.plugin-details.title

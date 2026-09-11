@@ -55,6 +55,11 @@
       "id": "turboism.ui.dialog.contribute",
       "scope": "application",
       "reason": "Confirms plugin uninstall requests."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Publishes update status notifications in the host status region."
     }
   ],
   "capabilities": [],
