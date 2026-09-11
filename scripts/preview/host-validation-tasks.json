@@ -209,6 +209,18 @@
       "arguments": ["{version}", "{runLabel}"],
       "resources": {"host-slot": 1}
     },
+    "update-check": {
+      "description": "Stable update-check request, comparison and rendered UI on an exact host.",
+      "command": "scripts/preview/run-update-check-host-validation.sh",
+      "versions": ["5203", "5302", "5303"],
+      "defaultVariant": "current",
+      "variants": {
+        "current": ["{version}", "{runLabel}", "current"],
+        "new": ["{version}", "{runLabel}", "new"],
+        "safe": ["{version}", "{runLabel}", "safe"]
+      },
+      "resources": {"host-slot": 1}
+    },
     "workspace": {
       "description": "Workspace switching and reconnect validation.",
       "command": "scripts/preview/run-workspace-host-validation.sh",
