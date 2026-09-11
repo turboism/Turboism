@@ -767,3 +767,13 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：四个测试类全绿；`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*' --tests 'dev.turboism.ui.appearance.*' --tests 'dev.turboism.hostread.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL。
 - **限制（不得抬高）**：证据是**读次数与调用次数**这一结构量，不是秒数/CPU 占比；端到端收益记 **NONE**。`current()` 内部的 `modelAccess.active()` 解析成本、以及单次 `activeProject()` 遍历本身（`idFor` O(n) 线性扫描、contents×documents O(c×d) join）**未动**——后者属下一候选切片。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两次行为等价的读去重**（外观捕获 4→1 读/次；session 观察 2 适配器调用→1）、当前文档三次构建→一次，及一组先失败后通过的离线回归。
+
+### I39 — P11 单次快照遍历内部成本：idFor 线性扫描→O(1)，contents×documents join→O(C+D)（2026-09-11）
+
+- **范围/验证方法**：Spec Kit `035-snapshot-read-cost`。I37/I38 把「每次逻辑读几次宿主」压到一次；本切片处理「这一次遍历内部」的两个纯内存平方项。全程 offline。
+- **量化基线（静态+计数证据）**：①`HostSessionIdentityRegistry.idFor` 每次调用 = 一次全量 `removeCollectedEntries` 清扫 + O(entries) 线性扫描；一次 `activeProject()` 产生 ~3D+2C 次 `idFor`（每 document/content/model/animation/scene 各一次）→ 会话存活对象数 E 上 **O(E×(3D+2C))**。②`contents()` 里每个 content 对全部 documents 做 `filter` → **O(C×D)**。③（已在 034 顺带修复）`activeProject()` 把 currentDocument 快照**构建 3 次**（documents 列表一遍、`document(currentDocument)` 一遍、`documentFile` 一遍）→ 现为一次。
+- **修复（两处）**：①`idFor` 改 `HashMap<identity-hashed WeakReference key, id>`：lookup O(1) 摊销，equals 按 referent 身份、referent 死后永不相等（死键不会与活对象冲突），`removeCollectedEntries` 只摘已入队的条目。id 语义不变：identity 键、prefix 只标记新 id、序列单调不复用。②`contents()` join 改先建 `contentId→documentIds`（按 documents 顺序）再逐 content 查表，append 顺序与去重语义不变（`joinDocumentIds` 抽为 package-private 静态方法便于直测）。
+- **回归**：新增 `HostSessionIdentityRegistryTest`（同对象稳定 id、不同对象不同 id、prefix 只标记不 partition——与旧实现逐字一致的语义、32 个已回收对象的有界收集断言 + id 永不复用）；新增 `contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates`（documentIds 追加顺序与去重逐字对齐旧逐 filter 结果）。既有 `documentIdentityDoesNotChangeWhenDocumentOrderChanges`、`projectAndDocumentIdsRemainStableAcrossRenameAddRemoveAndSaveAsWithinSession` 全绿。
+- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）。
+- **限制（不得抬高）**：证据是复杂度量级与功能等价断言，不是秒数/CPU 占比；E/C/D 的实际规模未在线上量化（真实项目通常几十到几百项，收益随项目规模线性放大）。端到端收益记 **NONE**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两个结构复杂度的确定性降低**（每 traversal 的 O(E·(3D+2C))+O(C·D) → O(E? 无) + O(C+D)；严格说 idFor 变为 O(1) 摊销 + 队列摘取）及配套回归。
