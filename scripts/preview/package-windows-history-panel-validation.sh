@@ -19,6 +19,9 @@ float_descriptor="$repo_root/scripts/preview/windows-history-float-plugin.json"
 seed_descriptor="$repo_root/scripts/preview/windows-history-seed-validation-plugin.json"
 native_ui_class="WindowsHistoryNativeUiIngressProbe"
 native_ui_descriptor="$repo_root/scripts/preview/windows-history-native-ui-plugin.json"
+# The native-UI probe's Parts-tree actor reuses the mesh probe's structural tree
+# selection, so its classes travel inside the probe jar too.
+mesh_edit_class="WindowsMeshEditValidationProbe"
 launcher="$repo_root/scripts/preview/launch-cubism-history-validation.ps1"
 
 [ -f "$agent_jar" ] || { printf 'error: run ./gradlew previewBundle :plugins:history-panel:jar :testing:integration-tests:testClasses first\n' >&2; exit 1; }
@@ -151,7 +154,8 @@ mkdir -p "$tmp4/$probe_class_dir" "$tmp4/META-INF/turboism/i18n"
 # read-only manager probe classes are packaged here too.
 find "$test_classes/$probe_class_dir" -maxdepth 1 -type f \
   \( -name "$native_ui_class.class" -o -name "$native_ui_class\$*.class" \
-     -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \) \
+     -o -name "$probe_class.class" -o -name "$probe_class\$*.class" \
+     -o -name "$mesh_edit_class.class" -o -name "$mesh_edit_class\$*.class" \) \
   -exec cp {} "$tmp4/$probe_class_dir/" \;
 cp "$native_ui_descriptor" "$tmp4/META-INF/turboism/plugin.json"
 : > "$tmp4/META-INF/turboism/i18n/messages.properties"
@@ -174,6 +178,11 @@ fi
 if ! jar tf "$bundle_root/plugins/history-native-ui-probe.jar" \
   | grep -Fxq "$probe_class_dir/$probe_class.class"; then
   printf 'error: native UI probe package is missing the embedded native sampler\n' >&2
+  exit 1
+fi
+if ! jar tf "$bundle_root/plugins/history-native-ui-probe.jar" \
+  | grep -Fxq "$probe_class_dir/$mesh_edit_class\$SelectionAttempt.class"; then
+  printf 'error: native UI probe package is missing the Parts-tree actor helper\n' >&2
   exit 1
 fi
 

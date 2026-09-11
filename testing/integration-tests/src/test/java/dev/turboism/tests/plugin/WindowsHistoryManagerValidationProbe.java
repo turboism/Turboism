@@ -261,17 +261,22 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         if (manager == null) return new ManagerSnapshot(name, "null", -1, false, false, 0, List.of());
         final List<?> raw = (List<?>) invoke(manager, "getUndoList");
         final int count = Math.min(raw.size(), MAX_ENTRIES);
+        final int position = (Integer) invoke(manager, "getCurrentPos");
         final List<Entry> entries = new ArrayList<>(count);
         // Newest first, so the sample's geometry budget reaches the entry the operator has just
         // created rather than the oldest one in the list. The list is put back into index order
         // before it is returned, so the artifact keeps its existing ordering.
         for (int index = count - 1; index >= 0; index--) {
             final Object entry = raw.get(index);
+            // A fresh entry stores no post state; mirroring the decoder's rule, the live target may
+            // stand in for it only while this entry is still the manager's tip — the last entry
+            // with the cursor at the tail — so no later edit can have overwritten the value read.
+            final boolean tip = position == raw.size() && index == position - 1;
             entries.add(new Entry(
                 index,
                 boundedLabel(invoke(entry, "getPresentationName")),
                 (Boolean) invoke(entry, "isSignificant"),
-                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0}, geometryBudget)
+                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0}, geometryBudget, tip)
             ));
         }
         java.util.Collections.reverse(entries);
@@ -312,7 +317,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
         final int[] nodes,
-        final int[] geometryBudget
+        final int[] geometryBudget,
+        final boolean liveAllowed
     ) {
         final String className = entry.getClass().getName();
         if (depth > MAX_DETAIL_DEPTH || nodes[0] >= MAX_DETAIL_NODES || visited.put(entry, Boolean.TRUE) != null) {
@@ -322,9 +328,9 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         try {
             return switch (className) {
                 case "com.live2d.undo.GroupUndo" ->
-                    groupDetail(entry, className, depth, visited, nodes, geometryBudget);
+                    groupDetail(entry, className, depth, visited, nodes, geometryBudget, liveAllowed);
                 case "com.live2d.undo.PropertyUndo" -> propertyDetail(entry, className);
-                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className, geometryBudget);
+                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className, geometryBudget, liveAllowed);
                 case "com.live2d.undo.ListUndo" -> listDetail(entry, className);
                 case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Parameter_" ->
                     addRemoveDetail(entry, className, "getChildItem");
@@ -347,18 +353,27 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
         final int[] nodes,
-        final int[] geometryBudget
+        final int[] geometryBudget,
+        final boolean liveAllowed
     ) throws Exception {
         final List<?> children = (List<?>) invoke(entry, "getEditList");
         final int observed = (Integer) invoke(entry, "getEditCount");
         final ArrayList<String> childClasses = new ArrayList<>();
         final ArrayList<NativeDetail> childDetails = new ArrayList<>();
         final int count = Math.min(children.size(), MAX_DETAIL_NODES - nodes[0]);
+        // The live target holds the last writer's result, so among a group's children only the
+        // last SimpleUndo writing each object may read it — the decoder's withhold rule. A child
+        // group is not a writer itself and passes the permission to its own children.
+        final java.util.Set<Object> liveChildren = lastWriters(children, count);
         for (int index = 0; index < count; index++) {
-            final NativeDetail child =
-                nativeDetail(children.get(index), depth + 1, visited, nodes, geometryBudget);
-            childClasses.add(child.entryClass());
-            childDetails.add(child);
+            final Object child = children.get(index);
+            final boolean childLive = liveAllowed
+                && (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())
+                    || liveChildren.contains(child));
+            final NativeDetail childDetail =
+                nativeDetail(child, depth + 1, visited, nodes, geometryBudget, childLive);
+            childClasses.add(childDetail.entryClass());
+            childDetails.add(childDetail);
         }
         final boolean truncated = groupTruncated(observed, children.size(), count, childDetails);
         return new NativeDetail(
@@ -401,19 +416,62 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         );
     }
 
+    /**
+     * Collects the children allowed to read their live target as post state.
+     *
+     * <p>Mirrors the decoder's last-writer rule over one group's direct children: each SimpleUndo
+     * that is the final writer of its own target may read it; earlier writers and SimpleUndo
+     * children whose target cannot be read stay withheld.</p>
+     */
+    private static java.util.Set<Object> lastWriters(final List<?> children, final int count) {
+        final java.util.Set<Object> allowed = java.util.Collections.newSetFromMap(
+            new java.util.IdentityHashMap<>());
+        final java.util.Map<Object, Integer> lastByTarget = new java.util.IdentityHashMap<>();
+        for (int index = 0; index < count; index++) {
+            final Object child = children.get(index);
+            if (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())) continue;
+            final Object target;
+            try {
+                target = invoke(child, "getTargetData");
+            } catch (Exception unavailable) {
+                continue;
+            }
+            if (target != null) lastByTarget.put(target, index);
+        }
+        for (int index = 0; index < count; index++) {
+            final Object child = children.get(index);
+            if (!"com.live2d.undo.SimpleUndo".equals(child.getClass().getName())) continue;
+            final Object target;
+            try {
+                target = invoke(child, "getTargetData");
+            } catch (Exception unavailable) {
+                continue;
+            }
+            final Integer last = target == null ? null : lastByTarget.get(target);
+            if (last != null && last == index) allowed.add(child);
+        }
+        return allowed;
+    }
+
     private static NativeDetail simpleDetail(
         final Object entry,
         final String className,
-        final int[] geometryBudget
+        final int[] geometryBudget,
+        final boolean liveAllowed
     ) throws Exception {
         final Object target = invoke(entry, "getTargetData");
         final Object undo = invoke(entry, "getUndoData");
         final Object redo = invoke(entry, "getRedoData");
+        final Object post = redo != null ? redo : (liveAllowed ? target : null);
         return new NativeDetail(
             "SIMPLE", className, target == null ? "" : target.getClass().getName(),
             "", "", "", "", -1, 0, List.of(), List.of(), undo != null, redo != null,
-            redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque",
-            budgetedGeometry(geometryBudget, undo, redo)
+            redo == null
+                ? (post != null
+                    ? "history.detail.post-state-live-target"
+                    : "history.detail.post-state-unavailable")
+                : "history.detail.native-object-state-opaque",
+            budgetedGeometry(geometryBudget, undo, post)
         );
     }
 

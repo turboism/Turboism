@@ -42,6 +42,13 @@ for artifact in "${required[@]}"; do
   }
 done
 
+extra_args=()
+# Automation is opt-in: the probe then drives the bounded steps itself through the
+# real host UI and falls back to the operator window for every step without an actor.
+if [ "${TURBOISM_HISTORY_NATIVE_UI_AUTOMATE:-}" = "1" ]; then
+  extra_args+=(--jvm-option "-Dturboism.history.nativeUi.automate=true")
+fi
+
 exec bash "$runner" \
   --name semantic-history-native-ui \
   --transport "${TURBOISM_HOST_VALIDATION_TRANSPORT:-local}" \
@@ -64,4 +71,5 @@ exec bash "$runner" \
   --result-timeout 5400 \
   --exit-timeout 300 \
   --local-evidence-dir "$local_evidence" \
+  "${extra_args[@]}" \
   "$@"
