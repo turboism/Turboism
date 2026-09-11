@@ -53,6 +53,12 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
      */
     private static final String ADVERTISED_MARKER = "(Build ";
 
+    /**
+     * The panel renders long panel text through Swing HTML and the status region prefixes the
+     * severity, so rendered labels are never byte-identical to the catalog string. Assertions match
+     * by containment of the message and count instances rather than requiring equality.
+     */
+
     private static final String UPDATE_STATE_FILE = "update-state.json";
 
     private static final long HOST_READY_TIMEOUT_MILLIS = 180_000L;
@@ -147,9 +153,9 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         final String expectedText = expectedText();
         final String expectedBuild = System.getProperty(EXPECT_BUILD_PROPERTY, "");
 
-        final String rendered = awaitLabelEqual(expectedText, DECISION_TIMEOUT_MILLIS);
+        final String rendered = awaitLabelContaining(expectedText, DECISION_TIMEOUT_MILLIS);
         if (rendered == null) {
-            failures.add("no rendered update reminder equal to '" + expectedText + "' appeared within "
+            failures.add("no rendered update reminder containing '" + expectedText + "' appeared within "
                 + DECISION_TIMEOUT_MILLIS + "ms");
         } else {
             observations.add("renderedReminder=" + rendered);
@@ -236,8 +242,8 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
             return;
         }
         observations.add("panelCheckButton=present");
-        final int before = countLabelsEqual(expectedText);
-        observations.add("labelsEqualToExpectedBeforeClick=" + before);
+        final int before = countLabelsContaining(expectedText);
+        observations.add("labelsMatchingExpectedBeforeClick=" + before);
 
         final boolean clicked = clickButton(check);
         observations.add("panelCheckButtonClicked=" + clicked);
@@ -248,15 +254,15 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
 
         final long deadline = System.currentTimeMillis() + DECISION_TIMEOUT_MILLIS;
         while (System.currentTimeMillis() < deadline) {
-            final int after = countLabelsEqual(expectedText);
+            final int after = countLabelsContaining(expectedText);
             if (after > before) {
-                observations.add("labelsEqualToExpectedAfterClick=" + after);
+                observations.add("labelsMatchingExpectedAfterClick=" + after);
                 observations.add("renderedManualResult=" + expectedText);
                 return;
             }
             sleep(SETTLE_STEP_MILLIS);
         }
-        failures.add("a manual check rendered no new result equal to '" + expectedText
+        failures.add("a manual check rendered no new result containing '" + expectedText
             + "'; observed labels=" + String.join(" | ", labelTexts()));
     }
 
@@ -341,15 +347,12 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         return null;
     }
 
-    private String awaitLabelEqual(final String text, final long timeoutMillis) {
-        final long deadline = System.currentTimeMillis() + timeoutMillis;
-        while (System.currentTimeMillis() < deadline) {
-            for (final String candidate : labelTexts()) {
-                if (text.equals(candidate)) return candidate;
-            }
-            sleep(SETTLE_STEP_MILLIS);
+    private int countLabelsContaining(final String text) {
+        int count = 0;
+        for (final String candidate : labelTexts()) {
+            if (candidate.contains(text)) count++;
         }
-        return null;
+        return count;
     }
 
     private String awaitLabelContaining(final String needle, final long timeoutMillis) {
@@ -361,14 +364,6 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
             sleep(SETTLE_STEP_MILLIS);
         }
         return null;
-    }
-
-    private int countLabelsEqual(final String text) {
-        int count = 0;
-        for (final String candidate : labelTexts()) {
-            if (text.equals(candidate)) count++;
-        }
-        return count;
     }
 
     private JButton findButton(final String name) {
