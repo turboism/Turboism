@@ -62,6 +62,31 @@ class CanvasHintNotificationContractTest {
     }
 
     @Test
+    void withPositionAddsTheOverrideAndKeepsEveryOtherComponent() {
+        CanvasHintNotification base = new CanvasHintNotification("id", "message", 1.0f)
+            .withOnClick(() -> { });
+
+        CanvasHintNotification placed = base.withPosition(new CanvasHintPosition(12.0f, 34.0f));
+
+        assertEquals("id", placed.id());
+        assertEquals("message", placed.message());
+        assertEquals(1.0f, placed.durationSeconds());
+        assertTrue(placed.onClick().isPresent(), "the click action must survive");
+        assertEquals(12.0f, placed.position().orElseThrow().x());
+        assertEquals(34.0f, placed.position().orElseThrow().y());
+        assertTrue(base.position().isEmpty(), "the original notification stays host-placed");
+    }
+
+    @Test
+    void positionAndClickDefaultsAreEmptyAndNullIsRejected() {
+        CanvasHintNotification passive = new CanvasHintNotification("id", "message");
+
+        assertTrue(passive.position().isEmpty());
+        assertTrue(passive.onClick().isEmpty());
+        assertThrows(NullPointerException.class, () -> passive.withPosition(null));
+    }
+
+    @Test
     void withOnClickReplacesAnExistingActionAndRejectsNull() {
         Runnable first = () -> { };
         Runnable second = () -> { };

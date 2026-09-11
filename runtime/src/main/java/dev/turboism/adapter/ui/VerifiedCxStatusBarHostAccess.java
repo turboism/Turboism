@@ -3,6 +3,7 @@ package dev.turboism.adapter.ui;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.CanvasHintPosition;
 
 import java.util.List;
 import java.util.Objects;
@@ -35,15 +36,18 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     private static final String SHOW_HINT_ALIAS = "cubism.ui-canvas-hint.view-context.show-hint";
 
     /**
-     * Clickable variant of {@link #SHOW_HINT_ALIAS}. Its fourth parameter is the
-     * host's {@code Function1<GButtonEntity, Unit>} action and the fifth is the
-     * optional position override, which stays {@code null} for the native
-     * lower-right placement.
+     * Clickable and positionable variant of {@link #SHOW_HINT_ALIAS}. Its fourth
+     * parameter is the host's {@code Function1<GButtonEntity, Unit>} action and the
+     * fifth is the optional position override; either may be {@code null}, which keeps
+     * the native behaviour for that argument.
      */
     private static final String SHOW_HINT_WITH_ACTION_ALIAS =
         "cubism.ui-canvas-hint.view-context.show-hint-with-action";
 
     private static final int HINT_ACTION_PARAMETER_INDEX = 3;
+
+    /** Native {@code GVector2(float, float)} used only for an explicit hint position. */
+    private static final String POSITION_CREATE_ALIAS = "cubism.ui-canvas-hint.position.create";
 
     private final VerifiedMemberResolver resolver;
 
@@ -104,13 +108,15 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     }
 
     /**
-     * Routes to the clickable native entry point when the notification carries a
-     * click action, and to the passive one otherwise. Both share the same hint key,
-     * so replacing or closing a hint works identically for either route.
+     * Routes to the passive native entry point only when the notification needs neither
+     * a click action nor an explicit position; the richer entry point carries both. Every
+     * route shares the same hint key, so replacing or closing a hint is route-independent.
      */
     private void showHint(final Object viewContext, final CanvasHintNotification notification) {
         final float durationSeconds = nativeDurationSeconds(notification.durationSeconds());
-        if (notification.onClick().isEmpty()) {
+        final boolean clickable = notification.onClick().isPresent();
+        final boolean positioned = notification.position().isPresent();
+        if (!clickable && !positioned) {
             resolver.invoke(
                 SHOW_HINT_ALIAS,
                 viewContext,
@@ -120,8 +126,24 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
             );
             return;
         }
+        // A null action is a supported argument: the native button checks for it before
+        // invoking, so a position-only hint passes no click callback.
+        final Object nativeAction = clickable ? nativeAction(notification) : null;
+        final Object nativePosition = positioned ? nativePosition(notification) : null;
+        resolver.invoke(
+            SHOW_HINT_WITH_ACTION_ALIAS,
+            viewContext,
+            notification.message(),
+            durationSeconds,
+            notification.id(),
+            nativeAction,
+            nativePosition
+        );
+    }
+
+    private Object nativeAction(final CanvasHintNotification notification) {
         final Runnable action = notification.onClick().orElseThrow();
-        final Object nativeAction = resolver.createFunctionalArgumentProxy(
+        return resolver.createFunctionalArgumentProxy(
             SHOW_HINT_WITH_ACTION_ALIAS,
             HINT_ACTION_PARAMETER_INDEX,
             ignored -> {
@@ -131,15 +153,11 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
                 return null;
             }
         );
-        resolver.invoke(
-            SHOW_HINT_WITH_ACTION_ALIAS,
-            viewContext,
-            notification.message(),
-            durationSeconds,
-            notification.id(),
-            nativeAction,
-            null
-        );
+    }
+
+    private Object nativePosition(final CanvasHintNotification notification) {
+        final CanvasHintPosition override = notification.position().orElseThrow();
+        return resolver.construct(POSITION_CREATE_ALIAS, override.x(), override.y());
     }
 
     private static float nativeDurationSeconds(final float durationSeconds) {

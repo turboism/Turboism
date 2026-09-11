@@ -95,7 +95,16 @@ class DismissibleCanvasHintTest {
                     if (recorder.clickOnSend) {
                         notification.onClick().orElseThrow().run();
                     }
-                    return (Registration) () -> recorder.closed.set(true);
+                    return new CanvasHintHandle() {
+                        @Override
+                        public void renew() {
+                        }
+
+                        @Override
+                        public void close() {
+                            recorder.closed.set(true);
+                        }
+                    };
                 }
                 if (method.isDefault()) {
                     return InvocationHandler.invokeDefault(proxy, method, args);

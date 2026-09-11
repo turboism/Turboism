@@ -6,6 +6,7 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.CanvasHintPosition;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -105,6 +106,23 @@ public class VerifiedCxStatusBarHostAccessTest {
 
         registration.close();
         assertNull(viewContext.action, "closing a hint through showHint clears its action");
+    }
+
+    @Test
+    void canvasHintWithAPositionOverridePassesTheVerifiedPosition() {
+        SyntheticViewContext viewContext = new SyntheticViewContext();
+        SyntheticAppCtrl.instance = new SyntheticAppCtrl(new SyntheticMainFrameCtrl(null), viewContext);
+
+        access().showCanvasHint(
+            new CanvasHintNotification("screen-color", "Incompatible", 2.5f)
+                .withPosition(new CanvasHintPosition(120.0f, 340.0f))
+        );
+
+        assertNull(viewContext.action, "a position-only hint must not register a click action");
+        assertTrue(viewContext.position instanceof SyntheticPosition,
+            "the verified GVector2 constructor must produce the position argument");
+        assertEquals(120.0f, ((SyntheticPosition) viewContext.position).x);
+        assertEquals(340.0f, ((SyntheticPosition) viewContext.position).y);
     }
 
     @Test
@@ -272,7 +290,11 @@ public class VerifiedCxStatusBarHostAccessTest {
                     "showHint", "(Ljava/lang/String;FLjava/lang/String;)V", StaticSelector.ACCESS_PUBLIC),
                 StaticSelector.method("cubism.ui-canvas-hint.view-context.show-hint-with-action", viewContext,
                     "showHintWithFunc", "(Ljava/lang/String;FLjava/lang/String;L" + name(SyntheticHintAction.class)
-                        + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC)
+                        + ";Ljava/lang/Object;)V", StaticSelector.ACCESS_PUBLIC),
+                StaticSelector.classSelector("cubism.ui-canvas-hint.position.class",
+                    name(SyntheticPosition.class)),
+                StaticSelector.constructor("cubism.ui-canvas-hint.position.create",
+                    name(SyntheticPosition.class), "(FF)V", StaticSelector.ACCESS_PUBLIC)
             ),
             VerifiedCxStatusBarHostAccessTest.class.getClassLoader()
         );
@@ -287,11 +309,23 @@ public class VerifiedCxStatusBarHostAccessTest {
         void clicked(Object button);
     }
 
+    /** Stands in for the host's {@code GVector2(float, float)} position override. */
+    public static final class SyntheticPosition {
+        final float x;
+        final float y;
+
+        public SyntheticPosition(final float x, final float y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
     public static final class SyntheticViewContext {
         String message;
         float durationSeconds;
         String key;
         SyntheticHintAction action;
+        Object position;
 
         public void showHint(final String message, final float durationSeconds, final String key) {
             this.message = message;
@@ -311,6 +345,7 @@ public class VerifiedCxStatusBarHostAccessTest {
             this.durationSeconds = durationSeconds;
             this.key = key;
             this.action = action;
+            this.position = position;
         }
     }
 
