@@ -20,18 +20,46 @@ import java.util.function.Consumer;
  * and the ingress counts that as a failure rather than propagating it. Rebinding is keyed on the
  * exact native manager identity, so a document switch or a session replacement always closes the
  * old listener before a new one is registered.</p>
+ *
+ * <p>The native Editor's app-controller singleton does not exist yet when the host session
+ * connects: the runtime admits the host as soon as the project-workspace classes are available,
+ * which is before the Editor has built its own controllers, so the very first resolve returns
+ * nothing. Binding therefore retries for a bounded window instead of treating that first miss as
+ * "this host has no history", which would leave the ingress dead for the whole session and look
+ * exactly like a host where nobody ever edited anything.</p>
  */
 public final class NativeEditIngressSession implements AutoCloseable {
 
     private static final String COMPONENT = "native-edit-ingress";
+
+    /** How long to keep re-resolving the native document after the connection admits the host. */
+    static final RetryPolicy DEFAULT_RETRY = new RetryPolicy(1_000L, 120);
+
+    /**
+     * Bounded retry budget for the startup race.
+     *
+     * @param intervalMillis pause between attempts
+     * @param maxAttempts total attempts before the session reports that it stayed inactive
+     */
+    record RetryPolicy(long intervalMillis, int maxAttempts) {
+        RetryPolicy {
+            if (intervalMillis <= 0L || maxAttempts <= 0) {
+                throw new IllegalArgumentException("retry interval and attempts must be positive");
+            }
+        }
+    }
 
     private final NativeEditIngress.Publisher publisher;
     private final NativeEditBeginBridge.BeforeSink beforeSink;
     private final Consumer<Runnable> eventThread;
     private final AtomicBoolean drainScheduled = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
+    private final RetryPolicy retry;
+    private final AtomicBoolean retrying = new AtomicBoolean();
 
     private final Object bindLock = new Object();
+    private volatile Pending pending;
+    private volatile Thread retryThread;
     private NativeEditIngress ingress;
     private Object manager;
     private long generation = -1;
@@ -53,9 +81,19 @@ public final class NativeEditIngressSession implements AutoCloseable {
         final NativeEditBeginBridge.BeforeSink beforeSink,
         final Consumer<Runnable> eventThread
     ) {
+        this(publisher, beforeSink, eventThread, DEFAULT_RETRY);
+    }
+
+    NativeEditIngressSession(
+        final NativeEditIngress.Publisher publisher,
+        final NativeEditBeginBridge.BeforeSink beforeSink,
+        final Consumer<Runnable> eventThread,
+        final RetryPolicy retry
+    ) {
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.beforeSink = Objects.requireNonNull(beforeSink, "beforeSink");
         this.eventThread = Objects.requireNonNull(eventThread, "eventThread");
+        this.retry = Objects.requireNonNull(retry, "retry");
     }
 
     /**
@@ -76,16 +114,15 @@ public final class NativeEditIngressSession implements AutoCloseable {
         try {
             resolved = EditorHistoryNativeBindings.undoManager(resolver);
         } catch (RuntimeException unavailable) {
-            // An ingress that silently never attaches would look exactly like a host that made no
-            // edits, so a refusal is a warning and not just a counter.
-            RuntimeDiagnostics.warn(
-                COMPONENT,
-                "Native edit ingress stayed inactive: " + describe(unavailable)
-            );
+            // The Editor builds its own controllers later than the host connection is admitted, so
+            // the first resolve legitimately finds nothing. Treating that as "this host has no
+            // history" would leave the ingress dead for the whole session.
+            scheduleRetry(generation, resolver, unavailable);
             return false;
         }
         synchronized (bindLock) {
             if (closed.get()) return false;
+            pending = null;
             if (ingress != null && this.manager == resolved && this.generation == generation) {
                 return true;
             }
@@ -133,6 +170,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
      * connect repairs, so detaching must not be terminal.</p>
      */
     public void deactivate() {
+        cancelRetry();
         synchronized (bindLock) {
             closeLocked();
         }
@@ -142,6 +180,7 @@ public final class NativeEditIngressSession implements AutoCloseable {
     @Override
     public void close() {
         closed.set(true);
+        cancelRetry();
         synchronized (bindLock) {
             closeLocked();
         }
@@ -241,6 +280,80 @@ public final class NativeEditIngressSession implements AutoCloseable {
         final String message = failure.getMessage();
         final String type = failure.getClass().getName();
         return message == null || message.isBlank() ? type : type + ": " + message;
+    }
+
+    /**
+     * Starts the bounded retry for a binding whose native document is not available yet.
+     *
+     * <p>At most one retry thread exists at a time and every request supersedes the previous one,
+     * so a later connection never races an older attempt onto the ingress.</p>
+     */
+    private void scheduleRetry(
+        final long generation,
+        final VerifiedMemberResolver resolver,
+        final RuntimeException cause
+    ) {
+        synchronized (bindLock) {
+            if (closed.get()) return;
+            pending = new Pending(generation, cause);
+        }
+        if (!retrying.compareAndSet(false, true)) return;
+        final Thread thread = new Thread(
+            () -> retryUntilBound(generation, resolver),
+            "turboism-native-edit-ingress-bind"
+        );
+        thread.setDaemon(true);
+        retryThread = thread;
+        thread.start();
+    }
+
+    private void retryUntilBound(final long generation, final VerifiedMemberResolver resolver) {
+        RuntimeException lastFailure = null;
+        try {
+            for (int attempt = 1; attempt <= retry.maxAttempts(); attempt++) {
+                Thread.sleep(retry.intervalMillis());
+                final Pending current = pending;
+                if (closed.get() || current == null || current.generation() != generation) return;
+                if (bind(generation, resolver)) {
+                    RuntimeDiagnostics.info(
+                        COMPONENT,
+                        "Native edit ingress attached on deferred attempt " + attempt
+                            + " once the Editor document was ready"
+                    );
+                    return;
+                }
+                lastFailure = current.cause();
+            }
+            RuntimeDiagnostics.warn(
+                COMPONENT,
+                "Native edit ingress stayed inactive after " + retry.maxAttempts()
+                    + " deferred attempts: " + describe(lastFailure)
+            );
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        } finally {
+            synchronized (bindLock) {
+                if (pending != null && pending.generation() == generation) {
+                    pending = null;
+                }
+            }
+            retryThread = null;
+            retrying.set(false);
+        }
+    }
+
+    private void cancelRetry() {
+        synchronized (bindLock) {
+            pending = null;
+        }
+        final Thread thread = retryThread;
+        retryThread = null;
+        if (thread != null) thread.interrupt();
+        retrying.set(false);
+    }
+
+    /** One binding request whose native document could not be resolved yet. */
+    private record Pending(long generation, RuntimeException cause) {
     }
 
     private void closeLocked() {
