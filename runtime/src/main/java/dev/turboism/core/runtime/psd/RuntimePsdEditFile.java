@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 
 /**
  * Runtime-owned {@link PsdEditFile} handle for one exported raw image.
@@ -54,6 +55,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
     private final Consumer<Runnable> continuationDispatcher;
     private final Executor executor;
     private final PsdDefaultApplicationLauncher launcher;
+    private final PsdSaveWatcher watcher;
 
     private final Object stateLock = new Object();
     private final IdentityHashMap<Registration, Consumer<PsdFileRevision>> subscriptions =
@@ -72,7 +74,10 @@ final class RuntimePsdEditFile implements PsdEditFile {
         final BooleanSupplier activeScope,
         final Consumer<Runnable> continuationDispatcher,
         final Executor executor,
-        final PsdDefaultApplicationLauncher launcher
+        final PsdDefaultApplicationLauncher launcher,
+        final PsdSaveWatcher.Scheduler scheduler,
+        final LongSupplier nanoClock,
+        final String baselineDigest
     ) {
         this.pluginId = requireText(pluginId, "pluginId");
         this.binding = Objects.requireNonNull(binding, "binding");
@@ -84,13 +89,26 @@ final class RuntimePsdEditFile implements PsdEditFile {
             continuationDispatcher, "continuationDispatcher");
         this.executor = Objects.requireNonNull(executor, "executor");
         this.launcher = Objects.requireNonNull(launcher, "launcher");
+        this.watcher = new PsdSaveWatcher(
+            this.allocation,
+            this::publishStableSave,
+            new PsdSaveDebouncer(requireDigest(baselineDigest)),
+            scheduler,
+            nanoClock,
+            PsdSaveWatcher.DEFAULT_POLL_MILLIS,
+            PsdSaveWatcher.COMPENSATION_DELAY_MILLIS
+        );
     }
 
-    /** Records the export baseline token so a later stable save can retire the superseded stage. */
-    void trackBaseline(final PsdFileRevision baseline) {
+    /**
+     * Records the export baseline token so a later stable save can retire the superseded stage, then
+     * starts watching the allocation. The baseline digest is never reported as an external save.
+     */
+    void beginWatching(final PsdFileRevision baseline) {
         synchronized (stateLock) {
             issuedRevisions.addLast(Objects.requireNonNull(baseline, "baseline"));
         }
+        watcher.start();
     }
 
     @Override
@@ -148,11 +166,7 @@ final class RuntimePsdEditFile implements PsdEditFile {
     public CompletionStage<PsdFileOperationResult> stop() {
         final PluginCompletionFuture<PsdFileOperationResult> completion = completion();
         final AtomicBoolean settled = new AtomicBoolean(false);
-        registry.revoke(this);
-        synchronized (stateLock) {
-            stopped = true;
-            subscriptions.clear();
-        }
+        revokeInternal();
         if (inFlight.get() == 0) {
             drained.complete(null);
         }
@@ -160,6 +174,16 @@ final class RuntimePsdEditFile implements PsdEditFile {
             completion, settled, result(
                 PsdFileOperationResult.Status.STOPPED, "PSD_STOP;inFlight=settled")));
         return completion.stage();
+    }
+
+    /** Runtime-owned teardown used by the issuing service; publishes no plugin result. */
+    void revokeInternal() {
+        registry.revoke(this);
+        watcher.close();
+        synchronized (stateLock) {
+            stopped = true;
+            subscriptions.clear();
+        }
     }
 
     /**
@@ -243,6 +267,14 @@ final class RuntimePsdEditFile implements PsdEditFile {
         } catch (RuntimeException dispatcherFailure) {
             completion.settle(result);
         }
+    }
+
+    private static String requireDigest(final String digest) {
+        Objects.requireNonNull(digest, "digest");
+        if (!digest.matches("[0-9a-f]{64}")) {
+            throw new IllegalArgumentException("baseline digest must be a lowercase SHA-256 digest");
+        }
+        return digest;
     }
 
     private PluginCompletionFuture<PsdFileOperationResult> completion() {

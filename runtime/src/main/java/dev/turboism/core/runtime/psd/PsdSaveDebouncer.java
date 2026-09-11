@@ -20,6 +20,7 @@ final class PsdSaveDebouncer {
     private String lastNotifiedDigest;
     private String candidateDigest;
     private long candidateSince;
+    private String offeredDigest;
     private boolean stopped;
 
     PsdSaveDebouncer(final String initialDigest) {
@@ -35,9 +36,16 @@ final class PsdSaveDebouncer {
     }
 
     /**
-     * Observes one complete snapshot using a monotonic clock (such as nanoTime).
-     * At least two observations separated by the quiet window are required.
-     * Re-observing an already notified digest never replays it merely because time passed.
+     * Observes one complete snapshot using a monotonic clock (such as nanoTime) and offers the
+     * content once its version has been stable for the whole quiet window. At least two
+     * observations separated by the quiet window are required.
+     *
+     * <p>Offering is two-phase on purpose: an offered digest is not treated as notified until the
+     * caller confirms a successful publication with {@link #confirm(String)}. That way a publication
+     * that fails for a transient reason can still be retried, while a later delivery that genuinely
+     * fails keeps this offer out of circulation and can be abandoned with
+     * {@link #invalidateObservation()}. Re-observing an already confirmed digest never replays it
+     * merely because time passed.</p>
      */
     Optional<String> observe(final String digest, final long nowNanos) {
         final String validated = requireDigest(digest);
@@ -46,6 +54,11 @@ final class PsdSaveDebouncer {
         }
         if (lastNotifiedDigest.equals(validated)) {
             candidateDigest = null;
+            offeredDigest = null;
+            return Optional.empty();
+        }
+        if (validated.equals(offeredDigest)) {
+            // Already offered and awaiting confirmation; do not offer the same content twice.
             return Optional.empty();
         }
         if (!validated.equals(candidateDigest)) {
@@ -56,20 +69,31 @@ final class PsdSaveDebouncer {
         if (nowNanos - candidateSince < quietNanos) {
             return Optional.empty();
         }
-        lastNotifiedDigest = validated;
+        offeredDigest = validated;
         candidateDigest = null;
         return Optional.of(validated);
     }
 
-    /** A missing, unreadable, changing, or oversized snapshot breaks the stable window. */
+    /** Records that the offered digest was published; only a confirmed digest stops being offered. */
+    void confirm(final String digest) {
+        final String validated = requireDigest(digest);
+        if (validated.equals(offeredDigest)) {
+            lastNotifiedDigest = validated;
+            offeredDigest = null;
+        }
+    }
+
+    /** A missing, unreadable, changing, oversized or unpublishable version breaks the window. */
     void invalidateObservation() {
         candidateDigest = null;
+        offeredDigest = null;
     }
 
     /** Stops admission only; does not delete files or terminate external applications. */
     void stop() {
         stopped = true;
         candidateDigest = null;
+        offeredDigest = null;
     }
 
     private static String requireDigest(final String digest) {

@@ -16,6 +16,10 @@ import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -48,8 +52,11 @@ public final class RuntimePsdExportService implements AutoCloseable {
     private final TemporaryFileFactory temporaryFileFactory;
     private final PsdEditRegistry registry = new PsdEditRegistry();
     private final PsdDefaultApplicationLauncher launcher;
+    private final PsdSaveWatcher.Scheduler saveScheduler;
     private final AtomicBoolean active = new AtomicBoolean(true);
     private final ExecutorService executor;
+    private final ScheduledExecutorService watchLane;
+    private final List<RuntimePsdEditFile> handles = new ArrayList<>();
 
     /** Creates the service with the owning plugin task completion lane. */
     public RuntimePsdExportService(
@@ -95,6 +102,15 @@ public final class RuntimePsdExportService implements AutoCloseable {
             new PsdExportThreadFactory(this.pluginId),
             new ThreadPoolExecutor.AbortPolicy()
         );
+        // One bounded lane per plugin serializes every handle's save observation, so two documents
+        // of one plugin can never interleave inside a watcher pass.
+        this.watchLane = Executors.newSingleThreadScheduledExecutor(
+            new PsdWatchThreadFactory(this.pluginId));
+        this.saveScheduler = (task, delayMillis) -> {
+            final java.util.concurrent.ScheduledFuture<?> future =
+                watchLane.schedule(task, delayMillis, TimeUnit.MILLISECONDS);
+            return () -> future.cancel(false);
+        };
     }
 
     /**
@@ -162,9 +178,19 @@ public final class RuntimePsdExportService implements AutoCloseable {
     @Override
     public void close() {
         if (active.compareAndSet(true, false)) {
+            final List<RuntimePsdEditFile> issued;
+            synchronized (handles) {
+                issued = new ArrayList<>(handles);
+                handles.clear();
+            }
+            // Revoking a handle stops its watcher and future admission without deleting any file.
+            for (final RuntimePsdEditFile handle : issued) {
+                handle.revokeInternal();
+            }
             registry.close();
             executor.shutdown();
-    }
+            watchLane.shutdown();
+        }
     }
 
     private void run(
@@ -249,6 +275,7 @@ public final class RuntimePsdExportService implements AutoCloseable {
         try {
             final PsdEditRegistry.Binding binding = new PsdEditRegistry.Binding(
                 bound.sessionIdentity(), bound.generation());
+            final PsdStableSnapshot.Snapshot baselineSnapshot = PsdStableSnapshot.capture(allocation);
             file = new RuntimePsdEditFile(
                 pluginId,
                 binding,
@@ -258,12 +285,17 @@ public final class RuntimePsdExportService implements AutoCloseable {
                 activeScope,
                 continuationDispatcher,
                 executor,
-                launcher
+                launcher,
+                saveScheduler,
+                System::nanoTime,
+                baselineSnapshot.sha256()
             );
             registry.register(binding, file, allocation);
-            final PsdFileRevision baseline = registry.issueRevision(
-                binding, file, PsdStableSnapshot.capture(allocation));
-            file.trackBaseline(baseline);
+            final PsdFileRevision baseline = registry.issueRevision(binding, file, baselineSnapshot);
+            synchronized (handles) {
+                handles.add(file);
+            }
+            file.beginWatching(baseline);
             return new PsdExportResult(
                 PsdExportResult.Status.EXPORTED,
                 diagnostic(nativeStatus, integrityStatus, true, observation.structureMatches()),
@@ -450,6 +482,22 @@ public final class RuntimePsdExportService implements AutoCloseable {
         @Override
         public Thread newThread(final Runnable task) {
             final Thread thread = new Thread(task, threadName + "-" + sequence.incrementAndGet());
+            thread.setDaemon(true);
+            return thread;
+        }
+    }
+
+    /** Daemon lane for save observation; one per plugin so documents cannot interleave. */
+    private static final class PsdWatchThreadFactory implements ThreadFactory {
+        private final String threadName;
+
+        private PsdWatchThreadFactory(final String pluginId) {
+            this.threadName = "turboism.psd-watch." + pluginId.replaceAll("[^A-Za-z0-9_.-]", "_");
+        }
+
+        @Override
+        public Thread newThread(final Runnable task) {
+            final Thread thread = new Thread(task, threadName);
             thread.setDaemon(true);
             return thread;
         }
