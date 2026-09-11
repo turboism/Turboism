@@ -29,11 +29,11 @@ TURBOISM_ENV_FILE=/opt/dev/projects/turboism/.env \
 ```
 
 then submit the prepared request to the host-validation manager. Use a result
-timeout of at least 1800 seconds: the probe waits up to 420 seconds per step, and
-each step's window opens the moment its instruction is written, so read the
-instruction before you start moving the mouse.
+timeout of at least 5400 seconds: the probe waits up to 420 seconds per step and
+there are eight of them, and each step's window opens the moment its instruction
+is written, so read the instruction before you start moving the mouse.
 
-## The six steps
+## The eight steps
 
 The probe announces each step in the runtime log and in its own evidence file as
 `"type":"prompt"`. Do exactly one action per step, then stop and wait for the
@@ -44,13 +44,15 @@ the whole run becomes useless for the decoder work.
 | # | Step | Do this | Then |
 | - | ---- | ------- | ---- |
 | 1 | `parts-tree-drag` | Drag one Part onto a different Part in the Parts tree and release. | Wait. |
-| 2 | `deformer-assign` | Assign a different Deformer target to one Part or ArtMesh and confirm. | Wait. |
-| 3 | `canvas-move` | Move one model object on the canvas with the mouse and release. | Wait. |
-| 4 | `parameter-or-color` | Change one Parameter value, or one drawable colour, in the native palette. | Wait. |
-| 5 | `native-undo` | Press the native Undo shortcut once. | Wait. |
-| 6 | `native-redo` | Press the native Redo shortcut once. | Wait for the summary. |
+| 2 | `deformer-assign` | Assign a different Deformer target to one Part or ArtMesh and **confirm it** — the Deformers palette must show the new target. Selecting the object alone is not an assignment. | Wait. |
+| 3 | `canvas-move` | Move ONE object **as a whole** on the canvas and release. Do not edit its vertices. | Wait. |
+| 4 | `canvas-deform` | Deform ONE object instead of moving it: drag a single mesh point so its shape changes, then release. | Wait. |
+| 5 | `native-parameter` | Change one Parameter value in the native Parameter palette only. | Wait. |
+| 6 | `native-color` | Change only the multiply colour (正片叠底色) of one drawable in the native palette. Do not move it. | Wait. |
+| 7 | `native-undo` | Press the native Undo shortcut once. | Wait. |
+| 8 | `native-redo` | Press the native Redo shortcut once. | Wait for the summary. |
 
-Do not use Turboism's own history panel for steps 5 and 6: the point is the
+Do not use Turboism's own history panel for steps 7 and 8: the point is the
 native shortcut, which is a different ingress than the one the panel uses.
 
 If a step's action fails or you are unsure it applied, say so and stop the run.
@@ -89,7 +91,12 @@ data/dev.turboism.validation.history-native-ui/history-native-ui-ingress.jsonl
 
 ## Afterwards
 
-Send the collected artifact back for decoding. The native classes recorded in
-the `parts-tree-drag`, `deformer-assign`, `canvas-move` and `parameter-or-color`
+Send the collected artifact back for decoding. The native classes and the
+geometry summaries recorded in the `parts-tree-drag`, `deformer-assign`,
+`canvas-move`, `canvas-deform`, `native-parameter` and `native-color` snapshots
+are the input for the remaining decoder work; `canvas-move` and `canvas-deform`
+are a pair on purpose, because a whole-object move translates every point by the
+same vector while a deformation does not. The `before`/`on` sequence and the
+labels are the input for the entry hook's own review.
 snapshots are the input for the remaining decoder work; the `before`/`on`
 sequence and the labels are the input for the entry hook's own review.

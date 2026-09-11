@@ -61,7 +61,7 @@ exec bash "$runner" \
   --result-pass-line '{"type":"summary","status":"PASS"}' \
   --result-fail-line '{"type":"summary","status":"FAIL"}' \
   --ready-timeout 300 \
-  --result-timeout 3600 \
+  --result-timeout 5400 \
   --exit-timeout 300 \
   --local-evidence-dir "$local_evidence" \
   "$@"
