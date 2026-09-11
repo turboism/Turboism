@@ -1,7 +1,7 @@
 # Synthetic Windows managed-launch and managed-Graal verification.
 # This lane never downloads, discovers, or launches an installed Cubism host.
-# It uses temporary Cubism-shaped fixtures, local Java tests, and production
-# PowerShell seams stopped before network access.
+# It uses temporary Cubism-shaped fixtures, local Java tests, and an offline
+# native Graal installer suite with no preinstalled JVM dependency.
 # workflow_dispatch keeps Windows minutes explicit and reviewable.
 
 name: Windows managed launch verification
@@ -13,6 +13,20 @@ permissions:
   contents: read
 
 jobs:
+  verify-native-graal-installer:
+    runs-on: windows-2022
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - name: Verify native Graal provisioning without Java (Windows PowerShell 5.1)
+        shell: powershell
+        run: .\packaging\windows-installer\test-managed-graal-install.ps1
+      - name: Verify native Graal provisioning without Java (PowerShell 7)
+        shell: pwsh
+        run: .\packaging\windows-installer\test-managed-graal-install.ps1
+
   verify-managed-launch:
     runs-on: windows-2022
     steps:
@@ -45,35 +59,6 @@ jobs:
         env:
           TURBOISM_WORKTREE_ID: windows-managed-launch-ci
         run: .\gradlew.bat :runtime:test --tests dev.turboism.graal.ManagedGraalRuntimeServiceTest --tests dev.turboism.graal.ManagedGraalRuntimeCliTest --console=plain
-      - name: Verify managed Graal PowerShell bridge
-        shell: powershell
-        run: |
-          $turboismHome = Join-Path $env:RUNNER_TEMP "Turboism bridge home"
-          New-Item -ItemType Directory -Path $turboismHome -Force | Out-Null
-          $windowsPowerShell = Join-Path $env:SystemRoot "System32\WindowsPowerShell\v1.0\powershell.exe"
-          $previousErrorPreference = $ErrorActionPreference
-          try {
-            $ErrorActionPreference = "Continue"
-            $output = & $windowsPowerShell -NoProfile -NonInteractive -ExecutionPolicy Bypass `
-              -File ".\packaging\windows-installer\install-managed-graal.ps1" `
-              -Home $turboismHome 2>&1 | Out-String
-            $exitCode = $LASTEXITCODE
-          }
-          finally {
-            $ErrorActionPreference = $previousErrorPreference
-          }
-          $global:LASTEXITCODE = 0
-          if ($exitCode -eq 0) { throw "missing-agent bridge fixture unexpectedly succeeded" }
-          if ($output -match '(?i)cannot overwrite variable home|variable home.*read.only') {
-            throw "managed Graal bridge still collides with PowerShell HOME: $output"
-          }
-          if ($output -notmatch 'Turboism agent is\s+missing') {
-            throw "managed Graal bridge did not reach the expected fixture boundary: $output"
-          }
-          $log = Join-Path $turboismHome "logs\installer\managed-graal-install.log"
-          if (-not (Test-Path -LiteralPath $log -PathType Leaf)) {
-            throw "managed Graal bridge did not persist its diagnostic log: $log"
-          }
       - name: Run synthetic managed-launch gate
         shell: powershell
         run: .\packaging\windows-installer\test-managed-launch.ps1
