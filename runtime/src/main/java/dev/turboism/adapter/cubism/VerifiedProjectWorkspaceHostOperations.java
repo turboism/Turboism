@@ -2,6 +2,7 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.adapter.ui.AdapterHostException;
 import dev.turboism.adapter.ui.SafeModeDiagnostic;
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.mapping.verification.VerifiedAccessException;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.adapter.cubism.lifecycle.ProjectContentIdentity;
@@ -639,7 +640,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     private Optional<Object> invokePublic(final Object target, final String methodName) {
         if (target == null) return Optional.empty();
         try {
-            final Method method = target.getClass().getMethod(methodName);
+            final Method method = MethodHandleCache.method(target.getClass(), methodName);
             return Optional.ofNullable(method.invoke(target));
         } catch (NoSuchMethodException | IllegalAccessException exception) {
             return Optional.empty();

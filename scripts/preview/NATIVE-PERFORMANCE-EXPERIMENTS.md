@@ -814,3 +814,13 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`./gradlew :runtime:test`（全部 runtime 套件）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：离线回归证明的是**绑定-发布-追踪的一致性**与错误 trace 路径的消除；未量化省下的秒数/CPU；**无实机测量**，端到端收益记 **NONE/pending**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一处既有正确性缺口的修复**（切换文档即错模型）+ **一条滞留路径的即时化**（绑定移走即替换发布，不必等 CLOSE）+ 配套回归。
+
+### I43 — P15 重复路径反射成员解析：每调用 `getMethod`/`getDeclaredField` → MethodHandleCache（2026-09-12）
+
+- **范围/验证方法**：Spec Kit `039-reflective-lookup-cache`。审计发现既有 `MethodHandleCache`（I? 早前为截图/profile 路径建）之外仍有五处重复路径在**每次调用**做 `Class#getMethod`/`getDeclaredField`——每次 = 全成员表扫描 + 新 Method/Field 拷贝分配。全程 offline。
+- **量化基线（静态证据）**：①`VerifiedProjectWorkspaceHostOperations.invokePublic`：每次 `activeProject()` 遍历内每 document/content/树条目 3-8 次（`getChildren`/`getModelSource`/`getModelName`/`getAnimation`/`getSceneDocs`/`getFileContentDocs`/`getOpenedImageDocument`/`a`/`getPsdFile`/`getName`）→ **每快照 ~3-8×(D+C+entries) 次未缓存解析**。②`CubismLogServiceHost.toEntry`：**每条宿主日志 4 次** `getMethod`（getLevel/getMessage/getTimeMillis + level.name）——模型加载/编辑期日志密集。③`NativeProjectLifecycleBridge.invoke`：每次文件生命周期事件。④`NativeDeformerControlRowAppearanceBridge.deformerId`：每行 ~5 次（含 `outerType.getMethod` + `field`）。⑤`NativeParameterAppearanceBridge.invoke/field`：每参数行。
+- **实现**：`MethodHandleCache` 新增 `declaredField(Class,name)`（exact-class、resolve 时不施加访问策略——caller 的 `canAccess`/`trySetAccessible` 原样保留且效果在共享 Field 上持久、miss 不缓存，与方法缓存同策略）；五个调用点全部改走 `MethodHandleCache.method`/`declaredField`，各自访问检查与异常语义逐字保留。冷路径有意不动：hook registry 的 per-registration 契约探测、log 装配块、FileChooser（超类遍历字段+每用户动作）、一次性 bridge 构造。
+- **回归**：`MethodHandleCacheTest` 新增 `declaredFieldHitsAndReturnsSameHandle`（同实例返回、caller 侧 trySetAccessible 生效、exact-class 契约——子类键查不到超类字段、miss 不缓存双重断言）。五处迁移类的既有测试**零修改全绿**（SC-003：迁移对行为不可见）。
+- **验证结果**：`./gradlew :runtime:test` 受影响包（core.reflect + adapter.cubism + runtime.log + ui.appearance + adapter.host）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得抬高）**：证据为结构性（成员表扫描+拷贝 → O(1) map 命中）与行为等价断言；单次 `getMethod` ~百纳秒级、收益随项目规模/日志量线性放大但未测秒数；`Method.invoke` 本身的固有开销不变；端到端收益记 **NONE**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**五条重复路径的反射解析成本确定性消除**（每次调用 → 每 (Class,成员) 一次）+ 一个 field 级缓存能力与配套回归。
