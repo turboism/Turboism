@@ -35,8 +35,12 @@ public final class MethodHandleCache {
         DECLARED_UP_ARITY,
         /** Public overload list by name + arity ({@link Class#getMethods}). */
         PUBLIC_ARITY,
+        /** Declared overload list by name + arity across the class hierarchy. */
+        DECLARED_UP_ARITY_ALL,
         /** Declared field on the exact class only ({@link Class#getDeclaredField}). */
-        DECLARED_FIELD
+        DECLARED_FIELD,
+        /** Declared field walk: exact class, then superclasses ({@link Class#getDeclaredField} loop). */
+        DECLARED_FIELD_UP
     }
 
     private record MethodKey(Kind kind, Class<?> type, String name, List<Class<?>> parameterTypes, int arity) {
@@ -163,6 +167,37 @@ public final class MethodHandleCache {
     }
 
     /**
+     * Cached list of every declared method matching {@code name} and {@code arity} across the
+     * class hierarchy (exact class first, then superclasses), equivalent to the legacy
+     * {@code getDeclaredMethods()} walk. The returned list is immutable; empty when nothing
+     * matches. No access policy is applied at resolution time — callers keep their existing
+     * {@code setAccessible}/{@code canAccess} handling, whose effect persists on the shared
+     * {@link Method} instances.
+     */
+    public static List<Method> declaredOverloads(
+        final Class<?> type,
+        final String name,
+        final int arity
+    ) {
+        final MethodKey key = new MethodKey(Kind.DECLARED_UP_ARITY_ALL, type, name, arity);
+        final List<Method> cached = OVERLOADS.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        final List<Method> resolved = new ArrayList<>();
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            for (Method candidate : current.getDeclaredMethods()) {
+                if (candidate.getName().equals(name) && candidate.getParameterCount() == arity) {
+                    resolved.add(candidate);
+                }
+            }
+        }
+        final List<Method> stored = List.copyOf(resolved);
+        final List<Method> existing = OVERLOADS.putIfAbsent(key, stored);
+        return existing == null ? stored : existing;
+    }
+
+    /**
      * Declared field lookup on the exact class only, equivalent to {@link Class#getDeclaredField}.
      *
      * <p>Unlike the method lookups no access policy is applied at resolution time: callers keep
@@ -182,6 +217,35 @@ public final class MethodHandleCache {
         final Field existing = FIELDS.putIfAbsent(key, resolved);
         // Return the canonical cached instance so concurrent resolvers observe the same handle.
         return existing == null ? resolved : existing;
+    }
+
+    /**
+     * Declared field lookup walking the class hierarchy (exact class first, then superclasses),
+     * equivalent to the legacy {@code getDeclaredField} loop.
+     *
+     * <p>Same access policy as {@link #declaredField}: none at resolution time — callers keep
+     * their {@code canAccess}/{@code trySetAccessible} handling, whose effect persists on the
+     * shared {@link Field}. Misses are not cached.</p>
+     *
+     * @throws NoSuchFieldException when no class in the hierarchy declares the field
+     */
+    public static Field declaredFieldUp(final Class<?> type, final String name)
+        throws NoSuchFieldException {
+        final MethodKey key = new MethodKey(Kind.DECLARED_FIELD_UP, type, name, -1);
+        final Field cached = FIELDS.get(key);
+        if (cached != null) {
+            return cached;
+        }
+        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+            try {
+                final Field resolved = current.getDeclaredField(name);
+                final Field existing = FIELDS.putIfAbsent(key, resolved);
+                return existing == null ? resolved : existing;
+            } catch (NoSuchFieldException ignored) {
+                // try the next superclass
+            }
+        }
+        throw new NoSuchFieldException(type.getName() + "#" + name);
     }
 
     private static Method resolve(final MethodKey key, final Method method) throws NoSuchMethodException {
