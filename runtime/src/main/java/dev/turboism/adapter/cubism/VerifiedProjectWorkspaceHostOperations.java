@@ -22,6 +22,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -467,13 +468,28 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             new java.util.IdentityHashMap<>()
         );
         collectContents(iterable, contents, visited);
+        return joinDocumentIds(contents, documents);
+    }
+
+    /**
+     * Appends each document's id to the contents it belongs to, in document order, without
+     * duplicates — the same result the former per-content filter produced, in O(C+D).
+     */
+    static List<ProjectContentSnapshot> joinDocumentIds(
+        final List<ProjectContentSnapshot> contents,
+        final List<DocumentSnapshot> documents
+    ) {
+        final Map<String, List<String>> documentIdsByContentId = new java.util.HashMap<>();
+        for (DocumentSnapshot document : documents) {
+            document.contentId().ifPresent(contentId -> documentIdsByContentId
+                .computeIfAbsent(contentId, key -> new ArrayList<>())
+                .add(document.documentId()));
+        }
         return contents.stream().map(content -> {
             final List<String> documentIds = new ArrayList<>(content.documentIds());
-            documents.stream()
-                .filter(document -> document.contentId().filter(
-                    content.contentId()::equals
-                ).isPresent())
-                .map(DocumentSnapshot::documentId)
+            documentIdsByContentId
+                .getOrDefault(content.contentId(), List.of())
+                .stream()
                 .filter(id -> !documentIds.contains(id))
                 .forEach(documentIds::add);
             return new ProjectContentSnapshot(

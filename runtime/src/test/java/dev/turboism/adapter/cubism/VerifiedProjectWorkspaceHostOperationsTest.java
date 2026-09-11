@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import java.io.File;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -252,6 +253,43 @@ class VerifiedProjectWorkspaceHostOperationsTest {
             pair.document().orElseThrow().documentId(),
             pair.project().orElseThrow().documents().get(0).documentId()
         );
+    }
+
+    @Test
+    void contentDocumentJoinAppendsDocumentIdsInDocumentOrderWithoutDuplicates() {
+        final var contentA = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "content-a", "A", dev.turboism.sdk.cubism.ProjectContentKind.MODEL,
+            Optional.empty(), List.of("doc-existing"), List.of()
+        );
+        final var contentB = new dev.turboism.sdk.cubism.ProjectContentSnapshot(
+            "content-b", "B", dev.turboism.sdk.cubism.ProjectContentKind.OTHER,
+            Optional.empty(), List.of(), List.of()
+        );
+        final var document1 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-1", "One", "documents/doc-1/one.cmo3", Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+        final var document2 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-2", "Two", "documents/doc-2/two.cmo3", Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+        final var document3 = new dev.turboism.sdk.cubism.DocumentSnapshot(
+            "doc-existing", "Three", "documents/doc-existing/three.cmo3",
+            Optional.empty(), Optional.empty(),
+            dev.turboism.sdk.cubism.DocumentKind.MODEL, Optional.of("content-a"), Optional.empty()
+        );
+
+        final var joined = VerifiedProjectWorkspaceHostOperations.joinDocumentIds(
+            List.of(contentA, contentB),
+            List.of(document1, document2, document3)
+        );
+
+        assertEquals(
+            List.of("doc-existing", "doc-1", "doc-2"),
+            joined.get(0).documentIds(),
+            "document ids append in document order after the content's own ids, without duplicates"
+        );
+        assertEquals(List.of(), joined.get(1).documentIds());
     }
 
     @Test
