@@ -221,6 +221,45 @@ class WindowsHistoryManagerValidationProbeTest {
         );
     }
 
+    @Test
+    void anExhaustedGeometryBudgetReportsOmittedRatherThanNone() throws Exception {
+        final int[] budget = {1};
+
+        assertEquals(
+            "POSITIONS",
+            WindowsHistoryManagerValidationProbe.budgetedGeometry(
+                budget, form(0.0F, 0.0F), form(1.0F, 0.0F)
+            ).family()
+        );
+        assertEquals(0, budget[0], "one summary must spend exactly one unit of the budget");
+
+        final WindowsHistoryManagerValidationProbe.GeometryDelta exhausted =
+            WindowsHistoryManagerValidationProbe.budgetedGeometry(
+                budget, form(0.0F, 0.0F), form(1.0F, 0.0F)
+            );
+
+        assertEquals("OMITTED", exhausted.family());
+        assertFalse(exhausted.changed(), "an omitted summary claims no change");
+        assertFalse(
+            "NONE".equals(exhausted.family()),
+            "a spent budget must not look like a detail that carries no form at all"
+        );
+        assertEquals(
+            "OMITTED",
+            WindowsHistoryManagerValidationProbe.budgetedGeometry(
+                null, form(0.0F, 0.0F), form(1.0F, 0.0F)
+            ).family()
+        );
+    }
+
+    @Test
+    void anOmittedSummaryIsSerialisedAsOmitted() {
+        final String json = WindowsHistoryManagerValidationProbe.GeometryDelta.omitted().json();
+
+        assertTrue(json.contains("\"family\":\"OMITTED\""), json);
+        assertFalse(json.contains("positions"), json);
+    }
+
     private static Object form(final float... positions) {
         return new Form(positions);
     }
