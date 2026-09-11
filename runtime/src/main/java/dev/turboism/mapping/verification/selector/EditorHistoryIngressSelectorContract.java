@@ -38,6 +38,17 @@ public final class EditorHistoryIngressSelectorContract {
      */
     public static final String BASE_EDIT_ENTRY_ALIAS = "cubism.editor-history.edit-mode.begin";
 
+    /**
+     * The modeling editor's own {@code beginEdit} entry, which the four HR-05 ingress families
+     * actually reach.
+     *
+     * <p>It belongs to the mature Editor surface and is already admitted under its own alias, so it
+     * is deliberately <em>not</em> part of {@link #REQUIRED_ALIASES}: adding it there would change
+     * what exact Cubism 5.3.03 excludes, and 5.3.03 is expected to keep excluding this whole
+     * family.</p>
+     */
+    public static final String MODELING_EDIT_ENTRY_ALIAS = "cubism.editor-model.edit-mode.begin";
+
     public static final Set<String> REQUIRED_ALIASES = Set.of(
         "cubism.editor-history.manager.undo-state-listener",
         "cubism.editor-history.manager.undo-state-listener-remove",
