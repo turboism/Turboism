@@ -18,6 +18,29 @@ AUDIT = ROOT / "testing/host-validation/image-archive/src/dev/turboism/validatio
 OWNERSHIP = ROOT / "testing/host-validation/image-archive/src/dev/turboism/validation/NativeCloseOwnershipObservation.java"
 AGENT = ROOT / "testing/host-validation/image-archive/src/dev/turboism/validation/NativeResourceHostAgent.java"
 
+FOREIGN = r'''
+package other;
+
+import java.lang.ref.SoftReference;
+import java.util.ArrayList;
+
+/** A cache whose holder class is package-private, as the real host holder is. */
+public final class ForeignCache {
+    public static final class Resource { }
+
+    static final class Holder {
+        private final SoftReference<Resource> a;
+        Holder(Resource value) { this.a = new SoftReference<>(value); }
+        public final SoftReference<Resource> a() { return a; }
+    }
+
+    public static final ArrayList<Holder> cacheList = new ArrayList<>();
+
+    public static Resource make() { Resource r = new Resource(); cacheList.add(new Holder(r)); return r; }
+    public static void clear() { cacheList.clear(); }
+}
+'''
+
 HARNESS = r'''
 package dev.turboism.validation;
 
@@ -151,6 +174,22 @@ public final class SoftCacheAuditTest {
             if (!(value instanceof String)) throw new AssertionError("non scalar property " + key);
         }
 
+        // 10. A public accessor on a package-private holder class in another package must still be readable.
+        try {
+            Class<?> foreign = Class.forName("other.ForeignCache");
+            Class<?> foreignHolder = Class.forName("other.ForeignCache$Holder");
+            Object fresh = foreign.getMethod("make").invoke(null);
+            List<WeakReference<?>> foreignCohort = new ArrayList<>();
+            foreignCohort.add(new WeakReference<>(fresh));
+            var cross = run(foreign, foreignHolder, foreignCohort, 100, 1000, 250_000_000L);
+            prop(cross, "status", "COMPLETE");
+            prop(cross, "reason", "none");
+            prop(cross, "entries", "1");
+            prop(cross, "matchedCohort", "1");
+        } catch (ReflectiveOperationException problem) {
+            throw new AssertionError(problem);
+        }
+
         // 9. A null cache field is a complete zero, not a failure.
         var nullCache = run(EmptyCache.class, b.class, new ArrayList<>(), 100, 1000, 250_000_000L);
         prop(nullCache, "status", "COMPLETE");
@@ -180,7 +219,8 @@ class SoftCacheAuditTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             work = Path(tmp)
             (work / "SoftCacheAuditTest.java").write_text(HARNESS)
-            sources = [str(AUDIT), str(OWNERSHIP), str(work / "SoftCacheAuditTest.java")]
+            (work / "ForeignCache.java").write_text(FOREIGN)
+            sources = [str(AUDIT), str(OWNERSHIP), str(work / "SoftCacheAuditTest.java"), str(work / "ForeignCache.java")]
             compiled = subprocess.run(
                 [str(Path(home, "bin", "javac")), "--release", "17", "-nowarn", "-d", str(work)] + sources,
                 capture_output=True, text=True)

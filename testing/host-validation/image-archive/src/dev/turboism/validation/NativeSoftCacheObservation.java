@@ -112,6 +112,7 @@ final class NativeSoftCacheObservation {
             result = new Result();
             result.values.setProperty("status", "UNSUPPORTED");
             result.values.setProperty("reason", "layout-or-origin");
+            result.values.setProperty("failureKind", problem.getClass().getSimpleName());
         }
         result.values.setProperty("durationNs", Long.toString(System.nanoTime() - start));
         return result;
@@ -133,6 +134,8 @@ final class NativeSoftCacheObservation {
                     || !SOFT_REFERENCE.equals(accessor.getReturnType().getName())) {
                 throw new NoSuchMethodException(HOLDER_ACCESSOR);
             }
+            // The holder class is package-private, so a public accessor still needs the member to be made accessible.
+            if (!accessor.trySetAccessible()) throw new NoSuchMethodException(HOLDER_ACCESSOR);
             if (cache == null) {
                 result.add("cohortSize", cohort.size());
                 result.commit();
@@ -178,6 +181,7 @@ final class NativeSoftCacheObservation {
                  | ClassCastException problem) {
             result.values.setProperty("status", "UNSUPPORTED");
             result.values.setProperty("reason", "access");
+            result.values.setProperty("failureKind", problem.getClass().getSimpleName());
         }
         result.values.setProperty("durationNs", Long.toString(clock.getAsLong() - start));
         return result;
