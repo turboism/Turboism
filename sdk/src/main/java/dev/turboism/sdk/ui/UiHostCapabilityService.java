@@ -9,6 +9,8 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * UI-host service surface for SDK-only plugins.
@@ -198,6 +200,75 @@ public interface UiHostCapabilityService {
      * @return a handle that dismisses this message only while it remains current
      */
     Registration notifyStatus(StatusNotification notification);
+
+    /**
+     * Shows a native Cubism hint over the drawing area.
+     *
+     * <p>The host owns the native lower-right placement and visual theme. The
+     * notification id is a stable replacement key, and the returned registration
+     * dismisses only the keyed hint that is still current.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default CanvasHintHandle notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        throw new UnsupportedOperationException("canvas hints are not available");
+    }
+
+    /**
+     * Shows a native Cubism hint that dismisses itself when the user clicks it.
+     *
+     * <p>This is a convenience wrapper over
+     * {@link #notifyCanvasHint(CanvasHintNotification)}: it attaches a click action that
+     * closes the returned registration, so the common "click to acknowledge" case needs
+     * no handle bookkeeping in the plugin. A click replaces any action the notification
+     * already carried, and the returned registration still dismisses the hint explicitly.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default CanvasHintHandle notifyDismissibleCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        final AtomicReference<CanvasHintHandle> handle = new AtomicReference<>();
+        final AtomicBoolean clicked = new AtomicBoolean();
+        final CanvasHintHandle registration = notifyCanvasHint(notification.withOnClick(() -> {
+            clicked.set(true);
+            final CanvasHintHandle current = handle.get();
+            if (current != null) {
+                current.close();
+            }
+        }));
+        handle.set(registration);
+        if (clicked.get()) {
+            // A click that raced the handle publication must still dismiss the hint.
+            registration.close();
+        }
+        return registration;
+    }
+
+    /**
+     * Shows a native Cubism hint and keeps it on screen while {@code condition} holds.
+     *
+     * <p>This is the SDK-level equivalent of the native pattern where a re-validation
+     * routine re-issues the same keyed hint while a problem persists: the hint is
+     * renewed on {@code cadence} and clears itself once the condition reports false,
+     * so the caller never tracks a handle. See
+     * {@link ConditionalCanvasHint#whileTrue(UiScheduler, UiHostCapabilityService,
+     * CanvasHintNotification, java.util.function.BooleanSupplier, java.time.Duration)}.</p>
+     *
+     * @param scheduler the plugin's UI scheduler, used to evaluate the condition
+     * @param notification validated native canvas-hint request
+     * @param condition evaluated on each tick; the hint stays while it returns true
+     * @return a handle that stops the watch and clears the hint
+     */
+    default Registration showCanvasHintWhile(
+        final UiScheduler scheduler,
+        final CanvasHintNotification notification,
+        final java.util.function.BooleanSupplier condition
+    ) {
+        return ConditionalCanvasHint.whileTrue(scheduler, this, notification, condition);
+    }
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);
 

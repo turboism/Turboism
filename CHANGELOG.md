@@ -20,6 +20,64 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - The update entry opens the fixed first-party download page. No URL from the release feed is opened
   or installed, and no installer is downloaded or executed automatically.
 
+### Changed
+
+- The WebDAV backup plugin is renamed from `backup` to `webdav-backup`: its Gradle module and Java
+  package are `webdav-backup`/`dev.turboism.plugin.webdavbackup`, its installer artifact is
+  `plugins/webdav-backup.jar` (previously `plugins/backup.jar`), its plugin id is
+  `dev.turboism.plugin.webdav` (previously `dev.turboism.plugin.backup`), and its menu entry is now
+  localized. Stored endpoint settings in `backup/webdav.cfg` are unaffected.
+
+### Fixed
+
+- Upgrading an existing install no longer leaves two WebDAV plugin entries behind. Both installers
+  remove the stale pre-rename JAR from `plugins/` by its embedded plugin id (so any filename is
+  covered) during a managed upgrade, and the old id `dev.turboism.plugin.backup` joined the
+  retired/superseded boundary: the runtime refuses to load it, plugin management does not list it,
+  and `config.json` `disabledPlugins` no longer keeps it. The pre-rename WebDAV settings dialog also
+  localizes every label, button, tooltip and status message instead of always showing Chinese.
+
+## [0.43.11] - 2026-09-11
+
+### Added
+
+- The installer now offers an explicit language selection instead of relying on the host locale alone,
+  and Korean joins English, Simplified Chinese, and Japanese. The NSIS wizard shows the standard
+  language dialog before the welcome page and keeps every locale listed regardless of the host
+  language; the IzPack installer ships the `kor` langpack, its licence resource, and the modal langpack
+  selector. The chosen installer language stays installer-scoped and is never written to `config.json`.
+- `GET /v1/downloads/<version>.json` reports per-release download request starts. Official mirror
+  starts are added to GitHub's binary `download_count`, and the response carries one `assets` row per
+  binary with its name, key, SHA-256, official, GitHub, and total values that reconcile with the release
+  total. Checksum sidecars, HEAD/304, failed requests, nonzero resume ranges, and verification-prefixed
+  traffic are excluded, and an unknown source stays `null` instead of printing a fabricated zero.
+- Stable, Beta, and Nightly releases now carry reviewed Simplified Chinese and Japanese notes
+  (`notesByLanguage`) with English as the fallback, and the website selects the language locally. A
+  translation whose digest no longer matches the exact English section is rejected instead of reused.
+  Nightly freezes its published, ancestral baseline and the real commit subjects while the candidate is
+  prepared, so commits landing afterwards cannot change what an already-built candidate says.
+- Reviewed translations also enrich historical releases without rewriting them: 0.43.10 and
+  0.43.10-0.nightly.3 receive display supplements bound to their exact release ID, source revision, and
+  original visible body, leaving their public Release bodies, tags, receipts, files, and build numbers
+  untouched.
+- Framework message catalogs are now held to the same locale matrix as the official plugins by
+  `verifyFrameworkCatalogs`. Plugins already fail loudly on an incomplete catalog set; the framework
+  resolves its chrome through `ResourceBundle`, where a missing catalog degraded silently to English.
+  The new gate also rejects a framework module shipping catalogs outside the verified roots.
+
+### Changed
+
+- Beta and Nightly candidates record their frozen notes context (`schemaVersion: 2`), and promotion
+  binds Stable notes to the exact `CHANGELOG.md` section plus the reviewed translation digest. A
+  candidate whose `CHANGELOG.md`, `release-notes/`, or notes module changed after checkout now fails
+  closed instead of publishing notes that were never reviewed.
+- The Java uninstaller defaults to keeping `config.json`, matching the NSIS uninstaller, and headless or
+  console runs without the property keep it as well.
+- The reviewed SDK v9 exact anchor moved to the host-locale fix so the SDK contract keeps the applied
+  language instead of the launcher's DISPLAY locale. The canonical API dump is unchanged; only the
+  bytes of `UiHostCapabilityService.hostLocale()`'s default body moved, and the v2–v8 historical
+  anchors remain as audited.
+
 ### Fixed
 
 - Plugin UI language now follows the language chosen in Cubism Editor's File → Environment Settings →
@@ -33,14 +91,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   `messages_zh_Hans.properties`, so a Simplified Chinese host silently fell through to the legacy
   script-less `messages_zh.properties`. That catalog is kept as an optional compatibility alias, but
   it can no longer stand in for the script-suffixed one.
-
-### Added
-
-- Framework message catalogs are now held to the same locale matrix as the official plugins by
-  `verifyFrameworkCatalogs`. Plugins already fail loudly on an incomplete catalog set; the framework
-  resolves its chrome through `ResourceBundle`, where a missing catalog degraded silently to English.
-  The new gate also rejects a framework module shipping catalogs outside the verified roots.
-
+- Toolbar icons are loaded through the display-scale variants a plugin ships (125/150/175/200%) and
+  resolved as one multi-resolution icon, so the installer entry is no longer drawn from a single
+  unscaled bitmap on high-DPI displays.
+- The Korean branch of the Java uninstaller's confirmation dialog is localized instead of falling back
+  to English text, and the four README templates now describe the uninstaller's keep-by-default
+  `config.json` checkbox instead of a delete-by-default one.
 ## [0.43.10] - 2026-09-09
 
 ### Added

@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
@@ -35,6 +36,7 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     private final String hostVersion;
     private final CxStatusBarHostAccess access;
     private final Map<String, Entry> entries = new HashMap<>();
+    private final Map<String, CanvasHintEntry> canvasHintEntries = new HashMap<>();
 
     CxStatusBarHostOperations(
         final String hostVersion,
@@ -51,13 +53,47 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
 
     @Override
     public boolean supports(final StatusToolbarAdapter.Capability capability) {
-        return capability == StatusToolbarAdapter.Capability.STATUS_NOTIFY;
+        return capability == StatusToolbarAdapter.Capability.STATUS_NOTIFY
+            || capability == StatusToolbarAdapter.Capability.CANVAS_HINT;
     }
 
     @Override
     public Registration notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         return onEdt(() -> install(notification));
+    }
+
+    @Override
+    public Registration notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        return onEdt(() -> installCanvasHint(notification));
+    }
+
+    private Registration installCanvasHint(final CanvasHintNotification notification) {
+        final Registration nativeRegistration = access.showCanvasHint(notification);
+        if (nativeRegistration == null) {
+            throw new IllegalStateException("CX canvas-hint registration is null");
+        }
+        final CanvasHintEntry entry = new CanvasHintEntry(notification.id(), nativeRegistration);
+        canvasHintEntries.put(notification.id(), entry);
+        return closeCanvasHint(entry);
+    }
+
+    private Registration closeCanvasHint(final CanvasHintEntry entry) {
+        final AtomicBoolean closed = new AtomicBoolean();
+        return () -> onEdt(() -> {
+            if (closed.get()) {
+                return null;
+            }
+            if (canvasHintEntries.get(entry.id()) != entry) {
+                closed.set(true);
+                return null;
+            }
+            entry.nativeRegistration().close();
+            canvasHintEntries.remove(entry.id(), entry);
+            closed.set(true);
+            return null;
+        });
     }
 
     private Registration install(final StatusNotification notification) {
@@ -340,5 +376,8 @@ final class CxStatusBarHostOperations implements StatusToolbarAdapter.HostOperat
     }
 
     private record Entry(String slot, String notificationId, Object parent, Object widget) {
+    }
+
+    private record CanvasHintEntry(String id, Registration nativeRegistration) {
     }
 }
