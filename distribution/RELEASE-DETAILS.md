@@ -1,6 +1,6 @@
 # Localized release details and file-level statistics
 
-Release JSON adds `notesByLanguage` (`en`, `zh`, `ja`) and `notesCompareUrl`.
+Release JSON adds `notesByLanguage` (`en`, `zh`, `ja`, `ko`) and `notesCompareUrl`.
 `notes` remains the English fallback. Invalid optional display metadata never
 disables verified downloads. Language selection happens locally in the website.
 
@@ -13,7 +13,7 @@ The 04:20 Asia/Shanghai schedule and changed-only behavior are unchanged.
 Nightly headings and warnings are translated; raw commit subjects remain in their
 original language, explicitly labeled. Reviewed Stable/Beta translations live in
 `release-notes/X.Y.Z.json`: `schemaVersion: 1`, `version`, `englishSha256` of the
-trimmed exact English changelog section, and `locales` containing `zh` and `ja`.
+trimmed exact English changelog section, and `locales` containing `zh`, `ja` and `ko`.
 Stale translations are rejected. Missing translations fall back to original English.
 
 Existing release supplements in `release-notes-overrides.json` match exact release
