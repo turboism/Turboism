@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.ui.RuntimeUiHostCapabilityService;
 import org.junit.jupiter.api.Test;
 
@@ -29,6 +30,35 @@ class StatusToolbarAdapterContractTest {
         assertEquals(notification, host.notification);
         result.value().orElseThrow().close();
         assertTrue(host.statusClosed);
+    }
+
+    @Test
+    void notifyCanvasHintDelegatesToTheNativeHostAndClosesTheKeyedHint() {
+        RecordingHost host = new RecordingHost("5.3.02");
+        StatusToolbarAdapter adapter = StatusToolbarAdapterImpl.connected(host);
+        CanvasHintNotification notification = canvasHint("screen-color");
+
+        StatusToolbarAdapter.AdapterResult<Registration> result = adapter.notifyCanvasHint(notification);
+
+        assertTrue(result.isAvailable());
+        assertEquals(notification, host.canvasHint);
+        result.value().orElseThrow().close();
+        assertTrue(host.canvasHintClosed);
+    }
+
+    @Test
+    void runtimeUiHostServiceScopesCanvasHintIdsAndPreservesTheDescriptor() {
+        RecordingHost host = new RecordingHost("5.3.02");
+        RuntimeUiHostCapabilityService service = service("plugin.demo", host);
+
+        Registration registration = service.notifyCanvasHint(canvasHint("screen-color"));
+
+        assertEquals("11:plugin.demo:screen-color", host.canvasHint.id());
+        assertEquals("Incompatible", host.canvasHint.message());
+        assertEquals(5.0f, host.canvasHint.durationSeconds());
+        registration.close();
+        assertTrue(host.canvasHintClosed);
+        assertTrue(service.canvasHints().isEmpty());
     }
 
     @Test
@@ -216,10 +246,16 @@ class StatusToolbarAdapterContractTest {
         return new StatusNotification(id, "INFO", "Ready");
     }
 
+    private static CanvasHintNotification canvasHint(final String id) {
+        return new CanvasHintNotification(id, "Incompatible", 5.0f);
+    }
+
     private static class RecordingHost implements StatusToolbarAdapter.HostOperations {
         private final String hostVersion;
         private StatusNotification notification;
         private boolean statusClosed;
+        private CanvasHintNotification canvasHint;
+        private boolean canvasHintClosed;
 
         private RecordingHost(final String hostVersion) {
             this.hostVersion = hostVersion;
@@ -230,6 +266,11 @@ class StatusToolbarAdapterContractTest {
         @Override public Registration notifyStatus(final StatusNotification notification) {
             this.notification = notification;
             return () -> statusClosed = true;
+        }
+
+        @Override public Registration notifyCanvasHint(final CanvasHintNotification notification) {
+            this.canvasHint = notification;
+            return () -> canvasHintClosed = true;
         }
     }
 

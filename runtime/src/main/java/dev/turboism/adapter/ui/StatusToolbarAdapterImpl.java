@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.Objects;
@@ -60,6 +61,12 @@ public final class StatusToolbarAdapterImpl implements StatusToolbarAdapter {
     public AdapterResult<Registration> notifyStatus(final StatusNotification notification) {
         Objects.requireNonNull(notification, "notification");
         return withCapability(Capability.STATUS_NOTIFY, operations -> operations.notifyStatus(notification));
+    }
+
+    @Override
+    public AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        return withCapability(Capability.CANVAS_HINT, operations -> operations.notifyCanvasHint(notification));
     }
 
     private <T> AdapterResult<T> withCapability(final Capability capability, final HostCall<T> hostCall) {
