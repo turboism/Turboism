@@ -39,7 +39,7 @@ class CompleteCubismModelReadApiContractTest {
         assertMethods(Glue.class,
             "drawableA", "drawableAId", "drawableB", "drawableBId", "id", "index", "intensity", "name", "parameterIds", "parameters", "setDrawableA", "setDrawableB", "setId", "setIntensity", "setName");
         assertMethods(Parts.class, "add", "all", "copy", "create", "find", "remove");
-        assertMethods(Deformers.class, "all", "createRotation", "createWarp", "find", "remove");
+        assertMethods(Deformers.class, "all", "applyToChildren", "createRotation", "createWarp", "find", "remove");
         assertMethods(Drawables.class, "all", "create", "find", "remove");
 
         assertEquals(ArtMeshId.class, returnType(Drawable.class, "id"));
