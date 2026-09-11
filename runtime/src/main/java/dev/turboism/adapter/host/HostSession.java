@@ -64,6 +64,16 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         new dev.turboism.adapter.cubism.textureatlas.RuntimeTextureAtlasLayoutAlgorithmRegistry();
     private final EditorObjectLifecycleCoordinator editorObjectLifecycle =
         new EditorObjectLifecycleCoordinator();
+    /**
+     * Observes edits the Cubism user interface performed, which never enter the Turboism facade.
+     * The listener itself only signals this session; every host read and publication is posted to
+     * the editor event thread, so nothing runs inside the host's undo admission.
+     */
+    private final dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession nativeEditIngress =
+        new dev.turboism.adapter.cubism.editor.history.NativeEditIngressSession(
+            editorObjectLifecycle.semantic()::publishObserved,
+            javax.swing.SwingUtilities::invokeLater
+        );
     private final ProjectFileLifecycleCoordinator projectFileLifecycle =
         new ProjectFileLifecycleCoordinator();
     private final EditorLifecycleCoordinator editorLifecycleEvents =
@@ -299,6 +309,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             dynamicAppearance.connect(candidate.appearanceProvider());
             paletteAppearanceCoordinator.replaceHostGeneration(editorUiGeneration);
             bindTextureAtlasEditorSession(editorUiGeneration, candidate);
+            bindNativeEditIngress(editorUiGeneration, candidate);
             candidate.textureAtlasLayoutProvider().ifPresent(textureAtlasLayouts::connect);
             dynamicEditorCommands.connect(candidate.editorCommands());
             editorUiLifecycle.connected(editorUiGeneration);
@@ -612,6 +623,25 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         }
     }
 
+    /**
+     * Binds the native edit ingress for this connection.
+     *
+     * <p>A resolver that does not admit the listener selectors, or a document that has no history
+     * manager yet, leaves the ingress inactive. That is deliberately not a connection failure: the
+     * session must still connect, and the ingress is an additive observation surface.</p>
+     */
+    private void bindNativeEditIngress(
+        final long generation,
+        final HostAdapterConnection connection
+    ) {
+        try {
+            nativeEditIngress.bind(generation, connection.editorModelResolver());
+        } catch (RuntimeException unavailable) {
+            // A connection without a usable resolver is a transient state, not a terminal one.
+            nativeEditIngress.deactivate();
+        }
+    }
+
     private void bindTextureAtlasEditorSession(
         final long generation,
         final HostAdapterConnection connection
@@ -721,6 +751,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             editorLifecycleEvents.close();
             projectFileLifecycle.close();
             editorObjectLifecycle.close();
+            nativeEditIngress.close();
             partLifecycle.close();
             textureAtlasLayouts.close();
             textureAtlasNativeInvocations.close();
@@ -779,6 +810,7 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         sceneTableHost.disconnect();
         dev.turboism.adapter.cubism.mesh.NativeMeshMirrorBridge.clearHostContext();
         textureAtlasEditorUi.deactivate();
+        nativeEditIngress.deactivate();
         meshEditUiService.resetSession();
         meshMirrorAxisService.resetSession();
         activeConnectionKey = null;
