@@ -5,6 +5,7 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
@@ -33,6 +34,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
+    /** Debug observation window: keep the canvas hint on screen long enough for a human to see it. */
+    private static final long CANVAS_HINT_HOLD_MILLIS = 120_000L;
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final List<String> REVIEWED_HOST_VERSIONS = List.of("5.2.03", "5.3.02");
@@ -40,6 +43,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
     /** Same local id for the whole matrix; the runtime scopes it by plugin. */
     private static final String STATUS_ID = "status";
+    private static final String CANVAS_HINT_ID = "screen-color-incompatible";
+    private static final String CANVAS_HINT_MESSAGE = "所选目标版本与“屏幕色”不兼容";
     private static final String TOKEN = "turboism-status-probe";
 
     private PluginLogger logger;
@@ -247,6 +252,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private void runMatrixSteps(final List<String> failures) {
         // 1. Initial state: no test label exists yet.
         assertNoTokenLabel("initial", failures);
+        // 2. Native canvas hint: keep the lower-right message until its condition is cleared.
+        runCanvasHint(failures);
 
         // 2. INFO insert: a JLabel with "[I] " + token appears.
         final Registration info = notify("INFO", failures);
@@ -289,6 +296,17 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         requireCompactLabel("compact-insert", failures);
         close(compact, "compact-close", failures);
         assertNoCompactLabel("compact-close-removes", failures);
+    }
+
+    private void runCanvasHint(final List<String> failures) {
+        final Registration canvasHint = notifyCanvasHint(failures);
+        try {
+            Thread.sleep(CANVAS_HINT_HOLD_MILLIS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            failures.add("canvas-hint settle interrupted");
+        }
+        close(canvasHint, "canvas-hint-close", failures);
     }
 
 
@@ -400,6 +418,30 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             return registration;
         } catch (RuntimeException failure) {
             failures.add(severity + "-notify failed: " + failure.getClass().getSimpleName());
+            return () -> { };
+        }
+    }
+
+    private Registration notifyCanvasHint(final List<String> failures) {
+        try {
+            // Dismiss-on-click: the SDK wrapper attaches the click action, so a human
+            // can acknowledge the hint by clicking it instead of waiting for the hold.
+            final Registration registration = context.uiHost().notifyDismissibleCanvasHint(
+                new CanvasHintNotification(
+                    CANVAS_HINT_ID,
+                    CANVAS_HINT_MESSAGE,
+                    CanvasHintNotification.UNTIL_DISMISSED
+                )
+            );
+            if (registration == null) {
+                failures.add("canvas-hint-notify returned a null registration");
+                return () -> { };
+            }
+            logger.info("CANVAS_HINT_SENT id=" + CANVAS_HINT_ID
+                + " dismissOnClick=true message=" + CANVAS_HINT_MESSAGE);
+            return registration;
+        } catch (RuntimeException failure) {
+            failures.add("canvas-hint-notify failed: " + failure.getClass().getSimpleName());
             return () -> { };
         }
     }

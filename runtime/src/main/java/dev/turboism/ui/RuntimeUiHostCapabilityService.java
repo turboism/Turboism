@@ -21,6 +21,7 @@ import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.FileChooserRequest;
 import dev.turboism.sdk.ui.OverlayContribution;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.HorizontalToolbarContribution;
 import dev.turboism.sdk.ui.VerticalToolbarContribution;
@@ -60,6 +61,7 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     public static final String UI_SETTINGS_CONTRIBUTE = PermissionIds.TURBOISM_UI_SETTINGS_CONTRIBUTE;
     public static final String UI_FILE_CHOOSER_REQUEST = PermissionIds.TURBOISM_UI_FILE_CHOOSER_REQUEST;
     public static final String UI_STATUS_NOTIFY = PermissionIds.TURBOISM_UI_STATUS_NOTIFY;
+    public static final String UI_CANVAS_HINT = PermissionIds.TURBOISM_UI_CANVAS_HINT;
     public static final String UI_CONTEXT_MENU_CONTRIBUTE = PermissionIds.TURBOISM_UI_CONTEXT_MENU_CONTRIBUTE;
     public static final String UI_TOOLBAR_MAIN_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_MAIN_CONTRIBUTE;
     public static final String UI_TOOLBAR_PALETTE_CONTRIBUTE = PermissionIds.TURBOISM_UI_TOOLBAR_PALETTE_CONTRIBUTE;
@@ -91,6 +93,8 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     private final CopyOnWriteArrayList<BoundingBoxOverlayButton> boundingBoxOverlayButtons =
         new CopyOnWriteArrayList<>();
     private final BoundedKeyedStore<String, TrackedNotification> notifications =
+        new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
+    private final BoundedKeyedStore<String, TrackedCanvasHint> canvasHints =
         new BoundedKeyedStore<>(MAX_TRANSIENT_ENTRIES);
     private final CopyOnWriteArrayList<ContextMenuRegistry.ContextMenuContribution> contextMenus = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<MainToolbarRegistry.MainToolbarContribution> mainToolbars = new CopyOnWriteArrayList<>();
@@ -636,6 +640,20 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     @Override
+    public Registration notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        permissionChecker.check(UI_CANVAS_HINT, "ui.canvas.hint");
+        logCanvasHint(notification);
+        final StatusToolbarAdapter.AdapterResult<Registration> adapterResult =
+            statusToolbarAdapter.notifyCanvasHint(scopedForAdapter(notification));
+        if (adapterResult.isAvailable()) {
+            return enrollAdapterRegistration(adapterResult.value().orElseThrow());
+        }
+        adapterResult.diagnostic().ifPresent(this::recordDiagnostic);
+        return trackCanvasHint(notification);
+    }
+
+    @Override
     public Registration contributeContextMenu(final ContextMenuRegistry.ContextMenuContribution contribution) {
         Objects.requireNonNull(contribution, "contribution");
         permissionChecker.check(UI_CONTEXT_MENU_CONTRIBUTE, "ui.context-menu.contribute");
@@ -768,6 +786,16 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
     }
 
     /**
+     * @return the canvas hints still tracked for this plugin, as a snapshot taken at call time;
+     *         dismissed hints are absent
+     */
+    public List<CanvasHintNotification> canvasHints() {
+        return canvasHints.snapshot().stream()
+            .map(TrackedCanvasHint::notification)
+            .toList();
+    }
+
+    /**
      * @return the context-menu contributions currently registered by this plugin, as an immutable copy taken at call time; later
      *         registrations are not reflected in the returned list
      */
@@ -851,6 +879,10 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         }
     }
 
+    private void logCanvasHint(final CanvasHintNotification notification) {
+        logger.info("Canvas hint: " + notification.message());
+    }
+
     private StatusNotification scopedForAdapter(final StatusNotification notification) {
         final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
         return new StatusNotification(
@@ -861,10 +893,21 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         );
     }
 
+    private CanvasHintNotification scopedForAdapter(final CanvasHintNotification notification) {
+        final String scopedId = pluginId.length() + ":" + pluginId + ":" + notification.id();
+        return new CanvasHintNotification(scopedId, notification.message(), notification.durationSeconds());
+    }
+
     private Registration trackNotification(final StatusNotification notification) {
         final TrackedNotification tracked = new TrackedNotification(notification);
         notifications.put(notification.id(), tracked);
         return () -> notifications.removeIfSame(notification.id(), tracked);
+    }
+
+    private Registration trackCanvasHint(final CanvasHintNotification notification) {
+        final TrackedCanvasHint tracked = new TrackedCanvasHint(notification);
+        canvasHints.put(notification.id(), tracked);
+        return () -> canvasHints.removeIfSame(notification.id(), tracked);
     }
 
     private void recordDiagnostic(final SafeModeDiagnostic diagnostic) {
@@ -944,6 +987,18 @@ public final class RuntimeUiHostCapabilityService implements UiHostCapabilitySer
         }
 
         private StatusNotification notification() {
+            return notification;
+        }
+    }
+
+    private static final class TrackedCanvasHint {
+        private final CanvasHintNotification notification;
+
+        private TrackedCanvasHint(final CanvasHintNotification notification) {
+            this.notification = Objects.requireNonNull(notification, "notification");
+        }
+
+        private CanvasHintNotification notification() {
             return notification;
         }
     }
