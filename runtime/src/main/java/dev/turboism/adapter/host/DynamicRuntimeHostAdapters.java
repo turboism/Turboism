@@ -144,6 +144,13 @@ final class DynamicRuntimeHostAdapters {
                 ) {
                     return call(adapters -> track(adapters.statusToolbar().notifyStatus(notification)));
                 }
+
+                @Override
+                public AdapterResult<Registration> notifyCanvasHint(
+                    final dev.turboism.sdk.ui.CanvasHintNotification notification
+                ) {
+                    return call(adapters -> track(adapters.statusToolbar().notifyCanvasHint(notification)));
+                }
             },
             new UiSurfaceAdapter() {
                 @Override
