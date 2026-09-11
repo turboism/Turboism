@@ -96,9 +96,29 @@ public final class HierarchyRelationCapture {
             true
         );
         if (before.family() == Family.UNKNOWN) {
-            // Root/internal-root normalization is intentionally not guessed in the first writer
-            // slice. The existing native writer remains the safe fallback for this case.
-            return Optional.empty();
+            if (requestedFamily != Family.DEFORMER_PARENT) {
+                // Part-root normalization is intentionally not guessed: the host exposes an
+                // internal __RootPart__ next to a genuine "no parent" state, so the legacy writer
+                // stays the fallback there.
+                return Optional.empty();
+            }
+            // A child with no direct Deformer parent is exactly at the Deformer root, so the
+            // attach is captured as ROOT -> TARGET.
+            return Optional.of(new Plan(
+                Decision.CAPTURE,
+                checkedResolver,
+                checkedBinding,
+                checkedSupplier,
+                modelSource,
+                childSource,
+                requestedParentSource,
+                requestedIndex,
+                checkedKindLabel,
+                childTarget,
+                null,
+                before,
+                relationKind(requestedFamily)
+            ));
         }
         if (before.family() == Family.PART_MEMBERSHIP && before.index() < 0) {
             // A Part compensation must preserve its exact old child position. Do not use a
@@ -521,10 +541,12 @@ public final class HierarchyRelationCapture {
             this.before = before;
             this.relationKind = Objects.requireNonNull(relationKind, "relationKind");
             this.label = "Turboism: Set Parent " + kindLabel;
-            this.beforeEndpoint = new HistoryRelationChange.Endpoint(
-                HistoryRelationChange.State.TARGET,
-                Optional.of(beforeTarget)
-            );
+            this.beforeEndpoint = before.family() == Family.UNKNOWN
+                ? rootEndpoint()
+                : new HistoryRelationChange.Endpoint(
+                    HistoryRelationChange.State.TARGET,
+                    Optional.of(beforeTarget)
+                );
             final HistoryOrigin origin = HistoryOrigin.turboism(binding.pluginId(), OPERATION_ID);
             final HistoryRelationChange relation = new HistoryRelationChange(
                 relationKind,
@@ -647,10 +669,21 @@ public final class HierarchyRelationCapture {
                 resolver,
                 modelSource,
                 childSource,
-                before.family(),
+                readFamily(),
                 false
             );
+            if (before.family() == Family.UNKNOWN) {
+                return actual.family() != Family.UNKNOWN && actual.parent() == requestedParentSource;
+            }
             return actual.family() == before.family() && actual.parent() == requestedParentSource;
+        }
+
+        /**
+         * Returns the direct-relation family the native readback must use. A ROOT before-state only
+         * exists for the Deformer family, where absence of a direct parent is exact.
+         */
+        private Family readFamily() {
+            return before.family() == Family.UNKNOWN ? Family.DEFORMER_PARENT : before.family();
         }
 
         private void compensate() {
@@ -673,9 +706,23 @@ public final class HierarchyRelationCapture {
                         oldGuid
                     );
                 }
-                case UNKNOWN -> throw new IllegalStateException(
-                    "cannot compensate an unnormalized root relation"
-                );
+                case UNKNOWN -> {
+                    // ROOT -> TARGET: the rollback detaches the Deformer parent again. The plain
+                    // setter mirrors the attach route, and no Undo entry is registered while a
+                    // failed contribution is being compensated.
+                    final Object companion = resolver.readStaticField(
+                        "cubism.editor-model.deformer-guid.companion"
+                    );
+                    final Object rootGuid = resolver.invoke(
+                        "cubism.editor-model.deformer-guid.root",
+                        companion
+                    );
+                    resolver.invoke(
+                        "cubism.editor-model.parameter-controllable-source.set-target-deformer-guid",
+                        childSource,
+                        rootGuid
+                    );
+                }
             }
         }
 
@@ -685,7 +732,7 @@ public final class HierarchyRelationCapture {
                 resolver,
                 modelSource,
                 childSource,
-                before.family(),
+                readFamily(),
                 before.family() == Family.PART_MEMBERSHIP
             );
             if (actual.family() != before.family() || actual.parent() != before.parent()) return false;
@@ -698,7 +745,7 @@ public final class HierarchyRelationCapture {
                 resolver,
                 modelSource,
                 childSource,
-                before.family(),
+                readFamily(),
                 false
             );
             final HistoryRelationChange.Endpoint afterEndpoint;
@@ -738,6 +785,13 @@ public final class HierarchyRelationCapture {
         }
     }
 
+    private static HistoryRelationChange.Endpoint rootEndpoint() {
+        return new HistoryRelationChange.Endpoint(
+            HistoryRelationChange.State.ROOT,
+            Optional.empty()
+        );
+    }
+
     private static HistoryRelationChange.Endpoint unknownEndpoint() {
         return new HistoryRelationChange.Endpoint(
             HistoryRelationChange.State.UNKNOWN,
@@ -752,16 +806,30 @@ public final class HierarchyRelationCapture {
         final HistoryRelationChange.Kind kind
     ) {
         if (child.id().isEmpty() || child.displayName().isEmpty()) return false;
-        if (before.state() != HistoryRelationChange.State.TARGET
-            || after.state() != HistoryRelationChange.State.TARGET) return false;
-        final HistoryTarget oldTarget = before.target().orElseThrow();
+        if (after.state() != HistoryRelationChange.State.TARGET) return false;
         final HistoryTarget newTarget = after.target().orElseThrow();
-        if (oldTarget.id().isEmpty() || oldTarget.displayName().isEmpty()
-            || newTarget.id().isEmpty() || newTarget.displayName().isEmpty()) return false;
-        if (!legalParent(kind, oldTarget.type()) || !legalParent(kind, newTarget.type())) return false;
-        if (child.type().equals(oldTarget.type()) && child.id().equals(oldTarget.id())) return false;
-        if (child.type().equals(newTarget.type()) && child.id().equals(newTarget.id())) return false;
+        if (newTarget.id().isEmpty() || newTarget.displayName().isEmpty()) return false;
+        if (!legalParent(kind, newTarget.type())) return false;
+        if (sameTargetAsChild(child, newTarget)) return false;
+        if (before.state() == HistoryRelationChange.State.ROOT) {
+            // A child without a direct Deformer parent is exactly at root; an undocumented root
+            // stays out of Part membership, whose host root is the internal __RootPart__.
+            return kind == HistoryRelationChange.Kind.DEFORMER_PARENT
+                && !sameEndpointIdentity(before, after);
+        }
+        if (before.state() != HistoryRelationChange.State.TARGET) return false;
+        final HistoryTarget oldTarget = before.target().orElseThrow();
+        if (oldTarget.id().isEmpty() || oldTarget.displayName().isEmpty()) return false;
+        if (!legalParent(kind, oldTarget.type())) return false;
+        if (sameTargetAsChild(child, oldTarget)) return false;
         return !sameEndpointIdentity(before, after);
+    }
+
+    private static boolean sameTargetAsChild(
+        final HistoryTarget child,
+        final HistoryTarget target
+    ) {
+        return child.type().equals(target.type()) && child.id().equals(target.id());
     }
 
     private static boolean legalParent(
