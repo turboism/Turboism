@@ -1,3 +1,4 @@
+import {releaseNotes} from './release-notes.mjs';
 /** Public distribution contract. No dependency on the retired Updates service. */
 export const REPOSITORY='turboism/Turboism';
 export const ORIGIN='https://api.turboism.dev';
@@ -56,7 +57,7 @@ export function parseRelease(raw,sourceRevision,verifiedIdentity=null){
  }
  return {releaseId:raw.id,version,tag:raw.tag_name,channel,buildNumber:receipt?.buildNumber??null,sourceRevision,publishedAt:new Date(raw.published_at).toISOString(),githubReleaseUrl:raw.html_url,changelogUrl:raw.html_url,
   provenance:receipt?{repository:REPOSITORY,workflow:'.github/workflows/release.yml',runId:receipt.runId,runAttempt:receipt.runAttempt}:{repository:REPOSITORY,workflow:null,runId:null,runAttempt:null},
-  compatibility:null,notes:String(raw.body??'').replace(/<!-- turboism-build-v1 [\s\S]*? -->/g,'').trim().slice(0,24000),
+  compatibility:null,...releaseNotes(raw,sourceRevision),
   assets:names.map((name,i)=>({...assets.get(name),kind:['windows-installer','java-installer','full','lite'][i],platform:i===0?'windows':null,architecture:null,checksum:assets.get(name+'.sha256'),sources:[{id:'github',url:assets.get(name).url}]}))};
 }
 export function chooseLatest(releases,channel){
@@ -67,7 +68,8 @@ export function documentFor(snapshot,channel){
  require(CHANNELS.includes(channel),'Unknown channel');
  const common={schemaVersion:1,channel,metadataUrl:`${ORIGIN}/v1/releases/${channel}.json`};
  if(!snapshot||snapshot.error||snapshot.errors?.[channel]||Date.now()-Date.parse(snapshot.syncedAt)>30*60*1000)return {...common,status:'unavailable',release:null,error:{code:'SYNC_UNAVAILABLE',retryAfterSeconds:60}};
- const release=chooseLatest(snapshot.releases,channel);
+ const selected=chooseLatest(snapshot.releases,channel);
+ const release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;
  return {...common,status:release?'ready':'not_published',updatedAt:snapshot.syncedAt,source:{repository:REPOSITORY,synchronizedAt:snapshot.syncedAt},release};
 }
 export async function jsonResponse(request,value,status=200){

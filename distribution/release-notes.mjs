@@ -21,3 +21,4 @@ export function releaseNotes(raw,sourceRevision){
  }
  const compare=typeof base==='string'&&/^[a-f0-9]{40}$/.test(base)&&base!==sourceRevision?`${REPO}/compare/${base}...${sourceRevision}`:null;
  return {notes:locales.en.slice(0,24000),notesByLanguage:locales,notesOrigin:origin,notesCompareUrl:compare};
+}
