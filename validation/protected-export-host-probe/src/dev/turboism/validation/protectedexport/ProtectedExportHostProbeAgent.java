@@ -18,6 +18,7 @@ import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -78,6 +79,7 @@ public final class ProtectedExportHostProbeAgent {
     private static final long IDLE_MILLIS = 6_000L;
     private static final long POLL_MILLIS = 200L;
     private static final long BIND_TIMEOUT_MILLIS = 60_000L;
+    private static final long APPLY_STEP_MILLIS = 60_000L;
     private static final int TRIGGER_ATTEMPTS = 3;
     private static final long ATTEMPT_SETTLE_MILLIS = 15_000L;
 
@@ -134,6 +136,9 @@ public final class ProtectedExportHostProbeAgent {
             }
             if (phases.contains("copy-binding")) {
                 phaseCopyBinding(controller, stateDir, evidence);
+            }
+            if (phases.contains("flatten")) {
+                phaseFlatten(controller, stateDir, evidence);
             }
             bridge.report(evidence);
         } catch (Throwable failure) {
@@ -317,87 +322,437 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir,
         final Evidence evidence
     ) {
+        copySession(controller, evidence, "copy.", null);
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: supported-deformer flatten on the bound copy (M3)
+    //
+    // Binds a task-owned copy, then drives the exact native apply-to-children
+    // path for every supported Warp/Rotation deformer leaf-to-root. Each step
+    // re-resolves the target by stable GUID, re-verifies document/model-source/
+    // model identity after the selection call (the sendEvent=true re-entrancy
+    // window), requires the target GUID to be absent afterwards, and requires
+    // zero supported deformers at completion. The original session is restored
+    // and checked exactly as in copy-binding. Any unsupported deformer family
+    // or guard failure rejects the run before or during mutation.
+    // ------------------------------------------------------------------
+
+    private static void phaseFlatten(
+        final Object controller,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        copySession(controller, evidence, "flat.", scope ->
+            flattenSupportedDeformers(controller, scope, evidence));
+    }
+
+    /**
+     * Shared disposable-copy session: snapshot the original, copy its file to a
+     * task-owned name, bind it natively, run {@code mutation} while bound (null =
+     * pure binding evidence), restore the original live document, and verify the
+     * original's bytes, dirty flag, undo position and selection. Cleanup of the
+     * copy document and file always runs.
+     */
+    private static void copySession(
+        final Object controller,
+        final Evidence evidence,
+        final String prefix,
+        final java.util.function.Consumer<CopyScope> mutation
+    ) {
         File copyFile = null;
         Object copyDoc = null;
         try {
             final Object original = readNoArg(controller, "getCurrentDoc");
             if (original == null) {
-                evidence.fail("COPY_NO_ACTIVE_DOCUMENT");
+                evidence.fail(prefix.toUpperCase() + "NO_ACTIVE_DOCUMENT");
                 return;
             }
             final Object originalContent = readNoArg(original, "getFileContent");
             final Object originalFileObj =
                 originalContent == null ? null : readNoArg(originalContent, "getFile");
             if (!(originalFileObj instanceof File originalFile) || !originalFile.isFile()) {
-                evidence.fail("COPY_ORIGINAL_FILE_MISSING");
+                evidence.fail(prefix.toUpperCase() + "ORIGINAL_FILE_MISSING");
                 return;
             }
 
-            final DocumentState before = snapshotDocument(original, evidence, "orig");
-            evidence.put("copy.origFile", originalFile.getAbsolutePath());
-            evidence.put("copy.origFileSha256", sha256(originalFile));
+            final DocumentState before = snapshotDocument(original, evidence, prefix + "orig");
+            evidence.put(prefix + "origFile", originalFile.getAbsolutePath());
+            evidence.put(prefix + "origFileSha256", sha256(originalFile));
 
             copyFile = new File(
                 originalFile.getParentFile(),
                 "pe-copy-" + runToken() + originalFile.getName()
             );
-            evidence.put("copy.file", copyFile.getAbsolutePath());
+            evidence.put(prefix + "file", copyFile.getAbsolutePath());
             Files.copy(originalFile.toPath(), copyFile.toPath());
-            evidence.put("copy.fileCreated", "true");
+            evidence.put(prefix + "fileCreated", "true");
 
             copyDoc = openAndAwaitBoundDocument(
-                controller, copyFile, evidence, "copy"
+                controller, copyFile, evidence, prefix
             );
             if (copyDoc == null) {
-                evidence.fail("COPY_OPEN_NOT_BOUND");
+                evidence.fail(prefix.toUpperCase() + "OPEN_NOT_BOUND");
                 return;
             }
-            evidence.put("copy.bound", "true");
-            evidence.put("copy.docId", Integer.toHexString(System.identityHashCode(copyDoc)));
+            evidence.put(prefix + "bound", "true");
+            evidence.put(prefix + "docId",
+                Integer.toHexString(System.identityHashCode(copyDoc)));
+
+            if (mutation != null) {
+                final Object copyContent = readNoArg(copyDoc, "getFileContent");
+                final Object copySource = readNoArg(copyDoc, "getModelSource");
+                mutation.accept(new CopyScope(copyDoc, copyContent, copySource, copyFile));
+            }
 
             // Restore: reopening the original file must reactivate the SAME live
             // document (identity), not a fresh instance.
             final Object restored = openAndAwaitBoundDocument(
-                controller, originalFile, evidence, "orig"
+                controller, originalFile, evidence, prefix
             );
             if (restored == null) {
-                evidence.fail("COPY_RESTORE_NOT_BOUND");
+                evidence.fail(prefix.toUpperCase() + "RESTORE_NOT_BOUND");
                 return;
             }
-            evidence.put("copy.restored", "true");
+            evidence.put(prefix + "restored", "true");
             evidence.put(
-                "copy.sameLiveDocument",
+                prefix + "sameLiveDocument",
                 Boolean.toString(System.identityHashCode(restored) == before.docId)
             );
 
-            final DocumentState after = snapshotDocument(restored, evidence, "restored");
-            evidence.put("copy.fileSha256Preserved",
+            final DocumentState after =
+                snapshotDocument(restored, evidence, prefix + "restored");
+            evidence.put(prefix + "fileSha256Preserved",
                 Boolean.toString(sha256(originalFile)
-                    .equals(evidence.values.get("copy.origFileSha256"))));
-            evidence.put("copy.modifiedPreserved",
+                    .equals(evidence.values.get(prefix + "origFileSha256"))));
+            evidence.put(prefix + "modifiedPreserved",
                 Boolean.toString(after.modified == before.modified));
-            evidence.put("copy.undoPreserved",
+            evidence.put(prefix + "undoPreserved",
                 Boolean.toString(after.undoSignature.equals(before.undoSignature)));
-            evidence.put("copy.selectionPreserved",
+            evidence.put(prefix + "selectionPreserved",
                 Boolean.toString(after.selectionSignature.equals(before.selectionSignature)));
         } catch (Throwable failure) {
-            evidence.fail("COPY_PHASE_FAILURE:" + failure.getClass().getName() + ":" + text(failure));
+            evidence.fail(prefix.toUpperCase() + "PHASE_FAILURE:"
+                + failure.getClass().getName() + ":" + text(failure));
         } finally {
             if (copyDoc != null) {
                 try {
-                    closeDocument(controller, copyDoc, evidence);
+                    closeDocument(controller, copyDoc, evidence, prefix);
                 } catch (Throwable failure) {
-                    evidence.put("copy.closeFailure", text(failure));
+                    evidence.put(prefix + "closeFailure", text(failure));
                 }
             }
             if (copyFile != null && copyFile.isFile()) {
                 try {
                     Files.deleteIfExists(copyFile.toPath());
-                    evidence.put("copy.fileRemoved", "true");
+                    evidence.put(prefix + "fileRemoved", "true");
                 } catch (Throwable failure) {
-                    evidence.put("copy.fileRemoveFailure", text(failure));
+                    evidence.put(prefix + "fileRemoveFailure", text(failure));
                 }
             }
+        }
+    }
+
+    /**
+     * Drives the exact native apply-to-children path on the bound copy for every
+     * supported deformer, leaf-to-root. Mirrors the production guard: after the
+     * sendEvent=true selection call the document, model source, model instance
+     * and the re-resolved target must all be unchanged, and the target GUID must
+     * be absent after the native command.
+     */
+    private static void flattenSupportedDeformers(
+        final Object controller,
+        final CopyScope scope,
+        final Evidence evidence
+    ) {
+        if (scope.modelSource == null) {
+            evidence.fail("FLAT_NO_MODEL_SOURCE");
+            return;
+        }
+        final Object modelInstance = readNoArg(scope.modelSource, "getCurrentInstance");
+
+        // Unsupported families reject before any mutation: Glue, ArtPath and
+        // Affecter sources are not flattenable by this feature. Aliases are ID
+        // aliases only — recorded as census evidence, not a reject condition.
+        for (String probe : List.of("getAllGlues", "getAllArtPaths",
+            "getAllAffecters")) {
+            final int count = countOf(scope.modelSource, probe);
+            evidence.put("flat.census." + probe, Integer.toString(count));
+            if (count != 0) {
+                evidence.fail("FLAT_UNSUPPORTED_FAMILY:" + probe + "=" + count);
+                return;
+            }
+        }
+        evidence.put("flat.census.getAllAliases",
+            Integer.toString(countOf(scope.modelSource, "getAllAliases")));
+
+        evidence.put("flat.partsBefore", structureSignature(scope.modelSource, "getAllParts"));
+        evidence.put("flat.paramsBefore",
+            structureSignature(scope.modelSource, "getAllParameters"));
+        evidence.put("flat.artMeshesBefore",
+            structureSignature(scope.modelSource, "getAllArtMeshes"));
+
+        final List<DeformerRef> plan = planDeformers(scope.modelSource, evidence);
+        if (plan == null) {
+            return;
+        }
+        evidence.put("flat.planSize", Integer.toString(plan.size()));
+        final StringBuilder order = new StringBuilder();
+        for (DeformerRef ref : plan) {
+            order.append(order.length() == 0 ? "" : ",").append(ref.guid);
+        }
+        evidence.put("flat.plan", order.toString());
+
+        for (int i = 0; i < plan.size(); i++) {
+            applyOneDeformer(controller, scope, modelInstance, plan.get(i), evidence, i);
+            if (evidence.error != null) {
+                return;
+            }
+        }
+
+        final int remaining = countOf(scope.modelSource, "getAllDeformers");
+        evidence.put("flat.deformersAfter", Integer.toString(remaining));
+        evidence.put("flat.zeroDeformers", Boolean.toString(remaining == 0));
+        evidence.put("flat.partsPreserved", Boolean.toString(
+            structureSignature(scope.modelSource, "getAllParts")
+                .equals(evidence.values.get("flat.partsBefore"))));
+        evidence.put("flat.paramsPreserved", Boolean.toString(
+            structureSignature(scope.modelSource, "getAllParameters")
+                .equals(evidence.values.get("flat.paramsBefore"))));
+        evidence.put("flat.artMeshesPreserved", Boolean.toString(
+            structureSignature(scope.modelSource, "getAllArtMeshes")
+                .equals(evidence.values.get("flat.artMeshesBefore"))));
+    }
+
+    /** One deformer in the deterministic leaf-to-root plan. */
+    private static final class DeformerRef {
+        final String guid;
+        final String kind;
+        final String name;
+        final int depth;
+
+        DeformerRef(final String guid, final String kind, final String name, final int depth) {
+            this.guid = guid;
+            this.kind = kind;
+            this.name = name;
+            this.depth = depth;
+        }
+    }
+
+    private static final Set<String> SUPPORTED_DEFORMER_SOURCES = Set.of(
+        "com.live2d.cubism.doc.model.deformer.warp.CWarpDeformerSource",
+        "com.live2d.cubism.doc.model.deformer.rotation.CRotationDeformerSource"
+    );
+
+    /**
+     * Builds the deterministic leaf-to-root order over stable GUIDs. Duplicate
+     * GUIDs, a target-deformer GUID absent from the source set, a parent cycle,
+     * or an unsupported deformer family all reject before any mutation (AC03).
+     */
+    private static List<DeformerRef> planDeformers(
+        final Object modelSource,
+        final Evidence evidence
+    ) {
+        final List<?> all = asList(readNoArg(modelSource, "getAllDeformers"));
+        final Map<String, Object> byGuid = new LinkedHashMap<>();
+        final Map<String, String> parentOf = new LinkedHashMap<>();
+        final Map<String, String> kindOf = new LinkedHashMap<>();
+        final Map<String, String> nameOf = new LinkedHashMap<>();
+        for (Object source : all) {
+            final String guid = guidString(source);
+            final String kind = source == null ? "<null>" : source.getClass().getName();
+            if (!SUPPORTED_DEFORMER_SOURCES.contains(kind)) {
+                evidence.fail("FLAT_UNSUPPORTED_FAMILY:" + kind);
+                return null;
+            }
+            if (guid == null || guid.isBlank()) {
+                evidence.fail("FLAT_DEFORMER_GUID_MISSING:" + kind);
+                return null;
+            }
+            if (byGuid.putIfAbsent(guid, source) != null) {
+                evidence.fail("FLAT_DUPLICATE_GUID:" + guid);
+                return null;
+            }
+            kindOf.put(guid, kind);
+            nameOf.put(guid, String.valueOf(readNoArg(source, "getLocalName")));
+            parentOf.put(guid, targetDeformerGuid(source));
+        }
+
+        final Map<String, Integer> depthOf = new LinkedHashMap<>();
+        for (String guid : byGuid.keySet()) {
+            final Set<String> visiting = new LinkedHashSet<>();
+            String cursor = guid;
+            int depth = 0;
+            while (cursor != null) {
+                if (!visiting.add(cursor)) {
+                    evidence.fail("FLAT_DEFORMER_CYCLE:" + cursor);
+                    return null;
+                }
+                final String parent = parentOf.get(cursor);
+                if (parent == null) {
+                    break;
+                }
+                if (!byGuid.containsKey(parent)) {
+                    evidence.fail("FLAT_MISSING_PARENT:" + cursor + "->" + parent);
+                    return null;
+                }
+                depth++;
+                cursor = parent;
+            }
+            depthOf.put(guid, depth);
+        }
+
+        final List<DeformerRef> plan = new ArrayList<>();
+        for (String guid : byGuid.keySet()) {
+            plan.add(new DeformerRef(guid, kindOf.get(guid), nameOf.get(guid), depthOf.get(guid)));
+        }
+        plan.sort((a, b) -> a.depth != b.depth
+            ? Integer.compare(b.depth, a.depth) : a.guid.compareTo(b.guid));
+        return plan;
+    }
+
+    private static void applyOneDeformer(
+        final Object controller,
+        final CopyScope scope,
+        final Object modelInstance,
+        final DeformerRef target,
+        final Evidence evidence,
+        final int step
+    ) {
+        final String key = "flat.step" + step;
+        evidence.put(key + ".guid", target.guid);
+        evidence.put(key + ".kind", target.kind);
+        evidence.put(key + ".name", target.name);
+        final java.util.concurrent.atomic.AtomicReference<String> selectionLanded =
+            new java.util.concurrent.atomic.AtomicReference<>();
+        try {
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object source = resolveDeformer(scope.modelSource, target.guid);
+                if (source == null) {
+                    throw new IllegalStateException("target deformer GUID absent before apply");
+                }
+                final Object guidObject = readNoArg(source, "getGuid");
+                final Object updateManager = readNoArg(controller, "getUpdateManager");
+                invoke(updateManager, "setSelection",
+                    new Class<?>[] {Object.class, List.class, boolean.class, boolean.class},
+                    scope.document, List.of(guidObject), Boolean.FALSE, Boolean.TRUE);
+
+                // sendEvent=true may have re-entered the host; re-verify every
+                // identity the native command is about to act on (AC05 guard).
+                if (readNoArg(controller, "getCurrentDoc") != scope.document) {
+                    throw new IllegalStateException("active document changed during selection");
+                }
+                if (readNoArg(scope.document, "getModelSource") != scope.modelSource) {
+                    throw new IllegalStateException("model source changed during selection");
+                }
+                if (readNoArg(scope.modelSource, "getCurrentInstance") != modelInstance) {
+                    throw new IllegalStateException("model instance changed during selection");
+                }
+                if (resolveDeformer(scope.modelSource, target.guid) == null) {
+                    throw new IllegalStateException("target deformer GUID lost during selection");
+                }
+                final Object selector = readNoArg(scope.document, "getSelector");
+                final Object selectedCount =
+                    selector == null ? null : readNoArg(selector, "getSelectedCount");
+                selectionLanded.set(String.valueOf(selectedCount));
+
+                invoke(controller, "command_deleteDeformerAndSetParam", new Class<?>[0]);
+
+                if (resolveDeformer(scope.modelSource, target.guid) != null) {
+                    throw new IllegalStateException("target deformer GUID still present after apply");
+                }
+                return null;
+            });
+            evidence.put(key + ".applied", "true");
+            evidence.put(key + ".selectedCount", selectionLanded.get());
+        } catch (Throwable failure) {
+            evidence.put(key + ".failure", text(failure));
+            evidence.fail("FLAT_STEP_FAILED:" + target.guid + ":" + text(failure));
+        }
+    }
+
+    /** Re-resolves a deformer source by GUID; exactly one match or null. */
+    private static Object resolveDeformer(final Object modelSource, final String guid) {
+        Object found = null;
+        for (Object candidate : asList(readNoArg(modelSource, "getAllDeformers"))) {
+            if (guid.equals(guidString(candidate))) {
+                if (found != null) {
+                    throw new IllegalStateException("duplicate deformer GUID at apply time");
+                }
+                found = candidate;
+            }
+        }
+        return found;
+    }
+
+    private static String guidString(final Object parameterControllableSource) {
+        if (parameterControllableSource == null) {
+            return null;
+        }
+        final Object guid = readNoArg(parameterControllableSource, "getGuid");
+        final Object value = guid == null ? null : readNoArg(guid, "getUuidString");
+        return value == null ? null : value.toString();
+    }
+
+    private static String targetDeformerGuid(final Object source) {
+        final Object target = readNoArg(source, "getTargetDeformerGuid");
+        final Object value = target == null ? null : readNoArg(target, "getUuidString");
+        return value == null ? null : value.toString();
+    }
+
+    private static int countOf(final Object owner, final String getter) {
+        return asList(readNoArg(owner, getter)).size();
+    }
+
+    private static List<?> asList(final Object value) {
+        if (value instanceof List<?> list) {
+            return list;
+        }
+        if (value instanceof Iterable<?> iterable) {
+            final List<Object> collected = new ArrayList<>();
+            for (Object item : iterable) {
+                collected.add(item);
+            }
+            return collected;
+        }
+        return List.of();
+    }
+
+    /**
+     * Stable structural signature over a model-source collection: one
+     * {@code guid|id|name} record per member, sorted so reordering alone is
+     * observable but not fatal to comparison.
+     */
+    private static String structureSignature(final Object modelSource, final String getter) {
+        final List<String> entries = new ArrayList<>();
+        for (Object member : asList(readNoArg(modelSource, getter))) {
+            final String id = idString(member);
+            final String name = String.valueOf(readNoArg(member, "getLocalName"));
+            entries.add(guidString(member) + "|" + id + "|" + name);
+        }
+        java.util.Collections.sort(entries);
+        return entries.size() + ":" + String.join(",", entries);
+    }
+
+    private static String idString(final Object parameterControllableSource) {
+        final Object id = readNoArg(parameterControllableSource, "getId");
+        final Object value = id == null ? null : readNoArg(id, "getIdString");
+        return value == null ? "?" : value.toString();
+    }
+
+    /** What a bound disposable copy exposes to a mutation step. */
+    private static final class CopyScope {
+        final Object document;
+        final Object content;
+        final Object modelSource;
+        final File file;
+
+        CopyScope(final Object document, final Object content,
+            final Object modelSource, final File file) {
+            this.document = document;
+            this.content = content;
+            this.modelSource = modelSource;
+            this.file = file;
         }
     }
 
@@ -429,10 +784,10 @@ public final class ProtectedExportHostProbeAgent {
         final boolean modified = Boolean.TRUE.equals(modifiedObj);
         final String undo = undoSignature(document);
         final String selection = selectionSignature(document);
-        evidence.put("copy." + prefix + ".docId", Integer.toHexString(docId));
-        evidence.put("copy." + prefix + ".modified", Boolean.toString(modified));
-        evidence.put("copy." + prefix + ".undo", undo);
-        evidence.put("copy." + prefix + ".selection", selection);
+        evidence.put(prefix + ".docId", Integer.toHexString(docId));
+        evidence.put(prefix + ".modified", Boolean.toString(modified));
+        evidence.put(prefix + ".undo", undo);
+        evidence.put(prefix + ".selection", selection);
         return new DocumentState(docId, modified, undo, selection);
     }
 
@@ -499,7 +854,7 @@ public final class ProtectedExportHostProbeAgent {
                 }
             });
         } catch (Throwable failure) {
-            evidence.put("copy." + prefix + ".openFailure", text(failure));
+            evidence.put(prefix + ".openFailure", text(failure));
             return null;
         }
         final String wanted = canonical(file);
@@ -512,7 +867,7 @@ public final class ProtectedExportHostProbeAgent {
                 final Object bound =
                     content == null ? null : readNoArg(content, "getFile");
                 if (bound instanceof File boundFile && wanted.equals(canonical(boundFile))) {
-                    evidence.put("copy." + prefix + ".boundPath", boundFile.getAbsolutePath());
+                    evidence.put(prefix + ".boundPath", boundFile.getAbsolutePath());
                     return lastDoc;
                 }
             }
@@ -521,7 +876,7 @@ public final class ProtectedExportHostProbeAgent {
         if (lastDoc != null) {
             final Object content = readNoArg(lastDoc, "getFileContent");
             final Object bound = content == null ? null : readNoArg(content, "getFile");
-            evidence.put("copy." + prefix + ".lastBoundPath", String.valueOf(bound));
+            evidence.put(prefix + ".lastBoundPath", String.valueOf(bound));
         }
         return null;
     }
@@ -529,7 +884,8 @@ public final class ProtectedExportHostProbeAgent {
     private static void closeDocument(
         final Object controller,
         final Object document,
-        final Evidence evidence
+        final Evidence evidence,
+        final String prefix
     ) throws Exception {
         final Object content = readNoArg(document, "getFileContent");
         if (content == null) {
@@ -553,14 +909,14 @@ public final class ProtectedExportHostProbeAgent {
             final boolean unfocused = current == null
                 || System.identityHashCode(current) != System.identityHashCode(document);
             if (empty || unfocused) {
-                evidence.put("copy.closed", "true");
-                evidence.put("copy.closeState",
+                evidence.put(prefix + "closed", "true");
+                evidence.put(prefix + "closeState",
                     "docsEmpty=" + empty + ",unfocused=" + unfocused);
                 return;
             }
             sleep(POLL_MILLIS);
         }
-        evidence.put("copy.closed", "timeout");
+        evidence.put(prefix + "closed", "timeout");
     }
 
     /**
@@ -1354,6 +1710,33 @@ public final class ProtectedExportHostProbeAgent {
         }
     }
 
+    /**
+     * Bounded variant of {@link #onEdt}: a native modal raised inside the work would block
+     * the EDT's secondary loop forever, so the probe waits at most {@code timeoutMillis} and
+     * reports a step timeout instead of losing the whole run's evidence.
+     */
+    private static <T> T onEdtBounded(
+        final long timeoutMillis,
+        final Callable<T> work
+    ) throws Exception {
+        if (SwingUtilities.isEventDispatchThread()) {
+            return work.call();
+        }
+        final FutureTask<T> task = new FutureTask<>(work);
+        SwingUtilities.invokeLater(task);
+        try {
+            return task.get(timeoutMillis, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (java.util.concurrent.TimeoutException timeout) {
+            throw new IllegalStateException("EDT work exceeded " + timeoutMillis + "ms", timeout);
+        } catch (java.util.concurrent.ExecutionException failure) {
+            final Throwable cause = failure.getCause();
+            if (cause instanceof InvocationTargetException inner && inner.getCause() != null) {
+                throw new IllegalStateException(text(inner.getCause()), inner.getCause());
+            }
+            throw new IllegalStateException(text(cause == null ? failure : cause), cause);
+        }
+    }
+
     private static Path stateDirectory() {
         final String home = System.getProperty("turboism.home");
         if (home == null || home.isBlank()) {
@@ -1443,32 +1826,24 @@ public final class ProtectedExportHostProbeAgent {
             }
         }
         if (phases.contains("copy-binding")) {
-            if (!"true".equals(evidence.values.get("copy.bound"))) {
-                unmet.add("task-owned copy was not bound as the active document");
+            requireCopySession(evidence, unmet, "copy.");
+        }
+        if (phases.contains("flatten")) {
+            requireCopySession(evidence, unmet, "flat.");
+            if (intOf(evidence, "flat.planSize") < 1) {
+                unmet.add("fixture bound no supported deformers; nothing was flattened");
             }
-            if (!"true".equals(evidence.values.get("copy.restored"))) {
-                unmet.add("original document was not restored as active");
+            if (!"true".equals(evidence.values.get("flat.zeroDeformers"))) {
+                unmet.add("supported deformers were not flattened to zero on the copy");
             }
-            if (!"true".equals(evidence.values.get("copy.sameLiveDocument"))) {
-                unmet.add("restored original was a fresh instance, not the same live document");
+            if (!"true".equals(evidence.values.get("flat.partsPreserved"))) {
+                unmet.add("Part identities/hierarchy changed during flatten");
             }
-            if (!"true".equals(evidence.values.get("copy.fileSha256Preserved"))) {
-                unmet.add("original file bytes changed across the copy session");
+            if (!"true".equals(evidence.values.get("flat.paramsPreserved"))) {
+                unmet.add("Parameter identities changed during flatten");
             }
-            if (!"true".equals(evidence.values.get("copy.modifiedPreserved"))) {
-                unmet.add("original dirty flag changed across the copy session");
-            }
-            if (!"true".equals(evidence.values.get("copy.undoPreserved"))) {
-                unmet.add("original undo state changed across the copy session");
-            }
-            if (!"true".equals(evidence.values.get("copy.selectionPreserved"))) {
-                unmet.add("original selection changed across the copy session");
-            }
-            if (!"true".equals(evidence.values.get("copy.closed"))) {
-                unmet.add("task-owned copy document was not closed");
-            }
-            if (!"true".equals(evidence.values.get("copy.fileRemoved"))) {
-                unmet.add("task-owned copy file was not removed");
+            if (!"true".equals(evidence.values.get("flat.artMeshesPreserved"))) {
+                unmet.add("ArtMesh identities changed during flatten");
             }
         }
         if (!unmet.isEmpty()) {
@@ -1476,6 +1851,41 @@ public final class ProtectedExportHostProbeAgent {
             return false;
         }
         return true;
+    }
+
+    /** Shared copy-session verdict gates, keyed by the phase's evidence prefix. */
+    private static void requireCopySession(
+        final Evidence evidence,
+        final List<String> unmet,
+        final String prefix
+    ) {
+        if (!"true".equals(evidence.values.get(prefix + "bound"))) {
+            unmet.add("task-owned copy was not bound as the active document");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "restored"))) {
+            unmet.add("original document was not restored as active");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "sameLiveDocument"))) {
+            unmet.add("restored original was a fresh instance, not the same live document");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "fileSha256Preserved"))) {
+            unmet.add("original file bytes changed across the copy session");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "modifiedPreserved"))) {
+            unmet.add("original dirty flag changed across the copy session");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "undoPreserved"))) {
+            unmet.add("original undo state changed across the copy session");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "selectionPreserved"))) {
+            unmet.add("original selection changed across the copy session");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "closed"))) {
+            unmet.add("task-owned copy document was not closed");
+        }
+        if (!"true".equals(evidence.values.get(prefix + "fileRemoved"))) {
+            unmet.add("task-owned copy file was not removed");
+        }
     }
 
     private static int intOf(final Evidence evidence, final String key) {
