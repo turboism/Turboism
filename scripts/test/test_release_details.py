@@ -38,12 +38,29 @@ class ReleaseDetailsTests(unittest.TestCase):
     def test_nightly_renders_real_changes_and_does_not_follow_later_commits(self):
         m=self.module();context=m.history_context(self.root,self.head,self.base,'v1.2.2')
         notes=m.render_nightly(self.receipt,context)
-        for lang in ['en','zh','ja']:
+        for lang in ['en','zh','ja','ko']:
             self.assertIn('fix: preserve',notes[lang]);self.assertIn(self.head,notes[lang])
             self.assertIn(f'{self.base}...{self.head}',notes[lang])
         original=dict(notes);self.commit('later change must not appear')
         self.assertEqual(m.validate_context(self.root,self.receipt,context),context)
         self.assertEqual(m.render_nightly(self.receipt,context),original)
+
+    def test_reviewed_locales_accept_korean_and_reject_unknown_languages(self):
+        import hashlib
+        m=self.module();english='### Added\n\n- Change'
+        self.assertEqual(m.stable_metadata(self.root,'1.2.3',self.head,english),'')
+        marker=self.root/'scripts/release/turboism_release/release_notes.py';marker.parent.mkdir(parents=True);marker.write_text('# new pipeline')
+        path=self.root/'release-notes/1.2.3.json';path.parent.mkdir()
+        digest=hashlib.sha256(english.encode()).hexdigest()
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
+        locales=m.reviewed_locales(self.root,'1.2.3',english)
+        self.assertEqual(locales['ko'],'변경 사항 추가');self.assertEqual(sorted(locales),['en','ja','ko','zh'])
+        # A language outside the reviewed matrix must fail closed, not be dropped.
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','de':'Neuerungen'}}))
+        with self.assertRaises(ValueError):m.stable_metadata(self.root,'1.2.3',self.head,english)
+        # Korean stays optional: an older file without it still verifies and falls back.
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动'}}))
+        self.assertEqual(sorted(m.reviewed_locales(self.root,'1.2.3',english)),['en','zh'])
 
     def test_context_tampering_and_nonancestor_fail(self):
         m=self.module();c=m.history_context(self.root,self.head,self.base,'v1.2.2')

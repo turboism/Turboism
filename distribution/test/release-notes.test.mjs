@@ -3,10 +3,14 @@ import {parseRelease} from '../protocol.mjs';import {fixture} from './fixture.mj
 const source='b'.repeat(40);
 const marker=(data)=>'<!-- turboism-notes-v1 '+JSON.stringify(data)+' -->';
 test('release locales are source/version bound and internal markers do not leak to readers',()=>{
- const r=fixture();r.body='Original notes\n'+marker({schemaVersion:1,version:'1.2.3',sourceRevision:source,locales:{en:'Changes',zh:'新增与修复',ja:'変更点'}});
- const parsed=parseRelease(r,source);assert.equal(parsed.notesByLanguage?.zh,'新增与修复');assert.doesNotMatch(parsed.notes,/turboism-notes/);
+ const r=fixture();r.body='Original notes\n'+marker({schemaVersion:1,version:'1.2.3',sourceRevision:source,locales:{en:'Changes',zh:'新增与修复',ja:'変更点',ko:'변경 사항'}});
+ const parsed=parseRelease(r,source);assert.equal(parsed.notesByLanguage?.zh,'新增与修复');assert.equal(parsed.notesByLanguage?.ko,'변경 사항');assert.doesNotMatch(parsed.notes,/turboism-notes/);
  r.body='Original notes\n'+marker({schemaVersion:1,version:'9.9.9',sourceRevision:source,locales:{en:'wrong',zh:'wrong'}});
  assert.equal(parseRelease(r,source).notesByLanguage?.zh,undefined);assert.equal(parseRelease(r,source).notes,'Original notes');
+});
+test('an unreviewed release language is rejected instead of displayed',()=>{
+ const r=fixture();r.body='Original notes\n'+marker({schemaVersion:1,version:'1.2.3',sourceRevision:source,locales:{en:'Changes',de:'Neuerungen'}});
+ const parsed=parseRelease(r,source);assert.deepEqual(parsed.notesByLanguage,{en:'Original notes'});assert.equal(parsed.notesOrigin,'release');
 });
 test('legacy releases remain readable with a single original-language fallback',()=>{
  const parsed=parseRelease(fixture(),source);assert.deepEqual(parsed.notesByLanguage,{en:'Release notes'});

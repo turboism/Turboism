@@ -10,7 +10,7 @@ from pathlib import Path
 REPO = 'https://github.com/turboism/Turboism'
 SHA = re.compile(r'[0-9a-f]{40}')
 TAG = re.compile(r'v[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?')
-LOCALES = ('en', 'zh', 'ja')
+LOCALES = ('en', 'zh', 'ja', 'ko')
 MAX_COMMITS = 60
 
 
@@ -112,6 +112,7 @@ def render_nightly(receipt, context):
         'en': ('Nightly development build; back up projects before use.', 'Changes since', 'Initial development history', 'Commit subjects are shown in their original language.', 'Full changes', 'Showing the latest {n} of {total} commits.'),
         'zh': ('Nightly 开发构建，使用前请备份工程', '相比以下版本的改动', '初始开发历史', '提交标题保留原文', '完整变更', '显示全部 {total} 次提交中的最近 {n} 次'),
         'ja': ('Nightly 開発ビルドです。使用前にプロジェクトをバックアップしてください。', '次のバージョンからの変更', '最初の開発履歴', 'コミットの件名は原文で表示しています。', 'すべての変更', '全 {total} 件のうち直近 {n} 件を表示しています。'),
+        'ko': ('Nightly 개발 빌드입니다. 사용 전에 프로젝트를 백업하세요.', '다음 버전 이후 변경 사항', '최초 개발 이력', '커밋 제목은 원문으로 표시합니다.', '전체 변경 사항', '전체 {total}개 커밋 중 최근 {n}개를 표시합니다.'),
     }
     url = (f"{REPO}/compare/{context['baseRevision']}...{receipt['sourceRevision']}" if context['baseRevision']
            else f"{REPO}/commits/{receipt['sourceRevision']}")
@@ -141,7 +142,10 @@ def reviewed_locales(root, version, english):
     data = json.loads(path.read_text(encoding='utf-8'))
     require(data.get('schemaVersion') == 1 and data.get('version') == version and
             data.get('englishSha256') == hashlib.sha256(english.strip().encode()).hexdigest(), 'Translations are stale or for another release')
-    for lang in ('zh', 'ja'):
+    locales = data.get('locales', {})
+    require(isinstance(locales, dict) and set(locales) <= set(LOCALES),
+            'Translations contain a language outside the reviewed matrix')
+    for lang in ('zh', 'ja', 'ko'):
         text = data.get('locales', {}).get(lang)
         if text is not None:
             require(isinstance(text, str) and 0 < len(text.strip()) <= 18000, 'Invalid translated release notes')
