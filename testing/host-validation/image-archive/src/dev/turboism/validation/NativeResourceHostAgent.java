@@ -119,6 +119,8 @@ public final class NativeResourceHostAgent {
                     });
                     // Extended closed window: the drain tick fires every 300s and archives at most one entry per
                     // tick, so +360s and +600s are the earliest instants that can observe it at all.
+                    // Checked before any sleeping so a mis-provisioned window fails fast instead of after 13 minutes.
+                    require(idleSeconds == 780, "extended closed window requires the 780s sampler cohort");
                     for (int[] point : new int[][]{{360, 240_000}, {600, 240_000}}) {
                         Thread.sleep(point[1]);
                         String name = "closed" + point[0];
@@ -128,7 +130,6 @@ public final class NativeResourceHostAgent {
                         if (closedImageCohort != null) closedImageCohort.writeWeak(RESULT, "retain." + name);
                     }
                     RESULT.setProperty("closed.elapsedSeconds", "600");
-                    require(!(idleSeconds == 300), "extended closed window requires the 780s sampler cohort");
                     phase("closed.end");
                 } catch (Throwable problem) { failure.set(problem); }
             }, "turboism-native-camera-workload");
