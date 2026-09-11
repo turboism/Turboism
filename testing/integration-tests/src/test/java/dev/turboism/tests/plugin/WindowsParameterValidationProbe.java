@@ -2606,6 +2606,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         return name.endsWith(".txt")
                             && (name.contains("validation")
                                 || name.contains("smoke")
+                                || name.contains("-close")
                                 || name.startsWith("native-control-background-"));
                     })
                     .sorted()
