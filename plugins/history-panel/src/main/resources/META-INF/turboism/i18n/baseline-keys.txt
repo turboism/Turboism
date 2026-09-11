@@ -1,8 +1,8 @@
 history.button.tooltip
-history.entry.affected
 history.entry.action.add
 history.entry.action.remove
 history.entry.action.set
+history.entry.affected
 history.entry.change.add
 history.entry.change.remove
 history.entry.change.set
@@ -22,14 +22,6 @@ history.icon.art-mesh
 history.icon.part
 history.icon.rotation-deformer
 history.icon.warp-deformer
-history.relation.deformer-parent.detach.infix
-history.relation.deformer-parent.detach.suffix
-history.relation.deformer-parent.set.infix
-history.relation.deformer-parent.set.suffix
-history.relation.part-membership.join.infix
-history.relation.part-membership.join.suffix
-history.relation.part-membership.detach.infix
-history.relation.part-membership.detach.suffix
 history.panel.count
 history.panel.title
 history.panel.unavailable
@@ -45,6 +37,10 @@ history.property.opacity
 history.property.screen-color
 history.property.value
 history.property.vertex-positions
+history.relation.deformer-parent.detach
+history.relation.deformer-parent.set
+history.relation.part-membership.detach
+history.relation.part-membership.join
 history.target.art-mesh
 history.target.document
 history.target.glue
