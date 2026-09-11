@@ -44,7 +44,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     private static final long MAX_EVIDENCE_BYTES = WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES;
     private static final long TERMINAL_RESERVE_BYTES = 2_048L;
-    private static final int MAX_PAIRED_SAMPLES = 24;
+    private static final int MAX_PAIRED_SAMPLES = 21;
     private static final String INTERNAL_ROOT_PART = "__RootPart__";
     private static final List<String> REQUIRED_PAIRED_PHASES = List.of(
         "baseline",
@@ -66,9 +66,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         "relation-write-2",
         "relation-undo",
         "relation-redo",
-        "relation-mcp-baseline",
-        "relation-mcp-write",
-        "relation-mcp-undo"
+        "relation-mcp-write"
     );
 
     private PluginContext context;
@@ -797,8 +795,9 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             return;
         }
         final String partId = target.orElseThrow();
+        // The MCP ingress needs one paired native checkpoint; extra samples would exhaust the
+        // bounded evidence budget that the primary result contract enforces.
         final HistorySnapshot baseline = context.cubism().history().snapshot();
-        capturePaired(evidence, "relation-mcp-baseline");
         final AtomicReference<ModelObjectDescriptor> returned = new AtomicReference<>();
         final AtomicReference<RuntimeException> failure = new AtomicReference<>();
         onEdt(() -> {
@@ -859,6 +858,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
         final HistorySnapshot after = awaitHistoryAdvance(baseline, 100)
             .orElse(context.cubism().history().snapshot());
+        capturePaired(evidence, "relation-mcp-write");
         final HistoryEntryDetail detail = currentEntry(after);
         final Optional<HistoryRelationChange> relation = detail == null
             ? Optional.empty()
@@ -901,13 +901,16 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
         final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
         final NativeParent restored = awaitNativeParent(drawable, before);
-        capturePaired(evidence, "relation-mcp-undo");
         evidence.check(
             "relation-mcp-ingress-undo-restores",
             undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(before),
             before.text(),
             undone.outcome().name() + "," + restored.text()
         );
+        // Return to the tip: the later fixture restore must only append, otherwise the next phase
+        // samples a forked sequence whose entry identities no longer match.
+        onEdt(() -> context.cubism().history().redo(1));
+        Thread.sleep(500L);
     }
 
     /** Compares the descriptor parent text with the live readback, ignoring the deformer prefix. */
