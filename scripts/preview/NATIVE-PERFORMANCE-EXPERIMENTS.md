@@ -834,3 +834,25 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`:runtime:test`（mapping.verification + adapter.cubism + adapter 全包）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：证据为结构性（每调用全量解析 → 每 alias 一次）与行为等价断言；收益随 readField/readStaticField 实际调用密度线性放大但未测秒数；类缓存强持宿主 Class——与既有 `invocationMethods`（同样持 Method→Class）同一生命周期契约，非新增驻留类别；端到端收益记 **NONE**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**resolver 全部成员种类的解析成本收敛到每 alias 一次**（覆盖 52 个 readField/readStaticField 调用点、8 个 construct、全部 isInstance/isExactInstance 调用点）+ 零修改通过的既有语义回归。
+
+### I45 — 合成宿主 A/B 微基准：遍历路径 CPU 收益量化（2026-09-12）
+
+- **方法**：自含基准 `scripts/perfbench/src/`（不进 Gradle 构建）：携带受审 Cubism 类名的合成宿主图（`CModelingDocument`/`CSceneDocument`/`CAnimationFileContent`/`IFileContent` 等 stub + `bench.*` 公共基类承载 selector owner）+ `TestVerifiedResolvers` + `VerifiedProjectWorkspaceHostOperations` + `HostSessionSnapshotSource` 真实现。同一 `PerfBench` 源分别对 `d3ee4d2a8`（本轮工作接手基线，含前序 P09 observe 机制）与 HEAD 编译运行；`System.nanoTime` + `ThreadMXBean.getCurrentThreadAllocatedBytes`；warmup 500-800 轮后计时 2000-3000 轮取均值。全 offline、无实机。
+- **数字（30 model + 10 anim 文档、45 contents；三次运行一致）**：
+  | 度量 | d3ee4d2a8 | HEAD | Δ |
+  |---|---|---|---|
+  | `activeProject()` 单次遍历 | 282.7–294.8 µs | 192.6–199.4 µs | **−32%** |
+  | `observe()+versionOf` 逻辑读 | 338.4 µs | 215.3 µs | **−36%** |
+  | 旧四调用 scope 捕获序列 | 615.2 µs | 394.6 µs | **−36%** |
+  | **captureScope 真实对比**（旧序列@base → observe@HEAD） | 615.2 µs | 215.3 µs | **−65%** |
+- **数字（60 model + 30 anim 文档、130 contents）**：
+  | 度量 | d3ee4d2a8 | HEAD | Δ |
+  |---|---|---|---|
+  | `activeProject()` | 917–927 µs | 446–447 µs | **−52%** |
+  | `observe()+versionOf` | 999–1016 µs | 512–514 µs | **−49%** |
+  | 旧四调用序列 | 1931–2001 µs | 900–910 µs | **−54%** |
+  | **captureScope 真实对比** | 1931–2001 µs | 512.5 µs | **−73~74%** |
+  | 每遍历分配字节 | 587.4 KB/op | 574.6 KB/op | −2%（分配由快照构建主导，预期内不变） |
+- **归因**：在 `44fa4a4a0`（035 提交点）复测 90-doc 图：activeProject 451.8 µs ≈ HEAD 446.4 µs——**遍历收益几乎全部来自 035**（idFor O(1) + join O(C+D) + 去重构建）；039/040 在**该路径**上落入噪声（其收益在未实测的 toEntry/part-行/枚举比较路径）。基线随规模超线性增长（40doc −32% vs 90doc −52%）实证了被消除的二次项。
+- **限制（不得抬高）**：合成宿主的 `Method.invoke` 目标方法体是空的——真实宿主成员成本更高（遍历占比不同，百分比不可外推）；绝对值只对 Turboism 侧 CPU 有效；JMH 未用，数字为方向性证据而非精确基准；单线程合成 JIT 画像。
+- **有效程度**：本轮首次将 034/035 的结构改进落成**可复现的测量数**：遍历 −32%~−52%（随规模放大）、captureScope 路径 −65%~−74%、分配 −2~−3%。036/037/038/039/040 的端到端收益仍未测量（NONE/pending）。
