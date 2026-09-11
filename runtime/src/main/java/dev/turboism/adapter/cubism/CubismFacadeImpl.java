@@ -744,8 +744,16 @@ public final class CubismFacadeImpl implements CubismFacade {
      */
     public SnapshotWithVersion runtimeWithVersion() {
         requireActiveScope();
-        final CubismRuntimeSnapshot snapshot = runtimeSnapshot();
-        return new SnapshotWithVersion(snapshot, source.invalidationToken());
+        final HostSnapshotSource.Observation observation = observeRuntime();
+        final CubismRuntimeSnapshot snapshot = snapshotFactory.runtime(
+            observation.project(),
+            observation.document(),
+            observation.model(),
+            observation.selection()
+        );
+        // The version is derived from the very observation the snapshot was built from, so the two
+        // can never disagree and the host is not read again just to compute it.
+        return new SnapshotWithVersion(snapshot, source.versionOf(observation));
     }
 
     /** Returns the original audit-capable gate for capability-aware read services. */
@@ -753,15 +761,40 @@ public final class CubismFacadeImpl implements CubismFacade {
         return permissionGate::require;
     }
 
-    private CubismRuntimeSnapshot runtimeSnapshot() {
-        final Optional<HostSnapshotSource.HostProject> project = runtimeProjectSnapshot();
-        final Optional<HostSnapshotSource.HostDocument> document = source.activeDocument();
-        final Optional<HostSnapshotSource.HostModel> model = source.activeModel();
-        final HostSnapshotSource.HostSelection selection = source.selection();
-        if (document.isPresent() || model.isPresent() || hasSelection(selection)) {
+    /**
+     * Observes the host once for a single runtime read.
+     *
+     * <p>The source owns the pairing, so the project, the document, the model and the selection come
+     * from one traversal and the active model is never read through a second document read. The
+     * permission gate still runs before any invalidation version is computed.</p>
+     */
+    private HostSnapshotSource.Observation observeRuntime() {
+        final HostSnapshotSource.Observation observed = source.observe();
+        // Project-read denial redacts only the project portion; the model portion stays readable.
+        final Optional<HostSnapshotSource.HostProject> project =
+            runtimeProjectSnapshot(observed.project());
+        if (observed.document().isPresent()
+            || observed.model().isPresent()
+            || hasSelection(observed.selection())) {
             permissionGate.require(MODEL_READ_PERMISSION, "runtime");
         }
-        return snapshotFactory.runtime(project, document, model, selection);
+        return new HostSnapshotSource.Observation(
+            project,
+            observed.document(),
+            observed.model(),
+            observed.selection(),
+            observed.evidence()
+        );
+    }
+
+    private CubismRuntimeSnapshot runtimeSnapshot() {
+        final HostSnapshotSource.Observation observation = observeRuntime();
+        return snapshotFactory.runtime(
+            observation.project(),
+            observation.document(),
+            observation.model(),
+            observation.selection()
+        );
     }
 
     @Override
@@ -974,8 +1007,9 @@ public final class CubismFacadeImpl implements CubismFacade {
         };
     }
 
-    private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot() {
-        final Optional<HostSnapshotSource.HostProject> project = source.activeProject();
+    private Optional<HostSnapshotSource.HostProject> runtimeProjectSnapshot(
+        final Optional<HostSnapshotSource.HostProject> project
+    ) {
         if (project.isEmpty()) {
             return Optional.empty();
         }
