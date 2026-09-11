@@ -183,7 +183,12 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
     private void registerProjectContentCleanup() {
         projectFileLifecycle.registerCompletionListener(result -> {
             if (!result.succeeded() || result.request().operation() != ProjectFileOperationType.CLOSE) return;
-            result.content().ifPresent(content -> paletteAppearanceCoordinator.removeContent(content.contentId()));
+            result.content().ifPresent(content -> {
+                paletteAppearanceCoordinator.removeContent(content.contentId());
+                if (content.kind() == dev.turboism.sdk.cubism.ProjectContentKind.MODEL) {
+                    dynamicModelAccess.releaseUnboundBorrowedModel();
+                }
+            });
         });
     }
 

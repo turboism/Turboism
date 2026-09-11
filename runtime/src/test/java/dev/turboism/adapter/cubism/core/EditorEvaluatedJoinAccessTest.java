@@ -19,6 +19,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -259,6 +261,92 @@ class EditorEvaluatedJoinAccessTest {
         }
     }
 
+    @Test
+    void evaluatedReadsRebindAfterAnIdleReleaseRepublishesUnderTheSameIdentity() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model first = coreModel(canvasReads, 0x04, 0x21, 1, 3, 11);
+        final TestCoreApiFixture.Model second = coreModel(canvasReads, 0x08, 0x21, 1, 3, 11);
+        final Fixture editor = new Fixture();
+
+        try (Harness harness = harness("5.3.02", first)) {
+            final var access = new EditorBackedCubismModelAccess(
+                editor.resolver, "session-a", harness.join
+            );
+            final CubismModel model = access.active();
+            final Drawable mesh = model.drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertEquals(0x04, Byte.toUnsignedInt(mesh.constantFlag()));
+
+            harness.source.releaseWhenIdle();
+            harness.source.publishBorrowedModel(second, "model-a");
+
+            assertEquals(
+                0x08,
+                Byte.toUnsignedInt(mesh.constantFlag()),
+                "the pin dropped on clear must re-trace the republished model, not fail stale"
+            );
+        }
+    }
+
+    @Test
+    void releaseUnboundBorrowedModelKeepsTheStillBoundPublishedModel() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
+        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
+
+        try (CountingHarness harness = countingHarness("5.3.02")) {
+            final var access = new EditorBackedCubismModelAccess(
+                editor.resolver, "session-a", harness.join
+            );
+            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
+            assertNotNull(harness.source.publishedModel(), "lazy publish held the model");
+
+            access.releaseUnboundBorrowedModel();
+
+            assertNotNull(
+                harness.source.publishedModel(),
+                "the published model is still the active binding: no release"
+            );
+            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
+        }
+    }
+
+    @Test
+    void releaseUnboundBorrowedModelDropsTheModelAndReArmsLazyPublish() {
+        final AtomicInteger canvasReads = new AtomicInteger();
+        final TestCoreApiFixture.Model coreModel = lazyCoreModel(0x04, 0x21, 1, 3, 11);
+        final Fixture editor = new Fixture(coreModel, canvasReads::incrementAndGet);
+
+        try (CountingHarness harness = countingHarness("5.3.02")) {
+            final var access = new EditorBackedCubismModelAccess(
+                editor.resolver, "session-a", harness.join
+            );
+            final Drawable mesh = access.active().drawables().find(new ArtMeshId("ArtMeshFace"));
+            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
+            assertEquals(1, harness.source.publishes.get());
+
+            Host.documentServesLeft.set(0);
+            try {
+                access.releaseUnboundBorrowedModel();
+            } finally {
+                Host.documentServesLeft.set(-1);
+            }
+            assertNull(
+                harness.source.publishedModel(),
+                "the binding is gone: the borrowed model is forgotten"
+            );
+
+            // The same document objects rebind under the same identity: the release reset the
+            // lazy-publish dedup and the cleared pin re-traces instead of failing stale.
+            assertEquals(BlendMode.ADDITIVE, mesh.blendMode());
+            assertEquals(
+                2,
+                harness.source.publishes.get(),
+                "a re-bound identity may lazily publish again after the release"
+            );
+        }
+    }
+
     /**
      * Core fixture data for lazy-publish tests: the counter is wired on the fixture's
      * combined model instead (the base copy is only read while the fixture is built).
@@ -424,6 +512,21 @@ class EditorEvaluatedJoinAccessTest {
             publishes.incrementAndGet();
             identities.add(identity);
             return delegate.tryPublishBorrowedModel(model, identity);
+        }
+
+        @Override
+        public void releaseWhenIdle() {
+            delegate.releaseWhenIdle();
+        }
+
+        @Override
+        public Object publishedModel() {
+            return delegate.publishedModel();
+        }
+
+        @Override
+        public void onModelCleared(final Runnable listener) {
+            delegate.onModelCleared(listener);
         }
     }
 
