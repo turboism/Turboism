@@ -494,6 +494,14 @@ val buildStatusBarHostProbe by tasks.registering(Exec::class) {
     commandLine("bash", "validation/status-bar-host-probe/build.sh")
 }
 
+val buildUpdateCheckHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK update-check host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/update-check-host-probe/build.sh")
+}
+
 tasks.register<Exec>("validateStatusBarHost5302") {
     group = "host verification"
     description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."

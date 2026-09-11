@@ -1,0 +1,25 @@
+{
+  "format": "turboism.runtime.config",
+  "schemaVersion": 1,
+  "worktreeId": "update-check-validation",
+  "pluginDirs": [
+    "plugins/"
+  ],
+  "logLevel": "INFO",
+  "maxLogStorageMiB": 100,
+  "safeMode": true,
+  "diagnostics": {
+    "enabled": true,
+    "outputPath": "diagnostics/"
+  },
+  "hooks": {
+    "disabledIds": [],
+    "denylistedClasses": [],
+    "startup": {
+      "skipUpdateCheck": false,
+      "skipSplash": false,
+      "skipInformation": false,
+      "separateExportSaveDirectory": false
+    }
+  }
+}
