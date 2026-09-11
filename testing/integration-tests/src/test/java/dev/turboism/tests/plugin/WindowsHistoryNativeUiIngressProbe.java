@@ -206,7 +206,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
             final WindowsHistoryManagerValidationProbe.Snapshot baseline = sample();
             write(artifact, paired(baseline, "baseline"), false);
-            long knownEdits = significantEntries(baseline);
+            String knownSignificant = significantSequence(baseline);
             long knownPosition = position(baseline);
             boolean hookFired = false;
             boolean observerFired = false;
@@ -229,7 +229,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 context.logger().info(instruction);
 
                 final WindowsHistoryManagerValidationProbe.Snapshot after =
-                    awaitChange(knownEdits, knownPosition);
+                    awaitChange(step, knownSignificant, knownPosition);
                 if (after == null) {
                     failures.add(step.id() + ":no-native-change");
                     write(
@@ -240,7 +240,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     );
                     continue;
                 }
-                knownEdits = significantEntries(after);
+                knownSignificant = significantSequence(after);
                 knownPosition = position(after);
                 write(artifact, paired(after, step.id()), false);
                 final List<Observed> events;
@@ -350,7 +350,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * process and the run would end with no verdict and no summary at all.</p>
      */
     private WindowsHistoryManagerValidationProbe.Snapshot awaitChange(
-        final long knownEdits,
+        final Step step,
+        final String knownSignificant,
         final long knownPosition
     ) throws Exception {
         final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
@@ -359,7 +360,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             Thread.sleep(POLL_MILLIS);
             final WindowsHistoryManagerValidationProbe.Snapshot current = sample();
             if (current == null) continue;
-            if (significantEntries(current) != knownEdits || position(current) != knownPosition) {
+            if (hasMoved(
+                step,
+                significantSequence(current),
+                position(current),
+                knownSignificant,
+                knownPosition
+            )) {
                 Thread.sleep(SETTLE_MILLIS);
                 return sample();
             }
@@ -439,14 +446,43 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * ordinary undo entry. Counting those would close a step on the click that precedes the
      * operator's real action, which is what happened on the previous run.</p>
      */
-    static long significantEntries(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
-        if (snapshot == null) return -1L;
-        return significantEntries(snapshot.current().entries());
+    static String significantSequence(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
+        if (snapshot == null) return "";
+        return significantSequence(snapshot.current().entries());
     }
 
     /** Package-private so a focused test can pin the boundary rule without a live host. */
-    static long significantEntries(final List<WindowsHistoryManagerValidationProbe.Entry> entries) {
-        return entries.stream().filter(WindowsHistoryManagerValidationProbe.Entry::significant).count();
+    static String significantSequence(final List<WindowsHistoryManagerValidationProbe.Entry> entries) {
+        final StringBuilder sequence = new StringBuilder();
+        for (WindowsHistoryManagerValidationProbe.Entry entry : entries) {
+            if (!entry.significant()) continue;
+            if (sequence.length() > 0) sequence.append('|');
+            sequence.append(entry.index()).append(':').append(entry.label());
+        }
+        return sequence.toString();
+    }
+
+    /**
+     * Whether the operator's step has produced what that step is supposed to produce.
+     *
+     * <p>An ACTION step is closed by the <em>significant</em> entries changing, never by the undo
+     * position moving: the host records a selection as an ordinary entry, so closing on the entry
+     * count or the position lets the click that precedes an action satisfy the step, and the real
+     * action then lands in the next step's window. Undo and Redo are the opposite case — they
+     * change the position and add no entry at all — so those steps are closed by the position.</p>
+     */
+    static boolean hasMoved(
+        final Step step,
+        final String currentSignificant,
+        final long currentPosition,
+        final String knownSignificant,
+        final long knownPosition
+    ) {
+        if (currentSignificant == null) return false;
+        if (step.kind().equals("ACTION")) {
+            return !currentSignificant.equals(knownSignificant);
+        }
+        return currentPosition != knownPosition;
     }
 
     private static long position(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {

@@ -131,37 +131,58 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
-    void aSelectionDoesNotSatisfyAStep() {
-        // A native selection is an ordinary undo entry. Counting it would close the step on the
-        // click that precedes the operator's real action, and the real action would land in the
-        // next step's window. The host marks every selection entry insignificant, so counting only
-        // significant entries is what keeps one action per step.
-        final List<WindowsHistoryManagerValidationProbe.Entry> afterSelection = List.of(
-            entry(0, "\u9009\u62e9\u5bf9\u8c61", false)
+    void aSelectionDoesNotCloseAnActionStep() {
+        // The host records a selection as an ordinary undo entry, and this run recorded
+        // 选择对象, 拖动选择 and 选择顶点 that way. An ACTION step
+        // must be closed only by the significant entries changing, so the click that precedes an
+        // action cannot satisfy it.
+        final String none = WindowsHistoryNativeUiIngressProbe.significantSequence(List.of());
+        final String selectionOnly = WindowsHistoryNativeUiIngressProbe.significantSequence(
+            List.of(entry(0, "选择对象", false))
         );
-        final List<WindowsHistoryManagerValidationProbe.Entry> afterSelectionAndEdit = List.of(
-            entry(0, "\u9009\u62e9\u5bf9\u8c61", false),
-            entry(1, "\u7269\u4f53\u306e\u79fb\u52d5", true)
+        final String withEdit = WindowsHistoryNativeUiIngressProbe.significantSequence(
+            List.of(
+                entry(0, "选择对象", false),
+                entry(1, "物体的移动", true)
+            )
         );
 
-        assertEquals(0L, WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelection));
-        assertEquals(
-            0L,
-            WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelection)
-                - WindowsHistoryNativeUiIngressProbe.significantEntries(List.of()),
-            "a selection alone must leave the significant count unchanged"
+        assertEquals("", none);
+        assertEquals("", selectionOnly, "a selection contributes no significant entry");
+        assertEquals("1:物体的移动", withEdit);
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, selectionOnly, 1L, none, 0L),
+            "a selection advances the position and adds an entry, but is not the operator's action"
         );
-        assertEquals(
-            1L,
-            WindowsHistoryNativeUiIngressProbe.significantEntries(afterSelectionAndEdit),
-            "the operator's real edit is what advances the count"
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, withEdit, 2L, selectionOnly, 1L),
+            "the operator's real edit is what closes an ACTION step"
         );
-        assertEquals(
-            0L,
-            WindowsHistoryNativeUiIngressProbe.significantEntries(
-                List.of(entry(2, "\u62d6\u52a8\u9009\u62e9", false))
-            ),
-            "a rubber-band selection adds no significant entry either"
+    }
+
+    @Test
+    void anUndoOrRedoStepIsClosedByThePositionAndNotByTheEntries() {
+        // Undo and Redo move the cursor and add no entry, so an entry-based rule would never fire;
+        // an ACTION step must not fire on the position, because a selection moves it too.
+        final String significant = WindowsHistoryNativeUiIngressProbe.significantSequence(
+            List.of(entry(0, "物体的移动", true))
+        );
+
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, significant, 0L, significant, 1L),
+            "a position change alone must not close an ACTION step"
+        );
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 0L, significant, 1L),
+            "an undo moves the position and changes no entry"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 1L, significant, 1L),
+            "an unchanged position is not a redo"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, null, 0L, significant, 1L),
+            "a sampler that could not read the manager is not a move"
         );
     }
 
