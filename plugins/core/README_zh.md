@@ -67,6 +67,7 @@ Turboism 核心随运行时捆绑。它会自动初始化，且不能单独安�
 | `turboism.ui.context-menu.contribute` | `application` | 贡献内置面板选项卡的浮动和停靠菜单操作。 |
 | `turboism.ui.menu.contribute` | `application` | 将设置和插件管理条目添加到 Turboism 顶级菜单。 |
 | `turboism.ui.dialog.contribute` | `application` | 确认插件卸载请求。 |
+| `turboism.ui.canvas.hint` | `application` | 通过宿主自带的绘图区提示报告可用更新。 |
 
 ## 隐私与数据
 
