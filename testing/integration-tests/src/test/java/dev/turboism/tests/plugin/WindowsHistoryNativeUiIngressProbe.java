@@ -45,8 +45,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /**
      * Operator steps in order.
      *
-     * <p>The first four are the native action families whose ingress is being reviewed; the last
-     * two are a native Undo and Redo of whatever the operator chose to leave on the stack.</p>
+     * <p>The first six are the native action families whose ingress is being reviewed, split so
+     * that each one produces a shape a decoder can be judged against: a whole-object move
+     * translates every point by the same vector, while a mesh deformation does not. The last two
+     * are a native Undo and Redo of whatever the operator left on the stack.</p>
      */
     private static final List<Step> STEPS = List.of(
         new Step(
@@ -57,17 +59,33 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         new Step(
             "deformer-assign",
             "ACTION",
-            "Assign a different Deformer target to one Part or ArtMesh, then confirm."
+            "Assign a different Deformer target to one Part or ArtMesh and confirm it: the"
+                + " Deformers palette must show the new target. Selecting the object alone is not"
+                + " an assignment and does not count."
         ),
         new Step(
             "canvas-move",
             "ACTION",
-            "Move one model object on the canvas with the mouse, then release."
+            "Move ONE model object as a whole on the canvas with the mouse, then release. Do not"
+                + " edit its vertices or mesh points."
         ),
         new Step(
-            "parameter-or-color",
+            "canvas-deform",
             "ACTION",
-            "Change one Parameter value or one drawable colour in the native palette."
+            "Deform ONE model object instead of moving it: drag a single mesh point (or use the"
+                + " mesh edit tool) so its shape changes, then release."
+        ),
+        new Step(
+            "native-parameter",
+            "ACTION",
+            "Change one Parameter value in the native Parameter palette only (drag its slider or"
+                + " type a value), then release. Do not move any object."
+        ),
+        new Step(
+            "native-color",
+            "ACTION",
+            "Change only the multiply colour (正片叠底色) of one drawable in the native"
+                + " palette, then confirm. Do not move the object and do not edit its mesh."
         ),
         new Step(
             "native-undo",
