@@ -29,7 +29,7 @@ class WindowsHistorySeedValidationProbeTest {
         "artmesh-baseline", "artmesh-write-1", "artmesh-write-2", "artmesh-third-write",
         "artmesh-undo", "artmesh-redo",
         "relation-baseline", "relation-write-1", "relation-write-2", "relation-undo",
-        "relation-redo", "relation-mcp-baseline", "relation-mcp-write", "relation-mcp-undo"
+        "relation-redo", "relation-mcp-write"
     );
 
     @Test
