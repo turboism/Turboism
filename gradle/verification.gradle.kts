@@ -808,7 +808,9 @@ tasks.register("checkRelease") {
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
-        "checkJavaInstaller"
+        "checkJavaInstaller",
+        "checkInstallerLocalization",
+        "checkWindowsInstaller"
     )
 }
 

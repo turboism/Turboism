@@ -72,12 +72,15 @@ DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Mirrors runtime/src/main/java/dev/turboism/core/plugin/PluginJarContract
 # RETIRED_PLUGIN_IDS. The Gradle gates are authoritative; this set only keeps
-# retired ids from being selected for publication in the first place.
+# retired or superseded ids from being selected for publication in the first
+# place. dev.turboism.plugin.backup is superseded by
+# dev.turboism.plugin.webdav after the webdav-backup rename.
 RETIRED_PLUGIN_IDS = frozenset({
     "dev.turboism.plugin.logfilter",
     "dev.turboism.plugin.clipmask",
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
+    "dev.turboism.plugin.backup",
 })
 
 

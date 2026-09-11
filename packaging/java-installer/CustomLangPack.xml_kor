@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Turboism installer custom messages for the "kor" locale (Korean).
+  Loaded by IzPack's locale-suffixed CustomLangPack convention
+  (CustomLangPack.xml_<iso3>); the base CustomLangPack.xml is the fallback.
+  Key set is kept identical to CustomLangPack.xml and its _eng/_chn/_jpn
+  variants; packaging/windows-installer/test-installer-localization.py asserts
+  that parity.
+-->
+<izpack:langpack version="5.0"
+                 xmlns:izpack="http://izpack.org/schema/langpack"
+                 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                 xsi:schemaLocation="http://izpack.org/schema/langpack https://izpack.org/schema/5.0/izpack-langpack-5.0.xsd">
+
+    <str id="InstallationGroupPanel.group.full" txt="전체 설치(번들 플러그인 포함)"/>
+    <str id="InstallationGroupPanel.description.full" txt="Turboism 에이전트와 승인된 모든 공개 플러그인을 설치합니다. 다음 페이지에서 개별 플러그인을 선택 해제할 수 있습니다."/>
+    <str id="InstallationGroupPanel.group.thin" txt="Thin 설치(번들 플러그인 포함)"/>
+    <str id="InstallationGroupPanel.description.thin" txt="Turboism 에이전트와 승인된 모든 공개 플러그인을 설치하며, 추가 네이티브 런타임 페이로드는 포함하지 않습니다."/>
+    <str id="InstallationGroupPanel.group.lite" txt="간편 설치(플러그인 없음)"/>
+    <str id="InstallationGroupPanel.description.lite" txt="Turboism 에이전트와 공통 파일만 설치합니다. 퍼스트파티 플러그인 JAR은 복사되지 않습니다."/>
+    <str id="InstallationGroupPanel.sortKey.full" txt="1"/>
+    <str id="InstallationGroupPanel.sortKey.thin" txt="2"/>
+    <str id="InstallationGroupPanel.sortKey.lite" txt="3"/>
+
+    <!-- Required common pack display name (console- and GUI-visible). -->
+    <str id="turboism-common" txt="Turboism 코어"/>
+    <str id="turboism-managed-graal" txt="GraalVM으로 성능 향상(선택 사항)"/>
+    <str id="turboism-managed-graal.description" txt="Turboism의 고정된 전용 GraalVM 런타임을 지금 다운로드하여 검증하거나, 선택하지 않고 나중에 Turboism 설정에서 설치할 수 있습니다."/>
+
+    <str id="LicencePanel.eula.info" txt="Turboism 최종 사용자 라이선스 계약"/>
+
+    <str id="EulaAcknowledgementPanel.title" txt="필수 운영 확인 항목"/>
+    <str id="EulaAcknowledgementPanel.introduction" txt="다음 최종 사용자 라이선스 계약을 읽고 수락하기 전에 아래 항목을 각각 확인하세요. 계속하려면 4개 항목을 모두 확인해야 합니다."/>
+    <str id="EulaAcknowledgementPanel.independent" txt="Turboism은 독립적인 서드파티 프로젝트이며 Live2D의 공식 제품이 아님을 이해합니다."/>
+    <str id="EulaAcknowledgementPanel.license" txt="Cubism에는 여전히 적법한 허가가 필요하며, Turboism은 라이선스 검증을 제공·대체·우회하지 않음을 이해합니다."/>
+    <str id="EulaAcknowledgementPanel.backup" txt="사용자가 허용한 플러그인, 스크립트, MCP, API 또는 자동화가 프로젝트 내용을 변경·덮어쓰기·삭제할 수 있음을 이해하며, 독립적인 백업을 보관합니다."/>
+    <str id="EulaAcknowledgementPanel.asIs" txt="Turboism은 오픈 소스이며 있는 그대로 제공되고, 지속적인 호환성, 무오류 또는 성공적인 복구를 보장하지 않음을 이해합니다."/>
+    <str id="EulaAcknowledgementPanel.rejected" txt="필수 확인 항목을 모두 수락해야 설치를 계속할 수 있습니다."/>
+
+</izpack:langpack>
