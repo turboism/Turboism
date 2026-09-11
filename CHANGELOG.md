@@ -6,30 +6,61 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-09-11
+
 ### Added
 
 - Turboism now checks for stable updates against the deployed release API
-  (`api.turboism.dev/v1/releases/stable.json`) and shows the result in the Turboism panel and status
-  region. The comparison uses the authoritative build number embedded in the installed package, so a
-  lower build is never offered as an update and an equal build number with a different version is
-  treated as an identity conflict rather than an update. Installations that predate build numbers keep
-  comparing by version only and are never assigned an invented number.
+  (`api.turboism.dev/v1/releases/stable.json`). The comparison uses the authoritative build number
+  embedded in the installed package, so a lower build is never offered as an update and an equal build
+  number with a different version is treated as an identity conflict rather than an update.
+  Installations that predate build numbers keep comparing by version only and are never assigned an
+  invented number.
+- An available update is presented as a native Cubism hint over the drawing area, the same surface the
+  host uses for its own lower-right messages, instead of an entry in the Turboism docked panel. The
+  hint is keyed, so a newer offered build replaces the previous text, and it clears itself as soon as
+  the update is no longer offered. Clicking it opens the fixed first-party download page; no URL from
+  the release feed is opened or installed, and no installer is downloaded or executed automatically.
 - The update checker is non-blocking and runs at most once per 24 hours, with a manual check that is
   always available. Automatic checks have their own persistent toggle in the Startup settings tab
   and are independent of Cubism's own update suppression.
-- The update entry opens the fixed first-party download page. No URL from the release feed is opened
-  or installed, and no installer is downloaded or executed automatically.
+- Plugins can show native Cubism hints over the drawing area through
+  `UiHostCapabilityService.notifyCanvasHint`, `notifyDismissibleCanvasHint` and `showCanvasHintWhile`,
+  with `CanvasHintNotification`, `CanvasHintHandle`, `CanvasHintPosition` and `ConditionalCanvasHint`.
+  The capability is version-routed through the verified 5.2.03, 5.3.02 and 5.3.03 host routes and
+  reports itself unavailable on a host where the route cannot be resolved rather than approximating
+  it. See the [SDK v10 review](sdk/api-contracts/sdk-api-v10-review.md); this revision is purely
+  additive and requires no plugin migration.
+- Published release notes now carry reviewed Korean text as well as Simplified Chinese and Japanese.
+  Release documents expose it as `notesByLanguage`, English remains the fallback the website shows
+  when a translation is missing, and Nightly headings and warnings are translated in all four
+  languages while raw commit subjects stay in their original language, explicitly labeled.
 
 ### Changed
 
+- The reviewed SDK exact baseline is now v10, pinned to the canvas-hint commit. The revision adds 42
+  API records and removes or changes none; v9 and v8 remain historical exact audits that every
+  release still runs.
 - The WebDAV backup plugin is renamed from `backup` to `webdav-backup`: its Gradle module and Java
   package are `webdav-backup`/`dev.turboism.plugin.webdavbackup`, its installer artifact is
   `plugins/webdav-backup.jar` (previously `plugins/backup.jar`), its plugin id is
   `dev.turboism.plugin.webdav` (previously `dev.turboism.plugin.backup`), and its menu entry is now
   localized. Stored endpoint settings in `backup/webdav.cfg` are unaffected.
+- A `release-notes/<version>.json` file that names a language outside the reviewed matrix now fails
+  the release instead of silently dropping it, so a typo cannot ship a release with a missing
+  translation.
 
 ### Fixed
 
+- The release API keeps serving the last verified release snapshot while GitHub is unreachable instead
+  of answering every channel with "unavailable". A snapshot stays usable for up to 24 hours, a
+  transient failure of one channel no longer discards that channel's previously verified data, and a
+  failed refresh preserves the previous snapshot. Publication still notifies the API immediately, and a
+  new scheduled monitor reports confirmed, deduplicated incidents.
+- The Windows installer provisions the managed Graal runtime without requiring a pre-installed Java:
+  it downloads and validates the archive directly, initializes the complete runtime configuration for
+  a standalone install, and its Graal page no longer claims an obsolete Java prerequisite. The
+  provisioning path is verified on Windows PowerShell 5.1 and 7.
 - Upgrading an existing install no longer leaves two WebDAV plugin entries behind. Both installers
   remove the stale pre-rename JAR from `plugins/` by its embedded plugin id (so any filename is
   covered) during a managed upgrade, and the old id `dev.turboism.plugin.backup` joined the
