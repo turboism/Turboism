@@ -1,0 +1,40 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.updatecheck",
+  "name": "Update Check Host Validation Exerciser",
+  "version": "0.0.0",
+  "description": "Task-local exerciser for the stable update checker's real request, comparison and rendered UI.",
+  "entrypoints": [
+    "dev.turboism.validation.updatecheck.UpdateCheckHostValidationPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Validation" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": []
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.ui.canvas.hint",
+      "scope": "application",
+      "reason": "Proves this host's native drawing-area hint surface accepts hints, using a probe-owned key."
+    },
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Gates the exerciser on a verified modeling document and model without mutation."
+    }
+  ],
+  "capabilities": [],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "swing"
+  }
+}
