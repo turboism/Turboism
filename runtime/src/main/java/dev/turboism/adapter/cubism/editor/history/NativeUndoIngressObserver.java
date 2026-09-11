@@ -70,11 +70,16 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
      * @param kind  the classified change
      * @param label the native presentation name of the newly admitted entry; empty for
      *              {@link Kind#UNDO} and {@link Kind#REDO}
+     * @param entry the native entry the change is about, when the host still exposes it. It is a
+     *              strong reference to host undo state and exists only so the single claimed
+     *              consumer can compare entry identity and decode the entry; it must never be
+     *              retained beyond the consumer call
      */
-    public record Event(Kind kind, Optional<String> label) {
+    public record Event(Kind kind, Optional<String> label, Optional<Object> entry) {
         public Event {
             Objects.requireNonNull(kind, "kind");
             label = Objects.requireNonNull(label, "label");
+            entry = Objects.requireNonNull(entry, "entry");
             if (kind != Kind.COMMITTED && label.isPresent()) {
                 throw new IllegalArgumentException("only a committed native edit carries a label");
             }
@@ -266,11 +271,12 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
             record(values, size, position);
             return Optional.empty();
         }
+        final Optional<Object> entry = entryAt(values, position);
         record(values, size, position);
         if (kind == Kind.COMMITTED) {
-            return Optional.of(new Event(Kind.COMMITTED, labelAt(values, position)));
+            return Optional.of(new Event(Kind.COMMITTED, labelAfter(values, position), entry));
         }
-        return Optional.of(new Event(kind, Optional.empty()));
+        return Optional.of(new Event(kind, Optional.empty(), entry));
     }
 
     /**
@@ -299,7 +305,12 @@ public final class NativeUndoIngressObserver implements AutoCloseable {
             : new WeakReference<>(null);
     }
 
-    private Optional<String> labelAt(final List<?> values, final int position) {
+    private static Optional<Object> entryAt(final List<?> values, final int position) {
+        if (position <= 0 || position > values.size()) return Optional.empty();
+        return Optional.ofNullable(values.get(position - 1));
+    }
+
+    private Optional<String> labelAfter(final List<?> values, final int position) {
         if (position <= 0 || position > values.size()) return Optional.empty();
         final Object entry = values.get(position - 1);
         if (entry == null) return Optional.empty();

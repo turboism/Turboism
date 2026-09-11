@@ -151,6 +151,51 @@ public final class SemanticOperationLifecycleCoordinator implements AutoCloseabl
         });
     }
 
+    /**
+     * Publishes one already-performed host edit as a confirmed semantic operation.
+     *
+     * <p>Use this for an edit the Cubism user interface performed and Turboism only observed. The
+     * invocation is not owned by this coordinator, so only the {@code on} and {@code after} phases
+     * are produced, and only when the observer established the operation from an exact native
+     * entry. The same recursion guard as {@link #runComparing} applies, so an observation that
+     * re-enters an active operation on the same thread fails closed instead of nesting.</p>
+     *
+     * @param operation the semantical operation the observation proved
+     * @param origin the best-known source of the observed edit
+     * @param subjectId optional Turboism-owned object identity the edit applies to
+     */
+    public void publishObserved(
+        final CubismOperation operation,
+        final CubismOperationOrigin origin,
+        final Optional<String> subjectId
+    ) {
+        final CubismOperation semantic = Objects.requireNonNull(operation, "operation");
+        final EnumSet<CubismOperation> operations = active.get();
+        if (!operations.add(semantic)) {
+            throw new IllegalStateException(
+                "Recursive Cubism semantic lifecycle is not allowed: " + semantic.id()
+            );
+        }
+        final CubismOperationEvent event = new CubismOperationEvent(
+            sequence.incrementAndGet(),
+            semantic,
+            Objects.requireNonNull(origin, "origin"),
+            Objects.requireNonNull(subjectId, "subjectId")
+        );
+        try {
+            publishCompletion(event, true);
+            final RuntimeEventBroker broker = eventBroker;
+            if (broker == null) return;
+            broker.publishRuntime(new CubismOperationLifecycleEvent.On(event));
+            publishModelUpdateOn(broker, event);
+            broker.publishRuntime(new CubismOperationLifecycleEvent.After(event, true));
+            publishModelUpdateAfter(broker, event, true);
+        } finally {
+            operations.remove(semantic);
+            if (operations.isEmpty()) active.remove();
+        }
+    }
+
     private void run(
         final CubismOperation operation,
         final CubismOperationOrigin origin,

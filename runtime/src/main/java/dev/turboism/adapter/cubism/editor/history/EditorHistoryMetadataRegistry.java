@@ -155,6 +155,28 @@ public final class EditorHistoryMetadataRegistry {
         return metadataLocked(Objects.requireNonNull(nativeEntry, "nativeEntry"));
     }
 
+    /**
+     * Reports whether Turboism itself already authored this exact native entry.
+     *
+     * <p>Unlike {@link #metadata(Object)} this never creates a record, so it can decide whether an
+     * observed native commit is Turboism's own without becoming the reason an entry looks known.
+     * A record that only carries an identity allocated by a snapshot projection is not authorship:
+     * only a committed transaction, a registered compatibility action or captured detail is
+     * evidence that the Turboism capture produced this entry.</p>
+     *
+     * @param nativeEntry the native Undo entry to test
+     * @return {@code true} only when Turboism annotated this exact entry
+     */
+    public static synchronized boolean claimsProvenance(final Object nativeEntry) {
+        final EntryMetadata existing = ENTRIES.get(
+            new IdentityReference(Objects.requireNonNull(nativeEntry, "nativeEntry"), null)
+        );
+        return existing != null
+            && (existing.transactionId().isPresent()
+                || existing.action().isPresent()
+                || existing.detail().isPresent());
+    }
+
     static synchronized Optional<HistoryAction> action(final Object nativeEntry) {
         return metadata(nativeEntry).action();
     }

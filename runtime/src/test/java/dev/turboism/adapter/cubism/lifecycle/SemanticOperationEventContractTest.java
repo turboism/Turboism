@@ -23,6 +23,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SemanticOperationEventContractTest {
@@ -66,6 +67,54 @@ class SemanticOperationEventContractTest {
         } finally {
             scheduler.shutdown();
         }
+    }
+
+    @Test
+    void anObservedHostEditPublishesOnAndAfterWithoutABefore() throws Exception {
+        final RuntimeScheduler scheduler = scheduler();
+        try {
+            final RuntimeEventBroker broker = new RuntimeEventBroker(scheduler);
+            final SemanticOperationLifecycleCoordinator coordinator =
+                new SemanticOperationLifecycleCoordinator();
+            coordinator.attachEventBroker(broker);
+            final RuntimeEventBroker.Owner owner = broker.admit("observed-events");
+            final CountDownLatch completion = new CountDownLatch(2);
+            final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
+            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
+                new Subscriber(events, completion)
+            )));
+            owner.activate();
+
+            coordinator.publishObserved(
+                CubismOperation.SET_HIERARCHY_PARENT,
+                CubismOperationOrigin.HOST_UI,
+                Optional.of("mesh-1")
+            );
+
+            assertTrue(completion.await(1, TimeUnit.SECONDS));
+            assertEquals(List.of(
+                "on:SET_HIERARCHY_PARENT", "after:SET_HIERARCHY_PARENT:true"
+            ), events);
+        } finally {
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void anObservedEditIsRejectedWhenItWouldNestInsideAnActiveOperation() {
+        final SemanticOperationLifecycleCoordinator coordinator =
+            new SemanticOperationLifecycleCoordinator();
+
+        assertThrows(IllegalStateException.class, () -> coordinator.runConfirmed(
+            CubismOperation.SET_HIERARCHY_PARENT,
+            CubismOperationOrigin.TURBOISM_API,
+            Optional.of("mesh-1"),
+            () -> coordinator.publishObserved(
+                CubismOperation.SET_HIERARCHY_PARENT,
+                CubismOperationOrigin.HOST_UI,
+                Optional.of("mesh-1")
+            )
+        ));
     }
 
     public static final class Subscriber {
