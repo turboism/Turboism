@@ -47,6 +47,46 @@ class EditorHistoryIngressVerificationManifestTest {
     }
 
     @Test
+    void theInheritedEditEntryIsAdmittedExactlyWhereTheIngressIs() {
+        // CModelingEditMode_Main.beginEdit is already part of the mature Editor surface under its
+        // own alias; the ingress adds only the inherited ACEditMode entry, which the scene editor
+        // and the game-data editor resolve their beginEdit to.
+        assertTrue(
+            EditorModelVerificationManifest.REQUIRED_ALIASES.containsAll(
+                EditorHistoryIngressSelectorContract.REQUIRED_ALIASES
+            )
+        );
+        assertTrue(
+            EditorModelVerificationManifest.cubism52Aliases().contains(
+                EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
+            )
+        );
+        assertTrue(
+            EditorModelVerificationManifest.cubism5302Aliases().contains(
+                EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
+            )
+        );
+        assertFalse(
+            EditorModelVerificationManifest.cubism5303StaticAliases().contains(
+                EditorHistoryIngressSelectorContract.BASE_EDIT_ENTRY_ALIAS
+            ),
+            "5.3.03 must not admit the entry hook without its own reviewed evidence"
+        );
+        assertTrue(
+            EditorModelVerificationManifest.REQUIRED_ALIASES.contains(
+                "cubism.editor-model.edit-mode.begin"
+            ),
+            "the modeling entry keeps the alias the mature Editor surface already uses"
+        );
+        assertFalse(
+            EditorHistoryIngressSelectorContract.REQUIRED_ALIASES.contains(
+                "cubism.editor-model.edit-mode.begin"
+            ),
+            "the ingress admits only its own base entry, not the modeling override"
+        );
+    }
+
+    @Test
     void observerRegistrationKeepsItsOwnAuthorizationSet() {
         assertTrue(
             Collections.disjoint(

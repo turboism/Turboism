@@ -586,6 +586,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_2_03.editor_history.method.edit_mode_begin",
+      "alias": "cubism.editor-history.edit-mode.begin",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+      "memberName": "beginEdit",
+      "descriptor": "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_2_03.editor_history.method.move_to",
       "alias": "cubism.editor-history.manager.move-to",
       "kind": "method",

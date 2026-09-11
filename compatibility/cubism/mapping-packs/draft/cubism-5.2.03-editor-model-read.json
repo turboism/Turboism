@@ -616,6 +616,27 @@
       "descriptor": "()Lcom/live2d/cubism/doc/model/param/group/CParameterGroup;"
     },
     {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history.method.edit_mode_begin",
+      "kind": "method",
+      "owner": "editor-history-read",
+      "name": "cubism.editor-history.edit-mode.begin",
+      "runtime": "beginEdit",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/ACEditMode",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "(Ljava/lang/String;)Lcom/live2d/undo/GroupUndo;"
+    },
+    {
       "semanticName": "cubism.mapping.v5_2_03.editor_history_semantic.class.part_membership_class",
       "kind": "class",
       "owner": "editor-history-semantic-read",
