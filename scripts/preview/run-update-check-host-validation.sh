@@ -48,8 +48,8 @@ esac
 # canvas hint, so there is no Swing label to predict here; only the build the hint must name.
 # These are the deployed values the wrapper was reviewed with; a newer release must be re-pinned
 # deliberately, and a stale pin is expected to fail loudly rather than pass quietly.
-published_version="${TURBOISM_UPDATE_CHECK_PUBLISHED_VERSION:-0.43.10}"
-published_build="${TURBOISM_UPDATE_CHECK_PUBLISHED_BUILD:-4}"
+published_version="${TURBOISM_UPDATE_CHECK_PUBLISHED_VERSION:-0.43.11}"
+published_build="${TURBOISM_UPDATE_CHECK_PUBLISHED_BUILD:-7}"
 
 turboism_select_fixture "$version" || exit 2
 
