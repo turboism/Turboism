@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor.history.decoder;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.mapping.verification.selector.EditorHistorySemanticSelectorContract;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryGroup;
@@ -37,6 +38,7 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
         final ArrayList<HistoryEntryDetail> children = new ArrayList<>();
         boolean truncated = count != nativeChildren.size();
         final int projectedCount = Math.min(nativeChildren.size(), MAX_GROUP_CHILDREN);
+        withholdEarlierWriters(resolver, nativeChildren, projectedCount, context);
         for (int index = 0; index < projectedCount; index++) {
             final Object child = nativeChildren.get(index);
             final String childLabel = childLabel(resolver, child, context);
@@ -88,6 +90,59 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             )
         );
         return NativeHistoryDecodeResult.decoded(detail);
+    }
+
+    /**
+     * Withholds the live-target read from every child that is not the last writer of its object.
+     *
+     * <p>A group may write the same object more than once, and the live target then holds the
+     * <em>last</em> writer's result. Reading it for an earlier child would report that child's post
+     * state as a later one's, so only the last writer of each object may use it. Identity is the
+     * live object itself, which is exactly what the read would use.</p>
+     *
+     * <p>Nothing is withheld when the Simple family is not authorised: its children decode as
+     * unsupported either way, so there is nothing to protect.</p>
+     */
+    private static void withholdEarlierWriters(
+        final VerifiedMemberResolver resolver,
+        final List<?> nativeChildren,
+        final int projectedCount,
+        final NativeHistoryDecodeContext context
+    ) {
+        if (!NativeHistoryDecoderRegistry.authorized(
+            resolver,
+            EditorHistorySemanticSelectorContract.SIMPLE_REQUIRED_ALIASES
+        )) {
+            return;
+        }
+        final java.util.IdentityHashMap<Object, Integer> lastWriter = new java.util.IdentityHashMap<>();
+        for (int index = 0; index < projectedCount; index++) {
+            final Object child = nativeChildren.get(index);
+            final Object target = simpleTarget(resolver, child);
+            if (target != null) lastWriter.put(target, index);
+        }
+        for (int index = 0; index < projectedCount; index++) {
+            final Object child = nativeChildren.get(index);
+            final Object target = simpleTarget(resolver, child);
+            if (target == null) continue;
+            final Integer last = lastWriter.get(target);
+            if (last == null || last != index) context.withholdLivePostState(child);
+        }
+    }
+
+    /** Reads a SimpleUndo child's live target, or {@code null} when the child is not one. */
+    private static Object simpleTarget(
+        final VerifiedMemberResolver resolver,
+        final Object child
+    ) {
+        try {
+            if (!resolver.isExactInstance("cubism.editor-history.semantic.simple.class", child)) {
+                return null;
+            }
+            return resolver.invoke("cubism.editor-history.semantic.simple.target", child);
+        } catch (RuntimeException unavailable) {
+            return null;
+        }
     }
 
     private static String childLabel(

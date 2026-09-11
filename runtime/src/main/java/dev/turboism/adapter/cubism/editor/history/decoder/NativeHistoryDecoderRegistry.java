@@ -22,10 +22,29 @@ public final class NativeHistoryDecoderRegistry {
         final Object entry,
         final String label
     ) {
+        return decode(resolver, entry, label, false);
+    }
+
+    /**
+     * Decodes one exact native history entry, optionally admitting a live-target post-state read.
+     *
+     * @param livePostStateAllowed whether the caller has proved that this entry is still the undo
+     *     manager's current tip, so no later edit has overwritten its result. It stays false for
+     *     the history projection, which decodes entries at any cursor position.
+     */
+    public NativeHistoryDecodeResult decode(
+        final VerifiedMemberResolver resolver,
+        final Object entry,
+        final String label,
+        final boolean livePostStateAllowed
+    ) {
         return decode(
             Objects.requireNonNull(entry, "entry"),
             Objects.requireNonNull(label, "label"),
-            new NativeHistoryDecodeContext(Objects.requireNonNull(resolver, "resolver")),
+            new NativeHistoryDecodeContext(
+                Objects.requireNonNull(resolver, "resolver"),
+                livePostStateAllowed
+            ),
             0
         );
     }

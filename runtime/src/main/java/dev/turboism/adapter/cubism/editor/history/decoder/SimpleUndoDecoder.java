@@ -29,19 +29,27 @@ final class SimpleUndoDecoder implements NativeHistoryDecoder {
         if (!isArtMeshForm(resolver, target) || !isArtMeshForm(resolver, undo)) {
             return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
         }
-        // Live target state is not historical post-state, even at the current cursor:
-        // a later child in the same group may already have changed the same form.
-        if (redo == null) {
+        // The host stores no post state when an entry is committed: SimpleUndo's constructor
+        // assigns targetData and undoData only, and redoData is filled in lazily inside undo().
+        // A freshly committed entry therefore has to be compared against the live target, and only
+        // the decode context can say whether that value is still this entry's own result rather
+        // than a later edit's.
+        final Object post;
+        if (redo != null) {
+            post = redo;
+        } else if (context.mayReadLiveTarget(entry) && isArtMeshForm(resolver, target)) {
+            post = target;
+        } else {
             return NativeHistoryDecodeResult.unsupported("history.detail.post-state-unavailable");
         }
-        if (!isArtMeshForm(resolver, redo)) {
+        if (!isArtMeshForm(resolver, post)) {
             return NativeHistoryDecodeResult.unsupported("history.detail.value-unsupported");
         }
         return ListUndoDecoder.decodeArtMeshForms(
             resolver,
             context.boundedLabel(label),
             List.of(undo),
-            List.of(redo)
+            List.of(post)
         );
     }
 
