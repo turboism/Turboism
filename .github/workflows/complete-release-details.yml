@@ -1,0 +1,73 @@
+name: Complete reviewed release detail integration
+on:
+  push:
+    branches: [fix/nightly-release-notes-20260911]
+    paths: [.github/workflows/complete-release-details.yml]
+permissions:
+  contents: write
+concurrency:
+  group: release-details-source-intake
+  cancel-in-progress: false
+jobs:
+  integrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Apply the reviewed small integration to the exact source baseline
+        run: |
+          set -euo pipefail
+          git diff --exit-code cd7ba54327eea15c2118e6862af7d1b164e9fcb7 HEAD -- . ':(exclude).github/workflows/complete-release-details.yml'
+          python3 - <<'PY'
+          from pathlib import Path
+          root=Path('.')
+          p=root/'distribution/release-notes.mjs'
+          s=p.read_text();assert s.rstrip().endswith('notesCompareUrl:compare};');p.write_text(s+'}\n')
+          p=root/'distribution/protocol.mjs';s=p.read_text();s="import {releaseNotes} from './release-notes.mjs';\n"+s
+          s=s.replace("compatibility:null,notes:String(raw.body??'').replace(/<!-- turboism-build-v1 [\\s\\S]*? -->/g,'').trim().slice(0,24000),","compatibility:null,...releaseNotes(raw,sourceRevision),")
+          s=s.replace(" const release=chooseLatest(snapshot.releases,channel);", " const selected=chooseLatest(snapshot.releases,channel);\n const release=selected&&!selected.notesByLanguage?{...selected,...releaseNotes({id:selected.releaseId,tag_name:selected.tag,body:selected.notes},selected.sourceRevision)}:selected;")
+          p.write_text(s)
+          p=root/'scripts/release/turboism_release/prerelease.py';s=p.read_text()
+          s=s.replace("    notes = notes_for(Path(source_root), receipt)\n    candidate = {'schemaVersion':1,'type':'turboism.prerelease-candidate','receipt':receipt,\n                 'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest()}", "    from . import release_notes\n    context = release_notes.select_context(github, source_root, receipt) if receipt['channel'] == 'nightly' else None\n    notes = release_notes.candidate_notes(source_root, receipt, context)\n    candidate = {'schemaVersion':2,'type':'turboism.prerelease-candidate','receipt':receipt,\n                 'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest(), 'notesContext':context}")
+          s=s.replace("    require(set(value) == {'schemaVersion','type','receipt','manifest','notesSha256'}\n            and value['schemaVersion'] == 1", "    keys = {'schemaVersion','type','receipt','manifest','notesSha256'}\n    if value.get('schemaVersion') == 2: keys.add('notesContext')\n    require(set(value) == keys\n            and value['schemaVersion'] in (1, 2)")
+          s=s.replace("    notes = notes_for(Path(source_root),actual)\n    require(", "    if value['schemaVersion'] == 1:\n        notes = notes_for(Path(source_root),actual)\n    else:\n        from .release_notes import candidate_notes\n        notes = candidate_notes(source_root,actual,value['notesContext'])\n    require(")
+          p.write_text(s)
+          p=root/'scripts/release/turboism_release/promotion.py';s=p.read_text()
+          s=s.replace('"gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt"],','"gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",\n                            "release-notes", "scripts/release/turboism_release/release_notes.py"],')
+          s=s.replace('    if receipt is not None:\n        notes +=', "    if receipt is not None:\n        from .release_notes import stable_metadata\n        localized = stable_metadata(source_root, tag[1:], source_sha, notes)\n        if localized:\n            notes += '\\n' + localized\n        notes +=")
+          p.write_text(s)
+          import hashlib
+          expected={'distribution/protocol.mjs':'4b37665047ef4f2b18d232766db7b291bfa785d95f5a10d6c9495271671026a9','distribution/release-notes.mjs':'6fe0f16ffcfcd193893d00fd0aebee2a57821ac0e819ee7de6bf1cbee23af19e','scripts/release/turboism_release/prerelease.py':'e443a0f62ed4e4714f6f95ba2a18ed367378e7a6f35e31c7cd7f1954fd6bd903','scripts/release/turboism_release/promotion.py':'a5f399a47ad93dc60a8223601db7e66b59895dd9bf9b196949f8f83185a45abe'}
+          for name,digest in expected.items():assert hashlib.sha256(Path(name).read_bytes()).hexdigest()==digest,name
+          # Use the actual frozen Git subjects plus the reviewed base-version translations.
+          # This is presentation enrichment only: do not mutate a public release or its binaries.
+          PY
+      - name: Generate the source-bound historical display records
+        run: |
+          python3 scripts/release/build-historical-display.py
+          git add distribution scripts/release/turboism_release/prerelease.py scripts/release/turboism_release/promotion.py
+          git diff --cached --check
+      - run: node --test distribution/test/*.test.mjs
+      - run: python3 -m unittest discover -s scripts/release -p 'test*.py'
+      - run: python3 -m unittest scripts.test.test_release_details scripts.test.test_prerelease scripts.test.test_nightly scripts.test.test_build_channels scripts.test.test_release_promotion
+      - run: python3 scripts/check_remote_hygiene.py --worktree
+      - name: Verify Worker bundling without deployment credentials
+        run: npx --yes wrangler@4.127.0 deploy --dry-run --config distribution/wrangler.json --outdir artifacts/worker
+      - name: Save verified source on the feature branch, without deploying
+        run: |
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'fix: connect frozen multilingual changelogs and historical display supplements'
+          mkdir -p artifacts
+          git rev-parse HEAD > artifacts/commit.txt
+          git archive HEAD > artifacts/source.tar
+          git push origin HEAD:refs/heads/fix/nightly-release-notes-20260911
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: integrated-release-details
+          path: artifacts
+          retention-days: 7
