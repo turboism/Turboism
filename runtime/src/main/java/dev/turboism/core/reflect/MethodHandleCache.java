@@ -15,8 +15,14 @@ import java.util.concurrent.ConcurrentHashMap;
  * loaded by a different class loader is a distinct cache entry), so the cache stays correct
  * across plugin-isolated class loaders while being hit on the steady-state host paths.</p>
  *
- * <p>Only successful resolutions are cached; a missing method is rescanned on each call, matching
- * the previous per-call behavior. Lookups that require access to non-public members attempt
+ * <p>Permanent misses are cached too: a loaded {@link Class}'s member set is immutable (class
+ * redefinition cannot add, remove or rename members), so a {@link NoSuchMethodException}/
+ * {@link NoSuchFieldException} — including the fail-closed "inaccessible" outcome — for a given
+ * key is a permanent answer. The canonical exception instance is stored and rethrown, preserving
+ * the exception type and message verbatim; only its stack trace still points at the first
+ * resolution. {@link SecurityException} and other runtime failures are never cached.</p>
+ *
+ * <p>Lookups that require access to non-public members attempt
  * {@link Method#trySetAccessible()} once at resolution time (the granted access persists on the
  * cached {@link Method}); when that fails and the member is not already accessible, the lookup
  * fails closed with {@link NoSuchMethodException} so callers keep their existing
@@ -56,8 +62,40 @@ public final class MethodHandleCache {
     private static final ConcurrentHashMap<MethodKey, Method> METHODS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<MethodKey, List<Method>> OVERLOADS = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<MethodKey, Field> FIELDS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<MethodKey, ReflectiveOperationException> MISSES =
+        new ConcurrentHashMap<>();
 
     private MethodHandleCache() { }
+
+    private static NoSuchMethodException miss(
+        final MethodKey key,
+        final NoSuchMethodException failure
+    ) {
+        final ReflectiveOperationException existing = MISSES.putIfAbsent(key, failure);
+        return (NoSuchMethodException) (existing == null ? failure : existing);
+    }
+
+    private static NoSuchFieldException miss(
+        final MethodKey key,
+        final NoSuchFieldException failure
+    ) {
+        final ReflectiveOperationException existing = MISSES.putIfAbsent(key, failure);
+        return (NoSuchFieldException) (existing == null ? failure : existing);
+    }
+
+    private static void rethrowCachedMiss(final MethodKey key) throws NoSuchMethodException {
+        final ReflectiveOperationException miss = MISSES.get(key);
+        if (miss != null) {
+            throw (NoSuchMethodException) miss;
+        }
+    }
+
+    private static void rethrowCachedFieldMiss(final MethodKey key) throws NoSuchFieldException {
+        final ReflectiveOperationException miss = MISSES.get(key);
+        if (miss != null) {
+            throw (NoSuchFieldException) miss;
+        }
+    }
 
     /**
      * Public method lookup (inherited methods included), equivalent to {@link Class#getMethod}.
@@ -71,7 +109,13 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
-        final Method resolved = type.getMethod(name, parameterTypes);
+        rethrowCachedMiss(key);
+        final Method resolved;
+        try {
+            resolved = type.getMethod(name, parameterTypes);
+        } catch (NoSuchMethodException failure) {
+            throw miss(key, failure);
+        }
         final Method existing = METHODS.putIfAbsent(key, resolved);
         // Return the canonical cached instance so concurrent resolvers observe the same handle.
         return existing == null ? resolved : existing;
@@ -90,7 +134,12 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
-        return resolve(key, type.getDeclaredMethod(name, parameterTypes));
+        rethrowCachedMiss(key);
+        try {
+            return resolve(key, type.getDeclaredMethod(name, parameterTypes));
+        } catch (NoSuchMethodException failure) {
+            throw miss(key, failure);
+        }
     }
 
     /**
@@ -106,17 +155,22 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-            final Method candidate;
-            try {
-                candidate = current.getDeclaredMethod(name, parameterTypes);
-            } catch (NoSuchMethodException ignored) {
-                // try the next superclass
-                continue;
+        rethrowCachedMiss(key);
+        try {
+            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+                final Method candidate;
+                try {
+                    candidate = current.getDeclaredMethod(name, parameterTypes);
+                } catch (NoSuchMethodException ignored) {
+                    // try the next superclass
+                    continue;
+                }
+                return resolve(key, candidate);
             }
-            return resolve(key, candidate);
+        } catch (NoSuchMethodException failure) {
+            throw miss(key, failure);
         }
-        throw new NoSuchMethodException(type.getName() + "#" + name);
+        throw miss(key, new NoSuchMethodException(type.getName() + "#" + name));
     }
 
     /**
@@ -133,14 +187,19 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
-        for (Class<?> current = type; current != null; current = current.getSuperclass()) {
-            for (Method candidate : current.getDeclaredMethods()) {
-                if (candidate.getName().equals(name) && candidate.getParameterCount() == arity) {
-                    return resolve(key, candidate);
+        rethrowCachedMiss(key);
+        try {
+            for (Class<?> current = type; current != null; current = current.getSuperclass()) {
+                for (Method candidate : current.getDeclaredMethods()) {
+                    if (candidate.getName().equals(name) && candidate.getParameterCount() == arity) {
+                        return resolve(key, candidate);
+                    }
                 }
             }
+        } catch (NoSuchMethodException failure) {
+            throw miss(key, failure);
         }
-        throw new NoSuchMethodException(type.getName() + "#" + name);
+        throw miss(key, new NoSuchMethodException(type.getName() + "#" + name));
     }
 
     /**
@@ -202,7 +261,7 @@ public final class MethodHandleCache {
      *
      * <p>Unlike the method lookups no access policy is applied at resolution time: callers keep
      * their existing {@code canAccess}/{@code trySetAccessible} handling, whose effect persists on
-     * the shared {@link Field}. Misses are not cached, matching the method-lookup policy.</p>
+     * the shared {@link Field}. Permanent misses are cached per the class-level policy.</p>
      *
      * @throws NoSuchFieldException when the class declares no such field
      */
@@ -213,7 +272,13 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
-        final Field resolved = type.getDeclaredField(name);
+        rethrowCachedFieldMiss(key);
+        final Field resolved;
+        try {
+            resolved = type.getDeclaredField(name);
+        } catch (NoSuchFieldException failure) {
+            throw miss(key, failure);
+        }
         final Field existing = FIELDS.putIfAbsent(key, resolved);
         // Return the canonical cached instance so concurrent resolvers observe the same handle.
         return existing == null ? resolved : existing;
@@ -225,7 +290,7 @@ public final class MethodHandleCache {
      *
      * <p>Same access policy as {@link #declaredField}: none at resolution time — callers keep
      * their {@code canAccess}/{@code trySetAccessible} handling, whose effect persists on the
-     * shared {@link Field}. Misses are not cached.</p>
+     * shared {@link Field}. Permanent misses are cached per the class-level policy.</p>
      *
      * @throws NoSuchFieldException when no class in the hierarchy declares the field
      */
@@ -236,6 +301,7 @@ public final class MethodHandleCache {
         if (cached != null) {
             return cached;
         }
+        rethrowCachedFieldMiss(key);
         for (Class<?> current = type; current != null; current = current.getSuperclass()) {
             try {
                 final Field resolved = current.getDeclaredField(name);
@@ -245,7 +311,7 @@ public final class MethodHandleCache {
                 // try the next superclass
             }
         }
-        throw new NoSuchFieldException(type.getName() + "#" + name);
+        throw miss(key, new NoSuchFieldException(type.getName() + "#" + name));
     }
 
     private static Method resolve(final MethodKey key, final Method method) throws NoSuchMethodException {
