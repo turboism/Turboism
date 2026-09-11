@@ -90,6 +90,50 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
         }
     }
 
+    @Override
+    public Observation observe() {
+        // One adapter traversal supplies the project, the document and the model; the unprojected
+        // pair rides along as evidence so versionOf can compare exactly what was observed.
+        final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
+        final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
+        final Optional<HostDocument> projected = document.map(this::document);
+        final Optional<HostModel> model = projected
+            .filter(active -> active.kind() == DocumentKind.MODEL)
+            .flatMap(HostDocument::model);
+        return new Observation(
+            project.map(this::project),
+            projected,
+            model,
+            EMPTY_SELECTION,
+            new ObservationEvidence(project, document)
+        );
+    }
+
+    @Override
+    public long versionOf(final Observation observation) {
+        Objects.requireNonNull(observation, "observation");
+        if (!(observation.evidence() instanceof ObservationEvidence evidence)) {
+            // Foreign observation: fall back to the source's own fresh read.
+            return invalidationToken();
+        }
+        synchronized (invalidationLock) {
+            if (!evidence.project().equals(lastProjectObservation)
+                || !evidence.document().equals(lastDocumentObservation)) {
+                lastProjectObservation = evidence.project();
+                lastDocumentObservation = evidence.document();
+                invalidationToken++;
+            }
+            return invalidationToken;
+        }
+    }
+
+    /** The unprojected pair behind one observation, comparable with the recorded baseline. */
+    private record ObservationEvidence(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document
+    ) {
+    }
+
     private HostProject project(final ProjectSnapshot source) {
         return new HostProject(
             source.projectId(),

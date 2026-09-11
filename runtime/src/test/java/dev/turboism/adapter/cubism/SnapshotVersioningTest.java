@@ -1,6 +1,12 @@
 package dev.turboism.adapter.cubism;
 
 import dev.turboism.diagnostics.CubismFacadeAuditEvent;
+import dev.turboism.adapter.host.HostSessionSnapshotSource;
+import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
+import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.permissions.CubismPermissionGate;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PluginPermission;
@@ -91,6 +97,68 @@ class SnapshotVersioningTest {
                 return "test";
             }
         };
+    }
+
+    @Test
+    void oneVersionedReadObservesTheHostProjectAndDocumentExactlyOnce() {
+        final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
+        final CubismFacadeImpl facade = facadeWith(
+            HostSessionSnapshotSource.forSession(adapter),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
+        );
+
+        facade.runtimeWithVersion();
+
+        assertEquals(1, adapter.projectReads,
+            "one versioned read must observe the host project once");
+        assertEquals(1, adapter.documentReads,
+            "one versioned read must observe the host document once");
+    }
+
+    /** Counts host reads so the validity check cannot cost more than the work it protects. */
+    private static final class CountingWorkspaceAdapter implements ProjectWorkspaceAdapter {
+
+        private int projectReads;
+        private int documentReads;
+
+        @Override
+        public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
+            projectReads++;
+            return AdapterResult.available(Optional.of(new ProjectSnapshot(
+                "project-1",
+                "Project",
+                Optional.empty(),
+                List.of(),
+                List.of()
+            )));
+        }
+
+        @Override
+        public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
+            documentReads++;
+            return AdapterResult.available(Optional.of(new DocumentSnapshot(
+                "document-1",
+                "Model",
+                "model/model.cmo3",
+                Optional.empty(),
+                Optional.empty(),
+                DocumentKind.MODEL,
+                Optional.empty(),
+                Optional.empty()
+            )));
+        }
+
+        @Override
+        public AdapterResult<Optional<WorkspaceSnapshot>> workspace() {
+            return AdapterResult.available(Optional.empty());
+        }
+
+        @Override
+        public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
+            return AdapterResult.available(
+                new ProjectWorkspaceSnapshot(Optional.empty(), Optional.empty())
+            );
+        }
     }
 
     private static final class VersionedSource implements HostSnapshotSource {
