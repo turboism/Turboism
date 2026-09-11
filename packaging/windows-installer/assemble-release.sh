@@ -108,7 +108,7 @@ for module in modules:
         except KeyError:
             sys.exit(f"error: {jar}: missing META-INF/turboism/plugin.json")
         localized = {}
-        for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja")):
+        for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja"), ("kor", "ko")):
             resource = f"META-INF/turboism/i18n/messages_{suffix}.properties"
             try:
                 text = z.read(resource).decode("utf-8")
@@ -155,6 +155,7 @@ core_payload.extend([
     ("README.txt", stage / "README.txt"),
     ("README.zh.txt", stage / "README.zh.txt"),
     ("README.ja.txt", stage / "README.ja.txt"),
+    ("README.ko.txt", stage / "README.ko.txt"),
     ("LICENSE", stage / "LICENSE.txt"),
     ("EULA.en.txt", stage / "EULA.en.txt"),
     ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
@@ -245,10 +246,10 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
-# 可见插件 Section：三语言显示名/描述均来自插件自身 i18n 资源。
+# 可见插件 Section：四语言显示名/描述均来自插件自身 i18n 资源。
 for p in plugins:
     key = sanitize(p["id"])
-    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE")):
+    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE"), ("kor", "LANG_KOREAN")):
         title = p["localized"][locale]["name"] + (" " + p["version"] if p["version"] else "")
         description = p["localized"][locale]["description"]
         lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
