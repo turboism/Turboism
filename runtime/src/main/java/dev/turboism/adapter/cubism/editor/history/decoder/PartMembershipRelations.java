@@ -32,11 +32,22 @@ final class PartMembershipRelations {
     private PartMembershipRelations() {
     }
 
-    /** Reads the child endpoint; the child is any ArtMesh or Deformer, never a Part. */
+    /**
+     * Reads the child endpoint: whatever the Part-membership entry moved into or out of a Part.
+     *
+     * <p>An operator drag in the Parts tree moves a Part onto another Part, so the moved child is
+     * itself a Part, not a drawable. The admitted selector returns the common
+     * {@code ACParameterControllableSource}, so both are legal values of the same member and no
+     * further admission is needed to read either: the Part aliases are already required by the
+     * Part-membership family because the parent endpoint is read through them.</p>
+     */
     static Optional<HistoryTarget> target(
         final VerifiedMemberResolver resolver,
         final Object source
     ) {
+        if (resolver.isInstance("cubism.editor-model.part-source.class", source)) {
+            return partTarget(resolver, source);
+        }
         for (final String alias : SOURCE_TYPE_ALIASES) {
             if (resolver.isInstance(alias, source)) {
                 return targetFor(resolver, source, typeOf(alias));
