@@ -180,7 +180,13 @@ record PreviewPluginRuntimeResources(
                 scheduler,
                 runtimeSettings,
                 new dev.turboism.update.HttpUpdateTransport(),
-                java.time.Clock.systemUTC()
+                java.time.Clock.systemUTC(),
+                dev.turboism.update.InstalledBuild.current(),
+                dev.turboism.update.RuntimeUpdateService.STARTUP_DELAY,
+                dev.turboism.update.RuntimeUpdateService.AUTOMATIC_INTERVAL,
+                // A failed check must leave a trace: the user-visible state is deliberately vague
+                // (unavailable), so the reason belongs in the log rather than nowhere at all.
+                message -> log.warn("updates", message)
             );
         return new PreviewPluginRuntimeResources(
             lane, failureCollector,
