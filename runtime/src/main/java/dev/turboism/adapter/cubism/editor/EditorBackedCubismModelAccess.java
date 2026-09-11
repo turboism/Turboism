@@ -343,6 +343,17 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         synchronized (generationLock) {
             currentGeneration = generation;
         }
+        final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin join = evaluatedJoin;
+        if (join != null && model != join.publishedModel()) {
+            // Publish follows the binding: the evaluated join must trace the model that is
+            // actually bound, not a previously published one. Best-effort — a failed publish
+            // still surfaces as MODEL_UNAVAILABLE on the evaluated read path.
+            try {
+                join.tryPublish(model, sessionIdentity + ":" + id);
+            } catch (RuntimeException publishFailure) {
+                // best-effort: evaluated reads fail closed through the join as before
+            }
+        }
         return new Binding(
             identity,
             currentGeneration,
