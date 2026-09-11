@@ -7,7 +7,16 @@ cd "$repo_root"
 worktree_id="${TURBOISM_WORKTREE_ID:-main}"
 bundle_root="${1:-$repo_root/build/manual-test/$worktree_id/windows-parameter-validation}"
 agent_jar="$repo_root/build/preview/$worktree_id/turboism-agent.jar"
-parameter_jar="$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-0.1.0-SNAPSHOT-$worktree_id.jar"
+parameter_candidates=(
+  "$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-"*"-$worktree_id.jar"
+)
+if [ ! -e "${parameter_candidates[0]:-}" ] || [ "${#parameter_candidates[@]}" -ne 1 ]; then
+  printf 'error: expected exactly one parameter plugin jar matching %s; found %d\n' \
+    "$repo_root/build/worktree/$worktree_id/parameter/libs/parameter-*-$worktree_id.jar" \
+    "${#parameter_candidates[@]}" >&2
+  exit 1
+fi
+parameter_jar="${parameter_candidates[0]}"
 test_classes="$repo_root/build/worktree/$worktree_id/integration-tests/classes/java/test"
 probe_class_rel="dev/turboism/tests/plugin/WindowsParameterValidationProbe.class"
 probe_class_dir_rel="dev/turboism/tests/plugin"
