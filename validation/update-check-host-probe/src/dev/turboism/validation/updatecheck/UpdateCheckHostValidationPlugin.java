@@ -64,6 +64,12 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final List<String> REVIEWED_HOST_VERSIONS = List.of("5.2.03", "5.3.02", "5.3.03");
 
+    /**
+     * A supported host may legitimately report {@code version: UNKNOWN} in the runtime report while
+     * its artifact SHA still matches the reviewed installation.
+     */
+    private static final String UNKNOWN_HOST_VERSION = "UNKNOWN";
+
     private PluginLogger logger;
     private PluginContext context;
     private Path stateDir;
@@ -89,12 +95,13 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
     }
 
     private void runWhenHostReady() {
-        if (!awaitVerifiedHost()) {
+        final java.util.Optional<String> hostVersion = awaitVerifiedHost();
+        if (hostVersion.isEmpty()) {
             fail("readiness", "active-runtime-report-or-model-not-present");
             return;
         }
         logger.info("UPDATE_CHECK_EXERCISER_READY"
-            + " hostVersion=" + activeReviewedRuntimeVersion().orElse("unknown")
+            + " hostVersion=" + hostVersion.orElse("unknown")
             + " mode=" + mode()
             + " locale=" + System.getProperty("turboism.locale", "host"));
 
@@ -255,22 +262,43 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
 
     // ------------------------------------------------------------- readiness
 
-    private boolean awaitVerifiedHost() {
+    /**
+     * Readiness is the runtime's own verified-host report, not a version string: this host reports
+     * {@code version: UNKNOWN} while {@code identityState: MATCHED} plus the pinned
+     * {@code artifactSha256} carry the real identity guarantee. The active model is required so the
+     * probe observes a host in the same state a user would be in.
+     *
+     * @return the reported host version for diagnostics, or empty when the host never became ready
+     */
+    private java.util.Optional<String> awaitVerifiedHost() {
         final long deadline = System.currentTimeMillis() + HOST_READY_TIMEOUT_MILLIS;
+        String lastObservation = "runtime-report-absent";
         while (System.currentTimeMillis() < deadline) {
             try {
-                if (activeReviewedRuntimeVersion().isPresent()
-                    && !context.cubism().model().active().id().value().isBlank()) {
-                    return true;
+                final java.util.Optional<String> version = activeReviewedRuntimeVersion();
+                if (version.isPresent()) {
+                    final String modelId = context.cubism().model().active().id().value();
+                    if (!modelId.isBlank()) {
+                        return version;
+                    }
+                    lastObservation = "active-model-not-present";
+                } else {
+                    lastObservation = "runtime-report-not-MATCHED-READY-RUNNING";
                 }
             } catch (RuntimeException unavailable) {
-                // Readiness is retried until the deadline; an unavailable Cubism read is not fatal yet.
+                lastObservation = "cubism-read-failed: " + unavailable.getClass().getSimpleName();
             }
             sleep(SETTLE_STEP_MILLIS);
         }
-        return false;
+        logger.warn("UPDATE_CHECK_EXERCISER_NOT_READY " + lastObservation);
+        return java.util.Optional.empty();
     }
 
+    /**
+     * The verified-host runtime report for the running host. The MATCHED/READY/RUNNING triple is the
+     * identity guarantee; the reported version string is informational because a supported host may
+     * legitimately report it as {@code UNKNOWN}.
+     */
     private java.util.Optional<String> activeReviewedRuntimeVersion() {
         final Path report = stateDir.getParent().resolve("runtime/preview-runtime-report.json");
         try {
@@ -286,7 +314,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
                     return java.util.Optional.of(reviewed);
                 }
             }
-            return java.util.Optional.empty();
+            return java.util.Optional.of(UNKNOWN_HOST_VERSION);
         } catch (java.io.IOException unavailable) {
             return java.util.Optional.empty();
         }
