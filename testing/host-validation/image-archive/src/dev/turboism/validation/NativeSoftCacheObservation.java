@@ -42,6 +42,8 @@ final class NativeSoftCacheObservation {
     private static final String SOFT_REFERENCE = "java.lang.ref.SoftReference";
     private static final String DECODED_IMAGE = "image";
     private static final String ARCHIVE_BYTES = "imageFileBuf";
+    private static final String WIDTH = "width";
+    private static final String HEIGHT = "height";
     private static final int ENTRY_LIMIT = 8192;
     private static final int COMPARISON_LIMIT = 20_000_000;
     /** Diagnostic budget for one capture. O(entries) once the O(entries x cohort) matching work completes. */
@@ -55,7 +57,8 @@ final class NativeSoftCacheObservation {
             "access$getDEBUG$cp", "access$getDEBUG_IMAGES$cp"};
     private static final String[] COUNT_KEYS =
             {"entries", "visited", "cohortSize", "matchedCohort", "matchedDistinct", "matchedDecoded",
-             "matchedArchived", "matchedArchivedBytes", "matchedWithArchiveBytes", "matchedUnreadable"};
+             "matchedArchived", "matchedArchivedBytes", "matchedWithArchiveBytes", "matchedUnreadable",
+             "matchedDecodedPixels", "matchedDecodedBytes"};
 
     private NativeSoftCacheObservation() {
     }
@@ -152,6 +155,8 @@ final class NativeSoftCacheObservation {
             // Best-effort resource-state fields: a resource's decoded pixels and its archived PNG bytes.
             Field decoded = optional(owner, DECODED_IMAGE);
             Field archived = optional(owner, ARCHIVE_BYTES);
+            Field width = optional(owner, WIDTH);
+            Field height = optional(owner, HEIGHT);
             if (cache == null) {
                 result.add("cohortSize", cohort.size());
                 result.commit();
@@ -188,7 +193,7 @@ final class NativeSoftCacheObservation {
                     resolved[index] = true;
                     result.add("matchedCohort", 1);
                     result.note("entry:" + visited);
-                    recordResourceState(referent, decoded, archived, result);
+                    recordResourceState(referent, decoded, archived, width, height, result);
                     break;
                 }
             }
@@ -262,10 +267,22 @@ final class NativeSoftCacheObservation {
      * Classifies one matched resource: still holding decoded pixels, or archived down to PNG bytes. Only field reads
      * are performed and the decoded image object is never touched beyond the null check.
      */
-    private static void recordResourceState(Object resource, Field decoded, Field archived, Result result) {
+    private static void recordResourceState(Object resource, Field decoded, Field archived, Field width, Field height,
+                                            Result result) {
         try {
             if (decoded == null || archived == null) { result.add("matchedUnreadable", 1); return; }
-            if (decoded.get(resource) == null) result.add("matchedArchived", 1); else result.add("matchedDecoded", 1);
+            boolean live = decoded.get(resource) != null;
+            if (live) {
+                result.add("matchedDecoded", 1);
+                // A decoded ARGB surface costs width*height*4 bytes; this is the pixel cost the cache keeps alive.
+                if (width != null && height != null && width.getInt(resource) > 0 && height.getInt(resource) > 0) {
+                    long pixels = (long) width.getInt(resource) * height.getInt(resource);
+                    result.add("matchedDecodedPixels", pixels);
+                    result.add("matchedDecodedBytes", pixels * 4);
+                }
+            } else {
+                result.add("matchedArchived", 1);
+            }
             Object bytes = archived.get(resource);
             if (bytes instanceof byte[] buffer) {
                 result.add("matchedWithArchiveBytes", 1);

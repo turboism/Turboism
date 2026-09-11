@@ -66,6 +66,7 @@ public final class SoftCacheAuditTest {
         static final ArrayList<b> cacheList = new ArrayList<>();
         private Object image = new Object();
         private byte[] imageFileBuf = null;
+        private int width = 16, height = 8;
         static CImageResource make() { CImageResource r = new CImageResource(); cacheList.add(new b(r)); return r; }
         static void clear() { cacheList.clear(); }
         void archive() { this.image = null; this.imageFileBuf = new byte[1024]; }
@@ -169,6 +170,9 @@ public final class SoftCacheAuditTest {
         prop(stateCounts, "matchedWithArchiveBytes", "1");
         prop(stateCounts, "matchedArchivedBytes", "1024");
         prop(stateCounts, "matchedUnreadable", "0");
+        // one live decoded 16x8 surface = 128 pixels = 512 bytes
+        prop(stateCounts, "matchedDecodedPixels", "128");
+        prop(stateCounts, "matchedDecodedBytes", "512");
 
         // 1c. A resource whose state fields are absent is counted as unreadable, not as decoded or archived.
         BareResource.clear();
