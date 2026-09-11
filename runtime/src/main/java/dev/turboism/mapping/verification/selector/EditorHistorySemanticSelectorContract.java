@@ -110,6 +110,23 @@ public final class EditorHistorySemanticSelectorContract {
         "cubism.editor-model.id.value"
     );
 
+    public static final Set<String> PART_MEMBERSHIP_REQUIRED_ALIASES = Set.of(
+        "cubism.editor-history.semantic.part-membership.class",
+        "cubism.editor-history.semantic.part-membership.part",
+        "cubism.editor-history.semantic.part-membership.child",
+        "cubism.editor-history.semantic.part-membership.index",
+        "cubism.editor-history.semantic.part-membership.is-add",
+        "cubism.editor-model.part-source.class",
+        "cubism.editor-model.part-source.id",
+        "cubism.editor-model.part-id.value",
+        "cubism.editor-model.art-mesh-source.class",
+        "cubism.editor-model.warp-source.class",
+        "cubism.editor-model.rotation-source.class",
+        "cubism.editor-model.parameter-controllable-source.id",
+        "cubism.editor-model.parameter-controllable-source.local-name",
+        "cubism.editor-model.id.value"
+    );
+
     private EditorHistorySemanticSelectorContract() {
     }
 }

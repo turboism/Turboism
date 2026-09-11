@@ -60,6 +60,13 @@ final class GroupUndoDecoder implements NativeHistoryDecoder {
             }
         }
         if (nativeChildren.size() > projectedCount) truncated = true;
+        if (!truncated) {
+            final Optional<HistoryEntryDetail> coalesced =
+                PartMembershipRelations.coalesce(children, context.boundedLabel(label));
+            if (coalesced.isPresent()) {
+                return NativeHistoryDecodeResult.decoded(coalesced.orElseThrow());
+            }
+        }
         final boolean full = !truncated
             && !children.isEmpty()
             && children.stream().allMatch(child ->
