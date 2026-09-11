@@ -770,6 +770,25 @@ $uiStrings = @{
         TakeoverSummary = "対象：{0}；未一致の回退：{1}；競合：{2}"; TakeoverUnavailable = "引き継ぎプレビューを取得できません。保存は失敗します：{0}"
         IndependentSummary = "独立モード：既存の Cubism ショートカットは変更しません。"
     }
+    ko = @{
+        FormTitle = "Turboism 설정 - {0}"; PluginsTab = "플러그인"; CubismTab = "Cubism 설치"
+        PluginPrompt = "사용할 플러그인을 선택하세요(선택하지 않은 id는 config.json에 기록됩니다):"
+        CubismPrompt = "관리하고 시작할 지원되는 Cubism 설치를 선택하세요:"; Version = "버전"
+        Ready = "준비됨"; Invalid = "잘못됨"; Unsupported = "지원 안 함"; Selected = "선택됨"
+        Rescan = "다시 검색"; Add = "폴더 추가"; Remove = "제거"; Save = "저장"; Cancel = "취소"
+        LaunchMode = "시작 모드"; Independent = "독립 바로 가기(권장)"; Takeover = "기존 Cubism 바로 가기 인계"
+        ShortcutIntegration = "선택한 Cubism 설치용 Turboism 시작 바로 가기 만들기 또는 업데이트"
+        BatIntegration = "선택한 Cubism 공식 BAT 수정(바로 가기 생성 전에 백업하고 복원 가능)"
+        NoActivation = "활성화 경로가 선택되지 않았습니다. Turboism은 바로 가기나 공식 BAT에서 로드되지 않습니다. 계속하시겠습니까?"
+        IndependentHelp = "Turboism이 소유한 새 .lnk 바로 가기를 만듭니다. 기존 Cubism 바로 가기와 공식 BAT 파일은 바이트 단위로 그대로 유지됩니다."
+        TakeoverHelp = "선택한 공식 Cubism BAT를 정확히 가리키는 기존 .lnk 바로 가기만 교체합니다. 원본은 백업되고 정리 시 복원되며, 공식 BAT 파일 자체는 수정하지 않습니다."
+        StatusNoPlugins = "plugins/ 아래에 유효한 플러그인 jar가 없습니다."; StatusSaved = "설정을 저장했습니다(Cubism 설치 {0}개)."
+        StatusNoCubism = "지원되는 Cubism 설치를 찾지 못했습니다. Turboism은 계속 사용할 수 있으며 나중에 추가할 수 있습니다."
+        StateWarning = "관리형 설치 상태가 잘못되었습니다. 저장하기 전에 복구하세요: {0}"; AddTitle = "Cubism 설치 폴더 선택"
+        RemovePrompt = "먼저 제거할 설치를 선택하세요."; Saved = "설정을 저장했습니다."; SaveError = "설정을 저장할 수 없습니다: {0}"
+        TakeoverSummary = "인계 가능: {0}; 일치하지 않는 대체: {1}; 충돌: {2}"; TakeoverUnavailable = "인계 미리보기를 사용할 수 없습니다. 저장은 안전하게 실패합니다: {0}"
+        IndependentSummary = "독립 모드: 기존 Cubism 바로 가기는 변경되지 않습니다."
+    }
 }
 if (-not $uiStrings.ContainsKey($uiLang)) { $uiLang = "en" }
 $S = $uiStrings[$uiLang]
