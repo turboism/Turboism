@@ -671,3 +671,30 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **已知覆盖限制（不得过度声称）**：本片沿用现有 phase 时序，因此**未观测** 300s 清理 tick 与 360s 闲置归档规则本身；只观测到缓存在两次关闭后采样之间缩小（4477→2207）。未做堆转储、GC 根遍历、保留大小测量、强制 GC 或任何驱逐/清理。命中**不等于缺陷**：软缓存加有界驱逐是合法设计；是否应在关闭文档时显式释放需另立修复切片并单独授权。也不排除 live thread / native 根（本片未覆盖）。
 - **证据归档（使用规则 7）**：`run/nr-soft-b1|b2|b3/`（各含 `job/`、`task/result/result.properties`、`task/evidence/`（含 samples 与 sampler 日志）、`task/logs/`），归档 `MANIFEST.sha256` 已刷新（249 项 / 11MiB）。
 - **有效程度**：新增内存/CPU/GPU 收益 **NONE**（无优化改动，未做任何释放）；产出为**由实机观测确认的关闭后保留机制**——静态软引用缓存 + 资源→使用者强反向引用，并把此前四条独立阴性结论（登记表、视图历史、34 项静态根、类字段型静态根）统一到一个自洽解释中。
+
+### I34 — 030 扩展窗口（780s）实机：软缓存零自愈，关闭后 228MiB 解码像素与整图锁定 ≥10 分钟（2026-09-11）
+
+- **协议变更（本次唯一一次，已获操作者授权）**：新增第二个**具名准入队列**（`extended-eviction-window`，780s），与既有 300s 基线条目并存。准入断言从「必须等于 300」改为「必须等于 300 或 780」，其余全部不变；**未放宽**任何采样间隔（0..5s）、采样密度（0.8）或验收规则。声明窗口上限由 300 提到 900（`NativeMemoryObservation`、`measure-task-memory.py` 的 `validate_window`），采样器自身看门狗 900→1500s。扩展点 `closed360`/`closed600` 在任何 sleep 之前先断言窗口为 780s，误配置**快速失败**而不是白等 13 分钟。300s 基线条目行为完全不变（policy 回归覆盖 0/301/600 拒绝与 300 接受）。
+- **三次运行**：`nr-evict-b1`（prepared `0b264923…`，job `e75aa56a-…`）与 `nr-evict-b2`（`9306ee16…`，`aa2bc9db-…`）均在**既有采样器 0..5s 间隔自校验**处失败（最大间隔 5.97s / 6.38s，分别位于 t=141s 关闭时刻与窗口内；`MemAvailable` 3.4–4.6GB、`SwapFree` 8–10GB，**不是** I27/I28 那种换出耗尽）。两次仍产出全部扩展点数据。`nr-evict-b3`（`8b262b04…`，job `9659cee5-…`，run `queue-6c023ec0…`，HEAD `de2074ab1`）**整体 PASS**：`validationComplete=true`、`exitCode=0`、`prefixRetained=false`、`ownership.attributionStatus=COMPLETE`、`softCache.attributionStatus=COMPLETE`，六组采集点**全部 COMPLETE**、`reason=none`。
+- **决定性数据（nr-evict-b3，单位 MiB 为 2^20）**：
+
+  | 采集点 | 时刻 | status | entries | matched | decoded | archived | archBytes | decodedPixels | decodedBytes |
+  |---|---|---|---|---|---|---|---|---|---|
+  | `idle` | +30s | COMPLETE | 4477 | 848 | 432 | 416 | 35M | 59,752,362 | **228M** |
+  | `beforeClose` | +128s | COMPLETE | 4477 | 848 | 432 | 416 | 35M | 59,752,362 | **228M** |
+  | `closed120` | +250s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
+  | `closed360` | +490s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
+  | `closed600` | +730s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
+  | `closedFinal` | +780s | COMPLETE | 2207 | 585 | 432 | 153 | 24M | 59,752,362 | **228M** |
+
+  同期：`retain.closed*.resources.notCleared=848` 在 +120/+360/+600 全部不变；`documentWeakCleared=false`（含 `At360`/`At600`/`AtSamplerEnd`）。
+- **结论 1：软缓存关闭后零自愈。** 缓存条目从 +120s 到 +780s **恒为 2207**，命中队列恒为 585，解码资源恒为 432，解码字节恒为 228MiB —— **10 分钟零进展**。这与 bytecode 完全一致：`CImageResource$a.f()` 每 300s 一次 tick，且**每 tick 最多归档一个**条目（循环首次成功即 break），而 `archive()` 只把解码图转成 PNG 字节、**不移除条目**。因此在任何现实时间尺度上，保留实际上是永久的。
+- **结论 2：关闭后真正被占住的是解码像素，而不是压缩数据。** 432 个资源在 +730s 仍持有**已解码** ARGB 表面，合计 **59,752,362 像素 / 228MiB**，且该数字从文档打开到关闭后 10 分钟**一位未变**。
+- **结论 3：宿主自身的释放路径在本负载中从未触发。** `hostCreated=4477`、`hostDisposed=0` —— 整轮运行**没有任何一次 `dispose()`**。因此 +120s 时从 4477 降到 2207 的 2270 个条目**不是被 dispose 掉的**，而是软引用在内存压力下被 JVM 清除后由 tick 摘除（比较：+120s 后解码数不变 432，被摘掉的 263 个队列成员**全部是已归档的廉价条目**）。即：**宿主在关闭时释放的是便宜的压缩条目，昂贵的解码表面一个都没释放。**
+- **结论 4：调试假设在本负载中无素材。** `hostDebugEnabled=false`、`hostDebugImages=0`（`CImageResource.DEBUG_IMAGES` 恒为空），与 N01 的 `releasedRecords=0` 一致 —— 调试型强引用列表不是本负载的成因。
+- **结论 5（量化）**：进程级 `hostArchivedBytes=352,308,846`（≈336MiB）从 idle 到 +730s 基本不变（仅 +559B），因为 `disposed=0` 意味着该累计量永不回落。加上队列内 228MiB 解码像素，**关闭文档后仍被软缓存占住的至少是「228MiB 解码像素 + 最高约 336MiB 归档字节」**（后者是累计上界，含仍在用的共享资源）。这是后续任何修复的**可量化基线**。
+- **「关闭时显式释放」修复的可行性判定：不成立（记录为失败/阻塞）。** 精确 JAR 中 `CImageResource` 的释放面只有：私有 `dispose()`、`removeFromCacheList()`（私有）、以及 companion 的 `f()`（每 tick 至多归档一个、只摘已清除的软引用）。唯一的批量入口是 **synthetic 访问器** `access$getCacheList$cp()`（`public static final`）—— 通过它 `clear()` 宿主内部缓存属于**非受支持的内部改写**，会随宿主任何更新失效，且违反本项目「不改官方工件/不引入反向强持有外部状态」的边界。**因此不存在既能释放该内存、又不改动应用表面行为、也不依赖不受支持 hack 的官方 API 路径。** 这一点必须显式记录，不能为了让指标好看而用 synthetic 访问器硬做。
+- **仍可行动的方向（另立切片）**：①**P08 —— Turboism 自身的陈旧强引用**：`EditorBackedCubismModelAccess` 的 `activeDocument/activeSource/activeModel` 是非 final 强引用，仅在 `bindingIdentity()` 遇到**不同**绑定时才被覆盖；文档关闭且无后续绑定时，被关闭的文档/源/模型仍被 Turboism 强持有。这是**我方代码**，清理它不改变任何 Cubism 表面行为，是当前唯一干净且可测的内存收益点（但本负载不走 Turboism binding 路径，故不能解释上述原生保留，需独立 A/B）。②软引用缓存本身属宿主设计，只能由宿主修复或提供配置。
+- **限制**：队列（848 资源）是缓存 2207 条目中的一个**子集样本**，`matchedDecodedPixels` 是队列口径的**下界**，不是全缓存像素总量；未做堆转储、GC 根遍历、保留大小测量或强制 GC；`matchedArchivedBytes` 是队列内 PNG 字节，`hostArchivedBytes` 是进程级累计量，两者不可相加。780s 队列连续两次触发既有采样器 0..5s 规则，属宿主自身关闭/压力行为与既定协议之间的真实张力，**不通过放宽规则解决**。
+- **证据归档（使用规则 7）**：`run/nr-evict-b{1,2,3}/`（各 8 项：job evidence/outcome/containment、`result.properties`、`memory-samples.jsonl`、`memory-sampler.log`、`turboism.log`）；归档 `MANIFEST.sha256` 已刷新（274 项 / 13MiB）。
+- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未实施任何优化）；产出为**关闭后保留的量化基线**（228MiB 解码像素 + 336MiB 归档字节，10 分钟零自愈）、**宿主释放路径失效的实证**（dispose=0）、以及**修复面不可用的判定与理由**。
