@@ -1573,11 +1573,14 @@ function Remove-TurboismRetiredPlugins {
     }
     $entries = @(Get-ChildItem -LiteralPath $plugins -File -Force -ErrorAction Stop)
     if ($entries.Count -gt 4096) { throw "plugin directory entry cap exceeded" }
+    # dev.turboism.plugin.backup is superseded by dev.turboism.plugin.webdav
+    # (webdav-backup rename): the stale backup.jar must not survive an upgrade.
     $retired = @(
         "dev.turboism.plugin.logfilter",
         "dev.turboism.plugin.clipmask",
         "dev.turboism.plugin.perfopt",
-        "dev.turboism.plugin.renderopt"
+        "dev.turboism.plugin.renderopt",
+        "dev.turboism.plugin.backup"
     )
     foreach ($entry in $entries) {
         if ($entry.Extension -ine ".jar") { continue }

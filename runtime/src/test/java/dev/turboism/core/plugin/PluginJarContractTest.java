@@ -195,14 +195,16 @@ class PluginJarContractTest {
 
     @Test
     void everyRetiredFakePluginIdIsRejectedBeforeContentChecks() {
-        // Given any valid descriptor carrying one of the four retired ids and a
-        // JAR whose content would otherwise satisfy the full contract
+        // Given any valid descriptor carrying one of the retired or superseded ids
+        // and a JAR whose content would otherwise satisfy the full contract
         List<String> content = List.of(ENTRYPOINT_CLASS, BASE_NAME + ".properties");
         for (String retiredId : List.of(
             "dev.turboism.plugin.logfilter",
             "dev.turboism.plugin.clipmask",
             "dev.turboism.plugin.perfopt",
-            "dev.turboism.plugin.renderopt")) {
+            "dev.turboism.plugin.renderopt",
+            // superseded by dev.turboism.plugin.webdav in the webdav-backup rename
+            "dev.turboism.plugin.backup")) {
             PluginDescriptor descriptor = descriptorWithIdAndLocales(retiredId, List.of("base"));
             // When validated under a renamed filename alike
             PluginJarContract.PluginJarContractException exception = assertThrows(

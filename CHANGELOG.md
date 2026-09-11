@@ -6,6 +6,23 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- The WebDAV backup plugin is renamed from `backup` to `webdav-backup`: its Gradle module and Java
+  package are `webdav-backup`/`dev.turboism.plugin.webdavbackup`, its installer artifact is
+  `plugins/webdav-backup.jar` (previously `plugins/backup.jar`), its plugin id is
+  `dev.turboism.plugin.webdav` (previously `dev.turboism.plugin.backup`), and its menu entry is now
+  localized. Stored endpoint settings in `backup/webdav.cfg` are unaffected.
+
+### Fixed
+
+- Upgrading an existing install no longer leaves two WebDAV plugin entries behind. Both installers
+  remove the stale pre-rename JAR from `plugins/` by its embedded plugin id (so any filename is
+  covered) during a managed upgrade, and the old id `dev.turboism.plugin.backup` joined the
+  retired/superseded boundary: the runtime refuses to load it, plugin management does not list it,
+  and `config.json` `disabledPlugins` no longer keeps it. The pre-rename WebDAV settings dialog also
+  localizes every label, button, tooltip and status message instead of always showing Chinese.
+
 ## [0.43.11] - 2026-09-11
 
 ### Added
