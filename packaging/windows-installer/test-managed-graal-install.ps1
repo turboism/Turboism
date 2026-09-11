@@ -78,13 +78,13 @@ try {
     $installHome = Join-Path $fixtureRoot "Turboism space 路径"
     [void][System.IO.Directory]::CreateDirectory($installHome)
     $configPath = Join-Path $installHome "config.json"
-    [System.IO.File]::WriteAllText($configPath, '{"schemaVersion":1,"launcher":{"cubismJvm":"bundled","graalVmPath":"old-path"},"plugins":{"disabledPlugins":["example.plugin"]},"logLevel":"DEBUG"}')
+    [System.IO.File]::WriteAllText($configPath, '{"format":"turboism.runtime.config","schemaVersion":1,"worktreeId":"user-runtime","pluginDirs":["plugins"],"launcher":{"cubismJvm":"bundled","graalVmPath":"old-path"},"disabledPlugins":["example.plugin"],"logLevel":"DEBUG"}')
     $javaPath = Install-ManagedGraalRuntime $installHome $goodManifest
     Assert-InstallTest (([System.IO.File]::ReadAllText($javaPath)) -ceq "deliberately not executable Java") "installs without any runnable Java or agent JAR"
     $config = Get-Content -LiteralPath $configPath -Raw -Encoding UTF8 | ConvertFrom-Json
     Assert-InstallTest ($config.launcher.graalVmPath -ceq (Join-Path $installHome "graal/runtime")) "writes the managed runtime directory to configuration"
     Assert-InstallTest ($config.launcher.cubismJvm -ceq "bundled") "preserves explicit bundled JVM preference"
-    Assert-InstallTest ($config.plugins.disabledPlugins[0] -ceq "example.plugin" -and $config.logLevel -ceq "DEBUG") "preserves unrelated user configuration"
+    Assert-InstallTest ($config.disabledPlugins[0] -ceq "example.plugin" -and $config.logLevel -ceq "DEBUG" -and $config.worktreeId -ceq "user-runtime") "preserves unrelated user configuration"
     Assert-InstallTest ((Find-CubismGraalJava -TurboismHome $installHome) -ceq $javaPath) "normal launcher discovers the installed runtime without execution"
     [void](Install-ManagedGraalRuntime $installHome $goodManifest)
     Assert-InstallTest ((Get-ChildItem -LiteralPath (Join-Path $installHome "graal") -Filter ".install-*" -Force).Count -eq 0) "successful reinstall removes private staging"
@@ -94,6 +94,7 @@ try {
     [void](Install-ManagedGraalRuntime $emptyHome $goodManifest)
     $fresh = Get-Content -LiteralPath (Join-Path $emptyHome "config.json") -Raw | ConvertFrom-Json
     Assert-InstallTest ($fresh.schemaVersion -eq 1 -and $fresh.launcher.graalVmPath -eq (Join-Path $emptyHome "graal/runtime")) "fresh installation creates compatible path configuration"
+    Assert-InstallTest ($fresh.format -ceq "turboism.runtime.config" -and $fresh.worktreeId -ceq "turboism-runtime" -and $fresh.pluginDirs[0] -ceq "plugins") "fresh configuration includes mandatory runtime schema fields"
 
     $badHash = $goodManifest.Clone(); $badHash.Sha256 = "0" * 64
     Assert-RejectedInstall "incorrect digest" $installHome $badHash "SHA-256"
