@@ -18,6 +18,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Task-local exerciser for the native CX bottom status-bar matrix on an exact
@@ -303,12 +305,15 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     }
 
     /**
-     * Drives the native hint through the SDK condition watch: the message is renewed
-     * while the probe's condition holds, so it stays on screen for the whole
-     * observation window and then clears itself.
+     * Drives the native hint through the SDK condition watch while the click action
+     * acknowledges it: the message is renewed while the condition holds, an early click
+     * stops both the renewal and the hint, and letting the window expire proves the
+     * condition route clears the message on its own.
      */
     private void runCanvasHint(final List<String> failures) {
         final long deadline = System.currentTimeMillis() + CANVAS_HINT_HOLD_MILLIS;
+        final AtomicBoolean acknowledged = new AtomicBoolean();
+        final AtomicReference<Registration> published = new AtomicReference<>();
         final Registration watch;
         try {
             watch = context.uiHost().showCanvasHintWhile(
@@ -317,12 +322,26 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
                     CANVAS_HINT_ID,
                     CANVAS_HINT_MESSAGE,
                     CanvasHintNotification.UNTIL_DISMISSED
-                ).withOnClick(() -> logger.info("CANVAS_HINT_CLICKED id=" + CANVAS_HINT_ID)),
-                () -> System.currentTimeMillis() < deadline
+                ).withOnClick(() -> {
+                    acknowledged.set(true);
+                    logger.info("CANVAS_HINT_CLICKED id=" + CANVAS_HINT_ID);
+                    final Registration current = published.get();
+                    if (current != null) {
+                        current.close();
+                    }
+                }),
+                // Acknowledging the hint also ends the renewal, so a click cannot be
+                // undone by the next tick re-issuing the message.
+                () -> !acknowledged.get() && System.currentTimeMillis() < deadline
             );
         } catch (RuntimeException failure) {
             failures.add("canvas-hint-watch failed: " + failure.getClass().getSimpleName());
             return;
+        }
+        published.set(watch);
+        if (acknowledged.get()) {
+            // A click that raced handle publication must still leave the hint dismissed.
+            watch.close();
         }
         logger.info("CANVAS_HINT_SENT id=" + CANVAS_HINT_ID
             + " dismissOnClick=true renewing=true message=" + CANVAS_HINT_MESSAGE);
@@ -332,6 +351,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             Thread.currentThread().interrupt();
             failures.add("canvas-hint settle interrupted");
         }
+        logger.info("CANVAS_HINT_OUTCOME id=" + CANVAS_HINT_ID
+            + " clicked=" + acknowledged.get());
         close(watch, "canvas-hint-close", failures);
     }
 
