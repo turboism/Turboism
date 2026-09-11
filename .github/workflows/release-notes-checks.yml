@@ -1,0 +1,48 @@
+name: Verify release notes
+on:
+  push:
+    branches: [fix/nightly-release-notes-20260911]
+  pull_request:
+    paths: ['scripts/release/**', 'distribution/**', '.github/workflows/release-notes-checks.yml']
+permissions:
+  contents: read
+concurrency:
+  group: release-notes-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Retain exact source and public history for independent verification
+        run: |
+          mkdir -p artifacts
+          git archive HEAD > artifacts/product-source.tar
+          git bundle create artifacts/product-history.bundle HEAD --tags
+          git rev-parse HEAD > artifacts/product-commit.txt
+      - run: node --test distribution/test/*.test.mjs
+      - run: python3 -m unittest discover -s scripts/release -p 'test*.py'
+      - run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
+      - name: Source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          repository: turboism/turboism-www
+          ref: e7e07c414f6473d277b0f786076b1a3c01e8d32d
+          path: website-review
+          persist-credentials: false
+      - name: Retain website baseline
+        run: git -C website-review archive HEAD > artifacts/www-source.tar
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: release-notes-review
+          path: artifacts
+          retention-days: 7
