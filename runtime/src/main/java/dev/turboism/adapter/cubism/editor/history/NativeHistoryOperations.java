@@ -4,9 +4,11 @@ import dev.turboism.adapter.cubism.editor.history.decoder.SemanticHistoryOperati
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -57,8 +59,75 @@ public final class NativeHistoryOperations {
         if (isAppearanceOnly(detail)) {
             return new Resolution(CubismOperation.SET_DRAWABLE_COLOR, subjectOf(detail));
         }
+        if (detail.group().isPresent()) {
+            final Optional<Resolution> grouped = appearanceAcrossGroup(detail.group().orElseThrow());
+            if (grouped.isPresent()) return grouped.orElseThrow();
+        }
         return Resolution.fallback();
     }
+
+    /**
+     * Maps a group whose every leaf proves the same appearance change on one subject.
+     *
+     * <p>The host commits one operator action as a group: a multiply-colour edit arrives as
+     * {@code GroupUndo[GroupUndo[SimpleUndo x keyform]]}, so the facts live on the children while
+     * the group carries none of its own. Reading only the top-level change list therefore cannot
+     * classify any grouped family, which is what left every native canvas and colour edit on the
+     * conservative fallback.</p>
+     *
+     * <p>A group is only accepted when it is provably complete and uniform: an unprojected or
+     * truncated child, a non-appearance leaf, or two leaves naming different objects all describe
+     * more than one fact and stay generic.</p>
+     */
+    private static Optional<Resolution> appearanceAcrossGroup(final HistoryGroup group) {
+        final List<HistoryEntryDetail> leaves = new ArrayList<>();
+        if (!flatten(group, leaves, 0)) return Optional.empty();
+        if (leaves.isEmpty()) return Optional.empty();
+        if (!leaves.stream().allMatch(NativeHistoryOperations::isAppearanceOnly)) {
+            return Optional.empty();
+        }
+        final Optional<String> subject = subjectOf(leaves.get(0));
+        if (subject.isEmpty()) return Optional.empty();
+        final boolean uniform = leaves.stream()
+            .allMatch(leaf -> subjectOf(leaf).equals(subject));
+        return uniform
+            ? Optional.of(new Resolution(CubismOperation.SET_DRAWABLE_COLOR, subject))
+            : Optional.empty();
+    }
+
+    /**
+     * Collects a group's leaves, refusing any shape that is not fully projected.
+     *
+     * <p>A truncated group has children this projection never saw, so "every leaf proves the same
+     * fact" cannot be established from what is here.</p>
+     */
+    private static boolean flatten(
+        final HistoryGroup group,
+        final List<HistoryEntryDetail> leaves,
+        final int depth
+    ) {
+        if (group.truncated() || group.children().isEmpty() || depth > MAX_GROUP_DEPTH) {
+            return false;
+        }
+        if (leaves.size() + group.children().size() > MAX_GROUP_LEAVES) return false;
+        for (final HistoryEntryDetail child : group.children()) {
+            if (child.group().isPresent()) {
+                if (!flatten(child.group().orElseThrow(), leaves, depth + 1)) return false;
+            } else {
+                leaves.add(child);
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Bounds on the group walk.
+     *
+     * <p>The decoder already bounds the projected tree, so these are a second guard against a
+     * detail that was built some other way.</p>
+     */
+    private static final int MAX_GROUP_DEPTH = 8;
+    private static final int MAX_GROUP_LEAVES = 128;
 
     private static Optional<HistoryRelationChange> relationOf(final HistoryEntryDetail detail) {
         if (detail.changes().size() != 1) return Optional.empty();

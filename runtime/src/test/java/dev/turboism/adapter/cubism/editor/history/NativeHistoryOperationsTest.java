@@ -5,6 +5,7 @@ import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
 import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
@@ -152,6 +153,65 @@ class NativeHistoryOperationsTest {
             Optional.of("#000000"),
             Optional.of("#FFFFFF"),
             new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
+        );
+    }
+
+    @Test
+    void aGroupWhoseChildrenAllProveOneAppearanceChangeIsAColourChange() {
+        // The host commits a multiply-colour edit as GroupUndo[GroupUndo[29 x SimpleUndo]], one
+        // entry per keyform. The facts live on the children, so a mapping that only reads the
+        // top-level change list can never classify it.
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(appearance("multiplyColor"), appearance("multiplyColor")),
+                false
+            )),
+            Optional.empty()
+        );
+
+        final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(grouped);
+
+        assertEquals(CubismOperation.SET_DRAWABLE_COLOR, resolution.operation());
+        assertEquals(Optional.of("mesh-1"), resolution.subjectId());
+    }
+
+    @Test
+    void aGroupWithOneGeometryChildIsNotAColourChange() {
+        final HistoryEntryDetail geometry = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target()),
+            List.of(change("vertexPositions")),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(appearance("multiplyColor"), geometry),
+                false
+            )),
+            Optional.empty()
+        );
+
+        assertEquals(
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            NativeHistoryOperations.resolve(grouped).operation(),
+            "a mixed group describes more than one fact"
         );
     }
 
