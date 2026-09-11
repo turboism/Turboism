@@ -35,6 +35,7 @@ class NativeEditIngressTest {
         assertEquals(CubismOperation.SET_HIERARCHY_PARENT, recorder.operation());
         assertEquals(CubismOperationOrigin.HOST_UI, recorder.origin());
         assertEquals(Optional.of("mesh-1"), recorder.subject());
+        assertEquals(Optional.of("Add Part"), recorder.label());
     }
 
     @Test
@@ -85,6 +86,33 @@ class NativeEditIngressTest {
         assertEquals(CubismOperation.EXECUTE_EDITOR_COMMAND, recorder.operation());
         assertEquals(CubismOperationOrigin.HOST_UI, recorder.origin());
         assertTrue(recorder.subject().isEmpty());
+        assertEquals(
+            Optional.of("Rename part"),
+            recorder.label(),
+            "a native name may be published as presentation, but never as an identity"
+        );
+    }
+
+    @Test
+    void anUndoAndRedoNameNoSubjectAndNoLabelOfTheirOwn() {
+        final Recorder recorder = new Recorder();
+
+        recorder.manager.commit(new NativeUndoIngressObserverTest.Entry("Rename part"));
+        recorder.ingress.drain();
+        recorder.published.clear();
+
+        recorder.manager.undo();
+        recorder.ingress.drain();
+        recorder.manager.redo();
+        recorder.ingress.drain();
+
+        // The observer only labels a commit, where the newly appended entry is exact. An undo or a
+        // redo establishes which entry moved, not a name for the move itself, so the ingress
+        // publishes neither a subject nor a label rather than deriving one from the moved entry.
+        assertTrue(recorder.published.get(0).label().isEmpty());
+        assertTrue(recorder.published.get(1).label().isEmpty());
+        assertTrue(recorder.published.get(0).subjectId().isEmpty());
+        assertTrue(recorder.published.get(1).subjectId().isEmpty());
     }
 
     @Test
@@ -110,7 +138,7 @@ class NativeEditIngressTest {
     void aPublisherFailureIsCountedInsteadOfEscapingTheDrain() {
         final NativeUndoIngressObserverTest.Manager manager =
             new NativeUndoIngressObserverTest.Manager();
-        final NativeEditIngress ingress = new NativeEditIngress(resolver(), manager, (o, r, s) -> {
+        final NativeEditIngress ingress = new NativeEditIngress(resolver(), manager, (o, r, s, l) -> {
             throw new IllegalStateException("publisher failure");
         });
         ingress.attach();
@@ -256,8 +284,8 @@ class NativeEditIngressTest {
             this.ingress = new NativeEditIngress(
                 resolver(),
                 manager,
-                (operation, origin, subject) -> published.add(
-                    new Published(operation, origin, subject)
+                (operation, origin, subject, label) -> published.add(
+                    new Published(operation, origin, subject, label)
                 )
             );
             this.ingress.attach();
@@ -278,12 +306,17 @@ class NativeEditIngressTest {
         Optional<String> subject() {
             return published.get(0).subjectId();
         }
+
+        Optional<String> label() {
+            return published.get(0).label();
+        }
     }
 
     private record Published(
         CubismOperation operation,
         CubismOperationOrigin origin,
-        Optional<String> subjectId
+        Optional<String> subjectId,
+        Optional<String> label
     ) {
     }
 
