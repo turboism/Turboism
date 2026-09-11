@@ -59,7 +59,8 @@ import java.util.Optional;
 /** Generation-bound natural model view over one verified Editor modeling document. */
 public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     NativeLabelColorAuthoring, RuntimeModelObjectCreateProvider,
-    RuntimeAuthoringTransactionProvider {
+    RuntimeAuthoringTransactionProvider,
+    dev.turboism.adapter.cubism.BorrowedModelRelease {
 
     private final VerifiedMemberResolver resolver;
     private final String sessionIdentity;
@@ -449,6 +450,37 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return evaluatedJoin.tryPublish(model, sessionIdentity + ":" + modelId);
         } catch (RuntimeException unavailable) {
             return false;
+        }
+    }
+
+    /**
+     * Best-effort release of the published borrowed Core model after a host project-file close:
+     * keeps it while it is still the active binding, otherwise asks the join to drop it as soon
+     * as no lease is outstanding. Resets the lazy-publish dedup so a re-bound document may
+     * publish again. Never throws; safe to call from lifecycle listeners.
+     */
+    @Override
+    public void releaseUnboundBorrowedModel() {
+        try {
+            final dev.turboism.adapter.cubism.core.CoreEvaluatedJoin join = evaluatedJoin;
+            if (join == null) {
+                return;
+            }
+            boolean stillBound;
+            try {
+                stillBound = binding().model() == join.publishedModel();
+            } catch (RuntimeException unbound) {
+                stillBound = false;
+            }
+            if (stillBound) {
+                return;
+            }
+            synchronized (generationLock) {
+                lazyPublishAttemptedIdentity = null;
+            }
+            join.releaseBorrowedModelWhenIdle();
+        } catch (RuntimeException releaseFailure) {
+            // best-effort: a release failure must not break the project-file lifecycle listener
         }
     }
 

@@ -777,3 +777,19 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）。
 - **限制（不得抬高）**：证据是复杂度量级与功能等价断言，不是秒数/CPU 占比；E/C/D 的实际规模未在线上量化（真实项目通常几十到几百项，收益随项目规模线性放大）。端到端收益记 **NONE**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两个结构复杂度的确定性降低**（每 traversal 的 O(E·(3D+2C))+O(C·D) → O(E? 无) + O(C+D)；严格说 idFor 变为 O(1) 摊销 + 队列摘取）及配套回归。
+
+### I40 — P12 借用 Core 模型关闭后滞留：CLOSE 事件驱动的非阻塞空闲释放（2026-09-11）
+
+- **范围/验证方法**：Spec Kit `036-borrowed-model-idle-release`。处理 I36 保留候选 1：文档关闭且不再绑定时，`BorrowedCoreModelSource.activeModel` 仍强持借用 Core 模型至会话结束。全程 offline。
+- **为何不能直接 clear（记录的安全分析）**：`transitionTo` 会 bump generation——①会让所有未释放 lease 立即 STALE_GENERATION；②`CoreEvaluatedJoin` 按 identity 固定 (snapshot,generation)，同 identity 重发布后 pinned generation≠current → 永久 fail-stale，且该失败文本不是 "No verified active Core model"，不触发 lazyPublish 重试 → **evaluated 读路径对该 identity 永久锁死**。所以本切片必须同时做：延迟到 lease 归零 + 清除时丢 join pin + 重置 lazyPublish 去重标记。
+- **实现**：
+  1. `ActiveCoreModelSource` 新增三个 default（`releaseWhenIdle`/`publishedModel`/`onModelCleared`），其它 source 实现零改动。
+  2. `BorrowedCoreModelSource.releaseWhenIdle()`：非阻塞；`activeLeases==0` 时立即遗忘模型（generation++），否则挂起到 `releaseLease` 归零时生效；`transitionTo`/`close` 复位挂起标记（新发布会取消未决释放）。任何 `activeModel→null` 路径（idle 释放/`clearBorrowedModel`/`close`）都在 monitor 外回调 `onModelCleared`。
+  3. `CoreEvaluatedJoin`：构造时注册 `source.onModelCleared(this::dropPinnedSnapshot)`——清除即丢 pin，同 identity 重发布重追踪而非永久 stale；新增 `releaseBorrowedModelWhenIdle()`/`publishedModel()`。
+  4. `EditorBackedCubismModelAccess.releaseUnboundBorrowedModel()`（新能力接口 `BorrowedModelRelease`）：`binding()` 可解且 `binding().model()==publishedModel()` 时不动；否则重置 `lazyPublishAttemptedIdentity` 并请求空闲释放；全方法 best-effort 不抛。
+  5. `DynamicCubismModelAccess` 按能力接口转发；`HostSession.registerProjectContentCleanup` 在 CLOSE 成功且 `kind==MODEL` 时调用（palette 清理同一监听器内）。
+- **回归（先失败路径已验证机制）**：`BorrowedCoreModelSourceTest` 新增 4 项（无 lease 立即清且幂等、挂起至 lease 归零、新发布取消挂起、三种清除路径都触发监听器）；`EditorEvaluatedJoinAccessTest` 新增 3 项（idle-release+同 identity 重发布后 evaluated 重追踪出 0x08 而非 stale；仍绑定时不释放；解绑后释放且 lazyPublish 重新武装——同文档对象回绑同 identity 可再发布）；`HostSessionTest` 新增接线断言（MODEL 成功关闭 → 1 次 release；ANIMATION/失败关闭 → 0 次）。`CountingSource` 补齐三个新接口方法的转发。
+- **修复中发现的既有缺口（记录，未修）**：文档切换 A→B 时无主动 republish——若 A 已发布而 B 绑定，`evaluated(I_B)` 会 trace A 的模型并以 I_B pin 住（drawable 命中失败或错数据）。这是**先于本切片存在**的行为，本切片的释放路径**缓解**了它（A 关闭即清 → B 走 lazyPublish），但「A 未关而切到 B」的窗口仍在，属独立切片。
+- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。期间修复一处测试自身问题：`acquire` 的 lease 未关导致 `close()` 挂起（测试缺陷，非生产缺陷）。
+- **限制（不得抬高）**：离线回归证明的是**生命周期状态机正确性**（滞留路径被切断、lease 不作废、重绑定不锁死）；释放的实际内存量级未测（Core 模型对象大小随 .cmo3 而定）；**无实机测量**，端到端收益记 **NONE/pending**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**一条有成型的内存滞留消除路径**（文档关闭→绑定核查→lease 归零→遗忘+丢 pin+重武装），及覆盖其全部时序的离线回归。
