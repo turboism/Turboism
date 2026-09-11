@@ -53,12 +53,15 @@ cp "$repo_root/scripts/preview/README-parameter-validation.md" "$bundle_root/REA
 
 probe_tmp="$(mktemp -d "$repo_root/build/.parameter-probe.XXXXXX")"
 trap 'rm -rf "$probe_tmp" "${peer_tmp:-}"' EXIT
-mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism"
+mkdir -p "$probe_tmp/$probe_class_dir_rel" "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_dir_rel" -maxdepth 1 -type f \
   \( -name 'WindowsParameterValidationProbe.class' \
      -o -name 'WindowsParameterValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_dir_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
+# PluginJarContract requires the declared i18n base-name catalog inside the jar.
+printf '# Parameter validation probe: no localized messages.\n' \
+  > "$probe_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$probe_tmp"
   mapfile -t probe_classes < <(
@@ -73,7 +76,8 @@ cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
   }
   jar --create --file "$bundle_root/plugins/parameter-validation-probe.jar" \
     "${probe_classes[@]}" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/parameter-validation-probe.jar" \
   | grep -Eq 'WindowsParameterValidationProbeTest|\.java$'; then
@@ -82,14 +86,17 @@ if jar tf "$bundle_root/plugins/parameter-validation-probe.jar" \
 fi
 
 peer_tmp="$(mktemp -d "$repo_root/build/.editor-object-peer-probe.XXXXXX")"
-mkdir -p "$peer_tmp/$probe_class_dir_rel" "$peer_tmp/META-INF/turboism"
+mkdir -p "$peer_tmp/$probe_class_dir_rel" "$peer_tmp/META-INF/turboism/i18n"
 cp "$test_classes/$peer_probe_class_rel" "$peer_tmp/$probe_class_dir_rel/"
 cp "$peer_probe_descriptor" "$peer_tmp/META-INF/turboism/plugin.json"
+printf '# Editor-object peer validation probe: no localized messages.\n' \
+  > "$peer_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$peer_tmp"
   jar --create --file "$bundle_root/plugins/editor-object-peer-validation-probe.jar" \
     "$peer_probe_class_rel" \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 
 (

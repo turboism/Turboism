@@ -28,18 +28,22 @@ cp "$mesh_enhance_jar" "$bundle_root/plugins/mesh-edit-mirror-axis-enhance.jar"
 
 probe_tmp="$(mktemp -d "$repo_root/build/.mesh-mirror-probe.XXXXXX")"
 trap 'rm -rf "$probe_tmp"' EXIT
-mkdir -p "$probe_tmp/$probe_class_rel" "$probe_tmp/META-INF/turboism"
+mkdir -p "$probe_tmp/$probe_class_rel" "$probe_tmp/META-INF/turboism/i18n"
 find "$test_classes/$probe_class_rel" -maxdepth 1 -type f \
   \( -name 'WindowsMeshMirrorAxisValidationProbe.class' \
      -o -name 'WindowsMeshMirrorAxisValidationProbe$*.class' \) \
   -exec cp {} "$probe_tmp/$probe_class_rel/" \;
 cp "$probe_descriptor" "$probe_tmp/META-INF/turboism/plugin.json"
+# PluginJarContract requires the declared i18n base-name catalog inside the jar.
+printf '# Mesh mirror axis validation probe: no localized messages.\n' \
+  > "$probe_tmp/META-INF/turboism/i18n/messages.properties"
 (
   cd "$probe_tmp"
   jar --create --file "$bundle_root/plugins/mesh-mirror-axis-validation-probe.jar" \
     "$probe_class_rel/WindowsMeshMirrorAxisValidationProbe.class" \
     "$probe_class_rel/WindowsMeshMirrorAxisValidationProbe"*.class \
-    META-INF/turboism/plugin.json
+    META-INF/turboism/plugin.json \
+    META-INF/turboism/i18n/messages.properties
 )
 if jar tf "$bundle_root/plugins/mesh-mirror-axis-validation-probe.jar" \
   | grep -Eq 'WindowsMeshMirrorAxisValidationProbeTest|\.java$'; then
