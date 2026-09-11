@@ -42,6 +42,10 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   closed instead of publishing notes that were never reviewed.
 - The Java uninstaller defaults to keeping `config.json`, matching the NSIS uninstaller, and headless or
   console runs without the property keep it as well.
+- The reviewed SDK v9 exact anchor moved to the host-locale fix so the SDK contract keeps the applied
+  language instead of the launcher's DISPLAY locale. The canonical API dump is unchanged; only the
+  bytes of `UiHostCapabilityService.hostLocale()`'s default body moved, and the v2–v8 historical
+  anchors remain as audited.
 
 ### Fixed
 
