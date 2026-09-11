@@ -902,3 +902,15 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`:runtime:test`（reflect+mesh+workspace）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：合成宿主类方法表远小于真实 Cubism 类——真实 miss 单次成本更高，收益预计**更大**但仍以实测为准；栈轨迹定格为已知取舍。
 - **有效程度**：**实测 CPU 收益 YES（合成遍历再 −14~21%，分配 −9~12%）**；累计对基线 d3ee4d2a8：activeProject 917→302 µs（**−67%**）、observe 999→354 µs（**−65%**）、legacy 1931→601 µs（**−69%**）。
+
+### I50 — 实机验证尝试与验证工具链修复（2026-09-12）
+
+- **背景**：宿主队列空闲后提交 `workspace:5203`（job `a9a95529`→`ed8230fb`），作为遍历/读取路径的 exact-host 证据。
+- **发现的工具链缺陷（已修并提交）**：
+  - `package-windows-workspace-validation.sh` 用 `turboism-agent-*.jar` glob 找 agent——`:bootstrap:jar` 现在固定产出 `turboism-agent.jar`，glob 永不命中（且在有旧版残留时会静默打包过期 jar）。改为 canonical 名 + 拒绝版本化残留。
+  - 同一脚本的验证记录引用 `cubism-5.2-*.json`，实际已改名为点分精确版本 `cubism-5.2.03-*.json`——同步更新全部 6 处。
+  - 全部 5 个验证 probe 打包脚本（workspace/mesh-mirror-axis/recent-preview/history×2/parameter×2）产出缺 `META-INF/turboism/i18n/messages.properties`——`PluginJarContract` 无条件要求声明的 i18n 目录存在 → 全部 probe 会以 `PLUGIN_I18N_CATALOG_MISSING` 被拒。首次实机运行实证了这一点（plugin-load-report 记录该错误）。已逐脚本补空目录并提交。
+  - `package-windows-parameter-validation.sh` 硬编码 `parameter-0.1.0-SNAPSHOT-*.jar`，实际版本号跟随框架版本（当前 0.43.9）——改为 glob + 唯一性检查。
+- **第二次运行（`ed8230fb`，含修复后 bundle）**：agent/probe/插件全部加载成功（`plugins=2, failures=0`，probe ENABLED），host=ACTIVE，workspace provider CONNECTED；矩阵在真实 EDT 上成功执行 12 次 provider 调用（read=6 switch=5 update=1，onEdt=12 offEdt=0）——**遍历/快照/工作区路径在真实 5.2.03 宿主上功能正确，零异常**。但矩阵在第 6 次 switch 前停滞：probe 线程卡在 `WorkspaceCoordinator.dispatchOnEdt` 的 `SwingUtilities.invokeAndWait`（**无超时**），900s 结果超时 → FAIL。判断为宿主导线的 infra flake（EDT 停滞/模态），非被测路径功能错误；turboism.log 与 console 全程零 ERROR。
+- **附带发现（技术债，未改）**：`dispatchOnEdt`/`executeCommand` 的 `invokeAndWait`/`join()` 无超时，宿主导线停滞时验证矩阵无法自愈也无法写出 FAIL。
+- **验证结果**：exact-host 功能证据 YES（ACTIVE+CONNECTED+12 次 EDT 调用零异常）；终态 PASS NO（超时 FAIL）。队列中另有 workspace-r3 重试与 `parameter:5203@document-close` 待跑。
