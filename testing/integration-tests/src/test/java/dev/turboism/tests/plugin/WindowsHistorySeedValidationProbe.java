@@ -6,6 +6,7 @@ import dev.turboism.sdk.cubism.history.HistoryChange;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.history.HistoryRelationChange;
 import dev.turboism.sdk.cubism.history.HistoryTarget;
@@ -584,7 +585,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             afterSecond.text(),
             afterRedo.text()
         );
-        observeUncapturedDeformerRoute(evidence, model, drawable, deformerIds);
+        validateDeformerRootCapture(evidence, model, drawable, deformers);
         restoreOriginalParent(evidence, model, drawable, original);
     }
 
@@ -593,53 +594,124 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
      * an existing direct relation, so a Deformer parent set from the model root stays on the
      * legacy path and produces an unattributed entry. This is an observation, not a gate.
      */
-    private void observeUncapturedDeformerRoute(
+    /**
+     * Validates the ROOT -> TARGET Deformer relation: attaching a Deformer to a child that has no
+     * direct Deformer parent must be captured exactly, applied natively, and restored by Undo.
+     */
+    private void validateDeformerRootCapture(
         final Evidence evidence,
         final CubismModel model,
         final Drawable drawable,
-        final List<String> deformerIds
+        final List<Deformer> deformers
     ) throws Exception {
-        if (deformerIds.isEmpty()) {
-            evidence.observation(
-                "relation-deformer-parent-from-root",
-                "not applicable: the fixture exposes no Deformer",
-                "deformers=" + deformerIds
-            );
+        final List<String> deformerIds = onEdt(() -> deformers.stream()
+            .map(deformer -> deformer.id().value()).toList());
+        evidence.check(
+            "relation-deformer-root-target",
+            !deformers.isEmpty(),
+            "a Deformer exists that can become the direct parent",
+            "deformers=" + deformerIds
+        );
+        if (deformers.isEmpty()) {
             return;
         }
         final NativeParent beforeWrite = observeNativeParent(drawable);
+        evidence.check(
+            "relation-deformer-root-start",
+            beforeWrite.deformerId().isEmpty(),
+            "the Artmesh starts without a direct Deformer parent",
+            beforeWrite.text()
+        );
         if (beforeWrite.deformerId().isPresent()) {
-            evidence.observation(
-                "relation-deformer-parent-from-root",
-                "not applicable: the Artmesh already has a direct Deformer parent",
-                beforeWrite.text()
-            );
             return;
         }
         final String deformerId = deformerIds.get(0);
+        // Classify through the exact SDK collections: an instance check on the evaluated object
+        // does not identify the host relation type.
+        final List<String> warpIds = onEdt(() -> model.warpDeformers().all().stream()
+            .map(candidate -> candidate.id().value()).toList());
+        final List<String> rotationIds = onEdt(() -> model.rotationDeformers().all().stream()
+            .map(candidate -> candidate.id().value()).toList());
+        final String expectedType = warpIds.contains(deformerId)
+            ? "WARP_DEFORMER"
+            : rotationIds.contains(deformerId) ? "ROTATION_DEFORMER" : "DEFORMER";
         final HistorySnapshot before = context.cubism().history().snapshot();
         onEdt(() -> {
             drawable.setTargetDeformer(Optional.of(new DeformerId(deformerId)));
             return null;
         });
         final HistorySnapshot after = awaitHistoryAdvance(before, 100).orElse(context.cubism().history().snapshot());
-        evidence.observation(
-            "relation-deformer-parent-from-root",
-            "known gap: root-to-Deformer capture is not implemented; entry stays unattributed",
+        final HistoryEntryDetail detail = currentEntry(after);
+        final Optional<HistoryRelationChange> relation = detail == null
+            ? Optional.empty()
+            : detail.changes().stream()
+                .map(HistoryChange::relation)
+                .flatMap(Optional::stream)
+                .findFirst();
+        evidence.check(
+            "relation-deformer-root-captured",
+            relation.isPresent()
+                && relation.orElseThrow().kind() == HistoryRelationChange.Kind.DEFORMER_PARENT,
+            "one captured DEFORMER_PARENT relation",
             "deformer=" + deformerId + "," + describeCurrentEntry(after)
         );
+        evidence.check(
+            "relation-deformer-root-before",
+            relation.isPresent()
+                && relation.orElseThrow().before().state() == HistoryRelationChange.State.ROOT
+                && relation.orElseThrow().before().target().isEmpty(),
+            "before=ROOT with no target",
+            relation.map(value -> describeEndpoint(value.before())).orElse("no relation")
+        );
+        evidence.check(
+            "relation-deformer-root-after",
+            relation.isPresent()
+                && relation.orElseThrow().after().state() == HistoryRelationChange.State.TARGET
+                && relation.orElseThrow().after().target().map(target ->
+                    expectedType.equals(target.type())
+                        && target.id().filter(deformerId::equals).isPresent()
+                ).orElse(false),
+            "after=" + expectedType + ":" + deformerId,
+            relation.map(value -> describeEndpoint(value.after())).orElse("no relation")
+        );
+        evidence.check(
+            "relation-deformer-root-detail",
+            detail != null
+                && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
+            "level=FULL,origin=TURBOISM",
+            "level=" + (detail == null ? "none" : detail.detailLevel().name())
+                + ",origin=" + (detail == null ? "none" : detail.origin().kind().name())
+        );
         final NativeParent applied = observeNativeParent(drawable);
-        evidence.observation(
-            "relation-deformer-parent-native-applied",
-            "native deformer parent applied without a captured relation",
+        evidence.check(
+            "relation-deformer-root-native-applied",
+            applied.deformerId().filter(deformerId::equals).isPresent(),
+            beforeWrite.text() + " -> deformer=" + deformerId,
             applied.text()
+        );
+
+        final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
+        final NativeParent restored = awaitNativeParent(drawable, beforeWrite);
+        evidence.check(
+            "relation-deformer-root-undo-restores",
+            undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(beforeWrite),
+            beforeWrite.text(),
+            undone.outcome().name() + "," + restored.text()
+        );
+        final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
+        final NativeParent reapplied = awaitNativeParent(drawable, applied);
+        evidence.check(
+            "relation-deformer-root-redo-reapplies",
+            redone.outcome() == HistoryMoveResult.Outcome.MOVED && reapplied.equals(applied),
+            applied.text(),
+            redone.outcome().name() + "," + reapplied.text()
         );
         if (deformerIds.size() < 2) {
             return;
         }
-        // Discriminating experiment: the child now has a direct Deformer parent, so the second
-        // write is a captured target-to-target relation whose state lives on the child. If native
-        // Undo restores that parent but not the Part parent, the gap is parent-side state.
+        // Second write with a direct Deformer parent already present: a target-to-target relation
+        // whose state lives on the child, recorded as supporting evidence next to the Part rows.
         final String secondDeformer = deformerIds.get(1);
         final HistorySnapshot beforeSecond = context.cubism().history().snapshot();
         onEdt(() -> {
@@ -654,27 +726,36 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             "to=" + secondDeformer + "," + describeCurrentEntry(afterSecond)
                 + ",native=" + observeNativeParent(drawable).text()
         );
-        final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
+        final HistoryMoveResult secondUndone = onEdt(() -> context.cubism().history().undo(1));
         Thread.sleep(1_500L);
         evidence.observation(
             "relation-deformer-undo-restores",
             "native Undo restores the previous Deformer parent",
-            "outcome=" + undone.outcome().name() + ",native=" + observeNativeParent(drawable).text()
+            "outcome=" + secondUndone.outcome().name()
+                + ",native=" + observeNativeParent(drawable).text()
         );
-        final HistoryMoveResult redone = onEdt(() -> context.cubism().history().redo(1));
+        final HistoryMoveResult secondRedone = onEdt(() -> context.cubism().history().redo(1));
         Thread.sleep(1_500L);
         evidence.observation(
             "relation-deformer-redo-reapplies",
             "native Redo reapplies the second Deformer parent",
-            "outcome=" + redone.outcome().name() + ",native=" + observeNativeParent(drawable).text()
+            "outcome=" + secondRedone.outcome().name()
+                + ",native=" + observeNativeParent(drawable).text()
         );
     }
 
-    private String describeCurrentEntry(final HistorySnapshot snapshot) {
+    private HistoryEntryDetail currentEntry(final HistorySnapshot snapshot) {
         if (snapshot.position() <= 0 || snapshot.position() > snapshot.entries().size()) {
+            return null;
+        }
+        return snapshot.entries().get(snapshot.position() - 1).detail();
+    }
+
+    private String describeCurrentEntry(final HistorySnapshot snapshot) {
+        final HistoryEntryDetail detail = currentEntry(snapshot);
+        if (detail == null) {
             return "no observable entry";
         }
-        final HistoryEntryDetail detail = snapshot.entries().get(snapshot.position() - 1).detail();
         return "level=" + detail.detailLevel().name()
             + ",origin=" + detail.origin().kind().name()
             + ",changes=" + detail.changes().size()
