@@ -3,6 +3,7 @@ package dev.turboism.adapter.cubism.editor.history;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecodeResult;
 import dev.turboism.adapter.cubism.editor.history.decoder.NativeHistoryDecoderRegistry;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
@@ -54,6 +55,13 @@ public final class NativeEditIngress implements AutoCloseable {
     private final NativeHistoryDecoderRegistry decoders = new NativeHistoryDecoderRegistry();
     private final NativeUndoIngressObserver observer;
     private final LongAdder published = new LongAdder();
+
+    private static final String COMPONENT = "native-edit-ingress";
+
+    /** How many confirmed edits one session describes in the log before it stops. */
+    private static final long MAX_DIAGNOSED_COMMITS = 40L;
+
+    private final LongAdder diagnosed = new LongAdder();
     private final LongAdder suppressedOwnCommits = new LongAdder();
     private final LongAdder failures = new LongAdder();
 
@@ -182,22 +190,54 @@ public final class NativeEditIngress implements AutoCloseable {
             suppressedOwnCommits.increment();
             return;
         }
+        final boolean tip = isCurrentTip(entry.orElseThrow());
         final NativeHistoryDecodeResult decoded = decoders.decode(
             resolver,
             entry.orElseThrow(),
             event.label().orElse("History entry"),
-            isCurrentTip(entry.orElseThrow())
+            tip
         );
         final HistoryEntryDetail detail = decoded.outcome() == NativeHistoryDecodeResult.Outcome.DECODED
             ? decoded.detail().orElse(null)
             : null;
         final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(detail);
+        diagnose(tip, decoded, detail, resolution);
         publish(
             resolution.operation(),
             CubismOperationOrigin.HOST_UI,
             resolution.subjectId(),
             event.label()
         );
+    }
+
+    /**
+     * Records why one confirmed edit classified the way it did.
+     *
+     * <p>Bounded and exception-proof: this exists to make a host run self-explaining, so it must
+     * never fail an edit or flood the log. Only the first few edits of a session are described,
+     * which is enough to tell a refused live-target read from a refusal by the mapping.</p>
+     */
+    private void diagnose(
+        final boolean tip,
+        final NativeHistoryDecodeResult decoded,
+        final HistoryEntryDetail detail,
+        final NativeHistoryOperations.Resolution resolution
+    ) {
+        try {
+            diagnosed.increment();
+            if (diagnosed.sum() > MAX_DIAGNOSED_COMMITS) return;
+            RuntimeDiagnostics.info(
+                COMPONENT,
+                "classified entry tip=" + tip
+                    + " outcome=" + decoded.outcome()
+                    + " diagnostic=" + decoded.diagnosticId()
+                    + " detail=" + (detail == null ? "none" : detail.detailLevel())
+                    + " group=" + (detail != null && detail.group().isPresent())
+                    + " operation=" + resolution.operation()
+            );
+        } catch (Throwable ignored) {
+            // Diagnostics must never disturb classification.
+        }
     }
 
     /**

@@ -183,6 +183,45 @@ class NativeHistoryOperationsTest {
     }
 
     @Test
+    void theHostTwoLevelGroupOfPerKeyformAppearanceChangesIsAColourChange() {
+        // Exactly what the native palette commits for a multiply-colour edit on 5.3.02:
+        // GroupUndo[ GroupUndo[ 29 x SimpleUndo(CArtMeshForm) ] ]. The outer group holds one child
+        // and the facts are two levels down, so both the walk and the "one subject" rule have to
+        // look through the wrapper.
+        final List<HistoryEntryDetail> keyforms = new java.util.ArrayList<>();
+        for (int index = 0; index < 29; index++) {
+            keyforms.add(appearance("multiplyColor"));
+        }
+        final HistoryEntryDetail colour = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                1,
+                List.of(new HistoryEntryDetail(
+                    "Edit",
+                    HistoryAction.DetailLevel.FULL,
+                    HistoryOrigin.hostUnattributed(),
+                    List.of(),
+                    List.of(),
+                    Optional.of(new HistoryGroup(Optional.empty(), 29, keyforms, false)),
+                    Optional.empty()
+                )),
+                false
+            )),
+            Optional.empty()
+        );
+
+        final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(colour);
+
+        assertEquals(CubismOperation.SET_DRAWABLE_COLOR, resolution.operation());
+        assertEquals(Optional.of("mesh-1"), resolution.subjectId());
+    }
+
+    @Test
     void aGroupWithOneGeometryChildIsNotAColourChange() {
         final HistoryEntryDetail geometry = new HistoryEntryDetail(
             "Edit",
