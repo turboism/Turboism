@@ -27,11 +27,17 @@ class NativeUndoIngressObserverTest {
         assertEquals(1, manager.listenerCount());
         assertEquals(0, observer.drain(), "attaching must not report the pre-existing state");
 
-        manager.commit(new Entry("Set Parent Drawable"));
+        final Entry admitted = new Entry("Set Parent Drawable");
+        manager.commit(admitted);
         assertEquals(1, observer.notificationCount());
         assertEquals(1, observer.drain());
         assertEquals(NativeUndoIngressObserver.Kind.COMMITTED, observed.get(0).kind());
         assertEquals(Optional.of("Set Parent Drawable"), observed.get(0).label());
+        assertEquals(
+            Optional.of(admitted),
+            observed.get(0).entry(),
+            "the consumer needs the admitted entry identity, not just its label"
+        );
 
         manager.undo();
         assertEquals(1, observer.drain());
@@ -170,7 +176,7 @@ class NativeUndoIngressObserverTest {
         assertEquals(0, manager.listenerCount());
     }
 
-    private static VerifiedMemberResolver resolver() {
+    static VerifiedMemberResolver resolver() {
         return TestVerifiedResolvers.create(
             "5.3.02",
             "adapter.editor-model.readwrite",
@@ -220,7 +226,7 @@ class NativeUndoIngressObserverTest {
         );
     }
 
-    private static StaticSelector method(
+    static StaticSelector method(
         final String alias,
         final Class<?> owner,
         final String name,
@@ -231,7 +237,7 @@ class NativeUndoIngressObserverTest {
         );
     }
 
-    private static String internal(final Class<?> type) {
+    static String internal(final Class<?> type) {
         return type.getName().replace('.', '/');
     }
 
@@ -311,7 +317,7 @@ class NativeUndoIngressObserverTest {
     }
 
     /** Test double for one {@code com.live2d.undo.ACUndoable}. */
-    public static final class Entry {
+    public static class Entry {
         private final String label;
 
         Entry(final String label) {
