@@ -32,6 +32,24 @@ final class PsdStableSnapshot {
         return capture(allocation, MAX_BYTES);
     }
 
+    /**
+     * Bounded whole-file digest of the live allocation without copying it, for change detection on
+     * a polling lane. Identity is checked around the read, so an ordinary concurrent save surfaces
+     * as a failure and the caller simply observes again. No stage file is created.
+     */
+    static String digestOf(final PsdTemporaryFile allocation) throws IOException {
+        Objects.requireNonNull(allocation, "allocation");
+        final Path live = allocation.validatedPath();
+        final BasicFileAttributes before = inspect(live, MAX_BYTES);
+        final Digest digest = read(live, null, MAX_BYTES);
+        final BasicFileAttributes after = inspect(allocation.validatedPath(), MAX_BYTES);
+        requireSame(before, after);
+        if (digest.size() != before.size()) {
+            throw new IOException("PSD changed while hashing; observe again");
+        }
+        return digest.sha256();
+    }
+
     /** Smaller bounds support tests; callers cannot increase the approved workflow limit. */
     static Snapshot capture(final PsdTemporaryFile allocation, final long limit) throws IOException {
         Objects.requireNonNull(allocation, "allocation");
