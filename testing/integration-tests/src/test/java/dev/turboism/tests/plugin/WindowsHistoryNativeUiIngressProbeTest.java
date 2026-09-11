@@ -186,6 +186,63 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
     }
 
+    @Test
+    void aNavigationStepIsClosedOnlyByAMoveInItsOwnDirection() {
+        // A selection also moves the position — it adds an entry — so accepting any change would
+        // let the click before the operator's real action close an Undo step. A Redo must not
+        // close an Undo step either, which is what the previous runs misattributed.
+        final String significant = WindowsHistoryNativeUiIngressProbe.significantSequence(
+            List.of(entry(0, "物体的移动", true))
+        );
+
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 4L, significant, 5L),
+            "an Undo is closed by the position going down"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 6L, significant, 5L),
+            "a Redo must not close an Undo step"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 5L, significant, 5L),
+            "an unchanged position is not an undo"
+        );
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 6L, significant, 5L),
+            "a Redo is closed by the position going up"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 4L, significant, 5L),
+            "an Undo must not close a Redo step"
+        );
+        // A selection adds an insignificant entry and moves the position up, so it closes no
+        // navigation step at all — including the Undo step it would have closed under the old
+        // "any change" rule.
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 6L, significant, 5L),
+            "a selection moves the position up and must not close an Undo step"
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(ACTION, significant, 6L, significant, 5L),
+            "a selection changes no significant entry and must not close an ACTION step"
+        );
+    }
+
+    @Test
+    void navigationSettlesFarShorterThanAnEdit() {
+        // A long settle on a navigation step is what let the operator's next keystroke land
+        // inside the previous step's window.
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.settleMillis(UNDO)
+                < WindowsHistoryNativeUiIngressProbe.settleMillis(ACTION),
+            "navigation must settle faster than an edit"
+        );
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.settleMillis(UNDO),
+            WindowsHistoryNativeUiIngressProbe.settleMillis(REDO)
+        );
+    }
+
     private static WindowsHistoryManagerValidationProbe.Entry entry(
         final int index,
         final String label,
