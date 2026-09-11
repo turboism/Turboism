@@ -198,6 +198,57 @@ class PartMembershipDecoderTest {
     }
 
     @Test
+    void aPartChildIsReadExactlyLikeAnyOtherAdmittedChild() {
+        final PartChildEntry entry = PartChildEntry.join(
+            new PartSourceDouble("PartB"),
+            new PartSourceDouble("BodyPart")
+        );
+
+        final NativeHistoryDecodeResult result = decode(entry);
+
+        assertEquals(
+            NativeHistoryDecodeResult.Outcome.DECODED,
+            result.outcome(),
+            result.diagnosticId()
+        );
+        final HistoryEntryDetail detail = result.detail().orElseThrow();
+        assertEquals("PART", detail.targets().get(0).type());
+        assertEquals("BodyPart", detail.targets().get(0).id().orElseThrow());
+    }
+
+    @Test
+    void aPartMovedIntoAnotherPartIsCombinedIntoTheCompleteRelation() {
+        // The exact host shape of an operator drag when the dragged object is itself a Part.
+        // getChild() is the common ACParameterControllableSource, so a Part child is a legal
+        // value of the admitted selector and needs no new admission to read.
+        final GroupEntry outer = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
+        final GroupEntry leave = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
+        leave.children.add(PartChildEntry.leave(
+            new PartSourceDouble("PartA"),
+            new PartSourceDouble("BodyPart")
+        ));
+        final GroupEntry join = new GroupEntry("\u7269\u4f53\u306e\u79fb\u52d5");
+        join.children.add(PartChildEntry.join(
+            new PartSourceDouble("PartB"),
+            new PartSourceDouble("BodyPart")
+        ));
+        outer.children.add(leave);
+        outer.children.add(join);
+
+        final NativeHistoryDecodeResult result = decode(outer);
+
+        final HistoryEntryDetail detail = result.detail().orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        assertTrue(detail.degradationCode().isEmpty());
+        assertTrue(detail.group().isEmpty());
+        assertEquals("PART", detail.targets().get(0).type());
+        assertEquals("BodyPart", detail.targets().get(0).id().orElseThrow());
+        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        assertEquals("PartA", relation.before().target().orElseThrow().id().orElseThrow());
+        assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
+    }
+
+    @Test
     void anEntryWhoseChildTypeIsNotAdmittedProducesNoRelation() {
         final PartChildEntry entry = PartChildEntry.join(
             new PartSourceDouble("PartB"),
@@ -280,7 +331,7 @@ class PartMembershipDecoderTest {
             "cubism.editor-history.semantic.part-membership.child",
             PartChildEntry.class,
             "getChild",
-            desc(Controllable.class)
+            desc(SourceBase.class)
         ));
         all.add(method(
             "cubism.editor-history.semantic.part-membership.index",
@@ -457,13 +508,13 @@ class PartMembershipDecoderTest {
     /** Test double for {@code Editor_Part$Undo_AddOrRemovePartChild}. */
     public static final class PartChildEntry {
         private final PartSourceDouble part;
-        private final Controllable child;
+        private final SourceBase child;
         private final int insertIndex;
         private final boolean add;
 
         private PartChildEntry(
             final PartSourceDouble part,
-            final Controllable child,
+            final SourceBase child,
             final boolean add
         ) {
             this.part = part;
@@ -472,11 +523,11 @@ class PartMembershipDecoderTest {
             this.add = add;
         }
 
-        static PartChildEntry join(final PartSourceDouble part, final Controllable child) {
+        static PartChildEntry join(final PartSourceDouble part, final SourceBase child) {
             return new PartChildEntry(part, child, true);
         }
 
-        static PartChildEntry leave(final PartSourceDouble part, final Controllable child) {
+        static PartChildEntry leave(final PartSourceDouble part, final SourceBase child) {
             return new PartChildEntry(part, child, false);
         }
 
@@ -484,7 +535,7 @@ class PartMembershipDecoderTest {
             return part;
         }
 
-        public Controllable getChild() {
+        public SourceBase getChild() {
             return child;
         }
 
