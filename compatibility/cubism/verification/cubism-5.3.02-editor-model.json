@@ -498,6 +498,39 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history.method.undo_state_listener_add",
+      "alias": "cubism.editor-history.manager.undo-state-listener",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/CUndoManager",
+      "memberName": "addUndoStateChangeListener",
+      "descriptor": "(Lcom/live2d/undo/j;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history.method.undo_state_listener_remove",
+      "alias": "cubism.editor-history.manager.undo-state-listener-remove",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/undo/CUndoManager",
+      "memberName": "removeUndoStateChangeListener",
+      "descriptor": "(Lcom/live2d/undo/j;)V",
+      "requiredAccessFlags": 17,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history.class.undo_state_listener",
+      "alias": "cubism.editor-history.undo-state-listener.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/undo/j",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_history.method.move_to",
       "alias": "cubism.editor-history.manager.move-to",
       "kind": "method",

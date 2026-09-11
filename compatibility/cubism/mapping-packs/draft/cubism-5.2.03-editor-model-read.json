@@ -4434,6 +4434,65 @@
       "descriptor": "()Ljava/util/List;"
     },
     {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history.method.undo_state_listener_add",
+      "kind": "method",
+      "owner": "editor-history-read",
+      "name": "cubism.editor-history.manager.undo-state-listener",
+      "runtime": "addUndoStateChangeListener",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/CUndoManager",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "(Lcom/live2d/undo/j;)V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history.method.undo_state_listener_remove",
+      "kind": "method",
+      "owner": "editor-history-read",
+      "name": "cubism.editor-history.manager.undo-state-listener-remove",
+      "runtime": "removeUndoStateChangeListener",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/CUndoManager",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "(Lcom/live2d/undo/j;)V"
+    },
+    {
+      "semanticName": "cubism.mapping.v5_2_03.editor_history.class.undo_state_listener",
+      "kind": "class",
+      "owner": "editor-history-read",
+      "name": "cubism.editor-history.undo-state-listener.class",
+      "runtime": "com/live2d/undo/j",
+      "profile": "cubism-5.2.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/undo/j",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_2_03.editor_history.method.position",
       "kind": "method",
       "owner": "editor-history-read",
