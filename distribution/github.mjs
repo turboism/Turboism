@@ -33,7 +33,7 @@ export async function synchronize(previous,env={},fetcher=fetch){
    if(receipt){const result=(await github(`/contents/entries/${receipt.runId}-${receipt.runAttempt}.json?ref=build-ledger`,fetcher)).value;identity=JSON.parse(atob(result.content.replace(/\s/g,'')));}
    let release=parseRelease(raw,source,identity);const key=release.tag;
    if(known[key]&&fingerprint(known[key].release)!==fingerprint(release))throw new Error('Immutable release conflict');
-   release=await mirrorRelease(release,env.DOWNLOADS,fetcher);known[key]={active:true,release:{tag:release.tag,sourceRevision:release.sourceRevision,assets:release.assets}};releases.push(release);
+   release=await mirrorRelease(release,env.DOWNLOADS,fetcher);known[key]={active:true,countsAsOf:new Date().toISOString(),release:{tag:release.tag,sourceRevision:release.sourceRevision,assets:release.assets}};releases.push(release);
   }catch(error){errors[channel]=String(error.message??'RELEASE_INVALID').slice(0,120);}
  }
  return {schemaVersion:1,syncedAt:new Date().toISOString(),releases,known,errors};
