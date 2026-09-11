@@ -243,6 +243,30 @@ class WindowsHistoryNativeUiIngressProbeTest {
         );
     }
 
+    @Test
+    void anEditInsideTheWindowDoesNotHideTheUndoThatFollowsIt() {
+        // Measured against the last observed position, not the window's opening one. The operator
+        // made an edit inside the native-undo window (position 7 -> 8) and then undid it (8 -> 7):
+        // against the opening position of 7 that undo never crosses the baseline and the step
+        // never closes, which is what left the r8 run with no verdict at all.
+        final String significant = WindowsHistoryNativeUiIngressProbe.significantSequence(
+            List.of(entry(0, "正片叠底色 の編集", true))
+        );
+
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 8L, significant, 7L),
+            "an edit inside the window is not the undo"
+        );
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(UNDO, significant, 7L, significant, 8L),
+            "the undo is seen against the position the edit left behind"
+        );
+        assertTrue(
+            WindowsHistoryNativeUiIngressProbe.hasMoved(REDO, significant, 8L, significant, 7L),
+            "the same holds for a redo"
+        );
+    }
+
     private static WindowsHistoryManagerValidationProbe.Entry entry(
         final int index,
         final String label,

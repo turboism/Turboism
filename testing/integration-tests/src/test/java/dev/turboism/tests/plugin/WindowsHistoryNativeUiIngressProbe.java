@@ -337,6 +337,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             write(artifact, summaryLine(failures.isEmpty()), true);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
+            // The Editor was closed while a step was pending. The runner matches a whole line, so
+            // returning silently would leave it with nothing to match and no evidence at all.
+            try {
+                write(
+                    artifact,
+                    "{\"type\":\"error\",\"class\":\"interrupted\",\"message\":\""
+                        + "the probe was disabled while a step was pending\"}\n"
+                        + "{\"type\":\"failures\",\"failures\":[\"probe-disabled-mid-run\"]}\n"
+                        + "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+                    true
+                );
+            } catch (Exception ignored) {
+                context.logger().error("Native UI ingress evidence could not be written", ignored);
+            }
         } catch (Exception exception) {
             context.logger().error("Native UI ingress probe failed", exception);
             try {
@@ -378,6 +392,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     ) throws Exception {
         final long deadline = System.currentTimeMillis() + STEP_TIMEOUT_MILLIS;
         long nextReminder = System.currentTimeMillis() + REMINDER_MILLIS;
+        // Direction is measured against the last position actually observed, not against the
+        // window's opening position. An edit made inside the window raises the position, so a
+        // later undo returns to the opening value rather than below it, and a window baseline
+        // would never see the step's own move.
+        long lastPosition = knownPosition;
         while (System.currentTimeMillis() < deadline) {
             if (!running) throw new InterruptedException("Probe disabled while awaiting the operator");
             Thread.sleep(POLL_MILLIS);
@@ -388,11 +407,12 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 significantSequence(current),
                 position(current),
                 knownSignificant,
-                knownPosition
+                lastPosition
             )) {
                 Thread.sleep(settleMillis(step));
                 return sample();
             }
+            lastPosition = position(current);
             if (System.currentTimeMillis() >= nextReminder) {
                 nextReminder = System.currentTimeMillis() + REMINDER_MILLIS;
                 remind(step);
@@ -529,9 +549,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         if (step.kind().equals("ACTION")) {
             return !currentSignificant.equals(knownSignificant);
         }
-        // Navigation is only closed by a move in its own direction. A selection also changes the
-        // position — it adds an entry — so accepting any change would let the click before the
-        // operator's real action close an Undo step, and a Redo would close an Undo step too.
+        // Navigation is only closed by a move in its own direction, measured against the last
+        // observed position. A selection also moves the position forwards, so accepting any change
+        // would let the click before the operator's real action close an Undo step; and comparing
+        // against the window's opening position would miss an undo that follows an edit made
+        // inside the same window.
         if (step.kind().equals("UNDO")) return currentPosition < knownPosition;
         if (step.kind().equals("REDO")) return currentPosition > knownPosition;
         return false;
