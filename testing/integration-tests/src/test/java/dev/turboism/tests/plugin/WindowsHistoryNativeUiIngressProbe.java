@@ -34,7 +34,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final long POLL_MILLIS = 250L;
     private static final long SETTLE_MILLIS = 2_000L;
     private static final long AWAIT_DOCUMENT_MILLIS = 240_000L;
-    private static final long STEP_TIMEOUT_MILLIS = 300_000L;
+    /**
+     * How long one step waits for the operator.
+     *
+     * <p>Generous on purpose: the window opens when the instruction is written, and a human has to
+     * read it and walk the mouse to the right part of the Editor before anything happens.</p>
+     */
+    private static final long STEP_TIMEOUT_MILLIS = 420_000L;
 
     /**
      * Operator steps in order.
@@ -174,6 +180,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             long knownEntries = entries(baseline);
             long knownPosition = position(baseline);
             boolean hookFired = false;
+            boolean observerFired = false;
             boolean labelSeen = false;
 
             for (int index = 0; ready && index < STEPS.size(); index++) {
@@ -184,7 +191,10 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 write(
                     artifact,
                     "{\"type\":\"prompt\",\"phase\":\"" + json(step.id()) + "\",\"instruction\":\""
-                        + json(step.instruction()) + "\"}\n",
+                        + json(step.instruction()) + "\",\"openedAt\":\"" + Instant.now()
+                        + "\",\"expiresAt\":\""
+                        + Instant.ofEpochMilli(System.currentTimeMillis() + STEP_TIMEOUT_MILLIS)
+                        + "\"}\n",
                     false
                 );
                 context.logger().info(instruction);
@@ -214,6 +224,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 write(artifact, verdict.json(step.id()), false);
                 if (!verdict.ok()) failures.add(step.id() + ":" + verdict.code());
                 hookFired |= events.stream().anyMatch(event -> event.phase().equals("before"));
+                observerFired |= events.stream().anyMatch(
+                    event -> event.phase().equals("on") || event.phase().equals("after")
+                );
                 labelSeen |= events.stream().anyMatch(
                     event -> event.phase().equals("before") && !event.label().isBlank()
                 );
@@ -233,6 +246,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             write(
                 artifact,
                 new Verdict(
+                    observerFired,
+                    "observer-fired",
+                    observerFired
+                        ? "the ingress attached and published at least one operation"
+                        : "no operation was published for any native change"
+                ).json("overall"),
+                false
+            );
+            write(
+                artifact,
+                new Verdict(
                     labelSeen,
                     "label-transported",
                     labelSeen
@@ -245,6 +269,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // to report, not a probe failure: the label is presentation, and the operation is
             // identified structurally.
             if (!hookFired) failures.add("hook-did-not-fire");
+            if (!observerFired) failures.add("observer-did-not-fire");
             write(
                 artifact,
                 "{\"type\":\"summary\",\"status\":\"" + (failures.isEmpty() ? "PASS" : "FAIL")
