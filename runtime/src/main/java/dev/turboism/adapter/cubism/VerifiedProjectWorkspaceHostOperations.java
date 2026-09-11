@@ -162,32 +162,8 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         try {
             final Object appController = resolver.invokeStatic(APP_INSTANCE);
             if (appController == null) return Optional.empty();
-            final Object project = resolver.invoke(CURRENT_PROJECT, appController);
-            if (project == null) return Optional.empty();
-            final String projectId = identities.idFor(project, "project");
             final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
-            final List<DocumentSnapshot> documents = new ArrayList<>(documents(
-                resolver.invoke(PROJECT_DOCUMENTS, project)
-            ));
-            if (currentDocument != null) {
-                final DocumentSnapshot active = document(currentDocument);
-                if (documents.stream().noneMatch(existing ->
-                    existing.documentId().equals(active.documentId()))) {
-                    documents.add(active);
-                }
-            }
-            final List<ProjectContentSnapshot> contents = contents(
-                invokePublic(project, "getChildren").orElse(List.of()),
-                documents
-            );
-            if (documents.isEmpty() && contents.isEmpty()) return Optional.empty();
-            return Optional.of(new ProjectSnapshot(
-                projectId,
-                projectDisplayName(currentDocument, documents),
-                Optional.empty(),
-                documents,
-                contents
-            ));
+            return projectSnapshot(appController, currentDocument);
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
                 throw mappingFailure(ProjectWorkspaceAdapter.PROJECT_CAPABILITY_ID);
@@ -206,7 +182,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             final Object currentDocument = resolver.invoke(CURRENT_DOCUMENT, appController);
             return currentDocument == null
                 ? Optional.empty()
-                : Optional.of(document(currentDocument));
+                : Optional.of(document(currentDocument).snapshot());
         } catch (VerifiedAccessException exception) {
             if (exception.failureKind() == VerifiedAccessException.FailureKind.RESOLUTION) {
                 throw mappingFailure(ProjectWorkspaceAdapter.DOCUMENT_CAPABILITY_ID);
@@ -215,6 +191,101 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         } catch (RuntimeException exception) {
             throw validationFailure(ProjectWorkspaceAdapter.DOCUMENT_CAPABILITY_ID);
         }
+    }
+
+    @Override
+    public ProjectWorkspaceAdapter.ActiveProjectDocument activeProjectAndDocument() {
+        final Object appController;
+        final Object currentDocument;
+        try {
+            appController = resolver.invokeStatic(APP_INSTANCE);
+            currentDocument = appController == null
+                ? null
+                : resolver.invoke(CURRENT_DOCUMENT, appController);
+        } catch (RuntimeException failure) {
+            return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
+        }
+        if (appController == null) {
+            return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
+        }
+        DocumentBuild activeBuild = null;
+        if (currentDocument != null) {
+            try {
+                activeBuild = document(currentDocument);
+            } catch (RuntimeException failure) {
+                activeBuild = null;
+            }
+        }
+        Optional<ProjectSnapshot> project;
+        try {
+            project = projectSnapshot(appController, currentDocument, activeBuild);
+        } catch (RuntimeException failure) {
+            project = Optional.empty();
+        }
+        return new ProjectWorkspaceAdapter.ActiveProjectDocument(
+            project,
+            Optional.ofNullable(activeBuild).map(DocumentBuild::snapshot)
+        );
+    }
+
+    private Optional<ProjectSnapshot> projectSnapshot(
+        final Object appController,
+        final Object currentDocument
+    ) {
+        return projectSnapshot(appController, currentDocument, null);
+    }
+
+    /**
+     * Builds the project snapshot from an already-resolved controller/current document. When the
+     * caller already built the current document's snapshot ({@code resolvedActive}) it is reused
+     * verbatim instead of resolving the same host document twice.
+     */
+    private Optional<ProjectSnapshot> projectSnapshot(
+        final Object appController,
+        final Object currentDocument,
+        final DocumentBuild resolvedActive
+    ) {
+        final Object project = resolver.invoke(CURRENT_PROJECT, appController);
+        if (project == null) return Optional.empty();
+        final String projectId = identities.idFor(project, "project");
+        final List<DocumentSnapshot> documents = new ArrayList<>();
+        DocumentBuild active = resolvedActive;
+        final Object rawDocuments = resolver.invoke(PROJECT_DOCUMENTS, project);
+        if (rawDocuments instanceof Iterable<?> iterable) {
+            for (Object document : iterable) {
+                if (document == null) continue;
+                final DocumentBuild build = document == currentDocument && resolvedActive != null
+                    ? resolvedActive
+                    : document(document);
+                documents.add(build.snapshot());
+                if (document == currentDocument) active = build;
+            }
+        }
+        if (currentDocument != null && active == null) {
+            active = document(currentDocument);
+        }
+        final DocumentBuild activeBuild = active;
+        if (activeBuild != null && documents.stream().noneMatch(existing ->
+            existing.documentId().equals(activeBuild.snapshot().documentId()))) {
+            documents.add(activeBuild.snapshot());
+        }
+        final List<ProjectContentSnapshot> contents = contents(
+            invokePublic(project, "getChildren").orElse(List.of()),
+            documents
+        );
+        if (documents.isEmpty() && contents.isEmpty()) return Optional.empty();
+        final File activeFile = activeBuild == null ? null : activeBuild.file();
+        return Optional.of(new ProjectSnapshot(
+            projectId,
+            projectDisplayName(activeFile, currentDocument != null, documents),
+            Optional.empty(),
+            documents,
+            contents
+        ));
     }
 
     @Override
@@ -254,11 +325,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
     }
 
     private String projectDisplayName(
-        final Object currentDocument,
+        final File currentFile,
+        final boolean hasCurrentDocument,
         final List<DocumentSnapshot> documents
     ) {
-        if (currentDocument != null) {
-            final File currentFile = documentFile(currentDocument);
+        if (hasCurrentDocument) {
             return currentFile != null && !currentFile.getName().isBlank()
                 ? currentFile.getName()
                 : "Untitled";
@@ -266,16 +337,13 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         return documents.isEmpty() ? "Untitled" : documents.get(0).name();
     }
 
-    private List<DocumentSnapshot> documents(final Object rawDocuments) {
-        if (!(rawDocuments instanceof Iterable<?> iterable)) return List.of();
-        final List<DocumentSnapshot> documents = new ArrayList<>();
-        for (Object document : iterable) {
-            if (document != null) documents.add(document(document));
-        }
-        return List.copyOf(documents);
-    }
+    /**
+     * One document build result: the immutable snapshot plus the resolved backing file, carried
+     * so a caller that needs the file name does not resolve the document's file content twice.
+     */
+    private record DocumentBuild(DocumentSnapshot snapshot, File file) { }
 
-    private DocumentSnapshot document(final Object document) {
+    private DocumentBuild documentBuild(final Object document) {
         final DocumentKind kind = documentKind(document);
         final Object contentOwner;
         final File file;
@@ -312,7 +380,7 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             case IMAGE -> stringProperty(contentOwner, "getName").orElse(fallbackName);
             default -> fallbackName;
         };
-        return new DocumentSnapshot(
+        return new DocumentBuild(new DocumentSnapshot(
             documentId,
             displayName,
             "documents/" + documentId + "/" + safeSegment(fallbackName),
@@ -321,7 +389,11 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
             kind,
             contentId,
             animation
-        );
+        ), file);
+    }
+
+    private DocumentBuild document(final Object document) {
+        return documentBuild(document);
     }
 
     private ModelSnapshot model(final Object modelingDocument, final String fallbackName) {
@@ -527,15 +599,6 @@ public final class VerifiedProjectWorkspaceHostOperations implements ProjectWork
         }
         if (isInstance(gameDataDocumentType, content)) return ProjectContentKind.GAME_DATA;
         return ProjectContentKind.OTHER;
-    }
-
-    private File documentFile(final Object document) {
-        if (document == null) return null;
-        if (documentKind(document) == DocumentKind.IMAGE) {
-            return imageSourceFile(invokePublic(document, "a").orElse(null));
-        }
-        final Object fileContent = resolver.invoke(DOCUMENT_FILE_CONTENT, document);
-        return fileContent == null ? null : asFile(resolver.invoke(FILE_CONTENT_FILE, fileContent));
     }
 
     private File imageSourceFile(final Object source) {

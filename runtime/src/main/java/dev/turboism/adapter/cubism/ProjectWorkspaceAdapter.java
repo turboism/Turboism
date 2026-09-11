@@ -32,6 +32,32 @@ public interface ProjectWorkspaceAdapter {
     /** One ordered adapter admission for a coherent serialized project/workspace observation. */
     AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot();
 
+    /**
+     * One adapter call that observes the active project and the active document together.
+     *
+     * <p>The default composes the two individual reads; connected adapters pair them under one
+     * admission so implementations that can resolve both from one host traversal do so. A half
+     * that the host could not supply is empty while the other half still reports, matching the
+     * per-call behaviour of {@link #activeProject()} and {@link #activeDocument()}.</p>
+     *
+     * @return the observed pair; never null
+     */
+    default AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+        final AdapterResult<Optional<ProjectSnapshot>> project = activeProject();
+        final AdapterResult<Optional<DocumentSnapshot>> document = activeDocument();
+        final Optional<SafeModeDiagnostic> diagnostic = project.diagnostic().isPresent()
+            && document.diagnostic().isPresent()
+            ? project.diagnostic()
+            : Optional.empty();
+        return new AdapterResult<>(
+            Optional.of(new ActiveProjectDocument(
+                project.value().orElse(Optional.empty()),
+                document.value().orElse(Optional.empty())
+            )),
+            diagnostic
+        );
+    }
+
     interface HostOperations {
         String hostVersion();
 
@@ -43,7 +69,36 @@ public interface ProjectWorkspaceAdapter {
             return Optional.empty();
         }
 
+        /**
+         * One host traversal that observes the active project and document together.
+         *
+         * <p>The default performs the two individual reads; implementations that resolve both
+         * from one controller traversal override it. A half that fails is empty while the other
+         * half still reports.</p>
+         *
+         * @return the observed pair; never null
+         */
+        default ActiveProjectDocument activeProjectAndDocument() {
+            return new ActiveProjectDocument(activeProject(), activeDocument());
+        }
+
         Optional<WorkspaceSnapshot> workspace();
+    }
+
+    /**
+     * One paired observation of the active project and document.
+     *
+     * @param project the observed project, empty when none is active or the read failed
+     * @param document the observed document, empty when none is active or the read failed
+     */
+    record ActiveProjectDocument(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document
+    ) {
+        public ActiveProjectDocument {
+            project = Objects.requireNonNull(project, "project");
+            document = Objects.requireNonNull(document, "document");
+        }
     }
 
     record AdapterResult<T>(
@@ -147,11 +202,45 @@ public interface ProjectWorkspaceAdapter {
         }
 
         @Override
+        public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+            return host.map(this::readProjectAndDocument)
+                .orElseGet(() -> AdapterResult.unavailable(
+                    SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
+                ));
+        }
+
+        @Override
         public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
             return host.map(this::readCombined)
                 .orElseGet(() -> AdapterResult.unavailable(
                     SafeModeDiagnostic.adapterUnavailable(PROJECT_CAPABILITY_ID)
                 ));
+        }
+
+        private AdapterResult<ActiveProjectDocument> readProjectAndDocument(
+            final HostOperations operations
+        ) {
+            try {
+                if (!isReviewedProjectWorkspaceVersion(operations.hostVersion())) {
+                    return AdapterResult.unavailable(SafeModeDiagnostic.hostVersionUnsupported(
+                        PROJECT_CAPABILITY_ID,
+                        operations.hostVersion()
+                    ));
+                }
+                if (!operations.supportsProjectWorkspaceRead()) {
+                    return AdapterResult.unavailable(
+                        SafeModeDiagnostic.capabilityUnavailable(PROJECT_CAPABILITY_ID)
+                    );
+                }
+                return AdapterResult.available(operations.activeProjectAndDocument());
+            } catch (AdapterHostException exception) {
+                return AdapterResult.unavailable(exception.diagnostic());
+            } catch (RuntimeException exception) {
+                return AdapterResult.unavailable(SafeModeDiagnostic.validationFailure(
+                    PROJECT_CAPABILITY_ID,
+                    "Host project/workspace adapter call failed safely."
+                ));
+            }
         }
 
         private AdapterResult<ProjectWorkspaceSnapshot> readCombined(final HostOperations operations) {

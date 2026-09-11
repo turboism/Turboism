@@ -436,9 +436,12 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
                 && currentModelGeneration.getAsLong() != modelGeneration) {
                 return Optional.empty();
             }
-            if (!source.isHostPresent()) return deactivate();
-            final Optional<HostSnapshotSource.HostDocument> document = source.activeDocument();
-            final Optional<HostSnapshotSource.HostModel> model = source.activeModel();
+            final HostSnapshotSource.Observation observation = source.observe();
+            if (observation.project().isEmpty() && observation.document().isEmpty()) {
+                return deactivate();
+            }
+            final Optional<HostSnapshotSource.HostDocument> document = observation.document();
+            final Optional<HostSnapshotSource.HostModel> model = observation.model();
             if (document.isEmpty() || model.isEmpty()) return deactivate();
             final HostSnapshotSource.HostDocument currentDocument = document.orElseThrow();
             final HostSnapshotSource.HostModel currentModel = model.orElseThrow();
@@ -453,7 +456,7 @@ public final class RuntimeModelAppearanceAccess implements AutoCloseable {
             final String contentId = currentDocument.contentId().orElse(currentDocument.documentId());
             final PaletteAppearanceCoordinator.Scope scope = new PaletteAppearanceCoordinator.Scope(
                 contentId,
-                source.invalidationToken(),
+                source.versionOf(observation),
                 currentModel.modelId(),
                 modelGeneration,
                 hostGeneration.getAsLong(),

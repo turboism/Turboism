@@ -109,10 +109,27 @@ class SnapshotVersioningTest {
 
         facade.runtimeWithVersion();
 
-        assertEquals(1, adapter.projectReads,
-            "one versioned read must observe the host project once");
-        assertEquals(1, adapter.documentReads,
-            "one versioned read must observe the host document once");
+        assertEquals(1, adapter.pairReads,
+            "one versioned read must observe the project/document pair once");
+        assertEquals(0, adapter.projectReads,
+            "the paired observation must not re-read the project separately");
+        assertEquals(0, adapter.documentReads,
+            "the paired observation must not re-read the document separately");
+    }
+
+    @Test
+    void sourceReadsShareThePairedObservation() {
+        final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
+        final HostSnapshotSource source = HostSessionSnapshotSource.forSession(adapter);
+
+        source.observe();
+        source.invalidationToken();
+        source.isHostPresent();
+
+        assertEquals(3, adapter.pairReads,
+            "observe, invalidationToken and isHostPresent must each be one paired read");
+        assertEquals(0, adapter.projectReads + adapter.documentReads,
+            "paired reads must not fall back to the individual accessors");
     }
 
     /** Counts host reads so the validity check cannot cost more than the work it protects. */
@@ -120,23 +137,41 @@ class SnapshotVersioningTest {
 
         private int projectReads;
         private int documentReads;
+        private int pairReads;
 
         @Override
         public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
             projectReads++;
-            return AdapterResult.available(Optional.of(new ProjectSnapshot(
-                "project-1",
-                "Project",
-                Optional.empty(),
-                List.of(),
-                List.of()
-            )));
+            return AdapterResult.available(Optional.of(projectSnapshot()));
         }
 
         @Override
         public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
             documentReads++;
-            return AdapterResult.available(Optional.of(new DocumentSnapshot(
+            return AdapterResult.available(Optional.of(documentSnapshot()));
+        }
+
+        @Override
+        public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+            pairReads++;
+            return AdapterResult.available(new ActiveProjectDocument(
+                Optional.of(projectSnapshot()),
+                Optional.of(documentSnapshot())
+            ));
+        }
+
+        private static ProjectSnapshot projectSnapshot() {
+            return new ProjectSnapshot(
+                "project-1",
+                "Project",
+                Optional.empty(),
+                List.of(),
+                List.of()
+            );
+        }
+
+        private static DocumentSnapshot documentSnapshot() {
+            return new DocumentSnapshot(
                 "document-1",
                 "Model",
                 "model/model.cmo3",
@@ -145,7 +180,7 @@ class SnapshotVersioningTest {
                 DocumentKind.MODEL,
                 Optional.empty(),
                 Optional.empty()
-            )));
+            );
         }
 
         @Override

@@ -754,3 +754,16 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **限制（不得抬高）**：证据是**宿主读次数**这一结构量，不是秒数；本轮**未做任何墙钟/CPU 占比测量**，因此端到端收益记 **NONE**。单次 `activeProject()` 本身的成本（仍占每次查询的主要开销）**未动**，要优化它得另立切片、另找证据。
 - **有效程度**：新增内存/CPU/GPU **实测收益 NONE**；产出为**一次带失败回退的行为等价优化**（一次 `runtimeWithVersion()` 的宿主读 2+3 → 1+1）、一条先失败后通过的离线回归，以及一份可复用的离线量化方法（计数适配器包真实 facade）。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**。产出为**一次有成型的、可复核的负面/边界结论**（7 处确认清洁 + 2 个带理由的保留候选），作用是**防止后续重复排查同一批位置**。
+
+### I38 — P10 外观作用域捕获重复读：captureScope 单次观测，4→1 读/次 + 组合对读（2026-09-11）
+
+- **范围/验证方法**：Spec Kit `034-appearance-scope-observation`（canonical `/opt/dev/projects/turboism/specs/034-appearance-scope-observation/`）。P09（I37）修了 `runtimeWithVersion()` 的重复读，但**遗留的最热调用方** `RuntimeModelAppearanceAccess.captureScope` 未动——它是每次 palette 绑定（part/parameter/deformer/group/drawable）和每次 `Entry` 变更都要经过的门。全程 offline，不占宿主、不改官方工件、不合并/推送 main。
+- **量化基线（实测+静态）**：旧 `captureScope` 串行调 `isHostPresent()`→`activeDocument()`→`activeModel()`→`invalidationToken()`。在生产外观源 `AppearanceSource` 上，这四者**各跑一次 `current()`**（1 次 `activeDocument()` 适配器读 + 1 次 `modelAccess.active()` 解析）→ **每次捕获 = 4 次适配器读 + 最多 4 次模型解析**。在 `HostSessionSnapshotSource` 上同一捕获 = 最多 5 次完整适配器遍历（2 project + 3 document）。另外 `observe()` 本身仍是 2 次适配器调用（各重复解析 appController + currentDocument），且 `VerifiedProjectWorkspaceHostOperations.activeProject()` 把当前文档**构建两次**（列表一遍、`document(currentDocument)` 又一遍、`projectDisplayName` 的 `documentFile` 第三遍）。
+- **修复（三处）**：
+  1. `captureScope` → `source.observe()` + `versionOf(observation)`，存在性判断改为「project 与 document 均空」（与 `isHostPresent()` 析取语义等价），其余检查原样。
+  2. `AppearanceSource` 覆写 `observe()`/`versionOf()`：一次 `current()`，evidence 记观测时刻的 `activationToken`，`versionOf` 不再重读。
+  3. 新增 `ProjectWorkspaceAdapter.activeProjectAndDocument()`/`HostOperations.activeProjectAndDocument()`（均带 default，存量实现零改动）；`Impl` 一次版本/能力准入包一对读；`VerifiedProjectWorkspaceHostOperations` 覆写为**一次** `invokeStatic` + 一次 `currentDocument` 解析，当前文档快照只构建一次（`DocumentBuild` 携带 file 复用于 `projectDisplayName`），每半失败独立为空（对齐旧 `available()` 摊平语义）。`HostSessionSnapshotSource` 的 `observe()`/`invalidationToken()`/`isHostPresent()` 全部改用组合读。
+- **回归（先失败后通过）**：`AppearanceSourceObservationTest`（旧代码实测 `observe()`=2 文档读、`versionOf` 再读 1 次，改后 1+0）；`SnapshotVersioningTest` 扩展为对读计数（一次 `runtimeWithVersion()` = 1 次对读，单独访问器 0 次）；`VerifiedProjectWorkspaceHostOperationsTest` 新增「配对读只解析 controller/currentDocument 各 1 次、列内当前文档不重建（fileContent 调用=1）、project 半失败仍报 document」；`RuntimeModelAppearanceAccessTest` 新增「每次捕获 = 1 次 observe + 0 次 presence 检查 + 文档读==observe 次数」。合成夹具加 `instanceCalls`/`currentDocumentCalls`/`fileContentCalls` 计数器。
+- **验证结果**：四个测试类全绿；`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.*' --tests 'dev.turboism.adapter.host.*' --tests 'dev.turboism.ui.appearance.*' --tests 'dev.turboism.hostread.*'` = BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL。
+- **限制（不得抬高）**：证据是**读次数与调用次数**这一结构量，不是秒数/CPU 占比；端到端收益记 **NONE**。`current()` 内部的 `modelAccess.active()` 解析成本、以及单次 `activeProject()` 遍历本身（`idFor` O(n) 线性扫描、contents×documents O(c×d) join）**未动**——后者属下一候选切片。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**两次行为等价的读去重**（外观捕获 4→1 读/次；session 观察 2 适配器调用→1）、当前文档三次构建→一次，及一组先失败后通过的离线回归。
