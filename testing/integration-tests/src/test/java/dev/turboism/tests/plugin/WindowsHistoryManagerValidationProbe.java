@@ -24,6 +24,14 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
     static final int MAX_ENTRIES = 256;
     static final int MAX_DETAIL_DEPTH = 4;
     static final int MAX_DETAIL_NODES = 64;
+    /**
+     * Upper bound on the points summarised per form.
+     *
+     * <p>The summary is an aggregate, so this only bounds the work one entry can cause. A form over
+     * the limit degrades rather than being summarised in part, because a partial point set would
+     * make a uniform translation look non-uniform.</p>
+     */
+    static final int MAX_GEOMETRY_POINTS = 4096;
     static final int MAX_DETAIL_STRING = 256;
     static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
 
@@ -375,8 +383,60 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         return new NativeDetail(
             "SIMPLE", className, target == null ? "" : target.getClass().getName(),
             "", "", "", "", -1, 0, List.of(), List.of(), undo != null, redo != null,
-            redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque"
+            redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque",
+            geometryDelta(undo, redo)
         );
+    }
+
+    /**
+     * Summarises the positions change between two ArtMesh form snapshots.
+     *
+     * <p>Computed only from the form's own positions, never from an edit name, and reduced to a
+     * bounded set of magnitudes so the artifact never carries the mesh itself. The point of the
+     * summary is to establish whether a whole-object move is structurally distinguishable from a
+     * mesh edit: a pure translation moves every point by the same vector, so {@code maxDeviation} is
+     * how far the worst point displacement is from the mean one. A non-zero deviation means the shape
+     * itself deformed rather than merely moving.</p>
+     */
+    static GeometryDelta geometryDelta(final Object undo, final Object redo) throws Exception {
+        if (undo == null || redo == null) return GeometryDelta.none();
+        final float[] before = positions(undo);
+        final float[] after = positions(redo);
+        if (before == null || after == null) return GeometryDelta.none();
+        if (before.length == 0 || before.length != after.length || before.length % 2 != 0) {
+            return GeometryDelta.degraded("history.geometry.shape-changed");
+        }
+        final int points = before.length / 2;
+        if (points > MAX_GEOMETRY_POINTS) {
+            return GeometryDelta.degraded("history.geometry.point-limit");
+        }
+        double sumX = 0.0;
+        double sumY = 0.0;
+        boolean changed = false;
+        for (int point = 0; point < points; point++) {
+            final float deltaX = after[point * 2] - before[point * 2];
+            final float deltaY = after[point * 2 + 1] - before[point * 2 + 1];
+            if (!Float.isFinite(deltaX) || !Float.isFinite(deltaY)) {
+                return GeometryDelta.degraded("history.geometry.value-unsupported");
+            }
+            if (deltaX != 0.0F || deltaY != 0.0F) changed = true;
+            sumX += deltaX;
+            sumY += deltaY;
+        }
+        final double meanX = sumX / points;
+        final double meanY = sumY / points;
+        double maxDeviation = 0.0;
+        for (int point = 0; point < points; point++) {
+            final double deviationX = after[point * 2] - before[point * 2] - meanX;
+            final double deviationY = after[point * 2 + 1] - before[point * 2 + 1] - meanY;
+            maxDeviation = Math.max(maxDeviation, Math.hypot(deviationX, deviationY));
+        }
+        return GeometryDelta.summary(points, changed, meanX, meanY, maxDeviation);
+    }
+
+    static float[] positions(final Object form) throws Exception {
+        final Object value = optionalInvoke(form, "getPositions");
+        return value instanceof float[] array ? array : null;
     }
 
     private static NativeDetail listDetail(final Object entry, final String className) throws Exception {
@@ -506,8 +566,30 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         List<NativeDetail> childDetails,
         boolean undoAvailable,
         boolean postAvailable,
-        String degradationCode
+        String degradationCode,
+        GeometryDelta geometry
     ) {
+        /** Keeps the projection readable for every detail that carries no geometry. */
+        NativeDetail(
+            final String family,
+            final String entryClass,
+            final String targetClass,
+            final String propertyName,
+            final String previousValue,
+            final String postValue,
+            final String direction,
+            final int index,
+            final int observedChildCount,
+            final List<String> childClasses,
+            final List<NativeDetail> childDetails,
+            final boolean undoAvailable,
+            final boolean postAvailable,
+            final String degradationCode
+        ) {
+            this(family, entryClass, targetClass, propertyName, previousValue, postValue, direction,
+                index, observedChildCount, childClasses, childDetails, undoAvailable, postAvailable,
+                degradationCode, GeometryDelta.none());
+        }
         static NativeDetail degraded(final String entryClass, final String family, final String code) {
             return new NativeDetail(
                 family, entryClass, "", "", "", "", "", -1, 0, List.of(), List.of(), false, false, code
@@ -538,7 +620,75 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
                     .reduce((a, b) -> a + "," + b).orElse("") + "]"
                 + ",\"undoAvailable\":" + undoAvailable
                 + ",\"postAvailable\":" + postAvailable
-                + ",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode) + "\"}";
+                + ",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode)
+                + "\",\"geometry\":" + geometry.json() + "}";
+        }
+    }
+
+    /**
+     * Bounded structural summary of one form's positions change.
+     *
+     * <p>Deliberately magnitudes rather than the mesh: the artifact records that geometry moved, by
+     * how much on average, and how far the worst point departed from that average. It never carries
+     * vertex coordinates.</p>
+     *
+     * @param family         {@code NONE} when no form positions were readable
+     * @param pointCount     the number of points summarised
+     * @param changed        whether any point moved
+     * @param translationX   the mean x displacement
+     * @param translationY   the mean y displacement
+     * @param maxDeviation   the largest distance between a point's displacement and the mean one
+     * @param degradationCode why the summary is unavailable, if it is
+     */
+    record GeometryDelta(
+        String family,
+        int pointCount,
+        boolean changed,
+        String translationX,
+        String translationY,
+        String maxDeviation,
+        String degradationCode
+    ) {
+        /** The summary for a detail that carries no geometry at all. */
+        static GeometryDelta none() {
+            return new GeometryDelta("NONE", 0, false, "", "", "", "");
+        }
+
+        static GeometryDelta degraded(final String code) {
+            return new GeometryDelta("DEGRADED", 0, false, "", "", "", code);
+        }
+
+        static GeometryDelta summary(
+            final int pointCount,
+            final boolean changed,
+            final double translationX,
+            final double translationY,
+            final double maxDeviation
+        ) {
+            return new GeometryDelta(
+                "POSITIONS",
+                pointCount,
+                changed,
+                number(translationX),
+                number(translationY),
+                number(maxDeviation),
+                ""
+            );
+        }
+
+        /** Rounds to six decimals so the artifact stays small and stable to compare. */
+        private static String number(final double value) {
+            return String.format(Locale.ROOT, "%.6f", value);
+        }
+
+        String json() {
+            return "{\"family\":\"" + WindowsHistoryManagerValidationProbe.json(family)
+                + "\",\"pointCount\":" + pointCount
+                + ",\"changed\":" + changed
+                + ",\"translationX\":\"" + WindowsHistoryManagerValidationProbe.json(translationX)
+                + "\",\"translationY\":\"" + WindowsHistoryManagerValidationProbe.json(translationY)
+                + "\",\"maxDeviation\":\"" + WindowsHistoryManagerValidationProbe.json(maxDeviation)
+                + "\",\"degradationCode\":\"" + WindowsHistoryManagerValidationProbe.json(degradationCode) + "\"}";
         }
     }
 
