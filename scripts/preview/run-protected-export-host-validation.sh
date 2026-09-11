@@ -39,9 +39,10 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
   shift
 fi
 case "$phase" in
-  dialog | copy-binding | dialog,copy-binding) ;;
+  dialog | copy-binding | flatten | dialog,copy-binding \
+    | copy-binding,flatten | dialog,copy-binding,flatten) ;;
   *)
-    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, or dialog,copy-binding)" >&2
+    echo "error: unknown probe phase '$phase' (expected dialog, copy-binding, flatten, or a comma combination)" >&2
     exit 2
     ;;
 esac

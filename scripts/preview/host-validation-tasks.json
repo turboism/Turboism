@@ -168,7 +168,8 @@
       "variants": {
         "dialog": ["{version}", "{runLabel}", "dialog"],
         "copy-binding": ["{version}", "{runLabel}", "copy-binding"],
-        "full": ["{version}", "{runLabel}", "dialog,copy-binding"]
+        "flatten": ["{version}", "{runLabel}", "flatten"],
+        "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
       },
       "defaultVariant": "dialog",
       "resources": {"host-slot": 1}
