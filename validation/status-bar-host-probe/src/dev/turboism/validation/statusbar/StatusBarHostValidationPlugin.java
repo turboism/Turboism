@@ -6,6 +6,7 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.UiScheduler;
 
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
@@ -301,15 +302,37 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         assertNoCompactLabel("compact-close-removes", failures);
     }
 
+    /**
+     * Drives the native hint through the SDK condition watch: the message is renewed
+     * while the probe's condition holds, so it stays on screen for the whole
+     * observation window and then clears itself.
+     */
     private void runCanvasHint(final List<String> failures) {
-        final Registration canvasHint = notifyCanvasHint(failures);
+        final long deadline = System.currentTimeMillis() + CANVAS_HINT_HOLD_MILLIS;
+        final Registration watch;
         try {
-            Thread.sleep(CANVAS_HINT_HOLD_MILLIS);
+            watch = context.uiHost().showCanvasHintWhile(
+                context.uiScheduler(),
+                new CanvasHintNotification(
+                    CANVAS_HINT_ID,
+                    CANVAS_HINT_MESSAGE,
+                    CanvasHintNotification.UNTIL_DISMISSED
+                ).withOnClick(() -> logger.info("CANVAS_HINT_CLICKED id=" + CANVAS_HINT_ID)),
+                () -> System.currentTimeMillis() < deadline
+            );
+        } catch (RuntimeException failure) {
+            failures.add("canvas-hint-watch failed: " + failure.getClass().getSimpleName());
+            return;
+        }
+        logger.info("CANVAS_HINT_SENT id=" + CANVAS_HINT_ID
+            + " dismissOnClick=true renewing=true message=" + CANVAS_HINT_MESSAGE);
+        try {
+            Thread.sleep(CANVAS_HINT_HOLD_MILLIS + PASS_SETTLE_MILLIS);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
             failures.add("canvas-hint settle interrupted");
         }
-        close(canvasHint, "canvas-hint-close", failures);
+        close(watch, "canvas-hint-close", failures);
     }
 
 
@@ -425,29 +448,6 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         }
     }
 
-    private Registration notifyCanvasHint(final List<String> failures) {
-        try {
-            // Dismiss-on-click: the SDK wrapper attaches the click action, so a human
-            // can acknowledge the hint by clicking it instead of waiting for the hold.
-            final Registration registration = context.uiHost().notifyDismissibleCanvasHint(
-                new CanvasHintNotification(
-                    CANVAS_HINT_ID,
-                    CANVAS_HINT_MESSAGE,
-                    CanvasHintNotification.UNTIL_DISMISSED
-                )
-            );
-            if (registration == null) {
-                failures.add("canvas-hint-notify returned a null registration");
-                return () -> { };
-            }
-            logger.info("CANVAS_HINT_SENT id=" + CANVAS_HINT_ID
-                + " dismissOnClick=true message=" + CANVAS_HINT_MESSAGE);
-            return registration;
-        } catch (RuntimeException failure) {
-            failures.add("canvas-hint-notify failed: " + failure.getClass().getSimpleName());
-            return () -> { };
-        }
-    }
 
     /** COMPACT_METRIC status: the runtime must render the raw message without severity appearance. */
     private Registration notifyCompact(final List<String> failures) {

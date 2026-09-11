@@ -211,7 +211,7 @@ public interface UiHostCapabilityService {
      * @param notification validated native canvas-hint request
      * @return a handle that dismisses the keyed hint
      */
-    default Registration notifyCanvasHint(final CanvasHintNotification notification) {
+    default CanvasHintHandle notifyCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
         throw new UnsupportedOperationException("canvas hints are not available");
     }
@@ -228,13 +228,13 @@ public interface UiHostCapabilityService {
      * @param notification validated native canvas-hint request
      * @return a handle that dismisses the keyed hint
      */
-    default Registration notifyDismissibleCanvasHint(final CanvasHintNotification notification) {
+    default CanvasHintHandle notifyDismissibleCanvasHint(final CanvasHintNotification notification) {
         Objects.requireNonNull(notification, "notification");
-        final AtomicReference<Registration> handle = new AtomicReference<>();
+        final AtomicReference<CanvasHintHandle> handle = new AtomicReference<>();
         final AtomicBoolean clicked = new AtomicBoolean();
-        final Registration registration = notifyCanvasHint(notification.withOnClick(() -> {
+        final CanvasHintHandle registration = notifyCanvasHint(notification.withOnClick(() -> {
             clicked.set(true);
-            final Registration current = handle.get();
+            final CanvasHintHandle current = handle.get();
             if (current != null) {
                 current.close();
             }
@@ -245,6 +245,29 @@ public interface UiHostCapabilityService {
             registration.close();
         }
         return registration;
+    }
+
+    /**
+     * Shows a native Cubism hint and keeps it on screen while {@code condition} holds.
+     *
+     * <p>This is the SDK-level equivalent of the native pattern where a re-validation
+     * routine re-issues the same keyed hint while a problem persists: the hint is
+     * renewed on {@code cadence} and clears itself once the condition reports false,
+     * so the caller never tracks a handle. See
+     * {@link ConditionalCanvasHint#whileTrue(UiScheduler, UiHostCapabilityService,
+     * CanvasHintNotification, java.util.function.BooleanSupplier, java.time.Duration)}.</p>
+     *
+     * @param scheduler the plugin's UI scheduler, used to evaluate the condition
+     * @param notification validated native canvas-hint request
+     * @param condition evaluated on each tick; the hint stays while it returns true
+     * @return a handle that stops the watch and clears the hint
+     */
+    default Registration showCanvasHintWhile(
+        final UiScheduler scheduler,
+        final CanvasHintNotification notification,
+        final java.util.function.BooleanSupplier condition
+    ) {
+        return ConditionalCanvasHint.whileTrue(scheduler, this, notification, condition);
     }
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);

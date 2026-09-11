@@ -504,6 +504,46 @@
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 8
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.class.canvas_hint_position",
+      "kind": "class",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.position.class",
+      "runtime": "com/live2d/graphics3d/type/GVector2",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.constructor.canvas_hint_position",
+      "kind": "constructor",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.position.create",
+      "runtime": "<init>",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(FF)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/graphics3d/type/GVector2",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      }
     }
   ]
 }

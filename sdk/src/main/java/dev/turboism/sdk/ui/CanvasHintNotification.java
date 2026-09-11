@@ -24,12 +24,23 @@ public record CanvasHintNotification(
     String id,
     String message,
     float durationSeconds,
-    Optional<Runnable> onClick
+    Optional<Runnable> onClick,
+    Optional<CanvasHintPosition> position
 ) {
     /** The timeout used by the native Cubism screen-color warning. */
     public static final float DEFAULT_DURATION_SECONDS = 5.0f;
 
-    /** Keeps the hint visible until its returned registration is closed. */
+    /**
+     * Keeps the hint visible until its returned handle is closed.
+     *
+     * <p>This is a finite stand-in, not a native "never" mode. The host schedules a
+     * removal deadline as {@code now + duration} in milliseconds, and the native
+     * conversion of {@code Float.POSITIVE_INFINITY} saturates to {@code Long.MAX_VALUE},
+     * which overflows that addition and cleared the hint instantly. The runtime therefore
+     * maps this sentinel to a deadline far beyond any session instead of the literal
+     * value, and a hint meant to outlive a session must be kept alive with
+     * {@link CanvasHintHandle#renew()}.</p>
+     */
     public static final float UNTIL_DISMISSED = Float.POSITIVE_INFINITY;
 
     /** Creates a hint using the native warning timeout. */
@@ -43,7 +54,17 @@ public record CanvasHintNotification(
         final String message,
         final float durationSeconds
     ) {
-        this(id, message, durationSeconds, Optional.empty());
+        this(id, message, durationSeconds, Optional.empty(), Optional.empty());
+    }
+
+    /** Creates a hint that the user cannot click, placed by the native host. */
+    public CanvasHintNotification(
+        final String id,
+        final String message,
+        final float durationSeconds,
+        final Optional<Runnable> onClick
+    ) {
+        this(id, message, durationSeconds, onClick, Optional.empty());
     }
 
     public CanvasHintNotification {
@@ -58,6 +79,7 @@ public record CanvasHintNotification(
                     "durationSeconds must be positive or CanvasHintNotification.UNTIL_DISMISSED");
         }
         onClick = Objects.requireNonNull(onClick, "onClick");
+        position = Objects.requireNonNull(position, "position");
     }
 
     /**
@@ -73,7 +95,26 @@ public record CanvasHintNotification(
             id,
             message,
             durationSeconds,
-            Optional.of(Objects.requireNonNull(action, "action"))
+            Optional.of(Objects.requireNonNull(action, "action")),
+            position
+        );
+    }
+
+    /**
+     * Returns a copy of this notification pinned to {@code override}, leaving id,
+     * message, duration, and click action untouched.
+     *
+     * @param override the position override replacing any this notification already carries
+     * @return a new notification sharing every other component with this one
+     * @throws NullPointerException when {@code override} is {@code null}
+     */
+    public CanvasHintNotification withPosition(final CanvasHintPosition override) {
+        return new CanvasHintNotification(
+            id,
+            message,
+            durationSeconds,
+            onClick,
+            Optional.of(Objects.requireNonNull(override, "override"))
         );
     }
 }
