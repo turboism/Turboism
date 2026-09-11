@@ -12,10 +12,12 @@ manager, and writes down what it saw.
 
 - Use Cubism 5.3.02 with the history validation fixture. The task is declared for
   5302 only.
-- Do not save the document. The run discards the copy, and the source fixture is
-  hash-checked before and after.
 - Do not open other files. The probe records the whole Undo manager, so an
   unrelated edit becomes indistinguishable from the intended one.
+- **Do not close the Editor until the terminal `summary` line is written.** The
+  probe samples the Editor's own thread; closing it while a step is pending stops
+  that thread and the run ends with no verdict and no summary. If you want to
+  stop early, say so and leave the window open.
 - Keep the model window and the Parts tree visible, because two of the steps are
   drag operations.
 
@@ -54,6 +56,14 @@ the whole run becomes useless for the decoder work.
 
 Do not use Turboism's own history panel for steps 7 and 8: the point is the
 native shortcut, which is a different ingress than the one the panel uses.
+
+For every step, act once and then **wait for the next instruction to appear
+before doing anything else.** A step is closed by the first *significant*
+Edit, and a selection is not significant — clicking an object to select it does
+not consume the step, which is why the Part drag instructions say to drag rather
+than to click first. Pressing two shortcuts in quick succession is the one way to
+lose a step: the second lands inside the first step's settling window and the
+step after it has nothing left to observe.
 
 If a step's action fails or you are unsure it applied, say so and stop the run.
 A step with no native change is recorded as a failure rather than silently

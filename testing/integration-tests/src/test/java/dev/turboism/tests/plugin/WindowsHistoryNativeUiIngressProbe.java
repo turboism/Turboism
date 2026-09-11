@@ -12,6 +12,8 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -32,6 +34,15 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private static final long TERMINAL_RESERVE_BYTES = 4_096L;
     private static final int MAX_RECORDED_EVENTS = 512;
     private static final long POLL_MILLIS = 250L;
+
+    /**
+     * How long one sample of the host may take.
+     *
+     * <p>A sample runs on the Editor thread. If that thread has stopped pumping events — because
+     * the Editor is closing, or a modal dialog is up — the wait has to end anyway, so the probe
+     * can write its verdicts and its summary instead of hanging with no terminal line.</p>
+     */
+    private static final long SAMPLE_TIMEOUT_MILLIS = 15_000L;
     private static final long SETTLE_MILLIS = 2_000L;
     private static final long AWAIT_DOCUMENT_MILLIS = 240_000L;
     /**
@@ -195,7 +206,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
             final WindowsHistoryManagerValidationProbe.Snapshot baseline = sample();
             write(artifact, paired(baseline, "baseline"), false);
-            long knownEntries = entries(baseline);
+            long knownEdits = significantEntries(baseline);
             long knownPosition = position(baseline);
             boolean hookFired = false;
             boolean observerFired = false;
@@ -217,7 +228,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 );
                 context.logger().info(instruction);
 
-                final WindowsHistoryManagerValidationProbe.Snapshot after = awaitChange(knownEntries, knownPosition);
+                final WindowsHistoryManagerValidationProbe.Snapshot after =
+                    awaitChange(knownEdits, knownPosition);
                 if (after == null) {
                     failures.add(step.id() + ":no-native-change");
                     write(
@@ -228,7 +240,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     );
                     continue;
                 }
-                knownEntries = entries(after);
+                knownEdits = significantEntries(after);
                 knownPosition = position(after);
                 write(artifact, paired(after, step.id()), false);
                 final List<Observed> events;
@@ -322,9 +334,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /**
      * Waits for the operator's action, then for the runtime to settle.
      *
-     * <p>Detecting the native position or entry count moving is what proves the operator's action
-     * reached the native undo manager; a prompt alone would let the probe record an unrelated
-     * edit.</p>
+     * <p>Detecting the native position, or the number of <em>significant</em> entries, moving is
+     * what proves the operator's action reached the native undo manager; a prompt alone would let
+     * the probe record an unrelated edit.</p>
+     *
+     * <p>Significant entries rather than all entries, because a selection is itself an ordinary
+     * native undo entry. The host marks each entry's significance, so a step whose instruction
+     * begins with a click would otherwise be closed by the click that preceded the real edit and
+     * every following step would be attributed to the previous step's family. Every selection
+     * entry the probe has recorded so far is insignificant and every real edit is significant,
+     * which makes this a fact the host already states rather than a rule about labels.</p>
+     *
+     * <p>The wait is bounded, and so is each sample: a sample is taken on the Editor thread, so an
+     * Editor that has stopped pumping events would otherwise park this thread for the life of the
+     * process and the run would end with no verdict and no summary at all.</p>
      */
     private WindowsHistoryManagerValidationProbe.Snapshot awaitChange(
         final long knownEdits,
@@ -336,7 +359,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             Thread.sleep(POLL_MILLIS);
             final WindowsHistoryManagerValidationProbe.Snapshot current = sample();
             if (current == null) continue;
-            if (entries(current) != knownEdits || position(current) != knownPosition) {
+            if (significantEntries(current) != knownEdits || position(current) != knownPosition) {
                 Thread.sleep(SETTLE_MILLIS);
                 return sample();
             }
@@ -358,13 +381,25 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final AtomicReference<WindowsHistoryManagerValidationProbe.Snapshot> result =
             new AtomicReference<>();
         final AtomicReference<Exception> failure = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
+        final CountDownLatch sampled = new CountDownLatch(1);
+        // invokeLater rather than invokeAndWait: the wait has to be bounded, because an Editor
+        // whose event thread has stopped pumping would otherwise park this thread for the life of
+        // the process and the run would end with no verdict, no failure list and no summary.
+        SwingUtilities.invokeLater(() -> {
             try {
                 result.set(WindowsHistoryManagerValidationProbe.sample(context));
             } catch (Exception exception) {
                 failure.set(exception);
+            } finally {
+                sampled.countDown();
             }
         });
+        if (!sampled.await(SAMPLE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
+            context.logger().warn(
+                "Native UI ingress probe sampling timed out after " + SAMPLE_TIMEOUT_MILLIS + "ms"
+            );
+            return null;
+        }
         if (failure.get() != null) return null;
         return result.get();
     }
@@ -395,13 +430,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /**
-     * The native change signal: how many entries the current undo manager holds.
+     * The native change signal: how many <em>significant</em> entries the undo manager holds.
      *
      * <p>Entry count rather than position, because an edit made after an Undo replaces the
      * redoable tail and can leave the position unchanged.</p>
+     *
+     * <p>Significant entries rather than all entries, because the host records a selection as an
+     * ordinary undo entry. Counting those would close a step on the click that precedes the
+     * operator's real action, which is what happened on the previous run.</p>
      */
-    private static long entries(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
-        return snapshot == null ? -1L : snapshot.current().totalEntries();
+    static long significantEntries(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
+        if (snapshot == null) return -1L;
+        return significantEntries(snapshot.current().entries());
+    }
+
+    /** Package-private so a focused test can pin the boundary rule without a live host. */
+    static long significantEntries(final List<WindowsHistoryManagerValidationProbe.Entry> entries) {
+        return entries.stream().filter(WindowsHistoryManagerValidationProbe.Entry::significant).count();
     }
 
     private static long position(final WindowsHistoryManagerValidationProbe.Snapshot snapshot) {
