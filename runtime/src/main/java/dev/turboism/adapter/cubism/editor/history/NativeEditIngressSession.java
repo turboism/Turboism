@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.runtime.log.RuntimeDiagnostics;
 
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -21,6 +22,8 @@ import java.util.function.Consumer;
  * old listener before a new one is registered.</p>
  */
 public final class NativeEditIngressSession implements AutoCloseable {
+
+    private static final String COMPONENT = "native-edit-ingress";
 
     private final NativeEditIngress.Publisher publisher;
     private final NativeEditBeginBridge.BeforeSink beforeSink;
@@ -73,6 +76,12 @@ public final class NativeEditIngressSession implements AutoCloseable {
         try {
             resolved = EditorHistoryNativeBindings.undoManager(resolver);
         } catch (RuntimeException unavailable) {
+            // An ingress that silently never attaches would look exactly like a host that made no
+            // edits, so a refusal is a warning and not just a counter.
+            RuntimeDiagnostics.warn(
+                COMPONENT,
+                "Native edit ingress stayed inactive: " + describe(unavailable)
+            );
             return false;
         }
         synchronized (bindLock) {
@@ -92,6 +101,11 @@ public final class NativeEditIngressSession implements AutoCloseable {
             } catch (RuntimeException refused) {
                 attachFailureCount++;
                 candidate.close();
+                RuntimeDiagnostics.warn(
+                    COMPONENT,
+                    "Native edit ingress listener was refused on "
+                        + resolved.getClass().getName() + ": " + describe(refused)
+                );
                 return false;
             }
             ingress = candidate;
@@ -103,6 +117,11 @@ public final class NativeEditIngressSession implements AutoCloseable {
             manager = resolved;
             this.generation = generation;
             bindCount++;
+            RuntimeDiagnostics.info(
+                COMPONENT,
+                "Native edit ingress listening on " + resolved.getClass().getName()
+                    + " for editor-UI generation " + generation
+            );
             return true;
         }
     }
@@ -216,6 +235,12 @@ public final class NativeEditIngressSession implements AutoCloseable {
             // The host listener loop has no exception isolation.
             drainScheduled.set(false);
         }
+    }
+
+    private static String describe(final RuntimeException failure) {
+        final String message = failure.getMessage();
+        final String type = failure.getClass().getName();
+        return message == null || message.isBlank() ? type : type + ": " + message;
     }
 
     private void closeLocked() {

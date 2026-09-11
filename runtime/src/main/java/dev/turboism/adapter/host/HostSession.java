@@ -642,6 +642,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
         } catch (RuntimeException unavailable) {
             // A connection without a usable resolver is a transient state, not a terminal one.
             nativeEditIngress.deactivate();
+            dev.turboism.runtime.log.RuntimeDiagnostics.warn(
+                "host-session",
+                "Native edit ingress could not bind: " + unavailable.getClass().getName()
+                    + (unavailable.getMessage() == null ? "" : ": " + unavailable.getMessage())
+            );
         }
     }
 

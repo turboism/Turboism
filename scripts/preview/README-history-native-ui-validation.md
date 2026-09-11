@@ -29,7 +29,9 @@ TURBOISM_ENV_FILE=/opt/dev/projects/turboism/.env \
 ```
 
 then submit the prepared request to the host-validation manager. Use a result
-timeout of at least 1800 seconds: the probe waits up to 300 seconds per step.
+timeout of at least 1800 seconds: the probe waits up to 420 seconds per step, and
+each step's window opens the moment its instruction is written, so read the
+instruction before you start moving the mouse.
 
 ## The six steps
 
@@ -67,8 +69,10 @@ data/dev.turboism.validation.history-native-ui/history-native-ui-ingress.jsonl
   sampler knows how to read.
 - `semantic-event` lines are the events Turboism published for the step, with
   phase (`before`, `on`, `after`), operation, origin, sequence and label.
-- `check` lines are the verdicts. `hook-fired` and `label-transported` are the
-  two overall ones.
+- `check` lines are the verdicts. `hook-fired`, `observer-fired` and
+  `label-transported` are the overall ones. The two halves of the ingress fail
+  independently, so read them separately: `hook-fired` false is the `before`
+  entry hook, `observer-fired` false is the undo-manager listener.
 
 ## What each verdict means
 
