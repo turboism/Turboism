@@ -1,6 +1,6 @@
 # 原生性能实验台账
 
-最后更新：2026-09-10（I26 关闭期持有链只读切片轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
+最后更新：2026-09-11（I35 P08 Turboism 编辑器绑定强引用切片轮）。当前主指标由用户确定为 **内存占用、CPU 占用、GPU 占用**。累计分配、调用次数和缓存命中率仅用于解释，不替代主指标。
 
 本台账是本任务的统一检索入口，不是构建/运行时依赖，也不替代结构化 exact-host 证据。历史数据、失败和后续相反结果必须同时保留。所有实现位于独立分支；未授权合并或推送 main。
 
@@ -30,6 +30,7 @@
 | E10 | 三指标同步 + 加载堆/GC 轨迹 | INCONCLUSIVE；未见稳定三指标净收益 | 后续实验使用该口径，继续按峰值阶段定位 |
 | P01 | 变形器坐标只读投影 | 数值VALIDATION_PASS；NO_PRIMARY_BENEFIT | 三指标不支持启用；默认关闭，不重跑同一实现求好样本 |
 | P02 | 局部上传/图集、更新合并等 | 未实施，契约证据不足 | 补精确失效/消费边界后才进入实现 |
+| P08 | Turboism 编辑器绑定陈旧强引用 | 已修复（弱引用，共两处）；离线回归先失败后通过；实机字节收益未测 | 不重复修同一槽；实机 A/B 需另设 editor binding 场景并单独授权 |
 
 ## 公共实验条件与工件
 
@@ -698,3 +699,20 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **限制**：队列（848 资源）是缓存 2207 条目中的一个**子集样本**，`matchedDecodedPixels` 是队列口径的**下界**，不是全缓存像素总量；未做堆转储、GC 根遍历、保留大小测量或强制 GC；`matchedArchivedBytes` 是队列内 PNG 字节，`hostArchivedBytes` 是进程级累计量，两者不可相加。780s 队列连续两次触发既有采样器 0..5s 规则，属宿主自身关闭/压力行为与既定协议之间的真实张力，**不通过放宽规则解决**。
 - **证据归档（使用规则 7）**：`run/nr-evict-b{1,2,3}/`（各 8 项：job evidence/outcome/containment、`result.properties`、`memory-samples.jsonl`、`memory-sampler.log`、`turboism.log`）；归档 `MANIFEST.sha256` 已刷新（274 项 / 13MiB）。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（未实施任何优化）；产出为**关闭后保留的量化基线**（228MiB 解码像素 + 336MiB 归档字节，10 分钟零自愈）、**宿主释放路径失效的实证**（dispose=0）、以及**修复面不可用的判定与理由**。
+
+### I35 — P08 Turboism 编辑器绑定陈旧强引用：改为弱引用完成修复与离线回归（2026-09-11）
+
+- **范围/验证方法**：用户批准的 P08 修复切片（Spec Kit `031-editor-binding-retention`，canonical `/opt/dev/projects/turboism/specs/031-editor-binding-retention/`），继续在性能 worktree 实施。仅 offline：不申报宿主、不占队列、不改官方工件、不合并/推送 main。用户已定：**先交离线，实机 A/B 等宿主空闲**（当时宿主被 `atlas-image-shadow`/5303 任务占用）。
+- **交付与可见性**：本切片提交即性能分支 HEAD（未推送、未合并 main），仅三份文件；对应当前 HEAD 上的 Spec Kit 切片 `specs/031-editor-binding-retention/`（canonical `/opt/dev/projects/turboism/specs/031-editor-binding-retention/`，`diff -rq` 一致）。注意：仓库 `.gitignore` 忽略 `/specs/`，因此 028–031 的切片在 git 中**均为本地工件**，不进提交；本文即是它们的检索入口。
+- **与 I34 及前序 P08 判断的差异（必读）**：先前表述为「`activeDocument/activeSource/activeModel` 只是 generation 变化检测的缓存，真实绑定每次从 resolver 重解析」——**这只对了三分之二**。实读 `EditorBackedCubismModelAccess` 发现 `activeSource` **还被当作数据读**：内部类 `EditorParameters`（行 1258 起）在 `create`/`copy`/`remove`/`createMany`/`removeMany` 五处直接传外层字段给 `parameterStructureAccess`。因此只把三个字段改弱引用会改变这五条写路径的取值来源，**必须先消除该数据依赖**。
+- **修复（两处，共 +30−14）**：
+  1. 三个字段改为 `WeakReference<Object>`，新增 `cachedIdentity(WeakReference<Object>)` 辅助（未绑定或已被回收一律读作 `null`）；`bindingIdentity` 的引用比较改为比 referent，三处赋值改为新建 `WeakReference`。`generation` 自增、`generationLock` 与身份串 `sessionIdentity:modelId:generation` 全部不变。
+  2. `EditorParameters` 增加自有 `source`，由外层 `EditorModel`（其本身已持 `identity`/`source`/`model`）在构造处传入（行 1193），五处写路径改用该字段。
+- **为什么弱引用不改变可观察行为**：宿主还能交出的对象必然被宿主强持有，不可能已被回收；因此对宿主能产生的任何绑定，referent 比较与强字段比较结果一致。只有「不同对象」这一分支会自增 generation，与修复前相同。`source` 允许为 `null`，`new WeakReference<>(null)` 合法，`null != null` 为 false，比较不变。
+- **被否定的替代方案**：①在 `binding()` 抛不可用处清缓存——同一文档实例被重新交给宿主时会额外自增 generation，可能把原本有效的绑定变成 stale 失败，属可观察行为变化；②接 `HostSession` 项目文件关闭事件清缓存——同样的语义变化且面积更大；③用 `SoftReference`——内存压力前不会释放，正是本次要消除的保留。
+- **回归（先失败后通过）**：新增 `closedDocumentGraphIsNotRetainedByTheBindingCache`（宿主夹具关文档后丢弃测试自身强引用，用有界弱可达断言 `WeakReference` + `refersTo(null)` + `Reference.reachabilityFence`，与既有 `CubismEditorApiAvailabilityInterceptorTest.assertCollected` 同一写法）与 `repeatedIdenticalBindingKeepsTheHandedOutReferenceValid`（同对象重复绑定不得额外自增 generation）。**未改生产代码前该测试实测 FAILED**（`EditorBackedCubismModelAccessTest.java:626`），改后 PASS。
+- **验证结果**：`./gradlew :runtime:test --tests 'dev.turboism.adapter.cubism.editor.*'` = **331 测试 / 0 失败 / 0 错误**（35 个类，含 `EditorBackedCubismCombinedWriteTest`、`EditorBackedCubismParameterDefinitionWriteTest`、`EditorBackedCubismModelWriteTest` 覆盖被改写的参数写路径，以及同 ID 替换失效用例）；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得掩盖）**：①**未做任何实机 A/B** —— 原生资源负载走宿主反射，不经过 Turboism editor binding，无法用于本项测量；需要另设覆盖 editor binding 的场景并单独授权（本轮已设计但未执行，设计见 Spec Kit 031 的 `measurement.md`）。因此**留存减少是离线可证、实机字节收益未测**。②弱可达断言证明的是「引用边被移除」，不是保留大小测量、GC 根遍历或堆快照。③若 `access` 实例本身被调用方长期持有，本修复只解除这三个槽的持有；调用方持有的 stale wrapper/delegate 是否另有保留，前序 P09 记录过但未验证。
+- **未动但已登记的同类强点**：`BorrowedCoreModelSource.activeModel`（`runtime/.../cubism/core/BorrowedCoreModelSource.java:16`）同形且 `RuntimeCoreModelBackend.clearBorrowedModel()` **无生产调用方**（仅测试）。但清空它会作废所有已发出的 SDK lease（`CoreModelAcquisition` 的 generation 记账），属独立的行为决策，本切片按 FR-004 明确不动，作为后续候选项登记。
+- **前序 P08-a 补丁的去向**：I11 节记录的 test-only 反射诊断补丁（`/tmp/turboism-p08-repro-20260908T0620/diagnostic.patch`，现已随 `/tmp` 丢失）**未应用、未使用**；本切片用弱可达回归取代它，符合 P08-a 记录的「未来修复后的回归应检查正确生命周期释放」要求。
+- **有效程度**：本轮新增内存/CPU/GPU **实机收益 NONE**（未做测量）；产出为**两处可验证的引用边移除**（缓存三槽 + 参数写路径的数据依赖）、一条先失败后通过的离线回归、一条行为不变性回归，以及 Spec Kit 031 与 I34 判断偏差的更正。

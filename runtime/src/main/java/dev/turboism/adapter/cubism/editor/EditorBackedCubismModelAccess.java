@@ -48,6 +48,7 @@ import dev.turboism.sdk.cubism.transaction.AuthoringTransactionService;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 
+import java.lang.ref.WeakReference;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
@@ -79,9 +80,15 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
     private final EditorAuthoringTransactionCoordinator authoringCoordinator;
     private final Object generationLock = new Object();
     private String lazyPublishAttemptedIdentity;
-    private Object activeDocument;
-    private Object activeSource;
-    private Object activeModel;
+    /**
+     * Identity cache for generation tracking only. The bound values are held weakly so that a closed
+     * document, its model source and its model instance do not stay reachable for the whole life of this
+     * access instance; a cleared referent reads as "no previous binding", which is the same comparison
+     * result a different binding would produce anyway.
+     */
+    private WeakReference<Object> activeDocument;
+    private WeakReference<Object> activeSource;
+    private WeakReference<Object> activeModel;
     private long generation;
     private final EditorNativeControlAppearanceAccess nativeControlAppearanceAccess;
 
@@ -376,14 +383,21 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         final Object model
     ) {
         synchronized (generationLock) {
-            if (document != activeDocument || source != activeSource || model != activeModel) {
-                activeDocument = document;
-                activeSource = source;
-                activeModel = model;
+            if (document != cachedIdentity(activeDocument)
+                || source != cachedIdentity(activeSource)
+                || model != cachedIdentity(activeModel)) {
+                activeDocument = new WeakReference<>(document);
+                activeSource = new WeakReference<>(source);
+                activeModel = new WeakReference<>(model);
                 generation = Math.incrementExact(generation);
             }
             return sessionIdentity + ":" + modelId + ":" + generation;
         }
+    }
+
+    /** @return the cached identity, or {@code null} when it was never bound or has already been collected. */
+    private static Object cachedIdentity(final WeakReference<Object> cached) {
+        return cached == null ? null : cached.get();
     }
 
     /**
@@ -1176,7 +1190,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public dev.turboism.sdk.cubism.model.ModelTextures textures() {
             return textureAccess.textures(identity, source, model);
         }
-        @Override public Parameters parameters() { current(); return new EditorParameters(identity, model); }
+        @Override public Parameters parameters() { current(); return new EditorParameters(identity, source, model); }
         @Override public ParameterGroups parameterGroups() {
             current();
             return parameterGroupsAccess.groups(identity, source, model);
@@ -1243,9 +1257,11 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
 
     private final class EditorParameters implements Parameters {
         private final String identity;
+        private final Object source;
         private final Object model;
-        private EditorParameters(final String identity, final Object model) {
+        private EditorParameters(final String identity, final Object source, final Object model) {
             this.identity = identity;
+            this.source = source;
             this.model = model;
         }
         private void current() { requireCurrent(identity, model); }
@@ -1274,7 +1290,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final ParameterId created = parameterStructureAccess.create(
-                    identity, activeSource, model, definition, folderId
+                    identity, source, model, definition, folderId
                 );
                 return new EditorParameter(identity, model, created);
             });
@@ -1284,7 +1300,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final ParameterId copied = parameterStructureAccess.copy(
-                    identity, activeSource, model, id
+                    identity, source, model, id
                 );
                 return new EditorParameter(identity, model, copied);
             });
@@ -1293,7 +1309,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public void remove(final ParameterId id) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                parameterStructureAccess.remove(identity, activeSource, model, id);
+                parameterStructureAccess.remove(identity, source, model, id);
                 return null;
             });
         }
@@ -1310,7 +1326,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
             return EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
                 final List<ParameterId> created = parameterStructureAccess.createMany(
-                    identity, activeSource, model, definitions, folderId
+                    identity, source, model, definitions, folderId
                 );
                 return created.stream()
                     .map(id -> (Parameter) new EditorParameter(identity, model, id))
@@ -1321,7 +1337,7 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         @Override public void removeMany(final List<ParameterId> ids) {
             EditorHostThread.dispatch("Cubism Parameters", () -> {
                 current();
-                parameterStructureAccess.removeMany(identity, activeSource, model, ids);
+                parameterStructureAccess.removeMany(identity, source, model, ids);
                 return null;
             });
         }
