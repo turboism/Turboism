@@ -30,9 +30,9 @@ EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
 # 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），项目数不变。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
-    ":plugins:backup",
     ":plugins:clipmask-viewer",
     ":plugins:core",
     ":plugins:cubism-tab-filter",
@@ -48,6 +48,7 @@ EXPECTED_PATHS = [
     ":plugins:scene-palette-enhancer",
     ":plugins:texture-atlas-stats",
     ":plugins:ui-theme",
+    ":plugins:webdav-backup",
 ]
 # 八个公开排除模块：必须从清单及一切发布载荷/选择面缺席（回归 oracle）
 EXCLUDED = {"bounding-box", "context-menu", "demo", "parameter",
@@ -98,8 +99,12 @@ RETIRED_IDS = [
     "dev.turboism.plugin.logfilter",
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
+    # superseded official id (webdav-backup rename), not a fake
+    "dev.turboism.plugin.backup",
 ]
-RETIRED_MODULES = ["clip-mask", "log-filter", "perf-opt", "render-opt"]
+# "backup" 是 webdav-backup 改名前的旧模块/旧交付名，升级后 plugins/backup.jar 必须
+# 消失（真实机制按内嵌旧 id 删除，此处按文件名镜像同一结果）。
+RETIRED_MODULES = ["backup", "clip-mask", "log-filter", "perf-opt", "render-opt"]
 
 REAL_MODULES = load_manifest()  # 回归 oracle：清单漂移（增删/改序/占位回归）即失败
 
@@ -427,7 +432,7 @@ def check_fx_fixture_guard_contract():
 
 
 def check_managed_graal_installer_contract():
-    """Installer-time managed GraalVM remains opt-in and reuses the pinned Java service."""
+    """Installer-time Graal provisioning is opt-in, pinned, and Java-independent."""
     text = INSTALLER_NSI.read_text(encoding="utf-8")
     bridge_path = INSTALLER_NSI.parent / "install-managed-graal.ps1"
     bridge = bridge_path.read_text(encoding="utf-8")
@@ -450,26 +455,29 @@ def check_managed_graal_installer_contract():
           and "Abort" not in graal_section)
     check("GI4b config preflight precedes optional Graal payload mutation",
           text.index('Section "-写入配置"') < graal_start)
-    check("GI5 bridge invokes only the managed runtime CLI",
-          "dev.turboism.graal.ManagedGraalRuntimeCli install" in bridge
-          and "https://" not in bridge and "sha256" not in bridge.lower())
-    check("GI6 bridge requires Java 17 or newer",
-          "Test-TurboismJava17" in bridge and "-ge 17" in bridge)
-    check("GI7 bridge strips inherited Java options",
-          "JAVA_TOOL_OPTIONS" in bridge and "_JAVA_OPTIONS" in bridge
-          and "JDK_JAVA_OPTIONS" in bridge)
+    service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
+    check("GI5 native installer uses the runtime service's exact archive pins",
+          all(pin in bridge and pin in service for pin in (
+              "25.2.4", "25.0.4", "graalvm-community-jdk-25i2-25.0.4_windows-x64_bin.zip",
+              "789d2af1c06c3c24f402d2d4a711bdbb19b36f7d8c74afe6a959492fd121ef33")))
+    check("GI6 installation never discovers or launches Java",
+          all(token not in bridge for token in (
+              "Test-TurboismJava17", "Find-TurboismInstallerJava", "ProcessStartInfo",
+              "ManagedGraalRuntimeCli", "turboism-agent.jar", "JAVA_HOME", "Get-CubismInstallations")))
+    check("GI7 native installer records the path without changing the JVM preference",
+          "graalVmPath" in bridge and "Save-ManagedGraalConfig" in bridge
+          and "File]::Replace" in bridge)
     check("GI8 bridge avoids PowerShell's read-only HOME variable",
           not re.search(r"(?i)\$home\b", bridge))
     check("GI9 bridge persists managed Graal diagnostics",
           "managed-graal-install.log" in bridge
           and 'Join-Path $turboismHome "logs\\installer"' in bridge
           and "Add-Content -LiteralPath $LogPath" in bridge)
-    check("GI10 bridge drains and labels both output streams",
-          "BeginErrorReadLine" in bridge
-          and '"STDOUT "' in bridge
-          and '"STDERR "' in bridge
-          and "GRAAL_INSTALL_EXIT code=" in bridge
-          and "GRAAL_INSTALL_EXCEPTION" in bridge)
+    check("GI10 native installer logs terminal outcomes without blocking pipe reads",
+          "GRAAL_INSTALL_EXIT code=" in bridge and "GRAAL_INSTALL_EXCEPTION" in bridge
+          and "StandardOutput.Peek" not in bridge)
+    check("GI10b installer help no longer requires a preinstalled JVM or host probe",
+          "Java 17" not in text and "and the isolated host are verified" not in text)
     graal_create = text[text.index("Function GraalCreate"):
                         text.index("FunctionEnd", text.index("Function GraalCreate"))]
     check("GI11 Graal page rows are contiguous at 12pt",
@@ -557,10 +565,10 @@ def check_configurator_flow_contract():
         "CubismDiscoveryTitle", "CubismDiscoveryScanning", "CubismDiscoveryComplete",
         "CubismDiscoveryNone", "CubismDiscoveryFailed", "CubismDiscoveryTimeout",
     )
-    check("CF1j discovery page has English, Simplified Chinese, and Japanese text",
-          all(text.count("LangString %s " % key) == 3 for key in discovery_keys)
+    check("CF1j discovery page has English, Simplified Chinese, Japanese, and Korean text",
+          all(text.count("LangString %s " % key) == 4 for key in discovery_keys)
           and all(('LangString CubismDiscoveryTitle ${LANG_%s}' % language) in text
-                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+                  for language in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and 'LangString CubismDiscoveryTitle ${LANG_SIMPCHINESE} "Cubism 安装"' in text)
     check("CF1j1 discovery page avoids explanatory and implementation-defense wording",
           "CubismDiscoverySubtitle" not in text
@@ -830,7 +838,7 @@ def check_launcher_and_shortcut_contract():
                           text.index("FunctionEnd", text.index("Function LaunchOptionsLeave"))]
     check("L6d launch options are independent, localized, and tightly spaced",
           all(('LangString DesktopShortcutOption ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and '${NSD_CreateCheckbox} 0 30u 100% 18u "$(StartMenuOption)"' in launch_options
           and '${NSD_CreateCheckbox} 0 50u 100% 18u "$(DesktopShortcutOption)"' in launch_options
           and '${NSD_CreateCheckbox} 0 70u 100% 32u "$(BatIntegrationOption)"' in launch_options
@@ -856,7 +864,7 @@ def check_launcher_and_shortcut_contract():
           and "MUI_FINISHPAGE_RUN_NOTCHECKED" not in text
           and "MUI_FINISHPAGE_SHOWREADME_FUNCTION OpenInstallDirectory" in text
           and all(('LangString FinishLaunchTurboismText ${LANG_%s}' % lang) in text
-                  for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+                  for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and "FinishOpenFolderText" in text
           and 'Exec \'"$SYSDIR\\cmd.exe" /D /S /C ""$INSTDIR\\launch-cubism-turboism.bat""\'' in text
           and 'ExecShell "" "$INSTDIR\\launch-cubism-turboism.bat"' not in text
@@ -970,7 +978,21 @@ def check_eula_contract():
           and "EulaNativeAccept" not in text)
     check("NSIS EULA files are localized",
           all(('LicenseLangString EulaFile ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE")))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN")))
+    on_init = text[text.index("Function .onInit"):
+                  text.index("FunctionEnd", text.index("Function .onInit"))]
+    check("NSIS registers Korean and offers a language-selection dialog before the welcome page",
+          '!insertmacro MUI_LANGUAGE "Korean"' in text
+          and "!define MUI_LANGDLL_ALLLANGUAGES" in text
+          and "!insertmacro MUI_LANGDLL_DISPLAY" in on_init)
+    check("Korean installer UI reuses the English EULA instead of inventing a translation",
+          'LicenseLangString EulaFile ${LANG_KOREAN} "${EULA_DIR}/EULA.en.txt"' in text)
+    plugin_sections = (INSTALLER_NSI.parent / "plugin-sections.nsh").read_text(encoding="utf-8")
+    check("generated plugin sections localize display names and descriptions in Korean",
+          all(('LangString PLUGIN_NAME_%s ${LANG_KOREAN}' % pid) in plugin_sections
+              for pid in ("dev_turboism_plugin_webdav", "dev_turboism_plugin_mcp"))
+          and all(('LangString PLUGIN_DESC_%s ${LANG_KOREAN}' % pid) in plugin_sections
+                  for pid in ("dev_turboism_plugin_webdav", "dev_turboism_plugin_mcp")))
     generator = (INSTALLER_NSI.parent / "assemble-release.sh").read_text(encoding="utf-8")
     check("NSIS license pages use BOM-prefixed UTF-8 EULA copies",
           'printf \'\\xef\\xbb\\xbf\'' in generator
@@ -1064,9 +1086,22 @@ def check_uninstall_config_option():
           and 'CreateDirectory "$INSTDIR\\data"' in uninstall)
     check("UC5 localized label describes retention",
           all(('LangString UnKeepConfigLabel ${LANG_%s}' % lang) in text
-              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE"))
+              for lang in ("ENGLISH", "SIMPCHINESE", "JAPANESE", "KOREAN"))
           and "UnDeleteConfigLabel" not in text
           and "$unDeleteConfig" not in text)
+    # 用户文档必须与卸载确认页的真实语义一致：复选框标签是「保留 config.json」
+    # 且默认勾选；此前 en/zh/ja 模板反向描述成「删除」，与实现相反。
+    readme_dir = INSTALLER_NSI.parent
+    readme_semantics = (
+        ("README.en.txt.template", "\"Keep config.json (user configuration)\"", "Also delete config.json"),
+        ("README.zh.txt.template", "「保留 config.json（用户配置）」", "同时删除 config.json"),
+        ("README.ja.txt.template", "保持する」チェック", "（ユーザー設定）も"),
+        ("README.ko.txt.template", "\"config.json(사용자 설정) 유지\"", "(사용자 설정)도 삭제"),
+    )
+    for name, keeps, deletes in readme_semantics:
+        body = (readme_dir / name).read_text(encoding="utf-8")
+        check("UC5b %s documents the retention checkbox" % name,
+              keeps in body and deletes not in body)
 
 
 def check_uninstall_postcondition():

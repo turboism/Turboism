@@ -7,6 +7,7 @@ import re
 import subprocess
 from pathlib import Path
 
+from .build_identity import verify_receipt
 from .candidate import _load_script, framework_artifacts
 from .contracts import ReleaseError, read_document
 from .versions import CHANGELOG_HEADING, SOURCE_SHA, STRICT_VERSION, compare_versions, framework_version, git_source
@@ -82,7 +83,8 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
                             capture_output=True, text=True)
     require(result.returncode == 0 and result.stdout.strip() == source_sha, "source checkout mismatch")
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
-                            "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt"],
+                            "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
+                            "release-notes", "scripts/release/turboism_release/release_notes.py"],
                            capture_output=True)
     require(clean.returncode == 0, "source release metadata was modified after checkout")
     document = read_document(unique_file(bundle_root, "candidate.json"), "candidate")
@@ -161,19 +163,71 @@ def ensure_tag(github, tag, source_sha, binding=None):
     require(tag_binding(github, tag, source_sha, binding), "tag binding was not persisted")
 
 
+
+def find_release(github, tag):
+    """Resolve a release by tag, including unpublished drafts.
+
+    GitHub's ``releases/tags/{tag}`` endpoint returns HTTP 404 for draft
+    releases, so a draft is only observable through the paginated list API.
+    ``None`` therefore still means "no release exists for this tag"; a lookup
+    that only used the tag endpoint would recreate a draft or abort a resume.
+    """
+    raw = github.api(f"releases/tags/{tag}", optional=True)
+    if raw is not None:
+        return raw
+    for page in range(1, 101):
+        batch = github.api(f"releases?per_page=100&page={page}")
+        require(isinstance(batch, list), "invalid GitHub release list")
+        for candidate in batch:
+            if candidate.get("tag_name") == tag:
+                return candidate
+        if len(batch) < 100:
+            return None
+    raise ReleaseError("release enumeration exceeded the safety limit; not treating it as absence")
+
+
+def release_by_id(github, release):
+    """Read mutable release state; unlike the tag lookup this works for drafts."""
+    require(isinstance(release, dict) and isinstance(release.get("id"), int),
+            "release identity is unavailable")
+    return github.api(f"releases/{release['id']}")
+
 def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confirmation):
     require(confirmation == f"publish-github-only:{source_sha}", "explicit source confirmation required")
     require(re.fullmatch(r"[1-9][0-9]{0,19}", str(run_id)), "invalid candidate run id")
     run = github.api(f"actions/runs/{run_id}")
     validate_run(run, run_id, source_sha, attempt)
+    prerelease_files = list(Path(bundle_root).rglob("prerelease-candidate.json"))
+    if prerelease_files:
+        require(len(prerelease_files) == 1 and not list(Path(bundle_root).rglob("candidate.json")),
+                "candidate cannot contain mixed stable/prerelease identities")
+        require(run["event"] == "workflow_dispatch", "Beta promotion requires a manual verified candidate")
+        from .prerelease import verify_candidate, publish as publish_prerelease
+        candidate_root = prerelease_files[0].parent
+        import shutil
+        if not (candidate_root / "dist").exists():
+            dist_roots = [p for p in Path(bundle_root).glob("windows-installer/dist") if p.is_dir()]
+            require(len(dist_roots) == 1, "prerelease artifact dist is missing")
+            shutil.copytree(dist_roots[0], candidate_root / "dist")
+        manifest, receipt, notes = verify_candidate(github, source_root, candidate_root, source_sha,
+                                                   str(run_id), run["run_attempt"], expected_channel="beta")
+        validate_run(github.api(f"actions/runs/{run_id}"), run_id, source_sha, run["run_attempt"])
+        return publish_prerelease(github, candidate_root / "dist", receipt, manifest, notes)
     tag, dist, notes, expected = verify_bundle(source_root, bundle_root, run, source_sha)
+    receipt = verify_receipt(github, source_root, bundle_root, tag[1:], source_sha, str(run_id), run["run_attempt"])
+    if receipt is not None:
+        from .release_notes import stable_metadata
+        localized = stable_metadata(source_root, tag[1:], source_sha, notes)
+        if localized:
+            notes += '\n' + localized
+        notes += "\n\n<!-- turboism-build-v1 " + json.dumps(receipt, sort_keys=True, separators=(",", ":")) + " -->\n"
     binding = None
     if run["event"] == "workflow_dispatch":
         identity = {"source": source_sha, "tag": tag, "assets": expected, "notes": notes}
         binding = hashlib.sha256(json.dumps(identity, sort_keys=True, separators=(",", ":"))
                                  .encode("utf-8")).hexdigest()
     bound = tag_binding(github, tag, source_sha, binding)
-    release = github.api(f"releases/tags/{tag}", optional=True)
+    release = find_release(github, tag)
     if release is not None:
         require(bound, "release exists without its annotated tag")
         missing_assets(release, expected, tag)
@@ -194,12 +248,12 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
             "body": notes, "draft": True, "prerelease": False})
     for name in missing_assets(release, expected, tag):
         github.upload(tag, dist / name)
-    release = github.api(f"releases/tags/{tag}")
+    release = release_by_id(github, release)
     require(not missing_assets(release, expected, tag), "release uploads incomplete")
     require(tag_binding(github, tag, source_sha, binding), "release tag disappeared")
     github.api(f"releases/{release['id']}", method="PATCH", data={
         "name": f"Turboism {tag[1:]}", "body": notes, "draft": False, "make_latest": "true"})
-    final = github.api(f"releases/tags/{tag}")
+    final = release_by_id(github, release)
     require(not missing_assets(final, expected, tag) and final["draft"] is False,
             "release did not become published")
     return tag

@@ -15,31 +15,43 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 class UiHostLocaleRuntimeTest {
 
     @Test
-    void defaultSourceResolvesHostLanguageProperties() {
-        withProperties(Map.of("user.language", "zh", "user.country", "CN"), () -> {
+    void defaultSourceResolvesTheAppliedProcessLocale() {
+        // Cubism applied Environment Settings → General → Language = 简体中文.
+        inDefaultLocale(new Locale("zh", "CN"), () -> {
             assertEquals(Locale.forLanguageTag("zh-Hans"), UiHostStateSource.DEFAULT.hostLocale());
         });
     }
 
     @Test
     void traditionalChineseCountryResolvesToZhHant() {
-        withProperties(Map.of("user.language", "zh", "user.country", "TW"), () -> {
+        inDefaultLocale(new Locale("zh", "TW"), () -> {
             assertEquals(Locale.forLanguageTag("zh-Hant"), UiHostStateSource.DEFAULT.hostLocale());
         });
     }
 
     @Test
-    void blankLanguageFallsBackToDisplayLocale() {
-        final Locale original = Locale.getDefault(Locale.Category.DISPLAY);
-        final Locale display = new Locale("ja", "JP");
-        try {
-            Locale.setDefault(Locale.Category.DISPLAY, display);
-            withProperties(Map.of("user.language", "", "user.country", "CN"), () -> {
-                assertEquals(display, UiHostStateSource.DEFAULT.hostLocale());
+    void launcherPropertiesResolveWhenTheProcessDefaultCarriesNoLanguage() {
+        withProperties(Map.of("user.language", "zh", "user.country", "TW"), () -> {
+            inDefaultLocale(new Locale("", ""), () -> {
+                assertEquals(Locale.forLanguageTag("zh-Hant"), UiHostStateSource.DEFAULT.hostLocale());
             });
-        } finally {
-            Locale.setDefault(Locale.Category.DISPLAY, original);
-        }
+        });
+    }
+
+    @Test
+    void blankLanguageFallsBackToDisplayLocale() {
+        final Locale display = new Locale("ja", "JP");
+        withProperties(Map.of("user.language", "", "user.country", "CN"), () -> {
+            inDefaultLocale(new Locale("", ""), () -> {
+                final Locale originalDisplay = Locale.getDefault(Locale.Category.DISPLAY);
+                try {
+                    Locale.setDefault(Locale.Category.DISPLAY, display);
+                    assertEquals(display, UiHostStateSource.DEFAULT.hostLocale());
+                } finally {
+                    Locale.setDefault(Locale.Category.DISPLAY, originalDisplay);
+                }
+            });
+        });
     }
 
     @Test
@@ -59,6 +71,21 @@ class UiHostLocaleRuntimeTest {
         );
         assertEquals(delegated, service.hostLocale());
         assertNotNull(service.hostLocale());
+    }
+
+    /** Runs the body with the process default locale Cubism would have applied. */
+    private static void inDefaultLocale(final Locale locale, final Runnable body) {
+        final Locale originalDefault = Locale.getDefault();
+        final Locale originalDisplay = Locale.getDefault(Locale.Category.DISPLAY);
+        final Locale originalFormat = Locale.getDefault(Locale.Category.FORMAT);
+        try {
+            Locale.setDefault(locale);
+            body.run();
+        } finally {
+            Locale.setDefault(originalDefault);
+            Locale.setDefault(Locale.Category.DISPLAY, originalDisplay);
+            Locale.setDefault(Locale.Category.FORMAT, originalFormat);
+        }
     }
 
     private static void withProperties(final Map<String, String> props, final Runnable body) {

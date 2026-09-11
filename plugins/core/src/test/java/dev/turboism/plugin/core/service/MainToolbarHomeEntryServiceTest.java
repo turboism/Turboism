@@ -65,15 +65,40 @@ class MainToolbarHomeEntryServiceTest {
             sha256Resource("/icons/main-toolbar-home-hover.png")
         );
         assertEquals(
-            "36b4fc5a09bac5f3325f88ea0419b8ba9b53e0cebc67f4a154731f3b5328213e",
+            "7b865b7899ce5a87b59e3b95190e0d1e29ffc914c46fd1e60490de9aa6c4ec13",
             sha256Resource("/icons/main-toolbar-installer.png")
         );
+        assertEquals(
+            "1d47a5247911633a675f6d92899111aae0f2a621cf9a2a5f0a6ea0488f4906f0",
+            sha256Resource("/icons/main-toolbar-installer.scale-125.png")
+        );
+        assertEquals(
+            "1da33467c8a2a3f1ef1db8dbd9ee35b239604b65a5dbcaf9dad08dda04cceeef",
+            sha256Resource("/icons/main-toolbar-installer.scale-150.png")
+        );
+        assertEquals(
+            "b063974124ffce912c62fdfe1afa617e7d81ba82e2d0240e2072e040b514b1ff",
+            sha256Resource("/icons/main-toolbar-installer.scale-175.png")
+        );
+        assertEquals(
+            "7f7b33dc4215bb7c36bfde82a2d8e2b9b799ee3be86fe736dccca484e58c2288",
+            sha256Resource("/icons/main-toolbar-installer.scale-200.png")
+        );
+        assertPngSize("/icons/main-toolbar-installer.scale-125.png", 40);
+        assertPngSize("/icons/main-toolbar-installer.scale-150.png", 48);
+        assertPngSize("/icons/main-toolbar-installer.scale-175.png", 56);
+        assertPngSize("/icons/main-toolbar-installer.scale-200.png", 64);
         try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream("/icons/main-toolbar-installer.png")) {
             assertNotNull(stream, "missing packaged installer toolbar icon");
             final BufferedImage icon = ImageIO.read(stream);
             assertNotNull(icon, "installer toolbar icon must decode as a PNG");
             assertEquals(32, icon.getWidth(), "installer toolbar icon width");
             assertEquals(32, icon.getHeight(), "installer toolbar icon height");
+            final int[] bounds = alphaBounds(icon);
+            assertEquals(1, bounds[0], "installer icon left padding");
+            assertEquals(0, bounds[1], "installer icon top padding");
+            assertEquals(30, bounds[2], "installer icon visible width");
+            assertEquals(32, bounds[3], "installer icon visible height");
         }
     }
 
@@ -162,6 +187,35 @@ class MainToolbarHomeEntryServiceTest {
                 MessageDigest.getInstance("SHA-256").digest(stream.readAllBytes())
             );
         }
+    }
+
+    private static void assertPngSize(final String path, final int size) throws Exception {
+        try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream(path)) {
+            assertNotNull(stream, "missing packaged toolbar icon " + path);
+            final BufferedImage icon = ImageIO.read(stream);
+            assertNotNull(icon, "toolbar icon must decode as a PNG: " + path);
+            assertEquals(size, icon.getWidth(), "toolbar icon width: " + path);
+            assertEquals(size, icon.getHeight(), "toolbar icon height: " + path);
+        }
+    }
+
+    private static int[] alphaBounds(final BufferedImage image) {
+        int minX = image.getWidth();
+        int minY = image.getHeight();
+        int maxX = -1;
+        int maxY = -1;
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                if ((image.getRGB(x, y) >>> 24) > 0) {
+                    minX = Math.min(minX, x);
+                    minY = Math.min(minY, y);
+                    maxX = Math.max(maxX, x);
+                    maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        assertTrue(maxX >= minX && maxY >= minY, "icon must contain visible pixels");
+        return new int[] {minX, minY, maxX - minX + 1, maxY - minY + 1};
     }
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
         return service(uiHost, new RuntimeSettings(false, "INFO", false, false, false));
