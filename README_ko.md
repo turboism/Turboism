@@ -30,6 +30,8 @@ Java 설치 프로그램은 macOS와 Linux에서도 파일을 설치할 수 있�
 
 [최신 GitHub Release](https://github.com/turboism/Turboism/releases/latest)에서 패키지와 해당 `.sha256` 파일을 다운로드하세요. 아래 설치 방식 중 **하나만** 선택하면 됩니다. 설치하거나 업데이트하기 전에 Cubism을 종료하고 프로젝트를 백업하세요.
 
+모든 Turboism 설치 프로그램은 **영어, 중국어 간체, 일본어, 한국어**를 지원합니다. 언어 선택은 설치 프로그램 자체의 인터페이스만 바꾸며, 실행 시 Turboism의 언어는 계속 `config.json`의 `locale`로 결정됩니다.
+
 현재 설치 프로그램에는 코드 서명이 없습니다. 실행하기 전에 다운로드한 파일의 SHA-256을 함께 제공되는 체크섬과 비교하세요. 다음은 PowerShell 예시입니다. `<version>`을 다운로드한 버전으로 바꿔 주세요.
 
 ```powershell
@@ -57,11 +59,11 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 java -jar "TurboismInstaller-<version>.jar"
 ```
 
-라이선스와 고지를 확인하고 설치 경로 및 패키지 옵션을 선택해 설치를 완료하세요. Windows에서는 필요에 따라 설치 폴더의 `configure_turboism.ps1`으로 Cubism을 설정한 뒤 Turboism을 통해 실행하세요. macOS/Linux에서 파일을 설치할 수 있다는 것이 해당 플랫폼의 Cubism 호스트 호환성을 의미하지는 않습니다.
+라이선스와 고지를 확인하고 설치 경로 및 패키지 옵션을 선택해 설치를 완료하세요. 마법사를 시작하면 4개 언어의 언어 선택 대화상자가 먼저 표시되며, `-language eng|chn|jpn|kor`를 전달하면 이 대화상자를 건너뜁니다. Windows에서는 필요에 따라 설치 폴더의 `configure_turboism.ps1`으로 Cubism을 설정한 뒤 Turboism을 통해 실행하세요. macOS/Linux에서 파일을 설치할 수 있다는 것이 해당 플랫폼의 Cubism 호스트 호환성을 의미하지는 않습니다.
 
 ### EXE — Windows 권장 방식
 
-`TurboismInstaller-<version>.exe`를 실행하고 설치 마법사에서 설치 경로, 플러그인 및 실행 옵션을 선택하세요. 설치 후에는 생성된 Turboism 바로 가기를 사용하세요.
+`TurboismInstaller-<version>.exe`를 실행하고 설치 마법사에서 설치 경로, 플러그인 및 실행 옵션을 선택하세요. 환영 페이지 전에 언어 선택(영어, 중국어 간체, 일본어, 한국어)이 먼저 표시되며, 설치 프로그램에만 적용됩니다. 설치 후에는 생성된 Turboism 바로 가기를 사용하세요.
 
 Cubism 공식 실행 BAT와의 통합은 **선택 사항**이며 명시적으로 선택해야 합니다. 해시 검증을 적용한 백업을 사용하지만, 나중에 파일을 직접 수정하면 자동 복원이 불가능할 수 있습니다. 이러한 설치 프로그램 관리 백업과 별도로 프로젝트 백업을 보관하세요.
 

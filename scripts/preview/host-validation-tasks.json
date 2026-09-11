@@ -114,7 +114,13 @@
         "ja": ["{version}", "{runLabel}", "--locale", "ja"],
         "ko": ["{version}", "{runLabel}", "--locale", "ko"],
         "zh-Hans": ["{version}", "{runLabel}", "--locale", "zh-Hans"],
-        "zh-Hant": ["{version}", "{runLabel}", "--locale", "zh-Hant"]
+        "zh-Hant": ["{version}", "{runLabel}", "--locale", "zh-Hant"],
+        "environment-ja": [
+          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "ja"
+        ],
+        "environment-en": [
+          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "en"
+        ]
       },
       "resources": {"host-slot": 1}
     },

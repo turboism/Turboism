@@ -1,0 +1,82 @@
+Turboism __VERSION__ Windows 설치 패키지 안내
+=============================================
+
+Turboism은 Live2D Cubism Editor에 향상된 기능을 제공하는 Java agent 런타임입니다.
+기본적으로 Turboism 자체 바로 가기를 사용합니다. NSIS 설치 프로그램은 사용자가
+명시적으로 선택한 경우에만 선택한 Cubism 공식 시작 BAT를 백업하고 수정하여 기존
+바로 가기에서 Turboism을 로드하도록 합니다. 이 작업은 해시로 보호되며 멱등하게
+업그레이드되고 제거 시 복원됩니다.
+
+1. 디렉터리 구조
+----------------
+  turboism-agent.jar             런타임(Java agent)
+  config.json                    런타임 설정(turboism.runtime.config v1)
+  cubism-installations.json      Turboism 자체 관리형 설치 상태
+  configure_turboism.ps1         WinForms 플러그인 및 Cubism 구성 도구
+  launch-cubism-turboism.bat     관리형 시작 진입점
+  launch-cubism-turboism.ps1     PowerShell 시작 구현
+  cubism-launch-common.ps1       공유 매니페스트/시작 도우미 코드
+  plugins/                       플러그인 jar(full 패키지에만 존재, lite 패키지에는 없음)
+  README.txt / README.zh.txt / README.ja.txt / README.ko.txt / LICENSE.txt
+
+2. 사용 방법
+------------
+1. 전체 디렉터리를 임의의 위치(예: %LOCALAPPDATA%\Turboism)에 둡니다.
+2. configure_turboism.ps1을 실행합니다. 이 스크립트는 CUBISM_ROOT, Windows 설치
+   기록, 알려진 프로그램 디렉터리, 그리고 범위가 제한된 고정 디스크 검색을 통해
+   표준 Cubism 5.2/5.3 계열 후보(패치 접미사가 붙은 디렉터리 이름 포함)를 찾습니다.
+   폴더 선택기로 디렉터리를 추가할 수도 있습니다. 공식 CubismEditor5.bat, 내장
+   Java 런처 및 예상 애플리케이션 JAR 구조를 모두 포함한 루트만 선택할 수 있습니다.
+   계열 후보는 정확한 패치 버전의 증명이 아니며, 런타임 신원/허용 여부는 계속
+   fail-closed로 동작합니다.
+3. 관리할 설치와 플러그인을 선택한 후 저장을 클릭합니다. 새로 발견된 지원
+   설치는 기본적으로 선택되며 이후에는 사용자의 선택이 유지됩니다. 잘못되었거나
+   지원되지 않는 항목은 표시되고 제거할 수 있습니다. 설치를 0개로 저장해도 유효한
+   framework-only 설치이며 모호한 시작 진입점을 만들지 않습니다. NSIS 설치가
+   끝나면 구성 도구가 자동으로 열리며, 취소해도 프레임워크 설치는 막지 않습니다.
+4. 구성 도구는 선택한 각 루트에 대해 버전과 경로 신원이 포함된 시작 메뉴 항목을
+   만들고, 공식 D3D BAT가 있으면 별도의 - D3D 항목도 만듭니다. 설치가 여러 개인
+   경우 공용 런처가 선택기를 표시하며 첫 번째 버전을 조용히 실행하지 않습니다.
+5. 명령줄에서 정규 루트를 명시적으로 지정할 수 있습니다:
+       launch-cubism-turboism.bat -CubismRoot "%ProgramFiles%\Live2D\Cubism 5.3.02"
+   관리형 런처는 선택한 설치의 공식 CubismEditor5.bat(또는 별도 D3D BAT)을
+   호출하고, 현재 프로세스의 Turboism JVM 옵션만 주입하며, 종료 후 호출자의
+   환경을 복원합니다. 기존의 비-Turboism JVM 옵션은 유지됩니다.
+6. 런처가 이 디렉터리에 없을 때만 TURBOISM_HOME을 설정하면 됩니다. 플러그인
+   선택은 config.json에, 설치 선택은 cubism-installations.json에 별도로 저장됩니다.
+
+3. config.json
+--------------
+  worktreeId:       "turboism-runtime"
+  pluginDirs:       ["plugins"]
+  disabledPlugins:  사용하지 않도록 설정된 플러그인 id 목록(선택 해제된 플러그인,
+                    오름차순, 선택 필드)
+
+config.json은 모든 페이로드 업데이트 전에 검증됩니다. 설치 프로그램은 현재
+선택 결과에 따라 disabledPlugins만 수정하며 다른 유효한 설정은 그대로 둡니다.
+선택이 변경되지 않으면 원본 바이트도 변경되지 않습니다. 인식 가능한 이전
+스키마는 마이그레이션되어 v1에 따라 완전히 검증되며, 잘못되었거나 알 수 없거나
+미래의 스키마는 페이로드가 변경되기 전에 설치를 중단합니다.
+
+4. 제거
+-------
+- NSIS 설치 프로그램(TurboismInstaller-<ver>.exe)으로 설치한 경우: Turboism home
+  디렉터리의 uninstall.exe를 실행합니다. Turboism이 기록한 관리형 바로 가기/상태와
+  자체 파일만 정리합니다. 제거 확인 페이지에는 "config.json(사용자 설정) 유지"
+  확인란이 있으며 기본적으로 선택되어 있습니다. 선택을 해제하면 config.json이
+  삭제됩니다.
+- ZIP 수동 설치 패키지에는 제거 프로그램이 없고 공식 BAT 통합도 활성화하지
+  않습니다. Cubism을 종료한 후 Turboism 디렉터리를 삭제하세요.
+
+5. 자주 묻는 질문
+-----------------
+- 선택할 수 있는 설치가 없습니다: 5.2/5.3 계열 루트에 CubismEditor5.bat,
+  app\jre\bin\java.exe, app\lib\Live2D_Cubism.jar가 있는지 확인하세요. 정확한
+  패치 버전은 여전히 런타임 신원 검사로 결정됩니다.
+- 버전이 여러 개 표시됩니다: 해당 시작 메뉴 항목을 사용하거나 -CubismRoot를
+  명시적으로 지정하세요. Turboism은 첫 번째 결과를 조용히 선택하지 않습니다.
+- bat을 두 번 클릭해도 창이 바로 닫힙니다: 명령줄에서
+  launch-cubism-turboism.ps1을 실행하여 현지화된 오류를 확인하세요.
+- 플러그인이 동작하지 않습니다: 플러그인 jar가 plugins/ 아래에 있고 config.json의
+  disabledPlugins에 해당 플러그인 id가 없는지 확인하세요.
+- 로그 위치: <Turboism home>\logs\runtime\YYYY-MM-DD\turboism-*.log

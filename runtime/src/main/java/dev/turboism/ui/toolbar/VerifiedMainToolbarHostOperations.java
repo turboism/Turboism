@@ -5,11 +5,9 @@ import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 
 import javax.swing.Icon;
-import javax.swing.ImageIcon;
 import javax.swing.JSeparator;
 import javax.swing.SwingUtilities;
 import java.lang.reflect.InvocationTargetException;
-import java.net.URL;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -218,9 +216,7 @@ public final class VerifiedMainToolbarHostOperations implements MainToolbarHostO
     }
 
     private Icon icon(final String pluginId, final String path) {
-        final URL resource = resources.resource(pluginId, path)
-            .orElseThrow(() -> new IllegalStateException("main-toolbar icon resource is unavailable"));
-        return new ImageIcon(resource);
+        return ToolbarIconLoader.load(resources, pluginId, path);
     }
 
     private Object kotlinUnit() {

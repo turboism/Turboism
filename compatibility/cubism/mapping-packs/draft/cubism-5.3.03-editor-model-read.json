@@ -14478,6 +14478,33 @@
       }
     },
     {
+      "semanticName": "cubism.mapping.v5_3_03.texture_atlas.native_item_scale",
+      "kind": "method",
+      "owner": "texture-atlas-authoring",
+      "name": "cubism.texture-atlas.native.item.scale",
+      "runtime": "c",
+      "profile": "cubism-5.3.03",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-5.3.03-classfile-observation-and-semantic-remap",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/a/b",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "descriptor": "()D",
+      "intermediary": "",
+      "x.review": {
+        "recordAlias": "cubism.texture-atlas.native.item.scale",
+        "recordMappingId": "cubism.mapping.v5_3_03.texture_atlas.native_item_scale",
+        "exactArtifactSha256": "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
+        "provenance": "5.3.02 600-selector record/pack + staged 5.3.03 57-selector record + normalized bytecode/remap audit + exact 5.3.03 classfile verification"
+      }
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_03.texture_atlas.native_item_model_rect",
       "kind": "method",
       "owner": "texture-atlas-authoring",

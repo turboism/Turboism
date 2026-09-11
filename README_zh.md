@@ -30,6 +30,8 @@ Java 安装器也能在 macOS 和 Linux 上部署文件，但 macOS 打包仅处
 
 从[最新 GitHub Release](https://github.com/turboism/Turboism/releases/latest)下载发行包及对应的 `.sha256` 文件。下列三种安装方式**任选一种**即可。安装或更新前，请关闭 Cubism 并备份工程。
 
+所有 Turboism 安装器均提供**英语、简体中文、日语和韩语**界面。选择语言只影响安装器自身界面，Turboism 运行时的语言仍由 `config.json` 的 `locale` 决定。
+
 当前安装器尚未签名，运行前请将下载文件的 SHA-256 与对应校验文件中的值进行比对。例如在 PowerShell 中执行（将 `<version>` 替换为下载的版本号）：
 
 ```powershell
@@ -57,11 +59,11 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 java -jar "TurboismInstaller-<version>.jar"
 ```
 
-阅读并完成许可和声明确认，选择安装目录与组件选项，然后完成安装。在 Windows 上，如有需要，可运行安装目录中的 `configure_turboism.ps1` 配置 Cubism，再通过 Turboism 启动。能在 macOS/Linux 上安装文件，不代表支持在这些平台上运行 Cubism 宿主。
+阅读并完成许可和声明确认，选择安装目录与组件选项，然后完成安装。向导启动时会先弹出四种语言的语言选择对话框；传入 `-language eng|chn|jpn|kor` 可预选语言并跳过该对话框。在 Windows 上，如有需要，可运行安装目录中的 `configure_turboism.ps1` 配置 Cubism，再通过 Turboism 启动。能在 macOS/Linux 上安装文件，不代表支持在这些平台上运行 Cubism 宿主。
 
 ### EXE — Windows 推荐方式
 
-运行 `TurboismInstaller-<version>.exe`，按照安装向导选择安装目录、插件和启动选项。安装后使用生成的 Turboism 快捷方式启动。
+运行 `TurboismInstaller-<version>.exe`，按照安装向导选择安装目录、插件和启动选项。向导在欢迎页之前会先弹出语言选择框（英语、简体中文、日语、韩语），仅作用于安装器界面。安装后使用生成的 Turboism 快捷方式启动。
 
 与 Cubism 官方启动 BAT 的集成是**可选项**，必须明确勾选。该集成使用带哈希校验的备份；之后的手动修改可能导致无法自动恢复。请勿将这些安装器管理的备份当作工程备份。
 

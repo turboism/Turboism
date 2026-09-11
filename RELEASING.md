@@ -1,41 +1,148 @@
 # Releasing Turboism
 
-## Product release: build first, tag only on promotion
+## One product identity, three channels
 
-Do **not** push an official version tag to start a build. Choose the next version once in `gradle/common-java.gradle.kts` and prepare its dated `CHANGELOG.md` section, then merge the intended source to `main` through normal review.
+The product uses one global `buildNumber` sequence and one source-bound build
+workflow, `release.yml`, for `stable`, `beta`, and `nightly`. Version, channel,
+number, source SHA and run attempt are fixed **before** packaging. Publishing and
+R2 synchronization never rebuild, relabel, or allocate another number.
 
-### 1. Build a candidate (no publication)
+| Channel | Version | Trigger | Publication |
+| --- | --- | --- | --- |
+| stable | committed `X.Y.Z` | explicit candidate request | protected, explicit promotion |
+| beta | committed base plus `-beta.N`, `-rc.N` or `-alpha.N` | explicit candidate request with version | protected, explicit prerelease promotion |
+| nightly | `X.Y.Z-0.nightly.BUILD` | daily **04:20 Asia/Shanghai**, or manual request | automatic after every release gate passes |
+
+The UTC schedule is `20 20 * * *`; GitHub scheduling is best effort, not an exact
+start-time guarantee. Nightly compares its fixed main SHA with the **last fully
+published, verified Nightly**. Unchanged source is skipped before number
+allocation. Drafts and failed runs never advance the success baseline. An older
+queued source cannot replace a newer published source. First use builds if no
+Nightly exists. A released stable base moves the Nightly base to at least its next
+patch, without changing the committed product version or consuming stable versions.
+
+### Local development and identity inspection
+
+A local build is not a fourth update channel: it has a selected target channel,
+but defaults to `buildKind=local` and no official number. It never contacts the
+update service to guess its own identity, and never increments the ledger.
 
 ```bash
-SOURCE_SHA=$(git rev-parse main)
-gh workflow run release.yml --ref main -f expected_source_sha="$SOURCE_SHA"
+# Print resolved settings without packaging, publication, or number allocation
+./gradlew -q printBuildInfo
+./gradlew -q printBuildInfo -PturboismChannel=beta -PturboismVersion=0.43.10-beta.1
+./gradlew -q printBuildInfo -PturboismChannel=nightly
+
+# Build a local development agent (replace ./gradlew with .\gradlew.bat on Windows)
+./gradlew :bootstrap:jar -PturboismChannel=beta -PturboismVersion=0.43.10-beta.1
+
+# The Python wrapper also supports metadata inspection
+python3 scripts/release/product.py inspect --channel nightly
+python3 scripts/release/product.py info --jar /path/to/turboism-agent.jar
 ```
 
-CI refuses a different SHA if main advanced before dispatch. It runs the complete release gate, builds the installer/archives, verifies checksums and retains the candidate artifact. Its token is read-only and has no production secrets. After verification, a disposable **local-only** annotated tag lets the existing candidate serializer record the intended tag; it is never pushed. Candidate completion does not publish automatically.
+Normal local builds carry a `-SNAPSHOT` suffix. With no explicit preview version,
+Beta uses `<base>-beta.local-SNAPSHOT` and Nightly uses
+`<base>-0.nightly.local-SNAPSHOT`. `-PturboismRelease=true` removes SNAPSHOT for
+packaging checks; it does **not** authorize publication or claim an official build.
+Do not manually set `TURBOISM_BUILD_NUMBER`. Public numbers come from the CI ledger.
 
-The candidate identity is **source SHA + workflow run ID + run attempt**. If a candidate fails, fix the source and retry with the **same intended product version**. Do not increment patch versions, create public RC tags or add separate changelog release headings for failed attempts. Keep the pending version's notes accurate across fixes.
+CI supplies `TURBOISM_BUILD_VERSION`, `TURBOISM_BUILD_CHANNEL`,
+`TURBOISM_BUILD_NUMBER`, and `TURBOISM_SOURCE_REVISION` from one allocation.
+Conflicting Gradle overrides, mismatched source, dirty numbered builds, and a
+Nightly suffix different from its number are rejected. All channels use the same
+runtime metadata resource; stale channel information invalidates Gradle inputs.
+The frozen SDK and independent plugin versions are not product build counters.
 
-### 2. Review and explicitly promote the successful candidate
+### Request a source-bound candidate from a local terminal
 
-Find the candidate run and its successful attempt in Actions. Review the eight verified assets and source identity, then dispatch:
+Choose the next stable **base** in `gradle/common-java.gradle.kts`, prepare the
+base's dated `CHANGELOG.md` section and merge the intended source to main. Beta
+release notes use that reviewed base section; Beta's precise prerelease version
+is selected in the workflow input, not by rewriting the stable base for every try.
+Do **not** push a public version tag to trigger a build.
+Reviewed Simplified Chinese and Japanese notes for that base live in
+`release-notes/<version>.json`, bound to the SHA-256 of the trimmed English section.
+A stale `englishSha256` fails promotion instead of reusing old text, and a base
+without that file is published with its English notes only. Nightly notes are
+generated from a frozen published baseline; they take no reviewed file.
 
 ```bash
-gh workflow run release-github-only.yml --ref main \
-  -f candidate_run_id=<completed-actions-run-id> \
-  -f candidate_run_attempt=<successful-attempt-number> \
-  -f source_sha="$SOURCE_SHA" \
-  -f confirmation="publish-github-only:$SOURCE_SHA"
+# Default is a dry run; --submit actually dispatches GitHub Actions.
+python3 scripts/release/product.py candidate --channel stable --submit
+python3 scripts/release/product.py candidate --channel beta --version 0.43.10-beta.1 --submit
+python3 scripts/release/product.py candidate --channel nightly --submit
 ```
 
-The protected `production-release` environment and shared publication concurrency apply. Trusted publisher code is checked out separately from candidate source. Before creating any remote ref, CI revalidates the successful run, repository/workflow/ref/SHA/attempt, source version/changelog, all eight artifact bytes and existing remote identities. It then creates the annotated `vMAJOR.MINOR.PATCH` tag at the **built SHA**, creates/resumes the draft and publishes the same files **without rebuilding**. Main advancing cannot retarget the release.
+The wrapper rejects local uncommitted files or HEAD different from remote main.
+It does not push local changes. A manual Nightly request follows the same
+changed-only check as the schedule and publishes only after a successful build.
+Stable/Beta requests produce candidate artifacts, not public releases.
 
-This path publishes **GitHub only**. It does not update Updates service pointers or independently publish bundled plugins. New manual product candidates are deliberately excluded from automatic coordinated publication.
+Equivalent direct GitHub CLI (Bash/WSL; use PowerShell variable syntax on Windows):
 
-### 3. Retry publication without changing version or bytes
+```bash
+git fetch origin
+SOURCE_SHA=$(git rev-parse origin/main)
+gh workflow run release.yml --repo turboism/Turboism --ref main \
+  -f channel=beta -f version=0.43.10-beta.1 -f expected_source_sha="$SOURCE_SHA"
+```
 
-Use the same promotion command and original candidate attempt after interrupted tag creation/upload. Identical tag/assets resume or become a no-op; conflicting tag targets, lightweight tags, different bytes and incomplete already-published Releases fail closed. Never delete/move a tag or use `--clobber` to force progress. Candidate artifacts expire after seven days: promote/resume while the exact successful attempt is retained; expired evidence is not permission to bypass validation.
+If main changes before dispatch, the SHA check fails rather than building a
+moving target. Global allocation happens only after preflight. The candidate
+identity is source SHA + workflow run ID + attempt; read its `build-identity.json`
+for the actual number. Do not read the latest API number or the current counter
+as if it belonged to this candidate. Re-run **all build jobs including the
+allocator** when rebuilding; publication-only retries retain the original number.
 
-The no-version-consumption guarantee covers **candidate validation failures**. Once publication creates an official tag, that version is bound; a later publication failure must resume that identity rather than allocate another patch version automatically.
+### Explicitly publish Stable or Beta without rebuilding
+
+Review the successful candidate's eight files, receipt and source identity.
+Use the **original** source SHA and successful run attempt, even if main advanced.
+
+```bash
+python3 scripts/release/product.py promote \
+  --run-id <candidate-run-id> --attempt <successful-attempt> \
+  --source <original-source-sha> --submit
+```
+
+The wrapper dispatches `release-github-only.yml` into the existing
+`production-release` environment. Trusted publisher code separately checks the
+exact source, successful run, channel, receipt, all file bytes and remote tag
+identity. It publishes the same checked files without rebuilding. Stable remains
+a final release; Beta is always a prerelease and never GitHub's stable latest.
+The publisher has no channel override: a Beta candidate cannot become Stable by
+unchecking the GitHub prerelease box. A different embedded version requires a
+new candidate and a newly allocated build number.
+
+Retries resume the same immutable draft/tag/assets; never delete/move tags or use
+`--clobber`. Conflicting bytes, a changed receipt or an incomplete already-public
+release fail closed. Candidate artifacts expire after seven days; expiry is not
+permission to skip verification. Failures before publication may reuse the same
+intended product version; once a public tag exists it is bound to its candidate.
+
+### Runtime and update client contract
+
+`META-INF/turboism/framework-version.properties` embeds `version`, `channel`,
+`buildNumber`, `sourceRevision`, `buildKind`, `dirty`, and `displayVersion`.
+`dev.turboism.core.FrameworkBuildInfo.current()` exposes the runtime identity;
+`buildNumber()` is an `OptionalLong`, not a fabricated zero. Startup and About
+read this same generated resource. Older version-only resources remain readable
+with unknown number; missing/corrupt identity is reported as unknown.
+
+The installed artifact's `channel` is distinct from a user's future
+`updateChannel` preference. Changing update preferences does not mutate installed
+identity. Compare the installed identity against the selected feed at
+`https://api.turboism.dev/v1/releases/{stable,beta,nightly}.json`. A later build of
+an older maintenance series must not silently downgrade a newer development line.
+No updater/UI preference migration or automatic replacement of running Cubism files
+is performed by this build-tooling change.
+
+GitHub's published release triggers the existing OIDC notification and verified
+R2 mirror. The completed product workflow also triggers notification because a
+Release created with `GITHUB_TOKEN` does not itself start another ordinary workflow.
+The 15-minute reconciliation remains the fallback. The new pipeline does not read
+or update the legacy Updates service.
 
 ## Legacy coordinated and independent plugin publication
 
@@ -160,3 +267,18 @@ Release notes are always extracted from the exact version section of `CHANGELOG.
 Core release behavior belongs in tracked scripts, tests, and workflows. Do not place release decisions or credentials in `AGENTS.md`, `.claude/`, local specifications, or operator prompts. Optional user-level automation may only invoke this CLI.
 
 The framework workflow never receives the Plugin Directory signing key or Cloudflare credentials. The signing key remains in the Plugin Directory signing environment; Cloudflare credentials remain in the Updates service environment.
+
+## Global build ledger
+
+The reusable `allocate-build.yml` workflow atomically reserves a number in the
+independent `build-ledger` branch using fast-forward-only Git updates. Never merge
+this branch into product source or use a per-workflow `run_number` as the global
+counter. Repeated allocation of the same source/version/run/attempt is idempotent;
+a rebuild attempt is new and failures may leave harmless gaps.
+
+Numbered product JARs and the Java installer carry `Turboism-Version`,
+`Turboism-Channel`, `Turboism-Build-Number`, and `Turboism-Source-Revision`.
+`build-identity.json` stays in the Actions candidate artifact, not a ninth public
+Release asset. Protected promotion checks it against the ledger, JAR manifests,
+and the embedded runtime resource, and publishes the matching machine-readable
+receipt in Release notes. Historical releases keep `buildNumber: null`.
