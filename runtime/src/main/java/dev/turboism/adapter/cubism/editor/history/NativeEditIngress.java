@@ -63,12 +63,28 @@ public final class NativeEditIngress implements AutoCloseable {
         final Object manager,
         final Publisher publisher
     ) {
+        this(resolver, manager, publisher, () -> { });
+    }
+
+    /**
+     * Creates an ingress that also signals when a native change is waiting to be classified.
+     *
+     * @param onNotification enqueue-only signal delivered from inside the host listener loop; it
+     *     must never read the host and never run plugin logic
+     */
+    public NativeEditIngress(
+        final VerifiedMemberResolver resolver,
+        final Object manager,
+        final Publisher publisher,
+        final Runnable onNotification
+    ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.observer = new NativeUndoIngressObserver(
             this.resolver,
             Objects.requireNonNull(manager, "manager"),
-            this::accept
+            this::accept,
+            Objects.requireNonNull(onNotification, "onNotification")
         );
     }
 
