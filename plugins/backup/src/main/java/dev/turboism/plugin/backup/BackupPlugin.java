@@ -35,7 +35,7 @@ import java.util.function.Consumer;
  * and uploads the new backup artifacts through the JDK-only
  * {@link WebDavSyncTarget}; observes model/animation saves and triggers the
  * save-triggered backup through {@link EditorAutoBackupService#backupAfterSave};
- * and exposes the endpoint settings through the {@code Turboism/WebDAV 备份设置}
+ * and exposes the endpoint settings through the {@code Turboism/WebDAV Backup Settings}
  * menu dialog. Configuration comes from {@code backup/webdav.cfg}; credentials
  * are never written to logs.
  */
@@ -43,7 +43,8 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
     static final String OPEN_SETTINGS_ACTION_ID = "backup.webdav.settings.open";
     static final String MENU_ROOT = "Turboism";
-    static final String MENU_LABEL = "WebDAV 备份设置";
+    static final String MENU_LABEL_KEY = "backup.menu.settings-label";
+    static final String MENU_LABEL = "WebDAV Backup Settings";
     static final int MENU_ORDER = 100;
 
     private final WebDavSettingsBinding binding = new WebDavSettingsBinding();
@@ -288,6 +289,15 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         }
     }
 
+    /** Localized label for the Turboism menu entry and its action; English literal as fallback. */
+    private String menuLabel() {
+        final PluginContext active = context;
+        if (active == null || !active.localization().contains(MENU_LABEL_KEY)) {
+            return MENU_LABEL;
+        }
+        return active.localization().text(MENU_LABEL_KEY);
+    }
+
     private void registerMenuAndAction() {
         final Registration action = requireContext().actions().register(
             OPEN_SETTINGS_ACTION_ID,
@@ -299,7 +309,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
 
                 @Override
                 public String label() {
-                    return MENU_LABEL;
+                    return menuLabel();
                 }
 
                 @Override
@@ -313,7 +323,7 @@ public final class BackupPlugin implements TurboismPlugin, ModelFileHooks, Anima
         final Registration menu = requireContext().menus().contribute(new MenuRegistry.MenuContribution() {
             @Override
             public String menuPath() {
-                return MENU_ROOT + "/" + MENU_LABEL;
+                return MENU_ROOT + "/" + menuLabel();
             }
 
             @Override
