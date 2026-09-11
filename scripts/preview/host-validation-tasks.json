@@ -217,7 +217,8 @@
       "variants": {
         "current": ["{version}", "{runLabel}", "current"],
         "new": ["{version}", "{runLabel}", "new"],
-        "safe": ["{version}", "{runLabel}", "safe"]
+        "safe": ["{version}", "{runLabel}", "safe"],
+        "demo": ["{version}", "{runLabel}", "demo"]
       },
       "resources": {"host-slot": 1}
     },

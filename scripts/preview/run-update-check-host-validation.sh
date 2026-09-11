@@ -11,7 +11,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/host-validation-env.sh"
 
 if [ "$#" -lt 1 ]; then
-  echo "usage: run-update-check-host-validation.sh <5203|5302|5303> [run-label] [new|current|safe] [runner-options...]" >&2
+  echo "usage: run-update-check-host-validation.sh <5203|5302|5303> [run-label] [new|current|safe|demo] [runner-options...]" >&2
   exit 2
 fi
 
@@ -37,9 +37,9 @@ case "$version" in
 esac
 
 case "$mode" in
-  new|current|safe) ;;
+  new|current|safe|demo) ;;
   *)
-    echo "update-check validation: mode must be new, current or safe: $mode" >&2
+    echo "update-check validation: mode must be new, current, safe or demo: $mode" >&2
     exit 2
     ;;
 esac
@@ -110,7 +110,26 @@ case "$mode" in
     expected_text='Turboism updates are currently unavailable.'
     expected_build=''
     ;;
+  demo)
+    if require_core_at_least; then
+      echo "update-check validation: mode 'demo' needs a bundle older than $published_version," >&2
+      echo "  but this bundle embeds $installed_version." >&2
+      echo "  Rebuild it first: ./gradlew previewBundle -PturboismVersion=<older>" >&2
+      exit 2
+    fi
+    expected_text="Turboism $published_version (Build $published_build) is available."
+    expected_build="$published_build"
+    ;;
 esac
+
+# The demo session is meant to be looked at and clicked, so it gets a long budget and a long
+# grace period instead of the automated runs' tight timeouts.
+result_timeout=420
+exit_timeout=120
+if [ "$mode" = demo ]; then
+  result_timeout="${TURBOISM_UPDATE_CHECK_DEMO_SECONDS:-1800}"
+  exit_timeout="${TURBOISM_UPDATE_CHECK_DEMO_EXIT_SECONDS:-600}"
+fi
 
 common_args=(
   --name update-check
@@ -130,8 +149,8 @@ common_args=(
   --result-pass-line 'status=PASS'
   --result-fail-line 'status=FAIL'
   --ready-timeout 360
-  --result-timeout 420
-  --exit-timeout 120
+  --result-timeout "$result_timeout"
+  --exit-timeout "$exit_timeout"
   --transport local
 )
 if [ "$mode" = safe ]; then
@@ -140,5 +159,8 @@ fi
 
 printf 'update-check validation: mode=%s installed=%s expected="%s"\n' \
   "$mode" "$installed_version" "$expected_text" >&2
+if [ "$mode" = demo ]; then
+  printf 'update-check validation: demo leaves the editor running for you; close it when done.\n' >&2
+fi
 
 exec bash "$runner" "${common_args[@]}" "$@"
