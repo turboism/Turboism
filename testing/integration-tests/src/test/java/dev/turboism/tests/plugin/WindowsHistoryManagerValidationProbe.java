@@ -32,6 +32,17 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
      * make a uniform translation look non-uniform.</p>
      */
     static final int MAX_GEOMETRY_POINTS = 4096;
+
+    /**
+     * Upper bound on the geometry summaries one sample may carry.
+     *
+     * <p>A summary is projected for every form a sample walks and the artifact bound is a reviewed
+     * contract number, so an unbudgeted sampler could spend the whole bound on one snapshot and
+     * fail the run instead of producing evidence. Once the budget is gone the detail reports
+     * {@code OMITTED}. The budget is spent from the newest entry backwards, because that is the
+     * entry the operator has just created.</p>
+     */
+    static final int MAX_GEOMETRY_SUMMARIES = 24;
     static final int MAX_DETAIL_STRING = 256;
     static final long MAX_EVIDENCE_BYTES = 2L * 1024L * 1024L;
 
@@ -143,6 +154,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         }
         if (linkedManager != null) requireSameLoader(appClass, linkedManager.getClass());
 
+        // One geometry budget per sample, shared by the four manager snapshots.
+        final int[] geometryBudget = {MAX_GEOMETRY_SUMMARIES};
         return new Snapshot(
             Instant.now().toString(),
             Thread.currentThread().getName(),
@@ -151,10 +164,10 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             identity(document),
             currentMode == null ? "null" : currentMode.getClass().getName(),
             identity(currentMode),
-            manager("DOCUMENT", documentManager),
-            manager("CURRENT", currentManager),
-            manager("MAIN", mainManager),
-            manager("LINKED", linkedManager),
+            manager("DOCUMENT", documentManager, geometryBudget),
+            manager("CURRENT", currentManager, geometryBudget),
+            manager("MAIN", mainManager, geometryBudget),
+            manager("LINKED", linkedManager, geometryBudget),
             sdkHistory(context)
         );
     }
@@ -240,20 +253,28 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         return value.map(item -> "\"" + json(item) + "\"").orElse("null");
     }
 
-    private static ManagerSnapshot manager(final String name, final Object manager) throws Exception {
+    private static ManagerSnapshot manager(
+        final String name,
+        final Object manager,
+        final int[] geometryBudget
+    ) throws Exception {
         if (manager == null) return new ManagerSnapshot(name, "null", -1, false, false, 0, List.of());
         final List<?> raw = (List<?>) invoke(manager, "getUndoList");
         final int count = Math.min(raw.size(), MAX_ENTRIES);
         final List<Entry> entries = new ArrayList<>(count);
-        for (int index = 0; index < count; index++) {
+        // Newest first, so the sample's geometry budget reaches the entry the operator has just
+        // created rather than the oldest one in the list. The list is put back into index order
+        // before it is returned, so the artifact keeps its existing ordering.
+        for (int index = count - 1; index >= 0; index--) {
             final Object entry = raw.get(index);
             entries.add(new Entry(
                 index,
                 boundedLabel(invoke(entry, "getPresentationName")),
                 (Boolean) invoke(entry, "isSignificant"),
-                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0})
+                nativeDetail(entry, 0, new java.util.IdentityHashMap<>(), new int[] {0}, geometryBudget)
             ));
         }
+        java.util.Collections.reverse(entries);
         return new ManagerSnapshot(
             name,
             identity(manager),
@@ -290,7 +311,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final Object entry,
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
-        final int[] nodes
+        final int[] nodes,
+        final int[] geometryBudget
     ) {
         final String className = entry.getClass().getName();
         if (depth > MAX_DETAIL_DEPTH || nodes[0] >= MAX_DETAIL_NODES || visited.put(entry, Boolean.TRUE) != null) {
@@ -299,9 +321,10 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         nodes[0]++;
         try {
             return switch (className) {
-                case "com.live2d.undo.GroupUndo" -> groupDetail(entry, className, depth, visited, nodes);
+                case "com.live2d.undo.GroupUndo" ->
+                    groupDetail(entry, className, depth, visited, nodes, geometryBudget);
                 case "com.live2d.undo.PropertyUndo" -> propertyDetail(entry, className);
-                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className);
+                case "com.live2d.undo.SimpleUndo" -> simpleDetail(entry, className, geometryBudget);
                 case "com.live2d.undo.ListUndo" -> listDetail(entry, className);
                 case "com.live2d.cubism.doc.model.ModelHandler$Undo_AddOrRemove_Parameter_" ->
                     addRemoveDetail(entry, className, "getChildItem");
@@ -323,7 +346,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final String className,
         final int depth,
         final java.util.IdentityHashMap<Object, Boolean> visited,
-        final int[] nodes
+        final int[] nodes,
+        final int[] geometryBudget
     ) throws Exception {
         final List<?> children = (List<?>) invoke(entry, "getEditList");
         final int observed = (Integer) invoke(entry, "getEditCount");
@@ -331,7 +355,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         final ArrayList<NativeDetail> childDetails = new ArrayList<>();
         final int count = Math.min(children.size(), MAX_DETAIL_NODES - nodes[0]);
         for (int index = 0; index < count; index++) {
-            final NativeDetail child = nativeDetail(children.get(index), depth + 1, visited, nodes);
+            final NativeDetail child =
+                nativeDetail(children.get(index), depth + 1, visited, nodes, geometryBudget);
             childClasses.add(child.entryClass());
             childDetails.add(child);
         }
@@ -376,7 +401,11 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
         );
     }
 
-    private static NativeDetail simpleDetail(final Object entry, final String className) throws Exception {
+    private static NativeDetail simpleDetail(
+        final Object entry,
+        final String className,
+        final int[] geometryBudget
+    ) throws Exception {
         final Object target = invoke(entry, "getTargetData");
         final Object undo = invoke(entry, "getUndoData");
         final Object redo = invoke(entry, "getRedoData");
@@ -384,8 +413,26 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
             "SIMPLE", className, target == null ? "" : target.getClass().getName(),
             "", "", "", "", -1, 0, List.of(), List.of(), undo != null, redo != null,
             redo == null ? "history.detail.post-state-unavailable" : "history.detail.native-object-state-opaque",
-            geometryDelta(undo, redo)
+            budgetedGeometry(geometryBudget, undo, redo)
         );
+    }
+
+    /**
+     * Spends one geometry summary from the sample's budget.
+     *
+     * <p>A summary is attached to every projected form, so an unbudgeted sampler could exhaust the
+     * artifact bound and fail the run instead of producing evidence. A detail the budget did not
+     * reach reports {@code OMITTED}, which is explicitly not {@code NONE}: {@code NONE} means the
+     * detail carried no form positions at all.</p>
+     */
+    static GeometryDelta budgetedGeometry(
+        final int[] budget,
+        final Object undo,
+        final Object redo
+    ) throws Exception {
+        if (budget == null || budget[0] <= 0) return GeometryDelta.omitted();
+        budget[0]--;
+        return geometryDelta(undo, redo);
     }
 
     /**
@@ -632,7 +679,8 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
      * how much on average, and how far the worst point departed from that average. It never carries
      * vertex coordinates.</p>
      *
-     * @param family         {@code NONE} when no form positions were readable
+     * @param family         {@code NONE} when no form positions were readable, {@code OMITTED} when
+     *                       the sample's summary budget was spent before this detail
      * @param pointCount     the number of points summarised
      * @param changed        whether any point moved
      * @param translationX   the mean x displacement
@@ -656,6 +704,11 @@ public final class WindowsHistoryManagerValidationProbe implements CubismPlugin 
 
         static GeometryDelta degraded(final String code) {
             return new GeometryDelta("DEGRADED", 0, false, "", "", "", code);
+        }
+
+        /** A summary the sample's budget did not reach; unlike {@code NONE}, a form was there. */
+        static GeometryDelta omitted() {
+            return new GeometryDelta("OMITTED", 0, false, "", "", "", "");
         }
 
         static GeometryDelta summary(
