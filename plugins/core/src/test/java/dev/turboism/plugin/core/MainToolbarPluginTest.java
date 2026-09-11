@@ -317,7 +317,7 @@ class MainToolbarPluginTest {
         final RecordedHint hint = context.uiHost().lastCanvasHint();
         assertNotNull(hint, "an available update must issue a canvas hint");
         assertEquals("turboism-update-available", hint.notification.id());
-        assertTrue(hint.notification.message().contains("0.43.10 (Build 5)"));
+        assertEquals("Turboism update available", hint.notification.message());
         assertTrue(hint.notification.onClick().isPresent(), "the hint must be clickable");
         assertEquals(
             dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED,
@@ -432,7 +432,8 @@ class MainToolbarPluginTest {
         assertTrue(first.closed, "the previous build's message must not stay on screen");
         final RecordedHint second = context.uiHost().lastCanvasHint();
         assertNotNull(second);
-        assertTrue(second.notification.message().contains("0.43.11 (Build 6)"));
+        assertTrue(second != first, "a newer build must present a fresh hint, not reuse the old one");
+        assertFalse(second.closed);
         assertEquals(2, context.uiHost().canvasHints.size());
     }
 
@@ -582,7 +583,8 @@ class MainToolbarPluginTest {
             true
         ));
         assertEquals(2, context.uiHost().canvasHints.size());
-        assertTrue(context.uiHost().lastCanvasHint().notification.message().contains("0.43.12 (Build 8)"));
+        assertTrue(context.uiHost().lastCanvasHint() != dismissed,
+            "a newer build must present a fresh hint");
     }
 
     @Test
