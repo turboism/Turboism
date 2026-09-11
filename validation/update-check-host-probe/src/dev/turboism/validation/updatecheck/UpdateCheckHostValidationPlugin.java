@@ -3,66 +3,66 @@ package dev.turboism.validation.updatecheck;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.CanvasHintHandle;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 
 import javax.swing.JButton;
-import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
 import java.awt.Window;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 /**
  * Task-local exerciser for the stable update checker on an exact Cubism host.
  *
- * <p>This probe never replaces the production endpoint and never injects a fake
- * transport. It lets the real runtime perform its real request against the real
- * release API, then records two independent kinds of evidence:</p>
+ * <p>This probe never replaces the production endpoint and never injects a fake transport. It lets
+ * the real runtime perform its real request against the real release API, then records what the
+ * production code actually did:</p>
  *
- * <ol>
- *   <li>the decision the production service actually committed, read back from
- *       the {@code update-state.json} that the production store wrote;</li>
- *   <li>what the user would actually see, read from the live Swing component
- *       tree of the running host rather than asked of an API.</li>
- * </ol>
+ * <ul>
+ *   <li>the decision the checker committed, read back from the {@code update-state.json} that the
+ *       production store itself wrote;</li>
+ *   <li>that the runtime log carries the core plugin's decision to present an offered update in the
+ *       host's native drawing-area hint;</li>
+ *   <li>that this host's native hint surface accepts hints at all, established by driving the same
+ *       SDK entry point with a probe-owned key;</li>
+ *   <li>that nothing was pushed into the docked panel.</li>
+ * </ul>
  *
- * <p>The validation wrapper pins the runtime locale to {@code en}, so the
- * expected rendered strings are exact rather than fuzzy matches.</p>
+ * <p>A native canvas hint is drawn by the host and is not an AWT component, so no Swing walk can
+ * read it. This probe therefore does not claim to have read the hint's pixels: it separates "the
+ * host cannot present hints" from "core had nothing to present", and the {@code demo} mode is how a
+ * human confirms the rendering.</p>
  *
- * <p>It only uses the public SDK and plain JDK AWT/Swing. It never imports or
- * reflects {@code com.live2d.*} types, opens a browser, mutates a document, or
- * writes outside its own state directory.</p>
+ * <p>It only uses the public SDK and plain JDK AWT/Swing. It never imports or reflects
+ * {@code com.live2d.*} types, opens a browser, mutates a document, or writes outside its own state
+ * directory.</p>
  */
 public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
 
     private static final String RESULT = "update-check-result.txt";
     private static final String MODE_PROPERTY = "turboism.validation.updateCheck.mode";
-    private static final String EXPECT_TEXT_PROPERTY = "turboism.validation.updateCheck.expectText";
     private static final String EXPECT_BUILD_PROPERTY = "turboism.validation.updateCheck.expectBuild";
 
-    /** Rendered panel control ids owned by the production core plugin, by {@code Component#getName()}. */
-    private static final String CHECK_BUTTON_NAME = "turboism-update-check";
-    private static final String DOWNLOAD_BUTTON_NAME = "turboism-update-download";
+    /** Probe-owned hint key, so the probe's own hint can never collide with the production hint. */
+    private static final String HINT_PROBE_ID = "update-check-validation-probe";
 
-    /**
-     * Every localized update-available message quotes the advertised identity, which always carries
-     * this marker. Matching it keeps the "no false reminder" assertion locale-independent.
-     */
-    private static final String ADVERTISED_MARKER = "(Build ";
+    /** Panel control ids the production update presentation must never contribute. */
+    private static final String UPDATE_CONTROL_PREFIX = "turboism-update";
 
-    /**
-     * The panel renders long panel text through Swing HTML and the status region prefixes the
-     * severity, so rendered labels are never byte-identical to the catalog string. Assertions match
-     * by containment of the message and count instances rather than requiring equality.
-     */
+    private static final String UPDATE_STATE_FILE = "update-state.json";
+    private static final String CORE_HINT_SENT_MARKER = "UPDATE_HINT_SENT";
 
     /** Human-inspection session: records what is on screen, then leaves the host running. */
     private static final String DEMO_MODE = "demo";
-
-    private static final String UPDATE_STATE_FILE = "update-state.json";
 
     private static final long HOST_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long DECISION_TIMEOUT_MILLIS = 90_000L;
@@ -104,7 +104,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
     }
 
     private void runWhenHostReady() {
-        final java.util.Optional<String> hostVersion = awaitVerifiedHost();
+        final Optional<String> hostVersion = awaitVerifiedHost();
         if (hostVersion.isEmpty()) {
             fail("readiness", "active-runtime-report-or-model-not-present");
             return;
@@ -119,7 +119,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         try {
             switch (mode()) {
                 case "new" -> assertUpdateOffered(failures, observations);
-                case "current" -> assertUpToDateIsQuietThenManual(failures, observations);
+                case "current" -> assertQuietAndUnchanged(failures, observations);
                 case "safe" -> assertSafeModeNeverRequests(failures, observations);
                 case DEMO_MODE -> observeForHumanInspection(observations);
                 default -> failures.add("unsupported mode: " + mode());
@@ -139,7 +139,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         }
         if (DEMO_MODE.equals(mode())) {
             // The window is the artifact here. Park without exiting so the operator can inspect and
-            // click; the runner's own exit timeout owns cleanup.
+            // click; the runner's exit timeout owns cleanup.
             logger.info("UPDATE_CHECK_EXERCISER_DEMO_HANDOFF"
                 + " the editor is intentionally left running for human inspection");
             park();
@@ -149,88 +149,54 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         Runtime.getRuntime().exit(pass ? 0 : 2);
     }
 
-    /**
-     * Records what the operator will be looking at, then hands the host over. Unlike the automated
-     * modes this asserts nothing: a human is the assertion, so a missing reminder is recorded rather
-     * than failed, and the result is explicitly marked as a handoff rather than as evidence.
-     */
-    private void observeForHumanInspection(final List<String> observations) {
-        final String expected = expectedText();
-        final String advertised = expected.isEmpty()
-            ? null
-            : awaitLabelContaining(expected, DECISION_TIMEOUT_MILLIS);
-        observations.add("expectedReminderPresent=" + (advertised != null));
-        if (advertised != null) {
-            observations.add("renderedReminder=" + advertised);
-        } else {
-            observations.add("renderedLabels=" + String.join(" | ", labelTexts()));
-        }
-        final String state = normalized(readUpdateState());
-        observations.add("committedUpdateState=" + summarize(readUpdateState()));
-        if (state != null) {
-            observations.add("committedReady=" + state.contains("\"status\":\"ready\""));
-        }
-        recordPanelControls(observations);
-    }
-
-    /** Holds this thread while the editor stays available to a human operator. */
-    private void park() {
-        while (true) {
-            sleep(SETTLE_STEP_MILLIS);
-        }
-    }
-
     private void fail(final String phase, final String detail) {
         writeResult(false, List.of(phase + ": " + detail), List.of());
         logger.warn("UPDATE_CHECK_EXERCISER_RESULT status=FAIL phase=" + phase + " detail=" + detail);
         Runtime.getRuntime().halt(2);
     }
 
-    // ---------------------------------------------------------------- modes
+    // ------------------------------------------------------------------ modes
 
     /**
      * The installed bundle is deliberately older than the published stable build, so the real
-     * request must resolve to an update and render the reminder without any probe-driven action.
+     * request must resolve to an update and core must present it in the native drawing-area hint.
      */
     private void assertUpdateOffered(final List<String> failures, final List<String> observations) {
-        final String expectedText = expectedText();
         final String expectedBuild = System.getProperty(EXPECT_BUILD_PROPERTY, "");
-
-        final String rendered = awaitLabelContaining(expectedText, DECISION_TIMEOUT_MILLIS);
-        if (rendered == null) {
-            failures.add("no rendered update reminder containing '" + expectedText + "' appeared within "
-                + DECISION_TIMEOUT_MILLIS + "ms");
-        } else {
-            observations.add("renderedReminder=" + rendered);
-            if (!expectedBuild.isEmpty() && !rendered.contains(ADVERTISED_MARKER + expectedBuild + ")")) {
-                failures.add("rendered reminder omits build " + expectedBuild + ": " + rendered);
-            }
-        }
 
         final String state = normalized(readUpdateState());
         if (state == null) {
             failures.add("the runtime committed no " + UPDATE_STATE_FILE + " after a ready check");
-            return;
+        } else {
+            observations.add("committedUpdateState=" + summarize(readUpdateState()));
+            if (!state.contains("\"status\":\"ready\"")) {
+                failures.add("committed update state is not a ready document");
+            }
+            if (!expectedBuild.isEmpty() && !state.contains("\"buildNumber\":" + expectedBuild)) {
+                failures.add("committed update state does not carry buildNumber " + expectedBuild);
+            }
         }
-        observations.add("committedUpdateState=" + summarize(readUpdateState()));
-        if (!state.contains("\"status\":\"ready\"")) {
-            failures.add("committed update state is not a ready document");
+
+        observations.add("nativeHintSurfaceAccepted=" + nativeHintSurfaceAcceptsHints());
+
+        final String hint = awaitCoreHintSent(DECISION_TIMEOUT_MILLIS);
+        if (hint == null) {
+            failures.add("core never reported presenting the offered update as a canvas hint");
+        } else {
+            observations.add("coreHintSent=" + hint);
+            if (!hint.contains("Build " + expectedBuild + ")")) {
+                failures.add("the presented hint does not name build " + expectedBuild + ": " + hint);
+            }
         }
-        if (!expectedBuild.isEmpty() && !state.contains("\"buildNumber\":" + expectedBuild)) {
-            failures.add("committed update state does not carry buildNumber " + expectedBuild);
-        }
-        recordPanelControls(observations);
+
+        assertNoUpdatePanel(failures, observations);
     }
 
     /**
      * The installed bundle matches the published stable version and carries no build number, so the
-     * automatic check must commit a ready decision and stay quiet; a manual check must then render a
-     * new result.
+     * automatic check must commit a ready decision and must not claim an update.
      */
-    private void assertUpToDateIsQuietThenManual(
-        final List<String> failures,
-        final List<String> observations
-    ) {
+    private void assertQuietAndUnchanged(final List<String> failures, final List<String> observations) {
         final String state = normalized(awaitCommittedUpdateState(DECISION_TIMEOUT_MILLIS));
         if (state == null) {
             failures.add("the automatic check never committed " + UPDATE_STATE_FILE);
@@ -240,9 +206,8 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
                 failures.add("committed update state is not a ready document");
             }
         }
-
-        assertNoFalseReminder(failures, observations);
-        assertManualCheckRenders(failures, observations);
+        assertNoUpdateHint(failures, observations);
+        assertNoUpdatePanel(failures, observations);
     }
 
     /** Safe mode forbids networking, so the checker must never commit a request result. */
@@ -257,59 +222,63 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         } else {
             observations.add("noUpdateStateWritten=true");
         }
-
-        assertNoFalseReminder(failures, observations);
-        assertManualCheckRenders(failures, observations);
+        assertNoUpdateHint(failures, observations);
+        assertNoUpdatePanel(failures, observations);
     }
 
-    private void assertNoFalseReminder(final List<String> failures, final List<String> observations) {
-        final String falselyOffered = awaitLabelContaining(ADVERTISED_MARKER, QUIET_WINDOW_MILLIS);
-        if (falselyOffered != null) {
-            failures.add("a non-update installation was falsely told an update exists: "
-                + falselyOffered);
+    /** No update was offered, so core must not have presented one. */
+    private void assertNoUpdateHint(final List<String> failures, final List<String> observations) {
+        final String hint = awaitCoreHintSent(QUIET_WINDOW_MILLIS);
+        if (hint != null) {
+            failures.add("a non-update was presented as an available update: " + hint);
         } else {
-            observations.add("noFalseReminder=true");
+            observations.add("noUpdateHintPresented=true");
         }
+    }
+
+    /** The update presentation belongs in the native hint, never in the docked panel. */
+    private void assertNoUpdatePanel(final List<String> failures, final List<String> observations) {
+        final List<String> names = buttonNames();
+        observations.add("panelControls=" + String.join(",", names));
+        for (final String name : names) {
+            if (name.startsWith(UPDATE_CONTROL_PREFIX)) {
+                failures.add("the update was added to the docked panel as '" + name + "'");
+            }
+        }
+        observations.add("panelUpdateControls=absent");
     }
 
     /**
-     * Exercises the rendered control through the real handler and requires the click to add one
-     * more rendered instance of the expected result text (the status notification), on top of
-     * whatever the panel already shows.
+     * Records what the operator will be looking at, then hands the host over. Unlike the automated
+     * modes this asserts nothing: a human is the assertion, so a missing hint is recorded rather than
+     * failed, and the result is explicitly marked as a handoff rather than as evidence.
      */
-    private void assertManualCheckRenders(final List<String> failures, final List<String> observations) {
-        final String expectedText = expectedText();
-        final JButton check = findButton(CHECK_BUTTON_NAME);
-        if (check == null) {
-            failures.add("the update panel check control is not present in the host window tree");
-            return;
+    private void observeForHumanInspection(final List<String> observations) {
+        final String expectedBuild = System.getProperty(EXPECT_BUILD_PROPERTY, "");
+        observations.add("nativeHintSurfaceAccepted=" + nativeHintSurfaceAcceptsHints());
+        observations.add("committedUpdateState=" + summarize(readUpdateState()));
+        final String state = normalized(readUpdateState());
+        if (state != null) {
+            observations.add("committedReady=" + state.contains("\"status\":\"ready\""));
         }
-        observations.add("panelCheckButton=present");
-        final int before = countLabelsContaining(expectedText);
-        observations.add("labelsMatchingExpectedBeforeClick=" + before);
-
-        final boolean clicked = clickButton(check);
-        observations.add("panelCheckButtonClicked=" + clicked);
-        if (!clicked) {
-            failures.add("the rendered check control could not be clicked on the EDT");
-            return;
-        }
-
-        final long deadline = System.currentTimeMillis() + DECISION_TIMEOUT_MILLIS;
-        while (System.currentTimeMillis() < deadline) {
-            final int after = countLabelsContaining(expectedText);
-            if (after > before) {
-                observations.add("labelsMatchingExpectedAfterClick=" + after);
-                observations.add("renderedManualResult=" + expectedText);
-                return;
-            }
-            sleep(SETTLE_STEP_MILLIS);
-        }
-        failures.add("a manual check rendered no new result containing '" + expectedText
-            + "'; observed labels=" + String.join(" | ", labelTexts()));
+        final String hint = awaitCoreHintSent(DECISION_TIMEOUT_MILLIS);
+        observations.add("coreHintSent=" + (hint == null ? "<none>" : hint));
+        observations.add("expectedBuildNamed="
+            + (hint != null && !expectedBuild.isEmpty() && hint.contains("Build " + expectedBuild + ")")));
+        observations.add("panelUpdateControls="
+            + (buttonNames().stream().anyMatch(name -> name.startsWith(UPDATE_CONTROL_PREFIX))
+                ? "present" : "absent"));
+        observations.add("waitingForHumanInspection=true");
     }
 
-    // ------------------------------------------------------------- readiness
+    /** Holds this thread while the editor stays available to a human operator. */
+    private void park() {
+        while (true) {
+            sleep(SETTLE_STEP_MILLIS);
+        }
+    }
+
+    // -------------------------------------------------------------- readiness
 
     /**
      * Readiness is the runtime's own verified-host report, not a version string: this host reports
@@ -319,12 +288,12 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
      *
      * @return the reported host version for diagnostics, or empty when the host never became ready
      */
-    private java.util.Optional<String> awaitVerifiedHost() {
+    private Optional<String> awaitVerifiedHost() {
         final long deadline = System.currentTimeMillis() + HOST_READY_TIMEOUT_MILLIS;
         String lastObservation = "runtime-report-absent";
         while (System.currentTimeMillis() < deadline) {
             try {
-                final java.util.Optional<String> version = activeReviewedRuntimeVersion();
+                final Optional<String> version = activeReviewedRuntimeVersion();
                 if (version.isPresent()) {
                     final String modelId = context.cubism().model().active().id().value();
                     if (!modelId.isBlank()) {
@@ -340,7 +309,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
             sleep(SETTLE_STEP_MILLIS);
         }
         logger.warn("UPDATE_CHECK_EXERCISER_NOT_READY " + lastObservation);
-        return java.util.Optional.empty();
+        return Optional.empty();
     }
 
     /**
@@ -348,7 +317,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
      * identity guarantee; the reported version string is informational because a supported host may
      * legitimately report it as {@code UNKNOWN}.
      */
-    private java.util.Optional<String> activeReviewedRuntimeVersion() {
+    private Optional<String> activeReviewedRuntimeVersion() {
         final Path report = stateDir.getParent().resolve("runtime/preview-runtime-report.json");
         try {
             final String json = Files.readString(report);
@@ -356,26 +325,104 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
                 && json.contains("\"adapterState\":\"READY\"")
                 && json.contains("\"runtimeState\":\"RUNNING\"");
             if (!ready) {
-                return java.util.Optional.empty();
+                return Optional.empty();
             }
             for (final String reviewed : REVIEWED_HOST_VERSIONS) {
                 if (json.contains("\"version\":\"" + reviewed + "\"")) {
-                    return java.util.Optional.of(reviewed);
+                    return Optional.of(reviewed);
                 }
             }
-            return java.util.Optional.of(UNKNOWN_HOST_VERSION);
-        } catch (java.io.IOException unavailable) {
-            return java.util.Optional.empty();
+            return Optional.of(UNKNOWN_HOST_VERSION);
+        } catch (IOException unavailable) {
+            return Optional.empty();
         }
     }
 
-    // --------------------------------------------------------------- evidence
+    // ------------------------------------------------------- native hint evidence
+
+    /**
+     * Asks the host to show a hint under this probe's own key and reports whether the native surface
+     * accepted it.
+     *
+     * <p>The production hint is drawn by the host and is not an AWT component, so a Swing walk cannot
+     * see it. Driving the same SDK entry point with a probe-owned key is how the existing status-bar
+     * probe establishes that the native route works on this host; recording it here separates a host
+     * that cannot present hints from a host that simply had nothing to present.</p>
+     */
+    private boolean nativeHintSurfaceAcceptsHints() {
+        try {
+            final CanvasHintHandle handle = context.uiHost().notifyCanvasHint(
+                new CanvasHintNotification(
+                    HINT_PROBE_ID,
+                    "Turboism update-check validation",
+                    CanvasHintNotification.UNTIL_DISMISSED
+                )
+            );
+            if (handle == null) return false;
+            handle.renew();
+            handle.close();
+            logger.info("CANVAS_HINT_PROBE id=" + HINT_PROBE_ID + " accepted=true");
+            return true;
+        } catch (RuntimeException unavailable) {
+            logger.warn("CANVAS_HINT_PROBE id=" + HINT_PROBE_ID + " accepted=false reason="
+                + unavailable.getClass().getSimpleName());
+            return false;
+        }
+    }
+
+    /**
+     * Reads the runtime's own log for the core plugin's presentation record.
+     *
+     * <p>The log is the surface core actually used to reach the native hint. This is weaker than
+     * reading pixels, so the result is labelled as a recorded intent and the {@code demo} mode is
+     * what a human confirms.</p>
+     */
+    private String awaitCoreHintSent(final long timeoutMillis) {
+        final long deadline = System.currentTimeMillis() + timeoutMillis;
+        while (System.currentTimeMillis() < deadline) {
+            final String found = coreHintSentLine();
+            if (found != null) return found;
+            sleep(SETTLE_STEP_MILLIS);
+        }
+        return null;
+    }
+
+    private String coreHintSentLine() {
+        final Path logs = home().resolve("logs/runtime");
+        if (!Files.isDirectory(logs)) return null;
+        try (Stream<Path> walk = Files.walk(logs)) {
+            final List<Path> files = walk
+                .filter(Files::isRegularFile)
+                .filter(path -> path.getFileName().toString().endsWith(".log"))
+                .sorted(Comparator.comparingLong(UpdateCheckHostValidationPlugin::lastModified).reversed())
+                .toList();
+            for (final Path file : files) {
+                final String text = Files.readString(file);
+                for (final String line : text.split("\r?\n")) {
+                    if (line.contains(CORE_HINT_SENT_MARKER)) return line.trim();
+                }
+            }
+        } catch (IOException | RuntimeException unavailable) {
+            return null;
+        }
+        return null;
+    }
+
+    private static long lastModified(final Path path) {
+        try {
+            return Files.getLastModifiedTime(path).toMillis();
+        } catch (IOException unavailable) {
+            return 0L;
+        }
+    }
+
+    // --------------------------------------------------------------- production state
 
     /** Reads the production store's own file. Returns null when no check ever committed a result. */
     private String readUpdateState() {
         try {
             return Files.readString(home().resolve(UPDATE_STATE_FILE));
-        } catch (java.io.IOException unavailable) {
+        } catch (IOException unavailable) {
             return null;
         }
     }
@@ -390,49 +437,9 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         return null;
     }
 
-    private int countLabelsContaining(final String text) {
-        int count = 0;
-        for (final String candidate : labelTexts()) {
-            if (candidate.contains(text)) count++;
-        }
-        return count;
-    }
+    // --------------------------------------------------------------- panel evidence
 
-    private String awaitLabelContaining(final String needle, final long timeoutMillis) {
-        final long deadline = System.currentTimeMillis() + timeoutMillis;
-        while (System.currentTimeMillis() < deadline) {
-            for (final String candidate : labelTexts()) {
-                if (candidate.contains(needle)) return candidate;
-            }
-            sleep(SETTLE_STEP_MILLIS);
-        }
-        return null;
-    }
-
-    private JButton findButton(final String name) {
-        final List<JButton> found = new ArrayList<>();
-        onEdt(() -> {
-            for (final Window window : Window.getWindows()) {
-                walkButtons(window, name, found);
-            }
-            return null;
-        });
-        return found.isEmpty() ? null : found.get(0);
-    }
-
-    private boolean clickButton(final JButton button) {
-        try {
-            onEdt(() -> {
-                button.doClick();
-                return null;
-            });
-            return true;
-        } catch (RuntimeException failure) {
-            return false;
-        }
-    }
-
-    private void recordPanelControls(final List<String> observations) {
+    private List<String> buttonNames() {
         final List<String> names = new ArrayList<>();
         onEdt(() -> {
             for (final Window window : Window.getWindows()) {
@@ -440,44 +447,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
             }
             return null;
         });
-        observations.add("panelDownloadButton="
-            + (names.contains(DOWNLOAD_BUTTON_NAME) ? "present" : "absent"));
-        observations.add("panelCheckButton="
-            + (names.contains(CHECK_BUTTON_NAME) ? "present" : "absent"));
-    }
-
-    private List<String> labelTexts() {
-        final List<String> texts = new ArrayList<>();
-        onEdt(() -> {
-            for (final Window window : Window.getWindows()) {
-                walkLabels(window, texts);
-            }
-            return null;
-        });
-        return texts;
-    }
-
-    private void walkLabels(final Component component, final List<String> texts) {
-        if (component instanceof JLabel label) {
-            final String text = label.getText();
-            if (text != null && !text.isBlank()) texts.add(text);
-        }
-        if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) {
-                walkLabels(child, texts);
-            }
-        }
-    }
-
-    private void walkButtons(final Component component, final String name, final List<JButton> found) {
-        if (component instanceof JButton button && name.equals(button.getName())) {
-            found.add(button);
-        }
-        if (component instanceof Container container) {
-            for (final Component child : container.getComponents()) {
-                walkButtons(child, name, found);
-            }
-        }
+        return names;
     }
 
     private void walkButtonNames(final Component component, final List<String> names) {
@@ -501,10 +471,6 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         return System.getProperty(MODE_PROPERTY, "new");
     }
 
-    private static String expectedText() {
-        return System.getProperty(EXPECT_TEXT_PROPERTY, "");
-    }
-
     /** The production store writes pretty-printed JSON; assertions compare it without whitespace. */
     private static String normalized(final String json) {
         return json == null ? null : json.replaceAll("\\s+", "");
@@ -513,7 +479,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
     private static String summarize(final String state) {
         final String compact = normalized(state);
         if (compact == null) return "<absent>";
-        return compact.length() <= 400 ? compact : compact.substring(0, 400) + "…";
+        return compact.length() <= 400 ? compact : compact.substring(0, 400) + "\u2026";
     }
 
     private boolean writeResult(
@@ -524,7 +490,9 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         final StringBuilder result = new StringBuilder()
             .append("status=").append(pass ? "PASS" : "FAIL").append('\n')
             .append("mode=").append(mode()).append('\n')
-            .append("evidenceKind=").append(DEMO_MODE.equals(mode()) ? "human-inspection-handoff" : "automated").append('\n')
+            .append("evidenceKind=")
+            .append(DEMO_MODE.equals(mode()) ? "human-inspection-handoff" : "automated")
+            .append('\n')
             .append("locale=").append(System.getProperty("turboism.locale", "host")).append('\n')
             .append("failures=").append(failures.size()).append('\n')
             .append("observations=").append(observations.size()).append('\n');
@@ -539,7 +507,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         try {
             Files.writeString(stateDir.resolve(RESULT), result.toString());
             return true;
-        } catch (java.io.IOException failure) {
+        } catch (IOException failure) {
             return false;
         }
     }

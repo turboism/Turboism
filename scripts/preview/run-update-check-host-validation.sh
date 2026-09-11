@@ -44,9 +44,10 @@ case "$mode" in
     ;;
 esac
 
-# The published stable identity the checker is compared against. These are the deployed
-# values the wrapper was reviewed with; a newer release must be re-pinned deliberately,
-# and a stale pin is expected to fail loudly rather than pass quietly.
+# The published stable identity the checker is compared against. The presentation is a native
+# canvas hint, so there is no Swing label to predict here; only the build the hint must name.
+# These are the deployed values the wrapper was reviewed with; a newer release must be re-pinned
+# deliberately, and a stale pin is expected to fail loudly rather than pass quietly.
 published_version="${TURBOISM_UPDATE_CHECK_PUBLISHED_VERSION:-0.43.10}"
 published_build="${TURBOISM_UPDATE_CHECK_PUBLISHED_BUILD:-4}"
 
@@ -63,8 +64,8 @@ for required in "$runner" "$agent_jar" "$probe_jar"; do
   [ -f "$required" ] || { echo "update-check validation: required input missing: $required" >&2; exit 2; }
 done
 
-# The installed identity comes from the packaged bundle itself, never from a guess: the
-# expected rendered text quotes exactly what the runtime embedded at build time.
+# The installed identity comes from the packaged bundle itself, never from a guess, so the mode
+# guards below compare what was actually built against the published pin.
 identity="$(unzip -p "$agent_jar" META-INF/turboism/framework-version.properties)"
 installed_version="$(printf '%s\n' "$identity" | sed -n 's/^version=//p')"
 installed_display="$(printf '%s\n' "$identity" | sed -n 's/^displayVersion=//p')"
@@ -94,7 +95,6 @@ case "$mode" in
       echo "  Rebuild it first: ./gradlew previewBundle -PturboismVersion=<older>" >&2
       exit 2
     fi
-    expected_text="Turboism $published_version (Build $published_build) is available."
     expected_build="$published_build"
     ;;
   current)
@@ -103,11 +103,9 @@ case "$mode" in
       echo "  but this bundle embeds $installed_version." >&2
       exit 2
     fi
-    expected_text="Turboism $installed_display is up to date."
     expected_build=''
     ;;
   safe)
-    expected_text='Turboism updates are currently unavailable.'
     expected_build=''
     ;;
   demo)
@@ -117,18 +115,21 @@ case "$mode" in
       echo "  Rebuild it first: ./gradlew previewBundle -PturboismVersion=<older>" >&2
       exit 2
     fi
-    expected_text="Turboism $published_version (Build $published_build) is available."
     expected_build="$published_build"
     ;;
 esac
 
-# The demo session is meant to be looked at and clicked, so it gets a long budget and a long
-# grace period instead of the automated runs' tight timeouts.
+# The demo session is meant to be looked at and clicked. After the probe reports its handoff the
+# runner waits `exit-timeout` for the launcher to exit before stopping the process tree, and the
+# demo probe deliberately never exits, so **exit-timeout is the session length**. Give it the full
+# budget instead of the automated runs' tight grace period, or the window disappears while someone
+# is still looking at it.
 result_timeout=420
 exit_timeout=120
 if [ "$mode" = demo ]; then
-  result_timeout="${TURBOISM_UPDATE_CHECK_DEMO_SECONDS:-1800}"
-  exit_timeout="${TURBOISM_UPDATE_CHECK_DEMO_EXIT_SECONDS:-600}"
+  demo_seconds="${TURBOISM_UPDATE_CHECK_DEMO_SECONDS:-1800}"
+  result_timeout="$demo_seconds"
+  exit_timeout="$demo_seconds"
 fi
 
 common_args=(
@@ -143,7 +144,6 @@ common_args=(
   --require-fixture-unchanged
   --jvm-option '-Dturboism.locale=en'
   --jvm-option "-Dturboism.validation.updateCheck.mode=$mode"
-  --jvm-option "-Dturboism.validation.updateCheck.expectText=$expected_text"
   --jvm-option "-Dturboism.validation.updateCheck.expectBuild=$expected_build"
   --result-file 'state/dev.turboism.validation.updatecheck/update-check-result.txt'
   --result-pass-line 'status=PASS'
@@ -157,10 +157,11 @@ if [ "$mode" = safe ]; then
   common_args+=(--home-config "$repo_root/scripts/preview/update-check-safe-mode-config.json")
 fi
 
-printf 'update-check validation: mode=%s installed=%s expected="%s"\n' \
-  "$mode" "$installed_version" "$expected_text" >&2
+printf 'update-check validation: mode=%s installed=%s expectedBuild="%s"\n' \
+  "$mode" "$installed_version" "$expected_build" >&2
 if [ "$mode" = demo ]; then
-  printf 'update-check validation: demo leaves the editor running for you; close it when done.\n' >&2
+  printf 'update-check validation: demo leaves the editor running for %ss; close it when done.\n' \
+    "$demo_seconds" >&2
 fi
 
 exec bash "$runner" "${common_args[@]}" "$@"

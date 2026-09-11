@@ -55,6 +55,9 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -288,7 +291,7 @@ class MainToolbarPluginTest {
     }
 
     @Test
-    void updateReminderSurfacesTheDownloadButtonAndPublishesOneStatusNotification() throws Exception {
+    void anAvailableUpdateIsShownAsAClickableCanvasHintAndRenewsWhileItPersists() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
         final MainToolbarPlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
@@ -305,18 +308,31 @@ class MainToolbarPluginTest {
             true
         ));
 
-        assertEquals(1, context.uiHost().notifications().size());
-        final StatusNotification notification = context.uiHost().notifications().get(0);
-        assertEquals("turboism.update", notification.id());
-        assertEquals("INFO", notification.severity());
-        assertTrue(notification.message().contains("0.43.10 (Build 5)"));
-        final EmbeddedPanelContribution panel = context.uiHost().panelContributions().get(0);
-        assertTrue(panel.content().toString().contains(CoreUpdateService.DOWNLOAD_ACTION_ID));
-        assertTrue(panel.content().toString().contains(CoreUpdateService.MANUAL_CHECK_ACTION_ID));
+        // The update is presented in the host's own drawing-area hint, not in the docked panel.
+        assertTrue(context.uiHost().panelContributions().stream().noneMatch(
+            contribution -> contribution.content().toString().contains("updates")
+        ));
+        assertEquals(List.of(), context.uiHost().notifications());
+
+        final RecordedHint hint = context.uiHost().lastCanvasHint();
+        assertNotNull(hint, "an available update must issue a canvas hint");
+        assertEquals("turboism-update-available", hint.notification.id());
+        assertTrue(hint.notification.message().contains("0.43.10 (Build 5)"));
+        assertTrue(hint.notification.onClick().isPresent(), "the hint must be clickable");
+        assertEquals(
+            dev.turboism.sdk.ui.CanvasHintNotification.UNTIL_DISMISSED,
+            hint.notification.durationSeconds()
+        );
+
+        // The condition watch keeps it alive while the update is still offered.
+        assertTrue(context.hasDelayedUiWork());
+        context.stepDelayedUiWork();
+        assertTrue(hint.renewals >= 1, "the persistent hint must be renewed");
+        assertFalse(hint.closed);
     }
 
     @Test
-    void aQuietAutomaticUpdateFailurePublishesNoStatusNotification() throws Exception {
+    void theCanvasHintClearsItselfOnceTheUpdateIsNoLongerOffered() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
         final MainToolbarPlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
@@ -325,6 +341,113 @@ class MainToolbarPluginTest {
         plugin.init(context);
         plugin.enable();
         updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.10"),
+            java.util.OptionalLong.of(5L),
+            false,
+            true
+        ));
+        final RecordedHint hint = context.uiHost().lastCanvasHint();
+        assertNotNull(hint);
+
+        // The condition now fails, so the watch releases the hint instead of renewing it.
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UP_TO_DATE,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            false,
+            false
+        ));
+        assertTrue(hint.closed, "a resolved update must clear its hint");
+    }
+
+    @Test
+    void aCheckInFlightLeavesTheExistingHintAloneInsteadOfFlickering() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.10"),
+            java.util.OptionalLong.of(5L),
+            false,
+            true
+        ));
+        final RecordedHint hint = context.uiHost().lastCanvasHint();
+        assertNotNull(hint);
+
+        // Starting another check says nothing about the update, so the message stays readable.
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.CHECKING,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            true,
+            false
+        ));
+        assertFalse(hint.closed);
+        assertEquals(1, context.uiHost().canvasHints.size());
+        // The watch agrees: an in-flight check keeps the message up.
+        context.stepDelayedUiWork();
+        assertTrue(hint.renewals >= 1);
+        assertFalse(hint.closed);
+    }
+
+    @Test
+    void aNewerOfferedBuildReplacesTheHintMessageInsteadOfLeavingTheOldOne() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.10"),
+            java.util.OptionalLong.of(5L),
+            false,
+            true
+        ));
+        final RecordedHint first = context.uiHost().lastCanvasHint();
+        assertNotNull(first);
+
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.11"),
+            java.util.OptionalLong.of(6L),
+            false,
+            true
+        ));
+
+        assertTrue(first.closed, "the previous build's message must not stay on screen");
+        final RecordedHint second = context.uiHost().lastCanvasHint();
+        assertNotNull(second);
+        assertTrue(second.notification.message().contains("0.43.11 (Build 6)"));
+        assertEquals(2, context.uiHost().canvasHints.size());
+    }
+
+    @Test
+    void aQuietAutomaticFailureShowsNothingWhileAManualCheckReportsItsResult() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+
+        // An automatic failure is silent: no hint, no notification.
+        updates.publish(new CoreUpdateService.Snapshot(
             CoreUpdateService.Status.UNAVAILABLE,
             "0.43.10 (stable, Build 4)",
             Optional.empty(),
@@ -332,9 +455,11 @@ class MainToolbarPluginTest {
             false,
             false
         ));
-
         assertEquals(List.of(), context.uiHost().notifications());
+        assertNull(context.uiHost().lastDismissibleCanvasHint());
+        assertNull(context.uiHost().lastCanvasHint());
 
+        // The same failure, but the user asked for it, must say so.
         updates.publish(new CoreUpdateService.Snapshot(
             CoreUpdateService.Status.UNAVAILABLE,
             "0.43.10 (stable, Build 4)",
@@ -343,27 +468,93 @@ class MainToolbarPluginTest {
             true,
             false
         ));
-        assertEquals(1, context.uiHost().notifications().size());
-        assertEquals("WARNING", context.uiHost().notifications().get(0).severity());
+        final RecordedHint result = context.uiHost().lastDismissibleCanvasHint();
+        assertNotNull(result, "a user-requested failure must be reported");
+        assertEquals("Turboism updates are currently unavailable.", result.notification.message());
+        assertTrue(result.notification.onClick().isPresent(), "the result hint must dismiss on click");
+        assertEquals(List.of(), context.uiHost().notifications());
     }
 
     @Test
-    void updateDownloadActionOpensOnlyTheFixedFirstPartyPage() throws Exception {
+    void anUpToDateManualCheckIsReportedButAnAutomaticOneIsNot() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
         final MainToolbarPlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UP_TO_DATE,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            false,
+            false
+        ));
+        assertNull(context.uiHost().lastDismissibleCanvasHint());
+
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UP_TO_DATE,
+            "0.43.10 (stable, Build 4)",
+            Optional.empty(),
+            java.util.OptionalLong.empty(),
+            true,
+            false
+        ));
+        final RecordedHint result = context.uiHost().lastDismissibleCanvasHint();
+        assertNotNull(result);
+        assertEquals(
+            "Turboism 0.43.10 (stable, Build 4) is up to date.",
+            result.notification.message()
+        );
+    }
+
+    @Test
+    void clickingTheCanvasHintOpensTheFixedFirstPartyDownloadPage() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
         final List<String> opened = new ArrayList<>();
         dev.turboism.plugin.core.CoreWindows.setTestUpdateUrlObserver(opened::add);
         try {
             plugin.init(context);
             plugin.enable();
-            context.actions().execute(CoreUpdateService.DOWNLOAD_ACTION_ID);
+            updates.publish(new CoreUpdateService.Snapshot(
+                CoreUpdateService.Status.UPDATE_AVAILABLE,
+                "0.43.10 (stable, Build 4)",
+                Optional.of("0.43.10"),
+                java.util.OptionalLong.of(5L),
+                false,
+                true
+            ));
+            final RecordedHint hint = context.uiHost().lastCanvasHint();
+            assertNotNull(hint);
+            hint.notification.onClick().orElseThrow().run();
         } finally {
             dev.turboism.plugin.core.CoreWindows.clearTestUpdateUrlObserver();
         }
 
         assertEquals(List.of("https://turboism.dev/download"), opened);
         assertTrue(updates.started);
+    }
+
+    @Test
+    void aCheckForUpdatesMenuItemIsContributedWithoutAddingToTheDockedPanel() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+
+        plugin.init(context);
+        plugin.enable();
+
+        assertTrue(context.menus().contributions().stream().anyMatch(
+            contribution -> CoreUpdateService.MANUAL_CHECK_ACTION_ID.equals(contribution.actionId())
+        ));
+        assertTrue(context.uiHost().panelContributions().stream().noneMatch(
+            contribution -> contribution.content().toString().contains("updates")
+        ));
     }
 
     @Test
@@ -692,8 +883,13 @@ class MainToolbarPluginTest {
 
 
         private UiScheduler uiScheduler;
+        private final List<Runnable> delayed = new ArrayList<>();
 
-        /** Runs dispatched UI work inline so update snapshots can be asserted deterministically. */
+        /**
+         * Runs immediate UI work inline so snapshots can be asserted deterministically, while
+         * holding delayed work back. A condition watch re-arms itself from its own delayed tick, so
+         * running that inline would recurse; the test steps it explicitly instead.
+         */
         void useInlineUiScheduler() {
             uiScheduler = new UiScheduler() {
                 @Override
@@ -704,9 +900,21 @@ class MainToolbarPluginTest {
 
                 @Override
                 public Registration runOnUiThreadLater(final Runnable work, final java.time.Duration delay) {
-                    return runOnUiThread(work);
+                    delayed.add(work);
+                    return () -> delayed.remove(work);
                 }
             };
+        }
+
+        /** Runs the oldest pending delayed task, as the real scheduler would on its next tick. */
+        void stepDelayedUiWork() {
+            if (delayed.isEmpty()) throw new IllegalStateException("no delayed UI work is pending");
+            final Runnable next = delayed.remove(0);
+            next.run();
+        }
+
+        boolean hasDelayedUiWork() {
+            return !delayed.isEmpty();
         }
 
         @Override
@@ -790,6 +998,8 @@ class MainToolbarPluginTest {
 
     private static class RecordingUiHost implements UiHostCapabilityService {
         private final List<EmbeddedPanelContribution> panelContributions = new ArrayList<>();
+        final List<RecordedHint> canvasHints = new ArrayList<>();
+        final List<RecordedHint> dismissibleCanvasHints = new ArrayList<>();
         private final List<EmbeddedPanelId> activatedPanels = new ArrayList<>();
         private final List<StatusNotification> notifications = new ArrayList<>();
         private final List<dev.turboism.sdk.ui.settings.SettingsContribution> settingsContributions =
@@ -877,6 +1087,33 @@ class MainToolbarPluginTest {
         }
 
         @Override
+        public dev.turboism.sdk.ui.CanvasHintHandle notifyCanvasHint(
+            final dev.turboism.sdk.ui.CanvasHintNotification notification
+        ) {
+            final RecordedHint recorded = new RecordedHint(notification);
+            canvasHints.add(recorded);
+            return recorded;
+        }
+
+        @Override
+        public dev.turboism.sdk.ui.CanvasHintHandle notifyDismissibleCanvasHint(
+            final dev.turboism.sdk.ui.CanvasHintNotification notification
+        ) {
+            final RecordedHint recorded = new RecordedHint(notification.withOnClick(() -> { }));
+            dismissibleCanvasHints.add(recorded);
+            return recorded;
+        }
+
+        RecordedHint lastCanvasHint() {
+            return canvasHints.isEmpty() ? null : canvasHints.get(canvasHints.size() - 1);
+        }
+
+        RecordedHint lastDismissibleCanvasHint() {
+            return dismissibleCanvasHints.isEmpty()
+                ? null : dismissibleCanvasHints.get(dismissibleCanvasHints.size() - 1);
+        }
+
+        @Override
         public Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution) {
             throw new UnsupportedOperationException("context menus are not used by this plugin test");
         }
@@ -890,6 +1127,27 @@ class MainToolbarPluginTest {
         @Override
         public Registration contributePaletteToolbar(PaletteToolbarRegistry.PaletteToolbarContribution contribution) {
             throw new UnsupportedOperationException("palette toolbar is not used by this plugin test");
+        }
+    }
+
+    /** One recorded canvas hint plus whether the plugin still holds it open. */
+    private static final class RecordedHint implements dev.turboism.sdk.ui.CanvasHintHandle {
+        final dev.turboism.sdk.ui.CanvasHintNotification notification;
+        int renewals;
+        boolean closed;
+
+        RecordedHint(final dev.turboism.sdk.ui.CanvasHintNotification notification) {
+            this.notification = notification;
+        }
+
+        @Override
+        public void renew() {
+            if (!closed) renewals++;
+        }
+
+        @Override
+        public void close() {
+            closed = true;
         }
     }
 
