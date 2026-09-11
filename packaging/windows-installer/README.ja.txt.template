@@ -60,8 +60,8 @@ Turboism 所有のショートカットを使用します。NSIS インストー
 -------------------
 - NSIS インストーラー（TurboismInstaller-<ver>.exe）の場合は Turboism home の
   uninstall.exe を実行します。Turboism が記録した管理対象ショートカット/状態と
-  所有するファイルだけを削除します。確認ページの「config.json（ユーザー設定）も
-  削除」チェックは既定でオンです。オフにすると config.json を保持します。
+  所有するファイルだけを削除します。確認ページの「config.json（ユーザー設定）を
+  保持する」チェックは既定でオンです。オフにすると config.json を削除します。
 - ZIP 手動インストールにはアンインストーラーがなく、公式 BAT 統合も有効に
   なりません。Cubism を閉じて Turboism フォルダーを削除してください。
 
