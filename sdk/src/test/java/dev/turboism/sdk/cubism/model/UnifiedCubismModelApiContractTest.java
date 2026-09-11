@@ -80,7 +80,8 @@ class UnifiedCubismModelApiContractTest {
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.UNKNOWN,
-            Optional.of("DocumentA")
+            Optional.of("DocumentA"),
+            Optional.empty()
         );
         assertDoesNotThrow(() -> plugin.beforeCubismOperation(operation));
         assertDoesNotThrow(() -> plugin.onCubismOperationConfirmed(operation));
@@ -109,21 +110,39 @@ class UnifiedCubismModelApiContractTest {
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
-            Optional.of(" Document A ")
+            Optional.of(" Document A "),
+            Optional.of(" Open Document ")
         );
 
         assertEquals(Optional.of(" Document A "), event.subjectId());
+        assertEquals(Optional.of(" Open Document "), event.label());
         assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
             0L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
             Optional.empty()
         ));
         assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
             1L,
             CubismOperation.OPEN_DOCUMENT,
             CubismOperationOrigin.HOST_UI,
+            Optional.of(" "),
+            Optional.empty()
+        ));
+        assertThrows(IllegalArgumentException.class, () -> new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
             Optional.of(" ")
+        ));
+        assertThrows(NullPointerException.class, () -> new CubismOperationEvent(
+            1L,
+            CubismOperation.OPEN_DOCUMENT,
+            CubismOperationOrigin.HOST_UI,
+            Optional.empty(),
+            null
         ));
     }
 

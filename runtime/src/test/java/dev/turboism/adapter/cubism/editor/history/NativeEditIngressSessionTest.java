@@ -144,9 +144,9 @@ class NativeEditIngressSessionTest {
 
         Fixture() {
             this.session = new NativeEditIngressSession(
-                (operation, origin, subject) -> {
+                (operation, origin, subject, label) -> {
                     if (failPublications) throw new IllegalStateException("publication failure");
-                    published.add(new Published(operation, origin, subject));
+                    published.add(new Published(operation, origin, subject, label));
                 },
                 posted::add
             );
@@ -337,7 +337,8 @@ class NativeEditIngressSessionTest {
     private record Published(
         CubismOperation operation,
         CubismOperationOrigin origin,
-        Optional<String> subjectId
+        Optional<String> subjectId,
+        Optional<String> label
     ) {
     }
 

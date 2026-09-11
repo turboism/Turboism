@@ -80,21 +80,22 @@ class SemanticOperationEventContractTest {
             final RuntimeEventBroker.Owner owner = broker.admit("observed-events");
             final CountDownLatch completion = new CountDownLatch(2);
             final List<String> events = new java.util.concurrent.CopyOnWriteArrayList<>();
-            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(
-                new Subscriber(events, completion)
-            )));
+            final Subscriber subscriber = new Subscriber(events, completion);
+            owner.registerAnnotated(new EntrypointSubscriberCatalog().inspect(List.of(subscriber)));
             owner.activate();
 
             coordinator.publishObserved(
                 CubismOperation.SET_HIERARCHY_PARENT,
                 CubismOperationOrigin.HOST_UI,
-                Optional.of("mesh-1")
+                Optional.of("mesh-1"),
+                Optional.of("Add Part")
             );
 
             assertTrue(completion.await(1, TimeUnit.SECONDS));
             assertEquals(List.of(
                 "on:SET_HIERARCHY_PARENT", "after:SET_HIERARCHY_PARENT:true"
             ), events);
+            assertEquals(Optional.of("Add Part"), subscriber.observedLabel());
         } finally {
             scheduler.shutdown();
         }
@@ -120,6 +121,8 @@ class SemanticOperationEventContractTest {
     public static final class Subscriber {
         private final List<String> events;
         private final CountDownLatch completion;
+        private final List<CubismOperationLifecycleEvent> observed =
+            new java.util.concurrent.CopyOnWriteArrayList<>();
 
         private Subscriber(final List<String> events, final CountDownLatch completion) {
             this.events = events;
@@ -143,7 +146,14 @@ class SemanticOperationEventContractTest {
             events.add(
                 "after:" + event.operation().operation() + ":" + event.confirmed()
             );
+            observed.add(event);
             completion.countDown();
+        }
+
+        private Optional<String> observedLabel() {
+            return observed.isEmpty()
+                ? Optional.empty()
+                : observed.get(0).operation().label();
         }
     }
 
