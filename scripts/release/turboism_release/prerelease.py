@@ -96,9 +96,11 @@ def verify_files(github, source_root, bundle_root, source_sha, run_id, attempt, 
 
 def prepare(github, source_root, bundle_root, source_sha, run_id, attempt, version):
     manifest, receipt = verify_files(github,source_root,bundle_root,source_sha,run_id,attempt,version)
-    notes = notes_for(Path(source_root), receipt)
-    candidate = {'schemaVersion':1,'type':'turboism.prerelease-candidate','receipt':receipt,
-                 'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest()}
+    from . import release_notes
+    context = release_notes.select_context(github, source_root, receipt) if receipt['channel'] == 'nightly' else None
+    notes = release_notes.candidate_notes(source_root, receipt, context)
+    candidate = {'schemaVersion':2,'type':'turboism.prerelease-candidate','receipt':receipt,
+                 'manifest':manifest,'notesSha256':hashlib.sha256(notes.encode()).hexdigest(), 'notesContext':context}
     bundle = Path(bundle_root)
     (bundle/'release-notes.md').write_text(notes,encoding='utf-8')
     (bundle/'prerelease-candidate.json').write_text(json.dumps(candidate,sort_keys=True,separators=(',',':'))+'\n')
@@ -110,11 +112,17 @@ def verify_candidate(github, source_root, bundle_root, source_sha, run_id, attem
     path = bundle/'prerelease-candidate.json'
     require(path.is_file() and not path.is_symlink() and path.stat().st_size < 128*1024, 'Missing or invalid prerelease candidate')
     value = json.loads(path.read_text())
-    require(set(value) == {'schemaVersion','type','receipt','manifest','notesSha256'}
-            and value['schemaVersion'] == 1 and value['type'] == 'turboism.prerelease-candidate', 'Invalid candidate schema')
+    keys = {'schemaVersion','type','receipt','manifest','notesSha256'}
+    if value.get('schemaVersion') == 2: keys.add('notesContext')
+    require(set(value) == keys
+            and value['schemaVersion'] in (1, 2) and value['type'] == 'turboism.prerelease-candidate', 'Invalid candidate schema')
     receipt = receipt_from_body('<!-- turboism-build-v1 '+json.dumps(value['receipt'])+' -->',expected_channel)
     manifest, actual = verify_files(github,source_root,bundle_root,source_sha,run_id,attempt,receipt['version'])
-    notes = notes_for(Path(source_root),actual)
+    if value['schemaVersion'] == 1:
+        notes = notes_for(Path(source_root),actual)
+    else:
+        from .release_notes import candidate_notes
+        notes = candidate_notes(source_root,actual,value['notesContext'])
     require(receipt == actual and value['manifest'] == manifest, 'Candidate manifest/receipt changed')
     require((bundle/'release-notes.md').read_bytes() == notes.encode()
             and value['notesSha256'] == hashlib.sha256(notes.encode()).hexdigest(), 'Candidate notes are not source-bound')
