@@ -59,6 +59,9 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
      * by containment of the message and count instances rather than requiring equality.
      */
 
+    /** Human-inspection session: records what is on screen, then leaves the host running. */
+    private static final String DEMO_MODE = "demo";
+
     private static final String UPDATE_STATE_FILE = "update-state.json";
 
     private static final long HOST_READY_TIMEOUT_MILLIS = 180_000L;
@@ -118,6 +121,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
                 case "new" -> assertUpdateOffered(failures, observations);
                 case "current" -> assertUpToDateIsQuietThenManual(failures, observations);
                 case "safe" -> assertSafeModeNeverRequests(failures, observations);
+                case DEMO_MODE -> observeForHumanInspection(observations);
                 default -> failures.add("unsupported mode: " + mode());
             }
         } catch (RuntimeException | Error failure) {
@@ -133,8 +137,47 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         for (final String failure : failures) {
             logger.warn("UPDATE_CHECK_EXERCISER_FAILURE " + failure);
         }
+        if (DEMO_MODE.equals(mode())) {
+            // The window is the artifact here. Park without exiting so the operator can inspect and
+            // click; the runner's own exit timeout owns cleanup.
+            logger.info("UPDATE_CHECK_EXERCISER_DEMO_HANDOFF"
+                + " the editor is intentionally left running for human inspection");
+            park();
+            return;
+        }
         sleep(PASS_SETTLE_MILLIS);
         Runtime.getRuntime().exit(pass ? 0 : 2);
+    }
+
+    /**
+     * Records what the operator will be looking at, then hands the host over. Unlike the automated
+     * modes this asserts nothing: a human is the assertion, so a missing reminder is recorded rather
+     * than failed, and the result is explicitly marked as a handoff rather than as evidence.
+     */
+    private void observeForHumanInspection(final List<String> observations) {
+        final String expected = expectedText();
+        final String advertised = expected.isEmpty()
+            ? null
+            : awaitLabelContaining(expected, DECISION_TIMEOUT_MILLIS);
+        observations.add("expectedReminderPresent=" + (advertised != null));
+        if (advertised != null) {
+            observations.add("renderedReminder=" + advertised);
+        } else {
+            observations.add("renderedLabels=" + String.join(" | ", labelTexts()));
+        }
+        final String state = normalized(readUpdateState());
+        observations.add("committedUpdateState=" + summarize(readUpdateState()));
+        if (state != null) {
+            observations.add("committedReady=" + state.contains("\"status\":\"ready\""));
+        }
+        recordPanelControls(observations);
+    }
+
+    /** Holds this thread while the editor stays available to a human operator. */
+    private void park() {
+        while (true) {
+            sleep(SETTLE_STEP_MILLIS);
+        }
     }
 
     private void fail(final String phase, final String detail) {
@@ -481,6 +524,7 @@ public final class UpdateCheckHostValidationPlugin implements TurboismPlugin {
         final StringBuilder result = new StringBuilder()
             .append("status=").append(pass ? "PASS" : "FAIL").append('\n')
             .append("mode=").append(mode()).append('\n')
+            .append("evidenceKind=").append(DEMO_MODE.equals(mode()) ? "human-inspection-handoff" : "automated").append('\n')
             .append("locale=").append(System.getProperty("turboism.locale", "host")).append('\n')
             .append("failures=").append(failures.size()).append('\n')
             .append("observations=").append(observations.size()).append('\n');
