@@ -49,6 +49,7 @@ runtime/logs/
 # Worktree-local runtime/config state
 .turboism-worktree-id
 turboism.*.config.json
+/paseo.json
 
 # AI / agent-local scratch files, not submitted
 .pi-subagents/
