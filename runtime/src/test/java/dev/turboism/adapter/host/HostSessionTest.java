@@ -16,6 +16,8 @@ import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.ui.appearance.control.RuntimeModelAppearanceAccess;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
+import dev.turboism.sdk.cubism.model.CubismModel;
+import dev.turboism.sdk.cubism.model.CubismModelAccess;
 import dev.turboism.sdk.ui.StatusNotification;
 import dev.turboism.sdk.ui.workspace.WorkspaceId;
 import dev.turboism.sdk.ui.workspace.WorkspaceOperationResult;
@@ -171,6 +173,74 @@ class HostSessionTest {
         assertEquals(HostSession.State.SAFE_MODE, session.refresh());
         assertTrue(rejectedEntry.resolved().bold().isEmpty());
         session.close();
+    }
+
+    @Test
+    void modelContentCloseReleasesTheUnboundBorrowedModelThroughTheSession() {
+        final AtomicInteger releases = new AtomicInteger();
+        final HostSession session = new HostSession(
+            () -> Optional.of(descriptor("session-a")),
+            ignored -> HostAdapterConnection.of(
+                RuntimeHostAdapters.safeMode(),
+                new ReleasingModelAccess(releases)
+            )
+        );
+        assertEquals(HostSession.State.ACTIVE, session.refresh());
+
+        final ProjectFileOperation closeModel = new ProjectFileOperation(
+            ProjectContentKind.MODEL, ProjectFileOperationType.CLOSE,
+            Optional.of("content-a"), "Model A", Optional.empty()
+        );
+        final ProjectContentSnapshot modelContent = new ProjectContentSnapshot(
+            "content-a", "Model A", ProjectContentKind.MODEL, Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeModel), modelContent, true, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(1, releases.get(), "a successful MODEL close requests the release");
+
+        final ProjectFileOperation closeAnimation = new ProjectFileOperation(
+            ProjectContentKind.ANIMATION, ProjectFileOperationType.CLOSE,
+            Optional.of("animation-a"), "Scene", Optional.empty()
+        );
+        final ProjectContentSnapshot animationContent = new ProjectContentSnapshot(
+            "animation-a", "Scene", ProjectContentKind.ANIMATION,
+            Optional.empty(), List.of(), List.of()
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeAnimation), animationContent, true, null
+        );
+        session.projectFileLifecycle().complete(
+            session.projectFileLifecycle().begin(closeModel), modelContent, false, null
+        );
+        session.projectFileLifecycle().awaitIdle();
+        assertEquals(
+            1,
+            releases.get(),
+            "non-MODEL and failed closes never request the release"
+        );
+        session.close();
+    }
+
+    private static final class ReleasingModelAccess implements CubismModelAccess,
+        dev.turboism.adapter.cubism.BorrowedModelRelease {
+
+        private final AtomicInteger releases;
+
+        private ReleasingModelAccess(final AtomicInteger releases) {
+            this.releases = releases;
+        }
+
+        @Override
+        public CubismModel active() {
+            throw new IllegalStateException("No verified active Cubism Core model is available.");
+        }
+
+        @Override
+        public void releaseUnboundBorrowedModel() {
+            releases.incrementAndGet();
+        }
     }
 
     @Test
