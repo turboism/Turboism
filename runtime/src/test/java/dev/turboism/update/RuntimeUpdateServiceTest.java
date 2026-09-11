@@ -58,6 +58,59 @@ final class RuntimeUpdateServiceTest {
     }
 
     @Test
+    void everyLaunchChecksOnceEvenWithinThePreviousInterval(@TempDir final Path home) throws Exception {
+        // A previous session checked a minute ago. Opening the editor again must still check, because
+        // the user who just started the editor is exactly the one who should hear about a release.
+        new UpdateStateStore(home).save(new UpdateStateStore.State(
+            Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()
+        ));
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService service = service(
+            home, scheduler, new MutableSettings(false), transport,
+            Duration.ofMillis(20), Duration.ofDays(1)
+        );
+        try {
+            service.start();
+            assertTrue(
+                transport.requested.await(2, TimeUnit.SECONDS),
+                "a session start must check instead of waiting out the interval"
+            );
+            assertEquals(1, transport.calls.get());
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
+    void aSecondAutomaticCheckWithinTheSessionWaitsForTheInterval(@TempDir final Path home)
+        throws Exception {
+        // The interval still governs the session: one check at launch, not one per timer tick.
+        new UpdateStateStore(home).save(new UpdateStateStore.State(
+            Optional.of(NOW.minusSeconds(60)), Optional.empty(), Optional.empty()
+        ));
+        final DeferredTransport transport = new DeferredTransport();
+        final RuntimeScheduler scheduler = scheduler();
+        final RuntimeUpdateService service = service(
+            home, scheduler, new MutableSettings(false), transport,
+            Duration.ZERO, Duration.ofHours(24)
+        );
+        try {
+            service.start();
+            assertTrue(transport.requested.await(2, TimeUnit.SECONDS));
+            transport.completeWithDocument(
+                "{\"schemaVersion\":1,\"channel\":\"stable\",\"status\":\"not_published\",\"release\":null}"
+            );
+            TimeUnit.MILLISECONDS.sleep(300);
+            assertEquals(1, transport.calls.get(), "the session must not poll the service");
+        } finally {
+            service.close();
+            scheduler.shutdown();
+        }
+    }
+
+    @Test
     void coalescesManualChecksAndEmitsOneReminderForOneVersion(@TempDir final Path home)
         throws Exception {
         final DeferredTransport transport = new DeferredTransport();

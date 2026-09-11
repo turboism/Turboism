@@ -511,7 +511,7 @@ class MainToolbarPluginTest {
     }
 
     @Test
-    void clickingTheCanvasHintOpensTheFixedFirstPartyDownloadPage() throws Exception {
+    void clickingTheCanvasHintDismissesItWithoutOpeningAnything() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
         final MainToolbarPlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
@@ -524,20 +524,65 @@ class MainToolbarPluginTest {
             updates.publish(new CoreUpdateService.Snapshot(
                 CoreUpdateService.Status.UPDATE_AVAILABLE,
                 "0.43.10 (stable, Build 4)",
-                Optional.of("0.43.10"),
-                java.util.OptionalLong.of(5L),
+                Optional.of("0.43.11"),
+                java.util.OptionalLong.of(7L),
                 false,
                 true
             ));
             final RecordedHint hint = context.uiHost().lastCanvasHint();
             assertNotNull(hint);
             hint.notification.onClick().orElseThrow().run();
+            assertTrue(hint.closed, "clicking the hint must dismiss it");
         } finally {
             dev.turboism.plugin.core.CoreWindows.clearTestUpdateUrlObserver();
         }
 
-        assertEquals(List.of("https://turboism.dev/download"), opened);
-        assertTrue(updates.started);
+        assertEquals(List.of(), opened, "the hint must not open anything");
+    }
+
+    @Test
+    void aDismissedBuildDoesNotComeStraightBackButANewerOneDoes() throws Exception {
+        final FakeUpdateService updates = new FakeUpdateService();
+        final MainToolbarPlugin plugin = plugin(updates);
+        final RecordingPluginContext context = new RecordingPluginContext();
+        context.useInlineUiScheduler();
+
+        plugin.init(context);
+        plugin.enable();
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.11"),
+            java.util.OptionalLong.of(7L),
+            false,
+            true
+        ));
+        final RecordedHint dismissed = context.uiHost().lastCanvasHint();
+        assertNotNull(dismissed);
+        dismissed.notification.onClick().orElseThrow().run();
+
+        // The same offered build must not reappear merely because another snapshot arrived.
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.11"),
+            java.util.OptionalLong.of(7L),
+            false,
+            true
+        ));
+        assertEquals(1, context.uiHost().canvasHints.size(), "the dismissed build reappeared");
+
+        // A newer build is new information, so it is shown even though the last one was dismissed.
+        updates.publish(new CoreUpdateService.Snapshot(
+            CoreUpdateService.Status.UPDATE_AVAILABLE,
+            "0.43.10 (stable, Build 4)",
+            Optional.of("0.43.12"),
+            java.util.OptionalLong.of(8L),
+            false,
+            true
+        ));
+        assertEquals(2, context.uiHost().canvasHints.size());
+        assertTrue(context.uiHost().lastCanvasHint().notification.message().contains("0.43.12 (Build 8)"));
     }
 
     @Test
