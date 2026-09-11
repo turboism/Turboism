@@ -52,6 +52,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final ShutdownLifecycle shutdownLifecycle;
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
+    private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -422,6 +423,18 @@ public final class PreviewRuntime implements AutoCloseable {
                 fileChooserHistory,
                 effectiveLocale
             );
+            // Host-level export-settings policy. It is created before plugin loading so every
+            // plugin's contribution registry is reachable from the native dialog, and identity is
+            // read from the same live host snapshots the rest of the runtime uses.
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings =
+                new dev.turboism.exportsettings.RuntimeExportSettingsAuthority(
+                    new dev.turboism.exportsettings.HostDocumentExportSettingsIdentitySource(
+                        dev.turboism.adapter.host.HostSessionSnapshotSource.forSession(
+                            ingress.adapterAccess().adapters().projectWorkspace()
+                        )
+                    )
+                );
+            plugins.bindExportSettingsAuthority(exportSettings);
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -454,6 +467,7 @@ public final class PreviewRuntime implements AutoCloseable {
                 effectiveLocale
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
+            runtime.bindExportSettingsAuthority(exportSettings);
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner();
             publishNativeStartupNotice(verifiedHostClassLoader, log);
@@ -651,6 +665,36 @@ public final class PreviewRuntime implements AutoCloseable {
         }
     }
 
+    /**
+     * Host-level export-settings policy shared by every loaded plugin.
+     *
+     * <p>Returns the authority bound during {@link #start}. An unbound runtime throws instead of
+     * answering with a substitute: the bootstrap hook must never transform host bytecode whose
+     * callbacks no runtime policy can serve.</p>
+     *
+     * @return the export-settings authority bound to this runtime
+     * @throws IllegalStateException if no authority was bound
+     */
+    public dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority() {
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
+            exportSettingsAuthority;
+        if (authority == null) {
+            throw new IllegalStateException("export settings authority is not bound");
+        }
+        return authority;
+    }
+
+    /** Binds the shared authority created during {@link #start}; a no-op when already bound. */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        synchronized (this) {
+            if (exportSettingsAuthority == null) {
+                exportSettingsAuthority = java.util.Objects.requireNonNull(authority, "authority");
+            }
+        }
+    }
+
     private static dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService
         createFileChooserHistoryService(final Path home, final PreviewLog log) {
         final dev.turboism.config.RuntimeConfigRepository config =
@@ -840,6 +884,11 @@ public final class PreviewRuntime implements AutoCloseable {
                     "PLUGIN_RUNTIME_CLOSE_FAILED", "plugin-runtime", shutdownLifecycle::closePluginRuntime
                 ),
                 new ShutdownStage(
+                    "EXPORT_SETTINGS_AUTHORITY_CLOSE_FAILED",
+                    "export-settings-authority",
+                    this::closeExportSettingsAuthority
+                ),
+                new ShutdownStage(
                     "HOST_INGRESS_CLOSE_FAILED", "host-ingress", shutdownLifecycle::closeHostIngress
                 ),
                 new ShutdownStage(
@@ -874,6 +923,22 @@ public final class PreviewRuntime implements AutoCloseable {
         shutdownFailures = List.copyOf(failures);
         if (failures.stream().anyMatch(failure -> failure.code().equals("LOG_CLOSE_FAILED"))) {
             System.err.println("Turboism preview log close failed safely: LOG_CLOSE_FAILED");
+        }
+    }
+
+    /**
+     * Closes the host-level export-settings policy and drops every dialog attachment it owns.
+     *
+     * <p>Runs after the plugin runtime has closed, so no plugin registry is still bound, and before
+     * the host ingress is torn down, so dialog state is released while the host objects it refers to
+     * are still allocated.</p>
+     */
+    private void closeExportSettingsAuthority() {
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
+            exportSettingsAuthority;
+        exportSettingsAuthority = null;
+        if (authority != null) {
+            authority.close();
         }
     }
 

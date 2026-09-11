@@ -5,6 +5,7 @@ import dev.turboism.adapter.cubism.performance.PerformanceFpsHookRegistry;
 import dev.turboism.adapter.cubism.startup.StartupSuppressionInstaller;
 import dev.turboism.adapter.jdk.PipeImplLoopbackInstaller;
 import dev.turboism.adapter.cubism.filechooser.FileChooserHistoryHostProfile;
+import dev.turboism.exportsettings.ExportSettingsHostProfile;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorHostProfile;
 import dev.turboism.mapping.verification.AutoBackupVerificationManifest;
 import dev.turboism.mapping.verification.ClipMaskVerificationManifest;
@@ -40,6 +41,8 @@ public final class TurboismAgent {
         PROJECT_LIFECYCLE_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedFileChooserHistoryHookInstaller>
         FILE_CHOOSER_HISTORY_HOOK = new AtomicReference<>();
+    private static final AtomicReference<VerifiedExportSettingsHookInstaller> EXPORT_SETTINGS_HOOK =
+        new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
@@ -350,6 +353,9 @@ public final class TurboismAgent {
             if (fileChooserHistoryRuntimeAdmitted(profile, fullRuntimeAdmission)) {
                 installFileChooserHistoryHook(runtime, instrumentation, host);
             }
+            if (exportSettingsRuntimeAdmitted(profile, fullRuntimeAdmission)) {
+                installExportSettingsHook(runtime, instrumentation, host);
+            }
             if (textureAtlasRuntimeAdmitted(profile, fullRuntimeAdmission)) {
                 installTextureAtlasHook(runtime, instrumentation, host);
                 installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
@@ -520,6 +526,48 @@ public final class TurboismAgent {
             if (installer != null) installer.close();
             runtimeWarn(
                 "Turboism file-chooser history hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
+
+    /**
+     * Installs the reviewed export-settings hook, or leaves the host untouched.
+     *
+     * <p>Installation needs three things to agree: the runtime must already own an export-settings
+     * authority for the plugins it loaded, the loaded artifact must be the exact reviewed build, and
+     * retransformation must be available. Any disagreement disables the hook with a warning and the
+     * Editor keeps its native dialog, because a half-installed hook would either publish callbacks
+     * the host never calls or transform bytecode the runtime cannot serve.</p>
+     */
+    private static void installExportSettingsHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedExportSettingsHookInstaller installer = null;
+        try {
+            final var profile = ExportSettingsHostProfile.forArtifact(
+                HostArtifactDigest.from(host.artifact())
+            ).orElseThrow(() -> new IllegalStateException(
+                "Unsupported export-settings host artifact"
+            ));
+            installer = VerifiedExportSettingsHookInstaller.fromHostProfile(
+                instrumentation,
+                profile,
+                runtime.exportSettingsAuthority(),
+                host.classLoader()
+            );
+            installer.install();
+            if (!EXPORT_SETTINGS_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+            } else {
+                runtimeInfo("TURBOISM_EXPORT_SETTINGS_HOOK installation=COMPLETE");
+            }
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            runtimeWarn(
+                "Turboism export settings hook disabled safely: "
                     + failure.getClass().getName()
             );
         }
@@ -834,6 +882,22 @@ public final class TurboismAgent {
         return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission);
     }
 
+    /**
+     * Export-settings admission: the ordinary reviewed-runtime gate plus this hook's own exact
+     * release requirement.
+     *
+     * <p>The shared gate admits every reviewed build, but the export-settings selectors are only
+     * pinned for 5.3.02. Narrowing here keeps the gate and the capability in agreement, so an
+     * admitted-but-unsupported build never even attempts installation.</p>
+     */
+    static boolean exportSettingsRuntimeAdmitted(
+        final String profile,
+        final boolean fullRuntimeAdmission
+    ) {
+        return ordinaryReviewedRuntimeAdmitted(profile, fullRuntimeAdmission)
+            && ExportSettingsHostProfile.CUBISM_5_3_02.hostVersion().equals(profile);
+    }
+
     static boolean textureAtlasRuntimeAdmitted(
         final String profile,
         final boolean fullRuntimeAdmission
@@ -1029,6 +1093,7 @@ public final class TurboismAgent {
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
         closeProjectLifecycleHook(runtime, "process-exit");
         closeFileChooserHistoryHook(runtime, "process-exit");
+        closeExportSettingsHook(runtime, "process-exit");
         closeParameterHook(runtime, "process-exit");
         closeTextureAtlasHooks(runtime, "process-exit");
         if (runtime == null) {
@@ -1081,6 +1146,27 @@ public final class TurboismAgent {
         } catch (Throwable failure) {
             final String message =
                 "Turboism file-chooser history hook cleanup failed safely: phase=" + phase;
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
+        }
+    }
+
+    private static void closeExportSettingsHook(
+        final PreviewRuntime runtime,
+        final String phase
+    ) {
+        final VerifiedExportSettingsHookInstaller exportSettingsHook =
+            EXPORT_SETTINGS_HOOK.getAndSet(null);
+        if (exportSettingsHook == null) {
+            return;
+        }
+        try {
+            exportSettingsHook.close();
+            final String message =
+                "TURBOISM_EXPORT_SETTINGS_HOOK cleanup=COMPLETE phase=" + phase;
+            if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.info("bootstrap", message); else runtime.info("bootstrap", message);
+        } catch (Throwable failure) {
+            final String message =
+                "Turboism export settings hook cleanup failed safely: phase=" + phase;
             if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
         }
     }
@@ -1256,6 +1342,7 @@ public final class TurboismAgent {
         closeProjectLifecycleHook(RUNTIME.get(), "runtime-close");
 
         closeFileChooserHistoryHook(RUNTIME.get(), "runtime-close");
+        closeExportSettingsHook(RUNTIME.get(), "runtime-close");
         closeParameterHook(RUNTIME.get(), "runtime-close");
         closeTextureAtlasHooks(RUNTIME.get(), "runtime-close");
         final VerifiedPhysicsEditorHookInstaller physicsHook = PHYSICS_EDITOR_HOOK.getAndSet(null);

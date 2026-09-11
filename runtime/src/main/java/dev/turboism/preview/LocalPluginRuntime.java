@@ -270,6 +270,21 @@ public final class LocalPluginRuntime implements AutoCloseable {
     }
 
     /**
+     * Binds the host-level export-settings authority for every plugin created from now on.
+     *
+     * <p>The Preview runtime calls this before {@link #loadAll()}, because a plugin that is already
+     * loaded cannot be reached by the native dialog. Without this binding each plugin's contribution
+     * registry stays plugin-private and the Editor keeps its native export-settings dialog.</p>
+     *
+     * @param authority host-level export-settings policy
+     */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        contextFactory.bindExportSettingsAuthority(authority);
+    }
+
+    /**
      * Loads every discovered plugin, then the runtime-owned core plugin, exactly once per runtime
      * instance.
      *
