@@ -46,6 +46,7 @@ public final class EditorHistorySemanticSelectorContract {
         "cubism.editor-model.drawable-form.draw-order",
         "cubism.editor-model.drawable-form.multiply-color",
         "cubism.editor-model.drawable-form.screen-color",
+        "cubism.editor-model.art-mesh-form.positions",
         "cubism.editor-model.float-color.red",
         "cubism.editor-model.float-color.green",
         "cubism.editor-model.float-color.blue",
