@@ -111,6 +111,25 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertTrue(json.endsWith("}\n"), json);
     }
 
+    @Test
+    void theTerminalSummaryLineIsExactlyWhatTheHostRunnerMatches() {
+        // result_file_contains compares one whole line, so a summary carrying extra fields would
+        // make the runner wait out its entire result timeout after the probe had already finished.
+        // The failure list therefore travels on its own line.
+        assertEquals(
+            "{\"type\":\"summary\",\"status\":\"PASS\"}\n",
+            WindowsHistoryNativeUiIngressProbe.summaryLine(true)
+        );
+        assertEquals(
+            "{\"type\":\"summary\",\"status\":\"FAIL\"}\n",
+            WindowsHistoryNativeUiIngressProbe.summaryLine(false)
+        );
+        assertFalse(
+            WindowsHistoryNativeUiIngressProbe.summaryLine(false).contains("failures"),
+            "the failure list must not ride on the terminal line"
+        );
+    }
+
     private static WindowsHistoryNativeUiIngressProbe.Observed event(
         final String phase,
         final long sequence,
