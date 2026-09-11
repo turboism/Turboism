@@ -34,8 +34,11 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
-    /** Debug observation window: keep the canvas hint on screen long enough for a human to see it. */
-    private static final long CANVAS_HINT_HOLD_MILLIS = 120_000L;
+    /**
+     * Observation window for the canvas hint: long enough for a human to see the
+     * message and click it, then the probe clears the condition itself.
+     */
+    private static final long CANVAS_HINT_HOLD_MILLIS = 60_000L;
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final List<String> REVIEWED_HOST_VERSIONS = List.of("5.2.03", "5.3.02");
