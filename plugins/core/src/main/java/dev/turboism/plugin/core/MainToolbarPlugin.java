@@ -7,7 +7,9 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.DialogRequest;
+import dev.turboism.sdk.ui.StatusNotification;
 
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /** Built-in, non-removable Turboism core plugin. */
@@ -23,6 +25,8 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory;
     private dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService.Registration historyProviderRegistration;
     private CoreWindows windows;
+    private volatile boolean closed;
+    private final AtomicLong updateUiGeneration = new AtomicLong();
 
     public MainToolbarPlugin() {
         services = CorePluginServices.consume();
@@ -36,9 +40,10 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         this.settings = runtimeSettings.read();
         this.fileChooserHistory = context.fileChooserHistory();
         this.plugins = services.plugins();
+        this.closed = false;
         this.homeEntryService = new MainToolbarHomeEntryService(
             context.uiHost(), context.mainToolbar(), context.menus(), localization(context),
-            runtimeSettings, plugins
+            runtimeSettings, plugins, services.update()
         );
         this.windows = new CoreWindows(
             localization(context),
@@ -71,6 +76,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
+        registerUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
@@ -82,6 +88,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(homeEntryService.registerLogsMenu());
         context.disposableScope().register(homeEntryService.registerAboutMenu());
         context.disposableScope().register(homeEntryService.registerHomeEntry());
+        if (services.update().available()) services.update().start();
         logger.info("Turboism main toolbar icon mode selected: "
             + (settings.useTextIcon() ? "text" : "installer"));
         logger.info("Turboism core enabled");
@@ -91,11 +98,138 @@ public final class MainToolbarPlugin implements TurboismPlugin {
 
     @Override
     public void shutdown() {
+        closed = true;
+        updateUiGeneration.incrementAndGet();
         if (historyProviderRegistration != null) {
             historyProviderRegistration.unregister();
             historyProviderRegistration = null;
         }
         logger.info("Turboism core shutdown");
+    }
+
+    private void registerUpdateFeatures() {
+        final CoreUpdateService updates = services.update();
+        if (!updates.available()) return;
+        registerAction(
+            CoreUpdateService.MANUAL_CHECK_ACTION_ID,
+            localized("updates.check", "Check for updates"),
+            ignored -> updates.checkManual()
+        );
+        registerAction(
+            CoreUpdateService.DOWNLOAD_ACTION_ID,
+            localized("updates.download", "Open download page"),
+            ignored -> openUpdatePage()
+        );
+        try {
+            context.disposableScope().register(context.uiHost().contributeSettings(
+                CoreUpdateSettingsContribution.create(localization(context), updates)
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Update preference contribution unavailable; continuing without it");
+        }
+        context.disposableScope().register(updates.subscribe(this::onUpdateSnapshot));
+    }
+
+    private void onUpdateSnapshot(final CoreUpdateService.Snapshot snapshot) {
+        if (closed) return;
+        final long expectedUiGeneration = updateUiGeneration.incrementAndGet();
+        try {
+            context.disposableScope().register(context.uiScheduler().runOnUiThread(
+                () -> applyUpdateSnapshot(snapshot, expectedUiGeneration)
+            ));
+        } catch (RuntimeException rejected) {
+            logger.warn("Update status UI dispatch was rejected safely");
+        }
+    }
+
+    private void applyUpdateSnapshot(
+        final CoreUpdateService.Snapshot snapshot,
+        final long expectedUiGeneration
+    ) {
+        if (!isDeliverable(snapshot, expectedUiGeneration)) return;
+        try {
+            refreshPanel();
+        } catch (RuntimeException failure) {
+            logger.warn("Update panel refresh failed safely");
+        }
+        if (!isDeliverable(snapshot, expectedUiGeneration)) return;
+        final boolean notify = switch (snapshot.status()) {
+            case UPDATE_AVAILABLE -> snapshot.reminder();
+            case UP_TO_DATE, UNAVAILABLE -> snapshot.userInitiated();
+            case IDLE, CHECKING, DISABLED, CLOSED -> false;
+        };
+        if (!notify) return;
+        final String message = updateMessage(snapshot);
+        if (message == null) return;
+        final String severity = snapshot.status() == CoreUpdateService.Status.UNAVAILABLE
+            ? "WARNING" : "INFO";
+        try {
+            context.disposableScope().register(context.uiHost().notifyStatus(
+                new StatusNotification("turboism.update", severity, message)
+            ));
+        } catch (RuntimeException unavailable) {
+            logger.warn("Update status notification was unavailable");
+        }
+    }
+
+    private boolean isDeliverable(
+        final CoreUpdateService.Snapshot snapshot,
+        final long expectedUiGeneration
+    ) {
+        if (closed || updateUiGeneration.get() != expectedUiGeneration) return false;
+        try {
+            return services.update().snapshot() == snapshot;
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    private String updateMessage(final CoreUpdateService.Snapshot snapshot) {
+        return switch (snapshot.status()) {
+            case CHECKING -> localized("updates.checking", "Checking for Turboism updates\u2026");
+            case UPDATE_AVAILABLE -> format(
+                "updates.available",
+                "Turboism " + snapshot.availableIdentity().orElse("a newer version") + " is available.",
+                snapshot.availableIdentity().orElse("a newer version")
+            );
+            case UP_TO_DATE -> format(
+                "updates.up-to-date",
+                "Turboism " + snapshot.localVersion() + " is up to date.",
+                snapshot.localVersion()
+            );
+            case UNAVAILABLE -> localized(
+                "updates.unavailable", "Turboism updates are currently unavailable."
+            );
+            case DISABLED -> localized(
+                "updates.disabled", "Automatic Turboism update checks are disabled."
+            );
+            case IDLE, CLOSED -> null;
+        };
+    }
+
+    private void openUpdatePage() {
+        if (!windows.openUpdateDownloadPage()) {
+            try {
+                context.disposableScope().register(context.uiHost().notifyStatus(
+                    new StatusNotification(
+                        "turboism.update",
+                        "WARNING",
+                        localized("updates.open-failed", "Could not open the Turboism download page.")
+                    )
+                ));
+            } catch (RuntimeException unavailable) {
+                logger.warn("Update download status notification was unavailable");
+            }
+        }
+    }
+
+    private String format(final String key, final String fallback, final Object... arguments) {
+        try {
+            final String value = localization(context).format(key, arguments);
+            return key.equals(value) ? fallback : value;
+        } catch (RuntimeException unavailable) {
+            return fallback;
+        }
     }
 
     /**
