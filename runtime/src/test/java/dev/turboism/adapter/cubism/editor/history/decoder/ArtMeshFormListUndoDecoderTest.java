@@ -91,6 +91,42 @@ class ArtMeshFormListUndoDecoderTest {
     }
 
     @Test
+    void aGroupedFormEditDecodesWhenTheLiveTargetIsProven() {
+        // The host commits an ArtMesh-form edit as a group of SimpleUndo children, one per keyform,
+        // and each child has no stored post state. The live-target read therefore has to reach
+        // inside the group, or no grouped form edit can ever be classified.
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form live = form(source, "form-default", color(0.4F, 0.8F, 1.0F), color(0, 0, 0));
+        final Form otherBefore = form(source, "form-key-1", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form otherLive = form(source, "form-key-1", color(1.0F, 0.0F, 0.0F), color(0, 0, 0));
+
+        final GroupEntry inner = new GroupEntry(List.of(
+            new SimpleEntry(live, before, null),
+            new SimpleEntry(otherLive, otherBefore, null)
+        ));
+        final GroupEntry outer = new GroupEntry(List.of(inner));
+
+        final var detail = new NativeHistoryDecoderRegistry()
+            .decode(resolver(), outer, "Edit", true)
+            .detail().orElseThrow();
+
+        final var children = detail.group().orElseThrow().children().get(0)
+            .group().orElseThrow().children();
+        assertEquals(2, children.size());
+        for (var child : children) {
+            assertEquals(
+                HistoryAction.DetailLevel.FULL,
+                child.detailLevel(),
+                "each keyform's own edit must decode: " + child.degradationCode().orElse("")
+            );
+        }
+        assertEquals("#ffffff", children.get(0).changes().get(0).before().orElseThrow());
+        assertEquals("#66ccff", children.get(0).changes().get(0).after().orElseThrow());
+        assertEquals("#ff0000", children.get(1).changes().get(0).after().orElseThrow());
+    }
+
+    @Test
     void groupedSameTargetWithoutRedoDoesNotInventIntermediateAfter() {
         final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
         final Form a = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
