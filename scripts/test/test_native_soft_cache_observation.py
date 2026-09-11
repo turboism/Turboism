@@ -64,8 +64,11 @@ public final class SoftCacheAuditTest {
     // ---- synthetic host shape: CImageResource with a static cacheList of $b holders ----
     public static final class CImageResource extends Hostile {
         static final ArrayList<b> cacheList = new ArrayList<>();
+        private Object image = new Object();
+        private byte[] imageFileBuf = null;
         static CImageResource make() { CImageResource r = new CImageResource(); cacheList.add(new b(r)); return r; }
         static void clear() { cacheList.clear(); }
+        void archive() { this.image = null; this.imageFileBuf = new byte[1024]; }
     }
     public static final class b {
         private final SoftReference<CImageResource> a;
@@ -79,6 +82,17 @@ public final class SoftCacheAuditTest {
     }
     // wrong shape: cache field is primitive
     public static final class PrimitiveCache { static final int cacheList = 0; }
+    // valid cache shape, but the resource declares no decoded/archive state fields
+    public static final class BareResource extends Hostile {
+        static final ArrayList<BareHolder> cacheList = new ArrayList<>();
+        static BareResource make() { BareResource r = new BareResource(); cacheList.add(new BareHolder(r)); return r; }
+        static void clear() { cacheList.clear(); }
+    }
+    public static final class BareHolder {
+        private final SoftReference<BareResource> a;
+        BareHolder(BareResource value) { this.a = new SoftReference<>(value); }
+        public final SoftReference<BareResource> a() { return a; }
+    }
 
     /** Never calls a host equals: identity, or value equality for the scalars this probe publishes. */
     static void eq(Object actual, Object expected, String what) {
@@ -111,8 +125,45 @@ public final class SoftCacheAuditTest {
         prop(matched, "matchedCohort", "1");
         prop(matched, "matchedDistinct", "1");
 
+        // 1a. Decoded vs archived resources are counted separately, with the archived byte total.
+        CImageResource.clear();
+        CImageResource live = CImageResource.make();
+        CImageResource archived = CImageResource.make();
+        archived.archive();
+        List<WeakReference<?>> states = new ArrayList<>();
+        states.add(new WeakReference<>(live));
+        states.add(new WeakReference<>(archived));
+        var stateCounts = run(CImageResource.class, b.class, states, 100, 1000, 250_000_000L);
+        prop(stateCounts, "status", "COMPLETE");
+        prop(stateCounts, "matchedCohort", "2");
+        prop(stateCounts, "matchedDecoded", "1");
+        prop(stateCounts, "matchedArchived", "1");
+        prop(stateCounts, "matchedWithArchiveBytes", "1");
+        prop(stateCounts, "matchedArchivedBytes", "1024");
+        prop(stateCounts, "matchedUnreadable", "0");
+
+        // 1c. A resource whose state fields are absent is counted as unreadable, not as decoded or archived.
+        BareResource.clear();
+        BareResource bare = BareResource.make();
+        List<WeakReference<?>> bareCohort = new ArrayList<>();
+        bareCohort.add(new WeakReference<>(bare));
+        var noStateFields = run(BareResource.class, BareHolder.class, bareCohort, 100, 1000, 250_000_000L);
+        prop(noStateFields, "status", "COMPLETE");
+        prop(noStateFields, "matchedCohort", "1");
+        prop(noStateFields, "matchedUnreadable", "1");
+        prop(noStateFields, "matchedDecoded", "0");
+        prop(noStateFields, "matchedArchived", "0");
+
         // 1b. Two cache entries pointing at one cohort member count it once.
-        var once = run(CImageResource.class, b.class, cohort, 100, 1000, 250_000_000L);
+        CImageResource.clear();
+        CImageResource twice = CImageResource.make();
+        CImageResource.cacheList.add(new b(twice));
+        List<WeakReference<?>> onceCohort = new ArrayList<>();
+        onceCohort.add(new WeakReference<>(twice));
+        var once = run(CImageResource.class, b.class, onceCohort, 100, 1000, 250_000_000L);
+        prop(once, "status", "COMPLETE");
+        prop(once, "entries", "2");
+        prop(once, "visited", "2");
         prop(once, "matchedCohort", "1");
         prop(once, "matchedDistinct", "1");
 

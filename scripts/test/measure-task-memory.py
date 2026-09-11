@@ -68,7 +68,7 @@ def publish(path, text):
 
 def validate_window(rows, ready, end):
     start_ms, end_ms, seconds = int(ready['epochMillis']), int(end['epochMillis']), int(ready['seconds'])
-    if not 30 <= seconds <= 300 or end_ms - start_ms < seconds * 1000 - 100:
+    if not 30 <= seconds <= 900 or end_ms - start_ms < seconds * 1000 - 100:
         raise RuntimeError('incomplete idle observation duration')
     if not rows or rows[0]['epochMillis'] >= start_ms or rows[-1]['epochMillis'] < end_ms:
         raise RuntimeError('sampler did not cover loading and the complete idle window')
@@ -104,7 +104,7 @@ def measure(task):
         publish(directory / 'attached.properties', f'pid={process.pid}\nstarted={process.started}\nuid={process.uid}\n')
         count = 0
         rows = []
-        deadline = time.monotonic() + 900
+        deadline = time.monotonic() + 1500
         with output.open('x') as stream:
             current = first
             while time.monotonic() < deadline:
@@ -124,7 +124,7 @@ def measure(task):
                     return
                 time.sleep(1)
                 current = sample(process, scope)
-        raise RuntimeError('memory observation did not finish within 900 seconds')
+        raise RuntimeError('memory observation did not finish within 1500 seconds')
     except Exception as failure:
         if not complete.exists():
             publish(complete, 'status=FAIL\nfailure=' + type(failure).__name__ + ': ' + str(failure).replace('\n', ' ') + '\n')
