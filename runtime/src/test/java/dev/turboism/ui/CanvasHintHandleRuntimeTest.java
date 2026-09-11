@@ -6,11 +6,13 @@ import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.CanvasHintHandle;
 import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.CanvasHintPosition;
 import dev.turboism.sdk.ui.StatusNotification;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -26,19 +28,19 @@ class CanvasHintHandleRuntimeTest {
         CanvasHintHandle handle = service.notifyCanvasHint(
             new CanvasHintNotification("screen-color", "Incompatible", 1.0f)
         );
-        assertEquals(1, adapter.shownIds.size());
-        assertTrue(adapter.shownIds.get(0).startsWith("8:plugin.a:"),
-            "the plugin scope prefixes the hint key: " + adapter.shownIds.get(0));
-        assertTrue(adapter.shownIds.get(0).endsWith(":screen-color"));
+        assertEquals(1, adapter.shown.size());
+        assertTrue(adapter.shown.get(0).id().startsWith("8:plugin.a:"),
+            "the plugin scope prefixes the hint key: " + adapter.shown.get(0).id());
+        assertTrue(adapter.shown.get(0).id().endsWith(":screen-color"));
 
         handle.renew();
-        assertEquals(2, adapter.shownIds.size(), "renew must re-issue the hint");
-        assertEquals(adapter.shownIds.get(0), adapter.shownIds.get(1),
+        assertEquals(2, adapter.shown.size(), "renew must re-issue the hint");
+        assertEquals(adapter.shown.get(0).id(), adapter.shown.get(1).id(),
             "renew must reuse the same key so the host refreshes instead of stacking");
 
         handle.close();
         assertEquals(1, adapter.closed, "close must dismiss the newest registration");
-        assertEquals(2, adapter.shownIds.size(), "close must not re-issue");
+        assertEquals(2, adapter.shown.size(), "close must not re-issue");
     }
 
     @Test
@@ -54,8 +56,49 @@ class CanvasHintHandleRuntimeTest {
         handle.renew();
         handle.close();
 
-        assertEquals(1, adapter.shownIds.size(), "a spent handle must not re-issue");
+        assertEquals(1, adapter.shown.size(), "a spent handle must not re-issue");
         assertEquals(1, adapter.closed, "repeated dismissal must close the hint once");
+    }
+
+    @Test
+    void thePluginScopeKeepsTheClickActionAndPositionOfAHint() {
+        RecordingAdapter adapter = new RecordingAdapter();
+        RuntimeUiHostCapabilityService service = service(adapter, new DisposableScope());
+        AtomicBoolean clicked = new AtomicBoolean();
+
+        CanvasHintHandle handle = service.notifyCanvasHint(
+            new CanvasHintNotification("screen-color", "Incompatible", 1.0f)
+                .withOnClick(() -> clicked.set(true))
+                .withPosition(new CanvasHintPosition(12.0f, 34.0f))
+        );
+
+        CanvasHintNotification delivered = adapter.shown.get(0);
+        assertTrue(delivered.onClick().isPresent(),
+            "scoping the hint key must not drop the click action that makes it clickable");
+        assertEquals(new CanvasHintPosition(12.0f, 34.0f), delivered.position().orElseThrow(),
+            "scoping the hint key must not drop an explicit position");
+
+        delivered.onClick().orElseThrow().run();
+        assertTrue(clicked.get(), "the delivered click action must reach the plugin callback");
+
+        handle.close();
+    }
+
+    @Test
+    void aClickThatReachesThePluginDismissesTheDismissibleHint() {
+        RecordingAdapter adapter = new RecordingAdapter();
+        RuntimeUiHostCapabilityService service = service(adapter, new DisposableScope());
+
+        CanvasHintHandle handle = service.notifyDismissibleCanvasHint(
+            new CanvasHintNotification("screen-color", "Incompatible", 1.0f)
+        );
+        assertEquals(0, adapter.closed, "nothing is dismissed before the click");
+
+        adapter.shown.get(0).onClick().orElseThrow().run();
+
+        assertEquals(1, adapter.closed, "a click must dismiss the hint the plugin is showing");
+        handle.close();
+        assertEquals(1, adapter.closed, "explicit disposal stays idempotent after a click");
     }
 
     @Test
@@ -69,7 +112,7 @@ class CanvasHintHandleRuntimeTest {
         );
         handle.renew();
         handle.renew();
-        assertEquals(3, adapter.shownIds.size());
+        assertEquals(3, adapter.shown.size());
 
         scope.close();
 
@@ -92,12 +135,12 @@ class CanvasHintHandleRuntimeTest {
     /** Records every hint the runtime asked the host to show, and every dismissal. */
     private static final class RecordingAdapter implements StatusToolbarAdapter {
 
-        private final List<String> shownIds = new ArrayList<>();
+        private final List<CanvasHintNotification> shown = new ArrayList<>();
         private int closed;
 
         @Override
         public AdapterResult<Registration> notifyCanvasHint(final CanvasHintNotification notification) {
-            shownIds.add(notification.id());
+            shown.add(notification);
             return AdapterResult.available(() -> closed++);
         }
 
