@@ -214,11 +214,9 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         if (updateHint != null && identity.equals(updateHintIdentity)) return;
         closeUpdateHint();
         updateHintIdentity = identity;
-        final String message = format(
-            "updates.hint.available",
-            "Turboism " + identity + " is available.",
-            identity
-        );
+        // The hint states that an update exists; the exact build stays in the log and the state
+        // file, where it is diagnostics rather than something to read over the drawing area.
+        final String message = localized("updates.hint.available", "Turboism update available");
         updateHint = context.uiHost().showCanvasHintWhile(
             context.uiScheduler(),
             new CanvasHintNotification(
