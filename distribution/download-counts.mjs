@@ -59,10 +59,11 @@ export class DownloadCounter {
   read(assets) {
     if (!this.meta) throw new Error('Analytics not initialized');
     this.prune();
-    const rows = [...new Set(assets.map(a=>a.key))].map(key=>this.sql.exec('SELECT count,updated_at FROM download_totals WHERE asset_key=?',key).toArray()[0]);
+    const keys = [...new Set(assets.map(a=>a.key))];
+    const rows = keys.map(key=>this.sql.exec('SELECT count,updated_at FROM download_totals WHERE asset_key=?',key).toArray()[0]);
     const count = sum(rows.map(r=>r?.count ?? 0));
     if (count === null) throw new Error('Invalid stored counter');
-    return {count, since:this.meta.since, dedupWindowSeconds:DEDUP_WINDOW_SECONDS,
+    return {count, assets:keys.map((key,i)=>({key,count:rows[i]?.count??0})), since:this.meta.since, dedupWindowSeconds:DEDUP_WINDOW_SECONDS,
       updatedAt:rows.reduce((latest,r)=>r?.updated_at>latest?r.updated_at:latest,this.meta.since)};
   }
 }
@@ -76,6 +77,12 @@ export function countsDocument(version, record, official) {
   const total = complete ? sum([officialCount,github]) : null;
   return {schemaVersion:1, status:complete && total !== null ? 'ready':'partial', version, tag:record.release.tag,
     unit:'download_requests', total,
+    assets:record.release.assets.map(a=>{
+      const stored=official?.assets?.find(row=>row.key===a.key)?.count;
+      const direct=validCount(stored)?stored:null;
+      const upstream=githubAsOf&&validCount(a.downloadCount)?a.downloadCount:null;
+      return {key:a.key,name:a.name,sha256:a.sha256,official:direct,github:upstream,total:sum([direct,upstream])};
+    }),
     official:{count:officialCount,since:official?.since ?? null,dedupWindowSeconds:DEDUP_WINDOW_SECONDS},
     github:{count:github,asOf:githubAsOf},
     asOf:[official?.updatedAt,githubAsOf].filter(Boolean).sort().at(-1) ?? new Date().toISOString()};
