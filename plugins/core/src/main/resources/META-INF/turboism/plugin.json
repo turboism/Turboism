@@ -57,9 +57,9 @@
       "reason": "Confirms plugin uninstall requests."
     },
     {
-      "id": "turboism.ui.status.notify",
+      "id": "turboism.ui.canvas.hint",
       "scope": "application",
-      "reason": "Publishes update status notifications in the host status region."
+      "reason": "Reports an available update in the host's own drawing-area hint."
     }
   ],
   "capabilities": [],
