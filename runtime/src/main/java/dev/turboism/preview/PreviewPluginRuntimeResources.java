@@ -193,6 +193,17 @@ record PreviewPluginRuntimeResources(
         );
     }
 
+    /**
+     * Forwards the host-level export-settings authority to the plugin context factory.
+     *
+     * <p>Called once by the owning runtime before any plugin is loaded.</p>
+     */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        contextFactory.bindExportSettingsAuthority(authority);
+    }
+
     private static Metadata localizedMetadata(
         final dev.turboism.sdk.i18n.PluginLocalization localization,
         final String fallbackName,
