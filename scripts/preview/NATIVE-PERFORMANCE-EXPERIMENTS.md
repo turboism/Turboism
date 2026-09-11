@@ -635,3 +635,14 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **判定与后续**：把 N07/029 之后的第四方向定义为「**静态软引用缓存 + 资源→使用者强反向引用**」。若实机确认，则“848 个资源在关闭后仍存活”很可能是**设计内的软缓存保留**（驱逐取决于 JVM 软引用策略与 300s/360s 清理节拍），而非无界泄漏；相应的修复讨论应聚焦“关闭文档时是否应显式释放/驱逐”，而不是寻找新的 GC 根。修复须另立切片并单独授权，本切片不做任何清理。
 - **证据归档（使用规则 7）**：`static-root-analysis/container-and-cache/`（`containers.py`、`sweep.py`、`sweep2.py`、`containers2.py`、`static-containers.txt`（869 个去重静态容器字段）、`sweep-output.txt`（117 个元素类型可达目标的容器）、`CImageResource.javap.txt`、`CImageResource_a.javap.txt`、`cleanup-timer-task.javap.txt`、`FINDING.md`）；归档 `MANIFEST.sha256` 已刷新（170 项）。
 - **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**；产出为一条**由精确 bytecode 支撑、能同时解释既有全部观测、且可被只读实机观测证伪或确认**的机制候选。
+
+### I32 — 030 静态软引用缓存只读观测：切片冻结、探针实现与离线验证（2026-09-10）
+
+- **动机（承接 I31 的机制候选）**：I31 由精确 bytecode 证明 `CImageResource` 的构造函数把每个资源以 `SoftReference` 形式放进静态 `cacheList`，资源又强引用其 `ICImageResourceUser`，从而资源、模型源与文档一起**软可达**——这能同时解释 848 资源与文档弱引用在关闭后与显式 GC 后仍不清除，且不需要任何强根。030 的目标是把该机制从"足以解释"提升为"**实测确认或证伪**"。
+- **切片冻结**：新增 Spec Kit **030-soft-cache-observation**（canonical `specs/030-soft-cache-observation/`，冻结副本于性能 worktree，`diff -rq` 一致）；T001–T005 完成，T006/T007 待实机。
+- **探针实现（只读、有界、需 EDT）**：`NativeSoftCacheObservation.java`。每采集点：校验类加载器与 code source 来源 → `trySetAccessible` 读私有静态 `cacheList` → 解析 `CImageResource$b` 的 0 参访问器并要求其返回类型名**恰为** `java.lang.ref.SoftReference`（形状不符记 `UNSUPPORTED`/`access`，绝不计 0）。逐条取出持有者的软引用，与 024 beforeClose 保留队列做**身份比对**：缓存侧的 `SoftReference` **从不 dereference**（只用 `refersTo` 做指针比较），比对身份取自审计**自有**的队列 `WeakReference`（普通读取、无保活语义，且只在该次循环迭代内持有）。扫描前后记录 `cacheList` 大小，不一致记 `PARTIAL`/`unstable`。上限 8192 条目 / 4 000 000 次比较 / 250ms 协作式截止；计数分区暂存、仅 `COMPLETE` 提交（`PARTIAL`/`UNSUPPORTED` **不发布任何计数**）。绝不写静态字段、绝不 remove/dispose/clear/GC/堆快照、不调宿主 equals/hashCode/toString。
+- **宿主接入**：`NativeResourceHostAgent.java` 在既有 `ownership`/`staticRoots` 采集**之后**对四个采集点（`idle`、`beforeClose`、`closed120`、`closedFinal`）追加 `softCache.<phase>.*`，并输出聚合 `softCache.attributionStatus=COMPLETE|INCOMPLETE`（四项全 COMPLETE 才 COMPLETE）。`idle` 用 `beforeZoom` 快照队列作对照，`beforeClose` 起用 024 的保留队列；024/028/029 的全部既有断言与门控不变。**不改 workload 时序**（沿用现有 phase 划分，因此看不到 300s tick / 360s 闲置驱逐本身——这是本片的已知覆盖限制）。
+- **离线验证（本轮实跑）**：新增 `scripts/test/test_native_soft_cache_observation.py` **PASS**（3 项：合成缓存扫描（命中/未命中/空缓存/空队列/null 缓存/错误访问器形状/原始类型缓存字段/条目与比较与时间三类上限均 `PARTIAL` 且不发布计数/扫描后 `cacheList` 与队列均未被改动/仅发布标量）、注释剥离后的只读与禁用法调用点扫描、宿主接入点与顺序断言）。全套门禁：`devCheck`+`checkResourceValidationBundle`+`checkCubismHostValidationArguments` = **0**；`test_native_static_root_audit.py` PASS（112）、`test_native_close_ownership_observation.py` PASS（435）、`test_native_image_retain_observation.py` PASS（566）、`test_native_resource_policy.py` OK。
+- **判定口径（写入 spec/plan 与 README）**：命中只说明"该资源在该时刻仍**经此缓存**软可达"，**不等于**缺陷，也不排除 live thread / native 根；`PARTIAL`/`UNSUPPORTED` 不能排除任何方向。修复需另立切片并单独授权，本片不做任何驱逐或清理。
+- **未完成**：T006（实机运行与台账记录）与 T007（README 定稿）保持未完成。
+- **有效程度**：本轮新增内存/CPU/GPU 收益 **NONE**（无优化改动）；产出为把 I31 机制候选转为可执行的只读实测方案与已通过门禁的探针。
