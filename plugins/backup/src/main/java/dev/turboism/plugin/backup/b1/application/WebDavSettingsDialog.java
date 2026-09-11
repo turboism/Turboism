@@ -56,6 +56,29 @@ public final class WebDavSettingsDialog {
     /** Echo char used by the password box while masked. */
     static final char PASSWORD_ECHO = '*';
 
+    /** Localization key for the dialog title. */
+    static final String DIALOG_TITLE_KEY = "backup.dialog.title";
+
+    /** English fallback title, used when the catalog has no entry for the key. */
+    static final String TITLE_FALLBACK = "WebDAV Backup Settings";
+
+    /** Localized text for {@code key}; falls back to the English literal when absent. */
+    static String text(final PluginLocalization localization, final String key, final String fallback) {
+        return localization != null && localization.contains(key) ? localization.text(key) : fallback;
+    }
+
+    /** Localized {@link java.text.MessageFormat} text for {@code key}, with an English fallback pattern. */
+    static String format(
+        final PluginLocalization localization,
+        final String key,
+        final String fallback,
+        final Object... arguments
+    ) {
+        return localization != null && localization.contains(key)
+            ? localization.format(key, arguments)
+            : java.text.MessageFormat.format(fallback, arguments);
+    }
+
     private WebDavSettingsDialog() {
     }
 
@@ -160,13 +183,16 @@ public final class WebDavSettingsDialog {
         final PluginLogger logger = context.logger();
         final PluginLocalization localization = context.localization();
         final Window owner = null; // modeless top-level dialog; the host owns the frame hierarchy
-        final JDialog dialog = TurboismWindowFactory.dialog(null, "WebDAV 备份设置", false);
-        final JCheckBox enabled = new JCheckBox("启用同步");
+        final JDialog dialog = TurboismWindowFactory.dialog(
+            null, text(localization, DIALOG_TITLE_KEY, TITLE_FALLBACK), false);
+        final JCheckBox enabled = new JCheckBox(
+            text(localization, "backup.dialog.enabled-checkbox", "Enable sync"));
         final JTextField url = new JTextField(WebDavSettingsBinding.DEFAULT_URL, 32);
         final JTextField username = new JTextField(24);
         final JPasswordField password = new JPasswordField(24);
         final JTextField remotePath = new JTextField(WebDavSettingsBinding.DEFAULT_REMOTE_PATH, 32);
-        final JCheckBox verifyTls = new JCheckBox("验证 TLS 证书");
+        final JCheckBox verifyTls = new JCheckBox(
+            text(localization, "backup.dialog.verify-tls-checkbox", "Verify TLS certificate"));
         final JSpinner retryMax = new JSpinner(new SpinnerNumberModel(
             WebDavSettingsBinding.DEFAULT_RETRY_MAX, 0, 10, 1));
         final JSpinner retryBaseDelayMs = new JSpinner(new SpinnerNumberModel(
@@ -192,9 +218,10 @@ public final class WebDavSettingsDialog {
             }
         });
         final JLabel status = new JLabel(" ");
-        final JButton save = new JButton("保存");
-        final JButton cancel = new JButton("取消");
-        final JButton test = new JButton("测试连接");
+        final JButton save = new JButton(text(localization, "backup.dialog.button.save", "Save"));
+        final JButton cancel = new JButton(text(localization, "backup.dialog.button.cancel", "Cancel"));
+        final JButton test = new JButton(
+            text(localization, "backup.dialog.button.test", "Test connection"));
 
         final java.util.function.Supplier<WebDavConfig> formConfig = () -> assemble(
             binding.confirmed(), // empty password keeps the stored one
@@ -224,7 +251,8 @@ public final class WebDavSettingsDialog {
             retryBaseDelayMs.setValue((int) config.retryBaseDelayMs());
             timeoutSeconds.setValue(config.timeoutSeconds());
             remoteTrigger.setSelectedItem(config.remoteTrigger());
-            password.setToolTipText("留空或保持占位符则沿用已保存的密码");
+            password.setToolTipText(text(localization, "backup.dialog.password-tooltip",
+                "Leave empty or keep the placeholder to reuse the stored password"));
             final boolean cached = config.password() != null && !config.password().isEmpty();
             if (cached) {
                 password.setText(initialPasswordText(config));
@@ -252,22 +280,33 @@ public final class WebDavSettingsDialog {
         c.insets = new Insets(4, 6, 4, 6);
         c.anchor = GridBagConstraints.WEST;
         int row = 0;
-        addRow(form, c, row++, new JLabel("启用"), enabled);
-        addRow(form, c, row++, new JLabel("URL"), url);
-        addRow(form, c, row++, new JLabel("用户名"), username);
-        final JButton eye = new JButton("显示");
-        eye.setToolTipText("显示/隐藏密码");
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.enabled-label", "Enabled")), enabled);
+        addRow(form, c, row++, new JLabel("URL"), url); // technical token: identical in every catalog
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.username-label", "Username")), username);
+        final JButton eye = new JButton(text(localization, "backup.dialog.password-show", "Show"));
+        eye.setToolTipText(text(localization, "backup.dialog.password-toggle-tooltip",
+            "Show or hide the password"));
         eye.setMargin(new Insets(0, 6, 0, 6));
         eye.addActionListener(ignored -> {
             password.setEchoChar(toggleEchoChar(password.getEchoChar()));
-            eye.setText(password.getEchoChar() == 0 ? "隐藏" : "显示");
+            eye.setText(password.getEchoChar() == 0
+                ? text(localization, "backup.dialog.password-hide", "Hide")
+                : text(localization, "backup.dialog.password-show", "Show"));
         });
-        addRowWithTrailing(form, c, row++, new JLabel("密码"), password, eye);
-        addRow(form, c, row++, new JLabel("远程路径"), remotePath);
-        addRow(form, c, row++, new JLabel("TLS"), verifyTls);
-        addRow(form, c, row++, new JLabel("重试次数"), retryMax);
-        addRow(form, c, row++, new JLabel("重试基延迟(ms)"), retryBaseDelayMs);
-        addRow(form, c, row++, new JLabel("超时(秒)"), timeoutSeconds);
+        addRowWithTrailing(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.password-label", "Password")), password, eye);
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.remote-path-label", "Remote path")), remotePath);
+        addRow(form, c, row++, new JLabel("TLS"), verifyTls); // technical token: identical in every catalog
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.retry-max-label", "Retry attempts")), retryMax);
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.retry-base-delay-label", "Retry base delay (ms)")),
+            retryBaseDelayMs);
+        addRow(form, c, row++, new JLabel(
+            text(localization, "backup.dialog.timeout-label", "Timeout (seconds)")), timeoutSeconds);
         addRow(form, c, row++, new JLabel(remoteTriggerLabel(localization)), remoteTrigger);
         c.gridx = 0;
         c.gridwidth = 2;
@@ -287,22 +326,25 @@ public final class WebDavSettingsDialog {
         dialog.setLocationRelativeTo(owner);
 
         test.addActionListener(ignored -> {
-            status.setText("测试中…");
+            status.setText(text(localization, "backup.dialog.status.testing", "Testing…"));
             final WebDavConfig probe;
             try {
                 probe = formConfig.get();
             } catch (IllegalArgumentException invalid) {
-                status.setText("配置无效: " + invalid.getMessage());
+                status.setText(format(localization, "backup.dialog.status.invalid-config",
+                    "Invalid configuration: {0}", invalid.getMessage()));
                 return;
             }
             final Thread worker = new Thread(() -> {
                 try {
                     new WebDavSyncTarget(probe, reason -> logger.warn("webdav-verify " + reason))
                         .verify();
-                    SwingUtilities.invokeLater(() -> status.setText("连接成功"));
+                    SwingUtilities.invokeLater(() -> status.setText(
+                        text(localization, "backup.dialog.status.connected", "Connected")));
                 } catch (RuntimeException | Error failure) {
                     final String message = sanitized(failure);
-                    SwingUtilities.invokeLater(() -> status.setText("连接失败: " + message));
+                    SwingUtilities.invokeLater(() -> status.setText(format(localization,
+                        "backup.dialog.status.connection-failed", "Connection failed: {0}", message)));
                 }
             }, "turboism-webdav-verify");
             worker.setDaemon(true);
@@ -314,20 +356,30 @@ public final class WebDavSettingsDialog {
             try {
                 target = formConfig.get();
             } catch (IllegalArgumentException invalid) {
-                status.setText("配置无效: " + invalid.getMessage());
+                status.setText(format(localization, "backup.dialog.status.invalid-config",
+                    "Invalid configuration: {0}", invalid.getMessage()));
                 return;
             }
             binding.update(target).whenCompleteAsync((result, failure) -> {
                 final String message = failure != null
-                    ? "保存失败: " + failure.getClass().getSimpleName()
+                    ? saveFailure(localization, null, failure.getClass().getSimpleName())
                     : switch (result) {
                         case APPLIED, UNCHANGED -> null;
-                        case DISABLED -> "保存失败: 绑定未启用";
-                        case PARTIAL_PERSISTENCE -> "保存失败: 写入未获读回确认";
-                        case REVISION_CONFLICT -> "保存失败: 配置版本冲突，请重试";
-                        case PERMISSION_DENIED -> "保存失败: 缺少配置写入权限";
-                        case INVALID_VALUE -> "保存失败: 值非法";
-                        default -> "保存失败: 配置服务不可用";
+                        case DISABLED -> saveFailure(localization, "backup.dialog.error.binding-disabled",
+                            "the binding is not enabled");
+                        case PARTIAL_PERSISTENCE -> saveFailure(localization,
+                            "backup.dialog.error.partial-persistence",
+                            "the write was not confirmed by a readback");
+                        case REVISION_CONFLICT -> saveFailure(localization,
+                            "backup.dialog.error.revision-conflict",
+                            "the configuration revision changed; retry");
+                        case PERMISSION_DENIED -> saveFailure(localization,
+                            "backup.dialog.error.permission-denied",
+                            "configuration write permission is missing");
+                        case INVALID_VALUE -> saveFailure(localization, "backup.dialog.error.invalid-value",
+                            "the value is invalid");
+                        default -> saveFailure(localization, "backup.dialog.error.runtime-unavailable",
+                            "the configuration service is unavailable");
                     };
                 if (message != null) {
                     status.setText(message);
@@ -381,6 +433,21 @@ public final class WebDavSettingsDialog {
         c.fill = GridBagConstraints.HORIZONTAL;
         form.add(field, c);
         c.fill = GridBagConstraints.NONE;
+    }
+
+    /**
+     * Renders "Save failed: <reason>" through the catalog. A null {@code reasonKey} uses the
+     * fallback text as the reason (used for the exception class name of an unexpected failure).
+     */
+    private static String saveFailure(
+        final PluginLocalization localization,
+        final String reasonKey,
+        final String reasonFallback
+    ) {
+        final String reason = reasonKey == null
+            ? reasonFallback
+            : text(localization, reasonKey, reasonFallback);
+        return format(localization, "backup.dialog.status.save-failed", "Save failed: {0}", reason);
     }
 
     private static String sanitized(final Throwable failure) {

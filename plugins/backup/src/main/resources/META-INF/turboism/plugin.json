@@ -49,7 +49,7 @@
     {
       "id": "turboism.ui.menu.contribute",
       "scope": "application",
-      "reason": "Exposes the WebDAV 备份设置 settings dialog through the Turboism menu."
+      "reason": "Exposes the WebDAV backup settings dialog through the Turboism menu."
     },
     {
       "id": "turboism.cubism.model.observe",
