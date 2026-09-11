@@ -73,6 +73,92 @@ class PartMembershipDecoderTest {
     }
 
     @Test
+    void theHostWrapsEachMembershipLeafInItsOwnGroupAndIsStillCombined() {
+        // Exactly the native shape an operator Part drag produces on 5.3.02:
+        // GroupUndo[ GroupUndo[leave], GroupUndo[join] ]. A single-child wrapper carries no
+        // relation of its own, so the pair is only combinable if it is looked through.
+        final GroupEntry outer = new GroupEntry("物体的移动");
+        final GroupEntry leave = new GroupEntry("物体的移动");
+        leave.children.add(PartChildEntry.leave(
+            new PartSourceDouble("PartA"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        final GroupEntry join = new GroupEntry("物体的移动");
+        join.children.add(PartChildEntry.join(
+            new PartSourceDouble("PartB"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        outer.children.add(leave);
+        outer.children.add(join);
+
+        final NativeHistoryDecodeResult result = decode(outer);
+
+        final HistoryEntryDetail detail = result.detail().orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.FULL, detail.detailLevel());
+        assertTrue(detail.degradationCode().isEmpty());
+        assertTrue(detail.group().isEmpty());
+        assertEquals("mesh-1", detail.targets().get(0).id().orElseThrow());
+        final HistoryRelationChange relation = detail.changes().get(0).relation().orElseThrow();
+        assertEquals("PartA", relation.before().target().orElseThrow().id().orElseThrow());
+        assertEquals("PartB", relation.after().target().orElseThrow().id().orElseThrow());
+    }
+
+    @Test
+    void aWrapperWithMoreThanOneChildIsNotLookedThrough() {
+        // The wrapper is only transparent while it is provably a wrapper: a nested group holding a
+        // second edit describes more than the relation, so it stays a real group.
+        final GroupEntry inner = new GroupEntry("物体的移动");
+        inner.children.add(PartChildEntry.leave(
+            new PartSourceDouble("PartA"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        inner.children.add(new Entry("Rename part"));
+        final GroupEntry join = new GroupEntry("物体的移动");
+        join.children.add(PartChildEntry.join(
+            new PartSourceDouble("PartB"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        final GroupEntry outer = new GroupEntry("物体的移动");
+        outer.children.add(inner);
+        outer.children.add(join);
+
+        final NativeHistoryDecodeResult result = decode(outer);
+
+        final HistoryEntryDetail detail = result.detail().orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertTrue(detail.group().isPresent());
+        assertEquals(
+            2,
+            detail.group().orElseThrow().children().size(),
+            "every observed child must remain projected"
+        );
+    }
+
+    @Test
+    void twoWrappedJoinsAreNotCombinedIntoAMove() {
+        // Two joins with no leave are not a move; transparency must not manufacture one.
+        final GroupEntry first = new GroupEntry("物体的移动");
+        first.children.add(PartChildEntry.join(
+            new PartSourceDouble("PartA"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        final GroupEntry second = new GroupEntry("物体的移动");
+        second.children.add(PartChildEntry.join(
+            new PartSourceDouble("PartB"),
+            new ArtMeshDouble("BodyMesh")
+        ));
+        final GroupEntry outer = new GroupEntry("物体的移动");
+        outer.children.add(first);
+        outer.children.add(second);
+
+        final NativeHistoryDecodeResult result = decode(outer);
+
+        final HistoryEntryDetail detail = result.detail().orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertTrue(detail.group().isPresent());
+    }
+
+    @Test
     void aGroupWithAnExtraEditIsNotCoalescedIntoOneRelation() {
         final GroupEntry group = new GroupEntry("Add Part");
         group.children.add(PartChildEntry.leave(
