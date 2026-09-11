@@ -424,6 +424,86 @@
         "requiredAccessFlags": 17,
         "forbiddenAccessFlags": 0
       }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.class.canvas_view_context",
+      "kind": "class",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.view-context.class",
+      "runtime": "com/live2d/cubism/view/context/CEViewContext",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": null,
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.method.app_ctrl_current_view_context",
+      "kind": "method",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.app-controller.current-view-context",
+      "runtime": "getCurrentViewContext",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "()Lcom/live2d/cubism/view/context/CEViewContext;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/CEAppCtrl",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.method.view_context_show_hint",
+      "kind": "method",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.view-context.show-hint",
+      "runtime": "showHint",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(Ljava/lang/String;FLjava/lang/String;)V",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.ui_status_bar.method.view_context_show_hint_with_action",
+      "kind": "method",
+      "owner": "ui-status-bar",
+      "name": "cubism.ui-canvas-hint.view-context.show-hint-with-action",
+      "runtime": "showHintWithFunc",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "descriptor": "(Ljava/lang/String;FLjava/lang/String;Lkotlin/jvm/functions/Function1;Lcom/live2d/graphics3d/type/GVector2;)Lcom/live2d/cubism/view/context/HintEntity;",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/view/context/CEViewContext",
+        "requiredAccessFlags": 17,
+        "forbiddenAccessFlags": 8
+      }
     }
   ]
 }

@@ -185,7 +185,7 @@ public record RuntimeHostAdapters(
 
     /**
      * Replaces only the status-toolbar slot of an existing bundle with the
-     * verified native status slice (reviewed exact 5.2.03 or 5.3.02); every
+     * verified native status slice (reviewed exact 5.2.03, 5.3.02 or 5.3.03); every
      * other adapter is preserved.
      */
     static RuntimeHostAdapters withVerifiedStatusBar(

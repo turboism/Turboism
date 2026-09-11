@@ -332,7 +332,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-ui-main-toolbar" ->
                 "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07";
             case "cubism-5.3.03-ui-status-bar" ->
-                "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7";
+                "59dfeceb7d385cc4176865c118fcb3af6a5fdf3d418fbc8a2e3bc4334a05df90";
             case "cubism-5.3.03-ui-top-menu" ->
                 "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
             case "cubism-5.3.03-workspace-control" ->
@@ -712,8 +712,8 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "452e9376e407b608117972819ebabb6a93729534699e8c2f8b82271ca7f99e39",
-                21,
+                StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(),
+                25,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
@@ -737,7 +737,7 @@ class StaticVerificationRecordRepositoryTest {
                 StatusBarVerificationManifest.RECORD_5_3_02.artifact().size(),
                 StatusBarVerificationManifest.RECORD_5_3_02.artifact().sha256(),
                 StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(),
-                21,
+                25,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
@@ -756,6 +756,9 @@ class StaticVerificationRecordRepositoryTest {
         return Set.of(
             "cubism.ui-status-bar.app-controller.instance",
             "cubism.ui-status-bar.app-controller.main-frame",
+            "cubism.ui-canvas-hint.app-controller.current-view-context",
+            "cubism.ui-canvas-hint.view-context.show-hint",
+            "cubism.ui-canvas-hint.view-context.show-hint-with-action",
             "cubism.ui-status-bar.main-frame-controller.frame",
             "cubism.ui-status-bar.frame.content-pane",
             "cubism.ui-status-bar.widget.set-name",
