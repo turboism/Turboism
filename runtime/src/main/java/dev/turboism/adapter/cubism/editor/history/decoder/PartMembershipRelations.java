@@ -209,7 +209,27 @@ final class PartMembershipRelations {
         boolean join
     ) {
 
+        /**
+         * Resolves the relation one native group child establishes, looking through a wrapper.
+         *
+         * <p>The host wraps each membership leaf in its own single-child group, so the two sides of
+         * one Part move arrive as {@code GroupUndo[GroupUndo[leave], GroupUndo[join]]} rather than
+         * as two sibling leaves. Such a wrapper carries no edit of its own, so it is transparent
+         * here. Only a provably empty-handed wrapper is looked through: a truncated group, or one
+         * holding more than one child, describes more than the relation and stays opaque, which is
+         * what keeps every observed child projected.</p>
+         */
         static Optional<RelationView> of(final HistoryEntryDetail detail) {
+            final Optional<RelationView> direct = direct(detail);
+            if (direct.isPresent()) return direct;
+            return detail.group()
+                .filter(group -> !group.truncated())
+                .filter(group -> group.observedChildCount() == 1)
+                .filter(group -> group.children().size() == 1)
+                .flatMap(group -> direct(group.children().get(0)));
+        }
+
+        private static Optional<RelationView> direct(final HistoryEntryDetail detail) {
             if (detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
                 || detail.targets().size() != 1
                 || detail.changes().size() != 1) {

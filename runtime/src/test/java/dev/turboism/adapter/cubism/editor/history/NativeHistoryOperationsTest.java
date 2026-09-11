@@ -50,13 +50,15 @@ class NativeHistoryOperationsTest {
     }
 
     @Test
-    void aRelationToSomethingThatIsNotADeformerChildKeepsTheOperationWithoutASubject() {
+    void aPartChildIsAlsoTheSubjectOfItsHierarchyChange() {
+        // The moved object is the subject whatever its admitted type is: a Part drag moves a Part,
+        // and dropping the subject would leave the event pointing at nothing.
         final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(
             relation(HistoryRelationChange.Kind.PART_MEMBERSHIP, "PART", true)
         );
 
         assertEquals(CubismOperation.SET_HIERARCHY_PARENT, resolution.operation());
-        assertTrue(resolution.subjectId().isEmpty(), "only ArtMesh and Deformer children are objects");
+        assertEquals(Optional.of("mesh-1"), resolution.subjectId());
     }
 
     @Test
@@ -86,10 +88,82 @@ class NativeHistoryOperationsTest {
     }
 
     @Test
+    void anAppearanceChannelChangeProvesTheDrawableColorOperation() {
+        for (final String property : List.of(
+            "opacity", "drawOrder", "multiplyColor", "screenColor"
+        )) {
+            final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(
+                appearance(property)
+            );
+
+            assertEquals(
+                CubismOperation.SET_DRAWABLE_COLOR,
+                resolution.operation(),
+                property + " is an admitted appearance channel"
+            );
+            assertEquals(Optional.of("mesh-1"), resolution.subjectId(), property);
+        }
+    }
+
+    @Test
+    void aValueChangeOutsideTheAppearanceChannelsStaysGeneric() {
+        assertEquals(
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            NativeHistoryOperations.resolve(appearance("name")).operation()
+        );
+    }
+
+    @Test
+    void aDetailMixingAppearanceWithAnotherChangeStaysGeneric() {
+        // A mixed entry describes more than one fact, so no single operation is proven.
+        final HistoryEntryDetail mixed = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target()),
+            List.of(change("multiplyColor"), change("name")),
+            Optional.empty(),
+            Optional.of("history.detail.unsupported")
+        );
+
+        assertEquals(
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            NativeHistoryOperations.resolve(mixed).operation()
+        );
+    }
+
+    @Test
     void anUndecodedEntryFallsBackToTheGenericEditorCommand() {
         assertEquals(
             CubismOperation.EXECUTE_EDITOR_COMMAND,
             NativeHistoryOperations.resolve(null).operation()
+        );
+    }
+
+    private static HistoryTarget target() {
+        return new HistoryTarget("ART_MESH", Optional.of("mesh-1"), Optional.of("BodyMesh"));
+    }
+
+    private static HistoryChange change(final String property) {
+        return new HistoryChange(
+            HistoryChange.Operation.SET,
+            Optional.of(0),
+            Optional.of(property),
+            Optional.of("#000000"),
+            Optional.of("#FFFFFF"),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
+        );
+    }
+
+    private static HistoryEntryDetail appearance(final String property) {
+        return new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target()),
+            List.of(change(property)),
+            Optional.empty(),
+            Optional.empty()
         );
     }
 
