@@ -27,6 +27,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 - Plugins can show native Cubism hints over the drawing area through
   `UiHostCapabilityService.notifyCanvasHint`, `notifyDismissibleCanvasHint` and `showCanvasHintWhile`,
   with `CanvasHintNotification`, `CanvasHintHandle`, `CanvasHintPosition` and `ConditionalCanvasHint`.
+  A plugin needs the new `turboism.ui.canvas.hint` permission to show one.
   The capability is version-routed through the verified 5.2.03, 5.3.02 and 5.3.03 host routes and
   reports itself unavailable on a host where the route cannot be resolved rather than approximating
   it. See the [SDK v10 review](sdk/api-contracts/sdk-api-v10-review.md); this revision is purely
