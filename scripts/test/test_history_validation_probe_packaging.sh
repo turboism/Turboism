@@ -27,7 +27,8 @@ for class_name in \
   'WindowsHistoryManagerValidationProbe$State' \
   'WindowsHistoryManagerValidationProbe$Snapshot' \
   'WindowsHistoryManagerValidationProbe$NativeDetail' \
-  WindowsHistoryFloatProbe; do
+  WindowsHistoryFloatProbe \
+  WindowsHistoryNativeUiIngressProbe; do
   printf 'class fixture\n' > "$class_root/$class_name.class"
 done
 
@@ -39,7 +40,8 @@ catalog='META-INF/turboism/i18n/messages.properties'
 for probe in \
   history-seed-validation-probe.jar \
   history-validation-probe.jar \
-  history-float-probe.jar; do
+  history-float-probe.jar \
+  history-native-ui-probe.jar; do
   jar_path="$bundle_root/plugins/$probe"
   if ! jar tf "$jar_path" | grep -Fxq "$catalog"; then
     printf 'error: %s is missing declared base i18n catalog %s\n' "$probe" "$catalog" >&2
@@ -54,6 +56,17 @@ for entry in \
   'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$NativeDetail.class'; do
   if ! jar tf "$seed_jar" | grep -Fxq "$entry"; then
     printf 'error: seed package is missing embedded sampler dependency %s\n' "$entry" >&2
+    exit 1
+  fi
+done
+
+native_ui_jar="$bundle_root/plugins/history-native-ui-probe.jar"
+for entry in \
+  'dev/turboism/tests/plugin/WindowsHistoryNativeUiIngressProbe.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe.class' \
+  'dev/turboism/tests/plugin/WindowsHistoryManagerValidationProbe$Snapshot.class'; do
+  if ! jar tf "$native_ui_jar" | grep -Fxq "$entry"; then
+    printf 'error: native UI probe package is missing %s\n' "$entry" >&2
     exit 1
   fi
 done
@@ -74,6 +87,26 @@ for required_text in \
   'data/dev.turboism.validation.history-seed/history-seed.jsonl'; do
   grep -Fq -- "$required_text" "$wrapper" || {
     printf 'error: history primary wrapper is missing %s\n' "$required_text" >&2
+    exit 1
+  }
+done
+
+native_ui_wrapper="$repo_root/scripts/preview/run-history-native-ui-validation.sh"
+[ -x "$native_ui_wrapper" ] || {
+  printf 'error: history native UI operator wrapper is missing or not executable\n' >&2
+  exit 1
+}
+if grep -Eq -- '--remote-pre-|--client-script|collect-history-validation' "$native_ui_wrapper"; then
+  printf 'error: history native UI wrapper contains a hook/client/collector dependency\n' >&2
+  exit 1
+fi
+for required_text in \
+  'run-cubism-host-validation.sh' \
+  '--result-file' \
+  'data/dev.turboism.validation.history-native-ui/history-native-ui-ingress.jsonl' \
+  'history-native-ui-probe.jar:history-native-ui-probe.jar'; do
+  grep -Fq -- "$required_text" "$native_ui_wrapper" || {
+    printf 'error: history native UI wrapper is missing %s\n' "$required_text" >&2
     exit 1
   }
 done

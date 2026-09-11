@@ -21,6 +21,15 @@ fixture, CoW-prefix, official-BAT, normal-exit and cleanup gates remain required
   delegates to the generic current Runner, supplies only the history panel and
   seed plugins, observes only the seed primary result file, and contains no
   custom hooks or client scripts.
+- `history-native-ui-probe.jar` is the operator-driven probe for edits a human
+  makes in Cubism's own user interface. It changes nothing: it announces one
+  action at a time, waits for the native Undo manager to move, and records both
+  the native entries that action created and every semantic event Turboism
+  published for it. Its wrapper is `run-history-native-ui-validation.sh`, its
+  result file is
+  `data/dev.turboism.validation.history-native-ui/history-native-ui-ingress.jsonl`,
+  and the operator instructions are in `README-native-ui-validation.md`. This
+  task needs a person at the desktop and is declared for 5302 only.
 
 The existing `run-history-baseline-validation.sh` remains unchanged and blocked
 because it depends on the rejected cleanup collector. Do not call it and remove
