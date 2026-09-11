@@ -488,6 +488,22 @@ public final class RuntimeExportSettingsAuthority
         invalidateDialogs(STALE_HOST_KEY, true);
     }
 
+    /**
+     * Plugin ids whose contribution registries are currently reachable from the native dialog.
+     *
+     * <p>This is the observable form of "the host hook can see this plugin": a plugin that is
+     * loaded but never bound stays invisible here, and the native dialog shows no options for it.
+     * The list is a sorted immutable copy, so it is safe to read from a report writer while the
+     * Swing thread attaches dialogs.</p>
+     *
+     * @return bound plugin ids, sorted; empty when no plugin is bound or the authority is closed
+     */
+    public List<String> boundPluginIds() {
+        synchronized (bindingsLock) {
+            return bindings.keySet().stream().sorted().toList();
+        }
+    }
+
     private static String requireText(final String value, final String name) {
         Objects.requireNonNull(value, name);
         if (value.isBlank()) {

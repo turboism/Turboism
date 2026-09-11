@@ -175,6 +175,13 @@ final class PreviewPluginContextFactory implements AutoCloseable {
             graalHost.close();
         }
     }
+
+    /** Forwards the host-level export-settings authority to the per-plugin services factory. */
+    void bindExportSettingsAuthority(
+        final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority
+    ) {
+        servicesFactory.bindExportSettingsAuthority(authority);
+    }
 }
 
 record PluginContextBundle(
