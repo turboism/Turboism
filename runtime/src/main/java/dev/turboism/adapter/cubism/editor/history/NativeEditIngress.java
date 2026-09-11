@@ -7,6 +7,7 @@ import dev.turboism.sdk.cubism.event.CubismOperation;
 import dev.turboism.sdk.cubism.event.CubismOperationOrigin;
 import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.atomic.LongAdder;
@@ -48,6 +49,7 @@ public final class NativeEditIngress implements AutoCloseable {
     }
 
     private final VerifiedMemberResolver resolver;
+    private final Object manager;
     private final Publisher publisher;
     private final NativeHistoryDecoderRegistry decoders = new NativeHistoryDecoderRegistry();
     private final NativeUndoIngressObserver observer;
@@ -83,6 +85,7 @@ public final class NativeEditIngress implements AutoCloseable {
         final Runnable onNotification
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
+        this.manager = Objects.requireNonNull(manager, "manager");
         this.publisher = Objects.requireNonNull(publisher, "publisher");
         this.observer = new NativeUndoIngressObserver(
             this.resolver,
@@ -182,7 +185,8 @@ public final class NativeEditIngress implements AutoCloseable {
         final NativeHistoryDecodeResult decoded = decoders.decode(
             resolver,
             entry.orElseThrow(),
-            event.label().orElse("History entry")
+            event.label().orElse("History entry"),
+            isCurrentTip(entry.orElseThrow())
         );
         final HistoryEntryDetail detail = decoded.outcome() == NativeHistoryDecodeResult.Outcome.DECODED
             ? decoded.detail().orElse(null)
@@ -194,6 +198,51 @@ public final class NativeEditIngress implements AutoCloseable {
             resolution.subjectId(),
             event.label()
         );
+    }
+
+    /**
+     * Calculates whether this entry is still the undo manager's current tip.
+     *
+     * <p>A decode runs outside the host's listener loop, so the operator may have committed another
+     * edit since the change was observed. An entry that is no longer the tip has a live target
+     * holding a later edit's result, which must never be read as this entry's post state.</p>
+     */
+    private boolean isCurrentTip(final Object entry) {
+        try {
+            final Object raw = resolver.invoke("cubism.editor-history.manager.entries", manager);
+            final Object positionValue =
+                resolver.invoke("cubism.editor-history.manager.position", manager);
+            if (!(raw instanceof List<?> values) || !(positionValue instanceof Number number)) {
+                return false;
+            }
+            return isCurrentTip(values, number.intValue(), entry);
+        } catch (RuntimeException unavailable) {
+            return false;
+        }
+    }
+
+    /**
+     * Calculates whether one entry is the tip of the undo list the host just reported.
+     *
+     * <p>Package-private and pure so the rule can be pinned without a live host: the tip is the
+     * entry at {@code position - 1} and only when the cursor is at the end of the list, because a
+     * cursor behind the tail means later entries exist that could already have overwritten the
+     * value being read.</p>
+     *
+     * @param values   the host's undo list
+     * @param position the host's current position
+     * @param entry    the entry being decoded
+     * @return whether the live target still holds this entry's own result
+     */
+    static boolean isCurrentTip(
+        final List<?> values,
+        final int position,
+        final Object entry
+    ) {
+        return values != null
+            && position > 0
+            && position == values.size()
+            && values.get(position - 1) == entry;
     }
 
     private void publish(
