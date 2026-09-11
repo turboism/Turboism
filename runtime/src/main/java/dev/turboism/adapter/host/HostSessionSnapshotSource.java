@@ -73,17 +73,18 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public boolean isHostPresent() {
-        return activeProject().isPresent() || activeDocument().isPresent();
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return pair.project().isPresent() || pair.document().isPresent();
     }
 
     @Override
     public long invalidationToken() {
         synchronized (invalidationLock) {
-            final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
-            final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
-            if (!project.equals(lastProjectObservation) || !document.equals(lastDocumentObservation)) {
-                lastProjectObservation = project;
-                lastDocumentObservation = document;
+            final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+            if (!pair.project().equals(lastProjectObservation)
+                || !pair.document().equals(lastDocumentObservation)) {
+                lastProjectObservation = pair.project();
+                lastDocumentObservation = pair.document();
                 invalidationToken++;
             }
             return invalidationToken;
@@ -94,8 +95,9 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
     public Observation observe() {
         // One adapter traversal supplies the project, the document and the model; the unprojected
         // pair rides along as evidence so versionOf can compare exactly what was observed.
-        final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
-        final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        final Optional<ProjectSnapshot> project = pair.project();
+        final Optional<DocumentSnapshot> document = pair.document();
         final Optional<HostDocument> projected = document.map(this::document);
         final Optional<HostModel> model = projected
             .filter(active -> active.kind() == DocumentKind.MODEL)
@@ -132,6 +134,17 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
         Optional<ProjectSnapshot> project,
         Optional<DocumentSnapshot> document
     ) {
+    }
+
+    /** One adapter read of the project/document pair; unavailable flattens to two empty halves. */
+    private ProjectWorkspaceAdapter.ActiveProjectDocument observedPair() {
+        final ProjectWorkspaceAdapter.AdapterResult<ProjectWorkspaceAdapter.ActiveProjectDocument>
+            result = projectWorkspace.activeProjectAndDocument();
+        return result.isAvailable()
+            ? result.value().orElseThrow()
+            : new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
     }
 
     private HostProject project(final ProjectSnapshot source) {

@@ -159,6 +159,34 @@ public final class PluginScopedCubismModelAccess {
             }
         }
 
+        @Override
+        public Observation observe() {
+            final java.util.Optional<Current> current = current();
+            final long observedToken;
+            synchronized (this) {
+                observedToken = activationToken;
+            }
+            return new Observation(
+                java.util.Optional.empty(),
+                current.map(Current::document),
+                current.flatMap(Current::model),
+                selection(),
+                new ObservedToken(observedToken)
+            );
+        }
+
+        @Override
+        public long versionOf(final Observation observation) {
+            java.util.Objects.requireNonNull(observation, "observation");
+            if (observation.evidence() instanceof ObservedToken token) {
+                return token.value();
+            }
+            return invalidationToken();
+        }
+
+        /** The activation token as of one observation, so versionOf never re-reads the host. */
+        private record ObservedToken(long value) { }
+
         private synchronized java.util.Optional<Current> current() {
             final java.util.Optional<DocumentSnapshot> snapshot = activeDocumentSnapshot();
             if (snapshot.isEmpty()) {

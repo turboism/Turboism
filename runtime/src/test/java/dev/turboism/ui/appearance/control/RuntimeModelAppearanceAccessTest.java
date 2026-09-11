@@ -64,6 +64,21 @@ class RuntimeModelAppearanceAccessTest {
     }
 
     @Test
+    void oneScopeCaptureObservesTheHostOnce() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, coordinator);
+
+        access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+
+        assertTrue(fixture.observeCalls.get() >= 1L);
+        assertEquals(0L, fixture.presenceChecks.get(),
+            "the observation must replace the separate presence check");
+        assertEquals(fixture.observeCalls.get(), fixture.documentReads.get(),
+            "each observation must read the document exactly once, not once per accessor");
+    }
+
+    @Test
     void drawableFacadeExposesDeformerPartPaletteForArtMeshRows() {
         final Fixture fixture = new Fixture("content-a", "model-a", 7L);
         final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
@@ -301,6 +316,9 @@ class RuntimeModelAppearanceAccessTest {
         private final AtomicLong token;
         private final AtomicLong hostGeneration = new AtomicLong(4L);
         private final AtomicLong providerGeneration = new AtomicLong(9L);
+        private final AtomicLong documentReads = new AtomicLong();
+        private final AtomicLong presenceChecks = new AtomicLong();
+        private final AtomicLong observeCalls = new AtomicLong();
         private String contentId;
         private String modelId;
         private boolean hostPresent = true;
@@ -373,6 +391,7 @@ class RuntimeModelAppearanceAccessTest {
             return new HostSnapshotSource() {
                 @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
                 @Override public Optional<HostDocument> activeDocument() {
+                    documentReads.incrementAndGet();
                     return hostPresent ? Optional.of(document()) : Optional.empty();
                 }
                 @Override public Optional<HostModel> activeModel() {
@@ -381,8 +400,15 @@ class RuntimeModelAppearanceAccessTest {
                 @Override public HostSelection selection() {
                     return new HostSelection(List.of(), Optional.empty(), Optional.empty(), Optional.empty());
                 }
-                @Override public boolean isHostPresent() { return hostPresent; }
+                @Override public boolean isHostPresent() {
+                    presenceChecks.incrementAndGet();
+                    return hostPresent;
+                }
                 @Override public long invalidationToken() { return token.get(); }
+                @Override public Observation observe() {
+                    observeCalls.incrementAndGet();
+                    return HostSnapshotSource.super.observe();
+                }
             };
         }
 
