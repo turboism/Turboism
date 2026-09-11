@@ -270,13 +270,19 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             // identified structurally.
             if (!hookFired) failures.add("hook-did-not-fire");
             if (!observerFired) failures.add("observer-did-not-fire");
+            // The failure list is its own line: the host runner detects the terminal result by
+            // comparing a whole line, so the summary line must be exactly what it looks for.
             write(
                 artifact,
-                "{\"type\":\"summary\",\"status\":\"" + (failures.isEmpty() ? "PASS" : "FAIL")
-                    + "\",\"failures\":[" + String.join(",", failures.stream().map(WindowsHistoryNativeUiIngressProbe::quoted).toList())
+                "{\"type\":\"failures\",\"failures\":["
+                    + String.join(
+                        ",",
+                        failures.stream().map(WindowsHistoryNativeUiIngressProbe::quoted).toList()
+                    )
                     + "]}\n",
-                true
+                false
             );
+            write(artifact, summaryLine(failures.isEmpty()), true);
         } catch (InterruptedException interrupted) {
             Thread.currentThread().interrupt();
         } catch (Exception exception) {
@@ -416,6 +422,17 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             StandardOpenOption.CREATE,
             StandardOpenOption.APPEND
         );
+    }
+
+    /**
+     * {@return the terminal result line the host runner matches}
+     *
+     * <p>The runner compares one whole line, so nothing else may share it.</p>
+     */
+    static String summaryLine(final boolean passed) {
+        return passed
+            ? "{\"type\":\"summary\",\"status\":\"PASS\"}\n"
+            : "{\"type\":\"summary\",\"status\":\"FAIL\"}\n";
     }
 
     private static String quoted(final String value) {
