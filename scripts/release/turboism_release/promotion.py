@@ -83,7 +83,8 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
                             capture_output=True, text=True)
     require(result.returncode == 0 and result.stdout.strip() == source_sha, "source checkout mismatch")
     clean = subprocess.run(["git", "-C", str(source_root), "diff", "--quiet", "HEAD", "--",
-                            "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt"],
+                            "gradle/common-java.gradle.kts", "CHANGELOG.md", "packaging/release-plugins.txt",
+                            "release-notes", "scripts/release/turboism_release/release_notes.py"],
                            capture_output=True)
     require(clean.returncode == 0, "source release metadata was modified after checkout")
     document = read_document(unique_file(bundle_root, "candidate.json"), "candidate")
@@ -215,6 +216,10 @@ def promote(github, source_root, bundle_root, run_id, source_sha, attempt, confi
     tag, dist, notes, expected = verify_bundle(source_root, bundle_root, run, source_sha)
     receipt = verify_receipt(github, source_root, bundle_root, tag[1:], source_sha, str(run_id), run["run_attempt"])
     if receipt is not None:
+        from .release_notes import stable_metadata
+        localized = stable_metadata(source_root, tag[1:], source_sha, notes)
+        if localized:
+            notes += '\n' + localized
         notes += "\n\n<!-- turboism-build-v1 " + json.dumps(receipt, sort_keys=True, separators=(",", ":")) + " -->\n"
     binding = None
     if run["event"] == "workflow_dispatch":
