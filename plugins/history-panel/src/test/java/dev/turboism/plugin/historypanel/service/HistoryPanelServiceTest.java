@@ -1394,14 +1394,10 @@ class HistoryPanelServiceTest {
                 case "history.icon.warp-deformer" -> "Warp deformer icon";
                 case "history.icon.rotation-deformer" -> "Rotation deformer icon";
                 case "history.icon.part" -> "Part icon";
-                case "history.relation.deformer-parent.set.infix" -> " is set under ";
-                case "history.relation.deformer-parent.set.suffix" -> " as its child";
-                case "history.relation.part-membership.join.infix" -> " joins ";
-                case "history.relation.part-membership.join.suffix" -> "";
-                case "history.relation.deformer-parent.detach.infix" -> " leaves deformer ";
-                case "history.relation.deformer-parent.detach.suffix" -> "";
-                case "history.relation.part-membership.detach.infix" -> " leaves part ";
-                case "history.relation.part-membership.detach.suffix" -> "";
+                case "history.relation.deformer-parent.set" -> "{0} is set under {1} as its child";
+                case "history.relation.part-membership.join" -> "{0} joins {1}";
+                case "history.relation.deformer-parent.detach" -> "{0} leaves deformer {1}";
+                case "history.relation.part-membership.detach" -> "{0} leaves part {1}";
                 case "history.target.art-mesh" -> "Artmesh";
                 case "history.target.parameter" -> "Parameter";
                 case "history.target.part" -> "Part";

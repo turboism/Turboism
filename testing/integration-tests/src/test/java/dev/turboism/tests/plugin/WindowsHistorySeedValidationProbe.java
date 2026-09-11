@@ -13,6 +13,9 @@ import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.model.Color;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Drawable;
+import dev.turboism.sdk.cubism.model.ModelObjectDescriptor;
+import dev.turboism.sdk.cubism.model.ModelObjectKind;
+import dev.turboism.sdk.cubism.model.ModelObjectReference;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.model.Deformer;
 import dev.turboism.sdk.cubism.model.Part;
@@ -41,7 +44,7 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
 
     private static final long MAX_EVIDENCE_BYTES = WindowsHistoryManagerValidationProbe.MAX_EVIDENCE_BYTES;
     private static final long TERMINAL_RESERVE_BYTES = 2_048L;
-    private static final int MAX_PAIRED_SAMPLES = 20;
+    private static final int MAX_PAIRED_SAMPLES = 24;
     private static final String INTERNAL_ROOT_PART = "__RootPart__";
     private static final List<String> REQUIRED_PAIRED_PHASES = List.of(
         "baseline",
@@ -62,7 +65,10 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
         "relation-write-1",
         "relation-write-2",
         "relation-undo",
-        "relation-redo"
+        "relation-redo",
+        "relation-mcp-baseline",
+        "relation-mcp-write",
+        "relation-mcp-undo"
     );
 
     private PluginContext context;
@@ -586,14 +592,10 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             afterRedo.text()
         );
         validateDeformerRootCapture(evidence, model, drawable, deformers);
+        validateModelObjectServiceIngress(evidence, model, drawable, original);
         restoreOriginalParent(evidence, model, drawable, original);
     }
 
-    /**
-     * Documents the reviewed gap for a root-to-deformer write. The current writer captures only
-     * an existing direct relation, so a Deformer parent set from the model root stays on the
-     * legacy path and produces an unattributed entry. This is an observation, not a gate.
-     */
     /**
      * Validates the ROOT -> TARGET Deformer relation: attaching a Deformer to a child that has no
      * direct Deformer parent must be captured exactly, applied natively, and restored by Undo.
@@ -761,6 +763,166 @@ public final class WindowsHistorySeedValidationProbe implements CubismPlugin {
             + ",changes=" + detail.changes().size()
             + ",relation=" + detail.changes().stream()
                 .anyMatch(change -> change.relation().isPresent());
+    }
+
+    /**
+     * Validates the ingress used by the MCP model-object tools.
+     *
+     * <p>{@code turboism_model_object_reparent} calls {@link dev.turboism.sdk.cubism.model.ModelObjectService#reparent},
+     * so the shared service is the exact MCP ingress. A reparent through it must produce the same
+     * captured relation row as the direct SDK call and must apply and restore natively.</p>
+     */
+    private void validateModelObjectServiceIngress(
+        final Evidence evidence,
+        final CubismModel model,
+        final Drawable drawable,
+        final NativeParent original
+    ) throws Exception {
+        evidence.event("phase", "relation-mcp-ingress");
+        final String childId = onEdt(() -> drawable.id().value());
+        final List<String> partIds = onEdt(() -> model.parts().all().stream()
+            .map(part -> part.id().value()).toList());
+        final NativeParent before = observeNativeParent(drawable);
+        final Optional<String> target = partIds.stream()
+            .filter(id -> !id.equals(before.partId().orElse(null)))
+            .filter(id -> !INTERNAL_ROOT_PART.equals(id))
+            .findFirst();
+        evidence.check(
+            "relation-mcp-ingress-target",
+            target.isPresent(),
+            "a Part exists that is not the current direct parent",
+            "parts=" + partIds + ",currentPart=" + before.partId().orElse("ROOT")
+        );
+        if (target.isEmpty()) {
+            return;
+        }
+        final String partId = target.orElseThrow();
+        final HistorySnapshot baseline = context.cubism().history().snapshot();
+        capturePaired(evidence, "relation-mcp-baseline");
+        final AtomicReference<ModelObjectDescriptor> returned = new AtomicReference<>();
+        final AtomicReference<RuntimeException> failure = new AtomicReference<>();
+        onEdt(() -> {
+            try {
+                returned.set(context.modelObjects().reparent(
+                    new ModelObjectReference(ModelObjectKind.ART_MESH, childId),
+                    new ModelObjectReference(ModelObjectKind.PART, partId),
+                    -1
+                ));
+            } catch (RuntimeException exception) {
+                failure.set(exception);
+            }
+            return null;
+        });
+        evidence.check(
+            "relation-mcp-ingress-accepted",
+            failure.get() == null && returned.get() != null,
+            "the model-object service accepts the reparent",
+            failure.get() == null
+                ? "descriptor=" + describeDescriptor(returned.get())
+                : "failed: " + failure.get().getClass().getSimpleName()
+                    + ":" + failure.get().getMessage()
+        );
+        if (failure.get() != null || returned.get() == null) {
+            return;
+        }
+        // The descriptor exposes one parent slot, and the service projects the Deformer parent
+        // first when an ArtMesh has both. Verify the descriptor against the live readback instead
+        // of encoding that projection as a requirement, and record the Part effect separately.
+        final String liveParent = onEdt(() -> {
+            final Optional<Drawable> current = model.drawables().all().stream()
+                .filter(candidate -> candidate.id().value().equals(childId))
+                .findFirst();
+            return current
+                .flatMap(candidate -> candidate.parentDeformerId()
+                    .map(id -> "DEFORMER:" + id.value())
+                    .or(() -> candidate.parentPartId().map(id -> "PART:" + id.value())))
+                .orElse("none");
+        });
+        final String descriptorParent = returned.get().parent()
+            .map(parent -> (parent.kind() == ModelObjectKind.ART_MESH ? "ART_MESH:" : parent.kind() + ":")
+                + parent.id())
+            .orElse("none");
+        evidence.check(
+            "relation-mcp-ingress-descriptor",
+            returned.get().reference().kind() == ModelObjectKind.ART_MESH
+                && returned.get().reference().id().equals(childId)
+                && descriptorParentMatches(descriptorParent, liveParent),
+            "descriptor matches the live parent readback for " + childId,
+            describeDescriptor(returned.get()) + ",live=" + liveParent
+        );
+        evidence.observation(
+            "relation-mcp-ingress-descriptor-part-slot",
+            "documented projection: one parent slot, Deformer first",
+            "requested part=" + partId + ",descriptor=" + describeDescriptor(returned.get())
+                + "; the Part membership change is carried by the captured relation row"
+        );
+
+        final HistorySnapshot after = awaitHistoryAdvance(baseline, 100)
+            .orElse(context.cubism().history().snapshot());
+        final HistoryEntryDetail detail = currentEntry(after);
+        final Optional<HistoryRelationChange> relation = detail == null
+            ? Optional.empty()
+            : detail.changes().stream()
+                .map(HistoryChange::relation)
+                .flatMap(Optional::stream)
+                .findFirst();
+        evidence.check(
+            "relation-mcp-ingress-captured",
+            relation.isPresent()
+                && relation.orElseThrow().kind() == HistoryRelationChange.Kind.PART_MEMBERSHIP
+                && detail.detailLevel() == HistoryAction.DetailLevel.FULL
+                && detail.origin().kind() == HistoryOrigin.Kind.TURBOISM,
+            "one captured PART_MEMBERSHIP relation at level=FULL,origin=TURBOISM",
+            "child=" + childId + "," + describeCurrentEntry(after)
+        );
+        evidence.check(
+            "relation-mcp-ingress-endpoints",
+            relation.isPresent()
+                && relation.orElseThrow().after().target().map(candidate ->
+                    "PART".equals(candidate.type())
+                        && candidate.id().filter(partId::equals).isPresent()
+                ).orElse(false)
+                && relation.orElseThrow().before().state() == HistoryRelationChange.State.TARGET,
+            "before=" + (before.partId().map(id -> "PART:" + id).orElse("ROOT"))
+                + ",after=PART:" + partId,
+            relation.map(value -> describeEndpoint(value.before())
+                + "->" + describeEndpoint(value.after())).orElse("no relation")
+        );
+        final NativeParent applied = awaitNativeParent(
+            drawable,
+            new NativeParent(Optional.of(partId), before.deformerId())
+        );
+        evidence.check(
+            "relation-mcp-ingress-native-applied",
+            applied.partId().filter(partId::equals).isPresent(),
+            "part=" + partId,
+            applied.text()
+        );
+
+        final HistoryMoveResult undone = onEdt(() -> context.cubism().history().undo(1));
+        final NativeParent restored = awaitNativeParent(drawable, before);
+        capturePaired(evidence, "relation-mcp-undo");
+        evidence.check(
+            "relation-mcp-ingress-undo-restores",
+            undone.outcome() == HistoryMoveResult.Outcome.MOVED && restored.equals(before),
+            before.text(),
+            undone.outcome().name() + "," + restored.text()
+        );
+    }
+
+    /** Compares the descriptor parent text with the live readback, ignoring the deformer prefix. */
+    private static boolean descriptorParentMatches(final String descriptorParent, final String liveParent) {
+        if (descriptorParent.equals(liveParent)) {
+            return true;
+        }
+        return liveParent.startsWith("DEFORMER:")
+            && descriptorParent.endsWith(":" + liveParent.substring("DEFORMER:".length()));
+    }
+
+    private static String describeDescriptor(final ModelObjectDescriptor descriptor) {
+        return descriptor.reference().kind() + ":" + descriptor.reference().id()
+            + ",parent=" + descriptor.parent().map(parent -> parent.kind() + ":" + parent.id())
+                .orElse("none");
     }
 
     private void restoreOriginalParent(

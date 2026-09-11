@@ -29,7 +29,7 @@ class WindowsHistorySeedValidationProbeTest {
         "artmesh-baseline", "artmesh-write-1", "artmesh-write-2", "artmesh-third-write",
         "artmesh-undo", "artmesh-redo",
         "relation-baseline", "relation-write-1", "relation-write-2", "relation-undo",
-        "relation-redo"
+        "relation-redo", "relation-mcp-baseline", "relation-mcp-write", "relation-mcp-undo"
     );
 
     @Test
@@ -498,7 +498,7 @@ class WindowsHistorySeedValidationProbeTest {
             final WindowsHistorySeedValidationProbe.Evidence evidence =
                 new WindowsHistorySeedValidationProbe.Evidence(artifact);
             pairAll(evidence, snapshot("entry-1"));
-            evidence.observation("relation-deformer-parent-from-root", "known gap", "level=PARTIAL");
+            evidence.observation("relation-deformer-root", "supporting only", "level=FULL");
             evidence.summary();
 
             final List<String> lines = Files.readAllLines(artifact);
