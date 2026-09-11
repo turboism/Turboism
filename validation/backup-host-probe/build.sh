@@ -5,7 +5,7 @@ set -euo pipefail
 # the already-built SDK jar. The probe is validation tooling only; it is never
 # part of the production preview bundle or product build.
 #
-# The probe reuses the production WebDAV client sources from plugins/backup so
+# The probe reuses the production WebDAV client sources from plugins/webdav-backup
 # the real-host run exercises the exact plugin WebDAV target code (JDK-only).
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repo_root"
@@ -20,7 +20,7 @@ if [ "${#sdk_jars[@]}" -ne 1 ] || [ ! -f "${sdk_jars[0]}" ]; then
 fi
 sdk_jar="${sdk_jars[0]}"
 src="validation/backup-host-probe/src"
-webdav_src="plugins/backup/src/main/java/dev/turboism/plugin/backup/webdav"
+webdav_src="plugins/webdav-backup/src/main/java/dev/turboism/plugin/webdavbackup/webdav"
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 
