@@ -123,6 +123,53 @@ final class EditorRawImagePsdAccess {
         );
     }
 
+    /**
+     * Parses one runtime-owned staged PSD into a verified native layered image for replacement.
+     *
+     * <p>Host thread only. The reconstructed value is type-checked against the same verified
+     * constructors the export re-read uses; a parse or construct failure is reported as an
+     * {@link IOException} so the caller can classify it without inspecting native text.</p>
+     *
+     * @param stage runtime-owned non-empty staged PSD
+     * @param name target raw-image name, so Cubism's native matcher sees the expected identity
+     */
+    Object parseStageOnHostThread(final Path stage, final String name) throws IOException {
+        Objects.requireNonNull(stage, "stage");
+        Objects.requireNonNull(name, "name");
+        try {
+            final Object companion = requireNativeValue(
+                "cubism.editor-model.psd-document.companion",
+                resolver.readStaticField("cubism.editor-model.psd-document.companion")
+            );
+            final Object parsed = resolver.invoke(
+                "cubism.editor-model.psd-document.parse-file",
+                companion,
+                stage.toFile(),
+                false,
+                false
+            );
+            if (!resolver.isInstance(
+                EditorRawImagePsdSelectorContract.PSD_DOCUMENT_CLASS_ALIAS, parsed)) {
+                throw new IOException("staged PSD parser returned a value outside the verified type");
+            }
+            final Object reconstructed = resolver.construct(
+                "cubism.editor-model.layered-image.from-psd",
+                parsed,
+                stage.toFile(),
+                name
+            );
+            if (!resolver.isInstance(
+                EditorRawImagePsdSelectorContract.LAYERED_IMAGE_CLASS_ALIAS, reconstructed)) {
+                throw new IOException("staged PSD did not reconstruct as a verified layered image");
+            }
+            return reconstructed;
+        } catch (IOException failure) {
+            throw failure;
+        } catch (RuntimeException failure) {
+            throw new IOException("staged PSD could not be parsed: " + message(failure), failure);
+        }
+    }
+
     private ExportResult exportOnHostThread(
         final String identity,
         final Object modelSource,

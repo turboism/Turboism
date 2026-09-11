@@ -1,7 +1,9 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.core.runtime.psd.PsdExportHost;
+import dev.turboism.core.runtime.psd.PsdReplaceHost;
 import dev.turboism.core.runtime.psd.PsdSessionBoundHost;
+import java.io.IOException;
 import java.nio.file.Path;
 import dev.turboism.mapping.verification.selector.EditorTextureSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
@@ -11,6 +13,7 @@ import dev.turboism.sdk.cubism.id.TextureAtlasId;
 import dev.turboism.sdk.cubism.model.AtlasTexture;
 import dev.turboism.sdk.cubism.model.ModelImageEntry;
 import dev.turboism.sdk.cubism.model.ModelImageGroup;
+import dev.turboism.sdk.cubism.model.ModelImageRelation;
 import dev.turboism.sdk.cubism.model.ModelTextures;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
 import dev.turboism.sdk.cubism.model.RawTexture;
@@ -23,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.LongSupplier;
 import java.util.concurrent.CompletionStage;
 
@@ -72,6 +76,9 @@ final class EditorTextureAccess {
     private final EditorParameterCombinedAccess.ModelGuard modelGuard;
     private final EditorTextureRelationsAccess relationAccess;
     private final LongSupplier generationSupplier;
+    private final EditorRawImagePsdAccess psdAccess;
+    private final EditorRawImagePsdSourceBinding psdSourceBinding;
+    private final EditorRawImagePsdReplaceAccess psdReplaceAccess;
 
     EditorTextureAccess(
         final VerifiedMemberResolver resolver,
@@ -89,6 +96,10 @@ final class EditorTextureAccess {
         this.modelGuard = Objects.requireNonNull(modelGuard, "modelGuard");
         this.generationSupplier = Objects.requireNonNull(generationSupplier, "generationSupplier");
         this.relationAccess = new EditorTextureRelationsAccess(resolver, modelGuard, this.generationSupplier);
+        this.psdAccess = new EditorRawImagePsdAccess(resolver, modelGuard::requireCurrent);
+        this.psdSourceBinding = new EditorRawImagePsdSourceBinding(
+            resolver, new EditorRawImagePsdIntegrityAccess(resolver));
+        this.psdReplaceAccess = new EditorRawImagePsdReplaceAccess(resolver, modelGuard::requireCurrent);
     }
 
     ModelTextures textures(final String identity, final Object source, final Object model) {
@@ -277,12 +288,55 @@ final class EditorTextureAccess {
         throw new NoSuchElementException("Cubism raw image is absent: " + id.value());
     }
 
+    /**
+     * Model images whose current raw image is the replaced target, from the pre-replacement read.
+     * Only these can be affected by the native matcher, so only these identify the observed result.
+     */
+    private static List<ModelImageId> modelImagesUsing(
+        final TextureRelationsSnapshot snapshot,
+        final RawImageId target
+    ) {
+        final List<ModelImageId> affected = new ArrayList<>();
+        for (final ModelImageRelation relation : snapshot.modelImages()) {
+            if (relation.currentRawImageId().filter(target::equals).isPresent()) {
+                affected.add(relation.id());
+            }
+        }
+        return List.copyOf(affected);
+    }
+
+    /** The raw image currently bound to every previously affected model image, when consistent. */
+    private static Optional<RawImageId> observedRawImage(
+        final TextureRelationsSnapshot after,
+        final List<ModelImageId> affected
+    ) {
+        RawImageId observed = null;
+        for (final ModelImageId id : affected) {
+            final Optional<ModelImageRelation> relation = after.modelImage(id);
+            if (relation.isEmpty()) return Optional.empty();
+            final Optional<RawImageId> current = relation.orElseThrow().currentRawImageId();
+            if (current.isEmpty()) return Optional.empty();
+            if (observed == null) {
+                observed = current.orElseThrow();
+            } else if (!observed.equals(current.orElseThrow())) {
+                // The affected model images no longer agree; the outcome is not attributable.
+                return Optional.empty();
+            }
+        }
+        return Optional.ofNullable(observed);
+    }
+
+    private static String message(final Throwable failure) {
+        return failure.getMessage() == null ? failure.getClass().getName() : failure.getMessage();
+    }
+
     @FunctionalInterface
     private interface Operation {
         Object apply(Object edit);
     }
 
-    private final class EditorTextures implements ModelTextures, PsdExportHost, PsdSessionBoundHost {
+    private final class EditorTextures
+        implements ModelTextures, PsdExportHost, PsdSessionBoundHost, PsdReplaceHost {
         private final String identity;
         private final Object source;
         private final Object model;
@@ -420,6 +474,133 @@ final class EditorTextureAccess {
         public long generation() {
             modelGuard.requireCurrent(identity, model);
             return generationSupplier.getAsLong();
+        }
+
+        @Override
+        public Replacement replaceWithStagedPsd(
+            final RawImageId target,
+            final Path stage,
+            final Runnable admission
+        ) {
+            Objects.requireNonNull(admission, "admission");
+            return EditorHostThread.dispatch(
+                "Cubism PSD raw-image replace",
+                () -> replaceOnHostThread(target, stage, admission)
+            );
+        }
+
+        private Replacement replaceOnHostThread(
+            final RawImageId target,
+            final Path stage,
+            final Runnable admission
+        ) {
+            admission.run();
+            modelGuard.requireCurrent(identity, model);
+
+            final TextureRelationsSnapshot before = relationAccess.relations(identity, source, model);
+            final EditorRawImagePsdSourceBinding.BindingResult binding =
+                psdSourceBinding.bindOnHostThread(source, target);
+            if (binding.status() != EditorRawImagePsdSourceBinding.BindingStatus.MATCHED) {
+                return new Replacement(
+                    "TARGET_NOT_FOUND", true, false, false, false, false, Optional.empty(),
+                    "The requested raw image is not exactly resolvable in the current model source."
+                );
+            }
+
+            final Object appController;
+            final Object document;
+            try {
+                appController = resolver.invokeStatic("cubism.editor-model.app-controller.instance");
+                document = appController == null ? null : resolver.invoke(
+                    "cubism.editor-model.app-controller.current-document", appController);
+            } catch (RuntimeException resolutionFailure) {
+                return new Replacement(
+                    "DOCUMENT_UNAVAILABLE", true, false, false, false, false, Optional.empty(),
+                    "The current Cubism document could not be resolved for replacement."
+                );
+            }
+
+            final Object incoming;
+            try {
+                incoming = psdAccess.parseStageOnHostThread(stage, binding.candidate().name());
+            } catch (IOException | RuntimeException parseFailure) {
+                return new Replacement(
+                    "STAGE_UNREADABLE", true, false, false, false, false, Optional.empty(),
+                    "The staged PSD could not be parsed into a verified native layered image."
+                );
+            }
+
+            final EditorRawImagePsdReplaceAccess.ReplaceResult nativeResult =
+                psdReplaceAccess.replacePsd(
+                    identity,
+                    model,
+                    appController,
+                    document,
+                    List.of(binding.candidate().nativeSource()),
+                    incoming,
+                    stage
+                );
+
+            if (nativeResult.status() == EditorRawImagePsdReplaceAccess.ReplaceStatus.EDITING_REJECTED) {
+                return new Replacement(
+                    "HOST_EDIT_IN_PROGRESS", nativeResult.postCurrentGuardPassed(), false, false, true,
+                    false, Optional.empty(),
+                    "Cubism is currently applying another edit; no replacement was attempted."
+                );
+            }
+            if (nativeResult.status()
+                == EditorRawImagePsdReplaceAccess.ReplaceStatus.UNAVAILABLE) {
+                return new Replacement(
+                    "UNAVAILABLE", nativeResult.postCurrentGuardPassed(), false, false, false, false,
+                    Optional.empty(),
+                    "The native replacement seam is unavailable for this host build."
+                );
+            }
+            if (nativeResult.status()
+                == EditorRawImagePsdReplaceAccess.ReplaceStatus.INVALID_INPUT) {
+                return new Replacement(
+                    "INVALID_INPUT", nativeResult.postCurrentGuardPassed(), false, false, false, false,
+                    Optional.empty(),
+                    "The native replacement inputs were rejected before any mutation."
+                );
+            }
+            if (nativeResult.status()
+                == EditorRawImagePsdReplaceAccess.ReplaceStatus.PARTIAL_FAILURE) {
+                return new Replacement(
+                    "NATIVE_OUTCOME_UNKNOWN", nativeResult.postCurrentGuardPassed(), false, true, false,
+                    false, Optional.empty(),
+                    "The native replacement did not report a usable outcome; mutation state is unknown."
+                );
+            }
+
+            // The native call returned. Application is claimed only from a fresh observation.
+            final TextureRelationsSnapshot after;
+            try {
+                after = relationAccess.relations(identity, source, model);
+            } catch (RuntimeException rereadFailure) {
+                return new Replacement(
+                    "NATIVE_RETURNED_UNOBSERVED", nativeResult.postCurrentGuardPassed(), true, false,
+                    false, false, Optional.empty(),
+                    "The native replacement returned but current state could not be re-read."
+                );
+            }
+            if (!after.isAvailable()) {
+                return new Replacement(
+                    "NATIVE_RETURNED_UNOBSERVED", nativeResult.postCurrentGuardPassed(), true, false,
+                    false, false, Optional.empty(),
+                    "The native replacement returned but the relation projection is unavailable."
+                );
+            }
+            return new Replacement(
+                "NATIVE_RETURNED",
+                nativeResult.postCurrentGuardPassed(),
+                true,
+                false,
+                false,
+                true,
+                observedRawImage(after, modelImagesUsing(before, target)),
+                "The native replacement returned and current state was re-read."
+            );
         }
 
         @Override

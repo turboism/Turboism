@@ -545,6 +545,7 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
     private final class SessionModelTextures
         implements dev.turboism.sdk.cubism.model.ModelTextures,
         dev.turboism.core.runtime.psd.PsdExportHost,
+        dev.turboism.core.runtime.psd.PsdReplaceHost,
         dev.turboism.core.runtime.psd.PsdSessionBoundHost {
         private final long generation;
         private final dev.turboism.sdk.cubism.model.ModelTextures delegate;
@@ -583,6 +584,22 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         }
 
         @Override public long generation() { return generation; }
+
+        @Override
+        public dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement replaceWithStagedPsd(
+            final dev.turboism.sdk.cubism.id.RawImageId target,
+            final java.nio.file.Path stage,
+            final Runnable admission
+        ) {
+            Objects.requireNonNull(admission, "admission");
+            return guarded(generation, () -> {
+                if (!(delegate instanceof dev.turboism.core.runtime.psd.PsdReplaceHost host)) {
+                    return dev.turboism.core.runtime.psd.PsdReplaceHost.Replacement.unavailable();
+                }
+                return host.replaceWithStagedPsd(
+                    target, stage, () -> guardedVoid(generation, admission));
+            });
+        }
         @Override public List<dev.turboism.sdk.cubism.model.RawTexture> rawImages() {
             return guarded(generation, delegate::rawImages);
         }
