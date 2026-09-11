@@ -824,3 +824,13 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证结果**：`./gradlew :runtime:test` 受影响包（core.reflect + adapter.cubism + runtime.log + ui.appearance + adapter.host）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
 - **限制（不得抬高）**：证据为结构性（成员表扫描+拷贝 → O(1) map 命中）与行为等价断言；单次 `getMethod` ~百纳秒级、收益随项目规模/日志量线性放大但未测秒数；`Method.invoke` 本身的固有开销不变；端到端收益记 **NONE**。
 - **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**五条重复路径的反射解析成本确定性消除**（每次调用 → 每 (Class,成员) 一次）+ 一个 field 级缓存能力与配套回归。
+
+### I44 — P16 VerifiedMemberResolver 字段/构造/类解析逐调用重解析 → 每 resolver 成员缓存（2026-09-12）
+
+- **范围/验证方法**：Spec Kit `040-resolver-member-cache`。resolver 早已为 `invoke`/`invokeStatic` 建 `invocationMethods` 缓存（注释明确缓存属 resolver 生命周期、随 provider 替换释放），但 `readField`/`readStaticField`/`construct`/`isInstance`/`isExactInstance`/`createFunctionalProxy` 仍**每次调用** `Class.forName` + `MethodType.fromMethodDescriptorString` + `getDeclaredField`/`getDeclaredConstructor` + 全量再校验。全程 offline。
+- **量化基线（静态证据）**：单次 readField/readStaticField = 1×forName（内部名→点名字符串分配+loader 查找）+ 1×MethodType 描述符解析（含字段类型类加载）+ 1×getDeclaredField（字段数组扫描+Field 拷贝）+ 校验。热点调用点：`EditorPartOpacityAccess.alphaComposition` 每 part 行最多 5 次 readStaticField；`EditorParameterStructureAccess`/`EditorNativeControlAppearanceAccess` 的枚举比较每评估多次；`EditorObjectReadAccess` companion/texture-atlas/typed-command 共 52 个调用点。
+- **实现**：三个 per-resolver ConcurrentMap——`invocationFields`/`invocationConstructors`/`ownerClasses`，私有 `resolve*Uncached` 镜像既有 `resolveInvocationMethod` 的校验（declaring-class、字段类型/描述符、访问标志、classloader 鉴证全部在 resolve 时做，与方法缓存语义逐字一致）；per-call 部分原样保留：`readField` 的 `canAccess(target)`/`trySetAccessible`（授权在共享 Field 上持久）、`construct` 的 package-private+trySetAccessible 块。miss 不缓存。异常类型/kind/消息逐字保留。
+- **回归**：`VerifiedMemberResolverTest` 既有 475 行套件**零修改全绿**（static field、private instance field、public/package-private/private 构造、SAM proxy、isInstance/isExactInstance、target 类型失配、不可访问构造等全部覆盖缓存后路径）；受影响 adapter 套件全绿。
+- **验证结果**：`:runtime:test`（mapping.verification + adapter.cubism + adapter 全包）= BUILD SUCCESSFUL；`./gradlew devCheck` = BUILD SUCCESSFUL（80 任务）；`check_remote_hygiene.py --worktree` = clean。
+- **限制（不得抬高）**：证据为结构性（每调用全量解析 → 每 alias 一次）与行为等价断言；收益随 readField/readStaticField 实际调用密度线性放大但未测秒数；类缓存强持宿主 Class——与既有 `invocationMethods`（同样持 Method→Class）同一生命周期契约，非新增驻留类别；端到端收益记 **NONE**。
+- **有效程度**：本轮新增内存/CPU/GPU **实测收益 NONE**；产出为**resolver 全部成员种类的解析成本收敛到每 alias 一次**（覆盖 52 个 readField/readStaticField 调用点、8 个 construct、全部 isInstance/isExactInstance 调用点）+ 零修改通过的既有语义回归。
