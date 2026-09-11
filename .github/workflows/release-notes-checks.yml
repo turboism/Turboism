@@ -27,19 +27,33 @@ jobs:
           git archive HEAD > artifacts/product-source.tar
           git bundle create artifacts/product-history.bundle HEAD --tags
           git rev-parse HEAD > artifacts/product-commit.txt
+      - name: Recover the existing review backup as data only
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import base64,hashlib,json,os,urllib.request,zlib
+          from pathlib import Path
+          sha='8f3350e5bc9bdfe244c4b23d9bbb5d4c23379a14'
+          req=urllib.request.Request('https://api.github.com/repos/turboism/Turboism/git/blobs/'+sha,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=30) as r:doc=json.load(r)
+          assert doc['sha']==sha and doc['encoding']=='base64'
+          raw=base64.b64decode(''.join(doc['content'].split()),validate=True)
+          assert len(raw)==doc['size'] and hashlib.sha1(b'blob '+str(len(raw)).encode()+b'\0'+raw).hexdigest()==sha
+          compressed=base64.b64decode(b''.join(raw.split()),validate=True)
+          inflater=zlib.decompressobj();data=inflater.decompress(compressed,16*1024*1024+1)
+          assert len(data)<=16*1024*1024 and not inflater.unconsumed_tail
+          data+=inflater.flush()
+          assert inflater.eof and not inflater.unused_data and len(data)<=16*1024*1024
+          data.decode('utf-8')
+          Path('artifacts/recovered-review.txt').write_bytes(data)
+          print('Verified review backup bytes:',len(data),'SHA256:',hashlib.sha256(data).hexdigest())
+          PY
       - run: node --test distribution/test/*.test.mjs
       - run: python3 -m unittest discover -s scripts/release -p 'test*.py'
       - run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
       - name: Source hygiene
         run: python3 scripts/check_remote_hygiene.py --worktree
-      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
-        with:
-          repository: turboism/turboism-www
-          ref: e7e07c414f6473d277b0f786076b1a3c01e8d32d
-          path: website-review
-          persist-credentials: false
-      - name: Retain website baseline
-        run: git -C website-review archive HEAD > artifacts/www-source.tar
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         if: always()
         with:
