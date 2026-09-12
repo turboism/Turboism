@@ -237,7 +237,11 @@ class WindowsHistoryNativeUiIngressProbeTest {
         for (final String id : List.of(
             "deformer-assign", "canvas-deform", "native-parameter", "native-color", "unknown"
         )) {
-            assertEquals("none", probe.act(new WindowsHistoryNativeUiIngressProbe.Step(id, "ACTION", "x")), id);
+            assertEquals(
+                "none",
+                probe.act(new WindowsHistoryNativeUiIngressProbe.Step(id, "ACTION", "x"), ""),
+                id
+            );
         }
     }
 
@@ -249,14 +253,14 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryNativeUiIngressProbe probe = new WindowsHistoryNativeUiIngressProbe();
 
         final String canvas =
-            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("canvas-move", "ACTION", "x"));
+            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("canvas-move", "ACTION", "x"), "");
         assertTrue(
             canvas.startsWith("unresolved:") || canvas.startsWith("failed:"),
             "an automated actor with no canvas to drive must be recorded, got " + canvas
         );
 
         final String undo =
-            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-undo", "UNDO", "x"));
+            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-undo", "UNDO", "x"), "");
         assertFalse("none".equals(undo), "a mapped step must attempt its actor");
         assertFalse(undo.isBlank(), "the actor outcome is evidence and must not be empty");
     }
