@@ -50,11 +50,14 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     static final boolean AUTOMATE =
         Boolean.parseBoolean(System.getProperty("turboism.history.nativeUi.automate", "false"));
 
-    /** Bound on the component dump written once per run for actor targeting review. */
+    /** Bound on the component dump written for actor targeting review. */
     private static final int UI_MAP_MAX_COMPONENTS = 400;
     private static final int UI_MAP_MAX_WINDOWS = 8;
     private static final int UI_MAP_MAX_DEPTH = 12;
     private static final int UI_MAP_MAX_CHARS = 65_536;
+
+    /** Smallest edge a component needs before the canvas fallback may treat it as the view. */
+    private static final int MIN_CANVAS_EDGE = 128;
 
     /**
      * How often a pending step re-announces its instruction.
@@ -249,10 +252,6 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             }
             final WindowsHistoryManagerValidationProbe.Snapshot baseline = sample();
             write(artifact, paired(baseline, "baseline"), false);
-            if (AUTOMATE) {
-                write(artifact, "{\"type\":\"ui-map\",\"at\":\"" + Instant.now()
-                    + "\",\"map\":\"" + json(uiMap()) + "\"}\n", false);
-            }
             String knownSignificant = significantSequence(baseline);
             long knownPosition = position(baseline);
             boolean hookFired = false;
@@ -276,12 +275,22 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 context.logger().info(instruction);
 
                 if (AUTOMATE) {
+                    final String actor = act(step);
                     write(
                         artifact,
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
-                            + "\",\"result\":\"" + json(act(step)) + "\"}\n",
+                            // The discovery detail legitimately exceeds a label's bound; clipping
+                            // it hid why the r9 Parts-tree selection never resolved.
+                            + "\",\"result\":\"" + json(actor, 8192) + "\"}\n",
                         false
                     );
+                    // The map is captured when an actor actually ran — by then the document UI is
+                    // populated, and the dump shows the controls the actor just used or missed.
+                    if (!"none".equals(actor)) {
+                        write(artifact, "{\"type\":\"ui-map\",\"phase\":\"" + json(step.id())
+                            + "\",\"at\":\"" + Instant.now()
+                            + "\",\"map\":\"" + json(uiMap(), UI_MAP_MAX_CHARS) + "\"}\n", false);
+                    }
                 }
 
                 final WindowsHistoryManagerValidationProbe.Snapshot after =
@@ -536,7 +545,8 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final WindowsMeshEditValidationProbe.SelectionAttempt to =
             onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(target));
         if (!from.selected() || !to.selected()) {
-            return "unresolved:from=" + from.treeDescription() + "|to=" + to.treeDescription();
+            return "unresolved:sought=" + source + "->" + target
+                + ":from=" + from.treeDescription() + "|to=" + to.treeDescription();
         }
         robotDrag(from.screenX(), from.screenY(), to.screenX(), to.screenY());
         return "dragged:" + source + "->" + target;
@@ -689,17 +699,24 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final String className = component.getClass().getName();
         // Only a host/JOGL class may win by name: a Swing widget whose name happens to contain a
         // canvas/GL marker (JToggleButton carries "gl", JViewport carries "View") would be
-        // dragged like the canvas and could toggle a mode instead of moving the model.
-        final boolean hostClass = !className.startsWith("javax.swing.")
-            && !className.startsWith("java.awt.")
-            && !className.startsWith("sun.");
+        // dragged like the canvas and could toggle a mode instead of moving the model. A plain
+        // java.awt.Canvas stays eligible because a heavyweight GL surface is exactly that class.
+        final boolean hostClass = component instanceof java.awt.Canvas
+            || (!className.startsWith("javax.swing.")
+                && !className.startsWith("java.awt.")
+                && !className.startsWith("sun."));
         if (component.isShowing() && named.get() == null && hostClass
             && className.matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")) {
             named.set(component);
         }
         final boolean leaf = !(component instanceof java.awt.Container container)
             || container.getComponentCount() == 0;
-        if (component.isShowing() && leaf) {
+        // The largest-leaf fallback still has to look like a canvas: the r9 run found nothing by
+        // name and the fallback picked the window's title bar — a real component, but a drag
+        // there moves the window, not the model. Below a minimum area the pick is too small to
+        // be a model view and the step stays unresolved instead.
+        if (component.isShowing() && leaf
+            && component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE) {
             final java.awt.Component current = largest.get();
             if (current == null
                 || component.getWidth() * (long) component.getHeight()
@@ -989,9 +1006,20 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     static String json(final String value) {
+        return json(value, 512);
+    }
+
+    /**
+     * Escapes a string for the JSONL artifact, bounded to {@code maxCodePoints} code points.
+     *
+     * <p>The default bound sizes a label; the ui-map carries the larger component-tree bound
+     * instead, since clipping it at a label's size made the first automated run's discovery
+     * evidence unusable.</p>
+     */
+    static String json(final String value, final int maxCodePoints) {
         if (value == null) return "";
         final StringBuilder escaped = new StringBuilder();
-        value.codePoints().limit(512).forEach(codePoint -> {
+        value.codePoints().limit(maxCodePoints).forEach(codePoint -> {
             switch (codePoint) {
                 case '\\' -> escaped.append("\\\\");
                 case '"' -> escaped.append("\\\"");

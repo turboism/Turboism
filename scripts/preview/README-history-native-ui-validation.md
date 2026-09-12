@@ -101,10 +101,11 @@ undo manager reports — automation changes who acts, never what counts.
   recorded as `no-native-change` failures.
 - An actor that cannot resolve its control reports `unresolved:<detail>` on its
   `actor` artifact line and the step stays open for the operator.
-- An automated run writes one bounded `ui-map` line after the baseline snapshot:
-  the visible window/component tree with class names and screen bounds. It
-  exists so the remaining steps can be targeted at real controls instead of
-  guessed ones — review it before trusting an actor result.
+- An automated run writes a bounded `ui-map` line for every step whose actor
+  ran: the visible window/component tree with class names and screen bounds,
+  captured at action time once the document UI is populated. It exists so the
+  remaining steps can be targeted at real controls instead of guessed ones —
+  review it before trusting an actor result.
 
 A failed actor never produces a passing step: the step still passes only when
 the native manager moved the way the step requires. Do not touch the mouse or
