@@ -1287,3 +1287,34 @@ r19 加固（同 commit）：
    `!contains("action=ignored")`。
 
 待 r19 验证（job `08bbe6d5`，queued seq 264）。
+
+## I67 — r19 终态解剖与 r20 修复（`94126f6be` + `bfc5ec83d`）
+
+r19（job `08bbe6d5`，5303 + **误用小 fixture**，~17:38 起）：
+- 探针 artifact 实为 **PASS**：`modelStale=true` 落地、JFR dump 成功、
+  关闭取证文件存活——新关闭链路的正向证据（但 fixture 错误，
+  对重模型计量无效）。
+- 终态仍 failed，双根因：
+  1. **AppContext 外保存提示**：保存对话框对探针不可见
+     （`Window.getWindows()` 是 AppContext 作用域）——扫描环永远
+     看不到它；「主页」遮蔽已修但提示窗根本不在枚举内。探针线程
+     对可见 CButton 的**同步** `doClick()` 死锁（宿主 handler 重入
+     EDT，EDT 正被模态堵）；盲 N 配置在 `attempt>40` 太迟，
+     `failsClosed` 每次 5s 超时×多轮后才轮到。
+  2. **取证文件被误算 artifact**：`perf-observe-close-log.txt` 命中
+     结果汇总器的 `*.txt` + `-close` 过滤，因无 `status=` 行被判
+     `MISSING` → 结果文件自报 `status=FAIL`；叠加 `fixtureAfterSha256
+     =null`（采集时机）与 `runnerExitCode=1`，终态 failed。
+- `94126f6be`：`clickComponent` 改 `SwingUtilities.invokeLater` 派发
+  （EDT 被堵时调用方不再死锁）；盲 N 提前至 `attempt>8` 且限 4 次，
+  注释记录 AppContext 局限。
+- `bfc5ec83d`：取证文件改名 `perf-observe-modal-forensics.log`
+  （`.log` 后缀跳出 artifact 扫描）。
+
+r19 探针量测（小 fixture，仅供流程证据）：30 次参数写 burst
+median 4.7ms/p95 7.3ms，EDT 分配 **174MB**、GC 2 次/11ms；
+写后堆 99→126MB；`CImageResource` 关闭前 cacheList=100/
+elementBytes=16KB → 关闭后 90/2.9KB（部分自然释放）。
+
+待 r20 v2 验证（job `dc2582bd`，seq 267，重模型 `029e9a4e` +
+probe jar `acbf8b55` 已核）。
