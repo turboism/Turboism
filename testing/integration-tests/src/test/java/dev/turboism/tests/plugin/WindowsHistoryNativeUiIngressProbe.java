@@ -275,7 +275,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 context.logger().info(instruction);
 
                 if (AUTOMATE) {
-                    final String actor = act(step);
+                    final String actor = act(step, knownSignificant);
                     write(
                         artifact,
                         "{\"type\":\"actor\",\"phase\":\"" + json(step.id())
@@ -502,11 +502,11 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * that cannot resolve its UI target, or whose action the host rejects, simply produces no
      * significant entry and the operator window runs its course.</p>
      */
-    String act(final Step step) {
+    String act(final Step step, final String knownSignificant) {
         try {
             return switch (step.id()) {
                 case "parts-tree-drag" -> dragPartRow();
-                case "canvas-move" -> dragCanvas();
+                case "canvas-move" -> dragCanvas(knownSignificant);
                 case "native-undo" -> shortcut(java.awt.event.KeyEvent.VK_Z);
                 case "native-redo" -> shortcut(java.awt.event.KeyEvent.VK_Y);
                 default -> "none";
@@ -553,25 +553,44 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /**
-     * Drags inside the model canvas.
+     * Drags inside the model canvas the way the operator does: left button held down, moved,
+     * released.
      *
      * <p>The canvas component is identified structurally — a canvas/GL class name first, then the
      * largest showing leaf component inside the document window — and the pick is recorded so a
      * run that hit the wrong surface is visible in the evidence rather than silently ambiguous.
-     * A press on empty canvas starts a marquee selection, which is insignificant and leaves the
-     * step open; a press on an object followed by the move commits the entry being reviewed.</p>
+     * A press that misses the model starts a marquee selection, which is insignificant and leaves
+     * the step open, so the actor works down a small grid of press points and samples the undo
+     * manager after each drag: the first press that lands on the object produces the significant
+     * entry being reviewed and the retries stop.</p>
      */
-    private String dragCanvas() throws Exception {
+    private String dragCanvas(final String knownSignificant) throws Exception {
         final java.awt.Component canvas = onEdt(WindowsHistoryNativeUiIngressProbe::canvasComponent);
         if (canvas == null) return "unresolved:no-canvas-component";
         final java.awt.Rectangle bounds = canvas.getBounds();
-        final java.awt.Point origin = new java.awt.Point(
-            Math.max(1, bounds.width / 2), Math.max(1, bounds.height / 2));
-        SwingUtilities.convertPointToScreen(origin, canvas);
         final int dx = Math.min(60, Math.max(10, bounds.width / 8));
         final int dy = Math.min(40, Math.max(10, bounds.height / 8));
-        robotDrag(origin.x, origin.y, origin.x + dx, origin.y + dy);
-        return "dragged:" + canvas.getClass().getName() + bounds;
+        // Centre first — the model sits centered on load — then a small cross of nearby points.
+        final int[][] fractions = {
+            {1, 2, 1, 2}, {1, 3, 1, 2}, {2, 3, 1, 2}, {1, 2, 1, 3}, {1, 2, 2, 3}
+        };
+        for (int attempt = 0; attempt < fractions.length; attempt++) {
+            final java.awt.Point press = new java.awt.Point(
+                Math.max(1, bounds.width * fractions[attempt][0] / fractions[attempt][1]),
+                Math.max(1, bounds.height * fractions[attempt][2] / fractions[attempt][3]));
+            SwingUtilities.convertPointToScreen(press, canvas);
+            robotDrag(press.x, press.y, press.x + dx, press.y + dy);
+            // The host commits the undo entry after the release; give it a short bounded settle
+            // before deciding the press missed the model.
+            for (int settle = 0; settle < 12; settle++) {
+                Thread.sleep(POLL_MILLIS);
+                if (!significantSequence(sample()).equals(knownSignificant)) {
+                    return "dragged:" + canvas.getClass().getName() + bounds
+                        + ":attempt=" + (attempt + 1);
+                }
+            }
+        }
+        return "dragged:" + canvas.getClass().getName() + bounds + ":no-significant-entry";
     }
 
     /**
