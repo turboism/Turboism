@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned|native-tuned2) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -38,7 +38,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-parameter-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ]; then
+if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" = 'native-tuned2' ]; then
   # Host-only comparison leg: a no-op premain stub satisfies the runner's
   # --agent contract without loading the Turboism runtime or any plugin, so
   # the JVM is effectively stock Cubism. No runtime log is produced, so no
@@ -58,6 +58,14 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ]; then
       --jvm-option '-XX:MaxHeapFreeRatio=20'
       --jvm-option '-XX:+G1PeriodicGCInvokesConcurrent'
       --jvm-option '-XX:G1PeriodicGCInterval=10000'
+    )
+  elif [ "$mode" = 'native-tuned2' ]; then
+    # Conservative v2 after n3 regressed (193 GCs / 23.8s pauses): only
+    # mechanism-targeted flags. DisableExplicitGC kills the three ~140ms
+    # System.gc() pauses seen in n2; dedup is memory-only.
+    native_tuned_options=(
+      --jvm-option '-XX:+DisableExplicitGC'
+      --jvm-option '-XX:+UseStringDeduplication'
     )
   fi
   exec bash "$runner" \
