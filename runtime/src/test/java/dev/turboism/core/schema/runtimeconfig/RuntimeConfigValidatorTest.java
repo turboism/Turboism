@@ -55,6 +55,14 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void acceptsOptionalReduceAutoBackupBoolean() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", true);
+
+        assertTrue(validator.validate(root, "test.json").isEmpty());
+    }
+
+    @Test
     void acceptsCubismJvmLauncherSelection() {
         final ObjectNode root = base();
         root.withObject("launcher").put("cubismJvm", "graalvm");
@@ -133,6 +141,14 @@ class RuntimeConfigValidatorTest {
     void rejectsUseTextIconOfWrongType() {
         final ObjectNode root = base();
         root.put("useTextIcon", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
+    }
+
+    @Test
+    void rejectsReduceAutoBackupOfWrongType() {
+        final ObjectNode root = base();
+        root.put("reduceAutoBackup", "yes");
 
         assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_TYPE"));
     }
