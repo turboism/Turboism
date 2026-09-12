@@ -941,3 +941,29 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
   036 借用模型关闭释放与 038 publish 跟随绑定获实机验证。
 - **限制**：doc-close PASS 证明的是「关闭后失效语义」，不是性能指标；遍历/反射收益的实机量化
   仍未取得（workspace 矩阵被 I51 的模态对话框挡住）。
+
+### I53 — MeshFrameIndex：mesh 分发内枚举去二次方 + 分配削减（2026-09-12）
+
+- **切片 046**。原实现把宿主的 `getAllPointRef`/`getEdges` 列表**按候选重枚举**：
+  `mirrorMoveSelected` 每个选中点调 2 次 `compatiblePoint`（每次回退路径全量枚举点表）；
+  `uniqueCustom{Point,Edge}Matches` 为 refs×contexts×points/edges 三重扫描；
+  `RuntimeMeshMirrorCounterparts`/`RuntimeMeshEditService` 的 `pointById`/`countLiveEdges`
+  逐 ref 线性扫描。拖拽逐帧路径上这是 O(S×P)+O(R×C×E) 反射枚举 + 每枚举一轮的
+  迭代器/临时列表分配。
+- **改动**：新增 `MeshFrameIndex`——dispatch 帧级、延迟物化的 per-context 索引
+  （points 列表 / identity set / id→first-point map / edges 列表 / identity set /
+  normalized-key→first-edge map / 重复键集 / 可选源边排除）。拖拽/删除/自定义贡献/
+  RuntimeMeshEditService 三处批量操作全部复用同一索引。
+- **语义保持**：`pointById` 的 first-match 由 `putIfAbsent` 保持；`edgeMatches`
+  （`ref.start==low && ref.end==high`）与 packed `high<<32|low` 键位等价；
+  上下文内重复键与跨上下文歧义仍 fail-closed；`MeshEdgeRef` 的规范化与
+  `edgeKey` 一致；`counterpartEdge` 的 equals 存在性检查未动。
+- **证据**：新增 `MeshFrameIndexTest`（6 例：首匹配/规范化/重复键/排除/身份语义/惰性）
+  与 `RuntimeMeshEditServiceTest` 计数回归——3-ref `movePoints`/`addEdges` 的
+  `getAllPointRef` 枚举从 3/6 次降为 **1 次**（断言 `allPointRefCalls==1`）。
+- **内存**：索引对象仅存于单次 EDT 分发内（无跨 dispatch 持有、无静态/长生命周期引用），
+  替代的是原先每次枚举的列表+迭代器临时分配；P 点 E 边索引 ≈ P+E 个引用+装箱键，
+  分发结束即回收——瞬时分配净减少，无滞留风险。
+- **验证**：mesh 包 102 测试 `--rerun-tasks` 全绿；`devCheck` BUILD SUCCESSFUL。
+- **限制**：索引收益按引用数/选中点数线性放大，未做实机量化（mesh 拖拽矩阵未跑）；
+  `counterpartPoint` 的最近邻 O(P) 搜索本身保留（语义要求）。
