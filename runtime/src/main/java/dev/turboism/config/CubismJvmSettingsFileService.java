@@ -138,7 +138,11 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     public boolean reduceAutoBackup() {
         final String override = environment.get(REDUCE_AUTO_BACKUP_ENV);
         if (override != null && !override.isBlank()) {
-            return Boolean.parseBoolean(override.trim());
+            final String normalized = override.trim();
+            return "1".equals(normalized)
+                || "true".equalsIgnoreCase(normalized)
+                || "yes".equalsIgnoreCase(normalized)
+                || "on".equalsIgnoreCase(normalized);
         }
         return config.read().path("reduceAutoBackup").asBoolean(false);
     }
