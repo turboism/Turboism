@@ -1403,3 +1403,28 @@ CImageResource 子方向关闭。**
 + `MinHeapFreeRatio=10`/`MaxHeapFreeRatio=20` +
 `G1PeriodicGCInvokesConcurrent`/`G1PeriodicGCInterval=10000`。
 flag 已确认进 JVM 命令行（launch.bat + console 回显）。
+
+## I70 — n3 调优回退 + 原生热点修正
+
+**n3（native-tuned 激进组）= 净回退，否决**：
+- GC 193 次 / 总停顿 23797ms / max 1616ms —— vs n2 的
+  45 次 / 4812ms / 1437ms，全面更差
+- 加载 31.19s vs n2 25.66s（+21%）
+- 根因：`G1PeriodicGCInterval=10000` 每 10s 空转点火 +
+  激进 free-ratio 在加载突发期引发堆伸缩抖动；
+  MaxGCPauseMillis=100 管不住 843ms 的 G1Old evacuation
+
+**n2 停顿构成归因**（jfr GarbageCollection 事件）：
+- 最差单 GC = 843ms G1Old evacuation（加载期）
+- 4 次 170-262ms humongous-allocation 停顿（大纹理数组
+  直接进 old gen，G1 region 上限 32MB，无法规避）
+- 3 次 G1Full 均 `System.gc()` 显式触发（各 ~140ms）→
+  `DisableExplicitGC` 直接可杀
+
+**原生热点修正**：38 次 `Update Parameter Structure`
+（100-393ms）全发生在 `load document end` 之后——参数
+palette 的加载后增量构建 ≈ 7.6s EDT 停顿，不是写路径。
+用户可感 = 「加载完成但界面仍冻结数秒」。宿主固有。
+
+**n4（native-tuned2 保守组）已投**：`DisableExplicitGC` +
+`UseStringDeduplication` 两个机制对症 flag。
