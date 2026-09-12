@@ -2459,7 +2459,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 continue;
             }
             final StringBuilder text = new StringBuilder();
-            final List<JButton> buttons = new java.util.ArrayList<>();
+            final List<Component> buttons = new java.util.ArrayList<>();
             collectDialogSurface(dialog, text, buttons);
             final String body = text.toString();
             final boolean versionWarning = body.contains("保存")
@@ -2467,10 +2467,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 || body.contains("破損");
             String action = "ignored";
             if (versionWarning) {
-                final JButton load = buttons.stream()
+                final Component load = buttons.stream()
                     .filter(b -> b.isEnabled() && b.isVisible())
                     .filter(b -> {
-                        final String label = b.getText() == null ? "" : b.getText().trim();
+                        final String label = clickLabel(b);
                         return label.contains("加载")
                             || label.contains("ロード")
                             || label.equalsIgnoreCase("Load")
@@ -2480,19 +2480,19 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     .findFirst()
                     .orElse(null);
                 if (load != null) {
-                    load.doClick();
+                    clickComponent(load);
                     action = "accepted-version-warning";
                 }
             }
             if ("ignored".equals(action)) {
-                final List<JButton> enabled = buttons.stream()
+                final List<Component> enabled = buttons.stream()
                     .filter(b -> b.isEnabled() && b.isVisible())
                     .toList();
                 // Dirty-close prompts mention saving and offer a discard button;
                 // dismiss via the discard label only — never the save button.
-                final JButton discard = enabled.stream()
+                final Component discard = enabled.stream()
                     .filter(b -> {
-                        final String label = b.getText() == null ? "" : b.getText().trim();
+                        final String label = clickLabel(b);
                         return label.contains("不保存")
                             || label.contains("保存しない")
                             || label.equalsIgnoreCase("Don't Save")
@@ -2502,17 +2502,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     .findFirst()
                     .orElse(null);
                 if (discard != null && body.contains("保存")) {
-                    discard.doClick();
+                    clickComponent(discard);
                     action = "discarded-save-prompt";
                 } else if (enabled.size() == 1) {
                     // A lone confirm button is an informational modal (e.g. the
                     // post-load 确定 notice) — acknowledge it; the body text is
                     // still recorded in the status line for review.
-                    final String label = enabled.get(0).getText() == null
-                        ? "" : enabled.get(0).getText().trim();
+                    final String label = clickLabel(enabled.get(0));
                     if (label.equals("确定") || label.equals("確定")
                         || label.equalsIgnoreCase("OK")) {
-                        enabled.get(0).doClick();
+                        clickComponent(enabled.get(0));
                         action = "acknowledged-info";
                     }
                 }
@@ -2525,15 +2524,62 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return "";
     }
 
+    /**
+     * A component is clickable for modal dismissal when it is a {@link JButton}
+     * or a host custom button ({@code com.live2d.ui.control.*}) exposing a public
+     * no-arg {@code doClick()} — the latter covers Cubism's own dialog buttons,
+     * which are not {@code JButton} subclasses.
+     */
+    private static boolean isClickable(final Component component) {
+        if (component instanceof JButton) {
+            return true;
+        }
+        final String className = component.getClass().getName();
+        if (!className.startsWith("com.live2d.ui.control.")) {
+            return false;
+        }
+        try {
+            component.getClass().getMethod("doClick");
+            return true;
+        } catch (NoSuchMethodException noClick) {
+            return false;
+        }
+    }
+
+    /** Best-effort label for a clickable component: JButton text or reflective getText(). */
+    private static String clickLabel(final Component component) {
+        try {
+            if (component instanceof JButton button) {
+                return button.getText() == null ? "" : button.getText().trim();
+            }
+            final Object text = component.getClass().getMethod("getText").invoke(component);
+            return text == null ? "" : text.toString().trim();
+        } catch (Throwable failure) {
+            return "";
+        }
+    }
+
+    /** Programmatic click: direct for JButton, reflective {@code doClick()} otherwise. */
+    private static void clickComponent(final Component component) {
+        try {
+            if (component instanceof JButton button) {
+                button.doClick();
+                return;
+            }
+            component.getClass().getMethod("doClick").invoke(component);
+        } catch (Throwable ignored) {
+        }
+    }
+
     private static void collectDialogSurface(
         final Container container,
         final StringBuilder text,
-        final List<JButton> buttons
+        final List<Component> buttons
     ) {
         for (Component component : container.getComponents()) {
-            if (component instanceof JButton button) {
-                buttons.add(button);
-                text.append('[').append(button.getText()).append(']');
+            if (isClickable(component)) {
+                buttons.add(component);
+                text.append('[').append(clickLabel(component)).append(']');
             } else if (component instanceof JLabel label) {
                 if (label.getText() != null) {
                     text.append(' ').append(label.getText());
@@ -2779,6 +2825,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // bounds the whole run.
             final CubismModel model = awaitEditorObjectModel(artifact, 30, 45L);
             final Object jfrRecording = startJfrRecording();
+            final boolean autoBackupStopped = stopAutoBackup();
             forceGcQuietly();
             final long heapAfterOpen = heapUsedBytes();
             final long nonHeapAfterOpen = nonHeapUsedBytes();
@@ -2798,6 +2845,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     ? hotspotThreads : null;
 
             final StringBuilder metrics = new StringBuilder();
+            // The host's periodic auto-backup serializes multi-GB documents on a
+            // timer and starves the EDT mid-measurement (observed: 46s / +2.28GB
+            // in r13); stopping its Swing timer is session-scoped and keeps the
+            // measurement window clean.
+            metrics.append("autoBackupStopped=").append(autoBackupStopped).append('\n');
             metrics.append("heapUsedAfterOpenBytes=").append(heapAfterOpen).append('\n');
             metrics.append("nonHeapUsedAfterOpenBytes=").append(nonHeapAfterOpen).append('\n');
             final int drawableCount = onHostThread(() -> model.drawables().all().size());
@@ -2876,15 +2928,22 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
             boolean modelStale = false;
-            for (int attempt = 0; attempt < 60 && !modelStale; attempt++) {
-                Thread.sleep(100L);
-                if (attempt % 10 == 5) {
-                    try {
-                        onHostThread(this::inspectBlockingModal);
-                    } catch (Exception ignored) {
+            final StringBuilder modalNotes = new StringBuilder();
+            String lastModalNote = "";
+            for (int attempt = 0; attempt < 120 && !modelStale; attempt++) {
+                Thread.sleep(250L);
+                try {
+                    final String note = onHostThread(this::inspectBlockingModal);
+                    if (!note.isEmpty() && !note.equals(lastModalNote)) {
+                        modalNotes.append(note.replace('\n', ' ')).append(" |");
+                        lastModalNote = note;
                     }
+                } catch (Exception ignored) {
                 }
                 modelStale = failsClosed(model::id);
+            }
+            if (modalNotes.length() > 0) {
+                metrics.append("closeModals=").append(modalNotes).append('\n');
             }
             metrics.append("modelStale=").append(modelStale).append('\n');
             forceGcQuietly();
@@ -2981,8 +3040,64 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
+     * Stops the host's periodic auto-backup timer for this session only.
+     * {@code com.live2d.cubism.util.a} is the singleton backup manager; its public
+     * {@code g()} logs "stop auto backup" and calls {@code Timer.stop()}. The
+     * multi-GB backup storm otherwise lands inside the measurement window and
+     * starves the EDT (observed in r10–r13). Touches no files and no persistent
+     * state — the timer simply never fires again in this editor session.
+     */
+    private boolean stopAutoBackup() {
+        try {
+            final Class<?> manager = resolveHostClass("com.live2d.cubism.util.a");
+            if (manager == null) {
+                return false;
+            }
+            final Object instance = manager.getField("a").get(null);
+            if (instance == null) {
+                return false;
+            }
+            final Object result = onHostThread(() -> {
+                manager.getMethod("g").invoke(instance);
+                return null;
+            });
+            return true;
+        } catch (Throwable failure) {
+            return false;
+        }
+    }
+
+    /**
+     * Resolves a host-side class through the plugin classloader's parent chain or a
+     * live host frame's loader (the plugin loader may be a sibling of the loader
+     * that owns {@code com.live2d} classes). Returns {@code null} when no loader
+     * can see the class.
+     */
+    private Class<?> resolveHostClass(final String name) {
+        final java.util.Set<ClassLoader> loaders = new java.util.LinkedHashSet<>();
+        for (ClassLoader loader = getClass().getClassLoader();
+             loader != null;
+             loader = loader.getParent()) {
+            loaders.add(loader);
+        }
+        try {
+            for (java.awt.Frame frame : onHostThread(java.awt.Frame::getFrames)) {
+                if (frame != null) loaders.add(frame.getClass().getClassLoader());
+            }
+        } catch (Throwable ignored) {
+        }
+        for (ClassLoader loader : loaders) {
+            if (loader == null) continue;
+            try {
+                return Class.forName(name, false, loader);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return null;
+    }
+
+    /**
      * Enumerates every static field of the host's {@code com.live2d.graphics.CImageResource}
-     * (reached through the plugin classloader's parent chain or a live host frame's loader)
      * and reports the shape of each Map/Collection it finds: entry count, live/dead
      * {@link java.lang.ref.Reference} payloads, and primitive-array byte totals.
      * Read-only diagnostic — nothing is cleared or mutated. Called with a
@@ -2991,29 +3106,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      */
     private void appendImageResourceReport(final StringBuilder metrics, final String prefix) {
         try {
-            Class<?> resource = null;
-            final java.util.Set<ClassLoader> loaders = new java.util.LinkedHashSet<>();
-            for (ClassLoader loader = getClass().getClassLoader();
-                 loader != null;
-                 loader = loader.getParent()) {
-                loaders.add(loader);
-            }
-            // The plugin classloader may be a sibling of the host application loader;
-            // a live host Frame exposes the loader that owns com.live2d classes.
-            try {
-                for (java.awt.Frame frame : onHostThread(java.awt.Frame::getFrames)) {
-                    if (frame != null) loaders.add(frame.getClass().getClassLoader());
-                }
-            } catch (Throwable ignored) {
-            }
-            for (ClassLoader loader : loaders) {
-                if (loader == null) continue;
-                try {
-                    resource = Class.forName("com.live2d.graphics.CImageResource", false, loader);
-                    if (resource != null) break;
-                } catch (ClassNotFoundException ignored) {
-                }
-            }
+            final Class<?> resource = resolveHostClass("com.live2d.graphics.CImageResource");
             if (resource == null) {
                 metrics.append(prefix).append(".imageResource=present-but-not-resolvable\n");
                 return;
