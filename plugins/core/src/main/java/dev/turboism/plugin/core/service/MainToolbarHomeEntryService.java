@@ -72,7 +72,7 @@ public final class MainToolbarHomeEntryService {
         this(
             uiHost, mainToolbar, menus, localization,
             new RuntimeSettingsService() {
-                private RuntimeSettings settings = new RuntimeSettings(false, "INFO", false, false, false);
+                private RuntimeSettings settings = new RuntimeSettings(false, "INFO", true, true, true);
                 @Override public RuntimeSettings read() { return settings; }
                 @Override public RuntimeSettings save(final RuntimeSettings value) { settings = value; return value; }
                 @Override public DockCleanupResult cleanEmptyDocks() {

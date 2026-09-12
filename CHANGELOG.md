@@ -6,6 +6,14 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Changed
+
+- Cubism startup suppression (skip update check, splash, and information dialogs) is now on by
+  default, including fresh installs and runs whose Turboism home has no `config.json` yet.
+  Setting a `hooks.startup.skip*` flag to `false` or enabling safe mode opts out; a
+  schema-invalid config still fails closed. Premain diagnostics are now buffered until the
+  runtime log sink installs, so `STARTUP_SUPPRESSION_*` admission codes reach the session log.
+
 ## [0.44.0] - 2026-09-11
 
 ### Added
