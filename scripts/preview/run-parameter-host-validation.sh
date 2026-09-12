@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned|native-tuned2|native-tuned3) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -38,7 +38,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-parameter-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" = 'native-tuned2' ] || [ "$mode" = 'native-tuned3' ]; then
+if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" = 'native-tuned2' ] || [ "$mode" = 'native-tuned3' ] || [ "$mode" = 'native-tuned4' ]; then
   # Host-only comparison leg: a no-op premain stub satisfies the runner's
   # --agent contract without loading the Turboism runtime or any plugin, so
   # the JVM is effectively stock Cubism. No runtime log is produced, so no
@@ -73,6 +73,15 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" 
     # under Wine — this leg exists to get a definitive answer.
     native_tuned_options=(
       --jvm-option '-XX:+UseZGC'
+    )
+  elif [ "$mode" = 'native-tuned4' ]; then
+    # Graal JIT probe: bundled Liberica ships jdk.internal.vm.compiler.
+    # Tests whether Graal beats C2 on the Kotlin-heavy host code paths
+    # (load/parse/edit throughput), not pauses.
+    native_tuned_options=(
+      --jvm-option '-XX:+UnlockExperimentalVMOptions'
+      --jvm-option '-XX:+UseJVMCICompiler'
+      --jvm-option '-XX:+UseStringDeduplication'
     )
   fi
   exec bash "$runner" \

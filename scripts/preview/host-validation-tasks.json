@@ -282,6 +282,11 @@
           "{version}",
           "native-tuned3",
           "{runLabel}"
+        ],
+        "native-tuned4": [
+          "{version}",
+          "native-tuned4",
+          "{runLabel}"
         ]
       },
       "resources": {
