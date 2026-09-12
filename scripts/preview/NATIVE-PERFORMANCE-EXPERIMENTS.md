@@ -1120,3 +1120,29 @@ fixture/golden hash 不变）。5.3.03 + 427MB heavy.cmo3（719 drawables / 128 
 activeProject() 降 54%——分配差异确定性可复现；时延差异被机器负载噪声淹没
 （runtime median 三跑 193/460/495µs）。read 路径实机侧收益的主证据=分配，
 时延收益只敢引合成基准。
+
+## I62 - perf-observe 扩展：真实编辑突发 + CImageResource 枚举 + JFR（r5 失败分析）
+
+探针新增（`a5b7f716`/`e40b92be`/`923dd1ad`）：
+- 读取测量后选第一个参数做交替写突发（base+δ ↔ base），计量写路径
+  EDT 分配/时延/GC，然后恢复原值再计量堆。
+- 关闭文档后只读枚举宿主 `com.live2d.graphics.CImageResource` 全部静态字段：
+  map/collection 大小、Reference 存活/死亡计数、键值两侧 primitive 数组字节总量。
+- wrapper 在 perf-observe 下挂 profile JFR（stackdepth=256、512m 上限、dumponexit）。
+
+r5（`ead9002a`，5303）失败分析：
+- 模型 30.89s 加载完成；随后 EDT 被 `Update Parameter Structure` 风暴
+  （每条 100–270ms）持续占据，await-model 的 `invokeLater+await(5s)` 反复超时。
+- ~12:45 宿主自动备份触发（49.9s 写 1.25GB 备份）——同卷 Wine I/O 风暴
+  期间 probe 的 artifact 文件停留在 attempt=24（12:40）不再更新，
+  最可能是 writeString 在 wineserver 饱和下长时间停滞（或线程被未捕获
+  Error 杀死；原 catch 只接 Exception）。
+- runner `result-timeout 900s` 到点回收会话（returncode=1、非超时强杀），
+  cgroup 清理 safe、fixture hash 不变、0 字节 JFR（非正常退出不 dump）。
+
+对策（`923dd1ad`）：
+- perf-observe 外层 catch 扩到 Throwable——Error 也落 FAIL artifact 并让
+  exitOnComplete 正常退出，保住 JFR dump。
+- JFR 加 `delay=150s` 跳过启动/加载/首个备份窗口，仍覆盖测量/编辑/关闭阶段。
+
+r6 = `80987307`（probe jar 657f9477，agent a8348eb8，timeout 2700s）已提交。
