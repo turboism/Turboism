@@ -2338,6 +2338,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final int maxAttempts,
         final long perCallSeconds
     ) throws Exception {
+        final long deadlineNanos = System.nanoTime()
+            + java.util.concurrent.TimeUnit.SECONDS.toNanos(maxAttempts * perCallSeconds);
         final java.util.concurrent.CountDownLatch accepted =
             new java.util.concurrent.CountDownLatch(1);
         final AtomicReference<CubismModel> modelBox = new AtomicReference<>();
@@ -2345,7 +2347,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         final java.util.concurrent.atomic.AtomicBoolean dispatched =
             new java.util.concurrent.atomic.AtomicBoolean();
         Exception unavailable = null;
-        for (int attempt = 0; attempt < maxAttempts && !Thread.currentThread().isInterrupted(); attempt++) {
+        for (int attempt = 0;
+             System.nanoTime() < deadlineNanos && !Thread.currentThread().isInterrupted();
+             attempt++) {
             if (dispatched.compareAndSet(false, true)) {
                 SwingUtilities.invokeLater(() -> {
                     try {
@@ -2367,7 +2371,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     }
                 });
             }
-            if (!accepted.await(perCallSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
+            final long waitNanos = Math.min(
+                java.util.concurrent.TimeUnit.SECONDS.toNanos(perCallSeconds),
+                Math.max(deadlineNanos - System.nanoTime(), 1L)
+            );
+            if (!accepted.await(waitNanos, java.util.concurrent.TimeUnit.NANOSECONDS)) {
                 Files.writeString(
                     artifact,
                     "status=RUNNING phase=await-model attempt=" + attempt
