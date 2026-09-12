@@ -441,7 +441,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             context.cubism().model().active().drawables().all()
         ));
         SelectionAttempt attempt = new SelectionAttempt(
-            false, "none", target.displayName(), -1, -1, -1, -1, -1
+            false, "none", target.displayName(), -1, -1, -1, -1, -1, -1
         );
         final long selectionDeadline = System.nanoTime() + 30_000_000_000L;
         while (System.nanoTime() < selectionDeadline && !attempt.selected()) {
@@ -569,11 +569,12 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
                 screen.y,
                 focus.x,
                 focus.y,
-                tree.getRowForPath(path)
+                tree.getRowForPath(path),
+                clickBounds.height
             );
         }
         return new SelectionAttempt(
-            false, String.join("|", observed), displayName, -1, -1, -1, -1, -1
+            false, String.join("|", observed), displayName, -1, -1, -1, -1, -1, -1
         );
     }
 
@@ -746,7 +747,8 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         int screenY,
         int focusX,
         int focusY,
-        int treeRow
+        int treeRow,
+        int rowHeight
     ) { }
 
     private void finishMeshEditIfActive(final List<String> report) throws Exception {
