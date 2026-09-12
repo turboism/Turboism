@@ -1002,14 +1002,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
         if (hostVersion == null) {
             throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302"
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303"
             );
         }
         return switch (hostVersion) {
             case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
-            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
+            case "5302", "5303" -> HostCloseRoute.ROBOT_ALT_F4;
             default -> throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302: " + hostVersion
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303: " + hostVersion
             );
         };
     }
