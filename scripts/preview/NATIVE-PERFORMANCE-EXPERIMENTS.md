@@ -981,3 +981,20 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **内存**：每个离表 id 释放 ~20–50KB PNG + 表项；保留量上界 = 宿主 recent 列表大小。
 - **限制**：in-flight capture 的 id 若被 prune，完成后会重新 put（下一 refresh 再清）——
   瞬态，可接受；无跨会话影响（磁盘缓存仍是权威）。
+
+### I55 — palette 工具栏轮询去空转布局（048）（2026-09-12）
+
+- **问题**：`VerifiedPaletteToolbarHostOperations` 的自愈轮询（250ms 快相→2s 慢相，
+  贡献存在期间常驻）每次 `reconcile()` 在绑定健康时也无条件 `syncButtons()`——
+  全量 `removeAll`+重加+`revalidate`/`repaint`，EDT 上的周期性布局/重绘抖动。
+- **探索中拒绝**：跳过 `logPaletteRoot.resolve()`（缓存 pane 直判）——resolve 是 pane
+  身份的唯一事实源：宿主可在旧结构仍附着时换掉 pane（close/reopen 回归测试正是
+  此场景），短路会破坏自愈。树 DFS 保留。
+- **改动**：`contributionsVersion`（仅 EDT 变更路径递增）+ `syncedVersion` 记录已渲染
+  版本；无变化时跳过 `syncButtons`。新增 `buttonsIntact`——逐贡献校验按钮仍在正确
+  锚点组（O(C) 指针比较），保住对「宿主单独摘除按钮」的自愈。
+- **证据**：`pollRestoresAButtonRemovedFromItsRowByAnOutsideActor`——摘除按钮后
+  reconcileNow 复挂**同一实例**；既有 5 例全绿。
+- **效果**：稳态 poll 成本从「树 DFS + 全量按钮重排 + 布局失效」降为「树 DFS +
+  O(C) 校验」；消除了每个 tick 的 revalidate/repaint。
+- **限制**：树 DFS（~百级组件）仍每 tick 执行——正确性所必需；UI 微基准未量化。
