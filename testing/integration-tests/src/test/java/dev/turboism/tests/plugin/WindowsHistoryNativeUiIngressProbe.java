@@ -508,7 +508,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     String act(final Step step, final String knownSignificant) {
         try {
             return switch (step.id()) {
-                case "parts-tree-drag" -> dragPartRow();
+                case "parts-tree-drag" -> dragPartRow(knownSignificant);
                 case "canvas-move" -> dragCanvas(knownSignificant);
                 case "native-undo" -> shortcut(java.awt.event.KeyEvent.VK_Z);
                 case "native-redo" -> shortcut(java.awt.event.KeyEvent.VK_Y);
@@ -533,7 +533,7 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * input — Robot press, interpolated move, release — so the host's own drop handling decides
      * whether a hierarchy entry is committed.</p>
      */
-    private String dragPartRow() throws Exception {
+    private String dragPartRow(final String knownSignificant) throws Exception {
         final List<String> names = onEdt(() ->
             context.cubism().model().active().parts().all().stream()
                 .map(dev.turboism.sdk.cubism.model.Part::name)
@@ -574,8 +574,23 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 + ":from=" + (from == null ? "unselected" : from.treeDescription())
                 + "|to=" + (to == null ? "unselected" : to.treeDescription());
         }
-        robotDrag(from.screenX(), from.screenY(), to.screenX(), to.screenY());
-        return "dragged:" + source + "->" + target;
+        // The Parts palette is flat: dropping onto a row's centre asks for a grouping the host
+        // may not support, while the boundary between two rows is the reorder insertion point.
+        // Try the centre first, then the row's bottom edge, and treat a significant entry as
+        // the proof the drop was accepted.
+        final int edgeY = to.screenY() + Math.max(1, to.rowHeight() / 2) - 1;
+        final int[][] drops = {{to.screenX(), to.screenY()}, {to.screenX(), edgeY}};
+        for (int drop = 0; drop < drops.length; drop++) {
+            robotDrag(from.screenX(), from.screenY(), drops[drop][0], drops[drop][1]);
+            for (int settle = 0; settle < 12; settle++) {
+                Thread.sleep(POLL_MILLIS);
+                if (!significantSequence(sample()).equals(knownSignificant)) {
+                    return "dragged:" + source + "->" + target
+                        + ":drop=" + (drop == 0 ? "on-row" : "row-edge");
+                }
+            }
+        }
+        return "dragged:" + source + "->" + target + ":no-significant-entry";
     }
 
     /**
