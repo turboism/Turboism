@@ -59,13 +59,16 @@ public record RuntimeStartupConfig(
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final RuntimeStartupConfig DISABLED =
         new RuntimeStartupConfig(false, false, false, false);
+    private static final RuntimeStartupConfig DEFAULTS =
+        new RuntimeStartupConfig(false, true, true, true);
     private static final long MAX_CONFIG_BYTES = 64L * 1024L;
 
     /**
      * Loads the startup subset, discarding diagnostics.
      *
      * @param turboismHome Turboism home directory containing {@code config.json}
-     * @return the parsed configuration, or the all-disabled configuration on any problem
+     * @return the parsed configuration, the default-on configuration when the file is absent,
+     *     or the all-disabled configuration on any other problem
      * @throws NullPointerException if {@code turboismHome} is null
      */
     public static RuntimeStartupConfig load(final Path turboismHome) {
@@ -76,16 +79,18 @@ public record RuntimeStartupConfig(
      * Loads the startup subset of {@code config.json} during premain, before the runtime proper
      * exists.
      *
-     * <p>This never throws on a bad configuration: every rejection path returns the all-disabled
-     * configuration and reports a code, because failing to read config must not stop the official
-     * host from starting. Rejections are a path escaping the home directory, a non-regular file, a
-     * file over 64 KiB, a schema-invalid document, and any read or parse error. An absent file is
-     * normal and reports nothing.</p>
+     * <p>Startup suppression defaults to on: an absent {@code config.json} and absent
+     * {@code hooks.startup.skip*} keys both mean requested, and only an explicit {@code false}
+     * (or safe mode) opts out. Rejection paths still return the all-disabled configuration and
+     * report a code, because failing to read config must not stop the official host from
+     * starting. Rejections are a path escaping the home directory, a non-regular file, a file
+     * over 64 KiB, a schema-invalid document, and any read or parse error.</p>
      *
      * @param turboismHome Turboism home directory containing {@code config.json}
      * @param diagnostic receives a {@code RUNTIME_STARTUP_CONFIG_*} code per rejection; exceptions
      *     it throws are swallowed so a broken diagnostic sink cannot block startup
-     * @return the parsed configuration, or the all-disabled configuration when anything was wrong
+     * @return the parsed configuration, the default-on configuration when the file is absent, or
+     *     the all-disabled configuration when anything else was wrong
      * @throws NullPointerException if either argument is null
      */
     public static RuntimeStartupConfig load(
@@ -101,7 +106,7 @@ public record RuntimeStartupConfig(
             return DISABLED;
         }
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) {
-            return DISABLED;
+            return DEFAULTS;
         }
         try {
             if (!Files.isRegularFile(configPath, LinkOption.NOFOLLOW_LINKS)
@@ -118,9 +123,9 @@ public record RuntimeStartupConfig(
             }
             final boolean safeMode = root.path("safeMode").asBoolean(false);
             final JsonNode startup = root.path("hooks").path("startup");
-            final boolean requestedUpdate = startup.path("skipUpdateCheck").asBoolean(false);
-            final boolean requestedSplash = startup.path("skipSplash").asBoolean(false);
-            final boolean requestedInformation = startup.path("skipInformation").asBoolean(false);
+            final boolean requestedUpdate = startup.path("skipUpdateCheck").asBoolean(true);
+            final boolean requestedSplash = startup.path("skipSplash").asBoolean(true);
+            final boolean requestedInformation = startup.path("skipInformation").asBoolean(true);
             final java.util.Set<String> disabledHookIds = new java.util.LinkedHashSet<>();
             root.path("hooks").path("disabledIds").forEach(value -> disabledHookIds.add(value.asText()));
             return new RuntimeStartupConfig(
