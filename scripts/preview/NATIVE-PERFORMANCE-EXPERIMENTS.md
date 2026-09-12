@@ -1061,3 +1061,13 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **harness 缺口记录**：版本不匹配警告属可自动化的模态（Enter/加载按钮），probe
   侧缺「await 期间检测并处置模态」能力——后续可在 await 轮询里加 Swing 对话框
   探测+按预期文本放行。
+
+## I59 - heavy-perf-observe-5303 r1/r2：取消与权限缺口
+
+- r1 (`f52f9b8e`)：快照早于模态感知 probe，启动即取消重打。
+- r2 (`b29b1c96`)：5.3.03 正常启动，91s 即 FAIL——`perf-observe` 调
+  `runtime()`/`activeProject()` 需要 `turboism.cubism.project.read`，而 probe manifest
+  只有 model.* 权限。修复 `e5f8...`（windows-parameter-validation-plugin.json
+  +project.read），r3 (`4de72c9f`) 重投。
+- 旁证：相邻 agent 的 atlas-image-shadow 5303 任务用同一 427MB fixture 跑通 PASS——
+  模型在 5.3.03 上可完整加载，排除了 fixture 自身可加载性风险。
