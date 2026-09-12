@@ -678,22 +678,24 @@ public final class ProtectedExportHostProbeAgent {
         evidence.put(key + ".guid", target.guid);
         evidence.put(key + ".kind", target.kind);
         evidence.put(key + ".name", target.name);
-        final java.util.concurrent.atomic.AtomicReference<String> selectionLanded =
-            new java.util.concurrent.atomic.AtomicReference<>();
         try {
             onEdtBounded(APPLY_STEP_MILLIS, () -> {
                 final Object source = resolveDeformer(scope.modelSource, target.guid);
                 if (source == null) {
                     throw new IllegalStateException("target deformer GUID absent before apply");
                 }
-                final Object guidObject = readNoArg(source, "getGuid");
-                final Object updateManager = readNoArg(controller, "getUpdateManager");
-                invoke(updateManager, "setSelection",
-                    new Class<?>[] {Object.class, List.class, boolean.class, boolean.class},
-                    scope.document, List.of(guidObject), Boolean.FALSE, Boolean.TRUE);
+                // The command reads getCurrentEditMode().getSelector()'s _selected list
+                // (CModelingSelector_Main.getSelectedDeformers). Select directly on that
+                // selector instead of the async SelectedObjectSyncManager broadcast, which
+                // silently drops when the current view context is not a modeling view.
+                final Object editMode = readNoArg(scope.document, "getCurrentEditMode");
+                final Object selector = readNoArg(scope.document, "getSelector");
+                if (editMode == null || selector == null) {
+                    throw new IllegalStateException("edit mode or selector unavailable");
+                }
+                invoke(selector, "clearSelection", new Class<?>[0]);
+                invokeSelectorAdd(selector, source);
 
-                // sendEvent=true may have re-entered the host; re-verify every
-                // identity the native command is about to act on (AC05 guard).
                 if (readNoArg(controller, "getCurrentDoc") != scope.document) {
                     throw new IllegalStateException("active document changed during selection");
                 }
@@ -706,20 +708,35 @@ public final class ProtectedExportHostProbeAgent {
                 if (resolveDeformer(scope.modelSource, target.guid) == null) {
                     throw new IllegalStateException("target deformer GUID lost during selection");
                 }
-                final Object selector = readNoArg(scope.document, "getSelector");
-                final Object selectedCount =
-                    selector == null ? null : readNoArg(selector, "getSelectedCount");
-                selectionLanded.set(String.valueOf(selectedCount));
+                final List<?> selectedBefore = asList(readNoArg(selector, "getSelectedDeformers"));
+                boolean landed = false;
+                for (Object item : selectedBefore) {
+                    if (target.guid.equals(guidString(item))) {
+                        landed = true;
+                    }
+                }
+                if (!landed) {
+                    throw new IllegalStateException(
+                        "deformer selection did not land in getSelectedDeformers: "
+                            + selectedBefore.size());
+                }
 
-                invoke(controller, "command_deleteDeformerAndSetParam", new Class<?>[0]);
+                // Invoke on the edit-mode instance: the command body only needs the
+                // selector and model; the ar.V dispatch's view-context guards are UI-level
+                // routing, not model semantics.
+                invoke(editMode, "command_deleteDeformerAndSetParam", new Class<?>[0]);
 
                 if (resolveDeformer(scope.modelSource, target.guid) != null) {
-                    throw new IllegalStateException("target deformer GUID still present after apply");
+                    final List<?> selectedAfter =
+                        asList(readNoArg(selector, "getSelectedDeformers"));
+                    throw new IllegalStateException("target deformer GUID still present after apply"
+                        + " (editMode=" + editMode.getClass().getName()
+                        + ",selectedDeformers=" + selectedBefore.size() + "->" + selectedAfter.size()
+                        + ")");
                 }
                 return null;
             });
             evidence.put(key + ".applied", "true");
-            evidence.put(key + ".selectedCount", selectionLanded.get());
         } catch (Throwable failure) {
             evidence.put(key + ".failure", text(failure));
             evidence.fail("FLAT_STEP_FAILED:" + target.guid + ":" + text(failure));
@@ -1710,6 +1727,34 @@ public final class ProtectedExportHostProbeAgent {
         }
         candidate.setAccessible(true);
         return candidate.invoke(target, argument);
+    }
+
+    /**
+     * Invokes the selector's two-argument {@code addSelected(source, index)} overload —
+     * the one whose first parameter accepts a model source object — without importing
+     * host types. Exactly one overload must match or this throws.
+     */
+    private static Object invokeSelectorAdd(final Object selector, final Object source)
+        throws Exception {
+        Method candidate = null;
+        for (Class<?> type = selector.getClass(); type != null; type = type.getSuperclass()) {
+            for (Method method : type.getDeclaredMethods()) {
+                if (!method.getName().equals("addSelected") || method.getParameterCount() != 2
+                    || method.getParameterTypes()[1] != int.class
+                    || !method.getParameterTypes()[0].isInstance(source)) {
+                    continue;
+                }
+                if (candidate != null) {
+                    throw new IllegalStateException("ambiguous selector addSelected overload");
+                }
+                candidate = method;
+            }
+        }
+        if (candidate == null) {
+            throw new NoSuchMethodException("addSelected(source,int)");
+        }
+        candidate.setAccessible(true);
+        return candidate.invoke(selector, source, -1);
     }
 
     private static String canonical(final File file) {
