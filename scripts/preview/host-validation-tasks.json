@@ -84,7 +84,7 @@
     "parameter": {
       "description": "Parameter and Editor-object validation.",
       "command": "scripts/preview/run-parameter-host-validation.sh",
-      "versions": ["5203", "5302"],
+      "versions": ["5203", "5302", "5303"],
       "defaultVariant": "matrix",
       "variants": {
         "matrix": ["{version}", "matrix", "{runLabel}"],
