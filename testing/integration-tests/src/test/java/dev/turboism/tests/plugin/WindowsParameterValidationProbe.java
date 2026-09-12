@@ -2448,6 +2448,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
+     * Appends one line to the close-phase forensics log. Kept separate from the
+     * main artifact so observations survive a host-initiated exit mid-close
+     * (r18 lost every modal note when the process died before the final write).
+     */
+    private static void appendCloseLog(final Path closeLog, final String line) {
+        try {
+            Files.writeString(
+                closeLog,
+                line.replace('\n', ' ') + '\n',
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND
+            );
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
      * Off-EDT modal inspection. A showing save prompt blocks {@code invokeAndWait}
      * entirely (observed r17), so detection must run on the caller thread;
      * component-tree reads are best-effort and dismissal uses {@code doClick()},
@@ -2455,95 +2472,101 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      * line; only whitelisted dialogs are clicked.
      */
     private String inspectBlockingModal() {
+        final StringBuilder notes = new StringBuilder();
         for (Window window : Window.getWindows()) {
             // The save prompt observed on 5.3.03 is not a Dialog at all (the r16
             // scan saw only the non-modal "主页" JDialog while the prompt sat on
             // screen), so every visible non-Frame window is inspected — dismissal
-            // remains gated by the narrow label whitelist below.
+            // remains gated by the narrow label whitelist below. Every window is
+            // examined: returning after the first one (r18) meant the benign
+            // "主页" dialog shadowed the save prompt and nothing was dismissed.
             if (window instanceof java.awt.Frame || !window.isVisible()) {
                 continue;
             }
-            final Window dialog = window;
-            final StringBuilder text = new StringBuilder();
-            final List<Component> buttons = new java.util.ArrayList<>();
-            collectDialogSurface(dialog, text, buttons);
-            final String body = text.toString();
-            final boolean versionWarning = body.contains("保存")
-                || body.contains("newer version")
-                || body.contains("破損");
-            String action = "ignored";
-            if (versionWarning) {
-                final Component load = buttons.stream()
-                    .filter(b -> b.isEnabled() && b.isVisible())
-                    .filter(b -> {
-                        final String label = clickLabel(b);
-                        return label.contains("加载")
-                            || label.contains("ロード")
-                            || label.equalsIgnoreCase("Load")
-                            || label.contains("開く")
-                            || label.equalsIgnoreCase("Open");
-                    })
-                    .findFirst()
-                    .orElse(null);
-                if (load != null) {
-                    clickComponent(load);
-                    action = "accepted-version-warning";
-                }
-            }
-            if ("ignored".equals(action)) {
-                final List<Component> enabled = buttons.stream()
-                    .filter(b -> b.isEnabled() && b.isVisible())
-                    .toList();
-                // Dirty-close prompts mention saving and offer a discard button;
-                // dismiss via the discard label only — never the save button.
-                // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
-                // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
-                // discard — always gated by a 保存/save mention in the body.
-                final Component discard = enabled.stream()
-                    .filter(b -> {
-                        final String label = clickLabel(b);
-                        return label.contains("不保存")
-                            || label.contains("保存しない")
-                            || label.equalsIgnoreCase("Don't Save")
-                            || label.contains("破棄")
-                            || label.equalsIgnoreCase("Discard")
-                            || label.startsWith("No")
-                            || label.equals("否")
-                            || label.equals("いいえ");
-                    })
-                    .findFirst()
-                    .orElse(null);
-                // The prompt body may be custom-painted (no JLabel), so also
-                // accept the Yes/No/Cancel button trio itself as the signature.
-                final boolean savePrompt = body.contains("保存")
-                    || body.contains("save")
-                    || (enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Yes"))
-                        && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("No"))
-                        && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Cancel")));
-                if (discard != null && savePrompt) {
-                    clickComponent(discard);
-                    action = "discarded-save-prompt";
-                } else if (enabled.size() == 1) {
-                    // A lone confirm button is an informational modal (e.g. the
-                    // post-load 确定 notice) — acknowledge it; the body text is
-                    // still recorded in the status line for review.
-                    final String label = clickLabel(enabled.get(0));
-                    if (label.equals("确定") || label.equals("確定")
-                        || label.equalsIgnoreCase("OK")) {
-                        clickComponent(enabled.get(0));
-                        action = "acknowledged-info";
-                    }
-                }
-            }
-            final String summary = body.length() > 160 ? body.substring(0, 160) : body;
-            final String title = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
-            final String modal = dialog instanceof Dialog d
-                ? String.valueOf(d.isModal()) : "n/a";
-            return " modal=\"" + title + "\" class=" + dialog.getClass().getName()
-                + " modal=" + modal + " buttons=" + buttons.size()
-                + " action=" + action + " text=" + summary.replace('\n', ' ');
+            notes.append(inspectModalWindow(window));
         }
-        return "";
+        return notes.toString();
+    }
+
+    private String inspectModalWindow(final Window dialog) {
+        final StringBuilder text = new StringBuilder();
+        final List<Component> buttons = new java.util.ArrayList<>();
+        collectDialogSurface(dialog, text, buttons);
+        final String body = text.toString();
+        final boolean versionWarning = body.contains("保存")
+            || body.contains("newer version")
+            || body.contains("破損");
+        String action = "ignored";
+        if (versionWarning) {
+            final Component load = buttons.stream()
+                .filter(b -> b.isEnabled() && b.isVisible())
+                .filter(b -> {
+                    final String label = clickLabel(b);
+                    return label.contains("加载")
+                        || label.contains("ロード")
+                        || label.equalsIgnoreCase("Load")
+                        || label.contains("開く")
+                        || label.equalsIgnoreCase("Open");
+                })
+                .findFirst()
+                .orElse(null);
+            if (load != null) {
+                clickComponent(load);
+                action = "accepted-version-warning";
+            }
+        }
+        if ("ignored".equals(action)) {
+            final List<Component> enabled = buttons.stream()
+                .filter(b -> b.isEnabled() && b.isVisible())
+                .toList();
+            // Dirty-close prompts mention saving and offer a discard button;
+            // dismiss via the discard label only — never the save button.
+            // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
+            // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
+            // discard — always gated by a 保存/save mention in the body.
+            final Component discard = enabled.stream()
+                .filter(b -> {
+                    final String label = clickLabel(b);
+                    return label.contains("不保存")
+                        || label.contains("保存しない")
+                        || label.equalsIgnoreCase("Don't Save")
+                        || label.contains("破棄")
+                        || label.equalsIgnoreCase("Discard")
+                        || label.startsWith("No")
+                        || label.equals("否")
+                        || label.equals("いいえ");
+                })
+                .findFirst()
+                .orElse(null);
+            // The prompt body may be custom-painted (no JLabel), so also
+            // accept the Yes/No/Cancel button trio itself as the signature.
+            final boolean savePrompt = body.contains("保存")
+                || body.contains("save")
+                || (enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Yes"))
+                    && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("No"))
+                    && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Cancel")));
+            if (discard != null && savePrompt) {
+                clickComponent(discard);
+                action = "discarded-save-prompt";
+            } else if (enabled.size() == 1) {
+                // A lone confirm button is an informational modal (e.g. the
+                // post-load 确定 notice) — acknowledge it; the body text is
+                // still recorded in the status line for review.
+                final String label = clickLabel(enabled.get(0));
+                if (label.equals("确定") || label.equals("確定")
+                    || label.equalsIgnoreCase("OK")) {
+                    clickComponent(enabled.get(0));
+                    action = "acknowledged-info";
+                }
+            }
+        }
+        final String summary = body.length() > 160 ? body.substring(0, 160) : body;
+        final String title = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
+        final String modal = dialog instanceof Dialog d
+            ? String.valueOf(d.isModal()) : "n/a";
+        return " modal=\"" + title + "\" class=" + dialog.getClass().getName()
+            + " modal=" + modal + " buttons=" + buttons.size()
+            + " action=" + action + " text=" + summary.replace('\n', ' ');
     }
 
     /**
@@ -2948,6 +2971,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
                 }
             }
+            // Write a provisional verdict before the close sequence: if the
+            // host exits on its own during close (observed r18 — app exited
+            // mid-write and the terminal PASS never landed), the measurement
+            // data up to this point survives.
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=closing\n" + metrics,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final Path closeLog = artifact.resolveSibling("perf-observe-close-log.txt");
+            // Clear any lingering informational dialog first so the close
+            // accelerator reaches the document.
+            try {
+                appendCloseLog(closeLog, "preClose" + inspectBlockingModal());
+            } catch (Exception ignored) {
+            }
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
             boolean modelStale = false;
             final StringBuilder modalNotes = new StringBuilder();
@@ -2964,9 +3004,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     if (!note.isEmpty()) {
                         if (!note.equals(lastModalNote)) {
                             modalNotes.append(note.replace('\n', ' ')).append(" |");
+                            appendCloseLog(closeLog, "attempt=" + attempt + note);
                             lastModalNote = note;
                         }
-                        if (!note.contains("action=ignored")) {
+                        // Multi-window notes may mix ignored and dismissed
+                        // entries — check for a positive dismissal marker.
+                        if (note.contains("action=discarded")
+                            || note.contains("action=acknowledged")
+                            || note.contains("action=accepted")) {
                             dismissedAny = true;
                         }
                     }
@@ -2984,8 +3029,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     robot.keyPress(java.awt.event.KeyEvent.VK_N);
                     robot.keyRelease(java.awt.event.KeyEvent.VK_N);
                     modalNotes.append(" blind-n-sent=").append(blindRetries).append(" |");
+                    appendCloseLog(closeLog, "attempt=" + attempt + " blind-n-sent=" + blindRetries);
                 }
             }
+            appendCloseLog(closeLog, "closeLoopDone modelStale=" + modelStale);
             if (modalNotes.length() > 0) {
                 metrics.append("closeModals=").append(modalNotes).append('\n');
             }
@@ -2994,14 +3041,26 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
             metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
             appendImageResourceReport(metrics, "imageCache");
-            stopJfrRecording(jfrRecording, metrics);
 
+            // The verdict lands before the JFR dump: the dump serializes
+            // several MB on Wine and is the last long operation where a
+            // host-initiated exit can still kill the write (observed r18).
             Files.writeString(
                 artifact,
                 "status=PASS\nphase=perf-observe\n" + metrics,
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
+            stopJfrRecording(jfrRecording, metrics);
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=perf-observe\n" + metrics,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Throwable ignored) {
+            }
         } catch (Throwable exception) {
             writeValidationFailure(artifact, exception, "Perf observation artifact could not be written");
         }
@@ -3084,12 +3143,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Stops the host's periodic auto-backup timer for this session only.
+     * Stops the host's periodic auto-backup for this session.
      * {@code com.live2d.cubism.util.a} is the singleton backup manager; its public
-     * {@code g()} logs "stop auto backup" and calls {@code Timer.stop()}. The
-     * multi-GB backup storm otherwise lands inside the measurement window and
-     * starves the EDT (observed in r10–r13). Touches no files and no persistent
-     * state — the timer simply never fires again in this editor session.
+     * {@code g()} logs "stop auto backup" and calls {@code Timer.stop()}, but the
+     * host re-arms it via {@code f()} on later events (observed in r18: restart
+     * followed by a 31.5s / 3.28GB backup mid-close). {@code a(int)} therefore
+     * first raises the persisted interval to ~2 years so even a re-armed timer
+     * never fires, and {@code a(boolean)} clears the enabled flag every future
+     * {@code f()} consults. The settings write lands in the task-scoped prefix;
+     * golden Cubism config is untouched.
      */
     private boolean stopAutoBackup() {
         try {
@@ -3102,6 +3164,16 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 return false;
             }
             final Object result = onHostThread(() -> {
+                // g() alone is not enough: the host re-arms the timer via f()
+                // (observed in r18: "restart auto backup" right after our stop,
+                // then a 31.5s / 3.28GB backup mid-close). a(int) raises the
+                // persisted interval so a re-armed timer still never fires, and
+                // a(boolean) clears the enabled flag consulted by every future
+                // f() restart — both are session settings the task prefix owns.
+                // 30000 minutes ≈ 20 days; larger values overflow the host's
+                // int delay computation (minutes*60*1000 must stay < 2^31).
+                manager.getMethod("a", int.class).invoke(instance, 30_000);
+                manager.getMethod("a", boolean.class).invoke(instance, false);
                 manager.getMethod("g").invoke(instance);
                 return null;
             });
