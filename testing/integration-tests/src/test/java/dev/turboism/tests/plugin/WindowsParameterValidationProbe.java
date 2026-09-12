@@ -2455,7 +2455,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      */
     private String inspectBlockingModal() {
         for (Window window : Window.getWindows()) {
-            if (!(window instanceof Dialog dialog) || !dialog.isVisible() || !dialog.isModal()) {
+            // The save prompt observed on 5.3.03 reports isModal()=false yet still
+            // blocks document close, so every visible Dialog is inspected —
+            // dismissal remains gated by the narrow label whitelist below.
+            if (!(window instanceof Dialog dialog) || !dialog.isVisible()) {
                 continue;
             }
             final StringBuilder text = new StringBuilder();
