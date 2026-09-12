@@ -1099,3 +1099,24 @@ fixture/golden hash 不变）。5.3.03 + 427MB heavy.cmo3（719 drawables / 128 
 - 加载期 RSS 峰值 ~3.48GB、稳态 ~2.24GB（宿主侧：console 显示 667MB texture setup +
   CImageResource 缓存）；close 后堆 1.10GB 滞留为宿主侧缓存，adapter 释放语义
   （modelStale）验证通过。
+
+## I61 - 实机 A/B：基线 agent jar 对照（5303，终态双 PASS）
+
+方法：detached worktree @ d3ee4d2a8 构建 `turboism-agent.jar`，替换进当前 bundle
+后 prepare（快照冻结基线 agent + 当前 probe jars），restore 后提交。两侧均
+终态 succeeded（normalExit + identity PASS + fixture 不变）。
+
+| 指标/调用 | 基线 d3ee4d2a8 | HEAD (r4) | Δ |
+|---|---|---|---|
+| runtime() EDT 分配 | 890,032B/30 = **29.7KB** | 358,104B/30 = **11.9KB** | **−60%** |
+| activeProject() 分配 | 18.9KB | 8.6KB | **−54%** |
+| activeDocument() 分配 | 8.0KB | 8.7KB | +8% |
+| model().active() 分配 | 3.6KB | 3.2KB | −11% |
+| runtime() median | 460µs | 495µs / r3: 193µs | 噪声域 |
+| 读取期 GC | 0 | 0 | — |
+| heap after open/close | 1.109/1.106GB | 1.106/1.103GB | ≈ |
+
+结论：真实重模型上 SDK seam + 035/042/反射缓存把 runtime() 的 EDT 分配降 60%、
+activeProject() 降 54%——分配差异确定性可复现；时延差异被机器负载噪声淹没
+（runtime median 三跑 193/460/495µs）。read 路径实机侧收益的主证据=分配，
+时延收益只敢引合成基准。
