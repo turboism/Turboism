@@ -86,9 +86,9 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(2, context.uiHost().settingsContributions().size());
+        assertEquals(3, context.uiHost().settingsContributions().size());
         assertEquals(
-            List.of("cubism-graalvm-path", "cubism-jvm"),
+            List.of("cubism-graalvm-path", "cubism-jvm", "cubism-reduce-auto-backup"),
             context.uiHost().settingsContributions().stream()
                 .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
                 .toList()

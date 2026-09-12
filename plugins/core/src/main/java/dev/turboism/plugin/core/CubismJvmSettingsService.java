@@ -44,6 +44,20 @@ public interface CubismJvmSettingsService {
         return Optional.empty();
     }
 
+    /**
+     * Opt-in session preference: when true the session start disables the
+     * host's periodic auto-backup via the verified updateSettings path
+     * (crash-recovery trades for no mid-edit backup stalls). Off by default.
+     */
+    default boolean reduceAutoBackup() {
+        return false;
+    }
+
+    /** Persists the session auto-backup reduction preference. */
+    default boolean saveReduceAutoBackup(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     default boolean graalVmAvailable() {
         return graalVmJava().isPresent();
     }

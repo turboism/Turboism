@@ -120,6 +120,42 @@ final class CubismJvmSettingsContribution {
         );
     }
 
+    /**
+     * Opt-in toggle in the Performance tab: when on, the session disables the
+     * host's periodic auto-backup (crash-recovery trades for no mid-edit
+     * backup stalls). The writer persists first, then applies live through the
+     * verified backup service so a rejected apply cannot fake a saved state.
+     */
+    static SettingsContribution createBackupReduction(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings,
+        final java.util.function.Consumer<Boolean> apply
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(apply, "apply");
+        return new SettingsContribution(
+            "cubism-reduce-auto-backup",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(110),
+            new SettingsControl.Toggle(
+                "cubism-reduce-auto-backup",
+                i18n.text("settings.cubism-jvm.reduce-auto-backup"),
+                SettingsBinding.of(
+                    settings::reduceAutoBackup,
+                    value -> {
+                        settings.saveReduceAutoBackup(value);
+                        apply.accept(value);
+                    }
+                )
+            )
+        );
+    }
+
     private static SettingsActionHandle install(
         final PluginLocalization i18n,
         final CubismJvmSettingsService settings

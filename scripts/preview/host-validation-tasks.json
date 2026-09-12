@@ -25,15 +25,25 @@
       "command": "scripts/preview/run-backup-host-validation.sh",
       "versions": [
         "5203",
-        "5302"
-      ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
+        "5302",
+        "5303"
       ],
       "resources": {
         "host-slot": 1
-      }
+      },
+      "variants": {
+        "default": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "reduced": [
+          "{version}",
+          "{runLabel}-reduced",
+          "--windows-env",
+          "TURBOISM_REDUCE_AUTO_BACKUP=1"
+        ]
+      },
+      "defaultVariant": "default"
     },
     "backup-interactive": {
       "description": "Human-operated WebDAV backup session.",
