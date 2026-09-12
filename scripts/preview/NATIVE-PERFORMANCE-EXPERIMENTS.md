@@ -1465,3 +1465,26 @@ Turboism+probe+ZGC 共存验证通过，全自动关闭链全绿。
 限 opt-in 建议）｜激进 G1 组 ❌ 回退｜保守组 ❌ 中性｜
 Graal ❌ 不存在｜CImageResource 关闭（定时缓存）｜
 备份抑制已证待产品化决策。
+
+## I73 — 交互卡顿维度（j1b/j2c fps + s1/s2 selection-lag）
+
+新仪器：`turboism.fps.sustained`+`settleSeconds`（250ms fpsSeries、
+min/p05/zeroFps 指标）；resize driver 加全程日志。
+selection-lag 加 5303+variants（Robot 真拖拽、EDT 10ms 心跳、
+事件间隔、超阈抓栈）。
+
+**fps@5303 重模型**：j1b G1 `ba118c7f` vs j2c ZGC `bdd30712`
+均 succeeded——renderScene 138 vs 134、非零中位 ~4fps 相同、
+zeroFps 274 vs 277/360。渲染上限由模型成本+Wine 决定；
+ZGC 采样窗内堆 −260MB（收缩）vs G1 +390MB。
+j2 首跑未 settle 仅 3 帧（污染）；j2b readiness 180s 边缘超时
+→ settle 相位与超时边界为已知测量约束。
+
+**selection-lag@5303**：s1 G1 `da30b777` vs s2 ZGC `d0a9f1be`
+均 PASS——INTERACTION 心跳 max 62 vs 61ms、p95 均 1ms、
+事件间隔 max ~200ms（AWT move 合并为主）。稳态轻拖拽
+两 GC 无差。
+
+**卡顿分层结论**：GC 停顿影响集中在加载/写突发期
+（G1 max 1376ms/605ms → ZGC 全亚毫秒）；稳态轻交互本就
+流畅。ZGC 的 UX 收益真实但场景限定。
