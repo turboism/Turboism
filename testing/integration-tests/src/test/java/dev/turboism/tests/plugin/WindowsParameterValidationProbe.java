@@ -2654,6 +2654,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // The heavy fixture's document load is asynchronous and can exceed ten minutes
             // under Proton; the job-level timeout still bounds the whole run.
             final CubismModel model = awaitEditorObjectModel(artifact, 1200);
+            final Object jfrRecording = startJfrRecording();
             forceGcQuietly();
             final long heapAfterOpen = heapUsedBytes();
             final long nonHeapAfterOpen = nonHeapUsedBytes();
@@ -2752,6 +2753,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
             metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
             appendImageResourceReport(metrics, "imageCache");
+            stopJfrRecording(jfrRecording, metrics);
 
             Files.writeString(
                 artifact,
@@ -2795,6 +2797,49 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         metrics.append(name).append("MedianNanos=").append(sorted[nanos.length / 2]).append('\n');
         metrics.append(name).append("P95Nanos=").append(sorted[(int) (nanos.length * 0.95)]).append('\n');
         metrics.append(name).append("EdtAllocatedBytesTotal=").append(allocBytes).append('\n');
+    }
+
+    /**
+     * Starts a {@code jdk.jfr} profile recording reflectively (the flag-based
+     * {@code -XX:StartFlightRecording} dump produced empty files under Wine).
+     * The recording covers only the measurement window — model load is excluded —
+     * and stops/dumps just before the terminal artifact write.
+     */
+    private Object startJfrRecording() {
+        try {
+            final Class<?> configuration = Class.forName("jdk.jfr.Configuration");
+            final Class<?> recordingClass = Class.forName("jdk.jfr.Recording");
+            final Object profile = configuration
+                .getMethod("getConfiguration", String.class)
+                .invoke(null, "profile");
+            final Object recording = recordingClass
+                .getConstructor(configuration)
+                .newInstance(profile);
+            final Path destination = Path.of(
+                System.getProperty("turboism.home"), "logs", "perf-observe.jfr"
+            );
+            recordingClass.getMethod("setDestination", Path.class)
+                .invoke(recording, destination);
+            recordingClass.getMethod("start").invoke(recording);
+            return recording;
+        } catch (Throwable unavailable) {
+            return null;
+        }
+    }
+
+    private void stopJfrRecording(final Object recording, final StringBuilder metrics) {
+        if (recording == null) {
+            metrics.append("jfrRecording=unavailable\n");
+            return;
+        }
+        try {
+            recording.getClass().getMethod("stop").invoke(recording);
+            recording.getClass().getMethod("close").invoke(recording);
+            metrics.append("jfrRecording=dumped\n");
+        } catch (Throwable failure) {
+            metrics.append("jfrRecording=dumpFailed:")
+                .append(failure.getClass().getSimpleName()).append('\n');
+        }
     }
 
     /**
