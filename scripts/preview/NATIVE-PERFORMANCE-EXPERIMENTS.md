@@ -1049,3 +1049,15 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
   `native-control-background-document-close` 三个会写 marker 的模式启动线程；
   perf-observe await 提到 1200 次（~20min，job timeout 2400s 内）。
 - **重试**：job `a0dc47f7`（r2），prepare 快照已含 427MB fixture（hash 校验一致）。
+- **r2 根因（实机）**：`activeDocumentClass=null` 持续是因为**版本不匹配模态框**——
+  窗口枚举发现 `警告` 对话框：「该文件由 Cubism 5.3.0 保存，正在启动的编辑器为
+  5.2.3，旧版打开新版可能损坏」+「加载/取消」。load document start 后阻塞在模态上，
+  CPU 仅 ~15% 单核（非真在加载）。外部激活+Enter 落在了「取消」——加载中止，
+  主窗口回到空工作区（截图取证）。job 终态 failed、cleanup=safe、fixture/golden
+  hash 均不变。
+- **修复**：`8edeac163`——队列调度器/任务表/wrapper 支持 5303（runner 本就支持，
+  5.3.03 已装）。改投 `parameter:5303@perf-observe`（job `f52f9b8e`）——宿主版本
+  与文件保存版本匹配，无模态。
+- **harness 缺口记录**：版本不匹配警告属可自动化的模态（Enter/加载按钮），probe
+  侧缺「await 期间检测并处置模态」能力——后续可在 await 轮询里加 Swing 对话框
+  探测+按预期文本放行。
