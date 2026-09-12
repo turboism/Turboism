@@ -2455,12 +2455,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      */
     private String inspectBlockingModal() {
         for (Window window : Window.getWindows()) {
-            // The save prompt observed on 5.3.03 reports isModal()=false yet still
-            // blocks document close, so every visible Dialog is inspected —
-            // dismissal remains gated by the narrow label whitelist below.
-            if (!(window instanceof Dialog dialog) || !dialog.isVisible()) {
+            // The save prompt observed on 5.3.03 is not a Dialog at all (the r16
+            // scan saw only the non-modal "主页" JDialog while the prompt sat on
+            // screen), so every visible non-Frame window is inspected — dismissal
+            // remains gated by the narrow label whitelist below.
+            if (window instanceof java.awt.Frame || !window.isVisible()) {
                 continue;
             }
+            final Window dialog = window;
             final StringBuilder text = new StringBuilder();
             final List<Component> buttons = new java.util.ArrayList<>();
             collectDialogSurface(dialog, text, buttons);
@@ -2510,7 +2512,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     })
                     .findFirst()
                     .orElse(null);
-                if (discard != null && (body.contains("保存") || body.contains("save"))) {
+                // The prompt body may be custom-painted (no JLabel), so also
+                // accept the Yes/No/Cancel button trio itself as the signature.
+                final boolean savePrompt = body.contains("保存")
+                    || body.contains("save")
+                    || (enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Yes"))
+                        && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("No"))
+                        && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Cancel")));
+                if (discard != null && savePrompt) {
                     clickComponent(discard);
                     action = "discarded-save-prompt";
                 } else if (enabled.size() == 1) {
@@ -2526,8 +2535,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
             }
             final String summary = body.length() > 160 ? body.substring(0, 160) : body;
-            return " modal=\"" + dialog.getTitle() + "\" class=" + dialog.getClass().getName()
-                + " modal=" + dialog.isModal() + " buttons=" + buttons.size()
+            final String title = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
+            final String modal = dialog instanceof Dialog d
+                ? String.valueOf(d.isModal()) : "n/a";
+            return " modal=\"" + title + "\" class=" + dialog.getClass().getName()
+                + " modal=" + modal + " buttons=" + buttons.size()
                 + " action=" + action + " text=" + summary.replace('\n', ' ');
         }
         return "";
