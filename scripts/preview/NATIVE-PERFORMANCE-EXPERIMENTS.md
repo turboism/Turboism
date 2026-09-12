@@ -1170,3 +1170,38 @@ runnable 不取消仍排队，EDT 饱和期每个等待者都在自己的 runnab
 - CImageResource 经活动宿主 Frame 的 classloader 解析；关闭前后各枚举一次
 - JFR 改由探针反射驱动（jdk.jfr profile），只覆盖测量窗口、显式 dump
 - perf-observe result-timeout 900s→2100s，await 预算 30×45s
+
+## I64 - r11 重模型全量证据（编辑突发 + CImageResource 枚举 + 11.3MB JFR）
+
+r11（`e95c2051`）探针 PASS 全量落盘；job 级 failed 仅因宿主退出超时
+（normalExit=False，cleanup=safe，源 fixture hash 验证不变）。
+人工介入点：加载后一个 lone「确定」信息模态阻断文档激活（x11 枚举确认），
+点击后 await 立即放行——已加入 acknowledged-info 白名单。
+
+编辑突发（ParamAngleX, 重模型）：
+- parameterWrite median 3.91ms / p95 8.19ms / **EDT 分配 992MB÷30 ≈ 33MB/写**
+- 写期 GC=1/13ms；heap reads 1.112GB → writes 1.113GB → restore 1.114GB
+- 33MB/写几乎全是宿主侧 churn（写后强制 GC 即回收），非滞留
+- 对照：小夹具同路径 6.5MB/写——随模型规模放大 ~5×
+
+CImageResource 静态字段（26 个）：
+- `cacheList` collection：关前 4478 项 → 关后 2208 项——close 释放约一半，
+  残余 2208 项为共享/未到期条目（类内有 `timer`+`ARCHIVE_IMAGE_TIME_SEC`
+  周期归档机制）
+- `loadedBytes`/`byteDataBytes`/`createdCount`/`disposedCount` 计数器存在
+  （r12 起读值）
+- close 后 heap 1.109GB ≈ 开时 1.126GB——堆滞留主体仍在宿主侧
+
+JFR（探针驱动 profile，1032s 窗口，Wine 下首个成功 dump）：
+- 分配权重 99% 在宿主侧：ImageAnimator 线程 ~40GB sampled
+  （[B]/[I] 像素解码、GMatrix44 变换 churn）
+- `CEMainFrameCtrl.updateFileRecentFileList` 内 `IntRange` 采样权重 ~10.4GB
+  （宿主 recent-list 路径热点）
+- ArchiveWriter.getFreeFilePath ~3.7GB 采样（备份序列化）
+- Turboism 侧最大项：`SceneTableHostOperations.findScenePalette`
+  （29 exec samples / 28.6MB alloc）；写突发触发 appearance rebind
+  （ParameterControlAppearanceProvider bind λ 共 ~22 samples）
+- 我们 adapter 读路径在分配/CPU 表上均不可见——已到噪声地板
+
+后续修复（已提交）：持久 latch await、Throwable 捕获、异步心跳写、
+modal 白名单（discard-save + lone-confirm）、result-timeout 2100s。
