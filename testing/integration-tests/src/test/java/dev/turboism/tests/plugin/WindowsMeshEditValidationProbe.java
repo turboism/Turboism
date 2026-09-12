@@ -28,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -505,6 +506,11 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
             if (paths.size() != 1) {
                 if (paths.size() > 1) {
                     observed.add("ambiguous:" + describeTree(tree) + ":matches=" + paths.size());
+                } else {
+                    // A zero-match failure needs to show what the tree renders: the model's part
+                    // names and the rendered row labels are not guaranteed to be the same text.
+                    observed.add("no-match:" + describeTree(tree)
+                        + ":rendered=" + renderedLabels(tree));
                 }
                 continue;
             }
@@ -695,6 +701,22 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
 
     private static String describeTree(final JTree tree) {
         return tree.getClass().getName() + " rows=" + tree.getRowCount();
+    }
+
+    /** A bounded sample of the labels the tree actually renders, for diagnosing name mismatches. */
+    private static String renderedLabels(final JTree tree) {
+        final ArrayList<String> labels = new ArrayList<>();
+        final ArrayDeque<Object> pending = new ArrayDeque<>();
+        pending.add(tree.getModel().getRoot());
+        while (!pending.isEmpty() && labels.size() < 24) {
+            final Object node = pending.removeFirst();
+            labels.add(tree.convertValueToText(node, false, false, false, 0, false));
+            final int children = tree.getModel().getChildCount(node);
+            for (int index = 0; index < children && labels.size() + index < 48; index++) {
+                pending.addLast(tree.getModel().getChild(node, index));
+            }
+        }
+        return "[" + String.join(",", labels) + (pending.isEmpty() ? "" : ",…") + "]";
     }
 
     private static <T> T onEdt(final Callable<T> call) throws Exception {
