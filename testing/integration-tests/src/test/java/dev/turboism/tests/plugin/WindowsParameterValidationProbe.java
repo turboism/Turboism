@@ -2738,6 +2738,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             } else {
                 metrics.append("editParameter=none\n");
             }
+            appendImageResourceReport(metrics, "imageCacheBeforeClose");
 
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
@@ -2750,7 +2751,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             forceGcQuietly();
             metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
             metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
-            appendImageResourceReport(metrics);
+            appendImageResourceReport(metrics, "imageCache");
 
             Files.writeString(
                 artifact,
@@ -2798,23 +2799,40 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
 
     /**
      * Enumerates every static field of the host's {@code com.live2d.graphics.CImageResource}
-     * (reached through the plugin classloader's parent chain) and reports the shape of each
-     * Map/Collection it finds: entry count, live/dead {@link java.lang.ref.Reference} payloads,
-     * and primitive-array byte totals. Read-only diagnostic — nothing is cleared or mutated.
+     * (reached through the plugin classloader's parent chain or a live host frame's loader)
+     * and reports the shape of each Map/Collection it finds: entry count, live/dead
+     * {@link java.lang.ref.Reference} payloads, and primitive-array byte totals.
+     * Read-only diagnostic — nothing is cleared or mutated. Called with a
+     * {@code imageCacheBeforeClose}/{@code imageCache} prefix pair so the report
+     * distinguishes what document close releases from what it retains.
      */
-    private void appendImageResourceReport(final StringBuilder metrics) {
+    private void appendImageResourceReport(final StringBuilder metrics, final String prefix) {
         try {
             Class<?> resource = null;
+            final java.util.Set<ClassLoader> loaders = new java.util.LinkedHashSet<>();
             for (ClassLoader loader = getClass().getClassLoader();
-                 loader != null && resource == null;
+                 loader != null;
                  loader = loader.getParent()) {
+                loaders.add(loader);
+            }
+            // The plugin classloader may be a sibling of the host application loader;
+            // a live host Frame exposes the loader that owns com.live2d classes.
+            try {
+                for (java.awt.Frame frame : onHostThread(java.awt.Frame::getFrames)) {
+                    if (frame != null) loaders.add(frame.getClass().getClassLoader());
+                }
+            } catch (Throwable ignored) {
+            }
+            for (ClassLoader loader : loaders) {
+                if (loader == null) continue;
                 try {
                     resource = Class.forName("com.live2d.graphics.CImageResource", false, loader);
+                    if (resource != null) break;
                 } catch (ClassNotFoundException ignored) {
                 }
             }
             if (resource == null) {
-                metrics.append("imageResource=present-but-not-resolvable\n");
+                metrics.append(prefix).append(".imageResource=present-but-not-resolvable\n");
                 return;
             }
             int fieldIndex = 0;
@@ -2826,32 +2844,33 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final Object value;
                 try {
                     if (!field.trySetAccessible()) {
-                        metrics.append("imageCache.").append(fieldIndex)
+                        metrics.append(prefix).append(".").append(fieldIndex)
                             .append("=").append(field.getType().getSimpleName())
                             .append(":inaccessible\n");
                         continue;
                     }
                     value = field.get(null);
                 } catch (Throwable failure) {
-                    metrics.append("imageCache.").append(fieldIndex).append("=unreadable\n");
+                    metrics.append(prefix).append(".").append(fieldIndex).append("=unreadable\n");
                     continue;
                 }
-                metrics.append(describeCacheField(fieldIndex, field.getName(), value));
+                metrics.append(describeCacheField(prefix, fieldIndex, field.getName(), value));
             }
-            metrics.append("imageCache.staticFields=").append(fieldIndex).append('\n');
+            metrics.append(prefix).append(".staticFields=").append(fieldIndex).append('\n');
         } catch (Throwable failure) {
-            metrics.append("imageCacheError=")
+            metrics.append(prefix).append("Error=")
                 .append(failure.getClass().getSimpleName()).append('\n');
         }
     }
 
     /** Describes one static cache field: size + live/dead ref split + primitive payload bytes. */
     private static String describeCacheField(
+        final String prefix,
         final int index,
         final String name,
         final Object value
     ) {
-        final String key = "imageCache." + index + "." + name;
+        final String key = prefix + "." + index + "." + name;
         if (value == null) {
             return key + "=null\n";
         }
