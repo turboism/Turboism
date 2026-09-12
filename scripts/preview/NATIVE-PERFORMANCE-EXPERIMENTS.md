@@ -1428,3 +1428,18 @@ palette 的加载后增量构建 ≈ 7.6s EDT 停顿，不是写路径。
 
 **n4（native-tuned2 保守组）已投**：`DisableExplicitGC` +
 `UseStringDeduplication` 两个机制对症 flag。
+
+## I71 — n4 中性 / n5 ZGC 正收益
+
+**n4（DisableExplicitGC + dedup）**：System.gc 归零但 46 次
+GC/4904ms 总量不变（自然 GC 补回）；post-GC 堆 1.2GB 反高于
+n2 1.0GB；RSS 3.17 vs 4.08GB 判定为 run 间波动 → **中性，否决**。
+
+**n5/n5b（ZGC）= 方向 A 首个正收益**：
+- Wine 下 `-XX:+UseZGC` 成功（oldCollector="Z"）
+- 33 次 GC 停顿**全部亚毫秒**，max 0.043ms vs G1 max 1376ms
+- 稳态 RSS ~2.76GB < G1 ~4.08GB；加载期 RSS 峰 ~12GB 为
+  多映射计数虚高（同物理页多视图）
+- 加载 27.48s ≈ 25.66s；并发 GC 线程 CPU 不可测（极低）
+- 首次 run JFR 被清理删除 → n5b 运行中收割 repo 文件成功
+- 限制：非官方支持矩阵，只能 opt-in 建议
