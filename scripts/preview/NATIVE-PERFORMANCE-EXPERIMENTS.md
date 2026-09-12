@@ -1443,3 +1443,25 @@ n2 1.0GB；RSS 3.17 vs 4.08GB 判定为 run 间波动 → **中性，否决**。
 - 加载 27.48s ≈ 25.66s；并发 GC 线程 CPU 不可测（极低）
 - 首次 run JFR 被清理删除 → n5b 运行中收割 repo 文件成功
 - 限制：非官方支持矩阵，只能 opt-in 建议
+
+## I72 — n6 Graal 否决 / n7 ZGC+Turboism 全绿
+
+**n6（Graal JVMCI）**：`Cannot use JVMCI compiler: No JVMCI
+compiler found` —— bundled Liberica Standard 有 JVMCI 接口但无
+Graal 编译器本体（GraalVM/Full 版内容）。37s 快速否决。
+
+**n7（perf-observe-zgc，job `6b14d89b`）= succeeded**：
+Turboism+probe+ZGC 共存验证通过，全自动关闭链全绿。
+- 写 burst 全程 57 次 GC 停顿 **max 0.0198ms**
+  （MXBean 212ms 是并发周期时长非 STW）
+- 写 median 3.75ms vs r21 4.16ms（−10%）；runtime p95 −44%；
+  modelActive 33µs（−59%）
+- 写段 EDT 分配 1194MB vs 992MB（+20%，判定为 run 间方差，
+  分配计数与 GC 无关）
+- 测量期 RSS ~12.9GB = ZGC 多映射 /proc 计数虚高
+- **组合配置可用结论**：probe 全自动链在 ZGC 下零回归
+
+**方向 A 杠杆终表**：ZGC ✅（停顿归零+稳态 RSS −32%，
+限 opt-in 建议）｜激进 G1 组 ❌ 回退｜保守组 ❌ 中性｜
+Graal ❌ 不存在｜CImageResource 关闭（定时缓存）｜
+备份抑制已证待产品化决策。
