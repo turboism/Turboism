@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -107,11 +107,17 @@ fi
 
 fixture_policy=(--require-fixture-unchanged)
 extra_jvm_options=()
-result_timeout=900
-if [ "$mode" = 'perf-observe' ]; then
-  # Heavy-model runs can spend ~20min in EDT-starved await before measuring.
-  result_timeout=2100
+probe_mode="$mode"
+if [ "$mode" = 'perf-observe-zgc' ]; then
+  probe_mode='perf-observe'
 fi
+result_timeout=900
+case "$mode" in
+  perf-observe*)
+    # Heavy-model runs can spend ~20min in EDT-starved await before measuring.
+    result_timeout=2100
+    ;;
+esac
 case "$mode" in
   persist-write|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final)
     # Persistence validation may intentionally save the copied fixture.
@@ -121,6 +127,13 @@ esac
 case "$mode" in
   native-control-background*)
     extra_jvm_options+=(--jvm-option '-Dturboism.editorObjectValidation.trace=true')
+    ;;
+esac
+case "$mode" in
+  perf-observe-zgc)
+    # Combined leg: Turboism + probe + ZGC — validates coexistence and
+    # measures the real write-burst under sub-millisecond-pause GC.
+    extra_jvm_options+=(--jvm-option '-XX:+UseZGC')
     ;;
 esac
 case "$mode" in
@@ -141,7 +154,7 @@ exec bash "$runner" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   "${fixture_policy[@]}" \
-  --jvm-option "-Dturboism.editorObjectValidation.mode=$mode" \
+  --jvm-option "-Dturboism.editorObjectValidation.mode=$probe_mode" \
   --jvm-option '-Dturboism.validation.exitOnComplete=true' \
   "${extra_jvm_options[@]}" \
   --ready-marker 'Windows parameter validation probe initialized' \
