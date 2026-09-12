@@ -1071,3 +1071,31 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
   +project.read），r3 (`4de72c9f`) 重投。
 - 旁证：相邻 agent 的 atlas-image-shadow 5303 任务用同一 427MB fixture 跑通 PASS——
   模型在 5.3.03 上可完整加载，排除了 fixture 自身可加载性风险。
+
+## I60 - heavy-perf-observe-5303 r3/r4：首个重模型实机计量达成（终态 PASS）
+
+r3 (`4de72c9f`)：probe PASS、job FAIL——hostCloseRoute 版本门拒 5303，
+宿主收不到退出请求（normalExit=false）。修复 39578d834（5303→ROBOT_ALT_F4）。
+
+r4 (`0a5811f3`)：**终态 succeeded**（normalExit=true, cleanup=safe, identity PASS,
+fixture/golden hash 不变）。5.3.03 + 427MB heavy.cmo3（719 drawables / 128 params）：
+
+| 指标 | r3 | r4 |
+|---|---|---|
+| runtime() median/p95 | 193µs / 957µs | 495µs / 1564µs |
+| runtime EDT alloc | 358,096B/30call | 358,104B/30call |
+| activeProject median | 170µs | 332µs |
+| activeDocument median | 167µs | 314µs |
+| model().active() median | 82µs | 118µs |
+| 读取期间 GC | 0 次 | 0 次 |
+| heap after open / after close | 1.110GB / 1.105GB | 1.106GB / 1.103GB |
+| modelStale after close | true | true |
+
+结论：
+- 分配字节两次运行确定性一致（~11.9KB/call runtime、~8.6KB project、~3.2KB model）——
+  SDK seam 之后每调用分配正比于快照实际大小，无 Host* 往返翻倍。
+- 120 次连续读取零 GC、堆零增长——读路径分配压力在真实重模型上可忽略。
+- 时延在两次运行间差异大（外部负载敏感），median 0.1–0.5ms 级；p95 ~1ms 级。
+- 加载期 RSS 峰值 ~3.48GB、稳态 ~2.24GB（宿主侧：console 显示 667MB texture setup +
+  CImageResource 缓存）；close 后堆 1.10GB 滞留为宿主侧缓存，adapter 释放语义
+  （modelStale）验证通过。
