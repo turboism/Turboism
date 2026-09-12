@@ -2518,7 +2518,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
             }
             final String summary = body.length() > 160 ? body.substring(0, 160) : body;
-            return " modal=\"" + dialog.getTitle() + "\" action=" + action + " text=" + summary.replace('\n', ' ');
+            return " modal=\"" + dialog.getTitle() + "\" class=" + dialog.getClass().getName()
+                + " modal=" + dialog.isModal() + " buttons=" + buttons.size()
+                + " action=" + action + " text=" + summary.replace('\n', ' ');
         }
         return "";
     }
@@ -3099,24 +3101,41 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      * Read-only and bounded to direct fields only.
      */
     private static long elementPrimitiveFieldBytes(final Object element) {
-        if (element == null || element.getClass().isPrimitive()
+        return elementFieldBytesAtDepth(element, 2, 0);
+    }
+
+    private static long elementFieldBytesAtDepth(
+        final Object element,
+        final int depthLeft,
+        final int guard
+    ) {
+        if (element == null || depthLeft < 0 || element.getClass().isPrimitive()
             || element instanceof Number || element instanceof Boolean
-            || element instanceof CharSequence) {
+            || element instanceof CharSequence || element.getClass().isEnum()) {
             return 0L;
         }
         if (element.getClass().isArray()) {
             return 0L;
         }
+        final Object target = element instanceof java.lang.ref.Reference<?> reference
+            ? reference.get() : element;
+        if (target == null) return 0L;
         long bytes = 0L;
-        for (Class<?> type = element.getClass();
+        int seen = guard;
+        for (Class<?> type = target.getClass();
              type != null && type != Object.class;
              type = type.getSuperclass()) {
             for (java.lang.reflect.Field field : type.getDeclaredFields()) {
                 if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
-                if (!field.getType().isArray()) continue;
+                final Class<?> fieldType = field.getType();
+                if (fieldType.isPrimitive() || fieldType == String.class) continue;
                 try {
-                    if (field.trySetAccessible()) {
-                        bytes += primitiveArrayBytes(field.get(element));
+                    if (!field.trySetAccessible()) continue;
+                    final Object nested = field.get(target);
+                    if (fieldType.isArray()) {
+                        bytes += primitiveArrayBytes(nested);
+                    } else if (depthLeft > 0 && nested != null && seen++ < 64) {
+                        bytes += elementFieldBytesAtDepth(nested, depthLeft - 1, seen);
                     }
                 } catch (Throwable ignored) {
                 }
