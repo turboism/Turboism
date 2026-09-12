@@ -1488,3 +1488,33 @@ j2 首跑未 settle 仅 3 帧（污染）；j2b readiness 180s 边缘超时
 **卡顿分层结论**：GC 停顿影响集中在加载/写突发期
 （G1 max 1376ms/605ms → ZGC 全亚毫秒）；稳态轻交互本就
 流畅。ZGC 的 UX 收益真实但场景限定。
+
+## I74 — 自动备份抑制产品化 + exact-host 验证（bk 腿）
+
+产品化（spec 051, commit `e0a700fae`/`c5885d18f`）：Performance
+设置页 `cubism-reduce-auto-backup` opt-in toggle → 根字段
+`reduceAutoBackup`（runtime validator + installer ConfigMerge
+白名单/校验/merge 保留全链）→ 经已验收 `updateSettings` 置
+`enabled=false` 并保留用户 interval/cap/dir；baseline 快照存
+`state/auto-backup-baseline.properties`，OFF 还原+删除，已存在
+不覆盖（崩溃后可还原，备份不会永久关闭）。env 覆盖
+`TURBOISM_REDUCE_AUTO_BACKUP`（1/true/yes/on）。
+
+**exact-host（backup:5303 新增 default/reduced 变体）**：
+- bk5 control `6a33b659` PASS：enabled=true；周期备份实弹
+  `26-28s/+149MB~2436MB` 写尖峰——用户可感冻结再证实
+- bk6 reduced `37a195c4` PASS：apply 日志 + baseline 落盘 +
+  探针独立回读 `enabled=false`；周期定时器全窗未点火，
+  仅剩的 26s 尖峰是探针 backupNow 手动路径（设计保留）
+
+**过程中修掉的两个缺陷**：
+- `Boolean.parseBoolean("1")`=false 使 env 覆盖失效 → 改收 1/true/yes/on
+- backup probe jar 缺 i18n base catalog 被 PluginJarContract 拒绝
+  （"No valid plugin JARs"）→ 补 messages.properties 恢复
+
+**已知瑕疵**：core enable 早于宿主备份管理器就绪时 apply 会在
+EDT 上命中宿主内部 NPE（re-arm 路径 null）；enabled 写入经独立
+回读确认落盘，影响为 console 噪音级。后续可挂 host-ready 信号
+延迟应用。
+
+**门禁**：`devCheck` 绿；runtime/installer regression/core 测试全过。
