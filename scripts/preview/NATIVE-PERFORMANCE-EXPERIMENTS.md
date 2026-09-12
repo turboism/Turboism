@@ -998,3 +998,11 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **效果**：稳态 poll 成本从「树 DFS + 全量按钮重排 + 布局失效」降为「树 DFS +
   O(C) 校验」；消除了每个 tick 的 revalidate/repaint。
 - **限制**：树 DFS（~百级组件）仍每 tick 执行——正确性所必需；UI 微基准未量化。
+
+### I56 — perf-observe probe 模式 + 重模型 fixture 接入（049）（2026-09-12）
+
+- **动机**：分支全部收益仅有合成基准与结构性证据；拿到 427MB 真实 `heavy.cmo3` 后可做实机量化。
+- **实现**：`WindowsParameterValidationProbe` 新增 `perf-observe` 模式——等待模型就绪（360 次重试容忍大模型加载）→ 强制 GC 后记录堆/非堆 → 对 `runtime()`、`activeProject()`、`activeDocument()`、`model().active()` 各 30 次计时（median/p95）并用 `com.sun.management.ThreadMXBean` 记 EDT 分配字节 → GC 计数/耗时差 → Robot Ctrl+W 关文档 → stale 校验 + 关闭后堆。产物 `logs/perf-observe-validation.txt`（文件名含 `validation` 由既有收集器拾取）。
+- **接入**：wrapper 白名单 + `host-validation-tasks.json` 变体注册；fixture 经 prepare 时 env 覆盖进入快照（worker 执行期剥 TURBOISM_* env——覆盖必须在 prepare 时生效）。队列 job `4db466f7`。
+- **外部采样**：`/tmp/heavy-perf-sampler.sh` 按任务 prefix WINEPREFIX 匹配宿主 java 进程，每 2s 记 RSS/cpu_ticks/threads。
+- **附带基建事件**：host-slot 曾被他任务 quarantined（supervisor 崩溃于 "locking protocol"，containment.json 内核证据完整 FINISHED/safe）；用该 job 快照自带的 `finalize` 重跑真实校验生成 verdict，再经 `recover --confirm` 正式释放。`recover` 对「supervisor 崩在 verdict 前」这一形态无自愈能力——记录为工具链缺口。
