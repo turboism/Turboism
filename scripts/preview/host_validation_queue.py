@@ -227,6 +227,18 @@ class Store:
                     raise QueueError("unknown job id")
             return [dict(row) for row in rows]
 
+    def jobs_retry(self, job_id: str, attempts: int = 6) -> list[dict[str, Any]]:
+        """Supervisor diagnostic read that tolerates transient WAL lock
+        contention. The read is idempotent; a persistent lock still raises so
+        callers fail closed rather than fabricate a verdict."""
+        for attempt in range(attempts):
+            try:
+                return self.jobs(job_id)
+            except sqlite3.OperationalError as failure:
+                if "locked" not in str(failure) or attempt == attempts - 1:
+                    raise
+                time.sleep(min(30.0, 5.0 * (attempt + 1)))
+
     def host(self) -> dict[str, Any]:
         with self.connection() as db:
             return dict(db.execute("SELECT * FROM host WHERE singleton=1").fetchone())
@@ -687,7 +699,7 @@ class RunnerBackend:
                             "supervisor": process_identity(os.getpid()), "runner": identity,
                         })
                         heartbeat_at = now + 5.0  # Diagnostics, never an expiring safety lease.
-                    cancel = store.jobs(job["job_id"])[0]["cancel_requested"]
+                    cancel = store.jobs_retry(job["job_id"])[0]["cancel_requested"]
                     if requested is None and (cancel or now >= deadline):
                         requested = "cancelled" if cancel else "timed_out"
                         cleanup_started = now
@@ -716,7 +728,7 @@ class RunnerBackend:
                 preliminary = json.loads(path.read_text()) if path.is_file() else None
                 if preliminary is not None and not isinstance(preliminary, dict):
                     raise QueueError("lifecycle evidence must be an object")
-                if requested is None and store.jobs(job["job_id"])[0]["cancel_requested"]:
+                if requested is None and store.jobs_retry(job["job_id"])[0]["cancel_requested"]:
                     requested = "cancelled"
                 return finalizer.finalize(job, descriptor, prepared_root, directory, preliminary,
                                           proof, process.returncode, requested)
@@ -741,7 +753,7 @@ def supervised_attempt(root: Path, job: dict[str, Any], backend: Any, admission_
         child_socket.sendall(canonical_json(process_identity(os.getpid())).encode())
         if child_socket.recv(1) != b"A":
             return
-        if store.jobs(job["job_id"])[0]["cancel_requested"]:
+        if store.jobs_retry(job["job_id"])[0]["cancel_requested"]:
             evidence = {"schemaVersion": 1, "jobId": job["job_id"], "attemptId": job["attempt_id"],
                 "runId": job["run_id"], "preparedDigest": job["digest"],
                 "cleanup": "safe", "validationStatus": "UNKNOWN", "terminalState": "cancelled",
@@ -942,7 +954,8 @@ def validate_admission() -> dict[str, Any]:
         raise QueueError("missing or invalid worker admission") from failure
 
 
-def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
+def durable_outcome(store: Store, job: dict[str, Any],
+                    allow_containment_recovery: bool = False) -> dict[str, Any]:
     """Consume a final durable verdict; never synthesize one from preliminary flags."""
     directory = store.root / "jobs" / job["job_id"]
     outcome_path = directory / "outcome.json"
@@ -961,6 +974,10 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
         if outcome != final:
             raise QueueError("outcome conflicts with or lacks final lifecycle")
     if not isinstance(final, dict) or final.get("finalizedBy") != "contained-supervisor":
+        if allow_containment_recovery:
+            recovered = containment_failure_outcome(store, job, directory)
+            if recovered is not None:
+                return recovered
         raise QueueError("no durable final supervisor verdict")
     store.validate_completion(job, final["terminalState"], final)
     proof = final.get("containment")
@@ -999,6 +1016,62 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
             raise QueueError("final terminal result was not verified after containment")
     return final
 
+
+def containment_failure_outcome(store: Store, job: dict[str, Any],
+                                directory: Path) -> dict[str, Any] | None:
+    """Recover a `failed` outcome when the supervisor died after proving kernel
+    cleanup but before writing its verdict (outcome.json / lifecycle-result.json).
+
+    containment.json is itself durable supervisor evidence, written by
+    ContainedProcess.finish only after the bound scope is confirmed empty. It is
+    consumed here only when it is complete, identity-matched to this exact
+    attempt, kernel-proven, and the recorded runner identity is dead. The result
+    can never claim success: it always carries terminalState "failed".
+    """
+    path = directory / "containment.json"
+    if not path.is_file():
+        return None
+    record = json.loads(path.read_text())
+    if not isinstance(record, dict):
+        return None
+    expected = {"jobId": job["job_id"], "attemptId": job["attempt_id"],
+                "runId": job["run_id"], "preparedDigest": job["digest"]}
+    if (type(record.get("schemaVersion")) is not int or record["schemaVersion"] != SCHEMA
+            or any(record.get(key) != value for key, value in expected.items())
+            or record.get("state") != "FINISHED" or record.get("cleanup") != "safe"):
+        return None
+    kernel = record.get("kernelProof")
+    if (not isinstance(kernel, dict)
+            or kernel.get("originalCgroupBound") is not True
+            or kernel.get("errors") != []):
+        return None
+    for key in ("bootId", "cgroupPath", "cgroupDevice", "cgroupInode"):
+        if kernel.get(key) != record.get(key):
+            return None
+    reading = kernel.get("finalReading", {})
+    if not (isinstance(reading, dict)
+            and (reading.get("kind") == "destroyed"
+                 or (reading.get("kind") == "same"
+                     and type(reading.get("populated")) is int and reading["populated"] == 0))):
+        return None
+    runner_identity_path = directory / "runner-identity.json"
+    if not runner_identity_path.is_file():
+        return None
+    runner_identity = json.loads(runner_identity_path.read_text())
+    entry = record.get("entryIdentity")
+    if (not isinstance(entry, dict)
+            or runner_identity != scope_identity(entry)
+            or identity_alive(runner_identity)):
+        return None
+    outcome = {"schemaVersion": 1, **expected, "cleanup": "safe",
+               "terminalState": "failed", "validationStatus": "UNKNOWN",
+               "normalExit": False,
+               "reason": "supervisor verdict absent; bound-scope containment proven safe",
+               "containment": record}
+    store.validate_completion(job, outcome["terminalState"], outcome)
+    return outcome
+
+
 def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, Any]:
     job = store.jobs(job_id)[0]
     report: dict[str, Any] = {"safe": False, "jobId": job_id, "state": job["state"]}
@@ -1015,7 +1088,7 @@ def recover(store: Store, job_id: str, reason: str | None = None) -> dict[str, A
             raise QueueError("recorded runner is still active")
         if external_sessions():
             raise QueueError("host contains active external/unknown Cubism sessions")
-        evidence = durable_outcome(store, job)
+        evidence = durable_outcome(store, job, allow_containment_recovery=True)
         # Inspection and confirmation apply exactly the same evidence rules.
         store.validate_completion(job, evidence["terminalState"], evidence)
         report.update(safe=True, evidence=evidence)
