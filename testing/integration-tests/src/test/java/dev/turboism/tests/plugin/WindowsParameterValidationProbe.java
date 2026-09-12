@@ -2988,7 +2988,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final Path closeLog = artifact.resolveSibling("perf-observe-close-log.txt");
+            // .log extension matters: the result summarizer sweeps *.txt files
+            // containing "-close" as artifacts and fails the run on any without
+            // a status= line (observed r19 — the forensics file was counted as
+            // a MISSING artifact).
+            final Path closeLog = artifact.resolveSibling("perf-observe-modal-forensics.log");
             // Clear any lingering informational dialog first so the close
             // accelerator reaches the document.
             try {
