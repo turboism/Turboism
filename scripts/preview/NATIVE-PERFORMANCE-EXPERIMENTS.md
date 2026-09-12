@@ -967,3 +967,17 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **验证**：mesh 包 102 测试 `--rerun-tasks` 全绿；`devCheck` BUILD SUCCESSFUL。
 - **限制**：索引收益按引用数/选中点数线性放大，未做实机量化（mesh 拖拽矩阵未跑）；
   `counterpartPoint` 的最近邻 O(P) 搜索本身保留（语义要求）。
+
+### I54 — recent-preview 内存映射随 recent 列表修剪（047）（2026-09-12）
+
+- **问题**：`RecentPreviewController.images`（PNG 字节 ~20–50KB/条）与
+  `lastCapturedModified` 按 `RecentFileId` 键控，仅在 `disable()`/`preload()` 清空；
+  宿主 recent 列表移除的条目在整个会话内滞留——长会话中随列表翻动无界增长。
+- **改动**：`refresh()` 与未知 id 的内联刷新统一走 `pruneToLive`——
+  `images`/`lastCapturedModified` `retainAll` 到当前 recent id 集；在表 id 的条目保留
+  （无 popup 回读回归）；磁盘缓存不动。
+- **证据**：`refreshPrunesImagesAndDedupeMarksForIdsThatLeftTheRecentList` 回归——
+  离表 id 的 `image()` 转空、新 id 正常 STORED。`:plugins:recent-preview:test` 全绿。
+- **内存**：每个离表 id 释放 ~20–50KB PNG + 表项；保留量上界 = 宿主 recent 列表大小。
+- **限制**：in-flight capture 的 id 若被 prune，完成后会重新 put（下一 refresh 再清）——
+  瞬态，可接受；无跨会话影响（磁盘缓存仍是权威）。
