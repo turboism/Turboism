@@ -185,6 +185,9 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
 
     private static Object resolvePalette(final SceneTableHostProfile.Bound bound) {
         for (Window window : Window.getWindows()) {
+            // A window that is not showing cannot display a palette; skipping it
+            // prunes the host's many cached hidden dialogs from the idle poll.
+            if (!window.isShowing()) continue;
             final Object palette = findScenePalette(window, bound);
             if (palette != null) return palette;
         }
@@ -208,7 +211,7 @@ public final class SceneTableHostOperations implements RuntimeSceneTableService.
                 }
             }
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && component.isVisible()) {
             for (Component child : container.getComponents()) {
                 final Object palette = findScenePalette(child, bound);
                 if (palette != null) return palette;
