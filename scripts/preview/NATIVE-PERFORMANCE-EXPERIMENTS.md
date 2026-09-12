@@ -1318,3 +1318,62 @@ elementBytes=16KB → 关闭后 90/2.9KB（部分自然释放）。
 
 待 r20 v2 验证（job `dc2582bd`，seq 267，重模型 `029e9a4e` +
 probe jar `acbf8b55` 已核）。
+
+## I68 — r20 冻结解剖 + r21 首个全自动重模型全绿（`0c77a9db2`）
+
+r20（job `dc2582bd`，重模型）证据解剖：
+- 取证只到 `preClose`（9 字节），18:08:26 → 进程 18:11:09 退出
+  （rc=1）——**163 秒零循环条目**。
+- 冻结点：`pressShortcut` → `invokeMenuShortcut` →
+  `SwingUtilities.invokeAndWait` → menu `doClick` 打开保存对话框
+  （宿主 AppContext，对 `Window.getWindows()` 不可见）→ EDT 进入
+  嵌套泵 → invokeAndWait **无超时**永久阻塞 → 模态扫描/stale 检查/
+  盲 N 全部未运行。同时 `failsClosed(model::id)` 的代理调用自身
+  也走 EDT 派发，同样会停住。
+- 附带：stopAutoBackup 的 `a(int)` 在 command_open 嵌套期 NPE
+  （管理器半初始化），导致禁备份只部分生效（r21 仍观察到
+  restart 记录但 30000min 间隔使计时器实际不再触发）。
+
+`0c77a9db2` 修复（r21 验证）：
+1. `invokeMenuShortcut`/`pressShortcut` focus 路径改
+   invokeLater+10s latch；超时落 Robot 键击。
+2. `modelBecameStale`：代理调用放有界 daemon cached-pool
+   （5s Future.get）——超时=「EDT 忙，不确定」继续循环，
+   完成的 IllegalState/Unsupported 才算真关闭；杜绝
+   failsClosed 把模态阻塞误报为已关闭。
+3. 盲 N：attempt≥4 起每 6 次一发，上限 24。
+4. `stopAutoBackup` 3×/3s 重试 + 关闭前重放
+   （`autoBackupStoppedPreClose`）。
+
+r21（job `dedb77ca`→`queue-8b01ad54`，5303 + heavy `029e9a4e`）
+**终态 succeeded**：rc=0、wrapperExit=0、fixture 逐字节不变、
+identity PASS、结果文件 `status=PASS`。关闭取证首次记录到
+真实的保存提示自动处理：
+`modal="确定" JDialog modal=true → action=discarded-save-prompt
+text=你想保存…cmo3的文件吗?[Yes(Y)][No(N)][Cancel(C)]`
+→ 点 No → `modelStale=true` → JFR dump → 干净退出。
+
+r21 重模型计量（最终权威值）：
+- open 后堆 1.117GB（719 drawables/128 params）、非堆 163MB
+- 读：runtime median 309µs/p95 1.43ms、~12KB/call EDT 分配；
+  activeProject/Document ~285µs、~8.7KB/call；modelActive 80µs、
+  2.8KB/call；**120 读 GC=0、堆零增长**
+- 写 burst（30 次真实参数写+恢复）：median **4.16ms**、
+  p95 7.11ms、EDT 分配 **992MB**（~33MB/写）、GC 1×9ms
+  +恢复段 3 次
+- 关闭后堆 1.120GB（宿主驻留）；JFR 2.9MB/163s
+
+r21 JFR 归因：Turboism 总样本 **10/8753 ≈ 0.11%**
+（PaletteAppearanceCoordinator.bindParameterControl λ）。
+宿主侧主导：AWT eventLoop 7107（空闲泵）、GifImageDecoder
+380（Image Animator 线程）、deformer palette `t.a` ~205、
+Guid.equals+HashMap.getNode ~182、JOGL buffer/read ~90。
+**ArchiveWriter/备份栈完全消失**——确定性禁备份生效。
+GC 23 次/4.54s/max 605ms（含写 burst+恢复+关闭）。
+
+CImageResource 重模型实测（最终确认）：
+- 关前 cacheList=4478、elementFieldBytes=**352MB**、
+  loadedCount=517/loadedBytes=230MB、disposedCount=0
+- 关后 cacheList=2208、elementFieldBytes=**190MB 仍驻留**、
+  disposedCount=**0** —— 关闭释放 ~46%，另一半强引用滞留，
+  无受支持释放入口 → 维持「宿主侧机会、不可安全清除」结论。
