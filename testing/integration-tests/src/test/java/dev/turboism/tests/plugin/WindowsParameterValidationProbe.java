@@ -2322,39 +2322,84 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private CubismModel awaitEditorObjectModel(final Path artifact, final int maxAttempts) throws Exception {
-        CubismModel model = null;
+        return awaitEditorObjectModel(artifact, maxAttempts, 5L);
+    }
+
+    /**
+     * Polls the host for a loaded modeling document. One in-flight EDT probe is
+     * kept pending across attempts: on a saturated EDT (the heavy model's
+     * parameter-structure storm) queued invokeLater runnables still execute in
+     * FIFO order, so re-queueing per attempt only lets every waiter expire
+     * before its runnable ever ran. Each attempt keeps waiting on the same
+     * latch; a new probe is dispatched only after the previous one executed.
+     */
+    private CubismModel awaitEditorObjectModel(
+        final Path artifact,
+        final int maxAttempts,
+        final long perCallSeconds
+    ) throws Exception {
+        final java.util.concurrent.CountDownLatch accepted =
+            new java.util.concurrent.CountDownLatch(1);
+        final AtomicReference<CubismModel> modelBox = new AtomicReference<>();
+        final AtomicReference<Exception> failureBox = new AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicBoolean dispatched =
+            new java.util.concurrent.atomic.AtomicBoolean();
         Exception unavailable = null;
         for (int attempt = 0; attempt < maxAttempts && !Thread.currentThread().isInterrupted(); attempt++) {
-            try {
-                model = onHostThread(this::activeModel);
-                final CubismModel candidate = model;
-                onHostThread(() -> {
-                    if (candidate.drawables().all().isEmpty()) throw new IllegalStateException("No ArtMesh is available.");
-                    if (candidate.warpDeformers().all().isEmpty()) throw new IllegalStateException("No Warp Deformer is available.");
-                    if (candidate.rotationDeformers().all().isEmpty()) throw new IllegalStateException("No Rotation Deformer is available.");
-                    return null;
-                });
-                return model;
-            } catch (Exception exception) {
-                model = null;
-                unavailable = exception;
-                String modal = "";
-                if (attempt % 10 == 0) {
+            if (dispatched.compareAndSet(false, true)) {
+                SwingUtilities.invokeLater(() -> {
                     try {
-                        modal = onHostThread(this::inspectBlockingModal);
-                    } catch (Exception scanFailure) {
-                        modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
+                        final CubismModel candidate = activeModel();
+                        if (candidate.drawables().all().isEmpty()) {
+                            throw new IllegalStateException("No ArtMesh is available.");
+                        }
+                        if (candidate.warpDeformers().all().isEmpty()) {
+                            throw new IllegalStateException("No Warp Deformer is available.");
+                        }
+                        if (candidate.rotationDeformers().all().isEmpty()) {
+                            throw new IllegalStateException("No Rotation Deformer is available.");
+                        }
+                        modelBox.set(candidate);
+                    } catch (Exception exception) {
+                        failureBox.set(exception);
+                    } finally {
+                        accepted.countDown();
                     }
-                }
+                });
+            }
+            if (!accepted.await(perCallSeconds, java.util.concurrent.TimeUnit.SECONDS)) {
                 Files.writeString(
                     artifact,
-                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
-                        + exception.getClass().getName() + ": " + exception.getMessage() + modal + "\n",
+                    "status=RUNNING phase=await-model attempt=" + attempt
+                        + " error=EDT probe still queued after " + perCallSeconds + "s\n",
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING
                 );
-                Thread.sleep(1000L);
+                continue;
             }
+            final Exception failure = failureBox.get();
+            if (failure == null) {
+                return modelBox.get();
+            }
+            unavailable = failure;
+            failureBox.set(null);
+            dispatched.set(false);
+            String modal = "";
+            if (attempt % 10 == 0) {
+                try {
+                    modal = onHostThread(this::inspectBlockingModal);
+                } catch (Exception scanFailure) {
+                    modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
+                }
+            }
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                    + failure.getClass().getName() + ": " + failure.getMessage() + modal + "\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            Thread.sleep(1000L);
         }
         throw unavailable == null
             ? new IllegalStateException("Editor object validation was interrupted.")
@@ -2651,9 +2696,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            // The heavy fixture's document load is asynchronous and can exceed ten minutes
-            // under Proton; the job-level timeout still bounds the whole run.
-            final CubismModel model = awaitEditorObjectModel(artifact, 1200);
+            // The heavy fixture's document load is asynchronous and the post-load
+            // EDT churn (parameter-structure rebuild + auto-backup I/O) can starve
+            // probe dispatch for many minutes under Proton; the persistent-latch
+            // await tolerates long queues while the runner's result-timeout still
+            // bounds the whole run.
+            final CubismModel model = awaitEditorObjectModel(artifact, 30, 45L);
             final Object jfrRecording = startJfrRecording();
             forceGcQuietly();
             final long heapAfterOpen = heapUsedBytes();
