@@ -119,13 +119,17 @@
           "{version}",
           "{runLabel}",
           "--jvm-option",
-          "-Dturboism.fps.sustained=true"
+          "-Dturboism.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.fps.settleSeconds=75"
         ],
         "zgc": [
           "{version}",
           "{runLabel}-zgc",
           "--jvm-option",
           "-Dturboism.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.fps.settleSeconds=75",
           "--jvm-option",
           "-XX:+UseZGC"
         ]
@@ -371,16 +375,27 @@
       "command": "scripts/preview/run-selection-lag-host-validation.sh",
       "versions": [
         "5203",
-        "5302"
-      ],
-      "arguments": [
-        "{version}",
-        "{runLabel}"
+        "5302",
+        "5303"
       ],
       "resources": {
         "host-slot": 1,
+        "display-input": 1,
         "performance-host": 1
-      }
+      },
+      "variants": {
+        "default": [
+          "{version}",
+          "{runLabel}"
+        ],
+        "zgc": [
+          "{version}",
+          "{runLabel}-zgc",
+          "--jvm-option",
+          "-XX:+UseZGC"
+        ]
+      },
+      "defaultVariant": "default"
     },
     "separate-save-path": {
       "description": "Separate project/export save-path validation.",
