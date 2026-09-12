@@ -57,12 +57,20 @@ class CubismJvmSettingsFileServiceTest {
 
     @Test
     void reduceAutoBackupEnvOverrideWins() throws Exception {
-        try (CubismJvmSettingsFileService service =
-                service(Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "true"))) {
-            assertTrue(service.reduceAutoBackup());
+        for (String truthy : new String[] {"1", "true", "TRUE", "yes", "on", " true "}) {
+            try (CubismJvmSettingsFileService service = service(
+                Map.of("TURBOISM_REDUCE_AUTO_BACKUP", truthy))) {
+                assertTrue(service.reduceAutoBackup(), "value=" + truthy);
+            }
         }
-        try (CubismJvmSettingsFileService service =
-                service(Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "false"))) {
+        for (String falsy : new String[] {"0", "false", "no", "off", "junk"}) {
+            try (CubismJvmSettingsFileService service = service(
+                Map.of("TURBOISM_REDUCE_AUTO_BACKUP", falsy))) {
+                assertFalse(service.reduceAutoBackup(), "value=" + falsy);
+            }
+        }
+        try (CubismJvmSettingsFileService service = service(
+            Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "0"))) {
             service.saveReduceAutoBackup(true);
             assertFalse(service.reduceAutoBackup());
         }
