@@ -5,8 +5,14 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
@@ -786,19 +792,23 @@ public final class NativeMeshMirrorBridge {
                 final Object selector = call(selection, "getPointSelector", NO_PARAMS);
                 if (!(selector instanceof Iterable<?> selected)) continue;
 
+                final MeshFrameIndex meshIndex = new MeshFrameIndex(mesh);
                 final List<Object> selectedRefs = new ArrayList<>();
-                final List<Integer> selectedIds = new ArrayList<>();
+                final List<Object> compatibleSources = new ArrayList<>();
+                final Set<Integer> selectedIds = new HashSet<>();
                 for (Object reference : selected) {
                     selectedRefs.add(reference);
-                    final Object live = compatiblePoint(mesh, reference);
+                    final Object live = compatiblePoint(mesh, reference, meshIndex);
+                    compatibleSources.add(live);
                     if (live != null) selectedIds.add(pointId(live));
                 }
-                for (Object reference : selectedRefs) {
-                    final Object source = compatiblePoint(mesh, reference);
+                for (int index = 0; index < selectedRefs.size(); index++) {
+                    final Object reference = selectedRefs.get(index);
+                    final Object source = compatibleSources.get(index);
                     if (source == null) continue;
                     final float weight = selectionWeight(selector, reference);
                     final Object counterpart = counterpartPoint(
-                        mirror, source, mesh, pack, context, tolerance
+                        mirror, source, mesh, pack, context, tolerance, meshIndex
                     );
                     if (counterpart == null || selectedIds.contains(pointId(counterpart))) continue;
                     final Object sourcePosition = call(source, "getPos", NO_PARAMS);
@@ -822,14 +832,17 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
-    static Object compatiblePoint(final Object mesh, final Object reference)
-        throws ReflectiveOperationException {
+    static Object compatiblePoint(
+        final Object mesh,
+        final Object reference,
+        final MeshFrameIndex index
+    ) throws ReflectiveOperationException {
         if (reference == null) return null;
         for (Method method : MethodHandleCache.overloads(mesh.getClass(), "getCompatiblePointRef", 1)) {
             if (!method.getParameterTypes()[0].isInstance(reference)) continue;
             return method.invoke(mesh, reference);
         }
-        return containsIdentity(points(mesh), reference) ? reference : null;
+        return index.pointIdentity().contains(reference) ? reference : null;
     }
 
     private static float selectionWeight(final Object selector, final Object reference)
@@ -1035,20 +1048,23 @@ public final class NativeMeshMirrorBridge {
         for (Object context : contexts(pack)) {
             final Object mesh = call(context, "b", NO_PARAMS);
             if (mesh == null) continue;
-            final List<Integer> ids = new ArrayList<>();
+            final MeshFrameIndex index = new MeshFrameIndex(mesh);
+            final Set<Object> livePoints = index.pointIdentity();
+            final Set<Integer> ids = new HashSet<>();
             for (Object point : points) {
-                if (containsIdentity(NativeMeshMirrorBridge.points(mesh), point)) {
+                if (livePoints.contains(point)) {
                     ids.add(pointId(point));
                 }
             }
             if (ids.isEmpty()) continue;
             final List<Object> incident = new ArrayList<>();
+            final Set<Object> incidentSeen = Collections.newSetFromMap(new IdentityHashMap<>());
             for (Object edge : edges(mesh)) {
                 final Object first = call(edge, "getIndex1", NO_PARAMS);
                 final Object second = call(edge, "getIndex2", NO_PARAMS);
                 if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
                 if ((ids.contains(start.intValue()) || ids.contains(end.intValue()))
-                    && !containsSame(incident, edge)) {
+                    && incidentSeen.add(edge)) {
                     incident.add(edge);
                 }
             }
@@ -1325,12 +1341,19 @@ public final class NativeMeshMirrorBridge {
             if (mesh == null) continue;
             final Object hostEdges = call(mesh, "getEdges", NO_PARAMS);
             if (!(hostEdges instanceof Iterable<?> iterable)) continue;
+            final Set<Object> liveEdgeSet = identitySet(iterable);
             final List<Object> live = new ArrayList<>();
+            final Set<Object> liveSeen = Collections.newSetFromMap(new IdentityHashMap<>());
             if (resolved != null) {
-                for (Object edge : resolved) if (containsIdentity(iterable, edge)) live.add(edge);
+                for (Object edge : resolved) {
+                    if (liveEdgeSet.contains(edge)) {
+                        live.add(edge);
+                        liveSeen.add(edge);
+                    }
+                }
             }
             for (Object edge : customMatches) {
-                if (containsIdentity(iterable, edge) && !containsSame(live, edge)) live.add(edge);
+                if (liveEdgeSet.contains(edge) && liveSeen.add(edge)) live.add(edge);
             }
             if (live.isEmpty()) continue;
             final Object handler = call(mesh, "getHandler", NO_PARAMS);
@@ -1357,14 +1380,18 @@ public final class NativeMeshMirrorBridge {
         final List<MeshPointRef> refs,
         final List<Object> sources
     ) throws ReflectiveOperationException {
+        final List<MeshFrameIndex> indexes = new ArrayList<>();
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", NO_PARAMS);
+            indexes.add(mesh == null ? null : new MeshFrameIndex(mesh));
+        }
         final List<Object> unique = new ArrayList<>();
         for (MeshPointRef ref : refs) {
             Object match = null;
             boolean ambiguous = false;
-            for (Object context : contexts(pack)) {
-                final Object mesh = call(context, "b", NO_PARAMS);
-                if (mesh == null) continue;
-                final Object candidate = pointById(mesh, ref.id());
+            for (MeshFrameIndex index : indexes) {
+                if (index == null) continue;
+                final Object candidate = index.pointsById().get(ref.id());
                 if (candidate == null || containsSame(sources, candidate)) continue;
                 if (match != null && match != candidate) {
                     ambiguous = true;
@@ -1383,22 +1410,29 @@ public final class NativeMeshMirrorBridge {
         final List<MeshEdgeRef> refs,
         final Object source
     ) throws ReflectiveOperationException {
+        final List<MeshFrameIndex> indexes = new ArrayList<>();
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", NO_PARAMS);
+            indexes.add(mesh == null ? null : new MeshFrameIndex(mesh).excludingEdge(source));
+        }
         final List<Object> unique = new ArrayList<>();
         for (MeshEdgeRef ref : refs) {
+            final long key = MeshFrameIndex.refEdgeKey(ref);
             Object match = null;
             boolean ambiguous = false;
-            for (Object context : contexts(pack)) {
-                final Object mesh = call(context, "b", NO_PARAMS);
-                if (mesh == null) continue;
-                for (Object candidate : edges(mesh)) {
-                    if (candidate == source || !edgeMatches(candidate, ref)) continue;
-                    if (match != null && match != candidate) {
-                        ambiguous = true;
-                        break;
-                    }
-                    match = candidate;
+            for (MeshFrameIndex index : indexes) {
+                if (index == null) continue;
+                final Object candidate = index.edgesByKey().get(key);
+                if (candidate == null) continue;
+                if (match != null && match != candidate) {
+                    ambiguous = true;
+                    break;
                 }
-                if (ambiguous) break;
+                match = candidate;
+                if (index.duplicatedEdgeKeys().contains(key)) {
+                    ambiguous = true;
+                    break;
+                }
             }
             if (!ambiguous && match != null && !containsSame(unique, match)) unique.add(match);
         }
@@ -1428,16 +1462,19 @@ public final class NativeMeshMirrorBridge {
     ) throws ReflectiveOperationException {
         final Object scale = call(pack, "aL", NO_PARAMS);
         if (!(scale instanceof Number number)) return null;
-        return counterpartPoint(mirror, source, mesh, pack, context, number.floatValue());
+        return counterpartPoint(
+            mirror, source, mesh, pack, context, number.floatValue(), new MeshFrameIndex(mesh)
+        );
     }
 
-    private static Object counterpartPoint(
+    static Object counterpartPoint(
         final Object mirror,
         final Object source,
         final Object mesh,
         final Object pack,
         final Object context,
-        final float tolerance
+        final float tolerance,
+        final MeshFrameIndex index
     ) throws ReflectiveOperationException {
         final Object position = call(source, "getPos", NO_PARAMS);
         final Object target = mirrorPoint(context, mirror, position);
@@ -1446,7 +1483,7 @@ public final class NativeMeshMirrorBridge {
 
         Object nearest = null;
         float best = Float.MAX_VALUE;
-        for (Object candidate : points(mesh)) {
+        for (Object candidate : index.points()) {
             final Object candidatePosition = call(candidate, "getPos", NO_PARAMS);
             if (candidatePosition == null) continue;
             final Object distance = call(candidatePosition, "distance", new Class<?>[] {vector}, target);
@@ -1468,14 +1505,32 @@ public final class NativeMeshMirrorBridge {
         final Object pack,
         final Object context
     ) throws ReflectiveOperationException {
+        final Object scale = call(pack, "aL", NO_PARAMS);
+        if (!(scale instanceof Number number)) return null;
+        return counterpartEdge(
+            mirror, edge, mesh, pack, context, number.floatValue(), new MeshFrameIndex(mesh)
+        );
+    }
+
+    static Object counterpartEdge(
+        final Object mirror,
+        final Object edge,
+        final Object mesh,
+        final Object pack,
+        final Object context,
+        final float tolerance,
+        final MeshFrameIndex index
+    ) throws ReflectiveOperationException {
         final Object firstIndex = call(edge, "getIndex1", NO_PARAMS);
         final Object secondIndex = call(edge, "getIndex2", NO_PARAMS);
         if (!(firstIndex instanceof Number first) || !(secondIndex instanceof Number second)) return null;
-        final Object start = pointById(mesh, first.intValue());
-        final Object end = pointById(mesh, second.intValue());
+        final Object start = index.pointsById().get(first.intValue());
+        final Object end = index.pointsById().get(second.intValue());
         if (start == null || end == null) return null;
-        final Object mirroredStart = counterpartPoint(mirror, start, mesh, pack, context);
-        final Object mirroredEnd = counterpartPoint(mirror, end, mesh, pack, context);
+        final Object mirroredStart = counterpartPoint(
+            mirror, start, mesh, pack, context, tolerance, index);
+        final Object mirroredEnd = counterpartPoint(
+            mirror, end, mesh, pack, context, tolerance, index);
         if (mirroredStart == null || mirroredEnd == null) return null;
         final int startId = pointId(mirroredStart);
         final int endId = pointId(mirroredEnd);
@@ -1966,6 +2021,13 @@ public final class NativeMeshMirrorBridge {
     static boolean containsIdentity(final Iterable<?> collected, final Object candidate) {
         for (Object existing : collected) if (existing == candidate) return true;
         return false;
+    }
+
+    /** Identity-keyed membership set for repeated scans within one dispatch frame. */
+    private static Set<Object> identitySet(final Iterable<?> items) {
+        final Set<Object> set = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Object item : items) set.add(item);
+        return set;
     }
 
     private static boolean containsSame(final List<?> collected, final Object candidate) {
