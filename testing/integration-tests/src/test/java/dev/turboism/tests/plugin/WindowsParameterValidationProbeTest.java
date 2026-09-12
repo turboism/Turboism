@@ -594,6 +594,10 @@ class WindowsParameterValidationProbeTest {
             WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
             WindowsParameterValidationProbe.hostCloseRoute("5302")
         );
+        assertEquals(
+            WindowsParameterValidationProbe.HostCloseRoute.ROBOT_ALT_F4,
+            WindowsParameterValidationProbe.hostCloseRoute("5303")
+        );
         assertThrows(
             IllegalArgumentException.class,
             () -> WindowsParameterValidationProbe.hostCloseRoute("unknown")
