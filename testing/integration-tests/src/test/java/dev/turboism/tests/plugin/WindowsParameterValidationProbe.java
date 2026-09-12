@@ -3029,6 +3029,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 }
                 payloadBytes += primitiveArrayBytes(referent);
                 payloadBytes += primitiveArrayBytes(entry.getKey());
+                payloadBytes += elementPrimitiveFieldBytes(referent);
+                payloadBytes += elementPrimitiveFieldBytes(entry.getKey());
             }
             return key + "=map entries=" + entries + " liveRefs=" + liveRefs
                 + " deadRefs=" + deadRefs + " strongValues=" + strongValues
@@ -3036,13 +3038,52 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
         if (value instanceof java.util.Collection<?> collection) {
             long payloadBytes = 0;
+            long elementFieldBytes = 0;
             for (Object item : collection) {
                 payloadBytes += primitiveArrayBytes(item);
+                elementFieldBytes += elementPrimitiveFieldBytes(item);
             }
             return key + "=collection size=" + collection.size()
-                + " payloadBytes=" + payloadBytes + "\n";
+                + " payloadBytes=" + payloadBytes
+                + " elementFieldBytes=" + elementFieldBytes + "\n";
+        }
+        if (value instanceof Number || value instanceof Boolean
+            || value instanceof CharSequence) {
+            return key + "=" + value.getClass().getSimpleName() + "(" + value + ")\n";
         }
         return key + "=" + value.getClass().getSimpleName() + "\n";
+    }
+
+    /**
+     * Sums primitive-array payload held one level inside an element's declared
+     * fields (e.g. the pixel {@code byte[]} of a cached CImageResource).
+     * Read-only and bounded to direct fields only.
+     */
+    private static long elementPrimitiveFieldBytes(final Object element) {
+        if (element == null || element.getClass().isPrimitive()
+            || element instanceof Number || element instanceof Boolean
+            || element instanceof CharSequence) {
+            return 0L;
+        }
+        if (element.getClass().isArray()) {
+            return 0L;
+        }
+        long bytes = 0L;
+        for (Class<?> type = element.getClass();
+             type != null && type != Object.class;
+             type = type.getSuperclass()) {
+            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
+                if (!field.getType().isArray()) continue;
+                try {
+                    if (field.trySetAccessible()) {
+                        bytes += primitiveArrayBytes(field.get(element));
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        return bytes;
     }
 
     private static long primitiveArrayBytes(final Object value) {
