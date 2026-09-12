@@ -75,7 +75,7 @@ tasks.register("checkGraalScriptHostValidation") {
 
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
-    description = "Verifies baseline localization-key completeness for participating official plugins."
+    description = "Verifies the full locale matrix for official-plugin and framework catalogs."
     dependsOn(":testing:integration-tests:officialPluginI18nCompletenessTest")
 }
 
@@ -733,6 +733,7 @@ tasks.register("checkIntegration") {
         "verifyFirstPartyPluginMetadata",
         "verifyFirstPartyPluginReadmes",
         "checkDistributionProtocolContract",
+        "checkOfficialPluginI18nCompleteness",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
         "checkHistoryValidationProbePackaging",
