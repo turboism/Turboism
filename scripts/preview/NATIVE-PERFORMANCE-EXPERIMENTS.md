@@ -1006,3 +1006,42 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
 - **接入**：wrapper 白名单 + `host-validation-tasks.json` 变体注册；fixture 经 prepare 时 env 覆盖进入快照（worker 执行期剥 TURBOISM_* env——覆盖必须在 prepare 时生效）。队列 job `4db466f7`。
 - **外部采样**：`/tmp/heavy-perf-sampler.sh` 按任务 prefix WINEPREFIX 匹配宿主 java 进程，每 2s 记 RSS/cpu_ticks/threads。
 - **附带基建事件**：host-slot 曾被他任务 quarantined（supervisor 崩溃于 "locking protocol"，containment.json 内核证据完整 FINISHED/safe）；用该 job 快照自带的 `finalize` 重跑真实校验生成 verdict，再经 `recover --confirm` 正式释放。`recover` 对「supervisor 崩在 verdict 前」这一形态无自愈能力——记录为工具链缺口。
+
+### I57 — 会话级 runtime 读去掉 Host* 双重投影（050）（2026-09-12）
+
+- **问题**：`HostSessionSnapshotSource.observe()` 把 adapter 已完成的 `ProjectSnapshot`/
+  `DocumentSnapshot` 反向投影成 `Host*` 记录，`CubismFacadeImpl` 再用
+  `ImmutableSnapshotFactory` 投影回 SDK——每次 `runtime()`/`runtimeWithVersion()`/
+  `captureScope` 在遍历之上付两次全量 O(snapshot) 记录/列表重建。
+- **改动**：`HostSnapshotSource` 新增 `observeSdkRuntime()`/`versionOfSdkRuntime()` 默认方法
+  （默认回传 host 形状）；session 源覆盖为直传 SDK 快照 + 以观察对为证据。
+  `CubismFacadeImpl` 用 `RuntimeRead` 归一化两形状——权限门、project 脱敏、证据配对
+  版本化在两形状下逐点等价。`captureScope` 抽 `hostScopeInput`/`sdkScopeInput` 双提取。
+- **语义等价要点**：workspace `ModelSnapshot` 本就是瘦的（id+name+空列表），直传即
+  `modelObjects/parameters/artMeshes/deformers` 与原路径一致为空；session 源无 selection；
+  `versionOf` 仍比较「实际观察到的那一对」而非重读宿主。
+- **证据**：`runtimeOverSessionSourceReturnsTheAdapterSnapshotsVerbatim`（verbatim 直传 +
+  单次 pair 读）、`runtimeOverSessionSourceRedactsProjectWithoutProjectRead`（脱敏不变）、
+  `sessionSourceVersionsTheObservedPairNotAFreshRead`（版本随证据对、不重读）、
+  `scopeCaptureUsesSdkShapedObservationsVerbatim`（SDK 形状下 scope 捕获正常、
+  `observe()` 零调用）。devCheck 全绿。
+- **效果**：每次 session 级 runtime 读省一次 Host* 全图构建 + 一次 SDK 重建（含逐字段
+  record、逐列表 copy）；selection 语义不变（本就为空）。
+- **提交**：`e9e20adab`。
+- **限制**：插件作用域源（PluginScopedCubismModelAccess）仍走默认 host 路径——其
+  HostModel 是故意瘦的、证据语义不同，未动。
+
+### I58 — 重模型 perf-observe r1：360s await 不足 + peer 幻影 FAIL（2026-09-12）
+
+- **现象**：job `4db466f7` 终态 FAIL，`activeDocumentClass=null`。console 有
+  `-- load document start --` 但到宿主关闭（~342s）无 `load document end`——
+  427MB 模型在 Proton 下异步加载超过 await 预算（360×~0.95s）。
+- **对照**：成功的小模型 run（i50 r4）console 有 `load document end (25.84)`；
+  `Verify after save : SUCCESS` 属正常关闭路径非异常。
+- **附带缺陷**：peer probe 无模式门——非 close 模式（如 perf-observe）永远等不到
+  primary 的 peer-request marker，240s 预算到期写 `status=FAIL` 终端 artifact，
+  `summarizeArtifacts` 据此把总判定翻成 FAIL。
+- **修复**（`9c8856d6c`）：peer probe 仅在 `plugin-scope-close`/`document-close`/
+  `native-control-background-document-close` 三个会写 marker 的模式启动线程；
+  perf-observe await 提到 1200 次（~20min，job timeout 2400s 内）。
+- **重试**：job `a0dc47f7`（r2），prepare 快照已含 427MB fixture（hash 校验一致）。
