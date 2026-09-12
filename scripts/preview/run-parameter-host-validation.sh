@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline|native-tuned) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -38,7 +38,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-parameter-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-if [ "$mode" = 'native-baseline' ]; then
+if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ]; then
   # Host-only comparison leg: a no-op premain stub satisfies the runner's
   # --agent contract without loading the Turboism runtime or any plugin, so
   # the JVM is effectively stock Cubism. No runtime log is produced, so no
@@ -46,6 +46,20 @@ if [ "$mode" = 'native-baseline' ]; then
   # window itself; the run intentionally ends in "result timeout" and the
   # containment cleanup owns process teardown. JFR duration is bounded below
   # the window so the dump lands even though the JVM is killed afterwards.
+  native_tuned_options=()
+  if [ "$mode" = 'native-tuned' ]; then
+    # Direction-A JVM flag A/B: same stock host, tuned GC/heap flags. Target
+    # the two n2 findings: a 1.4s max GC pause during heavy-model load and
+    # ~3GB of committed-but-idle heap in steady state.
+    native_tuned_options=(
+      --jvm-option '-XX:MaxGCPauseMillis=100'
+      --jvm-option '-XX:+UseStringDeduplication'
+      --jvm-option '-XX:MinHeapFreeRatio=10'
+      --jvm-option '-XX:MaxHeapFreeRatio=20'
+      --jvm-option '-XX:+G1PeriodicGCInvokesConcurrent'
+      --jvm-option '-XX:G1PeriodicGCInterval=10000'
+    )
+  fi
   exec bash "$runner" \
     --name parameter \
     --version "$version" \
@@ -57,6 +71,7 @@ if [ "$mode" = 'native-baseline' ]; then
     --fixture-sha256 "$fixture_sha256" \
     --require-fixture-unchanged \
     --jvm-option '-XX:StartFlightRecording=duration=560s,filename={HOME}\logs\native-observe.jfr' \
+    "${native_tuned_options[@]}" \
     --result-file 'state/host-validation-result.properties' \
     --result-pass-line 'status=PASS' \
     --result-fail-line 'status=FAIL' \
