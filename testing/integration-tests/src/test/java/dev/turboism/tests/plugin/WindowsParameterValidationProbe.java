@@ -2490,6 +2490,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     .toList();
                 // Dirty-close prompts mention saving and offer a discard button;
                 // dismiss via the discard label only — never the save button.
+                // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
+                // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
+                // discard — always gated by a 保存/save mention in the body.
                 final Component discard = enabled.stream()
                     .filter(b -> {
                         final String label = clickLabel(b);
@@ -2497,11 +2500,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             || label.contains("保存しない")
                             || label.equalsIgnoreCase("Don't Save")
                             || label.contains("破棄")
-                            || label.equalsIgnoreCase("Discard");
+                            || label.equalsIgnoreCase("Discard")
+                            || label.startsWith("No")
+                            || label.equals("否")
+                            || label.equals("いいえ");
                     })
                     .findFirst()
                     .orElse(null);
-                if (discard != null && body.contains("保存")) {
+                if (discard != null && (body.contains("保存") || body.contains("save"))) {
                     clickComponent(discard);
                     action = "discarded-save-prompt";
                 } else if (enabled.size() == 1) {
