@@ -19,7 +19,39 @@ class StartupSuppressionInstallerTest {
     Path temporaryHome;
 
     @Test
-    void missingConfigDoesNotInstallAnyTransformer() {
+    void missingConfigDefaultsToRequestedAndRejectsTheMissingArtifact() {
+        final List<String> calls = new ArrayList<>();
+
+        final StartupSuppressionInstaller.Installation installation =
+            StartupSuppressionInstaller.install(
+                StartupSuppressionInstaller.AttachmentMode.PREMAIN,
+                instrumentation(calls),
+                temporaryHome,
+                "",
+                temporaryHome,
+                ignored -> { }
+            );
+
+        assertEquals(StartupSuppressionInstaller.Status.ARTIFACT_REJECTED, installation.status());
+        assertEquals(List.of(), calls);
+    }
+
+    @Test
+    void explicitlyDisabledConfigDoesNotInstallAnyTransformer() throws Exception {
+        Files.writeString(temporaryHome.resolve("config.json"), """
+            {
+              "format": "turboism.runtime.config",
+              "schemaVersion": 1,
+              "worktreeId": "startup-test",
+              "hooks": {
+                "startup": {
+                  "skipUpdateCheck": false,
+                  "skipSplash": false,
+                  "skipInformation": false
+                }
+              }
+            }
+            """);
         final List<String> calls = new ArrayList<>();
 
         final StartupSuppressionInstaller.Installation installation =
