@@ -405,16 +405,59 @@ public final class CubismLogServiceHost implements CubismLogService, AutoCloseab
 
     private static String redactAndBound(final String message) {
         String sanitized = Objects.requireNonNull(message, "message");
-        sanitized = URI.matcher(sanitized).replaceAll(REDACTED_URI);
-        sanitized = UNC_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
-        sanitized = WINDOWS_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
-        sanitized = HOME_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
-        sanitized = UNIX_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
-        sanitized = AUTHORIZATION.matcher(sanitized).replaceAll(REDACTED_SECRET);
-        sanitized = SECRET_ASSIGNMENT.matcher(sanitized).replaceAll(REDACTED_SECRET);
+        // Gate each pattern on its mandatory trigger bytes: every check is a
+        // strict superset of what the pattern requires, so a skipped pattern
+        // could not have matched. Most host log lines contain none of these
+        // triggers, avoiding ~7 Matcher+StringBuilder allocations per entry.
+        if (sanitized.indexOf("://") >= 0) {
+            sanitized = URI.matcher(sanitized).replaceAll(REDACTED_URI);
+        }
+        if (sanitized.indexOf("\\\\") >= 0) {
+            sanitized = UNC_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        }
+        if (containsWindowsDrivePrefix(sanitized)) {
+            sanitized = WINDOWS_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        }
+        if (sanitized.indexOf('~') >= 0) {
+            sanitized = HOME_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        }
+        if (sanitized.indexOf('/') >= 0) {
+            sanitized = UNIX_PATH.matcher(sanitized).replaceAll(REDACTED_PATH);
+        }
+        if (containsIgnoreCase(sanitized, "authorization")
+            || containsIgnoreCase(sanitized, "bearer")) {
+            sanitized = AUTHORIZATION.matcher(sanitized).replaceAll(REDACTED_SECRET);
+        }
+        if (containsIgnoreCase(sanitized, "token")
+            || containsIgnoreCase(sanitized, "secret")
+            || containsIgnoreCase(sanitized, "password")) {
+            sanitized = SECRET_ASSIGNMENT.matcher(sanitized).replaceAll(REDACTED_SECRET);
+        }
         return sanitized.length() <= MAX_EVENT_MESSAGE_LENGTH
             ? sanitized
             : sanitized.substring(0, MAX_EVENT_MESSAGE_LENGTH);
+    }
+
+    private static boolean containsWindowsDrivePrefix(final String text) {
+        for (int index = 0; index + 2 < text.length(); index++) {
+            final char letter = text.charAt(index);
+            if (((letter >= 'a' && letter <= 'z') || (letter >= 'A' && letter <= 'Z'))
+                && text.charAt(index + 1) == ':'
+                && (text.charAt(index + 2) == '/' || text.charAt(index + 2) == '\\')) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean containsIgnoreCase(final String text, final String needle) {
+        final int length = needle.length();
+        for (int index = 0; index + length <= text.length(); index++) {
+            if (text.regionMatches(true, index, needle, 0, length)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void requireOpen() {
