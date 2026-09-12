@@ -2377,12 +2377,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 Math.max(deadlineNanos - System.nanoTime(), 1L)
             );
             if (!accepted.await(waitNanos, java.util.concurrent.TimeUnit.NANOSECONDS)) {
-                Files.writeString(
+                writeStatusAsync(
                     artifact,
                     "status=RUNNING phase=await-model attempt=" + attempt
-                        + " error=EDT probe still queued after " + perCallSeconds + "s\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
+                        + " error=EDT probe still queued after " + perCallSeconds + "s\n"
                 );
                 continue;
             }
@@ -2408,18 +2406,45 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
                 }
             }
-            Files.writeString(
+            writeStatusAsync(
                 artifact,
                 "status=RUNNING phase=await-model attempt=" + attempt + " error="
-                    + failure.getClass().getName() + ": " + failure.getMessage() + modal + "\n",
-                StandardOpenOption.CREATE,
-                StandardOpenOption.TRUNCATE_EXISTING
+                    + failure.getClass().getName() + ": " + failure.getMessage() + modal + "\n"
             );
             Thread.sleep(1000L);
         }
         throw unavailable == null
             ? new IllegalStateException("Editor object validation was interrupted.")
             : unavailable;
+    }
+
+    /**
+     * Best-effort heartbeat write on a daemon thread. During the heavy model's
+     * post-load churn (parameter-structure rebuild, multi-GB auto-backup) a
+     * synchronous {@code Files.writeString} to the Wine-mounted volume can stall
+     * for minutes and wedge the await loop; at most one write is kept in flight
+     * and further updates are dropped rather than piling up blocked threads.
+     */
+    private final java.util.concurrent.atomic.AtomicBoolean statusWriteInFlight =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
+    private void writeStatusAsync(final Path artifact, final String content) {
+        if (!statusWriteInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        final Thread writer = new Thread(() -> {
+            try {
+                Files.writeString(
+                    artifact, content,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Throwable ignored) {
+            } finally {
+                statusWriteInFlight.set(false);
+            }
+        });
+        writer.setDaemon(true);
+        writer.start();
     }
 
     /**
