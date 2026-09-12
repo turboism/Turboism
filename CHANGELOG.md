@@ -13,6 +13,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
   Setting a `hooks.startup.skip*` flag to `false` or enabling safe mode opts out; a
   schema-invalid config still fails closed. Premain diagnostics are now buffered until the
   runtime log sink installs, so `STARTUP_SUPPRESSION_*` admission codes reach the session log.
+- Release gates now hold localization to the full Cubism language matrix. Marketplace plugin
+  listings must carry `plugin.name`/`plugin.description` in every declared locale
+  (en, ja, ko, zh-Hans, zh-Hant), and release candidates are rejected unless the
+  reviewed zh, ja and ko note translations exist. The framework message catalogs join the
+  official-plugin completeness gate, which now also runs as part of `checkIntegration`.
 
 ## [0.44.0] - 2026-09-11
 
