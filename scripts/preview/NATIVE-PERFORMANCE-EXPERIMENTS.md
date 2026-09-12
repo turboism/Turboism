@@ -1205,3 +1205,31 @@ JFR（探针驱动 profile，1032s 窗口，Wine 下首个成功 dump）：
 
 后续修复（已提交）：持久 latch await、Throwable 捕获、异步心跳写、
 modal 白名单（discard-save + lone-confirm）、result-timeout 2100s。
+
+## I64 — r13 终态解剖与 r14 假设（脏关闭是不可避免的）
+
+r13（job `2008a907`）：探针全程 PASS、normalExit、identity PASS、cleanup safe——
+但 `fixtureUnchanged=false`（拷贝 029e9a4e→17b8cc84；原始 fixture 未动）。
+
+根因链（宿主日志 + 反编译交叉验证）：
+1. 14:40:26 探针进入测量；14:40:28 宿主 `restart auto backup`；
+   14:45:28–14:46:14 备份写盘 **46s / +2.28GB**，EDT 饥饿。
+2. 写突发 + 40×Ctrl+Z 的键击实际落了地（宿主日志 14:40:59–14:41:19
+   连续 `Update Parameter Structure`），但 **Ctrl+Z 无法清除脏标记**：
+   `IFileContent.isModifiedAfterSaving()` 是 `lastModifiedTimeMs >
+   lastSavedTime` 的时间戳语义——undo 不回退修改时间，任何真实编辑后
+   文档永远 dirty，关闭必弹保存确认。
+3. 保存确认对话框的按钮是 `com.live2d.ui.control.CButton`（自定义组件，
+   有 `doClick()`/`getText()`），JButton-only 扫描看到 `buttons=0` →
+   「确定」信息模态只能人工 Enter——而 Enter 落在保存确认默认按钮=
+   **保存**，14:55:28 `save document start`，fixture 拷贝被改写。
+
+r14 修复（`49765a5e9`，job `f3d12ef0`）：
+- `stopAutoBackup()`：反射调 `com.live2d.cubism.util.a` 单例 `.a` 的 `g()`
+  （`Timer.stop`，会写 "stop auto backup" 日志）——会话级、不落盘；
+  消除备份风暴与其 EDT 饥饿，测量窗口更干净。
+- `collectDialogSurface` 扩展：除 JButton 外收集带公开 `doClick()` 的
+  `com.live2d.ui.control.*` 组件——保存提示上的「不保存/保存しない/
+  Don't Save」按钮现在可被发现并点击。
+- close 轮询把每次模态观察记入 `closeModals=`（此前结果被丢弃）。
+- 失败安全：未识别多按钮模态不点击任何东西——超时 fail 但 fixture 安全。
