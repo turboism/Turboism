@@ -116,6 +116,41 @@ class FinalVerdictRecoveryTest(StoreFixture, unittest.TestCase):
         self.assertEqual("idle", self.store.host()["state"])
         self.assertFalse((directory / "outcome.json").exists())
 
+    def test_operator_recovery_from_proven_containment_after_verdict_write_crash(self):
+        job, directory, final = self.final_fixture()
+        (directory / "evidence/lifecycle-result.json").unlink()
+        self.store.quarantine(job["job_id"], "simulated supervisor crash after cleanup")
+        with self.assertRaises(queue.QueueError):
+            queue.durable_outcome(self.store, job)  # Auto path stays fail-closed.
+        queue.Worker(self.store, IsolatedBackend()).reconcile()
+        self.assertEqual("quarantined", self.store.jobs(job["job_id"])[0]["state"])
+        with mock.patch.object(queue, "external_sessions", return_value=[]):
+            self.assertTrue(queue.recover(self.store, job["job_id"])["safe"])
+            report = queue.recover(self.store, job["job_id"], "Kernel containment proven; verdict lost")
+        self.assertTrue(report["safe"])
+        self.assertEqual("failed", report["evidence"]["terminalState"])
+        self.assertEqual("UNKNOWN", report["evidence"]["validationStatus"])
+        self.assertEqual("failed", self.store.jobs(job["job_id"])[0]["state"])
+        self.assertEqual("idle", self.store.host()["state"])
+
+    def test_containment_recovery_rejects_tampered_or_incomplete_records(self):
+        job, directory, _ = self.final_fixture()
+        (directory / "evidence/lifecycle-result.json").unlink()
+        self.store.quarantine(job["job_id"], "simulated supervisor crash after cleanup")
+        original = json.loads((directory / "containment.json").read_text())
+        for change in ({"state": "BOUND"}, {"cleanup": "unknown"},
+                {"attemptId": "other"}, {"kernelProof": {**original["kernelProof"], "errors": ["x"]}},
+                {"kernelProof": {**original["kernelProof"], "finalReading": {"kind": "same", "populated": 3}}}):
+            queue.atomic_json(directory / "containment.json", {**original, **change})
+            with self.assertRaises(queue.QueueError):
+                queue.durable_outcome(self.store, job, allow_containment_recovery=True)
+            self.assertIsNone(queue.containment_failure_outcome(self.store, job, directory))
+        queue.atomic_json(directory / "containment.json", original)
+        queue.atomic_json(directory / "runner-identity.json", queue.process_identity(os.getpid()))
+        with self.assertRaises(queue.QueueError):
+            queue.durable_outcome(self.store, job, allow_containment_recovery=True)
+        self.assertEqual("quarantined", self.store.host()["state"])
+
     def test_preliminary_or_incomplete_kernel_proof_cannot_recover(self):
         job, directory, final = self.final_fixture()
         original = json.loads((directory / "containment.json").read_text())
