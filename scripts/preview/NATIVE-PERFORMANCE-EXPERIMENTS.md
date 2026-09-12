@@ -1146,3 +1146,27 @@ r5（`ead9002a`，5303）失败分析：
 - JFR 加 `delay=150s` 跳过启动/加载/首个备份窗口，仍覆盖测量/编辑/关闭阶段。
 
 r6 = `80987307`（probe jar 657f9477，agent a8348eb8，timeout 2700s）已提交。
+
+## I63 - r6 小夹具全链路验证 + r7/r8 修复迭代
+
+r6（`80987307`，小夹具 16 drawables/28 params，succeeded）：perf-observe 全链路
+跑通，拿到首个**真实编辑写路径**计量：
+- `parameterWrite` median 4.37ms / p95 8.5ms / **EDT 分配 196.4MB÷30 ≈ 6.5MB/写**
+- 写期间 GC=2 次/11ms；heap reads→writes→restore→close：102.8→119.8→124.5→135.1MB
+- 读路径复证：GC=0、分配量级与重模型一致
+- 两个缺陷暴露：`imageResource=present-but-not-resolvable`（plugin CL 父链看不到
+  com.live2d 类——兄弟加载器）；`-XX:StartFlightRecording` 正常退出仍 dump 出
+  0 字节（Wine 下 dumponexit 不可靠）
+
+r7（`e5fcc7c5`，重夹具）取消前分析：await 循环在 attempt=21 冻结 6.7min——
+和 r5 attempt=24 同一签名。定位出 await 的结构性缺陷：超时的 invokeLater
+runnable 不取消仍排队，EDT 饱和期每个等待者都在自己的 runnable 排到之前
+先过期；且 `Files.writeString` 在 Wine I/O 风暴下可能抛 IOError（Error 子类）
+逃出 catch(Exception) 直接杀死探针线程——silent freeze 的最可能机制。
+
+修复（`c88306d34`/`e69a9238d`/`0a4373613`）：
+- await 改为持久 latch——同一 in-flight runnable 跨 attempt 等待，不再重复排队
+- runPerfObservation 外层 catch 扩到 Throwable——Error 也落 FAIL artifact
+- CImageResource 经活动宿主 Frame 的 classloader 解析；关闭前后各枚举一次
+- JFR 改由探针反射驱动（jdk.jfr profile），只覆盖测量窗口、显式 dump
+- perf-observe result-timeout 900s→2100s，await 预算 30×45s
