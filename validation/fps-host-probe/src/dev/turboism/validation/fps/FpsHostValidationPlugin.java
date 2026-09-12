@@ -40,6 +40,8 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
     /** Sustained-jank mode: sample the full window and emit the per-interval series. */
     private static final boolean SUSTAINED =
         Boolean.parseBoolean(System.getProperty("turboism.fps.sustained", "false"));
+    private static final long SETTLE_SECONDS =
+        Long.parseLong(System.getProperty("turboism.fps.settleSeconds", "0"));
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final java.util.List<String> REVIEWED_HOST_VERSIONS =
@@ -96,6 +98,18 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             + " hostState=ACTIVE documentSignal=verified-modeling-document"
             + " hostVersion=" + hostVersion
             + " modelId=" + modelId.orElseThrow());
+        // Sustained legs optionally wait out lazy model settling (texture
+        // decode, palette build) so the sampling window measures steady state,
+        // not load tail. The resize driver still overlaps: it drives for 240s
+        // from window-appear while settle runs inside that envelope.
+        if (SETTLE_SECONDS > 0L) {
+            try {
+                Thread.sleep(SETTLE_SECONDS * 1_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
         runSampling(hostVersion, modelId.orElseThrow());
     }
 
