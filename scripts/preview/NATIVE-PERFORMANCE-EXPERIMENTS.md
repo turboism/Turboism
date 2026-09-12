@@ -1377,3 +1377,29 @@ CImageResource 重模型实测（最终确认）：
 - 关后 cacheList=2208、elementFieldBytes=**190MB 仍驻留**、
   disposedCount=**0** —— 关闭释放 ~46%，另一半强引用滞留，
   无受支持释放入口 → 维持「宿主侧机会、不可安全清除」结论。
+
+## I69 — 方向 A（原生宿主）修正与调优腿
+
+**n2 原生基线完整收割**（job `a3e1b8a5`，stub agent + 无插件，
+JFR flag 全程录制 repo 文件存活 491s）：
+- 加载 `load document end` = **25.66s**；稳态 250s 内 EDT 仅 6 样本、
+  GC 1 次/163ms —— 原生宿主空闲近零开销
+- 全程 GC **45 次 / 4812ms / max 1437ms**（加载期单次 1.4s 停顿）
+- RSS：加载峰 ~4.59GB → 稳态 ~4.08GB；线程 65
+- fixture `029e9a4e` 不变、wrapper.exit=0、cleanup=safe
+
+**CImageResource 结论修正（反编译核实）**：
+`archiveIfIdle()`/`archive()` 是内建归档——解码图闲置
+`ARCHIVE_IMAGE_TIME_SEC=360`s 后 PNG 压缩回 `imageFileBuf`，
+`CHECK_TIMER_SEC=300` 周期驱动。r21 观察窗 163s < 360s 阈值，
+`disposedCount=0` 是**未达阈值而非泄漏**。关后 190MB =
+编码源字节（重开所需）+ 未到期解码图（自愈）。
+两阈值字段均 `static final` → 不可反射调参；强制 `archive()`
+绕过 lastUse/retain 检查 → 否决。**更新判定：定时缓存非泄漏，
+CImageResource 子方向关闭。**
+
+**n3 调优腿**（job `65a1a7da`，variant `native-tuned`）：
+同 n2 栈 + `-XX:MaxGCPauseMillis=100` + `UseStringDeduplication`
++ `MinHeapFreeRatio=10`/`MaxHeapFreeRatio=20` +
+`G1PeriodicGCInvokesConcurrent`/`G1PeriodicGCInterval=10000`。
+flag 已确认进 JVM 命令行（launch.bat + console 回显）。
