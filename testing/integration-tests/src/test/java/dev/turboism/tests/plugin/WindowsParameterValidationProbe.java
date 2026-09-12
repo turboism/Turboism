@@ -2698,6 +2698,47 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             forceGcQuietly();
             metrics.append("heapUsedAfterReadsBytes=").append(heapUsedBytes()).append('\n');
 
+            // Phase: real mutation burst through the SDK write path — a parameter
+            // value alternation exercises edit dispatch, undo-history append and
+            // dirty marking on the heavy model.
+            final List<Parameter> allParameters =
+                onHostThread(() -> new java.util.ArrayList<>(model.parameters().all()));
+            if (!allParameters.isEmpty()) {
+                final Parameter editTarget = allParameters.get(0);
+                final float baseValue = onHostThread(editTarget::getValue);
+                final float min = onHostThread(editTarget::getMinimumValue);
+                final float max = onHostThread(editTarget::getMaximumValue);
+                final float delta = Math.max(
+                    Math.min((max - min) * 0.05f, (max - min) / 2f), 0.001f
+                );
+                metrics.append("editParameter=").append(editTarget.id().value()).append('\n');
+                metrics.append("editBaseValue=").append(baseValue).append('\n');
+                final long gcBeforeEdits = gcCollectionCount();
+                final long gcMillisBeforeEdits = gcCollectionTimeMillis();
+                final java.util.concurrent.atomic.AtomicInteger toggle =
+                    new java.util.concurrent.atomic.AtomicInteger();
+                measureCall(metrics, "parameterWrite", allocThreads, edtId, () -> {
+                    final float value = toggle.getAndIncrement() % 2 == 0
+                        ? baseValue + delta : baseValue;
+                    editTarget.setValue(value);
+                    return null;
+                });
+                metrics.append("gcCollectionsDuringWrites=")
+                    .append(gcCollectionCount() - gcBeforeEdits).append('\n');
+                metrics.append("gcMillisDuringWrites=")
+                    .append(gcCollectionTimeMillis() - gcMillisBeforeEdits).append('\n');
+                forceGcQuietly();
+                metrics.append("heapUsedAfterWritesBytes=").append(heapUsedBytes()).append('\n');
+                final long restoreGcBefore = gcCollectionCount();
+                onHostThread(() -> { editTarget.setValue(baseValue); return null; });
+                forceGcQuietly();
+                metrics.append("heapUsedAfterRestoreBytes=").append(heapUsedBytes()).append('\n');
+                metrics.append("gcCollectionsDuringRestore=")
+                    .append(gcCollectionCount() - restoreGcBefore).append('\n');
+            } else {
+                metrics.append("editParameter=none\n");
+            }
+
             final java.awt.Robot robot = new java.awt.Robot();
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
             boolean modelStale = false;
@@ -2709,6 +2750,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             forceGcQuietly();
             metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
             metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
+            appendImageResourceReport(metrics);
 
             Files.writeString(
                 artifact,
@@ -2752,6 +2794,117 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         metrics.append(name).append("MedianNanos=").append(sorted[nanos.length / 2]).append('\n');
         metrics.append(name).append("P95Nanos=").append(sorted[(int) (nanos.length * 0.95)]).append('\n');
         metrics.append(name).append("EdtAllocatedBytesTotal=").append(allocBytes).append('\n');
+    }
+
+    /**
+     * Enumerates every static field of the host's {@code com.live2d.graphics.CImageResource}
+     * (reached through the plugin classloader's parent chain) and reports the shape of each
+     * Map/Collection it finds: entry count, live/dead {@link java.lang.ref.Reference} payloads,
+     * and primitive-array byte totals. Read-only diagnostic — nothing is cleared or mutated.
+     */
+    private void appendImageResourceReport(final StringBuilder metrics) {
+        try {
+            Class<?> resource = null;
+            for (ClassLoader loader = getClass().getClassLoader();
+                 loader != null && resource == null;
+                 loader = loader.getParent()) {
+                try {
+                    resource = Class.forName("com.live2d.graphics.CImageResource", false, loader);
+                } catch (ClassNotFoundException ignored) {
+                }
+            }
+            if (resource == null) {
+                metrics.append("imageResource=present-but-not-resolvable\n");
+                return;
+            }
+            int fieldIndex = 0;
+            for (java.lang.reflect.Field field : resource.getDeclaredFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                fieldIndex++;
+                final Object value;
+                try {
+                    if (!field.trySetAccessible()) {
+                        metrics.append("imageCache.").append(fieldIndex)
+                            .append("=").append(field.getType().getSimpleName())
+                            .append(":inaccessible\n");
+                        continue;
+                    }
+                    value = field.get(null);
+                } catch (Throwable failure) {
+                    metrics.append("imageCache.").append(fieldIndex).append("=unreadable\n");
+                    continue;
+                }
+                metrics.append(describeCacheField(fieldIndex, field.getName(), value));
+            }
+            metrics.append("imageCache.staticFields=").append(fieldIndex).append('\n');
+        } catch (Throwable failure) {
+            metrics.append("imageCacheError=")
+                .append(failure.getClass().getSimpleName()).append('\n');
+        }
+    }
+
+    /** Describes one static cache field: size + live/dead ref split + primitive payload bytes. */
+    private static String describeCacheField(
+        final int index,
+        final String name,
+        final Object value
+    ) {
+        final String key = "imageCache." + index + "." + name;
+        if (value == null) {
+            return key + "=null\n";
+        }
+        if (value instanceof java.util.Map<?, ?> map) {
+            long entries = 0;
+            long liveRefs = 0;
+            long deadRefs = 0;
+            long strongValues = 0;
+            long payloadBytes = 0;
+            for (java.util.Map.Entry<?, ?> entry : map.entrySet()) {
+                entries++;
+                Object referent = entry.getValue();
+                if (referent instanceof java.lang.ref.Reference<?> reference) {
+                    referent = reference.get();
+                    if (referent == null) {
+                        deadRefs++;
+                    } else {
+                        liveRefs++;
+                    }
+                } else {
+                    strongValues++;
+                }
+                payloadBytes += primitiveArrayBytes(referent);
+                payloadBytes += primitiveArrayBytes(entry.getKey());
+            }
+            return key + "=map entries=" + entries + " liveRefs=" + liveRefs
+                + " deadRefs=" + deadRefs + " strongValues=" + strongValues
+                + " payloadBytes=" + payloadBytes + "\n";
+        }
+        if (value instanceof java.util.Collection<?> collection) {
+            long payloadBytes = 0;
+            for (Object item : collection) {
+                payloadBytes += primitiveArrayBytes(item);
+            }
+            return key + "=collection size=" + collection.size()
+                + " payloadBytes=" + payloadBytes + "\n";
+        }
+        return key + "=" + value.getClass().getSimpleName() + "\n";
+    }
+
+    private static long primitiveArrayBytes(final Object value) {
+        if (value == null || !value.getClass().isArray()) {
+            return 0L;
+        }
+        final int length = java.lang.reflect.Array.getLength(value);
+        if (value instanceof byte[]) return length;
+        if (value instanceof int[]) return length * 4L;
+        if (value instanceof float[]) return length * 4L;
+        if (value instanceof long[]) return length * 8L;
+        if (value instanceof short[]) return length * 2L;
+        if (value instanceof double[]) return length * 8L;
+        if (value instanceof char[]) return length * 2L;
+        return 0L;
     }
 
     private static void forceGcQuietly() {

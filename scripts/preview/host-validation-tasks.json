@@ -103,7 +103,7 @@
         "native-control-background-persist-write": ["{version}", "native-control-background-persist-write", "{runLabel}"],
         "native-control-background-persist-reopen": ["{version}", "native-control-background-persist-reopen", "{runLabel}"],
         "native-control-background-persist-final": ["{version}", "native-control-background-persist-final", "{runLabel}"],
-        "perf-observe": ["{version}", "perf-observe", "{runLabel}"]
+        "perf-observe": ["{version}", "perf-observe", "{runLabel}", "--jvm-option", "-XX:StartFlightRecording=filename={HOME}\\perf-observe.jfr,settings=profile,stackdepth=256,maxsize=512m,dumponexit=true"]
       },
       "resources": {"host-slot": 1}
     },
