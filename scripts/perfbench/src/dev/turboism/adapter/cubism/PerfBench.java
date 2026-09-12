@@ -75,11 +75,19 @@ public final class PerfBench {
         final HostSessionSnapshotSource source =
             (HostSessionSnapshotSource) HostSessionSnapshotSource.forSession(adapter);
 
+        final ImmutableSnapshotFactory snapshotFactory = new ImmutableSnapshotFactory();
+
         // Warm every cache and JIT path before measuring.
         for (int i = 0; i < warmup; i++) {
             operations.activeProject();
             final HostSnapshotSource.Observation observation = source.observe();
             source.versionOf(observation);
+            snapshotFactory.runtime(
+                observation.project(), observation.document(),
+                observation.model(), observation.selection()
+            );
+            final HostSnapshotSource.SdkRuntimeObservation sdk = source.observeSdkRuntime();
+            source.versionOfSdkRuntime(sdk);
             source.isHostPresent();
             source.activeDocument();
             source.activeModel();
@@ -103,15 +111,46 @@ public final class PerfBench {
             source.versionOf(observation);
         });
 
+        // Full old runtime() pipeline: observe + Host*->SDK re-projection + versionOf.
+        final long legacyRuntimeNs = timed(iterations, () -> {
+            final HostSnapshotSource.Observation observation = source.observe();
+            snapshotFactory.runtime(
+                observation.project(), observation.document(),
+                observation.model(), observation.selection()
+            );
+            source.versionOf(observation);
+        });
+        // New seam: the same logical read without the intermediate Host* graph.
+        final long sdkRuntimeNs = timed(iterations, () -> {
+            final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+            source.versionOfSdkRuntime(observed);
+        });
+        final long legacyRuntimeBytes = allocated(iterations, () -> {
+            final HostSnapshotSource.Observation observation = source.observe();
+            snapshotFactory.runtime(
+                observation.project(), observation.document(),
+                observation.model(), observation.selection()
+            );
+            source.versionOf(observation);
+        });
+        final long sdkRuntimeBytes = allocated(iterations, () -> {
+            final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+            source.versionOfSdkRuntime(observed);
+        });
+
         System.out.printf(
             "docs=%d contents=%d iters=%d%n"
                 + "activeProject          %10.1f ns/op  %10.1f B/op%n"
                 + "observe+versionOf      %10.1f ns/op  %10.1f B/op%n"
-                + "legacy scope capture   %10.1f ns/op%n",
+                + "legacy scope capture   %10.1f ns/op%n"
+                + "observe+factory+ver    %10.1f ns/op  %10.1f B/op%n"
+                + "sdkRuntime+ver         %10.1f ns/op  %10.1f B/op%n",
             documents.size(), children.size(), iterations,
             (double) traversalNs / iterations, (double) traversalBytes / iterations,
             (double) observeNs / iterations, (double) observeBytes / iterations,
-            (double) legacyNs / iterations
+            (double) legacyNs / iterations,
+            (double) legacyRuntimeNs / iterations, (double) legacyRuntimeBytes / iterations,
+            (double) sdkRuntimeNs / iterations, (double) sdkRuntimeBytes / iterations
         );
     }
 

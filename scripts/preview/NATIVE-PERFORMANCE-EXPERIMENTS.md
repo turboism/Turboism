@@ -1027,7 +1027,11 @@ Dirty rectangles、局部图集合成、属性级VBO更新、原生更新合并�
   `observe()` 零调用）。devCheck 全绿。
 - **效果**：每次 session 级 runtime 读省一次 Host* 全图构建 + 一次 SDK 重建（含逐字段
   record、逐列表 copy）；selection 语义不变（本就为空）。
-- **提交**：`e9e20adab`。
+- **实测**（PerfBench 新腿 `observe+factory+ver` vs `sdkRuntime+ver`，同参数两规模）：
+  90 文档/130 contents —— 597µs/497KB → 423µs/294KB（**时间 −29%，分配 −41%**）；
+  55 文档/80 contents —— 341µs/307KB → 318µs/175KB（时间 −7%，**分配 −43%**）。
+  分配削减一致且显著；时间收益随快照规模增长。
+- **提交**：`e9e20adab` + `f0ed80936`（accessor 同路径）；bench 腿同提交。
 - **限制**：插件作用域源（PluginScopedCubismModelAccess）仍走默认 host 路径——其
   HostModel 是故意瘦的、证据语义不同，未动。
 
