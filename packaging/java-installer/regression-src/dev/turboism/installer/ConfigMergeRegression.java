@@ -393,6 +393,9 @@ public final class ConfigMergeRegression {
         Map<String, Object> badLauncher = validRuntimeConfig();
         badLauncher.put("launcher", Map.of("cubismJvm", "other"));
         invalid.add(badLauncher);
+        Map<String, Object> badReduceAutoBackup = validRuntimeConfig();
+        badReduceAutoBackup.put("reduceAutoBackup", "true");
+        invalid.add(badReduceAutoBackup);
 
         for (int index = 0; index < invalid.size(); index++) {
             try {
@@ -432,6 +435,11 @@ public final class ConfigMergeRegression {
                         && List.of("custom-plugins").equals(updated.get("pluginDirs")));
         check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel"))
                 && Boolean.TRUE.equals(updated.get("useTextIcon")));
+        current.put("reduceAutoBackup", Boolean.TRUE);
+        Map<String, Object> preserved = ConfigMerge.applyPolicy(current, disabled);
+        check("selection preserves reduceAutoBackup",
+                Boolean.TRUE.equals(preserved.get("reduceAutoBackup")));
+        ConfigMerge.validateCurrent(preserved);
         ConfigMerge.validateCurrent(updated);
 
         Map<String, Object> sameSetDifferentOrder = new LinkedHashMap<>(updated);

@@ -831,7 +831,7 @@ final class ConfigMerge {
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-            "hooks", "launcher");
+            "hooks", "launcher", "reduceAutoBackup");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -932,6 +932,10 @@ final class ConfigMerge {
         }
         if (map.containsKey("useTextIcon") && !(map.get("useTextIcon") instanceof Boolean)) {
             throw new ConfigException("existing config.json useTextIcon must be a boolean");
+        }
+        if (map.containsKey("reduceAutoBackup")
+                && !(map.get("reduceAutoBackup") instanceof Boolean)) {
+            throw new ConfigException("existing config.json reduceAutoBackup must be a boolean");
         }
 
         if (map.containsKey("hooks")) {
