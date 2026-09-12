@@ -277,6 +277,11 @@
           "{version}",
           "native-tuned2",
           "{runLabel}"
+        ],
+        "native-tuned3": [
+          "{version}",
+          "native-tuned3",
+          "{runLabel}"
         ]
       },
       "resources": {
