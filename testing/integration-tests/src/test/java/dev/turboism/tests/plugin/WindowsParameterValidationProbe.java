@@ -1159,6 +1159,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     static final long DEFAULT_SAVE_POLL_MILLIS = 100L;
     static final int SAVE_STABLE_SAMPLES = 3;
 
+    // Daemon pool for bounded stale-checks: a modal-blocked call parks its
+    // worker until the EDT frees; new submissions must not queue behind it.
+    private static final java.util.concurrent.ExecutorService STALE_CHECK_POOL =
+        java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-stale-check");
+            thread.setDaemon(true);
+            return thread;
+        });
+
     /** Machine-readable save evidence; {@code confirmed=false} is a FAIL, never a PASS. */
     record SaveConfirmation(
         boolean confirmed,
@@ -2993,6 +3002,10 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             // a status= line (observed r19 — the forensics file was counted as
             // a MISSING artifact).
             final Path closeLog = artifact.resolveSibling("perf-observe-modal-forensics.log");
+            // Re-disable auto-backup right before close — the host re-arms it
+            // on document events and a backup storm inside the close window
+            // already cost r18 its terminal artifact.
+            metrics.append("autoBackupStoppedPreClose=").append(stopAutoBackup()).append('\n');
             // Clear any lingering informational dialog first so the close
             // accelerator reaches the document.
             try {
@@ -3028,16 +3041,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     }
                 } catch (Exception ignored) {
                 }
-                modelStale = failsClosed(model::id);
+                modelStale = modelBecameStale(model);
                 // Last resort: the prompt sits in the host's AppContext and is
                 // invisible to Window.getWindows() (confirmed r19: the scan saw
                 // only the 主页 dialog while the Yes/No/Cancel prompt was on
-                // screen). Each iteration also costs up to ~5s when the modal
-                // starves invokeLater, so attempt-40 was ~3 minutes too late —
-                // fire 'N' early and repeatedly; the focused save dialog treats
-                // it as "No (don't save)".
-                if (!modelStale && attempt > 8 && !dismissedAny
-                    && blindRetries < 4) {
+                // screen). Each iteration costs up to ~5s when the modal
+                // starves the EDT, so fire 'N' early and keep repeating it —
+                // the focused save dialog treats it as "No (don't save)".
+                if (!modelStale && attempt >= 4 && attempt % 6 == 4
+                    && !dismissedAny && blindRetries < 24) {
                     blindRetries++;
                     robot.keyPress(java.awt.event.KeyEvent.VK_N);
                     robot.keyRelease(java.awt.event.KeyEvent.VK_N);
@@ -3167,33 +3179,45 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
      * golden Cubism config is untouched.
      */
     private boolean stopAutoBackup() {
-        try {
-            final Class<?> manager = resolveHostClass("com.live2d.cubism.util.a");
-            if (manager == null) {
-                return false;
+        // Retry: the manager's internals can be half-initialized while the
+        // document-open modal still owns the EDT — a(…​) NPE'd inside the
+        // command_open nested loop in r20 and only g() landed.
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                final Class<?> manager = resolveHostClass("com.live2d.cubism.util.a");
+                if (manager == null) {
+                    return false;
+                }
+                final Object instance = manager.getField("a").get(null);
+                if (instance == null) {
+                    return false;
+                }
+                onHostThread(() -> {
+                    // g() alone is not enough: the host re-arms the timer via
+                    // f() (observed in r18: "restart auto backup" right after
+                    // our stop, then a 31.5s / 3.28GB backup mid-close).
+                    // a(int) raises the persisted interval so a re-armed timer
+                    // still never fires, and a(boolean) clears the enabled
+                    // flag consulted by every future f() restart — both are
+                    // session settings the task prefix owns. 30000 minutes
+                    // ≈ 20 days; larger values overflow the host's int delay
+                    // computation (minutes*60*1000 must stay < 2^31).
+                    manager.getMethod("a", int.class).invoke(instance, 30_000);
+                    manager.getMethod("a", boolean.class).invoke(instance, false);
+                    manager.getMethod("g").invoke(instance);
+                    return null;
+                });
+                return true;
+            } catch (Throwable failure) {
+                try {
+                    Thread.sleep(3_000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
             }
-            final Object instance = manager.getField("a").get(null);
-            if (instance == null) {
-                return false;
-            }
-            final Object result = onHostThread(() -> {
-                // g() alone is not enough: the host re-arms the timer via f()
-                // (observed in r18: "restart auto backup" right after our stop,
-                // then a 31.5s / 3.28GB backup mid-close). a(int) raises the
-                // persisted interval so a re-armed timer still never fires, and
-                // a(boolean) clears the enabled flag consulted by every future
-                // f() restart — both are session settings the task prefix owns.
-                // 30000 minutes ≈ 20 days; larger values overflow the host's
-                // int delay computation (minutes*60*1000 must stay < 2^31).
-                manager.getMethod("a", int.class).invoke(instance, 30_000);
-                manager.getMethod("a", boolean.class).invoke(instance, false);
-                manager.getMethod("g").invoke(instance);
-                return null;
-            });
-            return true;
-        } catch (Throwable failure) {
-            return false;
         }
+        return false;
     }
 
     /**
@@ -3437,6 +3461,27 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception expected) {
             return expected instanceof IllegalStateException
                 || expected instanceof UnsupportedOperationException;
+        }
+    }
+
+    /**
+     * Tri-state document-staleness check for the close loop. The proxy call
+     * keeps its own thread (it dispatches onto the EDT internally); a completed
+     * call that throws {@code IllegalStateException}/{@code
+     * UnsupportedOperationException} proves the document closed. A timeout
+     * means a modal is starving the EDT — inconclusive, keep looping. The
+     * bounded wait matters: a direct {@code model.id()} parks inside the
+     * proxy's EDT dispatch while a save prompt is up and froze the r20 close
+     * loop for the rest of the process lifetime. A cached pool (not a single
+     * thread) so a parked check cannot queue-block every later check.
+     */
+    private static boolean modelBecameStale(final CubismModel model) {
+        try {
+            return Boolean.TRUE.equals(STALE_CHECK_POOL
+                .submit(() -> failsClosed(model::id))
+                .get(5L, java.util.concurrent.TimeUnit.SECONDS));
+        } catch (Exception inconclusive) {
+            return false;
         }
     }
 
@@ -5135,28 +5180,37 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             return;
         }
         final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            java.awt.Frame fallback = null;
-            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                if (!frame.isVisible()) continue;
-                if (fallback == null) fallback = frame;
-                final String title = frame.getTitle();
-                if (title != null && title.contains(".cmo3")) {
-                    hostFrame.set(frame);
-                    break;
+        final java.util.concurrent.CountDownLatch focused =
+            new java.util.concurrent.CountDownLatch(1);
+        // Same parking hazard as invokeMenuShortcut: bound the EDT wait so a
+        // showing modal cannot freeze the caller before the keystroke below.
+        SwingUtilities.invokeLater(() -> {
+            try {
+                java.awt.Frame fallback = null;
+                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!frame.isVisible()) continue;
+                    if (fallback == null) fallback = frame;
+                    final String title = frame.getTitle();
+                    if (title != null && title.contains(".cmo3")) {
+                        hostFrame.set(frame);
+                        break;
+                    }
+                    if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
+                        hostFrame.set(frame);
+                    }
                 }
-                if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
-                    hostFrame.set(frame);
+                if (hostFrame.get() == null) hostFrame.set(fallback);
+                final java.awt.Frame frame = hostFrame.get();
+                if (frame != null) {
+                    frame.setState(java.awt.Frame.NORMAL);
+                    frame.toFront();
+                    frame.requestFocus();
                 }
-            }
-            if (hostFrame.get() == null) hostFrame.set(fallback);
-            final java.awt.Frame frame = hostFrame.get();
-            if (frame != null) {
-                frame.setState(java.awt.Frame.NORMAL);
-                frame.toFront();
-                frame.requestFocus();
+            } finally {
+                focused.countDown();
             }
         });
+        focused.await(10L, java.util.concurrent.TimeUnit.SECONDS);
         final java.awt.Frame frame = hostFrame.get();
         if (frame != null) {
             final java.awt.Rectangle bounds = frame.getBounds();
@@ -5175,19 +5229,32 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static boolean invokeMenuShortcut(final int key) throws Exception {
         final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
         final AtomicBoolean enabled = new AtomicBoolean();
-        SwingUtilities.invokeAndWait(() -> {
-            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
-                final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
-                if (bar == null) continue;
-                for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
-                    findMenuShortcut(bar.getMenu(index), key, match);
+        final java.util.concurrent.CountDownLatch applied =
+            new java.util.concurrent.CountDownLatch(1);
+        // invokeLater + bounded await, not invokeAndWait: a menu action that
+        // opens a modal (Ctrl+W → save prompt) parks inside the dialog's
+        // nested EDT loop and the synchronous wait would freeze the close
+        // sequence before its blind fallbacks can run (observed r20).
+        SwingUtilities.invokeLater(() -> {
+            try {
+                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                    final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                    if (bar == null) continue;
+                    for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
+                        findMenuShortcut(bar.getMenu(index), key, match);
+                    }
                 }
+                final javax.swing.JMenuItem item = match.get();
+                enabled.set(item != null && item.isEnabled());
+                if (enabled.get()) item.doClick(0);
+            } finally {
+                applied.countDown();
             }
-            final javax.swing.JMenuItem item = match.get();
-            enabled.set(item != null && item.isEnabled());
-            if (enabled.get()) item.doClick(0);
         });
+        if (!applied.await(10L, java.util.concurrent.TimeUnit.SECONDS)) {
+            return false;
+        }
         return enabled.get();
     }
 
