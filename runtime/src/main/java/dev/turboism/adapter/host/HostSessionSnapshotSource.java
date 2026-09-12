@@ -79,16 +79,35 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public long invalidationToken() {
-        synchronized (invalidationLock) {
-            final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
-            if (!pair.project().equals(lastProjectObservation)
-                || !pair.document().equals(lastDocumentObservation)) {
-                lastProjectObservation = pair.project();
-                lastDocumentObservation = pair.document();
-                invalidationToken++;
-            }
-            return invalidationToken;
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return tokenFor(pair.project(), pair.document());
+    }
+
+    @Override
+    public SdkRuntimeObservation observeSdkRuntime() {
+        // The adapter pair is already SDK snapshots; carry them verbatim so callers never pay
+        // the intermediate Host* projection nor the SDK re-projection it feeds. Session scope
+        // never surfaces a selection, matching what the host-shaped observation reported.
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return new SdkRuntimeObservation(
+            null,
+            pair.project().orElse(null),
+            pair.document().orElse(null),
+            null,
+            new ObservationEvidence(pair.project(), pair.document())
+        );
+    }
+
+    @Override
+    public long versionOfSdkRuntime(final SdkRuntimeObservation observed) {
+        Objects.requireNonNull(observed, "observed");
+        if (observed.evidence() instanceof ObservationEvidence evidence) {
+            return tokenFor(evidence.project(), evidence.document());
         }
+        if (observed.host() != null) {
+            return versionOf(observed.host());
+        }
+        return invalidationToken();
     }
 
     @Override
@@ -118,11 +137,19 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
             // Foreign observation: fall back to the source's own fresh read.
             return invalidationToken();
         }
+        return tokenFor(evidence.project(), evidence.document());
+    }
+
+    /** Shared token bookkeeping: bump when the observed pair differs from the last one. */
+    private long tokenFor(
+        final Optional<ProjectSnapshot> project,
+        final Optional<DocumentSnapshot> document
+    ) {
         synchronized (invalidationLock) {
-            if (!evidence.project().equals(lastProjectObservation)
-                || !evidence.document().equals(lastDocumentObservation)) {
-                lastProjectObservation = evidence.project();
-                lastDocumentObservation = evidence.document();
+            if (!project.equals(lastProjectObservation)
+                || !document.equals(lastDocumentObservation)) {
+                lastProjectObservation = project;
+                lastDocumentObservation = document;
                 invalidationToken++;
             }
             return invalidationToken;

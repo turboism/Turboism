@@ -2,8 +2,11 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
+import dev.turboism.sdk.cubism.SelectionSnapshot;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -63,6 +66,64 @@ public interface HostSnapshotSource {
     default long versionOf(final Observation observation) {
         Objects.requireNonNull(observation, "observation");
         return invalidationToken();
+    }
+
+    /**
+     * One coherent runtime read at SDK level.
+     *
+     * <p>A source whose underlying read already produces SDK snapshots overrides this so the
+     * caller skips the intermediate {@code Host*} projection and the SDK re-projection it
+     * feeds. The default delegates to {@link #observe()} and keeps the host-typed observation
+     * in {@link SdkRuntimeObservation#host()} for the caller to project as before.</p>
+     *
+     * @return one observation owned by this source; never null
+     */
+    default SdkRuntimeObservation observeSdkRuntime() {
+        return new SdkRuntimeObservation(observe(), null, null, null, null);
+    }
+
+    /**
+     * Returns the invalidation token for one {@link #observeSdkRuntime()} result.
+     *
+     * <p>The default applies {@link #versionOf(Observation)} to a host-shaped observation, or
+     * {@link #invalidationToken()} for an SDK-shaped one the source did not specialize; a source
+     * that fills {@link SdkRuntimeObservation#evidence()} overrides this to compare exactly what
+     * was observed instead of re-reading the host.</p>
+     *
+     * @param observed a result returned by this source; never null
+     * @return the token that corresponds to the supplied observation
+     */
+    default long versionOfSdkRuntime(final SdkRuntimeObservation observed) {
+        Objects.requireNonNull(observed, "observed");
+        return observed.host() != null ? versionOf(observed.host()) : invalidationToken();
+    }
+
+    /**
+     * The result of {@link #observeSdkRuntime()}: either {@link #host()} carrying the raw
+     * observation for the caller to project, or SDK-level {@link #project()}/{@link #document()}/
+     * {@link #selection()} with {@link #evidence()} the producing source recognizes for
+     * versioning.
+     */
+    record SdkRuntimeObservation(
+        Observation host,
+        ProjectSnapshot project,
+        DocumentSnapshot document,
+        SelectionSnapshot selection,
+        Object evidence
+    ) {
+        public SdkRuntimeObservation {
+            if (host != null
+                && (project != null || document != null || selection != null || evidence != null)) {
+                throw new IllegalArgumentException(
+                    "SdkRuntimeObservation carries either a host observation or SDK snapshots"
+                );
+            }
+            if (host == null && evidence == null) {
+                throw new IllegalArgumentException(
+                    "SDK-shaped observation requires evidence for versioning"
+                );
+            }
+        }
     }
 
     /**
