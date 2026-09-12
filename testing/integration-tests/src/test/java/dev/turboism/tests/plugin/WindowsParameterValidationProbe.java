@@ -2865,7 +2865,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             appendImageResourceReport(metrics, "imageCacheBeforeClose");
 
+            // Drain the undo stack so the document is no longer dirty; otherwise
+            // closing saves the fixture copy (observed in r11/r12) and trips
+            // --require-fixture-unchanged.
             final java.awt.Robot robot = new java.awt.Robot();
+            if (allParameters != null && !allParameters.isEmpty()) {
+                for (int undo = 0; undo < 40; undo++) {
+                    pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                }
+            }
             pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
             boolean modelStale = false;
             for (int attempt = 0; attempt < 60 && !modelStale; attempt++) {
