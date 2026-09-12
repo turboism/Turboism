@@ -263,6 +263,11 @@
           "perf-observe",
           "{runLabel}"
         ],
+        "perf-observe-zgc": [
+          "{version}",
+          "perf-observe-zgc",
+          "{runLabel}"
+        ],
         "native-baseline": [
           "{version}",
           "native-baseline",
