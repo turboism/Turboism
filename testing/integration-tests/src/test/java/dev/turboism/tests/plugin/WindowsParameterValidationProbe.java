@@ -2758,7 +2758,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-        } catch (Exception exception) {
+        } catch (Throwable exception) {
             writeValidationFailure(artifact, exception, "Perf observation artifact could not be written");
         }
     }
@@ -2970,7 +2970,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return Boolean.parseBoolean(expected.getProperty(key)) == actual;
     }
 
-    private void writeValidationFailure(final Path artifact, final Exception exception, final String logMessage) {
+    private void writeValidationFailure(final Path artifact, final Throwable exception, final String logMessage) {
         try {
             Files.createDirectories(artifact.getParent());
             Files.writeString(
