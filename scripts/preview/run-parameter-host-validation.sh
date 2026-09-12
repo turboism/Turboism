@@ -50,6 +50,9 @@ case "$mode" in
   native-control-background*)
     extra_jvm_options+=(--jvm-option '-Dturboism.editorObjectValidation.trace=true')
     ;;
+  perf-observe)
+    extra_jvm_options+=(--jvm-option '-XX:StartFlightRecording=filename={HOME}\perf-observe.jfr,settings=profile,stackdepth=256,maxsize=512m,dumponexit=true')
+    ;;
 esac
 case "$mode" in
   native-control-background-persist-*)
