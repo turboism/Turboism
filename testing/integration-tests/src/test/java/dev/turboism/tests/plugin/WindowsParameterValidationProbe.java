@@ -55,11 +55,15 @@ import javax.swing.WindowConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dialog;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -2334,10 +2338,18 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             } catch (Exception exception) {
                 model = null;
                 unavailable = exception;
+                String modal = "";
+                if (attempt % 10 == 0) {
+                    try {
+                        modal = onHostThread(this::inspectBlockingModal);
+                    } catch (Exception scanFailure) {
+                        modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
+                    }
+                }
                 Files.writeString(
                     artifact,
                     "status=RUNNING phase=await-model attempt=" + attempt + " error="
-                        + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
+                        + exception.getClass().getName() + ": " + exception.getMessage() + modal + "\n",
                     StandardOpenOption.CREATE,
                     StandardOpenOption.TRUNCATE_EXISTING
                 );
@@ -2347,6 +2359,73 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         throw unavailable == null
             ? new IllegalStateException("Editor object validation was interrupted.")
             : unavailable;
+    }
+
+    /**
+     * Reports a visible modal dialog that is blocking document load, and narrowly
+     * auto-accepts the known "file was saved by a newer Cubism version" warning so
+     * a fixture newer than the host still proceeds. Every observation lands in the
+     * await status line; only whitelisted dialogs are clicked.
+     */
+    private String inspectBlockingModal() {
+        for (Window window : Window.getWindows()) {
+            if (!(window instanceof Dialog dialog) || !dialog.isVisible() || !dialog.isModal()) {
+                continue;
+            }
+            final StringBuilder text = new StringBuilder();
+            final List<JButton> buttons = new java.util.ArrayList<>();
+            collectDialogSurface(dialog, text, buttons);
+            final String body = text.toString();
+            final boolean versionWarning = body.contains("保存")
+                || body.contains("newer version")
+                || body.contains("破損");
+            String action = "ignored";
+            if (versionWarning) {
+                final JButton load = buttons.stream()
+                    .filter(b -> b.isEnabled() && b.isVisible())
+                    .filter(b -> {
+                        final String label = b.getText() == null ? "" : b.getText().trim();
+                        return label.contains("加载")
+                            || label.contains("ロード")
+                            || label.equalsIgnoreCase("Load")
+                            || label.contains("開く")
+                            || label.equalsIgnoreCase("Open");
+                    })
+                    .findFirst()
+                    .orElse(null);
+                if (load != null) {
+                    load.doClick();
+                    action = "accepted-version-warning";
+                }
+            }
+            final String summary = body.length() > 160 ? body.substring(0, 160) : body;
+            return " modal=\"" + dialog.getTitle() + "\" action=" + action + " text=" + summary.replace('\n', ' ');
+        }
+        return "";
+    }
+
+    private static void collectDialogSurface(
+        final Container container,
+        final StringBuilder text,
+        final List<JButton> buttons
+    ) {
+        for (Component component : container.getComponents()) {
+            if (component instanceof JButton button) {
+                buttons.add(button);
+                text.append('[').append(button.getText()).append(']');
+            } else if (component instanceof JLabel label) {
+                if (label.getText() != null) {
+                    text.append(' ').append(label.getText());
+                }
+            } else if (component instanceof JTextField field) {
+                if (field.getText() != null && !field.getText().isBlank()) {
+                    text.append(' ').append(field.getText());
+                }
+            }
+            if (component instanceof Container child) {
+                collectDialogSurface(child, text, buttons);
+            }
+        }
     }
 
     private void runEditorObjectPersistenceWrite() {
