@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|native-baseline) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -37,6 +37,34 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scripts/dev/worktree-id.sh")"
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-parameter-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
+
+if [ "$mode" = 'native-baseline' ]; then
+  # Host-only comparison leg: a no-op premain stub satisfies the runner's
+  # --agent contract without loading the Turboism runtime or any plugin, so
+  # the JVM is effectively stock Cubism. No runtime log is produced, so no
+  # ready markers are waited on and the result-file wait is the measurement
+  # window itself; the run intentionally ends in "result timeout" and the
+  # containment cleanup owns process teardown. JFR duration is bounded below
+  # the window so the dump lands even though the JVM is killed afterwards.
+  exec bash "$runner" \
+    --name parameter \
+    --version "$version" \
+    --run-label "$run_label-$mode" \
+    --bundle-root "$bundle_root" \
+    --agent "$bundle_root/native-stub-agent.jar" \
+    --plugin "$bundle_root/native-stub-agent.jar:stub.jar" \
+    --fixture-remote "$fixture_src" \
+    --fixture-sha256 "$fixture_sha256" \
+    --require-fixture-unchanged \
+    --jvm-option '-XX:StartFlightRecording=duration=560s,filename={HOME}\logs\native-observe.jfr' \
+    --result-file 'state/host-validation-result.properties' \
+    --result-pass-line 'status=PASS' \
+    --result-fail-line 'status=FAIL' \
+    --ready-timeout 60 \
+    --result-timeout 700 \
+    --exit-timeout 30 \
+    "$@"
+fi
 
 fixture_policy=(--require-fixture-unchanged)
 extra_jvm_options=()
