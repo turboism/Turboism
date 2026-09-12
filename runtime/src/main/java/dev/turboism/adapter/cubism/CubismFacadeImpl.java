@@ -21,6 +21,7 @@ import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.CubismRuntimeSnapshot;
+import dev.turboism.sdk.cubism.DocumentKind;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ModelSnapshot;
 import dev.turboism.sdk.cubism.ProjectSnapshot;
@@ -846,21 +847,34 @@ public final class CubismFacadeImpl implements CubismFacade {
     public Optional<ProjectSnapshot> activeProject() {
         requireActiveScope();
         permissionGate.require(PROJECT_READ_PERMISSION, "activeProject");
-        return source.activeProject().map(snapshotFactory::project);
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        return observed.host() != null
+            ? observed.host().project().map(snapshotFactory::project)
+            : Optional.ofNullable(observed.project());
     }
 
     @Override
     public Optional<DocumentSnapshot> activeDocument() {
         requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "activeDocument");
-        return source.activeDocument().map(snapshotFactory::document);
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        return observed.host() != null
+            ? observed.host().document().map(snapshotFactory::document)
+            : Optional.ofNullable(observed.document());
     }
 
     @Override
     public Optional<ModelSnapshot> activeModel() {
         requireActiveScope();
         permissionGate.require(MODEL_READ_PERMISSION, "activeModel");
-        return source.activeModel().map(snapshotFactory::model);
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        if (observed.host() != null) {
+            return observed.host().model().map(snapshotFactory::model);
+        }
+        final Optional<DocumentSnapshot> document = Optional.ofNullable(observed.document());
+        return document
+            .filter(active -> active.kind() == DocumentKind.MODEL)
+            .flatMap(DocumentSnapshot::model);
     }
 
     @Override
