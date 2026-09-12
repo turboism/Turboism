@@ -58,9 +58,30 @@ class ReleaseDetailsTests(unittest.TestCase):
         # A language outside the reviewed matrix must fail closed, not be dropped.
         path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','de':'Neuerungen'}}))
         with self.assertRaises(ValueError):m.stable_metadata(self.root,'1.2.3',self.head,english)
-        # Korean stays optional: an older file without it still verifies and falls back.
+        # Korean stays optional at the reproduction layer: an older file without it
+        # still verifies and falls back. candidate_notes enforces the full matrix.
         path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动'}}))
         self.assertEqual(sorted(m.reviewed_locales(self.root,'1.2.3',english)),['en','zh'])
+
+    def test_beta_candidate_requires_reviewed_zh_ja_ko_translations(self):
+        import hashlib
+        m=self.module()
+        (self.root/'gradle').mkdir()
+        (self.root/'gradle/common-java.gradle.kts').write_text(
+            'extra["turboismFrameworkVersion"] = "1.2.3"\n')
+        english='### Added\n\n- Change'
+        (self.root/'CHANGELOG.md').write_text('## [1.2.3] - 2026-09-12\n\n'+english+'\n')
+        receipt={**identity('1.2.3-beta.1',self.head,'123',1),'buildNumber':7}
+        # Missing translations file fails closed instead of shipping English-only.
+        with self.assertRaises(ValueError):m.candidate_notes(self.root,receipt,None)
+        path=self.root/'release-notes/1.2.3.json';path.parent.mkdir()
+        digest=hashlib.sha256(english.encode()).hexdigest()
+        # A partially translated file is not publishable either.
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加'}}))
+        with self.assertRaises(ValueError):m.candidate_notes(self.root,receipt,None)
+        path.write_text(json.dumps({'schemaVersion':1,'version':'1.2.3','englishSha256':digest,'locales':{'zh':'新增改动','ja':'変更を追加','ko':'변경 사항 추가'}}))
+        body=m.candidate_notes(self.root,receipt,None)
+        self.assertIn('turboism-notes-v1',body);self.assertIn('변경 사항 추가',body)
 
     def test_context_tampering_and_nonancestor_fail(self):
         m=self.module();c=m.history_context(self.root,self.head,self.base,'v1.2.2')

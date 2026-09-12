@@ -83,6 +83,7 @@ tasks.register<Test>("officialPluginI18nCompletenessTest") {
     systemProperty("projectRoot", rootProject.projectDir.absolutePath)
     filter {
         includeTestsMatching("dev.turboism.tests.i18n.OfficialPluginCatalogCompletenessTest")
+        includeTestsMatching("dev.turboism.tests.i18n.FrameworkCatalogCompletenessTest")
         isFailOnNoMatchingTests = true
     }
 }
