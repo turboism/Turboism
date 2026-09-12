@@ -2364,8 +2364,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                             throw new IllegalStateException("No Rotation Deformer is available.");
                         }
                         modelBox.set(candidate);
-                    } catch (Exception exception) {
-                        failureBox.set(exception);
+                    } catch (Throwable exception) {
+                        failureBox.set(new IllegalStateException(
+                            exception.getClass().getName() + ": " + exception.getMessage(), exception));
                     } finally {
                         accepted.countDown();
                     }
@@ -2387,7 +2388,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             }
             final Exception failure = failureBox.get();
             if (failure == null) {
-                return modelBox.get();
+                final CubismModel model = modelBox.get();
+                if (model != null) {
+                    return model;
+                }
+                unavailable = new IllegalStateException("EDT probe completed without a result.");
+                dispatched.set(false);
+                Thread.sleep(1000L);
+                continue;
             }
             unavailable = failure;
             failureBox.set(null);
