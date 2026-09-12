@@ -59,6 +59,9 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /** Smallest edge a component needs before the canvas fallback may treat it as the view. */
     private static final int MIN_CANVAS_EDGE = 128;
 
+    /** Bound on how many candidate surfaces the canvas actor will drag in one step. */
+    private static final int MAX_CANVAS_CANDIDATES = 3;
+
     /**
      * How often a pending step re-announces its instruction.
      *
@@ -538,15 +541,38 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 .distinct()
                 .toList());
         if (names.size() < 2) return "unresolved:fewer-than-two-parts";
-        final String source = names.get(0);
-        final String target = names.get(names.size() - 1);
-        final WindowsMeshEditValidationProbe.SelectionAttempt from =
-            onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(source));
-        final WindowsMeshEditValidationProbe.SelectionAttempt to =
-            onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(target));
-        if (!from.selected() || !to.selected()) {
-            return "unresolved:sought=" + source + "->" + target
-                + ":from=" + from.treeDescription() + "|to=" + to.treeDescription();
+        // The SDK lists every part including the model's root container; the r11 run matched
+        // "Root Part" by name but it is the tree's invisible root and never owns a row. Try
+        // names in order and keep only the ones that resolve to a selectable row.
+        WindowsMeshEditValidationProbe.SelectionAttempt from = null;
+        String source = null;
+        for (final String name : names) {
+            final WindowsMeshEditValidationProbe.SelectionAttempt attempt =
+                onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(name));
+            if (attempt.selected()) {
+                from = attempt;
+                source = name;
+                break;
+            }
+        }
+        WindowsMeshEditValidationProbe.SelectionAttempt to = null;
+        String target = null;
+        for (int index = names.size() - 1; index >= 0; index--) {
+            final String name = names.get(index);
+            if (name.equals(source)) continue;
+            final WindowsMeshEditValidationProbe.SelectionAttempt attempt =
+                onEdt(() -> WindowsMeshEditValidationProbe.selectTreePath(name));
+            if (attempt.selected()) {
+                to = attempt;
+                target = name;
+                break;
+            }
+        }
+        if (from == null || to == null) {
+            return "unresolved:sought=" + (source == null ? "none" : source)
+                + "->" + (target == null ? "none" : target)
+                + ":from=" + (from == null ? "unselected" : from.treeDescription())
+                + "|to=" + (to == null ? "unselected" : to.treeDescription());
         }
         robotDrag(from.screenX(), from.screenY(), to.screenX(), to.screenY());
         return "dragged:" + source + "->" + target;
@@ -556,41 +582,59 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * Drags inside the model canvas the way the operator does: left button held down, moved,
      * released.
      *
-     * <p>The canvas component is identified structurally — a canvas/GL class name first, then the
-     * largest showing leaf component inside the document window — and the pick is recorded so a
-     * run that hit the wrong surface is visible in the evidence rather than silently ambiguous.
-     * A press that misses the model starts a marquee selection, which is insignificant and leaves
-     * the step open, so the actor works down a small grid of press points and samples the undo
-     * manager after each drag: the first press that lands on the object produces the significant
-     * entry being reviewed and the retries stop.</p>
+     * <p>The surface is identified structurally — a canvas/GL class name first, then the largest
+     * showing leaf components across every visible window, because the r11 run showed the model
+     * view lives in a {@code JDialog}, not the main frame — and every attempted pick is recorded
+     * so a run that hit the wrong surface is visible in the evidence. A press that misses the
+     * model starts a marquee selection, which is insignificant and leaves the step open, so the
+     * actor works across a bounded set of surfaces and press points and samples the undo manager
+     * after each drag: the first press that lands on the object produces the significant entry
+     * being reviewed and the retries stop.</p>
      */
     private String dragCanvas(final String knownSignificant) throws Exception {
-        final java.awt.Component canvas = onEdt(WindowsHistoryNativeUiIngressProbe::canvasComponent);
-        if (canvas == null) return "unresolved:no-canvas-component";
-        final java.awt.Rectangle bounds = canvas.getBounds();
-        final int dx = Math.min(60, Math.max(10, bounds.width / 8));
-        final int dy = Math.min(40, Math.max(10, bounds.height / 8));
-        // Centre first — the model sits centered on load — then a small cross of nearby points.
-        final int[][] fractions = {
-            {1, 2, 1, 2}, {1, 3, 1, 2}, {2, 3, 1, 2}, {1, 2, 1, 3}, {1, 2, 2, 3}
-        };
-        for (int attempt = 0; attempt < fractions.length; attempt++) {
-            final java.awt.Point press = new java.awt.Point(
-                Math.max(1, bounds.width * fractions[attempt][0] / fractions[attempt][1]),
-                Math.max(1, bounds.height * fractions[attempt][2] / fractions[attempt][3]));
-            SwingUtilities.convertPointToScreen(press, canvas);
-            robotDrag(press.x, press.y, press.x + dx, press.y + dy);
-            // The host commits the undo entry after the release; give it a short bounded settle
-            // before deciding the press missed the model.
-            for (int settle = 0; settle < 12; settle++) {
-                Thread.sleep(POLL_MILLIS);
-                if (!significantSequence(sample()).equals(knownSignificant)) {
-                    return "dragged:" + canvas.getClass().getName() + bounds
-                        + ":attempt=" + (attempt + 1);
+        final List<java.awt.Component> candidates =
+            onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
+        if (candidates.isEmpty()) return "unresolved:no-canvas-component";
+        final ArrayList<String> tried = new ArrayList<>();
+        // Centre of the visible region first — the model sits centered on load — then a second
+        // point before moving to the next candidate surface.
+        final int[][] fractions = {{1, 2, 1, 2}, {1, 3, 1, 2}, {2, 3, 1, 2}};
+        for (final java.awt.Component canvas : candidates) {
+            final java.awt.Rectangle visible = onEdt(() -> visibleBounds(canvas));
+            if (visible.isEmpty()) continue;
+            final int dx = Math.min(60, Math.max(10, visible.width / 8));
+            final int dy = Math.min(40, Math.max(10, visible.height / 8));
+            for (final int[] fraction : fractions) {
+                final java.awt.Point press = new java.awt.Point(
+                    visible.x + Math.max(1, visible.width * fraction[0] / fraction[1]),
+                    visible.y + Math.max(1, visible.height * fraction[2] / fraction[3]));
+                SwingUtilities.convertPointToScreen(press, canvas);
+                robotDrag(press.x, press.y, press.x + dx, press.y + dy);
+                // The host commits the undo entry after the release; give it a short bounded
+                // settle before deciding the press missed the model.
+                for (int settle = 0; settle < 12; settle++) {
+                    Thread.sleep(POLL_MILLIS);
+                    if (!significantSequence(sample()).equals(knownSignificant)) {
+                        return "dragged:" + canvas.getClass().getName() + visible
+                            + ":attempt=" + (tried.size() + 1);
+                    }
                 }
+                tried.add(canvas.getClass().getSimpleName() + "@" + press.x + "," + press.y);
             }
         }
-        return "dragged:" + canvas.getClass().getName() + bounds + ":no-significant-entry";
+        return "dragged:" + tried.size() + "-points:no-significant-entry:" + String.join("|", tried);
+    }
+
+    /**
+     * The rectangle of a component that is actually on screen.
+     *
+     * <p>A {@code JComponent} inside a viewport can extend far beyond what is rendered; pressing
+     * at the bounds centre would land on whatever happens to sit at that screen point. Plain
+     * heavyweight components have no such clipping, so their bounds are the visible region.</p>
+     */
+    private static java.awt.Rectangle visibleBounds(final java.awt.Component component) {
+        if (component instanceof javax.swing.JComponent swing) return swing.getVisibleRect();
+        return new java.awt.Rectangle(0, 0, component.getWidth(), component.getHeight());
     }
 
     /**
@@ -691,27 +735,35 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     }
 
     /**
-     * The component most likely to be the model canvas.
+     * The components most likely to be the model canvas, best first.
      *
-     * <p>A class whose name contains a canvas/GL marker wins; otherwise the largest showing leaf
-     * component of the document window. Nothing is picked outside the document window, so a drag
-     * can never land on a palette or a dialog.</p>
+     * <p>The document view does not have to live in a {@code Frame} — the r11 run showed the
+     * model window is a {@code JDialog} — so discovery scans every visible window. A class whose
+     * name carries a canvas/GL marker wins over the structural fallback, which keeps the largest
+     * showing leaves that are not interactive controls; a press inside a palette button or a
+     * slider would prove the wrong family, so those leaves never qualify.</p>
      */
-    private static java.awt.Component canvasComponent() {
-        final java.awt.Frame frame = hostFrame();
-        if (frame == null) return null;
-        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> named =
-            new java.util.concurrent.atomic.AtomicReference<>();
-        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> largest =
-            new java.util.concurrent.atomic.AtomicReference<>();
-        collectCanvas(frame, named, largest, 0);
-        return named.get() != null ? named.get() : largest.get();
+    private static List<java.awt.Component> canvasCandidates() {
+        final List<java.awt.Component> named = new ArrayList<>();
+        final List<java.awt.Component> leaves = new ArrayList<>();
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (window.isVisible()) collectCanvas(window, named, leaves, 0);
+        }
+        leaves.sort((first, second) -> Long.compare(
+            (long) second.getWidth() * second.getHeight(),
+            (long) first.getWidth() * first.getHeight()));
+        final List<java.awt.Component> candidates = new ArrayList<>(named);
+        for (final java.awt.Component leaf : leaves) {
+            if (candidates.size() >= MAX_CANVAS_CANDIDATES) break;
+            if (!candidates.contains(leaf)) candidates.add(leaf);
+        }
+        return candidates;
     }
 
     private static void collectCanvas(
         final java.awt.Component component,
-        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> named,
-        final java.util.concurrent.atomic.AtomicReference<java.awt.Component> largest,
+        final List<java.awt.Component> named,
+        final List<java.awt.Component> leaves,
         final int depth
     ) {
         if (depth > UI_MAP_MAX_DEPTH || !component.isVisible()) return;
@@ -724,28 +776,30 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             || (!className.startsWith("javax.swing.")
                 && !className.startsWith("java.awt.")
                 && !className.startsWith("sun."));
-        if (component.isShowing() && named.get() == null && hostClass
-            && className.matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")) {
-            named.set(component);
+        if (component.isShowing() && hostClass
+            && className.matches(".*[cC]anvas.*|.*[gG][lL].*|.*[vV]iew.*")
+            && !named.contains(component)) {
+            named.add(component);
         }
         final boolean leaf = !(component instanceof java.awt.Container container)
             || container.getComponentCount() == 0;
         // The largest-leaf fallback still has to look like a canvas: the r9 run found nothing by
         // name and the fallback picked the window's title bar — a real component, but a drag
         // there moves the window, not the model. Below a minimum area the pick is too small to
-        // be a model view and the step stays unresolved instead.
+        // be a model view and the step stays unresolved instead, and a known interactive control
+        // is never a candidate at all.
         if (component.isShowing() && leaf
-            && component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE) {
-            final java.awt.Component current = largest.get();
-            if (current == null
-                || component.getWidth() * (long) component.getHeight()
-                    > current.getWidth() * (long) current.getHeight()) {
-                largest.set(component);
-            }
+            && component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE
+            && !(component instanceof javax.swing.AbstractButton)
+            && !(component instanceof javax.swing.JSlider)
+            && !(component instanceof javax.swing.JComboBox<?>)
+            && !(component instanceof javax.swing.text.JTextComponent)
+            && !(component instanceof javax.swing.JSpinner)) {
+            leaves.add(component);
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
-                collectCanvas(child, named, largest, depth + 1);
+                collectCanvas(child, named, leaves, depth + 1);
             }
         }
     }
