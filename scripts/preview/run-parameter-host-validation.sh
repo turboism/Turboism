@@ -40,6 +40,11 @@ runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
 fixture_policy=(--require-fixture-unchanged)
 extra_jvm_options=()
+result_timeout=900
+if [ "$mode" = 'perf-observe' ]; then
+  # Heavy-model runs can spend ~20min in EDT-starved await before measuring.
+  result_timeout=2100
+fi
 case "$mode" in
   persist-write|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final)
     # Persistence validation may intentionally save the copied fixture.
@@ -79,6 +84,6 @@ exec bash "$runner" \
   --result-fail-line 'status=FAIL' \
   --failure-marker 'HOST_VALIDATION_RESULT status=FAIL' \
   --ready-timeout 300 \
-  --result-timeout 900 \
+  --result-timeout "$result_timeout" \
   --exit-timeout 120 \
   "$@"
