@@ -2572,7 +2572,9 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 StandardOpenOption.CREATE,
                 StandardOpenOption.TRUNCATE_EXISTING
             );
-            final CubismModel model = awaitEditorObjectModel(artifact, 360);
+            // The heavy fixture's document load is asynchronous and can exceed ten minutes
+            // under Proton; the job-level timeout still bounds the whole run.
+            final CubismModel model = awaitEditorObjectModel(artifact, 1200);
             forceGcQuietly();
             final long heapAfterOpen = heapUsedBytes();
             final long nonHeapAfterOpen = nonHeapUsedBytes();
