@@ -1253,3 +1253,37 @@ r14 修复（`49765a5e9`，job `f3d12ef0`）：
   可见残余，相对量级不值得重构有意设计的弱引用缓存）。
 
 待 r18 验证全自动关闭。
+
+## I66 — r18 终态解剖与 r19 加固（`3c54b864c`）
+
+r18（job `fb4a9773`，5303 + 重模型 + JFR）：
+- 探针跑到 JFR dump（5.6MB @17:01:41）但进程 17:01:39 自行退出——
+  PASS 写入与 result 文件均未落地；队列终态 failed
+  （`host-validation-result.properties` 缺失；fixture 拷贝实际**未变**，
+  `029e9a4e` 前后一致——「Verify after save」是退出时的会话态写入，
+  与 r16 退出签名相同）。
+- 关闭链断点：`inspectBlockingModal` 在**第一个**可见非 Frame 窗口后
+  就 return——非模态「主页」JDialog 永远排在前面，保存提示从未被
+  检查（`closeModals` 全部丢失）；盲发 N 也未命中（提示窗无键盘焦点
+  或无 N 助记）。文档从未关闭（console 无「选项卡关闭」）。
+- 备份复活的实锤：`stop auto backup`（我们的 g()）→ 宿主立刻
+  `restart auto backup`（f()）→ 17:00–17:01:26 备份 **31.5s / +3.28GB**，
+  I/O 风暴吃掉了关闭窗口的全部余量。
+
+r19 加固（同 commit）：
+1. `inspectBlockingModal` 遍历**所有**可见非 Frame 窗口，
+   逐窗动作（per-window 白名单不变），观察合并进 notes；
+   「主页」不再遮蔽保存提示。
+2. `stopAutoBackup` 改为确定性禁用：`a(30000)`（间隔 ~20 天，
+   取 int 溢出界 35791 以下）+ `a(false)`（d=false 使后续任何 f()
+   重启成 no-op）+ `g()`。设置写入任务前缀内 `.ser`，golden 不动。
+3. 裁决先行：undos 后立即写 `status=PASS phase=closing`，
+   关闭+收尾量测后写完整 PASS，JFR dump 移到**最后**——
+   宿主自发退出不再能抹掉量测结果。
+4. `perf-observe-close-log.txt` 增量追加每次模态观察与盲 N 事件，
+   进程死亡也可存活取证。
+5. dismissedAny 判定修正：多窗 notes 混合时按正向
+   `action=discarded|acknowledged|accepted` 标记，而非
+   `!contains("action=ignored")`。
+
+待 r19 验证（job `08bbe6d5`，queued seq 264）。
