@@ -2604,16 +2604,23 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
-    /** Programmatic click: direct for JButton, reflective {@code doClick()} otherwise. */
+    /**
+     * Programmatic click: direct for JButton, reflective {@code doClick()}
+     * otherwise. Dispatched on the EDT — firing the click on the probe thread
+     * deadlocked r19 (the host's button handler re-entered the EDT and never
+     * returned), while a showing modal still pumps the invokeLater queue.
+     */
     private static void clickComponent(final Component component) {
-        try {
-            if (component instanceof JButton button) {
-                button.doClick();
-                return;
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (component instanceof JButton button) {
+                    button.doClick();
+                    return;
+                }
+                component.getClass().getMethod("doClick").invoke(component);
+            } catch (Throwable ignored) {
             }
-            component.getClass().getMethod("doClick").invoke(component);
-        } catch (Throwable ignored) {
-        }
+        });
     }
 
     private static void collectDialogSurface(
@@ -3018,13 +3025,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 } catch (Exception ignored) {
                 }
                 modelStale = failsClosed(model::id);
-                // Last resort: the prompt may be a native/other-AppContext window
-                // invisible to Window.getWindows() — after ~10s without any
-                // dismissal, send the 'N' mnemonic; the focused save dialog
-                // treats it as "No (don't save)". Only fires after Ctrl+W where
-                // the prompt is expected, and at most twice.
-                if (!modelStale && attempt > 40 && !dismissedAny
-                    && blindRetries < 2) {
+                // Last resort: the prompt sits in the host's AppContext and is
+                // invisible to Window.getWindows() (confirmed r19: the scan saw
+                // only the 主页 dialog while the Yes/No/Cancel prompt was on
+                // screen). Each iteration also costs up to ~5s when the modal
+                // starves invokeLater, so attempt-40 was ~3 minutes too late —
+                // fire 'N' early and repeatedly; the focused save dialog treats
+                // it as "No (don't save)".
+                if (!modelStale && attempt > 8 && !dismissedAny
+                    && blindRetries < 4) {
                     blindRetries++;
                     robot.keyPress(java.awt.event.KeyEvent.VK_N);
                     robot.keyRelease(java.awt.event.KeyEvent.VK_N);
