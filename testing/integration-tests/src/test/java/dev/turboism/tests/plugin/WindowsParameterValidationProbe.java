@@ -2484,6 +2484,39 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     action = "accepted-version-warning";
                 }
             }
+            if ("ignored".equals(action)) {
+                final List<JButton> enabled = buttons.stream()
+                    .filter(b -> b.isEnabled() && b.isVisible())
+                    .toList();
+                // Dirty-close prompts mention saving and offer a discard button;
+                // dismiss via the discard label only — never the save button.
+                final JButton discard = enabled.stream()
+                    .filter(b -> {
+                        final String label = b.getText() == null ? "" : b.getText().trim();
+                        return label.contains("不保存")
+                            || label.contains("保存しない")
+                            || label.equalsIgnoreCase("Don't Save")
+                            || label.contains("破棄")
+                            || label.equalsIgnoreCase("Discard");
+                    })
+                    .findFirst()
+                    .orElse(null);
+                if (discard != null && body.contains("保存")) {
+                    discard.doClick();
+                    action = "discarded-save-prompt";
+                } else if (enabled.size() == 1) {
+                    // A lone confirm button is an informational modal (e.g. the
+                    // post-load 确定 notice) — acknowledge it; the body text is
+                    // still recorded in the status line for review.
+                    final String label = enabled.get(0).getText() == null
+                        ? "" : enabled.get(0).getText().trim();
+                    if (label.equals("确定") || label.equals("確定")
+                        || label.equalsIgnoreCase("OK")) {
+                        enabled.get(0).doClick();
+                        action = "acknowledged-info";
+                    }
+                }
+            }
             final String summary = body.length() > 160 ? body.substring(0, 160) : body;
             return " modal=\"" + dialog.getTitle() + "\" action=" + action + " text=" + summary.replace('\n', ' ');
         }
@@ -2835,6 +2868,12 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             boolean modelStale = false;
             for (int attempt = 0; attempt < 60 && !modelStale; attempt++) {
                 Thread.sleep(100L);
+                if (attempt % 10 == 5) {
+                    try {
+                        onHostThread(this::inspectBlockingModal);
+                    } catch (Exception ignored) {
+                    }
+                }
                 modelStale = failsClosed(model::id);
             }
             metrics.append("modelStale=").append(modelStale).append('\n');
