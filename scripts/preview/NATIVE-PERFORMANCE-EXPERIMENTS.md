@@ -1233,3 +1233,23 @@ r14 修复（`49765a5e9`，job `f3d12ef0`）：
   Don't Save」按钮现在可被发现并点击。
 - close 轮询把每次模态观察记入 `closeModals=`（此前结果被丢弃）。
 - 失败安全：未识别多按钮模态不点击任何东西——超时 fail 但 fixture 安全。
+
+## I65 — r14/r16/r17 终态解剖补记（模态自动化的完整定案）
+
+- r14（小夹具）：`autoBackupStopped=true` 首验；探针 PASS；人工按 N 丢弃
+  保存提示后正常关闭。closeModals 未落盘（r14 探针尚无记录）。
+- r16（重模型）：**首个全绿终态**——succeeded / normalExit /
+  fixtureUnchanged / identity PASS / cleanup safe。
+  `closeModals` 显示扫描只见非模态「主页」JDialog（114 控件），
+  保存提示窗不在 `instanceof Dialog && isModal` 集合内——它不是 Dialog。
+- r17：提示窗显示期间 invokeAndWait 完全阻塞——EDT 上的扫描看不到
+  要关的对话框本身。修复：`inspectBlockingModal` 移出 EDT（直接读
+  `Window.getWindows()` + 组件树），点击用 `doClick()` 同步触发；
+  若 10s 无任何放行则盲发 `N` 助记（最多两次）兜底 native/异 AppContext 窗。
+- r16 JFR（停备份后的干净窗口）：Turboism 自有分配帧最大项
+  RollingSeries.snapshot 23MB / findScenePalette 11MB /
+  wrapInterface 10MB，其余宿主线程合计 ~30GB——adapter <0.2%，
+  已到底（wrapInterface 的按调用 IdentityWeakReference 查找键是唯一
+  可见残余，相对量级不值得重构有意设计的弱引用缓存）。
+
+待 r18 验证全自动关闭。
