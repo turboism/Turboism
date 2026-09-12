@@ -2401,7 +2401,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             String modal = "";
             if (attempt % 10 == 0) {
                 try {
-                    modal = onHostThread(this::inspectBlockingModal);
+                    modal = inspectBlockingModal();
                 } catch (Exception scanFailure) {
                     modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
                 }
@@ -2448,10 +2448,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     /**
-     * Reports a visible modal dialog that is blocking document load, and narrowly
-     * auto-accepts the known "file was saved by a newer Cubism version" warning so
-     * a fixture newer than the host still proceeds. Every observation lands in the
-     * await status line; only whitelisted dialogs are clicked.
+     * Off-EDT modal inspection. A showing save prompt blocks {@code invokeAndWait}
+     * entirely (observed r17), so detection must run on the caller thread;
+     * component-tree reads are best-effort and dismissal uses {@code doClick()},
+     * which fires synchronously. Every observation lands in the caller's status
+     * line; only whitelisted dialogs are clicked.
      */
     private String inspectBlockingModal() {
         for (Window window : Window.getWindows()) {
@@ -2951,17 +2952,39 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             boolean modelStale = false;
             final StringBuilder modalNotes = new StringBuilder();
             String lastModalNote = "";
+            boolean dismissedAny = false;
+            int blindRetries = 0;
             for (int attempt = 0; attempt < 120 && !modelStale; attempt++) {
                 Thread.sleep(250L);
+                // Detection runs off the EDT: a showing save prompt blocks
+                // invokeAndWait entirely (observed r17), so an on-EDT scan
+                // would never see the dialog that needs dismissing.
                 try {
-                    final String note = onHostThread(this::inspectBlockingModal);
-                    if (!note.isEmpty() && !note.equals(lastModalNote)) {
-                        modalNotes.append(note.replace('\n', ' ')).append(" |");
-                        lastModalNote = note;
+                    final String note = inspectBlockingModal();
+                    if (!note.isEmpty()) {
+                        if (!note.equals(lastModalNote)) {
+                            modalNotes.append(note.replace('\n', ' ')).append(" |");
+                            lastModalNote = note;
+                        }
+                        if (!note.contains("action=ignored")) {
+                            dismissedAny = true;
+                        }
                     }
                 } catch (Exception ignored) {
                 }
                 modelStale = failsClosed(model::id);
+                // Last resort: the prompt may be a native/other-AppContext window
+                // invisible to Window.getWindows() — after ~10s without any
+                // dismissal, send the 'N' mnemonic; the focused save dialog
+                // treats it as "No (don't save)". Only fires after Ctrl+W where
+                // the prompt is expected, and at most twice.
+                if (!modelStale && attempt > 40 && !dismissedAny
+                    && blindRetries < 2) {
+                    blindRetries++;
+                    robot.keyPress(java.awt.event.KeyEvent.VK_N);
+                    robot.keyRelease(java.awt.event.KeyEvent.VK_N);
+                    modalNotes.append(" blind-n-sent=").append(blindRetries).append(" |");
+                }
             }
             if (modalNotes.length() > 0) {
                 metrics.append("closeModals=").append(modalNotes).append('\n');
