@@ -63,8 +63,13 @@ public final class ProtectedExportHostProbeAgent {
     private static final String DIALOG_OWNER = "com.live2d.cubism.doc.model.exporter.e";
     private static final String STATE_PATH = "state/dev.turboism.validation.protectedexport";
     private static final String RESULT_NAME = "host-validation-result.properties";
-    private static final String CONFIRM_ACTION = "com.live2d.ui.window.z";
-    private static final String CANCEL_ACTION = "com.live2d.ui.window.A";
+    // Action classes on the native window buttons, verified against the 5.3.02
+    // dialog tree dump: the "OK" button carries com.live2d.ui.window.A (its
+    // actionPerformed calls y.i() which sets the accept flag returned by y.f()),
+    // and the "Cancel" button carries com.live2d.ui.window.z (y.h(), the dismiss
+    // path). Matching by action class rather than label is locale-stable.
+    private static final String CONFIRM_ACTION = "com.live2d.ui.window.A";
+    private static final String CANCEL_ACTION = "com.live2d.ui.window.z";
     private static final String BRIDGE_PREFIX = "turboism.export-settings.dialog.";
     private static final String ATTACH_KEY = BRIDGE_PREFIX + "attach";
     private static final String CANCEL_KEY = BRIDGE_PREFIX + "cancel";
@@ -444,13 +449,18 @@ public final class ProtectedExportHostProbeAgent {
                 }
             }
             if (copyFile != null && copyFile.isFile()) {
-                // The native closeFile releases the file channel asynchronously
-                // (file-cache release + System.gc), so deletion retries briefly.
+                // The native closeFile releases the file asynchronously through the
+                // doc.a.e file-handle cache (loader null + guarded release). Dump and
+                // force-release any lingering handle for the copy path first, then
+                // retry the delete while the channel drains.
+                dumpFileCache(copyFile, evidence, prefix + "cacheBefore.");
+                releaseFileCache(copyFile, evidence, prefix);
                 int attempts = 0;
                 Throwable last = null;
-                while (attempts < 20 && copyFile.isFile()) {
+                while (attempts < 30 && copyFile.isFile()) {
                     attempts++;
                     try {
+                        copyFile.setWritable(true, false);
                         Files.deleteIfExists(copyFile.toPath());
                     } catch (Throwable failure) {
                         last = failure;
@@ -459,11 +469,14 @@ public final class ProtectedExportHostProbeAgent {
                         break;
                     }
                     System.gc();
+                    System.runFinalization();
                     sleep(500L);
                 }
                 if (copyFile.isFile()) {
+                    dumpFileCache(copyFile, evidence, prefix + "cacheAfter.");
                     evidence.put(prefix + "fileRemoveFailure",
-                        last == null ? "still present" : text(last));
+                        last == null ? "still present"
+                            : last.getClass().getName() + ":" + text(last));
                 } else {
                     evidence.put(prefix + "fileRemoved", "true");
                     evidence.put(prefix + "fileRemoveAttempts", Integer.toString(attempts));
@@ -601,10 +614,13 @@ public final class ProtectedExportHostProbeAgent {
         }
 
         // A deformer's targetDeformerGuid is its parent edge; roots anchor to a
-        // non-deformer (model root / part) or to nothing. A parent GUID that does
-        // resolve to a deformer missing from the census is a genuine gap and
+        // non-deformer (model root / part) or to nothing. A parent GUID that
+        // resolves to a deformer missing from the census is a genuine gap and
         // rejects; a GUID resolving to a non-deformer object or the model root is
-        // a legitimate root anchor; a GUID resolving nowhere is dangling.
+        // a legitimate root anchor. A GUID resolving nowhere is a stale edge left
+        // by a deleted parent — the native apply walks downward from each
+        // deformer via getDeformerChildren, so an unresolvable parent edge has no
+        // ancestor to order against and the deformer is a root.
         final Map<String, Object> objectByGuid = objectGuidMap(modelSource);
         final String modelGuid = guidString(modelSource);
         final Map<String, Integer> depthOf = new LinkedHashMap<>();
@@ -625,14 +641,12 @@ public final class ProtectedExportHostProbeAgent {
                     final Object resolved = objectByGuid.get(parent);
                     final String kind = parent.equals(modelGuid)
                         ? "model-root"
-                        : resolved == null ? "absent" : resolved.getClass().getName();
+                        : resolved == null
+                            ? "dangling-root"
+                            : resolved.getClass().getName();
                     evidence.put("flat.parentAnchor." + cursor, parent + "=" + kind);
                     if (resolved instanceof Object && isDeformerSource(resolved)) {
                         evidence.fail("FLAT_MISSING_PARENT:" + cursor + "->" + parent);
-                        return null;
-                    }
-                    if (resolved == null && !parent.equals(modelGuid)) {
-                        evidence.fail("FLAT_DANGLING_PARENT:" + cursor + "->" + parent);
                         return null;
                     }
                     break;
@@ -978,6 +992,102 @@ public final class ProtectedExportHostProbeAgent {
         }
         evidence.put(prefix + "closed", "timeout");
         evidence.put(prefix + "closeState", "projectDetached=false");
+    }
+
+    /**
+     * Records every doc.a.e file-cache entry whose file matches {@code file},
+     * including its class, loader-null state, and listener count — the guarded
+     * {@code b.b.a(true)} release refuses to run while listeners remain.
+     */
+    private static void dumpFileCache(
+        final File file,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            final Object cache = fileCache();
+            final Object handles = cache == null ? null : readNoArg(cache, "a");
+            if (!(handles instanceof List<?> list)) {
+                evidence.put(prefix + "count", "unavailable");
+                return;
+            }
+            int index = 0;
+            for (Object handle : list) {
+                final Object path = readNoArg(handle, "a");
+                if (!(path instanceof File handleFile) || !handleFile.equals(file)) {
+                    continue;
+                }
+                final Object loader = readNoArg(handle, "b");
+                final Object listeners = readNoArg(handle, "d");
+                evidence.put(prefix + index,
+                    handle.getClass().getName()
+                        + "|loader=" + (loader == null ? "null" : loader.getClass().getName())
+                        + "|listeners=" + (listeners instanceof List<?> l ? l.size() : "?"));
+                index++;
+            }
+            evidence.put(prefix + "count", Integer.toString(index));
+        } catch (Throwable failure) {
+            evidence.put(prefix + "count", "failed:" + text(failure));
+        }
+    }
+
+    /**
+     * Force-releases the doc.a.e file-handle entry for {@code file}: nulls its
+     * loader, runs the guarded {@code a(true)} release, and removes it from the
+     * cache when the guard still refuses (lingering listeners).
+     */
+    private static void releaseFileCache(
+        final File file,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            final Object cache = fileCache();
+            if (cache == null) {
+                return;
+            }
+            final Object handles = readNoArg(cache, "a");
+            if (!(handles instanceof List<?> list)) {
+                return;
+            }
+            int released = 0;
+            for (Object handle : new ArrayList<>(list)) {
+                final Object path = readNoArg(handle, "a");
+                if (!(path instanceof File handleFile) || !handleFile.equals(file)) {
+                    continue;
+                }
+                try {
+                    invoke(handle, "e", new Class<?>[0]);
+                } catch (Throwable ignored) {
+                }
+                try {
+                    invoke(handle, "a", new Class<?>[] {boolean.class}, true);
+                } catch (Throwable ignored) {
+                }
+                try {
+                    invoke(cache, "b", new Class<?>[] {
+                        Class.forName("com.live2d.cubism.doc.a.b.a")
+                    }, handle);
+                    released++;
+                } catch (Throwable ignored) {
+                }
+            }
+            evidence.put(prefix + "cacheForceReleased", Integer.toString(released));
+        } catch (Throwable failure) {
+            evidence.put(prefix + "cacheForceReleased", "failed:" + text(failure));
+        }
+    }
+
+    /** The doc.a.e file-handle cache singleton (static field {@code a}). */
+    private static Object fileCache() {
+        try {
+            final Class<?> type = Class.forName("com.live2d.cubism.doc.a.e");
+            final java.lang.reflect.Field field = type.getDeclaredField("a");
+            field.setAccessible(true);
+            return field.get(null);
+        } catch (Throwable failure) {
+            return null;
+        }
     }
 
     /** True while {@code document} is still a child of the current project. */
