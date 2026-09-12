@@ -320,6 +320,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     runNativeLabelColorPersistReopen();
                 } else if ("native-control-background-persist-final".equals(mode)) {
                     runNativeLabelColorPersistFinal();
+                } else if ("perf-observe".equals(mode)) {
+                    runPerfObservation();
                 } else {
                     runEditorObjectValidation();
                     runPartOpacityValidation();
@@ -2312,9 +2314,13 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private CubismModel awaitEditorObjectModel(final Path artifact) throws Exception {
+        return awaitEditorObjectModel(artifact, 120);
+    }
+
+    private CubismModel awaitEditorObjectModel(final Path artifact, final int maxAttempts) throws Exception {
         CubismModel model = null;
         Exception unavailable = null;
-        for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
+        for (int attempt = 0; attempt < maxAttempts && !Thread.currentThread().isInterrupted(); attempt++) {
             try {
                 model = onHostThread(this::activeModel);
                 final CubismModel candidate = model;
@@ -2552,6 +2558,160 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception exception) {
             writeValidationFailure(artifact, exception, "Editor object document-close lifecycle artifact could not be written");
         }
+    }
+
+    private void runPerfObservation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "perf-observe-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            final CubismModel model = awaitEditorObjectModel(artifact, 360);
+            forceGcQuietly();
+            final long heapAfterOpen = heapUsedBytes();
+            final long nonHeapAfterOpen = nonHeapUsedBytes();
+
+            final java.lang.management.ThreadMXBean threads =
+                java.lang.management.ManagementFactory.getThreadMXBean();
+            final com.sun.management.ThreadMXBean hotspotThreads =
+                threads instanceof com.sun.management.ThreadMXBean supported
+                    ? supported : null;
+            final long edtId = onHostThread(() -> Thread.currentThread().getId());
+            if (hotspotThreads != null && hotspotThreads.isThreadAllocatedMemorySupported()
+                && !hotspotThreads.isThreadAllocatedMemoryEnabled()) {
+                hotspotThreads.setThreadAllocatedMemoryEnabled(true);
+            }
+            final com.sun.management.ThreadMXBean allocThreads =
+                hotspotThreads != null && hotspotThreads.isThreadAllocatedMemoryEnabled()
+                    ? hotspotThreads : null;
+
+            final StringBuilder metrics = new StringBuilder();
+            metrics.append("heapUsedAfterOpenBytes=").append(heapAfterOpen).append('\n');
+            metrics.append("nonHeapUsedAfterOpenBytes=").append(nonHeapAfterOpen).append('\n');
+            final int drawableCount = onHostThread(() -> model.drawables().all().size());
+            final int parameterCount = onHostThread(() -> model.parameters().all().size());
+            metrics.append("drawables=").append(drawableCount).append('\n');
+            metrics.append("parameters=").append(parameterCount).append('\n');
+
+            final long gcCountBefore = gcCollectionCount();
+            final long gcTimeBefore = gcCollectionTimeMillis();
+            measureCall(metrics, "runtime", allocThreads, edtId,
+                () -> context.cubism().runtime());
+            measureCall(metrics, "activeProject", allocThreads, edtId,
+                () -> context.cubism().activeProject());
+            measureCall(metrics, "activeDocument", allocThreads, edtId,
+                () -> context.cubism().activeDocument());
+            measureCall(metrics, "modelActive", allocThreads, edtId,
+                this::activeModel);
+            metrics.append("gcCollectionsDuringReads=")
+                .append(gcCollectionCount() - gcCountBefore).append('\n');
+            metrics.append("gcMillisDuringReads=")
+                .append(gcCollectionTimeMillis() - gcTimeBefore).append('\n');
+
+            forceGcQuietly();
+            metrics.append("heapUsedAfterReadsBytes=").append(heapUsedBytes()).append('\n');
+
+            final java.awt.Robot robot = new java.awt.Robot();
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+            boolean modelStale = false;
+            for (int attempt = 0; attempt < 60 && !modelStale; attempt++) {
+                Thread.sleep(100L);
+                modelStale = failsClosed(model::id);
+            }
+            metrics.append("modelStale=").append(modelStale).append('\n');
+            forceGcQuietly();
+            metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
+            metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
+
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=perf-observe\n" + metrics,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+        } catch (Exception exception) {
+            writeValidationFailure(artifact, exception, "Perf observation artifact could not be written");
+        }
+    }
+
+    private void measureCall(
+        final StringBuilder metrics,
+        final String name,
+        final com.sun.management.ThreadMXBean threads,
+        final long edtId,
+        final Callable<?> call
+    ) throws Exception {
+        for (int warmup = 0; warmup < 5; warmup++) {
+            onHostThread(() -> {
+                call.call();
+                return null;
+            });
+        }
+        final long allocBefore = threads == null ? -1L : threads.getThreadAllocatedBytes(edtId);
+        final long[] nanos = new long[30];
+        for (int iteration = 0; iteration < nanos.length; iteration++) {
+            nanos[iteration] = onHostThread(() -> {
+                final long started = System.nanoTime();
+                call.call();
+                return System.nanoTime() - started;
+            });
+        }
+        final long allocBytes = threads == null
+            ? -1L
+            : threads.getThreadAllocatedBytes(edtId) - allocBefore;
+        final long[] sorted = nanos.clone();
+        java.util.Arrays.sort(sorted);
+        metrics.append(name).append("Calls=").append(nanos.length).append('\n');
+        metrics.append(name).append("MedianNanos=").append(sorted[nanos.length / 2]).append('\n');
+        metrics.append(name).append("P95Nanos=").append(sorted[(int) (nanos.length * 0.95)]).append('\n');
+        metrics.append(name).append("EdtAllocatedBytesTotal=").append(allocBytes).append('\n');
+    }
+
+    private static void forceGcQuietly() {
+        try {
+            for (int round = 0; round < 3; round++) {
+                System.gc();
+                Thread.sleep(250L);
+            }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static long heapUsedBytes() {
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+            .getHeapMemoryUsage().getUsed();
+    }
+
+    private static long nonHeapUsedBytes() {
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+            .getNonHeapMemoryUsage().getUsed();
+    }
+
+    private static long gcCollectionCount() {
+        long total = 0L;
+        for (java.lang.management.GarbageCollectorMXBean gc
+            : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            final long count = gc.getCollectionCount();
+            if (count > 0L) total += count;
+        }
+        return total;
+    }
+
+    private static long gcCollectionTimeMillis() {
+        long total = 0L;
+        for (java.lang.management.GarbageCollectorMXBean gc
+            : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            final long time = gc.getCollectionTime();
+            if (time > 0L) total += time;
+        }
+        return total;
     }
 
     private static boolean failsClosed(final Callable<?> call) {
