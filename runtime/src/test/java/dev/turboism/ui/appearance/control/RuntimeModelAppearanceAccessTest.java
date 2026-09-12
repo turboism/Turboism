@@ -3,11 +3,18 @@ package dev.turboism.ui.appearance.control;
 import dev.turboism.adapter.cubism.HostSnapshotSource;
 import dev.turboism.adapter.cubism.NativeLabelColorAuthoring;
 import dev.turboism.adapter.cubism.NativeLabelColorTarget;
+import dev.turboism.adapter.cubism.ProjectWorkspaceAdapter;
+import dev.turboism.adapter.host.HostSessionSnapshotSource;
 import dev.turboism.permissions.PermissionChecker;
+import dev.turboism.sdk.hostread.ProjectWorkspaceSnapshot;
 import dev.turboism.sdk.permission.CubismPermissionException;
 import dev.turboism.sdk.permission.PermissionIds;
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
+import dev.turboism.sdk.cubism.ModelSnapshot;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
+import dev.turboism.sdk.cubism.WorkspaceSnapshot;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterGroupId;
 import dev.turboism.sdk.cubism.id.ParameterId;
@@ -76,6 +83,23 @@ class RuntimeModelAppearanceAccessTest {
             "the observation must replace the separate presence check");
         assertEquals(fixture.observeCalls.get(), fixture.documentReads.get(),
             "each observation must read the document exactly once, not once per accessor");
+    }
+
+    @Test
+    void scopeCaptureUsesSdkShapedObservationsVerbatim() {
+        final Fixture fixture = new Fixture("content-a", "model-a", 7L);
+        fixture.sdkSource = true;
+        final PaletteAppearanceCoordinator coordinator = new PaletteAppearanceCoordinator();
+        final RuntimeModelAppearanceAccess access = fixture.access("plugin-a", 1L, coordinator);
+
+        final PaletteEntry entry = access.part(part("PartA"), 3L).partPaletteEntry().orElseThrow();
+        entry.overrideFontSize(14.0F);
+
+        assertEquals(Optional.of(14.0F), entry.resolved().fontSize());
+        assertTrue(fixture.pairReads.get() >= 1L,
+            "the session source must read the paired project/document");
+        assertEquals(0L, fixture.observeCalls.get(),
+            "SDK-shaped observations must skip the intermediate Host* projection");
     }
 
     @Test
@@ -319,9 +343,11 @@ class RuntimeModelAppearanceAccessTest {
         private final AtomicLong documentReads = new AtomicLong();
         private final AtomicLong presenceChecks = new AtomicLong();
         private final AtomicLong observeCalls = new AtomicLong();
+        private final AtomicLong pairReads = new AtomicLong();
         private String contentId;
         private String modelId;
         private boolean hostPresent = true;
+        private boolean sdkSource;
         private HostSnapshotSource.HostModel model;
 
         private Fixture(final String contentId, final String modelId, final long token) {
@@ -388,6 +414,7 @@ class RuntimeModelAppearanceAccessTest {
         }
 
         private HostSnapshotSource source() {
+            if (sdkSource) return sessionSource();
             return new HostSnapshotSource() {
                 @Override public Optional<HostProject> activeProject() { return Optional.empty(); }
                 @Override public Optional<HostDocument> activeDocument() {
@@ -423,6 +450,69 @@ class RuntimeModelAppearanceAccessTest {
                 Optional.of(model),
                 Optional.empty()
             );
+        }
+
+        /** A session-level source whose observations are SDK snapshots verbatim. */
+        private HostSnapshotSource sessionSource() {
+            final ProjectWorkspaceAdapter adapter = new ProjectWorkspaceAdapter() {
+                @Override
+                public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
+                    return AdapterResult.available(Optional.of(projectSnapshot()));
+                }
+
+                @Override
+                public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
+                    return AdapterResult.available(documentSnapshot());
+                }
+
+                @Override
+                public AdapterResult<ActiveProjectDocument> activeProjectAndDocument() {
+                    pairReads.incrementAndGet();
+                    return AdapterResult.available(new ActiveProjectDocument(
+                        Optional.of(projectSnapshot()),
+                        documentSnapshot()
+                    ));
+                }
+
+                @Override
+                public AdapterResult<Optional<WorkspaceSnapshot>> workspace() {
+                    return AdapterResult.available(Optional.empty());
+                }
+
+                @Override
+                public AdapterResult<ProjectWorkspaceSnapshot> projectWorkspaceSnapshot() {
+                    return AdapterResult.available(
+                        new ProjectWorkspaceSnapshot(Optional.empty(), Optional.empty())
+                    );
+                }
+            };
+            return HostSessionSnapshotSource.forSession(adapter);
+        }
+
+        private ProjectSnapshot projectSnapshot() {
+            return new ProjectSnapshot(
+                "project-" + contentId,
+                "Project",
+                Optional.empty(),
+                List.of(),
+                List.of()
+            );
+        }
+
+        private Optional<DocumentSnapshot> documentSnapshot() {
+            if (!hostPresent) return Optional.empty();
+            return Optional.of(new DocumentSnapshot(
+                "document-" + contentId,
+                "Document",
+                "models/" + contentId + ".cmo3",
+                Optional.empty(),
+                Optional.of(new ModelSnapshot(
+                    modelId, modelId, List.of(), List.of(), List.of(), List.of()
+                )),
+                DocumentKind.MODEL,
+                Optional.of(contentId),
+                Optional.empty()
+            ));
         }
     }
 }

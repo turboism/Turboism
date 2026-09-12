@@ -132,12 +132,77 @@ class SnapshotVersioningTest {
             "paired reads must not fall back to the individual accessors");
     }
 
+    @Test
+    void runtimeOverSessionSourceReturnsTheAdapterSnapshotsVerbatim() {
+        final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
+        final CubismFacadeImpl facade = facadeWith(
+            HostSessionSnapshotSource.forSession(adapter),
+            List.of(
+                permission(CubismFacadeImpl.MODEL_READ_PERMISSION),
+                permission(CubismFacadeImpl.PROJECT_READ_PERMISSION)
+            )
+        );
+
+        final var snapshot = facade.runtime();
+
+        assertEquals(1, adapter.pairReads);
+        assertTrue(snapshot.project().isPresent());
+        assertTrue(snapshot.document().isPresent());
+        assertEquals("project-1", snapshot.project().orElseThrow().projectId());
+        assertEquals("document-1", snapshot.document().orElseThrow().documentId());
+        // The session adapter projects no selection and the document carries no model.
+        assertTrue(snapshot.selection().selectedObjectIds().isEmpty());
+        assertTrue(snapshot.model().isEmpty());
+        assertTrue(snapshot.parameters().isEmpty());
+    }
+
+    @Test
+    void runtimeOverSessionSourceRedactsProjectWithoutProjectRead() {
+        final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
+        final CubismFacadeImpl facade = facadeWith(
+            HostSessionSnapshotSource.forSession(adapter),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
+        );
+
+        final var snapshot = facade.runtime();
+
+        assertTrue(snapshot.project().isEmpty(),
+            "project-read denial redacts only the project portion");
+        assertTrue(snapshot.document().isPresent());
+    }
+
+    @Test
+    void sessionSourceVersionsTheObservedPairNotAFreshRead() {
+        final CountingWorkspaceAdapter adapter = new CountingWorkspaceAdapter();
+        final CubismFacadeImpl facade = facadeWith(
+            HostSessionSnapshotSource.forSession(adapter),
+            List.of(permission(CubismFacadeImpl.MODEL_READ_PERMISSION))
+        );
+
+        final SnapshotWithVersion first = facade.runtimeWithVersion();
+        final SnapshotWithVersion second = facade.runtimeWithVersion();
+
+        assertEquals(first.version(), second.version(),
+            "an unchanged observed pair must not bump the token");
+        assertEquals(2, adapter.pairReads,
+            "each versioned read observes once; the version check reuses the carried evidence");
+        adapter.swapDocument();
+        final SnapshotWithVersion third = facade.runtimeWithVersion();
+        assertEquals(first.version() + 1, third.version(),
+            "a changed document must bump the token exactly once");
+    }
+
     /** Counts host reads so the validity check cannot cost more than the work it protects. */
     private static final class CountingWorkspaceAdapter implements ProjectWorkspaceAdapter {
 
         private int projectReads;
         private int documentReads;
         private int pairReads;
+        private Optional<DocumentSnapshot> document = Optional.of(documentSnapshot("document-1"));
+
+        private void swapDocument() {
+            document = Optional.of(documentSnapshot("document-2"));
+        }
 
         @Override
         public AdapterResult<Optional<ProjectSnapshot>> activeProject() {
@@ -148,7 +213,7 @@ class SnapshotVersioningTest {
         @Override
         public AdapterResult<Optional<DocumentSnapshot>> activeDocument() {
             documentReads++;
-            return AdapterResult.available(Optional.of(documentSnapshot()));
+            return AdapterResult.available(document);
         }
 
         @Override
@@ -156,7 +221,7 @@ class SnapshotVersioningTest {
             pairReads++;
             return AdapterResult.available(new ActiveProjectDocument(
                 Optional.of(projectSnapshot()),
-                Optional.of(documentSnapshot())
+                document
             ));
         }
 
@@ -170,9 +235,9 @@ class SnapshotVersioningTest {
             );
         }
 
-        private static DocumentSnapshot documentSnapshot() {
+        private static DocumentSnapshot documentSnapshot(final String documentId) {
             return new DocumentSnapshot(
-                "document-1",
+                documentId,
                 "Model",
                 "model/model.cmo3",
                 Optional.empty(),

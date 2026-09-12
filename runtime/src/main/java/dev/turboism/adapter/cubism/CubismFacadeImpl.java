@@ -72,6 +72,13 @@ public final class CubismFacadeImpl implements CubismFacade {
         Optional.empty()
     );
 
+    private static final SelectionSnapshot EMPTY_RUNTIME_SELECTION = new SelectionSnapshot(
+        List.of(),
+        Optional.empty(),
+        Optional.empty(),
+        Optional.empty()
+    );
+
     private final HostSnapshotSource source;
     private final CubismPermissionGate permissionGate;
     private final ImmutableSnapshotFactory snapshotFactory;
@@ -744,16 +751,13 @@ public final class CubismFacadeImpl implements CubismFacade {
      */
     public SnapshotWithVersion runtimeWithVersion() {
         requireActiveScope();
-        final HostSnapshotSource.Observation observation = observeRuntime();
-        final CubismRuntimeSnapshot snapshot = snapshotFactory.runtime(
-            observation.project(),
-            observation.document(),
-            observation.model(),
-            observation.selection()
-        );
+        final RuntimeRead read = observeRuntimeRead();
         // The version is derived from the very observation the snapshot was built from, so the two
         // can never disagree and the host is not read again just to compute it.
-        return new SnapshotWithVersion(snapshot, source.versionOf(observation));
+        return new SnapshotWithVersion(
+            runtimeSnapshot(read),
+            source.versionOfSdkRuntime(read.observed())
+        );
     }
 
     /** Returns the original audit-capable gate for capability-aware read services. */
@@ -762,39 +766,80 @@ public final class CubismFacadeImpl implements CubismFacade {
     }
 
     /**
-     * Observes the host once for a single runtime read.
+     * One normalized runtime read at SDK level.
      *
      * <p>The source owns the pairing, so the project, the document, the model and the selection come
-     * from one traversal and the active model is never read through a second document read. The
-     * permission gate still runs before any invalidation version is computed.</p>
+     * from one traversal and the active model is never read through a second document read. Sources
+     * that already hold SDK snapshots skip the intermediate {@code Host*} projection entirely;
+     * host-shaped observations are projected here exactly as before. The permission gate still runs
+     * before any invalidation version is computed.</p>
      */
-    private HostSnapshotSource.Observation observeRuntime() {
-        final HostSnapshotSource.Observation observed = source.observe();
+    private RuntimeRead observeRuntimeRead() {
+        final HostSnapshotSource.SdkRuntimeObservation observed = source.observeSdkRuntime();
+        if (observed.host() == null) {
+            final Optional<DocumentSnapshot> document = Optional.ofNullable(observed.document());
+            if (document.isPresent()) {
+                permissionGate.require(MODEL_READ_PERMISSION, "runtime");
+            }
+            final Optional<ProjectSnapshot> project = observed.project() != null
+                && projectReadAllowed()
+                ? Optional.of(observed.project())
+                : Optional.empty();
+            return new RuntimeRead(
+                project,
+                document,
+                document.flatMap(DocumentSnapshot::model),
+                observed.selection() != null ? observed.selection() : EMPTY_RUNTIME_SELECTION,
+                observed
+            );
+        }
+        final HostSnapshotSource.Observation host = observed.host();
         // Project-read denial redacts only the project portion; the model portion stays readable.
         final Optional<HostSnapshotSource.HostProject> project =
-            runtimeProjectSnapshot(observed.project());
-        if (observed.document().isPresent()
-            || observed.model().isPresent()
-            || hasSelection(observed.selection())) {
+            runtimeProjectSnapshot(host.project());
+        if (host.document().isPresent()
+            || host.model().isPresent()
+            || hasSelection(host.selection())) {
             permissionGate.require(MODEL_READ_PERMISSION, "runtime");
         }
-        return new HostSnapshotSource.Observation(
-            project,
-            observed.document(),
-            observed.model(),
-            observed.selection(),
-            observed.evidence()
+        return new RuntimeRead(
+            project.map(snapshotFactory::project),
+            host.document().map(snapshotFactory::document),
+            host.model().map(snapshotFactory::model),
+            snapshotFactory.selection(host.selection()),
+            observed
         );
     }
 
     private CubismRuntimeSnapshot runtimeSnapshot() {
-        final HostSnapshotSource.Observation observation = observeRuntime();
-        return snapshotFactory.runtime(
-            observation.project(),
-            observation.document(),
-            observation.model(),
-            observation.selection()
+        return runtimeSnapshot(observeRuntimeRead());
+    }
+
+    private CubismRuntimeSnapshot runtimeSnapshot(final RuntimeRead read) {
+        final Optional<ModelSnapshot> model = read.model();
+        return new CubismRuntimeSnapshot(
+            read.project(),
+            read.document(),
+            model,
+            read.selection(),
+            model.map(ModelSnapshot::objects).orElseGet(List::of),
+            model.map(ModelSnapshot::parameters).orElseGet(List::of),
+            model.map(ModelSnapshot::artMeshes).orElseGet(List::of),
+            model.map(ModelSnapshot::deformers).orElseGet(List::of)
         );
+    }
+
+    /**
+     * The normalized result of one runtime read: SDK-level snapshots plus the observation whose
+     * evidence {@link HostSnapshotSource#versionOfSdkRuntime} versions.
+     */
+    private record RuntimeRead(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document,
+        Optional<ModelSnapshot> model,
+        SelectionSnapshot selection,
+        HostSnapshotSource.SdkRuntimeObservation observed
+    ) {
     }
 
     @Override
@@ -1013,12 +1058,16 @@ public final class CubismFacadeImpl implements CubismFacade {
         if (project.isEmpty()) {
             return Optional.empty();
         }
+        // runtime() redacts only the project portion on project-read denial so model-read plugins can still inspect model state.
+        return projectReadAllowed() ? project : Optional.empty();
+    }
+
+    private boolean projectReadAllowed() {
         try {
             permissionGate.require(PROJECT_READ_PERMISSION, "runtime");
-            return project;
+            return true;
         } catch (CubismPermissionException ignored) {
-            // runtime() redacts only the project portion on project-read denial so model-read plugins can still inspect model state.
-            return Optional.empty();
+            return false;
         }
     }
 
