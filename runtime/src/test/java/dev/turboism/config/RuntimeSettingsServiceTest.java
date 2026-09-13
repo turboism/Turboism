@@ -1,8 +1,8 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.turboism.plugin.core.CubismJvmSettingsService.CubismJvm;
-import dev.turboism.plugin.core.CubismJvmSettingsService.ManagedRuntimeState;
+import dev.turboism.shell.CubismJvmSettingsService.CubismJvm;
+import dev.turboism.shell.CubismJvmSettingsService.ManagedRuntimeState;
 import dev.turboism.sdk.runtime.RuntimeSettings;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
