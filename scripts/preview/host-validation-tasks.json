@@ -142,6 +142,34 @@
           "-Dturboism.fps.settleSeconds=75",
           "--jvm-option",
           "-XX:+UseZGC"
+        ],
+        "jfr": [
+          "{version}",
+          "{runLabel}-jfr",
+          "--jvm-option",
+          "-Dturboism.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.fps.settleSeconds=75"
+        ],
+        "opengl": [
+          "{version}",
+          "{runLabel}-opengl",
+          "--jvm-option",
+          "-Dturboism.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.opengl=true"
+        ],
+        "d3d": [
+          "{version}",
+          "{runLabel}-d3d",
+          "--jvm-option",
+          "-Dturboism.fps.sustained=true",
+          "--jvm-option",
+          "-Dturboism.fps.settleSeconds=75",
+          "--jvm-option",
+          "-Dsun.java2d.d3d=true"
         ]
       },
       "defaultVariant": "default"
@@ -334,6 +362,11 @@
         "perf-observe-batch": [
           "{version}",
           "perf-observe-batch",
+          "{runLabel}"
+        ],
+        "native-tuned7": [
+          "{version}",
+          "native-tuned7",
           "{runLabel}"
         ]
       },
