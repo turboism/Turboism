@@ -99,6 +99,8 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     private static final String DRAWABLE_ID_CLASS = PREFIX + "drawable-id.class";
     private static final String DRAWABLE_ID_CREATE = PREFIX + "drawable-id.create";
     private static final String PARAMETER_ID_CLASS = PREFIX + "parameter-id.class";
+    private static final String PARAMETER_SOURCE_ID = PREFIX + "parameter-source.id";
+    private static final String PARAMETER_SOURCE_NAME = PREFIX + "parameter-source.name";
     private static final String GUID_CLASS = PREFIX + "guid.class";
     private static final String GUID_UUID = PREFIX + "guid.uuid-string";
     private static final String ID_CLASS = PREFIX + "id.class";
@@ -154,6 +156,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         DRAWABLE_ID_GET, DRAWABLE_ID_SET, DRAWABLE_ID_CREATE,
         GUID_UUID, ID_STRING,
         PARAMETER_SET_PARAMETERS, PARAMETER_INSTANCE_VALUE, PARAMETER_INSTANCE_ID,
+        PARAMETER_SOURCE_ID, PARAMETER_SOURCE_NAME,
         DIALOG_MODEL_SOURCE, DRIVER_INSTANCE, DRIVER_EXPORT,
         FILE_CACHE_INSTANCE, FILE_CACHE_HANDLES, FILE_CACHE_BY_FILE, FILE_CACHE_REMOVE,
         FILE_HANDLE_FILE, FILE_HANDLE_LOADER, FILE_HANDLE_LISTENERS,
@@ -516,6 +519,28 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
         }
         final Object id = resolver.invoke(DRAWABLE_ID_GET, drawableSource);
         return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    /**
+     * Parameter sources are not parameter-controllable: their ID is a
+     * {@code CParameterId} reached through the source's own accessor.
+     */
+    @Override
+    public String parameterSourceIdString(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object id = resolver.invoke(PARAMETER_SOURCE_ID, parameterSource);
+        return id == null ? null : (String) resolver.invoke(ID_STRING, id);
+    }
+
+    @Override
+    public String parameterSourceName(final Object parameterSource) {
+        if (!resolver.isInstance(PARAMETER_CLASS, parameterSource)) {
+            return null;
+        }
+        final Object name = resolver.invoke(PARAMETER_SOURCE_NAME, parameterSource);
+        return name instanceof String text ? text : null;
     }
 
     // ------------------------------------------------------------------

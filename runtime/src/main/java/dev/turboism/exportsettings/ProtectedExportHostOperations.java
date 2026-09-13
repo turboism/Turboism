@@ -160,6 +160,15 @@ public interface ProtectedExportHostOperations {
     /** Rewrites an ArtMesh source's drawable ID — disposable-copy obfuscation only. */
     void setDrawableId(Object drawableSource, String idString);
 
+    /**
+     * Parameter ID string of a parameter <em>source</em>. Parameter sources are
+     * not parameter-controllable sources — they need their own accessor.
+     */
+    String parameterSourceIdString(Object parameterSource);
+
+    /** Display name of a parameter source, or {@code null} when unreadable. */
+    String parameterSourceName(Object parameterSource);
+
     boolean isDeformerSource(Object object);
 
     boolean isWarpDeformer(Object object);

@@ -999,7 +999,8 @@ class ProtectedExportOrchestratorTest {
             final List<Object> all = new ArrayList<>();
             all.addAll(model.deformers);
             all.addAll(model.artMeshes);
-            all.addAll(model.parameters);
+            // Parameter sources are not parameter-controllable on the real host:
+            // getAllObjects never returns them.
             all.addAll(model.parts);
             return all;
         }
@@ -1048,6 +1049,9 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String objectGuid(final Object source) {
+            if (source instanceof FakeParameter) {
+                throw new IllegalArgumentException("not a controllable source");
+            }
             if (source instanceof FakeDeformer deformer) {
                 return deformer.guid;
             }
@@ -1059,11 +1063,13 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String objectIdString(final Object source) {
+            // Mirror the real host: the controllable accessor rejects
+            // parameter sources with IllegalArgumentException.
+            if (source instanceof FakeParameter) {
+                throw new IllegalArgumentException("not a controllable source");
+            }
             if (source instanceof FakeArtMesh mesh) {
                 return mesh.drawableId;
-            }
-            if (source instanceof FakeParameter parameter) {
-                return parameter.id;
             }
             if (source instanceof FakePart part) {
                 return part.id;
@@ -1073,10 +1079,25 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String objectLocalName(final Object source) {
+            if (source instanceof FakeParameter) {
+                throw new IllegalArgumentException("not a controllable source");
+            }
             if (source instanceof FakeArtMesh mesh) {
                 return mesh.name;
             }
             return "object-name-" + System.identityHashCode(source);
+        }
+
+        @Override
+        public String parameterSourceIdString(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? parameter.id : null;
+        }
+
+        @Override
+        public String parameterSourceName(final Object parameterSource) {
+            return parameterSource instanceof FakeParameter parameter
+                ? "param-name-" + parameter.id : null;
         }
 
         @Override
