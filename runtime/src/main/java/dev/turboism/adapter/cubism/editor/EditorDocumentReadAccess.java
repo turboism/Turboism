@@ -1,12 +1,14 @@
 package dev.turboism.adapter.cubism.editor;
 
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationTimelineReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorPhysicsReadSelectorContract;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.id.DeformerId;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.AnimationDocument;
+import dev.turboism.sdk.cubism.model.AnimationScene;
 import dev.turboism.sdk.cubism.model.AutoYure;
 import dev.turboism.sdk.cubism.model.AutoYureBinding;
 import dev.turboism.sdk.cubism.model.AutoYureConfig;
@@ -180,10 +182,35 @@ final class EditorDocumentReadAccess {
             throw unavailable("The active Cubism document is not a modeling document.");
         }
         modelGuard.requireCurrent(identity, model);
+        final Object project = resolver.invoke(
+            "cubism.editor-model.app-controller.current-project", app
+        );
+        requireInstance(
+            "cubism.editor-model.project.class",
+            project,
+            "Editor current project is invalid."
+        );
+        final Object rawModelGuid = resolver.invoke(
+            "cubism.editor-model.model-source.guid", source
+        );
+        final String modelGuid = rawModelGuid == null
+            ? null
+            : text(resolver.invoke("cubism.editor-model.guid.value", rawModelGuid), "Editor model guid");
+        final java.io.File modelFile = normalizedFile(resolver.invoke(
+            "cubism.editor-model.file-content.file", document
+        ));
+        final boolean timelineAuthorized = resolver.authorizesFeature(
+            EditorAnimationTimelineReadSelectorContract.ADAPTER_SLICE_ID,
+            EditorAnimationTimelineReadSelectorContract.CAPABILITY_ID,
+            EditorAnimationTimelineReadSelectorContract.REQUIRED_ALIASES
+        );
+        final EditorAnimationTimelineAccess timelineAccess = timelineAuthorized
+            ? new EditorAnimationTimelineAccess(resolver, modelGuard, identity, model)
+            : null;
         final List<AnimationDocument> documents = new ArrayList<>();
         for (Object content : list(
-            resolver.invoke("cubism.editor-model.modeling-document.file-content-docs", document),
-            "Editor file-content documents"
+            resolver.invoke("cubism.editor-model.project.children", project),
+            "Editor project entries"
         )) {
             if (!resolver.isInstance("cubism.editor-model.animation-file-content.class", content)) {
                 continue;
@@ -196,6 +223,9 @@ final class EditorDocumentReadAccess {
                 animation,
                 "Editor animation file content is invalid."
             );
+            if (!linksModel(animation, source, modelGuid, modelFile)) {
+                continue;
+            }
             final String animationName = text(
                 resolver.invoke("cubism.editor-model.animation.name", animation),
                 "Editor animation name"
@@ -214,11 +244,22 @@ final class EditorDocumentReadAccess {
             if (currentName.isPresent() && !sceneNames.contains(currentName.orElseThrow())) {
                 throw unavailable("Editor current animation scene is absent from the scene list.");
             }
+            final List<AnimationScene> projectedScenes = timelineAccess == null
+                ? null
+                : timelineAccess.scenes(scenes, content);
             documents.add(new AnimationDocument() {
                 @Override public String animationName() { return animationName; }
                 @Override public int sceneCount() { return sceneNames.size(); }
                 @Override public Optional<String> currentSceneName() { return currentName; }
                 @Override public List<String> sceneNames() { return sceneNames; }
+                @Override public List<AnimationScene> scenes() {
+                    if (projectedScenes == null) {
+                        throw new UnsupportedOperationException(
+                            "Animation scene timelines are unavailable without exact verified host evidence."
+                        );
+                    }
+                    return projectedScenes;
+                }
             });
         }
         final List<AnimationDocument> projectedDocuments = List.copyOf(documents);
@@ -407,6 +448,98 @@ final class EditorDocumentReadAccess {
             resolver.invoke("cubism.editor-model.scene-source.scene-name", sceneSource),
             "Editor animation scene name"
         );
+    }
+
+    /**
+     * Returns true when the animation contains at least one Live2D-model track
+     * whose linked model source is {@code source} (identity, or guid equality as
+     * a fallback for separately resolved instances of the same file).
+     */
+    private boolean linksModel(
+        final Object animation,
+        final Object source,
+        final String modelGuid,
+        final java.io.File modelFile
+    ) {
+        for (Object sceneSource : list(
+            resolver.invoke("cubism.editor-model.animation.scenes", animation),
+            "Editor animation scenes"
+        )) {
+            final Object rootTrack = resolver.invoke(
+                "cubism.editor-model.scene-source.root-track", sceneSource
+            );
+            if (rootTrack != null && trackTreeLinksModel(rootTrack, source, modelGuid, modelFile, 0)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean trackTreeLinksModel(
+        final Object trackSource,
+        final Object source,
+        final String modelGuid,
+        final java.io.File modelFile,
+        final int depth
+    ) {
+        if (depth > 64 || trackSource == null) {
+            return false;
+        }
+        if (resolver.isInstance("cubism.editor-model.track-model.class", trackSource)) {
+            final Object linked = resolver.invoke("cubism.editor-model.track-model.model", trackSource);
+            if (linked == source) {
+                return true;
+            }
+            // A track's resource resolves its CModelSource lazily through the
+            // linked .cmo3 file, so a live editor holds a different source
+            // instance (and instance guid) than the open modeling document.
+            // The durable link is the resource's source file path.
+            final Object resourceRef = resolver.invoke(
+                "cubism.editor-model.track-model.resource-ref", trackSource
+            );
+            final java.io.File linkedFile = resourceRef == null
+                ? null
+                : normalizedFile(resolver.invoke(
+                    "cubism.editor-model.resource-file.src-file", resourceRef
+                ));
+            if (linkedFile != null && linkedFile.equals(modelFile)) {
+                return true;
+            }
+            if (linked != null
+                && modelGuid != null
+                && resolver.isInstance("cubism.editor-model.model-source.class", linked)) {
+                final Object linkedGuid = resolver.invoke(
+                    "cubism.editor-model.model-source.guid", linked
+                );
+                if (linkedGuid != null && modelGuid.equals(
+                    resolver.invoke("cubism.editor-model.guid.value", linkedGuid))) {
+                    return true;
+                }
+            }
+        }
+        if (!resolver.isInstance("cubism.editor-model.track-group.class", trackSource)) {
+            return false;
+        }
+        for (Object child : list(
+            resolver.invoke("cubism.editor-model.track-group.children", trackSource),
+            "Editor animation track children"
+        )) {
+            if (trackTreeLinksModel(child, source, modelGuid, modelFile, depth + 1)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static java.io.File normalizedFile(final Object file) {
+        if (!(file instanceof java.io.File candidate)) {
+            return null;
+        }
+        try {
+            return candidate.getCanonicalFile();
+        } catch (java.io.IOException failure) {
+            return candidate.getAbsoluteFile().toPath().normalize().toFile();
+        }
     }
 
     private float vectorComponent(final Object vector, final String alias, final String label) {

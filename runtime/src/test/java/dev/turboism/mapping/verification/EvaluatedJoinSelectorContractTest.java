@@ -42,11 +42,16 @@ class EvaluatedJoinSelectorContractTest {
     }
 
     @Test
-    void animationReadContractCoversTheFileContentPath() {
+    void animationReadContractCoversTheProjectChildrenPath() {
         final var aliases = EditorAnimationReadSelectorContract.REQUIRED_ALIASES;
-        assertEquals(9, aliases.size());
-        assertTrue(aliases.contains("cubism.editor-model.modeling-document.file-content-docs"));
+        assertEquals(22, aliases.size());
+        assertTrue(aliases.contains("cubism.editor-model.app-controller.current-project"));
+        assertTrue(aliases.contains("cubism.editor-model.project.children"));
+        assertTrue(aliases.contains("cubism.editor-model.file-content.file"));
         assertTrue(aliases.contains("cubism.editor-model.animation-file-content.animation"));
+        assertTrue(aliases.contains("cubism.editor-model.track-model.model"));
+        assertTrue(aliases.contains("cubism.editor-model.track-model.resource-ref"));
+        assertTrue(aliases.contains("cubism.editor-model.resource-file.src-file"));
         assertTrue(aliases.contains("cubism.editor-model.scene-source.scene-name"));
     }
 

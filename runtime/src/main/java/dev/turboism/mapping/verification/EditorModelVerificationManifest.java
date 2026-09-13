@@ -1,6 +1,9 @@
 package dev.turboism.mapping.verification;
 
 import dev.turboism.mapping.verification.selector.EditorAnimationReadSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationSceneOperationSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationTimelineEditSelectorContract;
+import dev.turboism.mapping.verification.selector.EditorAnimationTimelineReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorAutoYureReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorClipMaskReadSelectorContract;
 import dev.turboism.mapping.verification.selector.EditorDefaultKeyformLockReadSelectorContract;
@@ -68,7 +71,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
+        "39a873247694072062893c05a965d1163506b23afebd224f53cde37bf8fdbfd2",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -77,7 +80,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "41b9b93d6e1e38f65b1b7af5d146b7394d935cdf7d2a8b5ef6bceed17defb744",
+        "42ca3e7cf4a208a7a29c0f921bc92b082126783556f3b89b88c7dab73b28395c",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -90,7 +93,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b",
+        "c0c24f6f8183ace1154820f8f836e74ee1d0f1f3bb2a8a6ca91dd5e523b411ea",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );
@@ -143,6 +146,11 @@ public final class EditorModelVerificationManifest {
         EditorPhysicsReadSelectorContract.CAPABILITY_ID,
         EditorAutoYureReadSelectorContract.CAPABILITY_ID,
         EditorAnimationReadSelectorContract.CAPABILITY_ID,
+        EditorAnimationTimelineReadSelectorContract.CAPABILITY_ID,
+        EditorAnimationTimelineEditSelectorContract.WRITE_CAPABILITY_ID,
+        EditorAnimationSceneOperationSelectorContract.PLAYBACK_CAPABILITY_ID,
+        EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_CAPABILITY_ID,
+        EditorAnimationSceneOperationSelectorContract.EVAL_CAPABILITY_ID,
         EditorModelInstanceReadSelectorContract.CAPABILITY_ID,
         "cubism.texture-atlas.layout.write",
         "cubism.texture-atlas.data-model-hook",
@@ -619,7 +627,22 @@ public final class EditorModelVerificationManifest {
                     EditorPhysicsReadSelectorContract.REQUIRED_ALIASES,
                     EditorAutoYureReadSelectorContract.REQUIRED_ALIASES
                 ),
-                EditorAnimationReadSelectorContract.REQUIRED_ALIASES
+                union(
+                    EditorAnimationReadSelectorContract.REQUIRED_ALIASES,
+                    union(
+                        union(
+                            EditorAnimationTimelineReadSelectorContract.REQUIRED_ALIASES,
+                            EditorAnimationTimelineEditSelectorContract.WRITE_REQUIRED_ALIASES
+                        ),
+                        union(
+                            EditorAnimationSceneOperationSelectorContract.PLAYBACK_REQUIRED_ALIASES,
+                            union(
+                                EditorAnimationSceneOperationSelectorContract.SCENE_EDIT_REQUIRED_ALIASES,
+                                EditorAnimationSceneOperationSelectorContract.EVAL_REQUIRED_ALIASES
+                            )
+                        )
+                    )
+                )
             ),
             EditorModelInstanceReadSelectorContract.REQUIRED_ALIASES
         )), union(
