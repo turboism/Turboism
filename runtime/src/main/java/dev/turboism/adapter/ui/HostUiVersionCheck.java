@@ -18,6 +18,7 @@ public final class HostUiVersionCheck {
     public static final Set<String> REVIEWED_HOST_VERSIONS = Set.of("5.2.03", "5.3.02", "5.3.03");
 
     public static final String STATUS_NOTIFY_CAPABILITY_ID = "ui.status.notify";
+    public static final String CANVAS_HINT_CAPABILITY_ID = "ui.canvas.hint";
 
     /**
      * Capability-specific exceptions to the default exact-version admission policy.

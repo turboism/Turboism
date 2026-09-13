@@ -17,7 +17,7 @@ class UiHostCapabilityStubLocaleTest {
         final UiHostCapabilityService stub = stub();
         final Locale locale = stub.hostLocale();
         assertNotNull(locale);
-        assertEquals(Locale.getDefault(Locale.Category.DISPLAY), locale);
+        assertEquals(Locale.getDefault(), locale);
     }
 
     private static UiHostCapabilityService stub() {

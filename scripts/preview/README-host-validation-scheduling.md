@@ -50,6 +50,12 @@ associated with the job. Golden/official installation and Proton are separately
 revalidated host dependencies, not redistributed input bundles.
 
 Unknown custom hook dependencies are rejected, not executed speculatively.
+The only admitted custom hook inventory is the FPS resize driver. The history
+baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
+MCP clients and generated plugin-chooser hooks remain blocked at snapshot admission
+until their complete dependencies are explicitly reviewed; do not bypass the queue.
+`host-validation-transport.sh` retains local-only utility names for path/copy
+compatibility; it contains no SSH/SCP execution and is a required snapshotted helper.
 Interactive WebDAV backup is not supported unattended and is explicitly blocked
 before configuration copying or any host side effect. `list` also identifies
 other catalogue tasks requiring explicit unsupported inputs.
@@ -104,9 +110,22 @@ checks durable state periodically to recover missed wakeups. SIGTERM requests a
 graceful drain: the running job finishes before the worker exits.
 
 `turboism-host-validation.service.example` is an opt-in user-service example,
-**not** automatically installed by a build or CLI command. Point it at a stable,
-reviewed checkout and provide the login session's display/auth environment.
-Do not upgrade its tool files or switch its checkout while a job is running.
+**not** automatically installed by a build or CLI command. Set
+`TURBOISM_HOST_VALIDATION_CHECKOUT` to the absolute path of a stable, reviewed
+checkout in your ignored `.env` (see `.env.example`). Replace the unit's
+`EnvironmentFile=/path/to/turboism/.env` placeholder only in your private installed
+copy. Keep machine-specific paths out of the tracked example. Use systemd-compatible
+plain `KEY=value` entries without `export` or shell expansion; quote paths with spaces.
+The unit runs `env --chdir=${TURBOISM_HOST_VALIDATION_CHECKOUT}` because systemd
+`WorkingDirectory=` does not expand environment variables. This changes directory
+without a shell; a missing/empty path fails rather than starting from another checkout.
+Provide the login session's display/auth environment. Treat `.env` as private and
+never commit it. Do not upgrade tool files or switch the checkout while a job is running.
+
+With a running systemd user manager, the opt-in regression
+`python3 scripts/test/test_host_validation_service_example.py` verifies the unit and
+executes only temporary Python stubs: space/metacharacter paths work; empty, missing
+or nonexistent checkout paths fail. It does not install the service or start the queue.
 
 ## Evidence, failures and recovery
 

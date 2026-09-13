@@ -12,7 +12,8 @@ public record RuntimeSettings(
     boolean skipStartupSplash,
     boolean skipStartupInformation,
     boolean separateExportSaveDirectory,
-    String locale
+    String locale,
+    boolean useTextIcon
 ) {
     public static final int DEFAULT_MAX_LOG_STORAGE_MIB = 100;
     public static final int MIN_MAX_LOG_STORAGE_MIB = 1;
@@ -31,7 +32,24 @@ public record RuntimeSettings(
     ) {
         this(
             safeMode, logLevel, maxLogStorageMiB, skipStartupUpdateCheck,
-            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, DEFAULT_LOCALE
+            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, DEFAULT_LOCALE, false
+        );
+    }
+
+    /** Source-compatible constructor retaining the pre-useTextIcon canonical signature. */
+    public RuntimeSettings(
+        final boolean safeMode,
+        final String logLevel,
+        final int maxLogStorageMiB,
+        final boolean skipStartupUpdateCheck,
+        final boolean skipStartupSplash,
+        final boolean skipStartupInformation,
+        final boolean separateExportSaveDirectory,
+        final String locale
+    ) {
+        this(
+            safeMode, logLevel, maxLogStorageMiB, skipStartupUpdateCheck,
+            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, locale, false
         );
     }
 
@@ -44,7 +62,7 @@ public record RuntimeSettings(
     ) {
         this(
             safeMode, logLevel, DEFAULT_MAX_LOG_STORAGE_MIB, skipStartupUpdateCheck,
-            skipStartupSplash, skipStartupInformation, false, DEFAULT_LOCALE
+            skipStartupSplash, skipStartupInformation, false, DEFAULT_LOCALE, false
         );
     }
 

@@ -27,6 +27,20 @@ tasks.register<Exec>("checkCubismHostValidationArguments") {
     commandLine("bash", "scripts/test/test_cubism_host_validation_arguments.sh")
 }
 
+tasks.register<Exec>("checkCubismHostValidationLocalTransport") {
+    group = "verification"
+    description = "Verifies local host command/copy transport and side-effect-free dry runs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_cubism_host_validation_local_transport.sh")
+}
+
+tasks.register<Exec>("checkHistoryValidationProbePackaging") {
+    group = "verification"
+    description = "Verifies history exact-host probe JARs include their descriptor-declared base i18n catalogs."
+    workingDir(rootDir)
+    commandLine("bash", "scripts/test/test_history_validation_probe_packaging.sh")
+}
+
 tasks.register<Exec>("checkFxValidationBrokerArguments") {
     group = "verification"
     description = "Verifies bounded validation-only fx broker accept lifetimes offline."
@@ -480,6 +494,14 @@ val buildStatusBarHostProbe by tasks.registering(Exec::class) {
     commandLine("bash", "validation/status-bar-host-probe/build.sh")
 }
 
+val buildUpdateCheckHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK update-check host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/update-check-host-probe/build.sh")
+}
+
 tasks.register<Exec>("validateStatusBarHost5302") {
     group = "host verification"
     description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."
@@ -713,6 +735,8 @@ tasks.register("checkIntegration") {
         "checkDistributionProtocolContract",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
+        "checkHistoryValidationProbePackaging",
+        "checkCubismHostValidationLocalTransport",
         "previewBootstrapBridgeTest",
         ":testing:integration-tests:previewPluginRuntimeTest"
     )
@@ -785,10 +809,17 @@ tasks.register("checkRelease") {
         "checkSdkV5ExactApiCompatibility",
         "checkSdkV6ExactApiCompatibility",
         "checkSdkV7ExactApiCompatibility",
+        "checkSdkV8ExactApiCompatibility",
+        "checkSdkV9ExactApiCompatibility",
+        "checkSdkV10ExactApiCompatibility",
+        "checkSdkV8Linkage",
+        "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
-        "checkJavaInstaller"
+        "checkJavaInstaller",
+        "checkInstallerLocalization",
+        "checkWindowsInstaller"
     )
 }
 

@@ -3,6 +3,7 @@
   "schemaVersion": 1,
   "worktreeId": "turboism-runtime",
   "pluginDirs": ["plugins"],
+  "useTextIcon": false,
   "launcher": {
     "cubismJvm": "graalvm"
   }

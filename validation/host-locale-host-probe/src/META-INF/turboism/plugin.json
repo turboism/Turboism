@@ -4,7 +4,7 @@
   "id": "dev.turboism.validation.hostlocale",
   "name": "Host Locale Host Validation Exerciser",
   "version": "0.0.0",
-  "description": "Task-local exerciser for the hostLocale() SDK API on exact Cubism hosts: asserts the returned Locale equals the host JVM user.language/user.country and records PASS/FAIL evidence.",
+  "description": "Task-local exerciser for the hostLocale() SDK API on exact Cubism hosts: asserts the returned Locale equals the effective Cubism UI language (the process default locale Cubism applied from Environment Settings, with user.language/user.country fallback) and records PASS/FAIL evidence.",
   "entrypoints": [
     "dev.turboism.validation.hostlocale.HostLocaleHostValidationPlugin"
   ],

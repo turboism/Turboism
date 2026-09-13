@@ -1,6 +1,7 @@
 package dev.turboism.adapter.cubism.editor.history;
 
 import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryEntryId;
 
 import java.lang.ref.Reference;
@@ -22,15 +23,7 @@ public final class EditorHistoryMetadataRegistry {
     private EditorHistoryMetadataRegistry() {
     }
 
-    /**
-     * Associates a Turboism {@link HistoryAction} with a native Undo entry.
-     *
-     * <p>The entry is held only weakly, and an existing stable entry identity or transaction
-     * association is preserved.</p>
-     *
-     * @param nativeEntry the host Undo entry to annotate, compared by identity
-     * @param action the metadata to attach
-     */
+    /** Associates a compatibility action with a native Undo entry. */
     public static synchronized void register(
         final Object nativeEntry,
         final HistoryAction action
@@ -38,18 +31,48 @@ public final class EditorHistoryMetadataRegistry {
         final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
         final EntryMetadata current = metadataLocked(entry);
         ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
-            current.entryId(),
-            current.transactionId(),
-            Optional.of(Objects.requireNonNull(action, "action"))
+            current.entryId(), current.transactionId(),
+            Optional.of(Objects.requireNonNull(action, "action")), current.detail()
         ));
     }
 
-    /**
-     * Associates a committed authoring transaction with a native Undo entry.
-     *
-     * @param nativeEntry exact native Undo entry created by the transaction
-     * @param transactionId opaque Turboism transaction identity
-     */
+    /** Associates authoritative operation-time semantic detail with a native Undo entry. */
+    public static synchronized void registerDetail(
+        final Object nativeEntry,
+        final HistoryEntryDetail detail
+    ) {
+        final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), current.transactionId(), current.action(),
+            Optional.of(Objects.requireNonNull(detail, "detail"))
+        ));
+    }
+
+    /** Atomically associates captured detail and an optional compatibility action. */
+    public static synchronized void registerCaptured(
+        final Object nativeEntry,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
+        final HistoryEntryDetail trustedDetail = Objects.requireNonNull(detail, "detail");
+        final Optional<HistoryAction> trustedAction = Objects.requireNonNull(action, "action");
+        trustedAction.ifPresent(value -> {
+            if (!trustedDetail.isCompatibleWith(value)) {
+                throw new IllegalArgumentException("captured action conflicts with semantic detail");
+            }
+        });
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(),
+            current.transactionId(),
+            trustedAction.isPresent() ? trustedAction : current.action(),
+            Optional.of(trustedDetail)
+        ));
+    }
+
+    /** Associates a committed authoring transaction with a native Undo entry. */
     public static synchronized void registerTransaction(
         final Object nativeEntry,
         final String transactionId
@@ -57,25 +80,66 @@ public final class EditorHistoryMetadataRegistry {
         final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
         final EntryMetadata current = metadataLocked(entry);
         ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), Optional.of(normalizedTransactionId(transactionId)),
+            current.action(), current.detail()
+        ));
+    }
+
+    /** Atomically registers the complete authoritative transaction annotation. */
+    public static synchronized void registerTransaction(
+        final Object nativeEntry,
+        final String transactionId,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
+        final HistoryEntryDetail trustedDetail = Objects.requireNonNull(detail, "detail");
+        final Optional<HistoryAction> trustedAction = Objects.requireNonNull(action, "action");
+        trustedAction.ifPresent(value -> {
+            if (!trustedDetail.isCompatibleWith(value)) {
+                throw new IllegalArgumentException("transaction action conflicts with semantic detail");
+            }
+        });
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(),
             Optional.of(normalizedTransactionId(transactionId)),
-            current.action()
+            trustedAction.isPresent() ? trustedAction : current.action(),
+            Optional.of(trustedDetail)
         ));
     }
 
     /**
-     * Annotates the single entry a host operation appended to the Undo stack, given before and after
-     * views of it.
-     *
-     * <p>Deliberately conservative: it registers nothing unless {@code after} is exactly one longer
-     * than {@code before} and every earlier element is identical by reference.</p>
+     * Prepares finalized metadata before native admission can notify observers.
+     * The returned identity does not imply commitment; snapshots expose only reachable entries.
      */
+    public static synchronized HistoryEntryId prepareTransaction(
+        final Object nativeEntry,
+        final String transactionId,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        registerTransaction(nativeEntry, transactionId, detail, action);
+        return metadataLocked(nativeEntry).entryId();
+    }
+
+    /** Conservatively annotates exactly one appended entry with a compatibility action. */
     public static void registerAppended(
         final List<?> before,
         final List<?> after,
         final HistoryAction action
     ) {
         appended(before, after).ifPresent(entry -> register(entry, action));
+    }
+
+    /** Conservatively annotates exactly one appended entry with captured semantic metadata. */
+    public static void registerAppended(
+        final List<?> before,
+        final List<?> after,
+        final HistoryEntryDetail detail,
+        final Optional<HistoryAction> action
+    ) {
+        appended(before, after).ifPresent(entry -> registerCaptured(entry, detail, action));
     }
 
     /** Conservatively associates a transaction with exactly one appended native history entry. */
@@ -114,6 +178,7 @@ public final class EditorHistoryMetadataRegistry {
         final EntryMetadata created = new EntryMetadata(
             new HistoryEntryId("history-entry-" + Long.toUnsignedString(++nextEntryId, 36)),
             Optional.empty(),
+            Optional.empty(),
             Optional.empty()
         );
         ENTRIES.put(new IdentityReference(nativeEntry, COLLECTED), created);
@@ -139,12 +204,14 @@ public final class EditorHistoryMetadataRegistry {
     record EntryMetadata(
         HistoryEntryId entryId,
         Optional<String> transactionId,
-        Optional<HistoryAction> action
+        Optional<HistoryAction> action,
+        Optional<HistoryEntryDetail> detail
     ) {
         EntryMetadata {
             Objects.requireNonNull(entryId, "entryId");
             transactionId = Objects.requireNonNull(transactionId, "transactionId");
             action = Objects.requireNonNull(action, "action");
+            detail = Objects.requireNonNull(detail, "detail");
         }
     }
 
