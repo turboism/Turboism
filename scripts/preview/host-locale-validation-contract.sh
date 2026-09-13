@@ -6,6 +6,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LAUNCH="$ROOT/scripts/preview/launch-cubism-host-locale-validation.sh"
 ADAPTER="$ROOT/scripts/preview/run-host-locale-host-validation.sh"
+HOOK="$ROOT/scripts/preview/host-locale-environment-language-hook.sh"
 
 checks=0
 fail() {
@@ -71,11 +72,48 @@ run "adapter-rejects-without-hash" 2 "" "requires --fixture-sha256" -- \
   bash "$ADAPTER" 5302 --fixture 'C:\fixture\model.cmo3'
 
 # 7. Direct invocation with an explicit hash passes the fixture-identity gate and
-#    proceeds (failing later only on missing build artifacts, never on identity).
-run "adapter-accepts-with-hash" 1 "" "not found" -- \
+#    reaches the shared runner. The runner's own refusal depends on the local
+#    build/env state (missing agent bundle, missing golden prefix, unresolvable
+#    host fixture), so the contract pins only the part that must never happen
+#    here: an identity rejection before the runner is engaged.
+run "adapter-accepts-with-hash" 1 "" "host validation:" -- \
   bash "$ADAPTER" 5302 --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
 
 # 8. Pinned default fixtures keep their pinned hashes (no override, no hash needed).
 run "adapter-help" 0 "usage:" "" -- bash "$ADAPTER" --help
+
+# 9. Environment Settings language seeding: the adapter validates the host
+#    language set, and the pre-launch hook fails closed without a supported value.
+run "adapter-rejects-unknown-environment-language" 2 "" "environment language must be en, ja, ko, or zh" -- \
+  bash "$ADAPTER" 5302 --environment-language fr --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
+run "adapter-rejects-missing-environment-language-value" 2 "" "missing value for --environment-language" -- \
+  bash "$ADAPTER" 5302 --environment-language
+run "adapter-accepts-environment-language" 1 "" "host validation:" -- \
+  bash "$ADAPTER" 5302 --locale system --environment-language ja \
+  --fixture 'C:\fixture\model.cmo3' --fixture-sha256 "$HASH"
+# The runner's context argument 7 is the lane version token (5203/5302); the
+# full Cubism version strings stay accepted for standalone use. Both forms are
+# pinned here because a mismatch fails the real run before launch.
+run "hook-requires-runner-arguments" 1 "" "missing runner hook arguments" -- \
+  bash "$HOOK"
+run "hook-rejects-unknown-language" 1 "" "unsupported language" -- \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 fr
+run "hook-rejects-unknown-version" 1 "" "unsupported Cubism version" -- \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5399 300 wrapper runner :0 ja
+# The language must be readable from the trailing argument (the queue drops the
+# ambient environment), and an absent language must fail closed.
+run "hook-reads-language-from-argument" 1 "" "has no users directory" -- \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 en
+run "hook-accepts-full-version-form" 1 "" "has no users directory" -- \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5.3.02 300 wrapper runner :0 en
+run "hook-argument-overrides-environment" 1 "" "unsupported language" -- \
+  env TURBOISM_HOST_VALIDATION_ENVIRONMENT_LANGUAGE=en \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0 fr
+run "hook-rejects-missing-language" 1 "" "missing environment language argument" -- \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5302 300 wrapper runner :0
+run "hook-accepts-environment-fallback" 1 "" "has no users directory" -- \
+  env TURBOISM_HOST_VALIDATION_ENVIRONMENT_LANGUAGE=ja \
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5203 300 wrapper runner :0
+  bash "$HOOK" task home /tmp/evidence /tmp/host-locale-contract-missing-prefix fixture runid 5.3.02 300 wrapper runner :0
 
 printf 'host-locale contract: %s checks passed\n' "$checks"

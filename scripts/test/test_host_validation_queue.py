@@ -132,6 +132,14 @@ class FinalVerdictRecoveryTest(StoreFixture, unittest.TestCase):
                 queue.durable_outcome(self.store, job)
         self.assertEqual("owned", self.store.host()["state"])
 
+    def test_existing_null_or_non_object_outcome_never_falls_back(self):
+        job, directory, _ = self.final_fixture()
+        for raw in ("null", "[]", "false", "42", '"text"'):
+            (directory / "outcome.json").write_text(raw)
+            with self.assertRaises(queue.QueueError):
+                queue.durable_outcome(self.store, job)
+        self.assertEqual("owned", self.store.host()["state"])
+
     def test_conflicting_outcome_and_live_runner_do_not_release(self):
         job, directory, final = self.final_fixture()
         queue.atomic_json(directory / "outcome.json", {**final, "validationStatus": "FAIL"})
@@ -304,7 +312,7 @@ class PreparedStoreTest(unittest.TestCase):
         self.source = self.base / "source"
         self.preview = self.source / "scripts/preview"
         self.preview.mkdir(parents=True)
-        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):
             (self.preview / name).write_text("# test fixture, never executed\n")
@@ -433,9 +441,39 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "background/args-only"):
             self.prepared.capture({**self.request, "argv": ["--remote-pre-launch", str(fps)]}, self.source, "fps:5302")
 
+    def test_reviewed_environment_language_hook_is_admitted(self) -> None:
+        hook = self.preview / "host-locale-environment-language-hook.sh"
+        hook.write_text("# reviewed hook fixture, never executed\n")
+        # The reviewed protocol is the hook plus its language argument: the
+        # queue re-executes the runner with no ambient environment, so an
+        # exported variable would never reach the hook.
+        with self.assertRaisesRegex(queue.QueueError, "language argument"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook)]},
+                self.source, "host-locale:5302")
+        prepared = self.prepared.capture(
+            {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(hook),
+                                       "--remote-pre-launch-arg", "ja"]},
+            self.source, "host-locale:5302")
+        names = sorted(Path(entry["source"]).name for entry in prepared["sourceInputs"])
+        self.assertEqual(["host-locale-environment-language-hook.sh", "input with spaces.jar"], names)
+        # The same file name is not an approval outside scripts/preview.
+        outside = self.base / hook.name
+        outside.write_text("# unreviewed copy\n")
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-pre-launch", str(outside)]},
+                self.source, "host-locale:5302")
+        # A pre-cleanup or post-launch hook is still rejected: the inventory lists
+        # pre-launch hooks only.
+        with self.assertRaisesRegex(queue.QueueError, "dependency inventory"):
+            self.prepared.capture(
+                {**self.request, "argv": [*self.request["argv"], "--remote-post-launch", str(hook)]},
+                self.source, "host-locale:5302")
+
     def test_real_runner_prepare_snapshot_and_replay_are_host_side_effect_free(self) -> None:
         tools = Path(__file__).resolve().parents[1] / "preview"
-        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+        for name in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                      "archive-cubism-host-evidence.sh", "fps-resize-driver.sh",
                      "host_validation.py", "host_validation_queue.py",
                      "host_validation_containment.py", "host_validation_evidence.py"):

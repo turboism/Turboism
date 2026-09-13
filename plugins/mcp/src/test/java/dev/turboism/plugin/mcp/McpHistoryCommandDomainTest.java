@@ -7,6 +7,14 @@ import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
 import dev.turboism.sdk.cubism.command.EditorParameterizedRequest;
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryEntryId;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryParameterCoordinate;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import org.junit.jupiter.api.Test;
@@ -72,6 +80,85 @@ final class McpHistoryCommandDomainTest {
         assertEquals(3L, projected.get("generation"));
         assertEquals(4L, projected.get("revision"));
         assertEquals(5, ((List<?>) projected.get("entries")).size());
+        final Map<String, Object> firstEntry = object(((List<?>) projected.get("entries")).get(0));
+        final Map<String, Object> detail = object(firstEntry.get("detail"));
+        assertEquals("LABEL_ONLY", detail.get("detailLevel"));
+        assertEquals("history.detail.label-only", detail.get("degradationCode"));
+        assertEquals("HOST_UNATTRIBUTED", object(detail.get("origin")).get("kind"));
+    }
+
+    @Test
+    void historyReadSerializesEverySemanticDtoRecursively() {
+        final HistoryEntryDetail child = HistoryEntryDetail.labelOnly("Child");
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Set angle",
+            dev.turboism.sdk.cubism.history.HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.turboism("fixture-plugin", "operation-1"),
+            List.of(new HistoryTarget("ART_MESH", Optional.of("ArtMesh1"), Optional.of("Face shadow"))),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.of("multiplyColor"),
+                Optional.of("#ffffff"),
+                Optional.of("#66ccff"),
+                new HistoryEditContext(
+                    HistoryEditContext.Kind.KEYFORM,
+                    Optional.of("form-1"),
+                    List.of(new HistoryParameterCoordinate(
+                        new HistoryTarget(
+                            "PARAMETER",
+                            Optional.of("ParamAngleX"),
+                            Optional.of("Angle X")
+                        ),
+                        "30"
+                    ))
+                )
+            )),
+            Optional.of(new HistoryGroup(Optional.of("group-1"), 2, List.of(child), true)),
+            Optional.of("history.detail.fixture-partial")
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Set angle",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("entry-semantic")),
+            Optional.of("transaction-semantic"),
+            detail
+        );
+        final HistorySnapshot snapshot = new HistorySnapshot(
+            HistorySnapshot.Availability.AVAILABLE,
+            3,
+            4,
+            1,
+            List.of(entry),
+            true,
+            false
+        );
+        final McpHistoryCommandDomain.ToolCallResult read = new McpHistoryCommandDomain(
+            new FakeHistory(snapshot),
+            EditorCommandService.unavailable()
+        ).call(McpHistoryCommandDomain.HISTORY_READ, Map.of());
+
+        final Map<String, Object> projected = object(read.structuredContent().get("snapshot"));
+        final Map<String, Object> projectedEntry = object(((List<?>) projected.get("entries")).get(0));
+        final Map<String, Object> projectedDetail = object(projectedEntry.get("detail"));
+        assertEquals("transaction-semantic", projectedEntry.get("transactionId"));
+        assertEquals("Set angle", projectedDetail.get("summary"));
+        assertEquals("TURBOISM", object(projectedDetail.get("origin")).get("kind"));
+        assertEquals("ArtMesh1", object(((List<?>) projectedDetail.get("targets")).get(0)).get("id"));
+        assertEquals("SET", object(((List<?>) projectedDetail.get("changes")).get(0)).get("operation"));
+        final Map<String, Object> projectedChange = object(((List<?>) projectedDetail.get("changes")).get(0));
+        final Map<String, Object> context = object(projectedChange.get("context"));
+        assertEquals("KEYFORM", context.get("kind"));
+        assertEquals("form-1", context.get("formId"));
+        final Map<String, Object> coordinate = object(((List<?>) context.get("coordinates")).get(0));
+        assertEquals("30", coordinate.get("value"));
+        assertEquals("ParamAngleX", object(coordinate.get("parameter")).get("id"));
+        final Map<String, Object> group = object(projectedDetail.get("group"));
+        assertEquals(2, group.get("observedChildCount"));
+        assertEquals("group-1", group.get("groupId"));
+        assertEquals("Child", object(((List<?>) group.get("children")).get(0)).get("summary"));
     }
 
     @Test

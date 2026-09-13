@@ -59,7 +59,10 @@ public interface UiHostStateSource {
         return dev.turboism.sdk.ui.UiHostColorMode.LIGHT;
     }
 
-    /** Resolves the current Cubism UI language (host JVM locale). */
+    /**
+     * Resolves the Cubism UI language the host applied from its Environment
+     * Settings, normalized for zh scripts (see {@code CubismHostLocale}).
+     */
     default java.util.Locale hostLocale() {
         return CubismHostLocale.resolve();
     }

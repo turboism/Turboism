@@ -1,5 +1,7 @@
 package dev.turboism.adapter.cubism.editor.transaction;
 
+import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
@@ -23,6 +25,85 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EditorAuthoringTransactionCoordinatorTest {
+
+    @Test
+    void capturesEachActualAfterBeforeTheNextPrimitiveMutatesTheSameTarget() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        final List<Integer> observed = new ArrayList<>();
+        final var result = fixture.coordinator.execute(fixture.binding,
+            AuthoringTransactionOptions.of("Captured group"), () -> {
+                fixture.coordinator.mutate(fixture.binding, capturedContribution(value, 0, 1)
+                    .withCaptureAfter(() -> { observed.add(value.get()); return captureDetail(0, value.get()); }));
+                fixture.coordinator.mutate(fixture.binding, capturedContribution(value, 1, 2)
+                    .withCaptureAfter(() -> { observed.add(value.get()); return captureDetail(1, value.get()); }));
+                return null;
+            });
+        assertEquals(AuthoringTransactionOutcome.COMMITTED, result.outcome());
+        assertEquals(List.of(1, 2), observed);
+        assertEquals(fixture.host.lastSemanticDetail, fixture.host.detailObservedAtEnd);
+        final var detail = fixture.host.lastSemanticDetail.orElseThrow();
+        assertEquals(List.of("1", "2"), detail.group().orElseThrow().children().stream()
+            .map(child -> child.changes().get(0).after().orElseThrow()).toList());
+        value.set(3);
+        assertEquals("1", detail.group().orElseThrow().children().get(0).changes().get(0).after().orElseThrow());
+    }
+
+    @Test
+    void readbackFailureDegradesWithoutRollingBackValidMutation() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        fixture.coordinator.mutate(fixture.binding, capturedContribution(value, 0, 1)
+            .withCaptureAfter(() -> { throw new IllegalStateException("readback unavailable"); }));
+        assertEquals(1, value.get());
+        assertEquals(1, fixture.host.commitCount);
+        final var detail = fixture.host.lastSemanticDetail.orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals(Optional.empty(), detail.changes().get(0).after());
+        assertEquals(Optional.of("history.capture.after-unavailable"), detail.degradationCode());
+    }
+
+    @Test
+    void changedBeforeIdentityFromReadbackCannotReplaceCapturedBefore() {
+        final BindingFixture fixture = new BindingFixture();
+        final AtomicInteger value = new AtomicInteger();
+        fixture.coordinator.mutate(fixture.binding, capturedContribution(value, 0, 1)
+            .withCaptureAfter(() -> captureDetail(99, value.get())));
+        final var detail = fixture.host.lastSemanticDetail.orElseThrow();
+        assertEquals(HistoryAction.DetailLevel.PARTIAL, detail.detailLevel());
+        assertEquals(Optional.of("0"), detail.changes().get(0).before());
+        assertEquals(Optional.empty(), detail.changes().get(0).after());
+    }
+
+    @Test
+    void preparedIdentityMustActuallyAppearInCommittedHistory() {
+        final BindingFixture fixture = new BindingFixture();
+        fixture.host.preparedId = Optional.of("not-in-history");
+        final AtomicInteger value = new AtomicInteger();
+        final var result = fixture.coordinator.execute(fixture.binding,
+            AuthoringTransactionOptions.of("Root mismatch"), () -> {
+                fixture.coordinator.mutate(fixture.binding, capturedContribution(value, 0, 1)
+                    .withCaptureAfter(() -> captureDetail(0, value.get())));
+                return null;
+            });
+        assertEquals(AuthoringTransactionOutcome.RECOVERY_FAILED, result.outcome());
+        assertEquals(Optional.empty(), result.receipt().orElseThrow().historyEntryId());
+        assertEquals(Optional.empty(), fixture.host.lastSemanticDetail);
+    }
+
+    private static EditorUndoContribution capturedContribution(final AtomicInteger value, final int before, final int actual) {
+        return new EditorUndoContribution("test.capture", "target-1", "Capture",
+            (edit, label) -> { }, () -> value.set(actual), () -> value.get() == actual,
+            () -> value.set(before), () -> value.get() == before, Set.of(), captureDetail(before, 999));
+    }
+
+    private static HistoryEntryDetail captureDetail(final int before, final int after) {
+        return new HistoryEntryDetail("Capture", HistoryAction.DetailLevel.FULL,
+            dev.turboism.sdk.cubism.history.HistoryOrigin.turboism("plugin.test", "test.capture"),
+            List.of(new dev.turboism.sdk.cubism.history.HistoryTarget("PARAMETER", Optional.of("ParamX"), Optional.empty())),
+            List.of(dev.turboism.sdk.cubism.history.HistoryChange.set(0, "value", Integer.toString(before), Integer.toString(after))),
+            Optional.empty(), Optional.empty());
+    }
 
     @Test
     void readOnlyCallbackCreatesNoNativeEditAndNoHistoryEntry() {
@@ -89,6 +170,13 @@ final class EditorAuthoringTransactionCoordinatorTest {
             result.receipt().orElseThrow().historyBefore(),
             result.receipt().orElseThrow().historyAfter()
         );
+        assertEquals(
+            HistoryAction.DetailLevel.PARTIAL,
+            fixture.host.lastSemanticDetail.orElseThrow().detailLevel()
+        );
+        assertEquals(2, fixture.host.lastSemanticDetail.orElseThrow().targets().size());
+        assertEquals(2, fixture.host.lastSemanticDetail.orElseThrow()
+            .group().orElseThrow().children().size());
     }
 
     @Test
@@ -503,6 +591,11 @@ final class EditorAuthoringTransactionCoordinatorTest {
         private Error endError;
         private Error refreshError;
         private int refreshCount;
+        private Optional<HistoryEntryDetail> lastSemanticDetail = Optional.empty();
+        private Optional<HistoryEntryDetail> preparedDetail = Optional.empty();
+        private Optional<HistoryEntryDetail> detailObservedAtEnd = Optional.empty();
+        private Optional<String> preparedId = Optional.empty();
+        private Optional<HistoryAction> lastSemanticAction = Optional.empty();
         private int entriesPerCommit = 1;
         private Set<EditorRefreshRequirement> lastRefresh = Set.of();
 
@@ -551,12 +644,23 @@ final class EditorAuthoringTransactionCoordinatorTest {
         }
 
         @Override
+        public Optional<String> prepareHistoryMetadata(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final Object edit, final String transactionId,
+            final HistoryEntryDetail detail, final Optional<HistoryAction> action
+        ) {
+            preparedDetail = Optional.of(detail);
+            return preparedId;
+        }
+
+        @Override
         public void endEdit(
             final EditorAuthoringTransactionCoordinator.Binding expected,
             final Object edit,
             final boolean abort
         ) {
             endAttempts++;
+            detailObservedAtEnd = preparedDetail;
             if (endError != null) throw endError;
             if (failEnd) throw new IllegalStateException("native end uncertain");
             if (abort) {
@@ -590,6 +694,27 @@ final class EditorAuthoringTransactionCoordinatorTest {
         ) {
             if (after.entries().size() != before.entries().size() + 1) return Optional.empty();
             return Optional.of("history-entry-" + after.entries().size());
+        }
+
+        @Override
+        public Optional<String> committedHistoryEntryId(
+            final EditorAuthoringTransactionCoordinator.Binding expected,
+            final HistorySnapshot before,
+            final HistorySnapshot after,
+            final String transactionId,
+            final String label,
+            final HistoryEntryDetail detail,
+            final Optional<HistoryAction> action
+        ) {
+            lastSemanticDetail = Optional.of(detail);
+            lastSemanticAction = action;
+            return committedHistoryEntryId(
+                expected,
+                before,
+                after,
+                transactionId,
+                label
+            );
         }
 
         @Override

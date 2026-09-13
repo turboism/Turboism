@@ -19,6 +19,22 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 class TextureAtlasAutoLayoutServiceTest {
 
     @Test
+    void diagnosticsSeparatePlanningFromWritebackWithoutClaimingNativeSpeedup() {
+        final var layouts = new RecordingLayoutService();
+        final var messages = new java.util.ArrayList<String>();
+        final var lifecycle = new TextureAtlasAutoLayoutService.LifecycleLease();
+        lifecycle.activate();
+        final var service = new TextureAtlasAutoLayoutService(layouts,
+            new PartBucketTextureAtlasPlanner()::plan, lifecycle, messages::add);
+        service.applyAutomaticLayout();
+        org.junit.jupiter.api.Assertions.assertTrue(messages.stream().anyMatch(message ->
+            message.contains("scope=complete-atlas") && message.contains("scale=1.0")
+                && message.contains("overflow=0") && message.contains("planMs=") && message.contains("snapshotMs=")));
+        org.junit.jupiter.api.Assertions.assertTrue(messages.stream().anyMatch(message ->
+            message.contains("writeback") && message.contains("status=APPLIED") && message.contains("applyMs=")));
+    }
+
+    @Test
     void readsCompleteSnapshotPlansAndSubmitsTheExactResult() {
         final RecordingLayoutService layouts = new RecordingLayoutService();
         final TextureAtlasAutoLayoutService service = new TextureAtlasAutoLayoutService(

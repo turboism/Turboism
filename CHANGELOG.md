@@ -6,9 +6,148 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.44.0] - 2026-09-11
+
+### Added
+
+- Turboism now checks for stable updates against the deployed release API
+  (`api.turboism.dev/v1/releases/stable.json`). The comparison uses the authoritative build number
+  embedded in the installed package, so a lower build is never offered as an update and an equal build
+  number with a different version is treated as an identity conflict rather than an update.
+  Installations that predate build numbers keep comparing by version only and are never assigned an
+  invented number.
+- An available update is presented as a native Cubism hint over the drawing area, the same surface the
+  host uses for its own lower-right messages, instead of an entry in the Turboism docked panel. The
+  hint is keyed, so a newer offered build replaces the previous text, and it clears itself as soon as
+  the update is no longer offered. Clicking it opens the fixed first-party download page; no URL from
+  the release feed is opened or installed, and no installer is downloaded or executed automatically.
+- The update checker is non-blocking and runs at most once per 24 hours, with a manual check that is
+  always available. Automatic checks have their own persistent toggle in the Startup settings tab
+  and are independent of Cubism's own update suppression.
+- Plugins can show native Cubism hints over the drawing area through
+  `UiHostCapabilityService.notifyCanvasHint`, `notifyDismissibleCanvasHint` and `showCanvasHintWhile`,
+  with `CanvasHintNotification`, `CanvasHintHandle`, `CanvasHintPosition` and `ConditionalCanvasHint`.
+  A plugin needs the new `turboism.ui.canvas.hint` permission to show one.
+  The capability is version-routed through the verified 5.2.03, 5.3.02 and 5.3.03 host routes and
+  reports itself unavailable on a host where the route cannot be resolved rather than approximating
+  it. See the [SDK v10 review](sdk/api-contracts/sdk-api-v10-review.md); this revision is purely
+  additive and requires no plugin migration.
+- Published release notes now carry reviewed Korean text as well as Simplified Chinese and Japanese.
+  Release documents expose it as `notesByLanguage`, English remains the fallback the website shows
+  when a translation is missing, and Nightly headings and warnings are translated in all four
+  languages while raw commit subjects stay in their original language, explicitly labeled.
+
+### Changed
+
+- The reviewed SDK exact baseline is now v10, pinned to the canvas-hint commit. The revision adds 42
+  API records and removes or changes none; v9 and v8 remain historical exact audits that every
+  release still runs.
+- The WebDAV backup plugin is renamed from `backup` to `webdav-backup`: its Gradle module and Java
+  package are `webdav-backup`/`dev.turboism.plugin.webdavbackup`, its installer artifact is
+  `plugins/webdav-backup.jar` (previously `plugins/backup.jar`), its plugin id is
+  `dev.turboism.plugin.webdav` (previously `dev.turboism.plugin.backup`), and its menu entry is now
+  localized. Stored endpoint settings in `backup/webdav.cfg` are unaffected.
+- A `release-notes/<version>.json` file that names a language outside the reviewed matrix now fails
+  the release instead of silently dropping it, so a typo cannot ship a release with a missing
+  translation.
+
+### Fixed
+
+- The release API keeps serving the last verified release snapshot while GitHub is unreachable instead
+  of answering every channel with "unavailable". A snapshot stays usable for up to 24 hours, a
+  transient failure of one channel no longer discards that channel's previously verified data, and a
+  failed refresh preserves the previous snapshot. Publication still notifies the API immediately, and a
+  new scheduled monitor reports confirmed, deduplicated incidents.
+- The Windows installer provisions the managed Graal runtime without requiring a pre-installed Java:
+  it downloads and validates the archive directly, initializes the complete runtime configuration for
+  a standalone install, and its Graal page no longer claims an obsolete Java prerequisite. The
+  provisioning path is verified on Windows PowerShell 5.1 and 7.
+- Upgrading an existing install no longer leaves two WebDAV plugin entries behind. Both installers
+  remove the stale pre-rename JAR from `plugins/` by its embedded plugin id (so any filename is
+  covered) during a managed upgrade, and the old id `dev.turboism.plugin.backup` joined the
+  retired/superseded boundary: the runtime refuses to load it, plugin management does not list it,
+  and `config.json` `disabledPlugins` no longer keeps it. The pre-rename WebDAV settings dialog also
+  localizes every label, button, tooltip and status message instead of always showing Chinese.
+
+## [0.43.11] - 2026-09-11
+
+### Added
+
+- The installer now offers an explicit language selection instead of relying on the host locale alone,
+  and Korean joins English, Simplified Chinese, and Japanese. The NSIS wizard shows the standard
+  language dialog before the welcome page and keeps every locale listed regardless of the host
+  language; the IzPack installer ships the `kor` langpack, its licence resource, and the modal langpack
+  selector. The chosen installer language stays installer-scoped and is never written to `config.json`.
+- `GET /v1/downloads/<version>.json` reports per-release download request starts. Official mirror
+  starts are added to GitHub's binary `download_count`, and the response carries one `assets` row per
+  binary with its name, key, SHA-256, official, GitHub, and total values that reconcile with the release
+  total. Checksum sidecars, HEAD/304, failed requests, nonzero resume ranges, and verification-prefixed
+  traffic are excluded, and an unknown source stays `null` instead of printing a fabricated zero.
+- Stable, Beta, and Nightly releases now carry reviewed Simplified Chinese and Japanese notes
+  (`notesByLanguage`) with English as the fallback, and the website selects the language locally. A
+  translation whose digest no longer matches the exact English section is rejected instead of reused.
+  Nightly freezes its published, ancestral baseline and the real commit subjects while the candidate is
+  prepared, so commits landing afterwards cannot change what an already-built candidate says.
+- Reviewed translations also enrich historical releases without rewriting them: 0.43.10 and
+  0.43.10-0.nightly.3 receive display supplements bound to their exact release ID, source revision, and
+  original visible body, leaving their public Release bodies, tags, receipts, files, and build numbers
+  untouched.
+- Framework message catalogs are now held to the same locale matrix as the official plugins by
+  `verifyFrameworkCatalogs`. Plugins already fail loudly on an incomplete catalog set; the framework
+  resolves its chrome through `ResourceBundle`, where a missing catalog degraded silently to English.
+  The new gate also rejects a framework module shipping catalogs outside the verified roots.
+
+### Changed
+
+- Beta and Nightly candidates record their frozen notes context (`schemaVersion: 2`), and promotion
+  binds Stable notes to the exact `CHANGELOG.md` section plus the reviewed translation digest. A
+  candidate whose `CHANGELOG.md`, `release-notes/`, or notes module changed after checkout now fails
+  closed instead of publishing notes that were never reviewed.
+- The Java uninstaller defaults to keeping `config.json`, matching the NSIS uninstaller, and headless or
+  console runs without the property keep it as well.
+- The reviewed SDK v9 exact anchor moved to the host-locale fix so the SDK contract keeps the applied
+  language instead of the launcher's DISPLAY locale. The canonical API dump is unchanged; only the
+  bytes of `UiHostCapabilityService.hostLocale()`'s default body moved, and the v2–v8 historical
+  anchors remain as audited.
+
+### Fixed
+
+- Plugin UI language now follows the language chosen in Cubism Editor's File → Environment Settings →
+  General → Language. The launcher's `-Duser.language` only selects the build's language version and
+  never changes at runtime, so it is no longer treated as the host language. Because Cubism applies the
+  saved setting to the process default locale after this runtime attaches, the effective locale is
+  re-resolved once the verified host is ACTIVE; an explicit `-Dturboism.locale` or `config.json` locale
+  still outranks the host.
+- The framework's own `ResourceBundle` catalogs now carry the complete zh-Hans/zh-Hant/en/ja/ko
+  matrix. `dev.turboism.ui.panel` was missing `messages_en.properties` and
+  `messages_zh_Hans.properties`, so a Simplified Chinese host silently fell through to the legacy
+  script-less `messages_zh.properties`. That catalog is kept as an optional compatibility alias, but
+  it can no longer stand in for the script-suffixed one.
+- Toolbar icons are loaded through the display-scale variants a plugin ships (125/150/175/200%) and
+  resolved as one multi-resolution icon, so the installer entry is no longer drawn from a single
+  unscaled bitmap on high-DPI displays.
+- The Korean branch of the Java uninstaller's confirmation dialog is localized instead of falling back
+  to English text, and the four README templates now describe the uninstaller's keep-by-default
+  `config.json` checkbox instead of a delete-by-default one.
+## [0.43.10] - 2026-09-09
+
+### Added
+
+- Current-page texture-atlas packing with an explicit scale contract and guarded native packing integration.
+- Captured semantic history timeline with stable navigation and a configurable core toolbar icon.
+- Independent release API, GitHub release synchronization, verified streaming mirrors, and globally allocated product build identities.
+
 ### Changed
 
 - Split product releases into read-only candidate builds and explicit protected GitHub promotion. Failed candidate attempts reuse the intended version; only promotion creates the official annotated tag and publishes the verified bytes without rebuilding.
+- Adopted the reviewed SDK v8 current-page texture layout contract.
+- Added four-language project and installation documentation and task-contained local host validation supervision.
+
+### Fixed
+
+- Hardened the multi-version Scene palette bridge, added exact Cubism 5.3.03 routing, and preserved unified palette cleanup.
+- Matched the core toolbar image to the host home icon size.
+- Hardened host validation environment handling and rejection of malformed outcomes.
 
 ## [0.43.9] - 2026-09-06
 

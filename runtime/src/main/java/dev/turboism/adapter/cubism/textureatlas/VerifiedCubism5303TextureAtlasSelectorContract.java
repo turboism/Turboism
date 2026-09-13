@@ -86,6 +86,7 @@ public final class VerifiedCubism5303TextureAtlasSelectorContract {
         VerifiedTextureAtlasNativeInvocationAdapter.IMPL_CONTAINER,
         VerifiedTextureAtlasNativeInvocationAdapter.CONTAINER_CHILDREN,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_RECT,
+        VerifiedTextureAtlasNativeInvocationAdapter.ITEM_SCALE,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_MODEL_RECT,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_WIDTH,
         VerifiedTextureAtlasNativeInvocationAdapter.ITEM_HEIGHT,

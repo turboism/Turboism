@@ -1,6 +1,9 @@
 package dev.turboism.adapter.ui;
 
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
+import dev.turboism.sdk.plugin.Registration;
+import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.CanvasHintPosition;
 
 import java.util.List;
 import java.util.Objects;
@@ -22,6 +25,29 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
     private static final String PREFIX_INFO = "[I] ";
     private static final String PREFIX_WARNING = "[!] ";
     private static final String PREFIX_ERROR = "[X] ";
+
+    /**
+     * The native timer adds duration milliseconds to the current epoch time. A
+     * literal {@code Float.POSITIVE_INFINITY} becomes {@code Long.MAX_VALUE}
+     * during that conversion and overflows the native deadline immediately.
+     */
+    private static final float NATIVE_UNTIL_DISMISSED_SECONDS = 1_000_000_000.0f;
+
+    private static final String SHOW_HINT_ALIAS = "cubism.ui-canvas-hint.view-context.show-hint";
+
+    /**
+     * Clickable and positionable variant of {@link #SHOW_HINT_ALIAS}. Its fourth
+     * parameter is the host's {@code Function1<GButtonEntity, Unit>} action and the
+     * fifth is the optional position override; either may be {@code null}, which keeps
+     * the native behaviour for that argument.
+     */
+    private static final String SHOW_HINT_WITH_ACTION_ALIAS =
+        "cubism.ui-canvas-hint.view-context.show-hint-with-action";
+
+    private static final int HINT_ACTION_PARAMETER_INDEX = 3;
+
+    /** Native {@code GVector2(float, float)} used only for an explicit hint position. */
+    private static final String POSITION_CREATE_ALIAS = "cubism.ui-canvas-hint.position.create";
 
     private final VerifiedMemberResolver resolver;
 
@@ -52,6 +78,92 @@ public final class VerifiedCxStatusBarHostAccess implements CxStatusBarHostAcces
             return null;
         }
         return resolver.invoke("cubism.ui-status-bar.frame.content-pane", frame);
+    }
+
+    @Override
+    public Registration showCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        final Object appController = resolver.invokeStatic("cubism.ui-status-bar.app-controller.instance");
+        if (appController == null) {
+            throw new IllegalStateException("CX canvas-hint app controller is not ready");
+        }
+        final Object viewContext = resolver.invoke(
+            "cubism.ui-canvas-hint.app-controller.current-view-context",
+            appController
+        );
+        if (viewContext == null) {
+            throw new IllegalStateException("CX canvas-hint view context is not ready");
+        }
+        if (!resolver.isInstance("cubism.ui-canvas-hint.view-context.class", viewContext)) {
+            throw new IllegalStateException("CX canvas-hint view context type is invalid");
+        }
+        showHint(viewContext, notification);
+        return () -> resolver.invoke(
+            SHOW_HINT_ALIAS,
+            viewContext,
+            "",
+            0.0f,
+            notification.id()
+        );
+    }
+
+    /**
+     * Routes to the passive native entry point only when the notification needs neither
+     * a click action nor an explicit position; the richer entry point carries both. Every
+     * route shares the same hint key, so replacing or closing a hint is route-independent.
+     */
+    private void showHint(final Object viewContext, final CanvasHintNotification notification) {
+        final float durationSeconds = nativeDurationSeconds(notification.durationSeconds());
+        final boolean clickable = notification.onClick().isPresent();
+        final boolean positioned = notification.position().isPresent();
+        if (!clickable && !positioned) {
+            resolver.invoke(
+                SHOW_HINT_ALIAS,
+                viewContext,
+                notification.message(),
+                durationSeconds,
+                notification.id()
+            );
+            return;
+        }
+        // A null action is a supported argument: the native button checks for it before
+        // invoking, so a position-only hint passes no click callback.
+        final Object nativeAction = clickable ? nativeAction(notification) : null;
+        final Object nativePosition = positioned ? nativePosition(notification) : null;
+        resolver.invoke(
+            SHOW_HINT_WITH_ACTION_ALIAS,
+            viewContext,
+            notification.message(),
+            durationSeconds,
+            notification.id(),
+            nativeAction,
+            nativePosition
+        );
+    }
+
+    private Object nativeAction(final CanvasHintNotification notification) {
+        final Runnable action = notification.onClick().orElseThrow();
+        return resolver.createFunctionalArgumentProxy(
+            SHOW_HINT_WITH_ACTION_ALIAS,
+            HINT_ACTION_PARAMETER_INDEX,
+            ignored -> {
+                action.run();
+                // The native click handler discards this result; the host never
+                // inspects the Unit instance, so null cannot reach Kotlin as a value.
+                return null;
+            }
+        );
+    }
+
+    private Object nativePosition(final CanvasHintNotification notification) {
+        final CanvasHintPosition override = notification.position().orElseThrow();
+        return resolver.construct(POSITION_CREATE_ALIAS, override.x(), override.y());
+    }
+
+    private static float nativeDurationSeconds(final float durationSeconds) {
+        return Float.isInfinite(durationSeconds)
+            ? NATIVE_UNTIL_DISMISSED_SECONDS
+            : durationSeconds;
     }
 
     @Override

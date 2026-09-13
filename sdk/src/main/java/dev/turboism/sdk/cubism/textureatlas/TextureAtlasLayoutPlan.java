@@ -7,16 +7,41 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-/** Complete, immutable host-independent atlas layout plan. */
+/**
+ * Immutable layout result. Complete-atlas targets require every input; native current-page
+ * targets interpret omitted input IDs as overflow. Coordinates and dimensions are final pixels.
+ * The target's issued constraints, not this factory or constructor, determine which contract
+ * applies. A plan cannot turn a complete-atlas target into a current-page target.
+ *
+ * @param pageWidth final page width in pixels
+ * @param pageHeight final page height in pixels
+ * @param pageCount number of pages; one for a current-page result
+ * @param pageNames optional complete-atlas page names; empty when no names are requested
+ * @param placements final content rectangles; omitted current-page input IDs become overflow
+ * @param scale positive finite absolute uniform scale from source coordinates to final pixels;
+ *     one for complete-atlas authoring, not a multiplier of the previous atlas transform
+ */
 @CubismEditor({"5.2.03", "5.3.02", "5.3.03"})
 public record TextureAtlasLayoutPlan(
     int pageWidth,
     int pageHeight,
     int pageCount,
     List<String> pageNames,
-    List<TextureAtlasPlacement> placements
+    List<TextureAtlasPlacement> placements,
+    double scale
 ) {
 
+    /** Retains the original complete-atlas constructor and its unit scale. */
+    public TextureAtlasLayoutPlan(int pageWidth, int pageHeight, int pageCount,
+        List<String> pageNames, List<TextureAtlasPlacement> placements) {
+        this(pageWidth, pageHeight, pageCount, pageNames, placements, 1D);
+    }
+
+    /** Creates a current-page result with its final uniform scale. */
+    public static TextureAtlasLayoutPlan currentPage(int width, int height,
+        List<TextureAtlasPlacement> placements, double scale) {
+        return new TextureAtlasLayoutPlan(width, height, 1, List.of(), placements, scale);
+    }
     public TextureAtlasLayoutPlan(
         final int pageWidth,
         final int pageHeight,
@@ -27,6 +52,9 @@ public record TextureAtlasLayoutPlan(
     }
 
     public TextureAtlasLayoutPlan {
+        if (!Double.isFinite(scale) || scale <= 0D || (scale != 1D && pageCount != 1)) {
+            throw new IllegalArgumentException("Scale must be positive and finite; scaled plans have one page.");
+        }
         if (pageWidth < 1 || pageHeight < 1) {
             throw new IllegalArgumentException("Atlas page dimensions must be positive.");
         }

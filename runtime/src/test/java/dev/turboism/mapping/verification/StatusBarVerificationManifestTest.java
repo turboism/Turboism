@@ -23,12 +23,12 @@ class StatusBarVerificationManifestTest {
     private final ObjectMapper mapper = new ObjectMapper();
 
     @Test
-    void manifestMatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
+    void manifestMatchesTheReviewedRecordBytesAndAllTwentyFourAliases() throws Exception {
         assertRecord(RECORD_NAME, StatusBarVerificationManifest.RECORD_5_3_02);
     }
 
     @Test
-    void manifest52MatchesTheReviewedRecordBytesAndAllTwentyOneAliases() throws Exception {
+    void manifest52MatchesTheReviewedRecordBytesAndAllTwentyFourAliases() throws Exception {
         assertRecord(RECORD_NAME_52, StatusBarVerificationManifest.RECORD_5_2_03);
     }
 

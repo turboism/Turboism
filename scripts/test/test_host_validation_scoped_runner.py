@@ -42,7 +42,7 @@ class ScopedRunnerIntegrationTest(unittest.TestCase):
             preview.mkdir(parents=True)
             tools = Path(queue.__file__).parent
             for name in ("host_validation.py", "host_validation_queue.py", "host_validation_containment.py",
-                         "host_validation_evidence.py", "host-validation-env.sh",
+                         "host_validation_evidence.py", "host-validation-env.sh", "host-validation-transport.sh",
                          "run-cubism-host-validation.sh", "archive-cubism-host-evidence.sh"):
                 queue.copy_verified(tools / name, preview / name)
             # A test-only SOURCE fixture override, included in the prepared digest.

@@ -13,7 +13,8 @@ public record CorePluginServices(
     dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
     CorePluginManagement plugins,
     FloatingPanelActions floatingPanelActions,
-    RuntimeLogReader logs
+    RuntimeLogReader logs,
+    CoreUpdateService update
 ) {
     public CorePluginServices(
         final RuntimeSettingsService settings,
@@ -25,7 +26,8 @@ public record CorePluginServices(
             dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
             plugins,
             FloatingPanelActions.unavailable(),
-            RuntimeLogReader.unavailable()
+            RuntimeLogReader.unavailable(),
+            CoreUpdateService.unavailable()
         );
     }
 
@@ -50,6 +52,7 @@ public record CorePluginServices(
         plugins = Objects.requireNonNull(plugins, "plugins");
         floatingPanelActions = Objects.requireNonNull(floatingPanelActions, "floatingPanelActions");
         logs = Objects.requireNonNull(logs, "logs");
+        update = Objects.requireNonNull(update, "update");
     }
 
 

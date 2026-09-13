@@ -292,7 +292,7 @@ public final class ConfigMergeRegression {
             String legacyText = "{\"worktreeId\":\"legacy-runtime\","
                     + "\"pluginDirs\":[\"custom-plugins\"],\"logLevel\":\"DEBUG\","
                     + "\"disabledPlugins\":[\"dev.turboism.plugin.fixture\"],"
-                    + "\"cubismJvm\":\"bundled\"}";
+                    + "\"useTextIcon\":true,\"cubismJvm\":\"bundled\"}";
             Files.writeString(cfg, legacyText, StandardCharsets.UTF_8);
             Map<String, Object> legacy = ConfigMerge.loadExisting(dir);
             check("schema-less legacy config is admitted as v0",
@@ -304,7 +304,8 @@ public final class ConfigMergeRegression {
             check("v0 migration preserves user settings",
                     "DEBUG".equals(migrated.get("logLevel"))
                             && List.of("custom-plugins").equals(migrated.get("pluginDirs"))
-                            && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins")));
+                            && List.of("dev.turboism.plugin.fixture").equals(migrated.get("disabledPlugins"))
+                            && Boolean.TRUE.equals(migrated.get("useTextIcon")));
             @SuppressWarnings("unchecked")
             Map<String, Object> launcher = (Map<String, Object>) migrated.get("launcher");
             check("v0 migration moves legacy JVM choice into launcher",
@@ -341,6 +342,7 @@ public final class ConfigMergeRegression {
         config.put("logLevel", "INFO");
         config.put("maxLogStorageMiB", 100L);
         config.put("safeMode", Boolean.FALSE);
+        config.put("useTextIcon", Boolean.TRUE);
         config.put("hooks", Map.of(
                 "disabledIds", List.of(),
                 "denylistedClasses", List.of(),
@@ -382,6 +384,9 @@ public final class ConfigMergeRegression {
         Map<String, Object> badSafeMode = validRuntimeConfig();
         badSafeMode.put("safeMode", "false");
         invalid.add(badSafeMode);
+        Map<String, Object> badUseTextIcon = validRuntimeConfig();
+        badUseTextIcon.put("useTextIcon", "true");
+        invalid.add(badUseTextIcon);
         Map<String, Object> badHooks = validRuntimeConfig();
         badHooks.put("hooks", Map.of("startup", Map.of("skipSplash", "false")));
         invalid.add(badHooks);
@@ -425,7 +430,8 @@ public final class ConfigMergeRegression {
         check("selection preserves user-owned worktree and plugin paths",
                 "user-runtime".equals(updated.get("worktreeId"))
                         && List.of("custom-plugins").equals(updated.get("pluginDirs")));
-        check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel")));
+        check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel"))
+                && Boolean.TRUE.equals(updated.get("useTextIcon")));
         ConfigMerge.validateCurrent(updated);
 
         Map<String, Object> sameSetDifferentOrder = new LinkedHashMap<>(updated);
@@ -978,12 +984,18 @@ public final class ConfigMergeRegression {
 
     /**
      * Retirement slice: managed-upgrade cleanup deletes only JARs proven by
-     * their embedded plugin.json id to own a retired id (canonical and renamed
-     * filenames alike); every unverifiable or foreign entry is preserved, and
-     * mergeDisabled prunes only the four retired ids from disabledPlugins.
-     * Preserved or leftover retired descriptors are additionally denied by the
-     * runtime PluginJarContract boundary (PLUGIN_RETIRED_ID); config alone
-     * does not keep stale retired JARs inactive.
+     * their embedded plugin.json id to own a retired or superseded id (canonical
+     * and renamed filenames alike); every unverifiable or foreign entry is
+     * preserved, and mergeDisabled prunes exactly the retired/superseded ids
+     * from disabledPlugins. Preserved or leftover retired descriptors are
+     * additionally denied by the runtime PluginJarContract boundary
+     * (PLUGIN_RETIRED_ID); config alone does not keep stale retired JARs
+     * inactive.
+     *
+     * <p>{@code dev.turboism.plugin.backup} is the superseded webdav-backup id: a
+     * stale {@code backup.jar} below plugins/ must go, while the replacement
+     * {@code webdav-backup.jar} carrying {@code dev.turboism.plugin.webdav} must
+     * survive with its new menu identity intact.</p>
      */
     private static void retiredPluginCleanup() throws Exception {
         Path dir = Files.createTempDirectory("retired-plugins-");
@@ -1004,6 +1016,14 @@ public final class ConfigMergeRegression {
             // retained successor id must never be deleted
             Path successor = plugins.resolve("clipmask-viewer.jar");
             writePluginJar(successor, "dev.turboism.plugin.clipmask-viewer");
+            // webdav-backup rename: the stale pre-rename JAR is removed under its
+            // shipped name, and the current payload name with the new id survives
+            Path superseded = plugins.resolve("backup.jar");
+            writePluginJar(superseded, "dev.turboism.plugin.backup");
+            Path renamedStale = plugins.resolve("webdav-backup-old.jar");
+            writePluginJar(renamedStale, "dev.turboism.plugin.backup");
+            Path replacement = plugins.resolve("webdav-backup.jar");
+            writePluginJar(replacement, "dev.turboism.plugin.webdav");
             // unreadable entries -> preserved
             Files.writeString(plugins.resolve("perf-opt.jar"), "not a zip archive");
             Files.writeString(plugins.resolve("notes.txt"), "not a jar");
@@ -1026,6 +1046,9 @@ public final class ConfigMergeRegression {
             check("retired renamed jar removed", !Files.exists(renamed));
             check("foreign-id jar preserved", Files.exists(foreign));
             check("retained successor jar preserved", Files.exists(successor));
+            check("superseded backup.jar removed", !Files.exists(superseded));
+            check("renamed superseded backup jar removed", !Files.exists(renamedStale));
+            check("webdav-backup.jar replacement preserved", Files.exists(replacement));
             check("unreadable jar preserved", Files.exists(plugins.resolve("perf-opt.jar")));
             check("non-jar file preserved", Files.exists(plugins.resolve("notes.txt")));
             check("directory entry preserved", Files.isDirectory(plugins.resolve("subdir")));
@@ -1046,13 +1069,14 @@ public final class ConfigMergeRegression {
                 System.out.println("  skip: symbolic-link plugin fixture unavailable");
             }
 
-            // disabledPlugins pruning: only the four retired ids are pruned
+            // disabledPlugins pruning: exactly the retired/superseded ids are pruned
             Map<String, Object> seed = seedConfig();
             seed.put("disabledPlugins", List.of(
                     "dev.turboism.plugin.logfilter",
                     "dev.turboism.plugin.clipmask",
                     "dev.turboism.plugin.perfopt",
                     "dev.turboism.plugin.renderopt",
+                    "dev.turboism.plugin.backup",
                     "dev.turboism.plugin.mesh-edit-mirror-axis-enhance",
                     "dev.turboism.plugin.other"));
             List<String> disabled = ConfigMerge.mergeDisabled(
@@ -1063,6 +1087,7 @@ public final class ConfigMergeRegression {
                             && !disabled.contains("dev.turboism.plugin.clipmask")
                             && !disabled.contains("dev.turboism.plugin.perfopt")
                             && !disabled.contains("dev.turboism.plugin.renderopt")
+                            && !disabled.contains("dev.turboism.plugin.backup")
                             && !disabled.contains("dev.turboism.plugin.mesh-edit-mirror-axis-enhance")
                             && disabled.contains("dev.turboism.plugin.other")
                             && disabled.equals(disabled.stream().sorted().toList()));

@@ -92,11 +92,11 @@ def observation(version="0.43.0", missing=()):
 
 def plugin_candidate(version="0.2.0", *, built=True):
     return {
-        "project": ":plugins:backup",
-        "module": "backup",
-        "id": "dev.turboism.plugin.backup",
+        "project": ":plugins:webdav-backup",
+        "module": "webdav-backup",
+        "id": "dev.turboism.plugin.webdav",
         "version": version,
-        "jarRelativePath": f"plugins/backup-{version}.jar",
+        "jarRelativePath": f"plugins/webdav-backup-{version}.jar",
         "jarSha256": HASH_A,
         "jarSize": 42,
         "descriptorSha256": HASH_B,
@@ -119,7 +119,7 @@ def catalog(version=None, *, jar_hash=HASH_A, descriptor_hash=HASH_B):
         "artifact": {"sha256": jar_hash, "descriptorSha256": descriptor_hash},
     }]
     plugins = [] if version is None else [{
-        "id": "dev.turboism.plugin.backup",
+        "id": "dev.turboism.plugin.webdav",
         "repository": "https://github.com/turboism/Turboism",
         "support": "https://github.com/turboism/Turboism/issues",
         "releases": releases,
@@ -401,7 +401,7 @@ class ManifestScriptTest(unittest.TestCase):
                     "url": "https://plugin.turboism.dev/api/v2/catalog.json",
                 },
                 "plugins": [{
-                    "id": "dev.turboism.plugin.backup",
+                    "id": "dev.turboism.plugin.webdav",
                     "version": "0.2.0",
                     "jarSha256": HASH_A,
                 }],

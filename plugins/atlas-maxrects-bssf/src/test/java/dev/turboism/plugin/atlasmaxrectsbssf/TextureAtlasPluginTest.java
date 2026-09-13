@@ -28,6 +28,78 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class TextureAtlasPluginTest {
 
     @Test
+    void registeredPlannerPreservesExplicitCompleteAtlasSdkRequests() {
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
+                TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
+            final var planner = context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).orElseThrow().planner();
+            final var plan = planner.plan(java.util.List.of(
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("first", 10, 10),
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("second", 10, 10)),
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints(16, 16, 0, 0, 2, false, false));
+            assertEquals(2, plan.placements().size());
+            assertEquals(2, plan.pageCount());
+        } finally {
+            plugin.disable();
+            plugin.shutdown();
+        }
+    }
+
+    @Test
+    void registeredPlannerHonorsParallelChangesWithoutReenablingThePlugin() {
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            final var items = java.util.stream.IntStream.range(0, 32).mapToObj(i ->
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("image-" + i, 4, 4)).toList();
+            final var constraints = dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints.currentPage(64, 64, 1, false, 1);
+            final var planner = context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).orElseThrow().planner();
+            final var serial = planner.plan(items, constraints);
+            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
+                TextureAtlasPlugin.ALGORITHM_MAXRECTS, true)));
+            final var parallel = planner.plan(items, constraints);
+            org.junit.jupiter.api.Assertions.assertNotEquals(serial, parallel);
+            assertEquals(new dev.turboism.plugin.atlasmaxrectsbssf.layout.CurrentPageTextureAtlasPlanner()
+                .plan(items, constraints, true), parallel);
+            assertTrue(plugin.updateSettings(new TextureAtlasSettings(TextureAtlasLayoutMode.COMPACT,
+                TextureAtlasPlugin.ALGORITHM_MAXRECTS, false)));
+            assertEquals(serial, planner.plan(items, constraints));
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    @Test
+    void productionRegisteredPlannerOnlyPacksTheCurrentPageAndReturnsPartialPlacement() {
+        final ShellPluginContext context = new ShellPluginContext();
+        final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
+        plugin.init(context);
+        plugin.enable();
+        try {
+            final var planner = context.registry.find(TextureAtlasPlugin.ALGORITHM_MAXRECTS).orElseThrow().planner();
+            final var items = List.of(
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("first", 10, 10),
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("second", 10, 10),
+                new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutItem("oversized", 100, 100)
+            );
+            final var plan = planner.plan(items,
+                dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutConstraints.currentPage(16, 16, 0, false, 1));
+            assertEquals(1, plan.pageCount());
+            assertEquals(1, plan.placements().size());
+            assertEquals("first", plan.placements().get(0).textureId());
+            assertTrue(context.warnMessages.isEmpty());
+        } finally {
+            plugin.shutdown();
+        }
+    }
+
+    @Test
     void initRegistersTheProductionTextureAtlasSchema() {
         final TextureAtlasPlugin plugin = new TextureAtlasPlugin();
         final ShellPluginContext context = new ShellPluginContext();
@@ -142,15 +214,6 @@ class TextureAtlasPluginTest {
 
         private ShellPluginContext(final TextureAtlasLayoutService layouts) {
             this.layouts = layouts;
-            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-                TextureAtlasPlugin.ALGORITHM_MAXRECTS, "MaxRects-BSSF", true,
-                (items, constraints) ->
-                    new dev.turboism.plugin.atlasmaxrectsbssf.layout.MaxRectsBssfTextureAtlasPlanner()
-                        .plan(items, constraints, false)
-            ));
-            registry.register(new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
-                TextureAtlasPlugin.ALGORITHM_NATIVE, "Native", false, null
-            ));
         }
 
         @Override public PluginDescriptor descriptor() { throw unused(); }
@@ -189,7 +252,8 @@ class TextureAtlasPluginTest {
         @Override public MenuRegistry menus() { throw unused(); }
         @Override public UiScheduler uiScheduler() { throw unused(); }
         @Override public DiagnosticReport diagnostics() { throw unused(); }
-        @Override public DisposableScope disposableScope() { throw unused(); }
+        private final DisposableScope scope = new DisposableScope();
+        @Override public DisposableScope disposableScope() { return scope; }
 
         private static UnsupportedOperationException unused() {
             return new UnsupportedOperationException("not used by a migration shell");

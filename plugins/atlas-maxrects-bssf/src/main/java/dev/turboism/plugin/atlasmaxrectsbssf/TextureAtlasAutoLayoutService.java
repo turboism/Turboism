@@ -71,7 +71,9 @@ public final class TextureAtlasAutoLayoutService {
                 "Texture atlas automatic layout is unavailable while the plugin is disabled."
             );
         }
+        final long snapshotStart = System.nanoTime();
         final Optional<TextureAtlasLayoutSnapshot> snapshot = layouts.current();
+        final long snapshotNanos = System.nanoTime() - snapshotStart;
         if (snapshot.isEmpty()) {
             return TextureAtlasLayoutApplyResult.failed(
                 TextureAtlasLayoutFailureCode.CAPABILITY_UNAVAILABLE,
@@ -80,14 +82,27 @@ public final class TextureAtlasAutoLayoutService {
         }
         final TextureAtlasLayoutSnapshot current = snapshot.orElseThrow();
         try {
+            final long planStart = System.nanoTime();
             final TextureAtlasLayoutPlan plan = planner.plan(current.items(), current.constraints());
+            final long planNanos = System.nanoTime() - planStart;
             log.accept(
-                "Texture Atlas native automatic-layout plan items=" + current.items().size()
+                "Texture Atlas automatic-layout plan items=" + current.items().size()
                     + " page=" + plan.pageWidth() + "x" + plan.pageHeight()
                     + " pages=" + plan.pageCount()
                     + " placements=" + plan.placements().size()
+                    + " scope=" + (current.constraints().singlePageOptions() == null ? "complete-atlas" : "current-page")
+                    + " scale=" + plan.scale()
+                    + " overflow=" + (current.items().size() - plan.placements().size())
+                    + " snapshotMs=" + snapshotNanos / 1_000_000D
+                    + " planMs=" + planNanos / 1_000_000D
             );
-            return layouts.apply(current.target(), plan);
+            final long applyStart = System.nanoTime();
+            final TextureAtlasLayoutApplyResult result = layouts.apply(current.target(), plan);
+            log.accept("Texture Atlas automatic-layout writeback status="
+                + result.status().map(Enum::name).orElse("FAILED")
+                + " failureCode=" + result.failureCode().map(Enum::name).orElse("none")
+                + " applyMs=" + (System.nanoTime() - applyStart) / 1_000_000D);
+            return result;
         } catch (TextureAtlasPackingException exception) {
             return TextureAtlasLayoutApplyResult.failed(
                 TextureAtlasLayoutFailureCode.PLAN_INVALID,

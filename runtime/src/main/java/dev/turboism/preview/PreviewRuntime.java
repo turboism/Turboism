@@ -273,13 +273,13 @@ public final class PreviewRuntime implements AutoCloseable {
                 home,
                 diagnostic -> log.warn("config", diagnostic)
             ).read();
-            final java.util.Locale effectiveLocale =
-                dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
-                    runtimeConfig.path("locale").asText(""),
-                    dev.turboism.i18n.CubismHostLocale.resolve(),
-                    java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
-                    message -> log.warn("i18n", message)
-                );
+            // Provisional: Cubism writes the Environment Settings language onto the
+            // process default locale as the editor starts, which is later than this
+            // first resolution. Re-resolved once the host is verified and ACTIVE.
+            java.util.Locale effectiveLocale = resolveEffectiveLocale(
+                runtimeConfig,
+                message -> log.warn("i18n", message)
+            );
             log.info("i18n", "Using startup locale " + effectiveLocale.toLanguageTag());
             log.setMinimumLevel(runtimeConfig.path("logLevel").asText("INFO"));
             log.setMaxStorageMiB(runtimeConfig.path("maxLogStorageMiB").asInt(
@@ -411,6 +411,20 @@ public final class PreviewRuntime implements AutoCloseable {
             }
             startupTimer.completed("host-adapters", message -> log.info("startup", message));
 
+            // The host class is observable, and this runtime therefore starts, before
+            // Cubism finishes applying File -> Environment Settings -> General ->
+            // Language to the process default locale. Re-resolve now that the host is
+            // verified and ACTIVE so plugin message bundles follow the language the
+            // user actually sees; an explicit -Dturboism.locale or config locale still
+            // outranks the host in resolveStartup. The first resolution already
+            // reported operator/config diagnostics, hence the silent sink here.
+            final java.util.Locale hostVerifiedLocale = resolveEffectiveLocale(runtimeConfig, message -> { });
+            if (!hostVerifiedLocale.equals(effectiveLocale)) {
+                log.info("i18n", "Host locale " + hostVerifiedLocale.toLanguageTag()
+                    + " supersedes the startup locale " + effectiveLocale.toLanguageTag());
+                effectiveLocale = hostVerifiedLocale;
+            }
+
             final dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistory =
                 createFileChooserHistoryService(home, log);
             plugins = new LocalPluginRuntime(
@@ -504,6 +518,31 @@ public final class PreviewRuntime implements AutoCloseable {
     }
 
     /**
+     * Resolves the runtime's effective locale from the configuration, the host language and
+     * the JVM display locale, in the frozen {@code PluginLocaleResolver} precedence.
+     *
+     * <p>Called twice on purpose. The first call is provisional: it runs before Cubism has
+     * applied {@code File → Environment Settings → General → Language} to the process default
+     * locale. The second call, made once the host is verified and ACTIVE, is the value plugin
+     * message bundles and reports use.</p>
+     *
+     * @param runtimeConfigTurboism runtime configuration
+     * @param diagnostics receives the resolver's locale-source diagnostics
+     * @return the resolved locale, never {@code null}
+     */
+    private static java.util.Locale resolveEffectiveLocale(
+        final ObjectNode runtimeConfig,
+        final java.util.function.Consumer<String> diagnostics
+    ) {
+        return dev.turboism.i18n.PluginLocaleResolver.resolveStartup(
+            runtimeConfig.path("locale").asText(""),
+            dev.turboism.i18n.CubismHostLocale.resolve(),
+            java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY),
+            diagnostics
+        );
+    }
+
+    /**
      * @return the locale the runtime resolved at startup and uses for plugin message bundles; this
      *     is the configured locale, which need not equal the JVM default
      */
@@ -590,7 +629,7 @@ public final class PreviewRuntime implements AutoCloseable {
         STARTUP_BANNER.publish(
             List.of(log::banner),
             new StartupBanner.Details(
-                StartupBanner.frameworkVersion(),
+                StartupBanner.frameworkDisplayVersion(),
                 System.getProperty("java.version", "unavailable"),
                 graalVm,
                 hostAccess().cubismEditorVersion().orElse("unavailable"),

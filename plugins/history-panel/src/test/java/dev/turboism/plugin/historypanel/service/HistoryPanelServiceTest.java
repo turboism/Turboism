@@ -2,7 +2,15 @@ package dev.turboism.plugin.historypanel.service;
 
 import dev.turboism.sdk.cubism.history.CubismHistory;
 import dev.turboism.sdk.cubism.history.HistoryAction;
+import dev.turboism.sdk.cubism.history.HistoryChange;
+import dev.turboism.sdk.cubism.history.HistoryEditContext;
 import dev.turboism.sdk.cubism.history.HistoryEntry;
+import dev.turboism.sdk.cubism.history.HistoryEntryId;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
+import dev.turboism.sdk.cubism.history.HistoryGroup;
+import dev.turboism.sdk.cubism.history.HistoryOrigin;
+import dev.turboism.sdk.cubism.history.HistoryParameterCoordinate;
+import dev.turboism.sdk.cubism.history.HistoryTarget;
 import dev.turboism.sdk.cubism.history.HistoryMoveResult;
 import dev.turboism.sdk.cubism.history.HistorySnapshot;
 import dev.turboism.sdk.plugin.CancellationToken;
@@ -46,8 +54,8 @@ class HistoryPanelServiceTest {
             2,
             1,
             List.of(
-                new HistoryEntry(0, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-19.8", "-4.199999"))),
-                new HistoryEntry(1, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-4.199999", "12.599998")))
+                new HistoryEntry(0, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-19.8", "-4.199999")), Optional.of(new HistoryEntryId("entry-0")), Optional.empty()),
+                new HistoryEntry(1, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-4.199999", "12.599998")), Optional.of(new HistoryEntryId("entry-1")), Optional.empty())
             ),
             true,
             false
@@ -76,9 +84,10 @@ class HistoryPanelServiceTest {
         // Top bar shows only the entry count; no cursor/availability stats.
         assertTrue(text.contains("Current records: 2"), text);
         assertFalse(text.contains("cursor"), "no cursor statistics");
-        assertTrue(text.contains("2 Set Parameter Value"), text);
-        assertTrue(text.contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), text);
+        assertFalse(text.contains("Set Parameter Value"), "semantic rows do not repeat the raw host label");
+        assertTrue(text.contains("Parameter(ParamAngleX) value changed from -4.199999 to 12.599998"), text);
         assertFalse(text.contains("jump to that state"), "no bottom click hint");
+        assertFalse(text.contains("unattributed"), "host-unattributed origin is hidden from panel rows");
 
         // Top level carries no undo/redo buttons.
         assertFalse(hasButton(view, "history.panel.undo"), "top undo button removed");
@@ -101,8 +110,8 @@ class HistoryPanelServiceTest {
             2,
             1,
             List.of(
-                new HistoryEntry(0, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-19.8", "-4.199999"))),
-                new HistoryEntry(1, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-4.199999", "12.599998")))
+                new HistoryEntry(0, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-19.8", "-4.199999")), Optional.of(new HistoryEntryId("entry-0")), Optional.empty()),
+                new HistoryEntry(1, "Set Parameter Value", true, Optional.of(action("ParamAngleX", "-4.199999", "12.599998")), Optional.of(new HistoryEntryId("entry-1")), Optional.empty())
             ),
             true,
             false
@@ -115,20 +124,234 @@ class HistoryPanelServiceTest {
         // The wrapping toggle carries the full label plus the structured
         // detail in one label, so long entries wrap inside the viewport.
         final PanelView.Toggle first = toggles.get(0);
-        assertEquals("history.entry.toggle.0", first.id());
-        assertEquals("history.entry.move.0", first.actionId());
-        assertTrue(first.label().contains("1 Set Parameter Value"), first.label());
-        assertTrue(first.label().contains("ParamAngleX value: -19.8 → -4.199999 (SET_PARAMETER_VALUE, FULL)"), first.label());
+        assertEquals("history.entry.toggle.ZW50cnktMA", first.id());
+        assertEquals(HistoryPanelService.moveActionId("entry-0"), first.actionId());
+        assertTrue(first.label().startsWith("1 Parameter(ParamAngleX)"), first.label());
+        assertTrue(first.label().contains("Parameter(ParamAngleX) value changed from -19.8 to -4.199999"), first.label());
         assertTrue(first.selected(), "applied entry is checked");
         assertFalse(first.grayed(), "applied entry keeps its color");
 
         final PanelView.Toggle second = toggles.get(1);
-        assertEquals("history.entry.toggle.1", second.id());
-        assertEquals("history.entry.move.1", second.actionId());
-        assertTrue(second.label().contains("2 Set Parameter Value"), second.label());
-        assertTrue(second.label().contains("ParamAngleX value: -4.199999 → 12.599998 (SET_PARAMETER_VALUE, FULL)"), second.label());
+        assertEquals("history.entry.toggle.ZW50cnktMQ", second.id());
+        assertEquals(HistoryPanelService.moveActionId("entry-1"), second.actionId());
+        assertTrue(second.label().startsWith("2 Parameter(ParamAngleX)"), second.label());
+        assertTrue(second.label().contains("Parameter(ParamAngleX) value changed from -4.199999 to 12.599998"), second.label());
         assertFalse(second.selected(), "undone entry is unchecked");
         assertTrue(second.grayed(), "undone entry label is grayed");
+    }
+
+    @Test
+    void rendersArtmeshDefaultShapeAsDomainSemantics() {
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Host technical label",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(new HistoryTarget(
+                "ART_MESH",
+                Optional.of("ArtMesh1"),
+                Optional.of("Face shadow")
+            )),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.of("multiplyColor"),
+                Optional.empty(),
+                Optional.of("#66ccff"),
+                new HistoryEditContext(
+                    HistoryEditContext.Kind.DEFAULT_FORM,
+                    Optional.of("default-form"),
+                    List.of()
+                )
+            )),
+            Optional.empty(),
+            Optional.of("history.before-value-unavailable")
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Host technical label",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("artmesh-default")),
+            Optional.empty(),
+            detail
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+
+        assertTrue(
+            text.contains("Artmesh(Face shadow) default shape multiply color changed to #66ccff"),
+            text
+        );
+        assertFalse(text.contains("ART_MESH multiplyColor"), text);
+        assertFalse(text.contains("Host technical label"), text);
+    }
+
+    @Test
+    void rendersCompleteParameterTupleForArtmeshKeyform() {
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Host technical label",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(new HistoryTarget(
+                "ART_MESH",
+                Optional.of("ArtMesh1"),
+                Optional.of("Face shadow")
+            )),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.SET,
+                Optional.of(0),
+                Optional.of("multiplyColor"),
+                Optional.of("#ffffff"),
+                Optional.of("#66ccff"),
+                new HistoryEditContext(
+                    HistoryEditContext.Kind.KEYFORM,
+                    Optional.of("form-1"),
+                    List.of(
+                        new HistoryParameterCoordinate(
+                            new HistoryTarget(
+                                "PARAMETER",
+                                Optional.of("ParamAngleX"),
+                                Optional.of("Angle X")
+                            ),
+                            "30"
+                        ),
+                        new HistoryParameterCoordinate(
+                            new HistoryTarget(
+                                "PARAMETER",
+                                Optional.of("ParamAngleY"),
+                                Optional.of("Angle Y")
+                            ),
+                            "-10"
+                        )
+                    )
+                )
+            )),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Host technical label",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("artmesh-keyform")),
+            Optional.empty(),
+            detail
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+
+        assertTrue(
+            text.contains(
+                "Artmesh(Face shadow) at keyform [Angle X=30, Angle Y=-10] "
+                    + "multiply color changed from #ffffff to #66ccff"
+            ),
+            text
+        );
+    }
+
+    @Test
+    void rendersGroupAsOneRowWithoutGroupedChanges() {
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Edit model group",
+            HistoryAction.DetailLevel.PARTIAL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(
+                    HistoryEntryDetail.labelOnly("Add parameter"),
+                    HistoryEntryDetail.labelOnly("Rename part")
+                ),
+                false
+            )),
+            Optional.of("history.detail.group-partial")
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Group",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("group-entry")),
+            Optional.empty(),
+            detail
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
+        final String text = flatten(view);
+
+        assertEquals(1, toggles(view).size(), "a group remains one navigable history row");
+        assertTrue(toggles(view).get(0).label().startsWith("1 Edit model group"), text);
+        assertTrue(text.contains("Edit model group"), text);
+        assertFalse(text.contains("Add parameter"), "group children are not rendered");
+        assertFalse(text.contains("Rename part"), "group children are not rendered");
+        assertFalse(text.contains("grouped changes"), "group change affordance is removed");
+        assertFalse(text.contains("unattributed"), "host-unattributed origin is hidden");
+        assertFalse(hasCollapsibleSection(view), "group row has no expandable child section");
+    }
+
+    @Test
+    void aggregatedGroupShowsOnlyItsSummaryNotTheFirstChangeOrRemainder() {
+        final HistoryEntryDetail child = HistoryEntryDetail.fromAction("Hidden child",
+            action("ParamAngleX", "0", "10"), HistoryOrigin.hostUnattributed());
+        final HistoryEntryDetail group = new HistoryEntryDetail("Batch parameter adjustment",
+            HistoryAction.DetailLevel.FULL, HistoryOrigin.turboism("plugin.test", "batch"),
+            child.targets(), List.of(child.changes().get(0), child.changes().get(0)),
+            Optional.of(new HistoryGroup(Optional.of("tx"), 2, List.of(child, child), false)), Optional.empty());
+        final HistoryEntry entry = new HistoryEntry(0, "Raw group label", true, Optional.empty(),
+            Optional.of(new HistoryEntryId("group")), Optional.of("tx"), group);
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+        final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
+        final String label = toggles(view).get(0).label();
+        assertTrue(label.startsWith("1 Batch parameter adjustment"), label);
+        assertFalse(label.contains("Raw group label"), label);
+        assertFalse(label.contains("ParamAngleX"), label);
+        assertFalse(label.contains("changed from"), label);
+        assertFalse(label.contains("+1"), label);
+        assertTrue(label.contains("Turboism (plugin.test)"), label);
+        assertEquals(1, toggles(view).size());
+        assertFalse(hasCollapsibleSection(view));
+        assertEquals(2, entry.detail().group().orElseThrow().children().size());
+    }
+
+    @Test
+    void labelOnlyRowUsesHostLabelOnceRatherThanFallbackSummary() {
+        final HistoryEntry entry = new HistoryEntry(0, "Host operation", true, Optional.empty(),
+            Optional.of(new HistoryEntryId("unknown")), Optional.empty(),
+            HistoryEntryDetail.labelOnly("Fallback summary"));
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+        final String label = toggles(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)).get(0).label();
+        assertTrue(label.startsWith("1 Host operation ·"), label);
+        assertFalse(label.contains("Fallback summary"), label);
+        assertEquals(label.indexOf("Host operation"), label.lastIndexOf("Host operation"));
+    }
+
+    @Test
+    void keepsKnownTurboismOriginVisible() {
+        final HistoryEntryDetail detail = HistoryEntryDetail.labelOnly(
+            "Known edit",
+            HistoryOrigin.turboism("dev.turboism.test", "test.operation"),
+            "history.detail.label-only"
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Known edit",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("known-origin")),
+            Optional.empty(),
+            detail
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+
+        assertTrue(text.contains("Turboism (dev.turboism.test)"), text);
     }
 
     @Test
@@ -151,10 +374,14 @@ class HistoryPanelServiceTest {
             false
         );
 
-        final String text = flatten(service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot));
+        final PanelView view = service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot);
+        final String text = flatten(view);
         assertTrue(text.contains("Current records: 1"), text);
         assertTrue(text.contains("1 Native Action"), text);
         assertTrue(text.contains("no structured detail"), text);
+        final PanelView.Toggle toggle = toggles(view).get(0);
+        assertTrue(toggle.grayed(), "missing stable ID disables navigation");
+        assertEquals("history.entry.unavailable.0", toggle.actionId());
     }
 
     @Test
@@ -315,6 +542,9 @@ class HistoryPanelServiceTest {
             builder.append("[toggle:").append(toggle.selected() ? "1" : "0").append(":").append(toggle.id()).append(":").append(toggle.label()).append("]\n");
         } else if (view instanceof PanelView.Text text) {
             builder.append(text.value()).append('\n');
+        } else if (view instanceof PanelView.CollapsibleSection section) {
+            builder.append(section.title()).append('\n');
+            section.children().forEach(child -> flatten(child, builder));
         }
     }
 
@@ -330,6 +560,18 @@ class HistoryPanelServiceTest {
         }
         if (view instanceof PanelView.Scroll scroll) {
             return hasButton(scroll.child(), id);
+        }
+        return false;
+    }
+
+    private static boolean hasCollapsibleSection(final PanelView view) {
+        if (view instanceof PanelView.CollapsibleSection) return true;
+        if (view instanceof PanelView.Scroll scroll) return hasCollapsibleSection(scroll.child());
+        if (view instanceof PanelView.Column column) {
+            return column.children().stream().anyMatch(HistoryPanelServiceTest::hasCollapsibleSection);
+        }
+        if (view instanceof PanelView.Row row) {
+            return row.children().stream().anyMatch(HistoryPanelServiceTest::hasCollapsibleSection);
         }
         return false;
     }
@@ -658,6 +900,29 @@ class HistoryPanelServiceTest {
             return switch (key) {
                 case "history.panel.unavailable" -> "History unavailable";
                 case "history.entry.no-detail" -> "no structured detail";
+                case "history.entry.level.full" -> "full detail";
+                case "history.entry.level.partial" -> "partial detail";
+                case "history.entry.level.label_only" -> "label only";
+                case "history.entry.target.unknown" -> "unknown target";
+                case "history.entry.context.default-form" -> " default shape";
+                case "history.property.value" -> "value";
+                case "history.property.name" -> "name";
+                case "history.property.id" -> "ID";
+                case "history.property.intensity" -> "intensity";
+                case "history.property.drawable-a" -> "drawable A";
+                case "history.property.drawable-b" -> "drawable B";
+                case "history.property.opacity" -> "opacity";
+                case "history.property.draw-order" -> "draw order";
+                case "history.property.multiply-color" -> "multiply color";
+                case "history.property.screen-color" -> "screen color";
+                case "history.property.vertex-positions" -> "vertex positions";
+                case "history.target.art-mesh" -> "Artmesh";
+                case "history.target.parameter" -> "Parameter";
+                case "history.target.part" -> "Part";
+                case "history.target.warp-deformer" -> "Warp deformer";
+                case "history.target.rotation-deformer" -> "Rotation deformer";
+                case "history.target.glue" -> "Glue";
+                case "history.target.document" -> "Document";
                 default -> key;
             };
         }
@@ -666,6 +931,35 @@ class HistoryPanelServiceTest {
         public String format(final String key, final Object... arguments) {
             if (key.equals("history.panel.count")) {
                 return "Current records: " + arguments[0];
+            }
+            if (key.equals("history.entry.affected")) {
+                return arguments[0] + " affected";
+            }
+            if (key.equals("history.entry.origin.turboism")) {
+                return "Turboism (" + arguments[0] + ")";
+            }
+            if (key.equals("history.entry.target.named")) {
+                return arguments[0] + "(" + arguments[1] + ")";
+            }
+            if (key.equals("history.entry.context.coordinate")) {
+                return arguments[0] + "=" + arguments[1];
+            }
+            if (key.equals("history.entry.context.keyform")) {
+                return " at keyform [" + arguments[0] + "]";
+            }
+            if (key.equals("history.entry.change.set")) {
+                return arguments[0] + "" + arguments[1] + " " + arguments[2]
+                    + " changed from " + arguments[3] + " to " + arguments[4];
+            }
+            if (key.equals("history.entry.change.set-after")) {
+                return arguments[0] + "" + arguments[1] + " " + arguments[2]
+                    + " changed to " + arguments[3];
+            }
+            if (key.equals("history.entry.change.add")) {
+                return arguments[0] + "" + arguments[1] + " added";
+            }
+            if (key.equals("history.entry.change.remove")) {
+                return arguments[0] + "" + arguments[1] + " removed";
             }
             return text(key);
         }

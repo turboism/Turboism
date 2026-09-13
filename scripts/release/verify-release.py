@@ -86,9 +86,13 @@ def verify_zip(path: Path, version: str, full: bool, plugins: set[str]) -> None:
         raise ValueError(f"agent Implementation-Version is not {version}: {path}")
 
 
-def release_artifacts(dist: Path, version: str) -> list[Path]:
-    if not STRICT_VERSION.fullmatch(version):
-        raise ValueError(f"invalid release version: {version}")
+def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list[Path]:
+    import sys
+    module_root = str(Path(__file__).resolve().parent)
+    if module_root not in sys.path:
+        sys.path.insert(0, module_root)
+    from turboism_release.channels import require_version
+    require_version(version, channel)
     primary = [
         dist / f"turboism-{version}-lite.zip",
         dist / f"turboism-{version}-full.zip",
@@ -103,8 +107,9 @@ def verify(
     version: str,
     release_plugins: Path | None = None,
     windows_stage: Path | None = None,
+    channel: str = "stable",
 ) -> None:
-    expected = release_artifacts(dist, version)
+    expected = release_artifacts(dist, version, channel)
     expected_names = {path.name for path in expected}
     entries = list(dist.iterdir())
     unsafe = [path for path in entries if path.is_symlink() or not path.is_file()]
@@ -143,11 +148,12 @@ def artifact_manifest(
     version: str,
     release_plugins: Path | None = None,
     windows_stage: Path | None = None,
+    channel: str = "stable",
 ) -> dict:
     """Return a deterministic manifest without writing into the eight-file dist."""
-    verify(dist, version, release_plugins, windows_stage)
+    verify(dist, version, release_plugins, windows_stage, channel)
     artifacts = []
-    for path in release_artifacts(dist, version):
+    for path in release_artifacts(dist, version, channel):
         suffix = ".sha256" if path.name.endswith(".sha256") else path.suffix.lower()
         media_type = {
             ".zip": "application/zip",
@@ -190,6 +196,7 @@ def write_manifest(path: Path, document: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--channel", choices=["stable", "beta", "nightly"], default="stable")
     parser.add_argument("--dist", required=True, type=Path)
     parser.add_argument("--release-plugins", required=True, type=Path)
     parser.add_argument("--windows-stage", type=Path,
@@ -206,6 +213,7 @@ def main() -> None:
             resolved[1],
             resolved[2],
             args.windows_stage.resolve() if args.windows_stage is not None else None,
+            args.channel,
         )
         if args.manifest_output is not None:
             write_manifest(args.manifest_output, document)

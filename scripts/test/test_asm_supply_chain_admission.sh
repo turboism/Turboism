@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Mutation fixtures are independent builds, not the enclosing CI product candidate.
+# Do not inherit its release identity into sandbox Gradle invocations.
+unset TURBOISM_NIGHTLY_VERSION TURBOISM_BUILD_NUMBER TURBOISM_SOURCE_REVISION TURBOISM_BUILD_VERSION TURBOISM_BUILD_CHANNEL ORG_GRADLE_PROJECT_turboismRelease
+
 ROOT="${TURBOISM_ADMISSION_ROOT:-$(git rev-parse --show-toplevel)}"
 GRADLE_HOME="${GRADLE_USER_HOME:-$HOME/.gradle}"
 HELPER="$ROOT/scripts/test/asm_admission_gate.py"

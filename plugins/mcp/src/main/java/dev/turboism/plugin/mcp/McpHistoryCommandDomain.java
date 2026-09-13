@@ -516,7 +516,8 @@ final class McpHistoryCommandDomain {
             entry("detailLevel", value.detailLevel().name()),
             entry("entryId", value.entryId().map(id -> id.value()).orElse(null)),
             entry("transactionId", value.transactionId().orElse(null)),
-            entry("action", value.action().map(McpHistoryCommandDomain::historyAction).orElse(null))
+            entry("action", value.action().map(McpHistoryCommandDomain::historyAction).orElse(null)),
+            entry("detail", historyDetail(value.detail()))
         );
     }
 
@@ -529,6 +530,88 @@ final class McpHistoryCommandDomain {
             entry("before", value.before().orElse(null)),
             entry("after", value.after().orElse(null)),
             entry("detailLevel", value.detailLevel().name())
+        );
+    }
+
+    private static Map<String, Object> historyDetail(
+        final dev.turboism.sdk.cubism.history.HistoryEntryDetail value
+    ) {
+        return immutableMap(
+            entry("summary", value.summary()),
+            entry("detailLevel", value.detailLevel().name()),
+            entry("origin", historyOrigin(value.origin())),
+            entry("targets", value.targets().stream().map(McpHistoryCommandDomain::historyTarget).toList()),
+            entry("changes", value.changes().stream().map(McpHistoryCommandDomain::historyChange).toList()),
+            entry("group", value.group().map(McpHistoryCommandDomain::historyGroup).orElse(null)),
+            entry("degradationCode", value.degradationCode().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> historyOrigin(
+        final dev.turboism.sdk.cubism.history.HistoryOrigin value
+    ) {
+        return immutableMap(
+            entry("kind", value.kind().name()),
+            entry("producerId", value.producerId().orElse(null)),
+            entry("operationId", value.operationId().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> historyTarget(
+        final dev.turboism.sdk.cubism.history.HistoryTarget value
+    ) {
+        return immutableMap(
+            entry("type", value.type()),
+            entry("id", value.id().orElse(null)),
+            entry("displayName", value.displayName().orElse(null))
+        );
+    }
+
+    private static Map<String, Object> historyChange(
+        final dev.turboism.sdk.cubism.history.HistoryChange value
+    ) {
+        return immutableMap(
+            entry("operation", value.operation().name()),
+            entry("targetIndex", value.targetIndex().orElse(null)),
+            entry("property", value.property().orElse(null)),
+            entry("before", value.before().orElse(null)),
+            entry("after", value.after().orElse(null)),
+            entry("context", historyEditContext(value.context()))
+        );
+    }
+
+    private static Map<String, Object> historyEditContext(
+        final dev.turboism.sdk.cubism.history.HistoryEditContext value
+    ) {
+        return immutableMap(
+            entry("kind", value.kind().name()),
+            entry("formId", value.formId().orElse(null)),
+            entry(
+                "coordinates",
+                value.coordinates().stream()
+                    .map(McpHistoryCommandDomain::historyParameterCoordinate)
+                    .toList()
+            )
+        );
+    }
+
+    private static Map<String, Object> historyParameterCoordinate(
+        final dev.turboism.sdk.cubism.history.HistoryParameterCoordinate value
+    ) {
+        return immutableMap(
+            entry("parameter", historyTarget(value.parameter())),
+            entry("value", value.value())
+        );
+    }
+
+    private static Map<String, Object> historyGroup(
+        final dev.turboism.sdk.cubism.history.HistoryGroup value
+    ) {
+        return immutableMap(
+            entry("groupId", value.groupId().orElse(null)),
+            entry("children", value.children().stream().map(McpHistoryCommandDomain::historyDetail).toList()),
+            entry("observedChildCount", value.observedChildCount()),
+            entry("truncated", value.truncated())
         );
     }
 

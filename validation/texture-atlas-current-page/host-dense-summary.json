@@ -1,0 +1,322 @@
+{
+  "auto-serial": {
+    "task": "texture-ab-500-xrz1dbmf",
+    "rows": [
+      {
+        "sequence": 1,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 990.374,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 2,
+        "branch": "handled",
+        "plannerParallel": false,
+        "packingThreads": [
+          "Thread-101"
+        ],
+        "packingCalls": 1,
+        "returned": true,
+        "methodMs": 289.3982,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 3,
+        "branch": "handled",
+        "plannerParallel": false,
+        "packingThreads": [
+          "Thread-112"
+        ],
+        "packingCalls": 1,
+        "returned": true,
+        "methodMs": 51.2359,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 4,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 978.3554,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 5,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 1058.4521,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 6,
+        "branch": "handled",
+        "plannerParallel": false,
+        "packingThreads": [
+          "Thread-145"
+        ],
+        "packingCalls": 1,
+        "returned": true,
+        "methodMs": 235.2989,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 7,
+        "branch": "handled",
+        "plannerParallel": false,
+        "packingThreads": [
+          "Thread-157"
+        ],
+        "packingCalls": 1,
+        "returned": true,
+        "methodMs": 35.7271,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 8,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 773.6656,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      }
+    ]
+  },
+  "auto-parallel": {
+    "task": "texture-ab-500-wg863vnn",
+    "rows": [
+      {
+        "sequence": 1,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 907.7027,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 2,
+        "branch": "handled",
+        "plannerParallel": true,
+        "packingThreads": [
+          "ForkJoinPool.commonPool-worker-1",
+          "ForkJoinPool.commonPool-worker-2",
+          "ForkJoinPool.commonPool-worker-3",
+          "Thread-95"
+        ],
+        "packingCalls": 43,
+        "returned": true,
+        "methodMs": 356.2473,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 3,
+        "branch": "handled",
+        "plannerParallel": true,
+        "packingThreads": [
+          "ForkJoinPool.commonPool-worker-1",
+          "ForkJoinPool.commonPool-worker-2",
+          "ForkJoinPool.commonPool-worker-3",
+          "Thread-106"
+        ],
+        "packingCalls": 43,
+        "returned": true,
+        "methodMs": 76.9528,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 4,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 821.9132,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 5,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 604.4813,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 6,
+        "branch": "handled",
+        "plannerParallel": true,
+        "packingThreads": [
+          "ForkJoinPool.commonPool-worker-1",
+          "ForkJoinPool.commonPool-worker-2",
+          "ForkJoinPool.commonPool-worker-3",
+          "Thread-141"
+        ],
+        "packingCalls": 43,
+        "returned": true,
+        "methodMs": 193.4771,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 7,
+        "branch": "handled",
+        "plannerParallel": true,
+        "packingThreads": [
+          "ForkJoinPool.commonPool-worker-1",
+          "ForkJoinPool.commonPool-worker-2",
+          "ForkJoinPool.commonPool-worker-3",
+          "Thread-152"
+        ],
+        "packingCalls": 43,
+        "returned": true,
+        "methodMs": 58.4196,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "5cd1f6c897a6379ca3c1b827ea31781ddce5dc36aad4513baadca69f30e4a436",
+        "count": 500,
+        "scale": 0.38261960529765576,
+        "placed": 500,
+        "overflow": 0
+      },
+      {
+        "sequence": 8,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 716.8204,
+        "inputHash": "3a43ddc672b334d918df6cec565e06824fe268b44f02dfd02ee2629b75b29480",
+        "outputHash": "8764687af9cf8b264e1922d18eda2317269309459626326bb039a153322cad76",
+        "count": 500,
+        "scale": 0.3450134770889488,
+        "placed": 500,
+        "overflow": 0
+      }
+    ]
+  },
+  "fixed-new": {
+    "task": "texture-ab-500-jo1yq90c",
+    "rows": [
+      {
+        "sequence": 1,
+        "branch": "handled",
+        "plannerParallel": false,
+        "packingThreads": [
+          "Thread-90"
+        ],
+        "packingCalls": 1,
+        "returned": true,
+        "methodMs": 81.4713,
+        "inputHash": "3c52551465f22647844250623426442d2f7eafb6ab3a84461f7a10dd15faae31",
+        "outputHash": "60c053ede7e8e866bb68a4916b87c5132d4049710a6e1e97805d5c06e3e67c50",
+        "count": 500,
+        "scale": 1.0,
+        "placed": 81,
+        "overflow": 419
+      }
+    ]
+  },
+  "fixed-native": {
+    "task": "texture-ab-500-hb95zz5s",
+    "rows": [
+      {
+        "sequence": 1,
+        "branch": "native",
+        "plannerParallel": null,
+        "packingThreads": [],
+        "packingCalls": 0,
+        "returned": true,
+        "methodMs": 628.1432,
+        "inputHash": "3c52551465f22647844250623426442d2f7eafb6ab3a84461f7a10dd15faae31",
+        "outputHash": "539f0f6381fa39e393621b854240493bdf8f5ed4aabbe26edba2d587c1d36b88",
+        "count": 500,
+        "scale": 1.0,
+        "placed": 51,
+        "overflow": 449
+      }
+    ]
+  }
+}

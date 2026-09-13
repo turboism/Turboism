@@ -55,8 +55,8 @@ disabledPlugins，其他有效设置保持不变；若选择未变化，原始�
 --------
 - 通过 NSIS 安装器（TurboismInstaller-<ver>.exe）安装时：运行 Turboism home
   目录中的 uninstall.exe。它只清理 Turboism 记录的托管快捷方式/状态与自有
-  文件。卸载确认页含「同时删除 config.json（用户配置）」复选框，默认勾选；
-  取消勾选可保留 config.json。
+  文件。卸载确认页含「保留 config.json（用户配置）」复选框，默认勾选；
+  取消勾选将删除 config.json。
 - ZIP 手动安装包无卸载器，也不会启用官方 BAT 集成：关闭 Cubism 后删除 Turboism 目录。
 
 五、常见问题

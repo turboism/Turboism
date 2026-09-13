@@ -50,7 +50,7 @@ class Cubism5303StaticSliceManifestTest {
         assertManifest(
             StatusBarVerificationManifest.forArtifact(REVIEWED),
             "cubism-5.3.03.ui-status-bar.static",
-            "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7",
+            "c16a15c3d44c7c1d904f80429021b2915a8ea4a8af0dfc907bfe21c1756ec575",
             StatusBarVerificationManifest.ADAPTER_SLICE_ID,
             StatusBarVerificationManifest.CAPABILITY_IDS,
             StatusBarVerificationManifest.REQUIRED_ALIASES

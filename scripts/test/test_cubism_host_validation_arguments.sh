@@ -38,7 +38,9 @@ base=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-host "$tmp/fixture.cmo3"
   --result-file state/result.txt "${host_args[@]}" --dry-run)
 
-cubism_java='Z:\\home\\local-user\\TurboismValidation\\tools\\graalvm-25.2.4\\bin\\java.exe'
+# Legacy remote mode is rejected even when its former connection inputs exist.
+expect_rejected remote-mode 'local-only' "${base[@]}" --transport remote
+cubism_java='Z:\home\local-user\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
 "${base[@]}" --home-file "$tmp/home-file.txt:scripts/input.txt" --home-dir "$tmp/home-dir:scripts" \
   --trigger state/trigger.flag --windows-env 'HOME={HOME}\\\\fx-home' \
   --windows-env 'USERPROFILE={HOME}\\\\fx-home' --cubism-java "$cubism_java" \
@@ -64,6 +66,13 @@ legacy=(bash "$runner" --name arg-contract --version 5302 --bundle-root "$bundle
   --proton-runner "$tmp/proton" --dry-run)
 "${legacy[@]}" > "$tmp/legacy.out"
 grep -Fq 'transport=local' "$tmp/legacy.out" || fail 'legacy local aliases were not accepted'
+
+"${base[@]}" \
+  --result-pass-line '{"type":"summary","status":"PASS"}' \
+  --result-fail-line '{"type":"summary","status":"FAIL"}' \
+  > "$tmp/good-json-marker.out"
+expect_rejected marker-control 'marker contains an unsupported control character' \
+  "${base[@]}" --result-pass-line $'status=PASS\nextra'
 
 auth=(bash "$runner" --name arg-contract --version 5303 --bundle-root "$bundle"
   --agent "$bundle/agent.jar" --plugin "$bundle/probe.jar" --fixture-local "$tmp/fixture.cmo3"
@@ -102,7 +111,9 @@ expect_rejected windows-env-java-case 'Windows environment assignment may not ov
 expect_rejected windows-env-duplicate-case 'duplicate Windows environment name' \
   "${base[@]}" --windows-env 'Path=first' --windows-env 'PATH=second'
 expect_rejected windows-env-command 'Windows environment value contains an unsupported command character' \
-  "${base[@]}" --windows-env 'HOME=C:\\\\safe&whoami'
+  "${base[@]}" --windows-env 'HOME=C:\safe&whoami'
+expect_rejected jvm-option-quote 'JVM or hook option contains an unsupported quote' \
+  "${base[@]}" --jvm-option '-Dunsafe="quoted"'
 
 # A rejected request must not reach either legacy transport name.
 bin="$tmp/bin"

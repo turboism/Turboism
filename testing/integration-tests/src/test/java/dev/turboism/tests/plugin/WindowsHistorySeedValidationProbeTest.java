@@ -1,5 +1,7 @@
 package dev.turboism.tests.plugin;
 
+import dev.turboism.sdk.cubism.model.Color;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -24,5 +26,17 @@ class WindowsHistorySeedValidationProbeTest {
         assertEquals(-6.6F, WindowsHistorySeedValidationProbe.valueAt(-10.0F, 10.0F, 0.17F), 0.0001F);
         assertEquals(-1.4F, WindowsHistorySeedValidationProbe.valueAt(-10.0F, 10.0F, 0.43F), 0.0001F);
         assertEquals(4.2F, WindowsHistorySeedValidationProbe.valueAt(-10.0F, 10.0F, 0.71F), 0.0001F);
+    }
+
+    @Test
+    void usesTwoDistinctDeterministicArtmeshColors() {
+        final Color first = WindowsHistorySeedValidationProbe.artMeshProbeColorA();
+        final Color second = WindowsHistorySeedValidationProbe.artMeshProbeColorB();
+
+        assertNotEquals(first, second);
+        assertEquals("#224466", WindowsHistorySeedValidationProbe.rgb(first));
+        assertEquals("#6688aa", WindowsHistorySeedValidationProbe.rgb(second));
+        assertEquals(1.0F, first.alpha());
+        assertEquals(1.0F, second.alpha());
     }
 }
