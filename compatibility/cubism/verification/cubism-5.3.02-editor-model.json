@@ -47,6 +47,8 @@
     "cubism.editor-model.part-structure.write",
     "cubism.editor-model.part-tree.read",
     "cubism.editor-model.physics.read",
+    "cubism.editor-model.psd.raw-image.export",
+    "cubism.editor-model.psd.raw-image.replace",
     "cubism.editor-model.psd.snapshot.read",
     "cubism.editor-model.read",
     "cubism.editor-model.rotation-deformer.parameter-bindings.write",
