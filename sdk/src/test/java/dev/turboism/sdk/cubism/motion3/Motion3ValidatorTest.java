@@ -2,6 +2,8 @@ package dev.turboism.sdk.cubism.motion3;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -217,5 +219,127 @@ class Motion3ValidatorTest {
             """);
         assertTrue(report.valid());
         assertFalse(report.warnings().isEmpty());
+    }
+
+    @Test
+    void fractionalVersionIsAnError() {
+        assertVersionError("3.5");
+        assertVersionError("3.0000000000000000001");
+        assertVersionError("2.9999999999999999999");
+    }
+
+    @Test
+    void wrappedAroundVersionIsAnError() {
+        // longValue() truncation makes each of these equal 3.
+        assertVersionError("18446744073709551619");   // 2^64 + 3
+        assertVersionError("-18446744073709551613");  // -2^64 + 3
+        assertVersionError("36893488147419103235");   // 2^65 + 3
+    }
+
+    @Test
+    void nonNumericVersionIsAnError() {
+        assertVersionError("\"3\"");
+        assertVersionError("true");
+    }
+
+    @Test
+    void equivalentVersionRepresentationsStayValid() {
+        for (final String token : List.of("3", "3.0", "3e0", "30e-1", "0.3e1")) {
+            final Motion3Report report = Motion3Validator.validate(
+                document(token, "[0.0,0.0]"));
+            assertTrue(report.valid(),
+                "Version=" + token + " issues: " + report.issues());
+            assertTrue(report.issues().isEmpty());
+        }
+    }
+
+    @Test
+    void oversizedSegmentKindIsAnError() {
+        // intValue() wraps each of these into the accepted 0..3 range.
+        assertKindError("4294967296");   // 2^32 -> 0
+        assertKindError("4294967299");   // 2^32 + 3 -> 3
+        assertKindError("8589934595");   // 2^33 + 3 -> 3
+        assertKindError("12884901890");  // 3*2^32 + 2 -> 2
+    }
+
+    @Test
+    void wrappedAroundSegmentKindsAreErrors() {
+        assertKindError("-4294967296");           // -2^32 -> 0
+        assertKindError("-4294967293");           // -2^32 + 3 -> 3
+        assertKindError("9223372036854775808");   // 2^63 -> 0 (beyond long)
+        assertKindError("18446744073709551619");  // 2^64 + 3 -> 3
+    }
+
+    @Test
+    void fractionalSegmentKindIsAnError() {
+        assertKindError("0.5");
+        assertKindError("2.5");
+        assertKindError("3.0000000000000000001");
+    }
+
+    @Test
+    void negativeSegmentKindIsAnError() {
+        assertKindError("-1");
+        assertKindError("-0.5");
+    }
+
+    @Test
+    void allSegmentKindsFromZeroToThreeAreAccepted() {
+        for (final String segments : List.of(
+            "[0.0,0.0,0,1.0,0.5]",
+            "[0.0,0.0,1,0.8,0.8,0.2,0.2,1.0,1.0]",
+            "[0.0,0.0,2,1.0,1.0]",
+            "[0.0,0.0,3,1.0,1.0]"
+        )) {
+            final Motion3Report report = Motion3Validator.validate(
+                document("3", segments));
+            assertTrue(report.valid(),
+                "Segments=" + segments + " issues: " + report.issues());
+            assertTrue(report.issues().isEmpty());
+        }
+    }
+
+    @Test
+    void integerValuedSegmentKindRepresentationsStayValid() {
+        for (final String segments : List.of(
+            "[0.0,0.0,0.0,1.0,0.5]",
+            "[0.0,0.0,1e0,0.8,0.8,0.2,0.2,1.0,1.0]",
+            "[0.0,0.0,2.0,1.0,1.0]",
+            "[0.0,0.0,0.3e1,1.0,1.0]"
+        )) {
+            final Motion3Report report = Motion3Validator.validate(
+                document("3", segments));
+            assertTrue(report.valid(),
+                "Segments=" + segments + " issues: " + report.issues());
+            assertTrue(report.issues().isEmpty());
+        }
+    }
+
+    private static String document(
+        final String versionToken,
+        final String segmentsToken
+    ) {
+        return """
+            {"Version":%s,"Meta":{"Duration":2.0,"Fps":30.0,"Loop":false,
+              "AreBeziersRestricted":false},
+             "Curves":[{"Target":"Parameter","Id":"P","Segments":%s}],
+             "UserData":[]}
+            """.formatted(versionToken, segmentsToken);
+    }
+
+    private static void assertVersionError(final String versionToken) {
+        final Motion3Report report = Motion3Validator.validate(
+            document(versionToken, "[0.0,0.0]"));
+        assertFalse(report.valid(), "Version=" + versionToken);
+        assertEquals(1, report.errors().size());
+        assertEquals("$.Version", report.errors().get(0).path());
+    }
+
+    private static void assertKindError(final String kindToken) {
+        final Motion3Report report = Motion3Validator.validate(
+            document("3", "[0.0,0.0," + kindToken + ",1.0,0.5]"));
+        assertFalse(report.valid(), "kind=" + kindToken);
+        assertEquals(1, report.errors().size());
+        assertEquals("$.Curves[0].Segments[2]", report.errors().get(0).path());
     }
 }
