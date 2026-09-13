@@ -337,14 +337,11 @@ def check_config_migration_contract():
     config_start = text.index('Section "-写入配置" SecConfig')
     config_end = text.index("SectionEnd", config_start)
     section = text[config_start:config_end]
-    first_payload = min(
-        text.index('Section "-核心文件" SecCore'),
-        text.index('Section "-托管 GraalVM" SecManagedGraal'),
-    )
     check("CM1 config commit precedes every permanent payload section",
-          config_start < first_payload
+          config_start < text.index('Section "-核心文件" SecCore')
           and config_start < text.index('!include "plugin-sections.nsh"')
-          and 'Section "-插件载荷" SecPluginPayload' in generated)
+          and 'Section "-插件载荷" SecPluginPayload' in generated
+          and 'Section "-托管 GraalVM"' not in text)
     check("CM2 NSIS uses the current staged helper rather than an installed prior version",
           '$PLUGINSDIR\\Turboism-config\\configure_turboism.ps1' in section
           and '${STAGING_DIR}/configure_turboism.ps1' in section
@@ -442,18 +439,43 @@ def check_managed_graal_installer_contract():
           "${NSD_CreateRadioButton}" in text and "$(GraalNowChoice)" in text
           and "$(GraalLaterChoice)" in text and "Function ModeLeave" in text)
     check("GI3 no install occurs unless selected",
-          "${If} $installManagedGraal == 1" in text
+          "${If} $installManagedGraal != 1" in text
           and "install-managed-graal.ps1" in text)
-    graal_start = text.index('Section "-托管 GraalVM"')
-    graal_end = text.index("SectionEnd", graal_start)
-    graal_section = text[graal_start:graal_end]
-    check("GI4 selected failure warns and continues installer",
-          "ManagedGraalInstallError" in graal_section
-          and "DetailPrint" in graal_section
-          and "MB_ICONEXCLAMATION" in graal_section
-          and "Abort" not in graal_section)
-    check("GI4b config preflight precedes optional Graal payload mutation",
-          text.index('Section "-写入配置"') < graal_start)
+    graal_page = text.index("Page custom GraalCreate GraalLeave")
+    install_page = text.index("Page custom GraalInstallCreate GraalInstallLeave")
+    discovery_page = text.index("Page custom CubismDiscoveryCreate CubismDiscoveryLeave")
+    check("GI4 managed Graal install is a dedicated page right after the strategy page",
+          graal_page < install_page < discovery_page
+          and install_page < text.index("Page custom LaunchOptionsCreate")
+          and text.index("MUI_PAGE_DIRECTORY") < graal_page
+          and 'Section "-托管 GraalVM"' not in text)
+    graal_create_start = text.index("Function GraalInstallCreate")
+    graal_create_end = text.index("FunctionEnd", graal_create_start)
+    graal_create = text[graal_create_start:graal_create_end]
+    graal_begin_start = text.index("Function GraalInstallBegin")
+    graal_begin_end = text.index("FunctionEnd", graal_begin_start)
+    graal_begin = text[graal_begin_start:graal_begin_end]
+    check("GI4b install page skips itself when install-later was chosen",
+          "${If} $installManagedGraal != 1" in graal_create
+          and "Abort" in graal_create)
+    check("GI4c config migration preflight precedes the download worker",
+          "-MigrateConfig" in graal_begin
+          and graal_begin.index("-MigrateConfig") < graal_begin.index("ExecShell")
+          and "install-managed-graal.ps1" in graal_begin
+          and "-StatusFile" in graal_begin and "-CancelFile" in graal_begin)
+    check("GI4d page polls the worker status file and never blocks the wizard",
+          "${NSD_CreateTimer} GraalInstallPoll 250" in graal_begin
+          and "SW_HIDE" in graal_begin
+          and "Function GraalInstallPoll" in text
+          and "FileReadUTF16LE $GraalInstallHandle $line" in text
+          and "TURBOISM_GRAAL_STATUS_V1" in text
+          and "graal-status.txt" in text and "graal-cancel.flag" in text)
+    check("GI4e selected failure stays on the page and offers retry",
+          "ManagedGraalInstallError" in text
+          and "Function GraalInstallRetryClick" in text
+          and "Function GraalInstallCancelClick" in text
+          and "${NSD_OnBack} GraalInstallBack" in graal_create
+          and "EnableWindow $GraalInstallNext 0" in graal_create)
     service = (INSTALLER_NSI.parents[2] / "runtime/src/main/java/dev/turboism/graal/ManagedGraalRuntimeService.java").read_text(encoding="utf-8")
     check("GI5 native installer uses the runtime service's exact archive pins",
           all(pin in bridge and pin in service for pin in (
@@ -485,6 +507,22 @@ def check_managed_graal_installer_contract():
           and '${NSD_CreateRadioButton} 0 67u 100% 16u "$(GraalNowChoice)"' in graal_create
           and '${NSD_CreateRadioButton} 0 84u 100% 16u "$(GraalLaterChoice)"' in graal_create
           and '${NSD_CreateLabel} 12u 101u 96% 42u "$(GraalProgressHint)"' in graal_create)
+    graal_install_keys = (
+        "GraalInstallTitle", "GraalInstallPreparing", "GraalStateDownloading",
+        "GraalStateVerifying", "GraalStateExtracting", "GraalInstallReady",
+        "GraalInstallAlready", "GraalInstallCancelled", "GraalInstallCancelling",
+        "GraalInstallCancelText", "GraalInstallRetryText",
+    )
+    check("GI12 install page has English, Simplified Chinese, Japanese, and Korean text",
+          all(text.count("LangString %s ${LANG_" % key) == 4 for key in graal_install_keys)
+          and 'LangString GraalInstallTitle ${LANG_SIMPCHINESE} "Turboism 托管的 GraalVM"' in text)
+    check("GI13 worker exposes the page's status and cancel protocol",
+          'Write-ManagedGraalStatus ("STATE|" + $State + "|" + $Done + "|" + $Total)' in bridge
+          and '"TURBOISM_GRAAL_STATUS_V1", $Record' in bridge
+          and '[string]$StatusFile' in bridge and '[string]$CancelFile' in bridge
+          and 'Write-ManagedGraalStatus ("EXIT|" + $result)' in bridge
+          and 'Test-Path -LiteralPath $script:graalCancelPath' in bridge
+          and "TURBOISM_GRAAL_STATUS_V1" in text)
 
 
 def check_configurator_flow_contract():
