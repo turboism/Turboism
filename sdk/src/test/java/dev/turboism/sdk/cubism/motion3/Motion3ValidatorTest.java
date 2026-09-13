@@ -278,6 +278,30 @@ class Motion3ValidatorTest {
     }
 
     @Test
+    void extremeExponentSegmentKindIsAnError() {
+        // stripTrailingZeros() overflows scale arithmetic on these; the
+        // check must reject them without normalizing or throwing.
+        assertKindError("100e2147483647");
+        assertKindError("-100e2147483647");
+        assertKindError("1e2147483647");
+        assertKindError("-1e2147483647");
+    }
+
+    @Test
+    void extremeExponentVersionIsAnError() {
+        assertVersionError("100e2147483647");
+        assertVersionError("-100e2147483647");
+    }
+
+    @Test
+    void zeroWithExtremeExponentIsStillKindZero() {
+        final Motion3Report report = Motion3Validator.validate(
+            document("3", "[0.0,0.0,0e-2147483647,1.0,0.5]"));
+        assertTrue(report.valid(), "issues: " + report.issues());
+        assertTrue(report.issues().isEmpty());
+    }
+
+    @Test
     void negativeSegmentKindIsAnError() {
         assertKindError("-1");
         assertKindError("-0.5");
