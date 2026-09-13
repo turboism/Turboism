@@ -25,9 +25,9 @@ class PrereleaseTest(unittest.TestCase):
         with self.assertRaises(ValueError):self.p.receipt_from_body(body,'nightly')
         with self.assertRaises(ValueError):self.p.receipt_from_body(body*2,'beta')
 
-    def test_both_prereleases_require_exactly_eight_assets(self):
+    def test_both_prereleases_require_exactly_ten_assets(self):
         for version in ['1.2.3-beta.2','1.2.3-0.nightly.7']:
-            names=self.p.names_for(version);self.assertEqual(len(names),8)
+            names=self.p.names_for(version);self.assertEqual(len(names),10)
         with self.assertRaises(ValueError):self.p.names_for('1.2.3')
 
     def test_beta_publication_resumes_identical_files_and_never_becomes_latest(self):

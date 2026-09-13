@@ -23,7 +23,8 @@ def published(source=SHA, number=7, draft=False):
     receipt = dict(bi.identity(f'1.2.4-0.nightly.{number}', source, str(100+number), 1), buildNumber=number)
     version = receipt['version']
     names = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
-             f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip']
+             f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+             f'turboism-sdk-{version}.jar']
     return {'id': 1000+number, 'tag_name': 'v'+version, 'draft': draft, 'prerelease': True,
             'published_at': '2026-09-09T00:00:00Z',
             'body': '<!-- turboism-build-v1 '+json.dumps(receipt)+' -->',
@@ -111,7 +112,7 @@ class NightlyAllocationTest(unittest.TestCase):
 class NightlyPayloadTest(unittest.TestCase):
     def test_nightly_version_is_opt_in_and_stable_rules_are_unchanged(self):
         with self.assertRaises(ValueError): release.release_artifacts(Path('.'),'1.2.4-0.nightly.7')
-        self.assertEqual(len(release.release_artifacts(Path('.'),'1.2.4-0.nightly.7',channel='nightly')),8)
+        self.assertEqual(len(release.release_artifacts(Path('.'),'1.2.4-0.nightly.7',channel='nightly')),10)
         for v in ['1.2.4','1.2.4-beta.7','1.2.4-0.nightly.07']:
             with self.assertRaises(ValueError):release.release_artifacts(Path('.'),v,channel='nightly')
     def test_partial_published_release_or_modified_bytes_cannot_be_success(self):

@@ -98,8 +98,25 @@ def release_artifacts(dist: Path, version: str, channel: str = "stable") -> list
         dist / f"turboism-{version}-full.zip",
         dist / f"TurboismInstaller-{version}.exe",
         dist / f"TurboismInstaller-{version}.jar",
+        dist / f"turboism-sdk-{version}.jar",
     ]
     return sorted(primary + [path.with_name(path.name + ".sha256") for path in primary])
+
+
+def verify_sdk_jar(path: Path, version: str, windows_stage: Path | None) -> None:
+    """Bind the standalone developer SDK artifact to the staged runtime library."""
+    with zipfile.ZipFile(path) as archive:
+        if "dev/turboism/sdk/plugin/TurboismPlugin.class" not in archive.namelist():
+            raise ValueError(f"SDK artifact lacks the TurboismPlugin contract: {path}")
+    if windows_stage is None:
+        return
+    staged = windows_stage / "graal" / "lib" / f"sdk-{version}.jar"
+    if not staged.is_file() or staged.is_symlink():
+        raise ValueError(f"staged SDK library is missing or unsafe: {staged}")
+    if sha256(staged) != sha256(path):
+        raise ValueError(
+            f"SDK artifact bytes differ from the shipped runtime library: {path}"
+        )
 
 
 def verify(
@@ -141,6 +158,7 @@ def verify(
         full=True,
         plugins=plugins,
     )
+    verify_sdk_jar(dist / f"turboism-sdk-{version}.jar", version, windows_stage)
 
 
 def artifact_manifest(
@@ -150,7 +168,7 @@ def artifact_manifest(
     windows_stage: Path | None = None,
     channel: str = "stable",
 ) -> dict:
-    """Return a deterministic manifest without writing into the eight-file dist."""
+    """Return a deterministic manifest without writing into the ten-file dist."""
     verify(dist, version, release_plugins, windows_stage, channel)
     artifacts = []
     for path in release_artifacts(dist, version, channel):

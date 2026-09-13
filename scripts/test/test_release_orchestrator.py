@@ -56,6 +56,18 @@ def artifacts(version="0.43.0"):
     ]
 
 
+def developer_artifacts(version="0.43.0"):
+    names = [
+        f"turboism-sdk-{version}.jar",
+        f"turboism-sdk-{version}.jar.sha256",
+    ]
+    return [
+        {"name": name, "size": index + 9, "sha256": f"{index + 9:064x}",
+         "relativePath": f"framework/{name}", "mediaType": "application/octet-stream"}
+        for index, name in enumerate(names)
+    ]
+
+
 def candidate(*, eligible=True, plugins=None):
     return {
         "format": "turboism.release-candidate",
@@ -70,6 +82,7 @@ def candidate(*, eligible=True, plugins=None):
             "version": "0.43.0",
             "changelog": {"date": "2026-09-01", "sha256": HASH_A},
             "artifacts": artifacts() if eligible else [],
+            "developerArtifacts": developer_artifacts() if eligible else [],
             "bundledPlugins": [],
         },
         "plugins": {
@@ -80,6 +93,17 @@ def candidate(*, eligible=True, plugins=None):
 
 
 def observation(version="0.43.0", missing=()):
+    return {
+        "version": version,
+        "assets": [
+            {"name": item["name"], "size": item["size"], "sha256": item["sha256"]}
+            for item in artifacts(version) + developer_artifacts(version)
+            if item["name"] not in missing
+        ],
+    }
+
+
+def updates_observation(version="0.43.0", missing=()):
     return {
         "version": version,
         "assets": [
@@ -137,10 +161,10 @@ def catalog(version=None, *, jar_hash=HASH_A, descriptor_hash=HASH_B):
 class ContractTest(unittest.TestCase):
     def test_canonical_plan_is_deterministic(self):
         first = planner.make_plan(
-            candidate(), github=observation(), updates=observation(), catalog=None, channel="stable")
+            candidate(), github=observation(), updates=updates_observation(), catalog=None, channel="stable")
         second = planner.make_plan(
             copy.deepcopy(candidate()), github=copy.deepcopy(observation()),
-            updates=copy.deepcopy(observation()), catalog=None, channel="stable")
+            updates=copy.deepcopy(updates_observation()), catalog=None, channel="stable")
         self.assertEqual(first, second)
         self.assertEqual(first["planId"], contracts.plan_id({k: v for k, v in first.items() if k != "planId"}))
 
@@ -195,7 +219,7 @@ class DecisionMatrixTest(unittest.TestCase):
         )
 
     def test_none(self):
-        plan = self.make(candidate(), observation(), observation())
+        plan = self.make(candidate(), observation(), updates_observation())
         self.assertEqual(plan["intent"], "none")
         self.assertEqual(plan["steps"], [])
 
@@ -222,14 +246,14 @@ class DecisionMatrixTest(unittest.TestCase):
         missing = {artifacts()[0]["name"]}
         github = observation(missing=missing)
         github["draft"] = True
-        plan = self.make(candidate(), github, observation())
+        plan = self.make(candidate(), github, updates_observation())
         self.assertEqual(plan["framework"]["action"], "resume")
         self.assertEqual(plan["framework"]["github"]["missing"], sorted(missing))
 
     def test_complete_framework_draft_is_resume_until_published(self):
         github = observation()
         github["draft"] = True
-        plan = self.make(candidate(), github, observation())
+        plan = self.make(candidate(), github, updates_observation())
         self.assertEqual(plan["framework"]["action"], "resume")
         self.assertEqual(plan["framework"]["github"]["missing"], [])
 
@@ -238,23 +262,23 @@ class DecisionMatrixTest(unittest.TestCase):
         github = observation(missing=missing)
         github["draft"] = False
         with self.assertRaisesRegex(contracts.ReleaseError, "published but missing"):
-            self.make(candidate(), github, observation())
+            self.make(candidate(), github, updates_observation())
 
     def test_same_framework_version_different_bytes_rejected(self):
         remote = observation()
         remote["assets"][0]["sha256"] = HASH_A
         with self.assertRaisesRegex(contracts.ReleaseError, "VERSION_NOT_BUMPED"):
-            self.make(candidate(), remote, observation())
+            self.make(candidate(), remote, updates_observation())
 
     def test_extra_framework_asset_rejected(self):
         remote = observation()
         remote["assets"].append({"name": "ninth.txt", "size": 1, "sha256": HASH_A})
         with self.assertRaisesRegex(contracts.ReleaseError, "unexpected"):
-            self.make(candidate(), remote, observation())
+            self.make(candidate(), remote, updates_observation())
 
     def test_newer_remote_framework_rejected(self):
         with self.assertRaisesRegex(contracts.ReleaseError, "newer version"):
-            self.make(candidate(), observation("0.44.0"), observation())
+            self.make(candidate(), observation("0.44.0"), updates_observation())
 
     def test_identical_plugin_is_noop(self):
         value = candidate(eligible=False, plugins=[plugin_candidate("0.2.0")])
@@ -322,6 +346,7 @@ class CandidateBuilderTest(unittest.TestCase):
 
     @mock.patch("turboism_release.candidate.bundled_plugins", return_value=[])
     @mock.patch("turboism_release.candidate.plugin_candidates")
+    @mock.patch("turboism_release.candidate.developer_artifacts")
     @mock.patch("turboism_release.candidate.framework_artifacts")
     @mock.patch("turboism_release.candidate.changelog_entry")
     @mock.patch("turboism_release.candidate.git_source")
@@ -332,6 +357,7 @@ class CandidateBuilderTest(unittest.TestCase):
         source,
         changelog,
         framework,
+        _developer,
         plugins,
         _bundled,
     ):

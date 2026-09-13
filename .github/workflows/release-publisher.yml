@@ -470,7 +470,7 @@ jobs:
             --source-run-attempt "${{ needs.preflight.outputs.run_attempt }}" \
             --published-at "${{ needs.preflight.outputs.source_created_at }}" \
             --output build/release-publisher/release.json
-          EXPECTED="$(python3 -c 'import json,sys; print(json.dumps({i["name"]:{"size":i["size"],"sha256":i["sha256"]} for i in json.load(open(sys.argv[1]))["framework"]["artifacts"]}, separators=(",",":"), sort_keys=True))' "$CANDIDATE")"
+          EXPECTED="$(python3 -c 'import json,sys; f=json.load(open(sys.argv[1]))["framework"]; print(json.dumps({i["name"]:{"size":i["size"],"sha256":i["sha256"]} for i in f["artifacts"]+f.get("developerArtifacts",[])}, separators=(",",":"), sort_keys=True))' "$CANDIDATE")"
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             REMOTE="$(gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets,isDraft,isPrerelease,tagName)"
             test "$(printf '%s' "$REMOTE" | jq -r .tagName)" = "$TAG"

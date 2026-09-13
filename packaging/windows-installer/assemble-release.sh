@@ -360,11 +360,23 @@ PYEOF
 
 zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
 zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
+
+# ---------- 4.5 SDK 开发构件 ----------
+# 独立的插件开发构件：与发行载荷内 graal/lib 的 sdk jar 同源同字节，
+# 以稳定文件名挂到 GitHub Release，供外部插件工程直接消费。
+mapfile -t sdk_jars < <(find "$stage/graal/lib" -maxdepth 1 -type f -name 'sdk-*.jar' | LC_ALL=C sort)
+if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" ]]; then
+  echo "error: expected exactly one staged SDK JAR named sdk-$VER.jar under $stage/graal/lib" >&2
+  exit 1
+fi
+cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
+
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
   cd "$dist"
   sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
   sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
+  sha256sum "turboism-sdk-$VER.jar" > "turboism-sdk-$VER.jar.sha256"
 )
 
 # ---------- 5. NSIS 安装器 ----------
