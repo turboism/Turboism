@@ -33,7 +33,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import javax.swing.AbstractButton;
 import javax.swing.JCheckBox;
 import javax.swing.JDialog;
+import javax.swing.JToggleButton;
 import javax.swing.SwingUtilities;
+import javax.swing.filechooser.FileSystemView;
 
 /**
  * Validation-only exact-host probe for the production export-settings wiring.
@@ -710,16 +712,36 @@ public final class ProtectedExportHostProbeAgent {
             if (target != null) {
                 try {
                     onEdt(() -> {
-                        // The host uses both pickers: an open/directory chooser
-                        // only approves an existing selection, a save chooser
-                        // wants a file name inside a writable directory — and
-                        // selecting a directory as the save target trips its
-                        // "no access to the selected folder" message loop.
-                        if (target.getDialogType()
-                                == javax.swing.JFileChooser.SAVE_DIALOG) {
-                            target.setSelectedFile(pickFile);
-                        } else {
-                            target.setSelectedFile(pick);
+                        // The task-home pick is not writable from the Wine
+                        // side — the chooser's stock validation loops a
+                        // "no access to the selected folder" Message. The
+                        // shortcuts panel carries a guaranteed-writable
+                        // Desktop entry; click it like a user would, then
+                        // approve a selection inside Desktop. The redirect
+                        // transformer replaces the picked File regardless.
+                        final AbstractButton desktopShortcut =
+                            desktopShortcut(target);
+                        if (desktopShortcut != null) {
+                            desktopShortcut.doClick(0);
+                        }
+                        final File desktop = desktopDir();
+                        if (desktop != null
+                                && target.getDialogType()
+                                    == javax.swing.JFileChooser
+                                        .SAVE_DIALOG) {
+                            target.setCurrentDirectory(desktop);
+                            final File current = target.getSelectedFile();
+                            final String name =
+                                current != null && !current.isDirectory()
+                                    ? current.getName()
+                                    : pickFile.getName();
+                            target.setSelectedFile(new File(desktop, name));
+                        } else if (desktop != null) {
+                            final File parent = desktop.getParentFile();
+                            if (parent != null) {
+                                target.setCurrentDirectory(parent);
+                            }
+                            target.setSelectedFile(desktop);
                         }
                         target.approveSelection();
                         return null;
@@ -827,6 +849,43 @@ public final class ProtectedExportHostProbeAgent {
             }
         }
         return null;
+    }
+
+    /**
+     * Finds the shortcuts-panel "Desktop" toggle inside the chooser's carrier —
+     * the Wine-guaranteed-writable location a user would pick when the default
+     * destination folder rejects the save.
+     */
+    private static AbstractButton desktopShortcut(
+        final javax.swing.JFileChooser chooser
+    ) {
+        final java.awt.Window carrier = currentCarrier(chooser);
+        final Container root = carrier != null ? carrier : chooser;
+        for (Component component : allComponents(root)) {
+            if (component instanceof JToggleButton toggle
+                    && toggle.getText() != null
+                    && toggle.getText().trim().matches(
+                        "(?i)desktop|桌面|デスクトップ")) {
+                return toggle;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * {@code FileSystemView.getHomeDirectory()} resolves to the user Desktop
+     * on the Windows shell (and under Wine); fall back to ~/Desktop then home.
+     */
+    private static File desktopDir() {
+        final File home = FileSystemView.getFileSystemView().getHomeDirectory();
+        if (home != null && home.isDirectory()) {
+            return home;
+        }
+        final File desktop =
+            new File(System.getProperty("user.home", "."), "Desktop");
+        return desktop.isDirectory()
+            ? desktop
+            : new File(System.getProperty("user.home", "."));
     }
 
     /**
