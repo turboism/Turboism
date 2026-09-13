@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.physics;
 
 import dev.turboism.sdk.cubism.physics.PhysicsEditorContribution;
+import dev.turboism.sdk.cubism.physics.PhysicsEditorService;
+import dev.turboism.sdk.plugin.DisposableScope;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.AbstractButton;
@@ -16,10 +18,12 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PhysicsEditorCoordinatorTest {
@@ -157,6 +161,126 @@ class PhysicsEditorCoordinatorTest {
 
         assertEquals(List.of(false, false), outer.values());
         assertTrue(outer.transactions.isEmpty());
+    }
+
+    @Test
+    void pluginScopeCloseRevokesContributionAndInstalledBehavior() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        scope.register(() -> {
+            scopeActive.set(false);
+        });
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        final PhysicsEditorService service =
+            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        service.contribute(new PhysicsEditorContribution(true, true));
+        final Outer outer = new Outer(false, false);
+        final Panel panel = onEdt(() -> new Panel(outer));
+        onEdt(() -> coordinator.onPanelConstructed(panel, PROFILE));
+        flushEdt();
+
+        scope.close();
+        flushEdt();
+
+        clickEnableHeader(panel.table);
+        assertEquals(List.of(false, false), outer.values());
+        assertTrue(outer.transactions.isEmpty());
+        // The contribution slot is released for the next contributor on the shared coordinator.
+        coordinator.contribute(new PhysicsEditorContribution(true, false)).close();
+    }
+
+    @Test
+    void contributeOnClosedScopeIsRejectedWithoutClaimingTheSharedSlot() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        scope.register(() -> {
+            scopeActive.set(false);
+        });
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        final PhysicsEditorService service =
+            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        scope.close();
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> service.contribute(new PhysicsEditorContribution(true, false))
+        );
+
+        coordinator.contribute(new PhysicsEditorContribution(false, true)).close();
+    }
+
+    @Test
+    void scopedRegistrationCloseIsIdempotentAcrossScopeClose() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        scope.register(() -> {
+            scopeActive.set(false);
+        });
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        final PhysicsEditorService service =
+            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final var registration = service.contribute(new PhysicsEditorContribution(true, false));
+
+        registration.close();
+        registration.close();
+        scope.close();
+        registration.close();
+
+        coordinator.contribute(new PhysicsEditorContribution(false, true)).close();
+    }
+
+    @Test
+    void contributionAttemptedWhileScopeClosesLeavesNoLiveRegistration() throws Exception {
+        final DisposableScope scope = new DisposableScope();
+        final AtomicBoolean scopeActive = new AtomicBoolean(true);
+        scope.register(() -> {
+            scopeActive.set(false);
+        });
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        final PhysicsEditorService service =
+            new PluginScopedPhysicsEditorService(coordinator, scope, scopeActive::get);
+        final AtomicBoolean contributed = new AtomicBoolean();
+        scope.register(() -> {
+            try {
+                service.contribute(new PhysicsEditorContribution(false, true));
+                contributed.set(true);
+            } catch (IllegalStateException expected) {
+                // stale service or a scope-closed race must reject the contribution
+            }
+        });
+
+        scope.close();
+
+        assertFalse(contributed.get());
+        // Whatever interleaving occurred, the shared coordinator slot is free.
+        coordinator.contribute(new PhysicsEditorContribution(true, false)).close();
+    }
+
+    @Test
+    void closingOneScopeLeavesSharedCoordinatorUsableForOtherPlugins() throws Exception {
+        final DisposableScope scopeA = new DisposableScope();
+        final DisposableScope scopeB = new DisposableScope();
+        final AtomicBoolean activeA = new AtomicBoolean(true);
+        final AtomicBoolean activeB = new AtomicBoolean(true);
+        scopeA.register(() -> {
+            activeA.set(false);
+        });
+        scopeB.register(() -> {
+            activeB.set(false);
+        });
+        final PhysicsEditorCoordinator coordinator = new PhysicsEditorCoordinator();
+        final PhysicsEditorService serviceA =
+            new PluginScopedPhysicsEditorService(coordinator, scopeA, activeA::get);
+        final PhysicsEditorService serviceB =
+            new PluginScopedPhysicsEditorService(coordinator, scopeB, activeB::get);
+
+        serviceA.contribute(new PhysicsEditorContribution(true, false));
+        scopeA.close();
+
+        // Plugin B still owns the shared coordinator after plugin A leaves.
+        serviceB.contribute(new PhysicsEditorContribution(false, true)).close();
+        coordinator.contribute(new PhysicsEditorContribution(true, false)).close();
+        scopeB.close();
     }
 
     private static void clickEnableHeader(final JTable table) throws Exception {
