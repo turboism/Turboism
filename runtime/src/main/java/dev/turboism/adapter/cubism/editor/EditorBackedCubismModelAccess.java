@@ -203,6 +203,16 @@ public final class EditorBackedCubismModelAccess implements CubismModelAccess,
         );
     }
 
+    /**
+     * The identity of the currently bound verified modeling document and model, for trusted
+     * runtime consumers that must correlate a captured selection with the executing live
+     * binding. Fails when no verified modeling document and model are active; not a
+     * plugin-facing API.
+     */
+    public String currentBindingIdentity() {
+        return binding().identity();
+    }
+
     @Override
     public void requireCreateSupported(final ModelObjectCreateRequest request) {
         hierarchyEditAccess.requireCreateSupported(request);
