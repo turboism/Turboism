@@ -1,9 +1,11 @@
 history.button.tooltip
 history.entry.action.add
+history.entry.action.move
 history.entry.action.remove
 history.entry.action.set
 history.entry.affected
 history.entry.change.add
+history.entry.change.move
 history.entry.change.remove
 history.entry.change.set
 history.entry.change.set-after
@@ -26,6 +28,8 @@ history.panel.count
 history.panel.title
 history.panel.unavailable
 history.panel.unavailable.detail
+history.property.angle
+history.property.control-point-positions
 history.property.draw-order
 history.property.drawable-a
 history.property.drawable-b
@@ -34,7 +38,12 @@ history.property.intensity
 history.property.multiply-color
 history.property.name
 history.property.opacity
+history.property.origin
+history.property.reflect-x
+history.property.reflect-y
+history.property.scale
 history.property.screen-color
+history.property.translation
 history.property.value
 history.property.vertex-positions
 history.relation.deformer-parent.detach
