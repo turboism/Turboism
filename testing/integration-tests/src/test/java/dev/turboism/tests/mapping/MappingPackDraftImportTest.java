@@ -264,6 +264,37 @@ class MappingPackDraftImportTest {
         )));
     }
 
+    @Test
+    void boundingBoxDraftRemainsAnUnverifiedProjectionOfItsStaticEvidence() throws Exception {
+        JsonNode pack = mapper.readTree(DRAFT_DIR.resolve("cubism-5.3.03-ui-bounding-box-overlay.json").toFile());
+        Path project = Paths.get(System.getProperty("projectRoot", System.getProperty("user.dir")));
+        JsonNode evidence = mapper.readTree(project.resolve(pack.path("metadata").path("inventoryRef").asText()).toFile());
+        assertEquals("DRAFT", pack.path("status").asText());
+        assertEquals("JAR_METADATA", evidence.path("evidenceType").asText());
+        assertEquals(pack.path("cubismVersion"), evidence.path("cubismVersion"));
+        assertEquals(pack.path("metadata").path("artifactSha256"), evidence.path("artifact").path("sha256"));
+        var selectors = java.util.stream.StreamSupport.stream(evidence.path("selectors").spliterator(), false)
+            .collect(java.util.stream.Collectors.toMap(value -> value.path("mappingId").asText(), java.util.function.Function.identity()));
+        assertEquals(12, pack.path("entries").size());
+        assertEquals(selectors.size(), pack.path("entries").size());
+        for (JsonNode entry : pack.path("entries")) {
+            JsonNode selector = selectors.get(entry.path("semanticName").asText());
+            assertNotNull(selector);
+            assertEquals("VERIFIED_STATIC", selector.path("status").asText());
+            assertEquals(selector.path("alias"), entry.path("name"));
+            assertEquals(selector.path("kind"), entry.path("kind"));
+            assertEquals(selector.path("memberName"), entry.path("runtime"));
+            assertEquals(selector.path("descriptor"), entry.path("descriptor"));
+            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
+                assertEquals(selector.path(field), entry.path("x.verification").path(field));
+            }
+            assertEquals("DRAFT", entry.path("status").asText());
+            assertEquals("medium", entry.path("confidence").asText());
+            assertEquals("none", entry.path("verifiedBy").asText());
+            assertTrue(entry.path("verifiedAt").isNull());
+        }
+    }
+
     private static Set<String> asStringSet(final JsonNode array) {
         final java.util.HashSet<String> values = new java.util.HashSet<>();
         array.forEach(value -> assertTrue(values.add(value.asText())));

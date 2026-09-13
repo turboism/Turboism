@@ -37,10 +37,15 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
     private static final long PASS_SETTLE_MILLIS = 2_000L;
     private static final Duration SAMPLE_INTERVAL = Duration.ofSeconds(1);
     private static final int SAMPLING_WINDOW_SECONDS = 90;
+    /** Sustained-jank mode: sample the full window and emit the per-interval series. */
+    private static final boolean SUSTAINED =
+        Boolean.parseBoolean(System.getProperty("turboism.fps.sustained", "false"));
+    private static final long SETTLE_SECONDS =
+        Long.parseLong(System.getProperty("turboism.fps.settleSeconds", "0"));
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final java.util.List<String> REVIEWED_HOST_VERSIONS =
-        java.util.List.of("5.2.03", "5.3.02");
+        java.util.List.of("5.2.03", "5.3.02", "5.3.03");
 
     private PluginLogger logger;
     private PluginContext context;
@@ -79,7 +84,7 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                 + " timeoutMillis=" + HOST_READY_TIMEOUT_MILLIS);
             final JvmSnapshot jvm = jvmSnapshot();
             finish(false, "model readiness timeout", "missing", "missing", 0L, 0.0, 0, "none",
-                jvm, jvm);
+                jvm, jvm, summarizeJank(List.of()), List.of());
             return;
         }
         // Host identity is pinned by the runner (--version plus the exact JAR
@@ -93,6 +98,18 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             + " hostState=ACTIVE documentSignal=verified-modeling-document"
             + " hostVersion=" + hostVersion
             + " modelId=" + modelId.orElseThrow());
+        // Sustained legs optionally wait out lazy model settling (texture
+        // decode, palette build) so the sampling window measures steady state,
+        // not load tail. The resize driver still overlaps: it drives for 240s
+        // from window-appear while settle runs inside that envelope.
+        if (SETTLE_SECONDS > 0L) {
+            try {
+                Thread.sleep(SETTLE_SECONDS * 1_000L);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
         runSampling(hostVersion, modelId.orElseThrow());
     }
 
@@ -145,6 +162,8 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
     private void runSampling(final String hostVersion, final String modelId) {
         final AtomicLong maxRenderedFrames = new AtomicLong();
         final AtomicLong maxFpsMillis = new AtomicLong();
+        final java.util.List<Double> fpsSeries =
+            java.util.Collections.synchronizedList(new java.util.ArrayList<>());
         final AtomicReference<String> failure = new AtomicReference<>();
         final JvmSnapshot jvmBefore = jvmSnapshot();
         try {
@@ -156,11 +175,12 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                 maxFpsMillis.accumulateAndGet(
                     Math.round(snapshot.fps() * 1000.0), Math::max
                 );
+                fpsSeries.add(snapshot.fps());
             });
             final long deadline = System.currentTimeMillis()
                 + SAMPLING_WINDOW_SECONDS * 1_000L;
             while (System.currentTimeMillis() < deadline) {
-                if (maxRenderedFrames.get() > 0L) {
+                if (!SUSTAINED && maxRenderedFrames.get() > 0L) {
                     break;
                 }
                 Thread.sleep(SETTLE_STEP_MILLIS);
@@ -168,15 +188,19 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             sampling.close();
             final long renderSceneCalls = maxRenderedFrames.get();
             final double fpsMax = maxFpsMillis.get() / 1000.0;
+            final JankSummary jank = summarizeJank(fpsSeries);
             if (renderSceneCalls > 0L) {
                 logger.info("FPS_RESULT status=PASS"
                     + " hostVersion=" + hostVersion
                     + " modelId=" + modelId
                     + " renderSceneCalls=" + renderSceneCalls
-                    + " fpsMax=" + fpsMax);
+                    + " fpsMax=" + fpsMax
+                    + " fpsP05=" + jank.p05()
+                    + " fpsMin=" + jank.min()
+                    + " stallIntervals=" + jank.stallIntervals());
                 finish(true, "renderSceneCalls>0", hostVersion, modelId,
                     renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get(),
-                    jvmBefore, jvmSnapshot());
+                    jvmBefore, jvmSnapshot(), jank, fpsSeries);
             } else {
                 failure.compareAndSet(null, "no renderScene calls within sampling window");
                 logger.warn("FPS_RESULT status=FAIL"
@@ -186,7 +210,7 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                     + " reason=" + failure.get());
                 finish(false, failure.get(), hostVersion, modelId,
                     renderSceneCalls, fpsMax, SAMPLING_WINDOW_SECONDS, failure.get(),
-                    jvmBefore, jvmSnapshot());
+                    jvmBefore, jvmSnapshot(), jank, fpsSeries);
             }
         } catch (Throwable failure1) {
             failure.compareAndSet(null, failure1.getClass().getName());
@@ -196,8 +220,58 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
                 + " reason=" + failure.get());
             finish(false, failure.get(), hostVersion, modelId,
                 maxRenderedFrames.get(), maxFpsMillis.get() / 1000.0,
-                SAMPLING_WINDOW_SECONDS, failure.get(), jvmBefore, jvmSnapshot());
+                SAMPLING_WINDOW_SECONDS, failure.get(), jvmBefore, jvmSnapshot(),
+                summarizeJank(fpsSeries), fpsSeries);
         }
+    }
+
+    /**
+     * Jank summary over the per-interval fps series: p05/min describe the
+     * dip depth; stallIntervals counts intervals below half the median
+     * (a GC pause or EDT stall crushes an interval's frame delivery);
+     * zeroFpsIntervals counts intervals with no frame at all.
+     */
+    private static JankSummary summarizeJank(final List<Double> series) {
+        final List<Double> sorted;
+        synchronized (series) {
+            sorted = new java.util.ArrayList<>(series);
+        }
+        if (sorted.isEmpty()) {
+            return new JankSummary(0.0, 0.0, 0.0, 0, 0);
+        }
+        sorted.sort(null);
+        final double min = sorted.get(0);
+        final double p05 = sorted.get(Math.min(sorted.size() - 1,
+            (int) Math.floor(sorted.size() * 0.05)));
+        final double median = sorted.get(sorted.size() / 2);
+        int stalls = 0;
+        int zeros = 0;
+        for (double fps : sorted) {
+            if (fps <= 0.0) zeros++;
+            if (fps < median * 0.5) stalls++;
+        }
+        return new JankSummary(min, p05, median, stalls, zeros);
+    }
+
+    private record JankSummary(
+        double min,
+        double p05,
+        double median,
+        int stallIntervals,
+        int zeroFpsIntervals
+    ) { }
+
+    private static String seriesString(final List<Double> series) {
+        final List<Double> copy;
+        synchronized (series) {
+            copy = new java.util.ArrayList<>(series);
+        }
+        final StringBuilder out = new StringBuilder("[");
+        for (int i = 0; i < copy.size(); i++) {
+            if (i > 0) out.append(',');
+            out.append(String.format(java.util.Locale.ROOT, "%.2f", copy.get(i)));
+        }
+        return out.append(']').toString();
     }
 
     private static JvmSnapshot jvmSnapshot() {
@@ -230,7 +304,9 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
         final int samplingSeconds,
         final String failure,
         final JvmSnapshot jvmBefore,
-        final JvmSnapshot jvmAfter
+        final JvmSnapshot jvmAfter,
+        final JankSummary jank,
+        final List<Double> fpsSeries
     ) {
         final StringBuilder result = new StringBuilder()
             .append("status=").append(pass ? "PASS" : "FAIL").append('\n')
@@ -253,6 +329,13 @@ public final class FpsHostValidationPlugin implements TurboismPlugin {
             .append(Math.max(0L, jvmAfter.gcCollectionCount() - jvmBefore.gcCollectionCount())).append('\n')
             .append("jvm.gcCollectionTimeMillis.delta=")
             .append(Math.max(0L, jvmAfter.gcCollectionTimeMillis() - jvmBefore.gcCollectionTimeMillis())).append('\n')
+            .append("jank.fpsMin=").append(jank.min()).append('\n')
+            .append("jank.fpsP05=").append(jank.p05()).append('\n')
+            .append("jank.fpsMedian=").append(jank.median()).append('\n')
+            .append("jank.stallIntervals=").append(jank.stallIntervals()).append('\n')
+            .append("jank.zeroFpsIntervals=").append(jank.zeroFpsIntervals()).append('\n')
+            .append("jank.sustained=").append(SUSTAINED).append('\n')
+            .append("jank.fpsSeries=").append(seriesString(fpsSeries)).append('\n')
             .append("failure=").append(failure == null ? "none" : failure).append('\n');
         try {
             Files.writeString(stateDir.resolve(RESULT), result);

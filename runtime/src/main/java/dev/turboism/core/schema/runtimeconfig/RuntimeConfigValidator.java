@@ -16,7 +16,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
     private static final Set<String> ALLOWED_FIELDS = Set.of(
         "worktreeId", "pluginDirs", "disabledPlugins", "logLevel", "maxLogStorageMiB", "locale", "useTextIcon",
-        "safeMode", "diagnostics", "hooks", "launcher"
+        "safeMode", "diagnostics", "hooks", "launcher", "reduceAutoBackup"
     );
     private static final Set<String> ALLOWED_LOG_LEVELS = Set.of("TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> ALLOWED_LOCALES = Set.of("system", "en", "ja", "ko", "zh-Hans", "zh-Hant");
@@ -32,7 +32,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
     private static final Set<String> ALLOWED_STARTUP_FIELDS = Set.of(
         "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory"
     );
-    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
+    private static final Set<String> ALLOWED_LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath", "zgc");
     private static final Set<String> ALLOWED_CUBISM_JVMS = Set.of("graalvm", "bundled");
 
     public RuntimeConfigValidator() {
@@ -138,6 +138,7 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
 
         validateOptionalBoolean(node, "safeMode", errors, source);
         validateOptionalBoolean(node, "useTextIcon", errors, source);
+        validateOptionalBoolean(node, "reduceAutoBackup", errors, source);
         validateHooks(node, errors, source);
         validateLauncher(node, errors, source);
 
@@ -173,6 +174,14 @@ public final class RuntimeConfigValidator extends AbstractJsonValidator {
                 "RUNTIME_CONFIG_BAD_CUBISM_JVM",
                 "launcher.cubismJvm must be one of " + ALLOWED_CUBISM_JVMS,
                 "launcher.cubismJvm",
+                source
+            ));
+        }
+        if (launcher.has("zgc") && !launcher.get("zgc").isBoolean()) {
+            errors.add(error(
+                "RUNTIME_CONFIG_BAD_ZGC",
+                "launcher.zgc must be a boolean",
+                "launcher.zgc",
                 source
             ));
         }

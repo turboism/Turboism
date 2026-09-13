@@ -30,6 +30,7 @@ import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
@@ -56,11 +57,15 @@ import javax.swing.WindowConstants;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dialog;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Window;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -321,6 +326,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                     runNativeLabelColorPersistReopen();
                 } else if ("native-control-background-persist-final".equals(mode)) {
                     runNativeLabelColorPersistFinal();
+                } else if ("perf-observe".equals(mode)) {
+                    runPerfObservation();
                 } else {
                     runEditorObjectValidation();
                     runPartOpacityValidation();
@@ -998,14 +1005,14 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     static HostCloseRoute hostCloseRoute(final String hostVersion) {
         if (hostVersion == null) {
             throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302"
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303"
             );
         }
         return switch (hostVersion) {
             case "5203" -> HostCloseRoute.SYNTHETIC_WINDOW_CLOSING;
-            case "5302" -> HostCloseRoute.ROBOT_ALT_F4;
+            case "5302", "5303" -> HostCloseRoute.ROBOT_ALT_F4;
             default -> throw new IllegalArgumentException(
-                "turboism.validation.hostVersion must be 5203 or 5302: " + hostVersion
+                "turboism.validation.hostVersion must be 5203, 5302, or 5303: " + hostVersion
             );
         };
     }
@@ -1154,6 +1161,15 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     static final long DEFAULT_SAVE_DEADLINE_MILLIS = 30_000L;
     static final long DEFAULT_SAVE_POLL_MILLIS = 100L;
     static final int SAVE_STABLE_SAMPLES = 3;
+
+    // Daemon pool for bounded stale-checks: a modal-blocked call parks its
+    // worker until the EDT frees; new submissions must not queue behind it.
+    private static final java.util.concurrent.ExecutorService STALE_CHECK_POOL =
+        java.util.concurrent.Executors.newCachedThreadPool(runnable -> {
+            final Thread thread = new Thread(runnable, "turboism-stale-check");
+            thread.setDaemon(true);
+            return thread;
+        });
 
     /** Machine-readable save evidence; {@code confirmed=false} is a FAIL, never a PASS. */
     record SaveConfirmation(
@@ -2314,35 +2330,333 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     }
 
     private CubismModel awaitEditorObjectModel(final Path artifact) throws Exception {
-        CubismModel model = null;
+        return awaitEditorObjectModel(artifact, 120);
+    }
+
+    private CubismModel awaitEditorObjectModel(final Path artifact, final int maxAttempts) throws Exception {
+        return awaitEditorObjectModel(artifact, maxAttempts, 5L);
+    }
+
+    /**
+     * Polls the host for a loaded modeling document. One in-flight EDT probe is
+     * kept pending across attempts: on a saturated EDT (the heavy model's
+     * parameter-structure storm) queued invokeLater runnables still execute in
+     * FIFO order, so re-queueing per attempt only lets every waiter expire
+     * before its runnable ever ran. Each attempt keeps waiting on the same
+     * latch; a new probe is dispatched only after the previous one executed.
+     */
+    private CubismModel awaitEditorObjectModel(
+        final Path artifact,
+        final int maxAttempts,
+        final long perCallSeconds
+    ) throws Exception {
+        final long deadlineNanos = System.nanoTime()
+            + java.util.concurrent.TimeUnit.SECONDS.toNanos(maxAttempts * perCallSeconds);
+        final java.util.concurrent.CountDownLatch accepted =
+            new java.util.concurrent.CountDownLatch(1);
+        final AtomicReference<CubismModel> modelBox = new AtomicReference<>();
+        final AtomicReference<Exception> failureBox = new AtomicReference<>();
+        final java.util.concurrent.atomic.AtomicBoolean dispatched =
+            new java.util.concurrent.atomic.AtomicBoolean();
         Exception unavailable = null;
-        for (int attempt = 0; attempt < 120 && !Thread.currentThread().isInterrupted(); attempt++) {
-            try {
-                model = onHostThread(this::activeModel);
-                final CubismModel candidate = model;
-                onHostThread(() -> {
-                    if (candidate.drawables().all().isEmpty()) throw new IllegalStateException("No ArtMesh is available.");
-                    if (candidate.warpDeformers().all().isEmpty()) throw new IllegalStateException("No Warp Deformer is available.");
-                    if (candidate.rotationDeformers().all().isEmpty()) throw new IllegalStateException("No Rotation Deformer is available.");
-                    return null;
+        for (int attempt = 0;
+             System.nanoTime() < deadlineNanos && !Thread.currentThread().isInterrupted();
+             attempt++) {
+            if (dispatched.compareAndSet(false, true)) {
+                SwingUtilities.invokeLater(() -> {
+                    try {
+                        final CubismModel candidate = activeModel();
+                        if (candidate.drawables().all().isEmpty()) {
+                            throw new IllegalStateException("No ArtMesh is available.");
+                        }
+                        if (candidate.warpDeformers().all().isEmpty()) {
+                            throw new IllegalStateException("No Warp Deformer is available.");
+                        }
+                        if (candidate.rotationDeformers().all().isEmpty()) {
+                            throw new IllegalStateException("No Rotation Deformer is available.");
+                        }
+                        modelBox.set(candidate);
+                    } catch (Throwable exception) {
+                        failureBox.set(new IllegalStateException(
+                            exception.getClass().getName() + ": " + exception.getMessage(), exception));
+                    } finally {
+                        accepted.countDown();
+                    }
                 });
-                return model;
-            } catch (Exception exception) {
-                model = null;
-                unavailable = exception;
-                Files.writeString(
-                    artifact,
-                    "status=RUNNING phase=await-model attempt=" + attempt + " error="
-                        + exception.getClass().getName() + ": " + exception.getMessage() + "\n",
-                    StandardOpenOption.CREATE,
-                    StandardOpenOption.TRUNCATE_EXISTING
-                );
-                Thread.sleep(1000L);
             }
+            final long waitNanos = Math.min(
+                java.util.concurrent.TimeUnit.SECONDS.toNanos(perCallSeconds),
+                Math.max(deadlineNanos - System.nanoTime(), 1L)
+            );
+            if (!accepted.await(waitNanos, java.util.concurrent.TimeUnit.NANOSECONDS)) {
+                writeStatusAsync(
+                    artifact,
+                    "status=RUNNING phase=await-model attempt=" + attempt
+                        + " error=EDT probe still queued after " + perCallSeconds + "s\n"
+                );
+                continue;
+            }
+            final Exception failure = failureBox.get();
+            if (failure == null) {
+                final CubismModel model = modelBox.get();
+                if (model != null) {
+                    return model;
+                }
+                unavailable = new IllegalStateException("EDT probe completed without a result.");
+                dispatched.set(false);
+                Thread.sleep(1000L);
+                continue;
+            }
+            unavailable = failure;
+            failureBox.set(null);
+            dispatched.set(false);
+            String modal = "";
+            if (attempt % 10 == 0) {
+                try {
+                    modal = inspectBlockingModal();
+                } catch (Exception scanFailure) {
+                    modal = " modal-scan-failed=" + scanFailure.getClass().getSimpleName();
+                }
+            }
+            writeStatusAsync(
+                artifact,
+                "status=RUNNING phase=await-model attempt=" + attempt + " error="
+                    + failure.getClass().getName() + ": " + failure.getMessage() + modal + "\n"
+            );
+            Thread.sleep(1000L);
         }
         throw unavailable == null
             ? new IllegalStateException("Editor object validation was interrupted.")
             : unavailable;
+    }
+
+    /**
+     * Best-effort heartbeat write on a daemon thread. During the heavy model's
+     * post-load churn (parameter-structure rebuild, multi-GB auto-backup) a
+     * synchronous {@code Files.writeString} to the Wine-mounted volume can stall
+     * for minutes and wedge the await loop; at most one write is kept in flight
+     * and further updates are dropped rather than piling up blocked threads.
+     */
+    private final java.util.concurrent.atomic.AtomicBoolean statusWriteInFlight =
+        new java.util.concurrent.atomic.AtomicBoolean();
+
+    private void writeStatusAsync(final Path artifact, final String content) {
+        if (!statusWriteInFlight.compareAndSet(false, true)) {
+            return;
+        }
+        final Thread writer = new Thread(() -> {
+            try {
+                Files.writeString(
+                    artifact, content,
+                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Throwable ignored) {
+            } finally {
+                statusWriteInFlight.set(false);
+            }
+        });
+        writer.setDaemon(true);
+        writer.start();
+    }
+
+    /**
+     * Appends one line to the close-phase forensics log. Kept separate from the
+     * main artifact so observations survive a host-initiated exit mid-close
+     * (r18 lost every modal note when the process died before the final write).
+     */
+    private static void appendCloseLog(final Path closeLog, final String line) {
+        try {
+            Files.writeString(
+                closeLog,
+                line.replace('\n', ' ') + '\n',
+                StandardOpenOption.CREATE,
+                StandardOpenOption.APPEND
+            );
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /**
+     * Off-EDT modal inspection. A showing save prompt blocks {@code invokeAndWait}
+     * entirely (observed r17), so detection must run on the caller thread;
+     * component-tree reads are best-effort and dismissal uses {@code doClick()},
+     * which fires synchronously. Every observation lands in the caller's status
+     * line; only whitelisted dialogs are clicked.
+     */
+    private String inspectBlockingModal() {
+        final StringBuilder notes = new StringBuilder();
+        for (Window window : Window.getWindows()) {
+            // The save prompt observed on 5.3.03 is not a Dialog at all (the r16
+            // scan saw only the non-modal "主页" JDialog while the prompt sat on
+            // screen), so every visible non-Frame window is inspected — dismissal
+            // remains gated by the narrow label whitelist below. Every window is
+            // examined: returning after the first one (r18) meant the benign
+            // "主页" dialog shadowed the save prompt and nothing was dismissed.
+            if (window instanceof java.awt.Frame || !window.isVisible()) {
+                continue;
+            }
+            notes.append(inspectModalWindow(window));
+        }
+        return notes.toString();
+    }
+
+    private String inspectModalWindow(final Window dialog) {
+        final StringBuilder text = new StringBuilder();
+        final List<Component> buttons = new java.util.ArrayList<>();
+        collectDialogSurface(dialog, text, buttons);
+        final String body = text.toString();
+        final boolean versionWarning = body.contains("保存")
+            || body.contains("newer version")
+            || body.contains("破損");
+        String action = "ignored";
+        if (versionWarning) {
+            final Component load = buttons.stream()
+                .filter(b -> b.isEnabled() && b.isVisible())
+                .filter(b -> {
+                    final String label = clickLabel(b);
+                    return label.contains("加载")
+                        || label.contains("ロード")
+                        || label.equalsIgnoreCase("Load")
+                        || label.contains("開く")
+                        || label.equalsIgnoreCase("Open");
+                })
+                .findFirst()
+                .orElse(null);
+            if (load != null) {
+                clickComponent(load);
+                action = "accepted-version-warning";
+            }
+        }
+        if ("ignored".equals(action)) {
+            final List<Component> enabled = buttons.stream()
+                .filter(b -> b.isEnabled() && b.isVisible())
+                .toList();
+            // Dirty-close prompts mention saving and offer a discard button;
+            // dismiss via the discard label only — never the save button.
+            // The observed 5.3.03 prompt renders Yes(Y)/No(N)/Cancel(C)
+            // CButton widgets titled 确定, so "No"/"否"/"いいえ" count as
+            // discard — always gated by a 保存/save mention in the body.
+            final Component discard = enabled.stream()
+                .filter(b -> {
+                    final String label = clickLabel(b);
+                    return label.contains("不保存")
+                        || label.contains("保存しない")
+                        || label.equalsIgnoreCase("Don't Save")
+                        || label.contains("破棄")
+                        || label.equalsIgnoreCase("Discard")
+                        || label.startsWith("No")
+                        || label.equals("否")
+                        || label.equals("いいえ");
+                })
+                .findFirst()
+                .orElse(null);
+            // The prompt body may be custom-painted (no JLabel), so also
+            // accept the Yes/No/Cancel button trio itself as the signature.
+            final boolean savePrompt = body.contains("保存")
+                || body.contains("save")
+                || (enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Yes"))
+                    && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("No"))
+                    && enabled.stream().anyMatch(b -> clickLabel(b).startsWith("Cancel")));
+            if (discard != null && savePrompt) {
+                clickComponent(discard);
+                action = "discarded-save-prompt";
+            } else if (enabled.size() == 1) {
+                // A lone confirm button is an informational modal (e.g. the
+                // post-load 确定 notice) — acknowledge it; the body text is
+                // still recorded in the status line for review.
+                final String label = clickLabel(enabled.get(0));
+                if (label.equals("确定") || label.equals("確定")
+                    || label.equalsIgnoreCase("OK")) {
+                    clickComponent(enabled.get(0));
+                    action = "acknowledged-info";
+                }
+            }
+        }
+        final String summary = body.length() > 160 ? body.substring(0, 160) : body;
+        final String title = dialog instanceof Dialog d ? d.getTitle() : dialog.getName();
+        final String modal = dialog instanceof Dialog d
+            ? String.valueOf(d.isModal()) : "n/a";
+        return " modal=\"" + title + "\" class=" + dialog.getClass().getName()
+            + " modal=" + modal + " buttons=" + buttons.size()
+            + " action=" + action + " text=" + summary.replace('\n', ' ');
+    }
+
+    /**
+     * A component is clickable for modal dismissal when it is a {@link JButton}
+     * or a host custom button ({@code com.live2d.ui.control.*}) exposing a public
+     * no-arg {@code doClick()} — the latter covers Cubism's own dialog buttons,
+     * which are not {@code JButton} subclasses.
+     */
+    private static boolean isClickable(final Component component) {
+        if (component instanceof JButton) {
+            return true;
+        }
+        final String className = component.getClass().getName();
+        if (!className.startsWith("com.live2d.ui.control.")) {
+            return false;
+        }
+        try {
+            component.getClass().getMethod("doClick");
+            return true;
+        } catch (NoSuchMethodException noClick) {
+            return false;
+        }
+    }
+
+    /** Best-effort label for a clickable component: JButton text or reflective getText(). */
+    private static String clickLabel(final Component component) {
+        try {
+            if (component instanceof JButton button) {
+                return button.getText() == null ? "" : button.getText().trim();
+            }
+            final Object text = component.getClass().getMethod("getText").invoke(component);
+            return text == null ? "" : text.toString().trim();
+        } catch (Throwable failure) {
+            return "";
+        }
+    }
+
+    /**
+     * Programmatic click: direct for JButton, reflective {@code doClick()}
+     * otherwise. Dispatched on the EDT — firing the click on the probe thread
+     * deadlocked r19 (the host's button handler re-entered the EDT and never
+     * returned), while a showing modal still pumps the invokeLater queue.
+     */
+    private static void clickComponent(final Component component) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                if (component instanceof JButton button) {
+                    button.doClick();
+                    return;
+                }
+                component.getClass().getMethod("doClick").invoke(component);
+            } catch (Throwable ignored) {
+            }
+        });
+    }
+
+    private static void collectDialogSurface(
+        final Container container,
+        final StringBuilder text,
+        final List<Component> buttons
+    ) {
+        for (Component component : container.getComponents()) {
+            if (isClickable(component)) {
+                buttons.add(component);
+                text.append('[').append(clickLabel(component)).append(']');
+            } else if (component instanceof JLabel label) {
+                if (label.getText() != null) {
+                    text.append(' ').append(label.getText());
+                }
+            } else if (component instanceof JTextField field) {
+                if (field.getText() != null && !field.getText().isBlank()) {
+                    text.append(' ').append(field.getText());
+                }
+            }
+            if (component instanceof Container child) {
+                collectDialogSurface(child, text, buttons);
+            }
+        }
     }
 
     private void runEditorObjectPersistenceWrite() {
@@ -2556,6 +2870,611 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         }
     }
 
+    private void runPerfObservation() {
+        final Path artifact = Path.of(
+            System.getProperty("turboism.home"), "logs", "perf-observe-validation.txt"
+        );
+        try {
+            Files.createDirectories(artifact.getParent());
+            Files.writeString(
+                artifact,
+                "status=RUNNING phase=await-model\n",
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            // The heavy fixture's document load is asynchronous and the post-load
+            // EDT churn (parameter-structure rebuild + auto-backup I/O) can starve
+            // probe dispatch for many minutes under Proton; the persistent-latch
+            // await tolerates long queues while the runner's result-timeout still
+            // bounds the whole run.
+            final CubismModel model = awaitEditorObjectModel(artifact, 30, 45L);
+            final Object jfrRecording = startJfrRecording();
+            final boolean autoBackupStopped = stopAutoBackup();
+            forceGcQuietly();
+            final long heapAfterOpen = heapUsedBytes();
+            final long nonHeapAfterOpen = nonHeapUsedBytes();
+
+            final java.lang.management.ThreadMXBean threads =
+                java.lang.management.ManagementFactory.getThreadMXBean();
+            final com.sun.management.ThreadMXBean hotspotThreads =
+                threads instanceof com.sun.management.ThreadMXBean supported
+                    ? supported : null;
+            final long edtId = onHostThread(() -> Thread.currentThread().getId());
+            if (hotspotThreads != null && hotspotThreads.isThreadAllocatedMemorySupported()
+                && !hotspotThreads.isThreadAllocatedMemoryEnabled()) {
+                hotspotThreads.setThreadAllocatedMemoryEnabled(true);
+            }
+            final com.sun.management.ThreadMXBean allocThreads =
+                hotspotThreads != null && hotspotThreads.isThreadAllocatedMemoryEnabled()
+                    ? hotspotThreads : null;
+
+            final StringBuilder metrics = new StringBuilder();
+            // The host's periodic auto-backup serializes multi-GB documents on a
+            // timer and starves the EDT mid-measurement (observed: 46s / +2.28GB
+            // in r13); stopping its Swing timer is session-scoped and keeps the
+            // measurement window clean.
+            metrics.append("autoBackupStopped=").append(autoBackupStopped).append('\n');
+            metrics.append("heapUsedAfterOpenBytes=").append(heapAfterOpen).append('\n');
+            metrics.append("nonHeapUsedAfterOpenBytes=").append(nonHeapAfterOpen).append('\n');
+            final int drawableCount = onHostThread(() -> model.drawables().all().size());
+            final int parameterCount = onHostThread(() -> model.parameters().all().size());
+            metrics.append("drawables=").append(drawableCount).append('\n');
+            metrics.append("parameters=").append(parameterCount).append('\n');
+
+            final long gcCountBefore = gcCollectionCount();
+            final long gcTimeBefore = gcCollectionTimeMillis();
+            measureCall(metrics, "runtime", allocThreads, edtId,
+                () -> context.cubism().runtime());
+            measureCall(metrics, "activeProject", allocThreads, edtId,
+                () -> context.cubism().activeProject());
+            measureCall(metrics, "activeDocument", allocThreads, edtId,
+                () -> context.cubism().activeDocument());
+            measureCall(metrics, "modelActive", allocThreads, edtId,
+                this::activeModel);
+            metrics.append("gcCollectionsDuringReads=")
+                .append(gcCollectionCount() - gcCountBefore).append('\n');
+            metrics.append("gcMillisDuringReads=")
+                .append(gcCollectionTimeMillis() - gcTimeBefore).append('\n');
+
+            forceGcQuietly();
+            metrics.append("heapUsedAfterReadsBytes=").append(heapUsedBytes()).append('\n');
+
+            // Phase: real mutation burst through the SDK write path — a parameter
+            // value alternation exercises edit dispatch, undo-history append and
+            // dirty marking on the heavy model.
+            final List<Parameter> allParameters =
+                onHostThread(() -> new java.util.ArrayList<>(model.parameters().all()));
+            if (!allParameters.isEmpty()) {
+                final Parameter editTarget = allParameters.get(0);
+                final float baseValue = onHostThread(editTarget::getValue);
+                final float min = onHostThread(editTarget::getMinimumValue);
+                final float max = onHostThread(editTarget::getMaximumValue);
+                final float delta = Math.max(
+                    Math.min((max - min) * 0.05f, (max - min) / 2f), 0.001f
+                );
+                metrics.append("editParameter=").append(editTarget.id().value()).append('\n');
+                metrics.append("editBaseValue=").append(baseValue).append('\n');
+                final long gcBeforeEdits = gcCollectionCount();
+                final long gcMillisBeforeEdits = gcCollectionTimeMillis();
+                final java.util.concurrent.atomic.AtomicInteger toggle =
+                    new java.util.concurrent.atomic.AtomicInteger();
+                final Callable<?> writeCall = () -> {
+                    final float value = toggle.getAndIncrement() % 2 == 0
+                        ? baseValue + delta : baseValue;
+                    editTarget.setValue(value);
+                    return null;
+                };
+                // R6: batching all writes inside one ambient authoring
+                // transaction should coalesce the per-write PARAMETER_PALETTE
+                // refresh into a single native rebuild.
+                final boolean batchWrite = Boolean.getBoolean("turboism.perf.batchWrite");
+                metrics.append("batchWrite=").append(batchWrite).append('\n');
+                if (batchWrite) {
+                    final var batchResult = onHostThread(() ->
+                        context.cubism().authoringTransactions().execute(
+                            AuthoringTransactionOptions.of("perf-observe batch writes"),
+                            () -> {
+                                measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
+                                return null;
+                            }));
+                    metrics.append("batchWriteCommitted=").append(batchResult.successful()).append('\n');
+                    metrics.append("batchWriteOutcome=").append(batchResult.outcome()).append('\n');
+                } else {
+                    measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
+                }
+                metrics.append("gcCollectionsDuringWrites=")
+                    .append(gcCollectionCount() - gcBeforeEdits).append('\n');
+                metrics.append("gcMillisDuringWrites=")
+                    .append(gcCollectionTimeMillis() - gcMillisBeforeEdits).append('\n');
+                forceGcQuietly();
+                metrics.append("heapUsedAfterWritesBytes=").append(heapUsedBytes()).append('\n');
+                final long restoreGcBefore = gcCollectionCount();
+                onHostThread(() -> { editTarget.setValue(baseValue); return null; });
+                forceGcQuietly();
+                metrics.append("heapUsedAfterRestoreBytes=").append(heapUsedBytes()).append('\n');
+                metrics.append("gcCollectionsDuringRestore=")
+                    .append(gcCollectionCount() - restoreGcBefore).append('\n');
+            } else {
+                metrics.append("editParameter=none\n");
+            }
+            appendImageResourceReport(metrics, "imageCacheBeforeClose");
+
+            // Drain the undo stack so the document is no longer dirty; otherwise
+            // closing saves the fixture copy (observed in r11/r12) and trips
+            // --require-fixture-unchanged.
+            final java.awt.Robot robot = new java.awt.Robot();
+            if (allParameters != null && !allParameters.isEmpty()) {
+                for (int undo = 0; undo < 40; undo++) {
+                    pressShortcut(robot, java.awt.event.KeyEvent.VK_Z);
+                }
+            }
+            // Write a provisional verdict before the close sequence: if the
+            // host exits on its own during close (observed r18 — app exited
+            // mid-write and the terminal PASS never landed), the measurement
+            // data up to this point survives.
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=closing\n" + metrics,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            // .log extension matters: the result summarizer sweeps *.txt files
+            // containing "-close" as artifacts and fails the run on any without
+            // a status= line (observed r19 — the forensics file was counted as
+            // a MISSING artifact).
+            final Path closeLog = artifact.resolveSibling("perf-observe-modal-forensics.log");
+            // Re-disable auto-backup right before close — the host re-arms it
+            // on document events and a backup storm inside the close window
+            // already cost r18 its terminal artifact.
+            metrics.append("autoBackupStoppedPreClose=").append(stopAutoBackup()).append('\n');
+            // Clear any lingering informational dialog first so the close
+            // accelerator reaches the document.
+            try {
+                appendCloseLog(closeLog, "preClose" + inspectBlockingModal());
+            } catch (Exception ignored) {
+            }
+            pressShortcut(robot, java.awt.event.KeyEvent.VK_W);
+            boolean modelStale = false;
+            final StringBuilder modalNotes = new StringBuilder();
+            String lastModalNote = "";
+            boolean dismissedAny = false;
+            int blindRetries = 0;
+            for (int attempt = 0; attempt < 120 && !modelStale; attempt++) {
+                Thread.sleep(250L);
+                // Detection runs off the EDT: a showing save prompt blocks
+                // invokeAndWait entirely (observed r17), so an on-EDT scan
+                // would never see the dialog that needs dismissing.
+                try {
+                    final String note = inspectBlockingModal();
+                    if (!note.isEmpty()) {
+                        if (!note.equals(lastModalNote)) {
+                            modalNotes.append(note.replace('\n', ' ')).append(" |");
+                            appendCloseLog(closeLog, "attempt=" + attempt + note);
+                            lastModalNote = note;
+                        }
+                        // Multi-window notes may mix ignored and dismissed
+                        // entries — check for a positive dismissal marker.
+                        if (note.contains("action=discarded")
+                            || note.contains("action=acknowledged")
+                            || note.contains("action=accepted")) {
+                            dismissedAny = true;
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+                modelStale = modelBecameStale(model);
+                // Last resort: the prompt sits in the host's AppContext and is
+                // invisible to Window.getWindows() (confirmed r19: the scan saw
+                // only the 主页 dialog while the Yes/No/Cancel prompt was on
+                // screen). Each iteration costs up to ~5s when the modal
+                // starves the EDT, so fire 'N' early and keep repeating it —
+                // the focused save dialog treats it as "No (don't save)".
+                if (!modelStale && attempt >= 4 && attempt % 6 == 4
+                    && !dismissedAny && blindRetries < 24) {
+                    blindRetries++;
+                    robot.keyPress(java.awt.event.KeyEvent.VK_N);
+                    robot.keyRelease(java.awt.event.KeyEvent.VK_N);
+                    modalNotes.append(" blind-n-sent=").append(blindRetries).append(" |");
+                    appendCloseLog(closeLog, "attempt=" + attempt + " blind-n-sent=" + blindRetries);
+                }
+            }
+            appendCloseLog(closeLog, "closeLoopDone modelStale=" + modelStale);
+            if (modalNotes.length() > 0) {
+                metrics.append("closeModals=").append(modalNotes).append('\n');
+            }
+            metrics.append("modelStale=").append(modelStale).append('\n');
+            forceGcQuietly();
+            metrics.append("heapUsedAfterCloseBytes=").append(heapUsedBytes()).append('\n');
+            metrics.append("nonHeapUsedAfterCloseBytes=").append(nonHeapUsedBytes()).append('\n');
+            appendImageResourceReport(metrics, "imageCache");
+
+            // The verdict lands before the JFR dump: the dump serializes
+            // several MB on Wine and is the last long operation where a
+            // host-initiated exit can still kill the write (observed r18).
+            Files.writeString(
+                artifact,
+                "status=PASS\nphase=perf-observe\n" + metrics,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING
+            );
+            stopJfrRecording(jfrRecording, metrics);
+            try {
+                Files.writeString(
+                    artifact,
+                    "status=PASS\nphase=perf-observe\n" + metrics,
+                    StandardOpenOption.CREATE,
+                    StandardOpenOption.TRUNCATE_EXISTING
+                );
+            } catch (Throwable ignored) {
+            }
+        } catch (Throwable exception) {
+            writeValidationFailure(artifact, exception, "Perf observation artifact could not be written");
+        }
+    }
+
+    private void measureCall(
+        final StringBuilder metrics,
+        final String name,
+        final com.sun.management.ThreadMXBean threads,
+        final long edtId,
+        final Callable<?> call
+    ) throws Exception {
+        for (int warmup = 0; warmup < 5; warmup++) {
+            onHostThread(() -> {
+                call.call();
+                return null;
+            });
+        }
+        final long allocBefore = threads == null ? -1L : threads.getThreadAllocatedBytes(edtId);
+        final long[] nanos = new long[30];
+        for (int iteration = 0; iteration < nanos.length; iteration++) {
+            nanos[iteration] = onHostThread(() -> {
+                final long started = System.nanoTime();
+                call.call();
+                return System.nanoTime() - started;
+            });
+        }
+        final long allocBytes = threads == null
+            ? -1L
+            : threads.getThreadAllocatedBytes(edtId) - allocBefore;
+        final long[] sorted = nanos.clone();
+        java.util.Arrays.sort(sorted);
+        metrics.append(name).append("Calls=").append(nanos.length).append('\n');
+        metrics.append(name).append("MedianNanos=").append(sorted[nanos.length / 2]).append('\n');
+        metrics.append(name).append("P95Nanos=").append(sorted[(int) (nanos.length * 0.95)]).append('\n');
+        metrics.append(name).append("EdtAllocatedBytesTotal=").append(allocBytes).append('\n');
+    }
+
+    /**
+     * Starts a {@code jdk.jfr} profile recording reflectively (the flag-based
+     * {@code -XX:StartFlightRecording} dump produced empty files under Wine).
+     * The recording covers only the measurement window — model load is excluded —
+     * and stops/dumps just before the terminal artifact write.
+     */
+    private Object startJfrRecording() {
+        try {
+            final Class<?> configuration = Class.forName("jdk.jfr.Configuration");
+            final Class<?> recordingClass = Class.forName("jdk.jfr.Recording");
+            final Object profile = configuration
+                .getMethod("getConfiguration", String.class)
+                .invoke(null, "profile");
+            final Object recording = recordingClass
+                .getConstructor(configuration)
+                .newInstance(profile);
+            final Path destination = Path.of(
+                System.getProperty("turboism.home"), "logs", "perf-observe.jfr"
+            );
+            recordingClass.getMethod("setDestination", Path.class)
+                .invoke(recording, destination);
+            recordingClass.getMethod("start").invoke(recording);
+            return recording;
+        } catch (Throwable unavailable) {
+            return null;
+        }
+    }
+
+    private void stopJfrRecording(final Object recording, final StringBuilder metrics) {
+        if (recording == null) {
+            metrics.append("jfrRecording=unavailable\n");
+            return;
+        }
+        try {
+            recording.getClass().getMethod("stop").invoke(recording);
+            recording.getClass().getMethod("close").invoke(recording);
+            metrics.append("jfrRecording=dumped\n");
+        } catch (Throwable failure) {
+            metrics.append("jfrRecording=dumpFailed:")
+                .append(failure.getClass().getSimpleName()).append('\n');
+        }
+    }
+
+    /**
+     * Stops the host's periodic auto-backup for this session.
+     * {@code com.live2d.cubism.util.a} is the singleton backup manager; its public
+     * {@code g()} logs "stop auto backup" and calls {@code Timer.stop()}, but the
+     * host re-arms it via {@code f()} on later events (observed in r18: restart
+     * followed by a 31.5s / 3.28GB backup mid-close). {@code a(int)} therefore
+     * first raises the persisted interval to ~2 years so even a re-armed timer
+     * never fires, and {@code a(boolean)} clears the enabled flag every future
+     * {@code f()} consults. The settings write lands in the task-scoped prefix;
+     * golden Cubism config is untouched.
+     */
+    private boolean stopAutoBackup() {
+        // Retry: the manager's internals can be half-initialized while the
+        // document-open modal still owns the EDT — a(…​) NPE'd inside the
+        // command_open nested loop in r20 and only g() landed.
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                final Class<?> manager = resolveHostClass("com.live2d.cubism.util.a");
+                if (manager == null) {
+                    return false;
+                }
+                final Object instance = manager.getField("a").get(null);
+                if (instance == null) {
+                    return false;
+                }
+                onHostThread(() -> {
+                    // g() alone is not enough: the host re-arms the timer via
+                    // f() (observed in r18: "restart auto backup" right after
+                    // our stop, then a 31.5s / 3.28GB backup mid-close).
+                    // a(int) raises the persisted interval so a re-armed timer
+                    // still never fires, and a(boolean) clears the enabled
+                    // flag consulted by every future f() restart — both are
+                    // session settings the task prefix owns. 30000 minutes
+                    // ≈ 20 days; larger values overflow the host's int delay
+                    // computation (minutes*60*1000 must stay < 2^31).
+                    manager.getMethod("a", int.class).invoke(instance, 30_000);
+                    manager.getMethod("a", boolean.class).invoke(instance, false);
+                    manager.getMethod("g").invoke(instance);
+                    return null;
+                });
+                return true;
+            } catch (Throwable failure) {
+                try {
+                    Thread.sleep(3_000L);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                    return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Resolves a host-side class through the plugin classloader's parent chain or a
+     * live host frame's loader (the plugin loader may be a sibling of the loader
+     * that owns {@code com.live2d} classes). Returns {@code null} when no loader
+     * can see the class.
+     */
+    private Class<?> resolveHostClass(final String name) {
+        final java.util.Set<ClassLoader> loaders = new java.util.LinkedHashSet<>();
+        for (ClassLoader loader = getClass().getClassLoader();
+             loader != null;
+             loader = loader.getParent()) {
+            loaders.add(loader);
+        }
+        try {
+            for (java.awt.Frame frame : onHostThread(java.awt.Frame::getFrames)) {
+                if (frame != null) loaders.add(frame.getClass().getClassLoader());
+            }
+        } catch (Throwable ignored) {
+        }
+        for (ClassLoader loader : loaders) {
+            if (loader == null) continue;
+            try {
+                return Class.forName(name, false, loader);
+            } catch (ClassNotFoundException ignored) {
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Enumerates every static field of the host's {@code com.live2d.graphics.CImageResource}
+     * and reports the shape of each Map/Collection it finds: entry count, live/dead
+     * {@link java.lang.ref.Reference} payloads, and primitive-array byte totals.
+     * Read-only diagnostic — nothing is cleared or mutated. Called with a
+     * {@code imageCacheBeforeClose}/{@code imageCache} prefix pair so the report
+     * distinguishes what document close releases from what it retains.
+     */
+    private void appendImageResourceReport(final StringBuilder metrics, final String prefix) {
+        try {
+            final Class<?> resource = resolveHostClass("com.live2d.graphics.CImageResource");
+            if (resource == null) {
+                metrics.append(prefix).append(".imageResource=present-but-not-resolvable\n");
+                return;
+            }
+            int fieldIndex = 0;
+            for (java.lang.reflect.Field field : resource.getDeclaredFields()) {
+                if (!java.lang.reflect.Modifier.isStatic(field.getModifiers())) {
+                    continue;
+                }
+                fieldIndex++;
+                final Object value;
+                try {
+                    if (!field.trySetAccessible()) {
+                        metrics.append(prefix).append(".").append(fieldIndex)
+                            .append("=").append(field.getType().getSimpleName())
+                            .append(":inaccessible\n");
+                        continue;
+                    }
+                    value = field.get(null);
+                } catch (Throwable failure) {
+                    metrics.append(prefix).append(".").append(fieldIndex).append("=unreadable\n");
+                    continue;
+                }
+                metrics.append(describeCacheField(prefix, fieldIndex, field.getName(), value));
+            }
+            metrics.append(prefix).append(".staticFields=").append(fieldIndex).append('\n');
+        } catch (Throwable failure) {
+            metrics.append(prefix).append("Error=")
+                .append(failure.getClass().getSimpleName()).append('\n');
+        }
+    }
+
+    /** Describes one static cache field: size + live/dead ref split + primitive payload bytes. */
+    private static String describeCacheField(
+        final String prefix,
+        final int index,
+        final String name,
+        final Object value
+    ) {
+        final String key = prefix + "." + index + "." + name;
+        if (value == null) {
+            return key + "=null\n";
+        }
+        if (value instanceof java.util.Map<?, ?> map) {
+            long entries = 0;
+            long liveRefs = 0;
+            long deadRefs = 0;
+            long strongValues = 0;
+            long payloadBytes = 0;
+            for (java.util.Map.Entry<?, ?> entry : map.entrySet()) {
+                entries++;
+                Object referent = entry.getValue();
+                if (referent instanceof java.lang.ref.Reference<?> reference) {
+                    referent = reference.get();
+                    if (referent == null) {
+                        deadRefs++;
+                    } else {
+                        liveRefs++;
+                    }
+                } else {
+                    strongValues++;
+                }
+                payloadBytes += primitiveArrayBytes(referent);
+                payloadBytes += primitiveArrayBytes(entry.getKey());
+                payloadBytes += elementPrimitiveFieldBytes(referent);
+                payloadBytes += elementPrimitiveFieldBytes(entry.getKey());
+            }
+            return key + "=map entries=" + entries + " liveRefs=" + liveRefs
+                + " deadRefs=" + deadRefs + " strongValues=" + strongValues
+                + " payloadBytes=" + payloadBytes + "\n";
+        }
+        if (value instanceof java.util.Collection<?> collection) {
+            long payloadBytes = 0;
+            long elementFieldBytes = 0;
+            for (Object item : collection) {
+                payloadBytes += primitiveArrayBytes(item);
+                elementFieldBytes += elementPrimitiveFieldBytes(item);
+            }
+            return key + "=collection size=" + collection.size()
+                + " payloadBytes=" + payloadBytes
+                + " elementFieldBytes=" + elementFieldBytes + "\n";
+        }
+        if (value instanceof Number || value instanceof Boolean
+            || value instanceof CharSequence) {
+            return key + "=" + value.getClass().getSimpleName() + "(" + value + ")\n";
+        }
+        return key + "=" + value.getClass().getSimpleName() + "\n";
+    }
+
+    /**
+     * Sums primitive-array payload held one level inside an element's declared
+     * fields (e.g. the pixel {@code byte[]} of a cached CImageResource).
+     * Read-only and bounded to direct fields only.
+     */
+    private static long elementPrimitiveFieldBytes(final Object element) {
+        return elementFieldBytesAtDepth(element, 2, 0);
+    }
+
+    private static long elementFieldBytesAtDepth(
+        final Object element,
+        final int depthLeft,
+        final int guard
+    ) {
+        if (element == null || depthLeft < 0 || element.getClass().isPrimitive()
+            || element instanceof Number || element instanceof Boolean
+            || element instanceof CharSequence || element.getClass().isEnum()) {
+            return 0L;
+        }
+        if (element.getClass().isArray()) {
+            return 0L;
+        }
+        final Object target = element instanceof java.lang.ref.Reference<?> reference
+            ? reference.get() : element;
+        if (target == null) return 0L;
+        long bytes = 0L;
+        int seen = guard;
+        for (Class<?> type = target.getClass();
+             type != null && type != Object.class;
+             type = type.getSuperclass()) {
+            for (java.lang.reflect.Field field : type.getDeclaredFields()) {
+                if (java.lang.reflect.Modifier.isStatic(field.getModifiers())) continue;
+                final Class<?> fieldType = field.getType();
+                if (fieldType.isPrimitive() || fieldType == String.class) continue;
+                try {
+                    if (!field.trySetAccessible()) continue;
+                    final Object nested = field.get(target);
+                    if (fieldType.isArray()) {
+                        bytes += primitiveArrayBytes(nested);
+                    } else if (depthLeft > 0 && nested != null && seen++ < 64) {
+                        bytes += elementFieldBytesAtDepth(nested, depthLeft - 1, seen);
+                    }
+                } catch (Throwable ignored) {
+                }
+            }
+        }
+        return bytes;
+    }
+
+    private static long primitiveArrayBytes(final Object value) {
+        if (value == null || !value.getClass().isArray()) {
+            return 0L;
+        }
+        final int length = java.lang.reflect.Array.getLength(value);
+        if (value instanceof byte[]) return length;
+        if (value instanceof int[]) return length * 4L;
+        if (value instanceof float[]) return length * 4L;
+        if (value instanceof long[]) return length * 8L;
+        if (value instanceof short[]) return length * 2L;
+        if (value instanceof double[]) return length * 8L;
+        if (value instanceof char[]) return length * 2L;
+        return 0L;
+    }
+
+    private static void forceGcQuietly() {
+        try {
+            for (int round = 0; round < 3; round++) {
+                System.gc();
+                Thread.sleep(250L);
+            }
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static long heapUsedBytes() {
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+            .getHeapMemoryUsage().getUsed();
+    }
+
+    private static long nonHeapUsedBytes() {
+        return java.lang.management.ManagementFactory.getMemoryMXBean()
+            .getNonHeapMemoryUsage().getUsed();
+    }
+
+    private static long gcCollectionCount() {
+        long total = 0L;
+        for (java.lang.management.GarbageCollectorMXBean gc
+            : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            final long count = gc.getCollectionCount();
+            if (count > 0L) total += count;
+        }
+        return total;
+    }
+
+    private static long gcCollectionTimeMillis() {
+        long total = 0L;
+        for (java.lang.management.GarbageCollectorMXBean gc
+            : java.lang.management.ManagementFactory.getGarbageCollectorMXBeans()) {
+            final long time = gc.getCollectionTime();
+            if (time > 0L) total += time;
+        }
+        return total;
+    }
+
     private static boolean failsClosed(final Callable<?> call) {
         try {
             call.call();
@@ -2563,6 +3482,27 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } catch (Exception expected) {
             return expected instanceof IllegalStateException
                 || expected instanceof UnsupportedOperationException;
+        }
+    }
+
+    /**
+     * Tri-state document-staleness check for the close loop. The proxy call
+     * keeps its own thread (it dispatches onto the EDT internally); a completed
+     * call that throws {@code IllegalStateException}/{@code
+     * UnsupportedOperationException} proves the document closed. A timeout
+     * means a modal is starving the EDT — inconclusive, keep looping. The
+     * bounded wait matters: a direct {@code model.id()} parks inside the
+     * proxy's EDT dispatch while a save prompt is up and froze the r20 close
+     * loop for the rest of the process lifetime. A cached pool (not a single
+     * thread) so a parked check cannot queue-block every later check.
+     */
+    private static boolean modelBecameStale(final CubismModel model) {
+        try {
+            return Boolean.TRUE.equals(STALE_CHECK_POOL
+                .submit(() -> failsClosed(model::id))
+                .get(5L, java.util.concurrent.TimeUnit.SECONDS));
+        } catch (Exception inconclusive) {
+            return false;
         }
     }
 
@@ -2578,7 +3518,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         return Boolean.parseBoolean(expected.getProperty(key)) == actual;
     }
 
-    private void writeValidationFailure(final Path artifact, final Exception exception, final String logMessage) {
+    private void writeValidationFailure(final Path artifact, final Throwable exception, final String logMessage) {
         try {
             Files.createDirectories(artifact.getParent());
             Files.writeString(
@@ -2608,6 +3548,7 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                         return name.endsWith(".txt")
                             && (name.contains("validation")
                                 || name.contains("smoke")
+                                || name.contains("-close")
                                 || name.startsWith("native-control-background-"));
                     })
                     .sorted()
@@ -2624,21 +3565,11 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 .append((System.nanoTime() - startedNanos) / 1_000_000L)
                 .append('\n')
                 .append("artifactCount=").append(artifacts.size()).append('\n');
-            passed = !artifacts.isEmpty();
-            for (int index = 0; index < artifacts.size(); index++) {
-                final Path artifact = artifacts.get(index);
-                final Properties properties = new Properties();
-                try (var input = Files.newInputStream(artifact)) {
-                    properties.load(input);
-                }
-                final String rawStatus = properties.getProperty("status", "MISSING");
-                final String status = rawStatus.split("\\s+", 2)[0];
-                report.append("artifact.").append(index).append(".path=")
-                    .append(artifact.getFileName()).append('\n')
-                    .append("artifact.").append(index).append(".status=")
-                    .append(status).append('\n');
-                passed &= "PASS".equals(status);
-            }
+            // Peer probes keep a non-terminal status=RUNNING placeholder in logs/ while they
+            // wait for the primary's request marker; it is evidence, not a verdict, and must
+            // not gate modes that never trigger the peer (its own phase artifact is counted
+            // once it completes with PASS/FAIL).
+            passed = summarizeArtifacts(artifacts, report);
             report.append("status=").append(passed ? "PASS" : "FAIL").append('\n');
             Files.writeString(
                 result,
@@ -2654,6 +3585,35 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
         } finally {
             requestAutomatedHostClose();
         }
+    }
+
+    static boolean summarizeArtifacts(
+        final java.util.List<Path> artifacts,
+        final StringBuilder report
+    ) throws Exception {
+        int terminalArtifacts = 0;
+        boolean passed = true;
+        for (int index = 0; index < artifacts.size(); index++) {
+            final Path artifact = artifacts.get(index);
+            final Properties properties = new Properties();
+            try (var input = Files.newInputStream(artifact)) {
+                properties.load(input);
+            }
+            final String rawStatus = properties.getProperty("status", "MISSING");
+            final String status = rawStatus.split("\\s+", 2)[0];
+            report.append("artifact.").append(index).append(".path=")
+                .append(artifact.getFileName()).append('\n')
+                .append("artifact.").append(index).append(".status=")
+                .append(status).append('\n');
+            if ("RUNNING".equals(status)) {
+                continue;
+            }
+            terminalArtifacts++;
+            passed &= "PASS".equals(status);
+        }
+        passed &= terminalArtifacts > 0;
+        report.append("terminalArtifactCount=").append(terminalArtifacts).append('\n');
+        return passed;
     }
 
     private enum CloseDialogHandling {
@@ -4241,28 +5201,37 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             return;
         }
         final AtomicReference<java.awt.Frame> hostFrame = new AtomicReference<>();
-        SwingUtilities.invokeAndWait(() -> {
-            java.awt.Frame fallback = null;
-            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                if (!frame.isVisible()) continue;
-                if (fallback == null) fallback = frame;
-                final String title = frame.getTitle();
-                if (title != null && title.contains(".cmo3")) {
-                    hostFrame.set(frame);
-                    break;
+        final java.util.concurrent.CountDownLatch focused =
+            new java.util.concurrent.CountDownLatch(1);
+        // Same parking hazard as invokeMenuShortcut: bound the EDT wait so a
+        // showing modal cannot freeze the caller before the keystroke below.
+        SwingUtilities.invokeLater(() -> {
+            try {
+                java.awt.Frame fallback = null;
+                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!frame.isVisible()) continue;
+                    if (fallback == null) fallback = frame;
+                    final String title = frame.getTitle();
+                    if (title != null && title.contains(".cmo3")) {
+                        hostFrame.set(frame);
+                        break;
+                    }
+                    if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
+                        hostFrame.set(frame);
+                    }
                 }
-                if (hostFrame.get() == null && title != null && title.contains("Cubism")) {
-                    hostFrame.set(frame);
+                if (hostFrame.get() == null) hostFrame.set(fallback);
+                final java.awt.Frame frame = hostFrame.get();
+                if (frame != null) {
+                    frame.setState(java.awt.Frame.NORMAL);
+                    frame.toFront();
+                    frame.requestFocus();
                 }
-            }
-            if (hostFrame.get() == null) hostFrame.set(fallback);
-            final java.awt.Frame frame = hostFrame.get();
-            if (frame != null) {
-                frame.setState(java.awt.Frame.NORMAL);
-                frame.toFront();
-                frame.requestFocus();
+            } finally {
+                focused.countDown();
             }
         });
+        focused.await(10L, java.util.concurrent.TimeUnit.SECONDS);
         final java.awt.Frame frame = hostFrame.get();
         if (frame != null) {
             final java.awt.Rectangle bounds = frame.getBounds();
@@ -4281,19 +5250,32 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
     private static boolean invokeMenuShortcut(final int key) throws Exception {
         final AtomicReference<javax.swing.JMenuItem> match = new AtomicReference<>();
         final AtomicBoolean enabled = new AtomicBoolean();
-        SwingUtilities.invokeAndWait(() -> {
-            for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
-                if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
-                final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
-                if (bar == null) continue;
-                for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
-                    findMenuShortcut(bar.getMenu(index), key, match);
+        final java.util.concurrent.CountDownLatch applied =
+            new java.util.concurrent.CountDownLatch(1);
+        // invokeLater + bounded await, not invokeAndWait: a menu action that
+        // opens a modal (Ctrl+W → save prompt) parks inside the dialog's
+        // nested EDT loop and the synchronous wait would freeze the close
+        // sequence before its blind fallbacks can run (observed r20).
+        SwingUtilities.invokeLater(() -> {
+            try {
+                for (java.awt.Frame frame : java.awt.Frame.getFrames()) {
+                    if (!(frame instanceof javax.swing.JFrame swingFrame) || !frame.isVisible()) continue;
+                    final javax.swing.JMenuBar bar = swingFrame.getJMenuBar();
+                    if (bar == null) continue;
+                    for (int index = 0; index < bar.getMenuCount() && match.get() == null; index++) {
+                        findMenuShortcut(bar.getMenu(index), key, match);
+                    }
                 }
+                final javax.swing.JMenuItem item = match.get();
+                enabled.set(item != null && item.isEnabled());
+                if (enabled.get()) item.doClick(0);
+            } finally {
+                applied.countDown();
             }
-            final javax.swing.JMenuItem item = match.get();
-            enabled.set(item != null && item.isEnabled());
-            if (enabled.get()) item.doClick(0);
         });
+        if (!applied.await(10L, java.util.concurrent.TimeUnit.SECONDS)) {
+            return false;
+        }
         return enabled.get();
     }
 

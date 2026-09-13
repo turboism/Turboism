@@ -44,4 +44,8 @@ if TURBOISM_ENV_FILE="$tmp/invalid.env" bash -c 'source "$1"' _ "$loader" >/dev/
   fail "unscoped .env key was accepted"
 fi
 
+# A wrapper exports the loaded marker then execs the generic runner. Missing
+# optional settings must still be initialized when that child sources the loader.
+env -i PATH="$PATH" HOME="$HOME" TURBOISM_ENV_FILE="$tmp/missing.env" \
+  bash -euc 'source "$1"; bash -euc '\''source "$1"; test -z "$TURBOISM_HOST_VALIDATION_SSH_HOST"; test -n "$TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256"'\'' _ "$1"' _ "$loader"
 echo "host validation env test: PASS"

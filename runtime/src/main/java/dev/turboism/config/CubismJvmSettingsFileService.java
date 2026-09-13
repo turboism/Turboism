@@ -19,6 +19,8 @@ import java.util.Optional;
 public final class CubismJvmSettingsFileService implements CubismJvmSettingsService, AutoCloseable {
 
     private static final CubismJvm DEFAULT = CubismJvm.GRAALVM;
+    /** Exact-host validation override: forces the opt-in on without config plumbing. */
+    private static final String REDUCE_AUTO_BACKUP_ENV = "TURBOISM_REDUCE_AUTO_BACKUP";
 
     private final RuntimeConfigRepository config;
     private final Path turboismHome;
@@ -130,6 +132,51 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     @Override
     public boolean graalVmPathCompatible(final String value) {
         return value == null || value.isBlank() || compatibleGraalVmPath(value).isPresent();
+    }
+
+    @Override
+    public boolean reduceAutoBackup() {
+        final String override = environment.get(REDUCE_AUTO_BACKUP_ENV);
+        if (override != null && !override.isBlank()) {
+            final String normalized = override.trim();
+            return "1".equals(normalized)
+                || "true".equalsIgnoreCase(normalized)
+                || "yes".equalsIgnoreCase(normalized)
+                || "on".equalsIgnoreCase(normalized);
+        }
+        return config.read().path("reduceAutoBackup").asBoolean(false);
+    }
+
+    @Override
+    public boolean saveReduceAutoBackup(final boolean value) {
+        config.update(root -> {
+            if (value) {
+                root.put("reduceAutoBackup", true);
+            } else {
+                root.remove("reduceAutoBackup");
+            }
+            return root;
+        });
+        return value;
+    }
+
+    @Override
+    public boolean zgc() {
+        return config.read().path("launcher").path("zgc").asBoolean(true);
+    }
+
+    @Override
+    public boolean saveZgc(final boolean value) {
+        config.update(root -> {
+            if (value) {
+                // Absent means enabled; only an explicit false is stored.
+                root.withObject("launcher").remove("zgc");
+            } else {
+                root.withObject("launcher").put("zgc", false);
+            }
+            return root;
+        });
+        return value;
     }
 
     @Override

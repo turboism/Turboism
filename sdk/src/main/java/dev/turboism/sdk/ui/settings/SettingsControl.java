@@ -9,7 +9,8 @@ import java.util.Objects;
 public sealed interface SettingsControl permits
     SettingsControl.Choice,
     SettingsControl.Toggle,
-    SettingsControl.Text {
+    SettingsControl.Text,
+    SettingsControl.Note {
 
     String id();
 
@@ -104,6 +105,17 @@ public sealed interface SettingsControl permits
             final SettingsBinding<String> binding
         ) {
             this(id, label, columns, binding, SettingsChangeValidator.acceptAll());
+        }
+    }
+
+    /** Read-only annotation rendered as small supporting text; has no binding. */
+    record Note(
+        String id,
+        String label
+    ) implements SettingsControl {
+        public Note {
+            id = requireId(id);
+            label = requireText(label, "label", 512);
         }
     }
 

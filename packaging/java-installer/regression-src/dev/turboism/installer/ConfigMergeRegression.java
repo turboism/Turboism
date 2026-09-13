@@ -393,6 +393,17 @@ public final class ConfigMergeRegression {
         Map<String, Object> badLauncher = validRuntimeConfig();
         badLauncher.put("launcher", Map.of("cubismJvm", "other"));
         invalid.add(badLauncher);
+        Map<String, Object> badReduceAutoBackup = validRuntimeConfig();
+        badReduceAutoBackup.put("reduceAutoBackup", "true");
+        invalid.add(badReduceAutoBackup);
+        Map<String, Object> badLauncherZgc = validRuntimeConfig();
+        badLauncherZgc.put("launcher", Map.of("cubismJvm", "bundled", "zgc", "yes"));
+        invalid.add(badLauncherZgc);
+
+        Map<String, Object> withZgc = validRuntimeConfig();
+        withZgc.put("launcher", Map.of("cubismJvm", "bundled", "zgc", Boolean.TRUE));
+        ConfigMerge.validateCurrent(withZgc);
+        check("launcher.zgc boolean passes installer validation", true);
 
         for (int index = 0; index < invalid.size(); index++) {
             try {
@@ -432,6 +443,11 @@ public final class ConfigMergeRegression {
                         && List.of("custom-plugins").equals(updated.get("pluginDirs")));
         check("selection preserves unrelated settings", "DEBUG".equals(updated.get("logLevel"))
                 && Boolean.TRUE.equals(updated.get("useTextIcon")));
+        current.put("reduceAutoBackup", Boolean.TRUE);
+        Map<String, Object> preserved = ConfigMerge.applyPolicy(current, disabled);
+        check("selection preserves reduceAutoBackup",
+                Boolean.TRUE.equals(preserved.get("reduceAutoBackup")));
+        ConfigMerge.validateCurrent(preserved);
         ConfigMerge.validateCurrent(updated);
 
         Map<String, Object> sameSetDifferentOrder = new LinkedHashMap<>(updated);

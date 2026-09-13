@@ -441,6 +441,74 @@ class PreparedStoreTest(unittest.TestCase):
         with self.assertRaisesRegex(queue.QueueError, "background/args-only"):
             self.prepared.capture({**self.request, "argv": ["--remote-pre-launch", str(fps)]}, self.source, "fps:5302")
 
+    def memory_request(self):
+        directory = self.source / "scripts/test"
+        directory.mkdir(exist_ok=True)
+        names = ("measure-task-memory.py", "host_memory_identity.py", "host_resource_counters.py")
+        for name in (*names, "start-task-memory-observer.sh"):
+            (directory / name).write_text("# isolated inventory fixture, never executed\n")
+        argv = ["--name", "native-resource", "--version", "5302", "--agent", str(self.input),
+                "--remote-pre-launch", str(directory / "start-task-memory-observer.sh"),
+                "--remote-pre-launch-background", "--remote-pre-launch-arg", str(Path(sys.executable).resolve())]
+        for name in names:
+            argv.extend(["--home-file", str(directory / name) + ":validation/" + name])
+        return {"schemaVersion": 1, "argv": argv, "environment": {}}
+
+    def test_memory_closure_frozen_and_interpreter_recorded(self):
+        request = self.memory_request()
+        descriptor = self.prepared.capture(request, self.source, "native-resource:5302")
+        dependency = next(item for item in descriptor["hostDependencies"] if item["option"] == "memory-observer-python")
+        self.assertEqual(str(Path(sys.executable).resolve()), dependency["path"])
+        command = self.prepared.command(descriptor["digest"], self.base / "evidence")
+        frozen = [Path(command[i + 1].split(":", 1)[0]) for i, value in enumerate(command) if value == "--home-file"]
+        self.assertEqual(3, len(frozen))
+        for path in (self.source / "scripts/test").iterdir():
+            path.unlink()
+        self.assertTrue(all(path.read_text().startswith("# isolated inventory") for path in frozen))
+        self.assertEqual(descriptor, self.prepared.load(descriptor["digest"]))
+        frozen[0].chmod(0o600)
+        frozen[0].write_text("tampered")
+        with self.assertRaisesRegex(queue.QueueError, "digest mismatch"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+        self.assertEqual([], self.store.jobs())
+
+    def test_memory_missing_shadowed_substituted_or_wrong_protocol_rejected(self):
+        original = self.memory_request()["argv"]
+        helper = original.index("--home-file")
+        cases = [original[:helper] + original[helper + 2:],
+                 original + original[helper:helper + 2],
+                 original + ["--home-dir", str(self.source) + ":validation"],
+                 original + ["--remote-pre-launch-args-only"],
+                 original + ["--remote-pre-launch", str(self.source / "scripts/test/start-task-memory-observer.sh")],
+                 original + ["--remote-pre-launch-arg", "extra"],
+                 original + ["--version", "5203"],
+                 original + ["--remote-post-launch", str(self.input)],
+                 [item for item in original if item != "--remote-pre-launch-background"]]
+        substitute = original.copy()
+        substitute[helper + 1] = str(self.input) + ":validation/measure-task-memory.py"
+        cases.append(substitute)
+        alternate = original.copy()
+        alternate[alternate.index("--remote-pre-launch-arg") + 1] = str(self.input)
+        cases.append(alternate)
+        for argv in cases:
+            with self.subTest(argv=argv), self.assertRaises(queue.QueueError):
+                self.prepared.capture({"schemaVersion": 1, "argv": argv}, self.source, "native-resource:5302")
+        with self.assertRaises(queue.QueueError):
+            self.prepared.capture({"schemaVersion": 1, "argv": original}, self.source, "other:5302")
+        self.assertEqual([], list((self.store.root / "prepared").iterdir()))
+
+    def test_memory_interpreter_drift_rejected_without_touching_system_python(self):
+        request = self.memory_request()
+        interpreter = self.base / "test-python"
+        interpreter.write_bytes(b"synthetic interpreter, never executed")
+        interpreter.chmod(0o700)
+        request["argv"][request["argv"].index("--remote-pre-launch-arg") + 1] = str(interpreter)
+        with mock.patch.object(sys, "executable", str(interpreter)):
+            descriptor = self.prepared.capture(request, self.source, "native-resource:5302")
+        interpreter.write_bytes(b"changed interpreter")
+        with self.assertRaisesRegex(queue.QueueError, "runtime dependency changed"):
+            self.prepared.command(descriptor["digest"], self.base / "evidence")
+
     def test_reviewed_environment_language_hook_is_admitted(self) -> None:
         hook = self.preview / "host-locale-environment-language-hook.sh"
         hook.write_text("# reviewed hook fixture, never executed\n")
