@@ -72,6 +72,81 @@ class RuntimePsdReplaceServiceTest {
     }
 
     @Test
+    void aSaveDuringReplacementIsSerializedAndConsumesItsOwnRevision() throws Exception {
+        final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
+        final java.util.concurrent.CountDownLatch firstNativeEntered =
+            new java.util.concurrent.CountDownLatch(1);
+        final java.util.concurrent.CountDownLatch releaseFirst = new java.util.concurrent.CountDownLatch(1);
+        final AtomicInteger nativeCalls = new AtomicInteger();
+        final List<String> stageContents = new ArrayList<>();
+        final PsdReplaceHost host = (target, stage, admission) -> {
+            admission.run();
+            try {
+                stageContents.add(Files.readString(stage));
+            } catch (IOException unreadable) {
+                throw new IllegalStateException(unreadable);
+            }
+            if (nativeCalls.incrementAndGet() == 1) {
+                firstNativeEntered.countDown();
+                try {
+                    releaseFirst.await(5, TimeUnit.SECONDS);
+                } catch (InterruptedException interrupted) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+            return applied();
+        };
+
+        final CompletionStage<PsdReplaceResult> first = fixture.service.replaceRawImagePsd(
+            host, TARGET, fixture.file, fixture.revision);
+        assertTrue(firstNativeEntered.await(3, TimeUnit.SECONDS),
+            "the first replacement must hold the lane");
+
+        // A second stable save arrives while the first replacement is still in-flight.
+        final List<PsdFileRevision> delivered = new ArrayList<>();
+        fixture.file.observeSaves(delivered::add);
+        Files.writeString(fixture.allocation.validatedPath(), "second save content");
+        fixture.file.publishStableSave(PsdStableSnapshot.capture(fixture.allocation));
+        assertEquals(1, delivered.size());
+        final PsdFileRevision second = delivered.get(0);
+
+        final CompletionStage<PsdReplaceResult> secondResult = fixture.service.replaceRawImagePsd(
+            host, TARGET, fixture.file, second);
+        releaseFirst.countDown();
+
+        assertEquals(PsdReplaceResult.Status.APPLIED, await(first).status());
+        assertEquals(PsdReplaceResult.Status.APPLIED, await(secondResult).status());
+        assertEquals(2, nativeCalls.get(), "each save must reach the native lane exactly once");
+        assertEquals(
+            List.of("runtime PSD replace fixture", "second save content"),
+            stageContents,
+            "the single lane must preserve save order"
+        );
+        fixture.close();
+    }
+
+    @Test
+    void aStagedRevisionSurvivesExternalDeletionOfTheLiveFile() throws Exception {
+        final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
+        final AtomicBoolean stageExisted = new AtomicBoolean();
+        final PsdReplaceHost host = (target, stage, admission) -> {
+            admission.run();
+            stageExisted.set(Files.exists(stage));
+            return applied();
+        };
+
+        // The external application or the OS may remove the live temporary file after the
+        // runtime already staged the revision: replacement must still apply the retained stage.
+        Files.delete(fixture.allocation.validatedPath());
+        final PsdReplaceResult result = await(fixture.service.replaceRawImagePsd(
+            host, TARGET, fixture.file, fixture.revision));
+
+        assertEquals(PsdReplaceResult.Status.APPLIED, result.status());
+        assertTrue(stageExisted.get(), "the staged copy must remain readable for replacement");
+        fixture.close();
+    }
+
+    @Test
     void foreignHandleAndForgedRevisionAreRejectedBeforeAnyNativeCall() throws Exception {
         final Fixture fixture = fixture(allowAll(), new AtomicBoolean(true));
         final AtomicInteger nativeCalls = new AtomicInteger();
@@ -270,7 +345,8 @@ class RuntimePsdReplaceServiceTest {
                 "test.plugin", permissionChecker, active::get, Runnable::run, registry),
             file,
             revision,
-            registry
+            registry,
+            allocation
         );
     }
 
@@ -297,7 +373,8 @@ class RuntimePsdReplaceServiceTest {
         RuntimePsdReplaceService service,
         RuntimePsdEditFile file,
         PsdFileRevision revision,
-        PsdEditRegistry registry
+        PsdEditRegistry registry,
+        PsdTemporaryFile allocation
     ) {
         private void close() {
             service.close();

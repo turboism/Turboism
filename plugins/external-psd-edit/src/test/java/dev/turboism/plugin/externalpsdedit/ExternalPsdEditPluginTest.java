@@ -68,6 +68,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -338,6 +339,42 @@ class ExternalPsdEditPluginTest {
         file.saveListener.accept(new TestRevision("rev-2"));
         assertEquals(List.of("export:raw-a"), context.cubism().textures().calls(),
             "a stopped session must not replace");
+    }
+
+    @Test
+    void disableThenEnableRecoversASessionForTheSameBinding() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        plugin.disable();
+        assertEquals(0, plugin.liveSessions());
+        final FakePsdEditFile firstFile = context.cubism().textures().issued().get(RAW_A);
+        assertTrue(firstFile.stopped.get());
+        assertTrue(firstFile.subscriptionClosed.get());
+
+        // Re-enabling with the same live binding must admit a fresh export and session.
+        plugin.enable();
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(
+            List.of("export:raw-a", "export:raw-a"),
+            context.cubism().textures().calls(),
+            "recovery must export a new temporary PSD rather than replaying the stopped one"
+        );
+        assertEquals(1, plugin.liveSessions());
+        assertEquals(1, firstFile.openCalls.get(), "the stopped file must not reopen");
+        final FakePsdEditFile recovered = context.cubism().textures().issued().get(RAW_A);
+        assertNotSame(firstFile, recovered);
+        assertTrue(recovered.subscribedBeforeOpen);
+        assertEquals(1, recovered.openCalls.get());
     }
 
     @Test
