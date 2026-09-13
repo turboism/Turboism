@@ -17,6 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -112,6 +113,7 @@ public final class ProtectedExportHostProbeAgent {
         final Path stateDir = stateDirectory();
         final Evidence evidence = new Evidence();
         evidence.progress = stateDir.resolve("probe-progress.properties");
+        startWatchdog(stateDir, evidence);
         try {
             prepare(stateDir, evidence);
             if (!awaitHostReady(instrumentation, stateDir, evidence)) {
@@ -2169,6 +2171,48 @@ public final class ProtectedExportHostProbeAgent {
         final long deadline = System.currentTimeMillis() + 15_000L;
         while (System.currentTimeMillis() < deadline && dialog.isVisible()) {
             sleep(POLL_MILLIS);
+        }
+    }
+
+    /**
+     * Kill-safe stall diagnostics: a daemon thread that beats every 30s into the
+     * progress file and writes a full thread dump every beat. When the probe or
+     * the EDT wedges (for example inside native JFileChooser construction under
+     * Wine), the dumps preserve exactly which stack blocked, instead of leaving
+     * a silent timeout.
+     */
+    private static void startWatchdog(final Path stateDir, final Evidence evidence) {
+        final Thread watchdog = new Thread(() -> {
+            for (int beat = 1; beat <= 60; beat++) {
+                try {
+                    Thread.sleep(30_000L);
+                } catch (InterruptedException stopped) {
+                    return;
+                }
+                evidence.put("watchdog.beat." + beat, Instant.now().toString());
+                dumpAllThreads(stateDir.resolve("thread-dump-" + beat + ".txt"));
+            }
+        }, "protected-export-probe-watchdog");
+        watchdog.setDaemon(true);
+        watchdog.start();
+    }
+
+    private static void dumpAllThreads(final Path target) {
+        final StringBuilder out = new StringBuilder();
+        for (Map.Entry<Thread, StackTraceElement[]> entry
+                : Thread.getAllStackTraces().entrySet()) {
+            out.append('"').append(entry.getKey().getName())
+                .append("\" state=").append(entry.getKey().getState())
+                .append(" daemon=").append(entry.getKey().isDaemon())
+                .append(System.lineSeparator());
+            for (StackTraceElement frame : entry.getValue()) {
+                out.append("    at ").append(frame).append(System.lineSeparator());
+            }
+        }
+        try {
+            Files.writeString(target, out.toString(), StandardCharsets.UTF_8);
+        } catch (IOException ignored) {
+            // Diagnostics only.
         }
     }
 
