@@ -30,6 +30,9 @@ record PreviewPluginRuntimeResources(
     PreviewPluginContextFactory contextFactory,
     dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
     dev.turboism.shell.CubismJvmSettingsService cubismJvmSettings,
+    dev.turboism.shell.MeshTriangulationSettingsService meshTriangulationSettings,
+    dev.turboism.shell.AtlasTileBboxSettingsService atlasTileBboxSettings,
+    dev.turboism.shell.AtlasCacheReuseSettingsService atlasCacheReuseSettings,
     dev.turboism.shell.CoreUpdateService updateService
 ) {
     static PreviewPluginRuntimeResources create(
@@ -174,6 +177,12 @@ record PreviewPluginRuntimeResources(
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
         final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
             new dev.turboism.config.CubismJvmSettingsFileService(home);
+        final dev.turboism.config.MeshTriangulationSettingsFileService meshTriangulationSettings =
+            new dev.turboism.config.MeshTriangulationSettingsFileService(home);
+        final dev.turboism.config.AtlasTileBboxSettingsFileService atlasTileBboxSettings =
+            new dev.turboism.config.AtlasTileBboxSettingsFileService(home);
+        final dev.turboism.config.AtlasCacheReuseSettingsFileService atlasCacheReuseSettings =
+            new dev.turboism.config.AtlasCacheReuseSettingsFileService(home);
         final dev.turboism.shell.CoreUpdateService updateService =
             new dev.turboism.update.RuntimeUpdateService(
                 home,
@@ -205,6 +214,9 @@ record PreviewPluginRuntimeResources(
             contextFactory,
             runtimeSettings,
             cubismJvmSettings,
+            meshTriangulationSettings,
+            atlasTileBboxSettings,
+            atlasCacheReuseSettings,
             updateService
         );
     }

@@ -9,6 +9,9 @@ import java.util.Objects;
 public record ShellServices(
     RuntimeSettingsService settings,
     CubismJvmSettingsService cubismJvmSettings,
+    MeshTriangulationSettingsService meshTriangulationSettings,
+    AtlasTileBboxSettingsService atlasTileBboxSettings,
+    AtlasCacheReuseSettingsService atlasCacheReuseSettings,
     dev.turboism.sdk.ui.settings.SettingsContributionSource settingsContributions,
     CorePluginManagement plugins,
     FloatingPanelActions floatingPanelActions,
@@ -22,6 +25,9 @@ public record ShellServices(
         this(
             settings,
             CubismJvmSettingsService.unavailable(),
+            MeshTriangulationSettingsService.unavailable(),
+            AtlasTileBboxSettingsService.unavailable(),
+            AtlasCacheReuseSettingsService.unavailable(),
             dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
             plugins,
             FloatingPanelActions.unavailable(),
@@ -42,6 +48,18 @@ public record ShellServices(
     public ShellServices {
         settings = Objects.requireNonNull(settings, "settings");
         cubismJvmSettings = Objects.requireNonNull(cubismJvmSettings, "cubismJvmSettings");
+        meshTriangulationSettings = Objects.requireNonNull(
+            meshTriangulationSettings,
+            "meshTriangulationSettings"
+        );
+        atlasTileBboxSettings = Objects.requireNonNull(
+            atlasTileBboxSettings,
+            "atlasTileBboxSettings"
+        );
+        atlasCacheReuseSettings = Objects.requireNonNull(
+            atlasCacheReuseSettings,
+            "atlasCacheReuseSettings"
+        );
         settingsContributions = Objects.requireNonNull(
             settingsContributions,
             "settingsContributions"

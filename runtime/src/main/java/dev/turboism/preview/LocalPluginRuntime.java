@@ -43,6 +43,12 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final PreviewPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     private final dev.turboism.shell.CubismJvmSettingsService cubismJvmSettings;
+    private final dev.turboism.shell.MeshTriangulationSettingsService
+        meshTriangulationSettings;
+    private final dev.turboism.shell.AtlasTileBboxSettingsService
+        atlasTileBboxSettings;
+    private final dev.turboism.shell.AtlasCacheReuseSettingsService
+        atlasCacheReuseSettings;
     private final dev.turboism.shell.CoreUpdateService updateService;
     private final PreviewLog log;
     private CoreShellRuntime coreShell;
@@ -251,6 +257,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.contextFactory = resources.contextFactory();
         this.runtimeSettings = resources.runtimeSettings();
         this.cubismJvmSettings = resources.cubismJvmSettings();
+        this.meshTriangulationSettings = resources.meshTriangulationSettings();
+        this.atlasTileBboxSettings = resources.atlasTileBboxSettings();
+        this.atlasCacheReuseSettings = resources.atlasCacheReuseSettings();
         this.updateService = resources.updateService();
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
@@ -294,6 +303,9 @@ public final class LocalPluginRuntime implements AutoCloseable {
                 new dev.turboism.shell.ShellServices(
                     runtimeSettings,
                     cubismJvmSettings,
+                    meshTriangulationSettings,
+                    atlasTileBboxSettings,
+                    atlasCacheReuseSettings,
                     dev.turboism.ui.settings.ProcessSettingsContributions.forHost(
                         contextFactory.hostAccessIdentity()
                     ),
