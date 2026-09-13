@@ -19,6 +19,60 @@ import java.util.Optional;
 /** Decodes only exact list snapshots backed by a reviewed domain descriptor. */
 final class ListUndoDecoder implements NativeHistoryDecoder {
 
+    /** One exact form family whose snapshots the decoder is allowed to compare. */
+    enum FormFamily {
+        ART_MESH(
+            "cubism.editor-history.semantic.art-mesh-form.class",
+            "cubism.editor-history.semantic.art-mesh-form.source",
+            EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES,
+            "ART_MESH"
+        ),
+        WARP_DEFORMER(
+            "cubism.editor-history.semantic.warp-form.class",
+            "cubism.editor-history.semantic.deformer-form.source",
+            EditorHistorySemanticSelectorContract.WARP_FORM_REQUIRED_ALIASES,
+            "WARP_DEFORMER"
+        ),
+        ROTATION_DEFORMER(
+            "cubism.editor-history.semantic.rotation-form.class",
+            "cubism.editor-history.semantic.deformer-form.source",
+            EditorHistorySemanticSelectorContract.ROTATION_FORM_REQUIRED_ALIASES,
+            "ROTATION_DEFORMER"
+        );
+
+        private final String classAlias;
+        private final String sourceAlias;
+        private final java.util.Set<String> requiredAliases;
+        private final String targetType;
+
+        FormFamily(
+            final String classAlias,
+            final String sourceAlias,
+            final java.util.Set<String> requiredAliases,
+            final String targetType
+        ) {
+            this.classAlias = classAlias;
+            this.sourceAlias = sourceAlias;
+            this.requiredAliases = requiredAliases;
+            this.targetType = targetType;
+        }
+
+        boolean isInstance(final VerifiedMemberResolver resolver, final Object value) {
+            return value != null && resolver.isExactInstance(classAlias, value);
+        }
+
+        /** {@return the family this value is an exact instance of, or {@code null}} */
+        static FormFamily of(final VerifiedMemberResolver resolver, final Object value) {
+            for (final FormFamily family : values()) {
+                if (NativeHistoryDecoderRegistry.authorized(resolver, family.requiredAliases)
+                    && family.isInstance(resolver, value)) {
+                    return family;
+                }
+            }
+            return null;
+        }
+    }
+
     @Override
     public NativeHistoryDecodeResult decode(
         final Object entry,
@@ -28,12 +82,6 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         final NativeHistoryDecoderRegistry registry
     ) {
         final VerifiedMemberResolver resolver = context.resolver();
-        if (!NativeHistoryDecoderRegistry.authorized(
-            resolver,
-            EditorHistorySemanticSelectorContract.ART_MESH_FORM_REQUIRED_ALIASES
-        )) {
-            return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
-        }
         final Object undoValue = resolver.invoke("cubism.editor-history.semantic.list.undo", entry);
         final Object redoValue = resolver.invoke("cubism.editor-history.semantic.list.redo", entry);
         if (!(undoValue instanceof List<?> undoForms) || redoValue == null) {
@@ -46,17 +94,23 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
             || redoForms.size() > NativeHistoryDecodeContext.MAX_NODES) {
             return NativeHistoryDecodeResult.unsupported("history.detail.node-or-depth-limit");
         }
-        if (!allArtMeshForms(resolver, undoForms) || !allArtMeshForms(resolver, redoForms)) {
-            return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
+        for (final FormFamily family : FormFamily.values()) {
+            if (NativeHistoryDecoderRegistry.authorized(resolver, family.requiredAliases)
+                && allForms(resolver, undoForms, family)
+                && allForms(resolver, redoForms, family)) {
+                return decodeForms(
+                    resolver, context.boundedLabel(label), undoForms, redoForms, family);
+            }
         }
-        return decodeArtMeshForms(resolver, context.boundedLabel(label), undoForms, redoForms);
+        return NativeHistoryDecodeResult.unsupported("history.semantic-operation-unmapped");
     }
 
-    static NativeHistoryDecodeResult decodeArtMeshForms(
+    static NativeHistoryDecodeResult decodeForms(
         final VerifiedMemberResolver resolver,
         final String label,
         final List<?> undoForms,
-        final List<?> redoForms
+        final List<?> redoForms,
+        final FormFamily family
     ) {
         final Map<String, Object> beforeByGuid = formsByGuid(resolver, undoForms);
         final Map<String, Object> afterByGuid = formsByGuid(resolver, redoForms);
@@ -73,14 +127,14 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
             final String formId = item.getKey();
             final Object before = item.getValue();
             final Object after = afterByGuid.get(formId);
-            final Object beforeSource = resolver.invoke("cubism.editor-history.semantic.art-mesh-form.source", before);
-            final Object afterSource = resolver.invoke("cubism.editor-history.semantic.art-mesh-form.source", after);
+            final Object beforeSource = resolver.invoke(family.sourceAlias, before);
+            final Object afterSource = resolver.invoke(family.sourceAlias, after);
             if (beforeSource == null || afterSource == null) {
                 degradation = first(degradation, "history.target-unresolved");
                 continue;
             }
-            final HistoryTarget beforeTarget = artMeshTarget(resolver, beforeSource);
-            final HistoryTarget afterTarget = artMeshTarget(resolver, afterSource);
+            final HistoryTarget beforeTarget = formTarget(resolver, beforeSource, family);
+            final HistoryTarget afterTarget = formTarget(resolver, afterSource, family);
             if (!beforeTarget.equals(afterTarget)) {
                 return NativeHistoryDecodeResult.unsupported("history.target-unresolved");
             }
@@ -99,7 +153,8 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
                 projectedContext = ContextProjection.degraded("history.form-scope-unresolved").context();
                 degradation = first(degradation, "history.form-scope-unresolved");
             }
-            degradation = first(degradation, compareFormValues(resolver, before, after, projectedContext, changes));
+            degradation = first(degradation,
+                compareFormValues(resolver, before, after, projectedContext, changes, family));
         }
         if (target == null) {
             return NativeHistoryDecodeResult.unsupported("history.target-unresolved");
@@ -122,13 +177,14 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         ));
     }
 
-    static boolean allArtMeshForms(
+    static boolean allForms(
         final VerifiedMemberResolver resolver,
-        final List<?> forms
+        final List<?> forms,
+        final FormFamily family
     ) {
         if (forms.isEmpty()) return false;
         for (Object form : forms) {
-            if (!resolver.isExactInstance("cubism.editor-history.semantic.art-mesh-form.class", form)) {
+            if (!family.isInstance(resolver, form)) {
                 return false;
             }
         }
@@ -154,9 +210,10 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         return semanticString(value);
     }
 
-    private static HistoryTarget artMeshTarget(
+    private static HistoryTarget formTarget(
         final VerifiedMemberResolver resolver,
-        final Object source
+        final Object source,
+        final FormFamily family
     ) {
         final Object id = resolver.invoke("cubism.editor-model.parameter-controllable-source.id", source);
         final Object idValue = id == null ? null : resolver.invoke("cubism.editor-model.id.value", id);
@@ -167,7 +224,7 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         final String targetId = semanticString(idValue);
         final String targetName = semanticString(nameValue);
         return new HistoryTarget(
-            "ART_MESH",
+            family.targetType,
             targetId.isEmpty() ? Optional.empty() : Optional.of(targetId),
             targetName.isEmpty() ? Optional.empty() : Optional.of(targetName)
         );
@@ -289,7 +346,7 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         final String guid = formGuid(resolver, form);
         if (guid.isEmpty()) throw new IllegalStateException("form identity unavailable");
         final Object source = resolver.invoke("cubism.editor-history.semantic.art-mesh-form.source", form);
-        final HistoryTarget target = artMeshTarget(resolver, source);
+        final HistoryTarget target = formTarget(resolver, source, FormFamily.ART_MESH);
         if (target.id().isEmpty()) throw new IllegalStateException("target identity unavailable");
         final ContextProjection context = editContext(resolver, source, form, guid);
         final String value;
@@ -333,39 +390,159 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         final Object before,
         final Object after,
         final HistoryEditContext context,
-        final List<HistoryChange> changes
+        final List<HistoryChange> changes,
+        final FormFamily family
     ) {
-        String degradation = addNumberChange(resolver, before, after, context, changes, "opacity",
-            "cubism.editor-model.drawable-form.opacity");
-        degradation = first(degradation, addIntegerChange(resolver, before, after, context, changes, "drawOrder",
-            "cubism.editor-model.drawable-form.draw-order"));
-        degradation = first(degradation, addColorChange(resolver, before, after, context, changes, "multiplyColor",
-            "cubism.editor-model.drawable-form.multiply-color"));
-        degradation = first(degradation, addColorChange(resolver, before, after, context, changes, "screenColor",
-            "cubism.editor-model.drawable-form.screen-color"));
-        degradation = first(degradation, addPositionsChange(resolver, before, after, context, changes));
-        return degradation;
+        return switch (family) {
+            case ART_MESH -> {
+                String degradation = addNumberChange(resolver, before, after, context, changes,
+                    "opacity", "cubism.editor-model.drawable-form.opacity");
+                degradation = first(degradation, addIntegerChange(resolver, before, after, context,
+                    changes, "drawOrder", "cubism.editor-model.drawable-form.draw-order"));
+                degradation = first(degradation, addColorChange(resolver, before, after, context,
+                    changes, "multiplyColor", "cubism.editor-model.drawable-form.multiply-color"));
+                degradation = first(degradation, addColorChange(resolver, before, after, context,
+                    changes, "screenColor", "cubism.editor-model.drawable-form.screen-color"));
+                degradation = first(degradation, addPositionsChange(resolver, before, after, context,
+                    changes, "cubism.editor-model.art-mesh-form.positions", "vertexPositions"));
+                yield degradation;
+            }
+            case WARP_DEFORMER -> {
+                String degradation = addNumberChange(resolver, before, after, context, changes,
+                    "opacity", "cubism.editor-model.deformer-form.opacity");
+                degradation = first(degradation, addColorChange(resolver, before, after, context,
+                    changes, "multiplyColor", "cubism.editor-model.deformer-form.multiply-color"));
+                degradation = first(degradation, addColorChange(resolver, before, after, context,
+                    changes, "screenColor", "cubism.editor-model.deformer-form.screen-color"));
+                degradation = first(degradation, addPositionsChange(resolver, before, after, context,
+                    changes, "cubism.editor-model.warp-form.positions", "controlPointPositions"));
+                yield degradation;
+            }
+            case ROTATION_DEFORMER -> compareRotationForm(resolver, before, after, context, changes);
+        };
     }
 
     /**
-     * Compares the flattened vertex-position arrays of two snapshots of one form.
+     * Compares one rotation-deformer form pair scalar by scalar.
      *
-     * <p>The projected change deliberately carries counts only: a point total per side and the
-     * number of changed points. The catalog admits exactly that much — "bounded changed-point /
-     * count information" — and forbids unbounded arrays as well as any move/deform verdict derived
-     * from coordinates, so no direction, delta or shape statistic is emitted.</p>
+     * <p>The origin pair is reported as one {@code origin} change: a rotation deformer's anchor is
+     * a single point, so reporting the axes separately would invent two facts out of one edit.</p>
      */
-    private static String addPositionsChange(
+    private static String compareRotationForm(
         final VerifiedMemberResolver resolver,
         final Object before,
         final Object after,
         final HistoryEditContext context,
         final List<HistoryChange> changes
     ) {
-        final Object beforeValue = resolver.invoke(
-            "cubism.editor-model.art-mesh-form.positions", before);
-        final Object afterValue = resolver.invoke(
-            "cubism.editor-model.art-mesh-form.positions", after);
+        final int base = changes.size();
+        String degradation = addNumberChange(resolver, before, after, context, changes, "opacity",
+            "cubism.editor-model.deformer-form.opacity");
+        degradation = first(degradation, addColorChange(resolver, before, after, context, changes,
+            "multiplyColor", "cubism.editor-model.deformer-form.multiply-color"));
+        degradation = first(degradation, addColorChange(resolver, before, after, context, changes,
+            "screenColor", "cubism.editor-model.deformer-form.screen-color"));
+        degradation = first(degradation, addNumberChange(resolver, before, after, context, changes,
+            "angle", "cubism.editor-model.rotation-form.angle"));
+        degradation = first(degradation, addOriginChange(resolver, before, after, context, changes));
+        degradation = first(degradation, addNumberChange(resolver, before, after, context, changes,
+            "scale", "cubism.editor-model.rotation-form.scale"));
+        degradation = first(degradation, addBooleanChange(resolver, before, after, context, changes,
+            "reflectX", "cubism.editor-model.rotation-form.reflect-x"));
+        degradation = first(degradation, addBooleanChange(resolver, before, after, context, changes,
+            "reflectY", "cubism.editor-model.rotation-form.reflect-y"));
+        // A rotation deformer's only movable point is its origin: a form pair whose sole change is
+        // a moved origin is a proven whole-object translation, not a property edit.
+        if (degradation.isEmpty() && changes.size() - base == 1
+            && changes.get(changes.size() - 1).property().filter("origin"::equals).isPresent()) {
+            final HistoryChange origin = changes.remove(changes.size() - 1);
+            changes.add(new HistoryChange(
+                HistoryChange.Operation.MOVE,
+                origin.targetIndex(),
+                Optional.of("translation"),
+                origin.before(),
+                origin.after(),
+                context
+            ));
+        }
+        return degradation;
+    }
+
+    private static String addOriginChange(
+        final VerifiedMemberResolver resolver,
+        final Object before,
+        final Object after,
+        final HistoryEditContext context,
+        final List<HistoryChange> changes
+    ) {
+        final Object beforeX = resolver.invoke("cubism.editor-model.rotation-form.origin-x", before);
+        final Object beforeY = resolver.invoke("cubism.editor-model.rotation-form.origin-y", before);
+        final Object afterX = resolver.invoke("cubism.editor-model.rotation-form.origin-x", after);
+        final Object afterY = resolver.invoke("cubism.editor-model.rotation-form.origin-y", after);
+        if (!(beforeX instanceof Number bx) || !(beforeY instanceof Number by)
+            || !(afterX instanceof Number ax) || !(afterY instanceof Number ay)
+            || !Float.isFinite(bx.floatValue()) || !Float.isFinite(by.floatValue())
+            || !Float.isFinite(ax.floatValue()) || !Float.isFinite(ay.floatValue())) {
+            return "history.value-codec-unavailable";
+        }
+        if (Float.compare(bx.floatValue(), ax.floatValue()) == 0
+            && Float.compare(by.floatValue(), ay.floatValue()) == 0) {
+            return "";
+        }
+        if (changes.size() >= NativeHistoryDecodeContext.MAX_NODES) {
+            return "history.detail.node-or-depth-limit";
+        }
+        changes.add(change(
+            "origin",
+            point(bx.floatValue(), by.floatValue()),
+            point(ax.floatValue(), ay.floatValue()),
+            context
+        ));
+        return "";
+    }
+
+    private static String addBooleanChange(
+        final VerifiedMemberResolver resolver,
+        final Object before,
+        final Object after,
+        final HistoryEditContext context,
+        final List<HistoryChange> changes,
+        final String property,
+        final String alias
+    ) {
+        final Object beforeValue = resolver.invoke(alias, before);
+        final Object afterValue = resolver.invoke(alias, after);
+        if (!(beforeValue instanceof Boolean left) || !(afterValue instanceof Boolean right)) {
+            return "history.value-codec-unavailable";
+        }
+        if (left.booleanValue() == right.booleanValue()) return "";
+        if (changes.size() >= NativeHistoryDecodeContext.MAX_NODES) {
+            return "history.detail.node-or-depth-limit";
+        }
+        changes.add(change(property, Boolean.toString(left), Boolean.toString(right), context));
+        return "";
+    }
+
+    /**
+     * Compares the flattened point arrays of two snapshots of one form.
+     *
+     * <p>When every point pair moved by exactly the same delta the snapshots prove a pure
+     * translation, and the change carries that signed delta as a {@code MOVE}. Any uneven or
+     * partial change is a deformation the decoder does not interpret: it stays a bounded-count
+     * edit — a point total per side and the number of changed points — and the catalog forbids
+     * unbounded coordinate arrays either way.</p>
+     */
+    private static String addPositionsChange(
+        final VerifiedMemberResolver resolver,
+        final Object before,
+        final Object after,
+        final HistoryEditContext context,
+        final List<HistoryChange> changes,
+        final String alias,
+        final String property
+    ) {
+        final Object beforeValue = resolver.invoke(alias, before);
+        final Object afterValue = resolver.invoke(alias, after);
         if (!(beforeValue instanceof float[] left) || !(afterValue instanceof float[] right)
             || left.length % 2 != 0 || right.length % 2 != 0) {
             return "history.value-codec-unavailable";
@@ -375,13 +552,50 @@ final class ListUndoDecoder implements NativeHistoryDecoder {
         if (changes.size() >= NativeHistoryDecodeContext.MAX_NODES) {
             return "history.detail.node-or-depth-limit";
         }
+        // A pure translation is provable only when every point pair moved by exactly the same
+        // delta. A partial selection, a deformation, or a parent transform all change points
+        // unevenly and stay a bounded-count edit instead.
+        final float[] delta = uniformDelta(left, right);
+        if (delta != null) {
+            changes.add(new HistoryChange(
+                HistoryChange.Operation.MOVE,
+                Optional.of(0),
+                Optional.of("translation"),
+                Optional.empty(),
+                Optional.of(point(delta[0], delta[1])),
+                context
+            ));
+            return "";
+        }
         changes.add(change(
-            "vertexPositions",
+            property,
             "points=" + left.length / 2,
             "points=" + right.length / 2 + ";changed=" + changed,
             context
         ));
         return "";
+    }
+
+    /**
+     * {@return the shared (dx, dy) every point pair moved by, or {@code null} when the move is
+     * not a pure translation}
+     */
+    private static float[] uniformDelta(final float[] before, final float[] after) {
+        if (before.length != after.length || before.length < 2) return null;
+        final float dx = after[0] - before[0];
+        final float dy = after[1] - before[1];
+        if (dx == 0.0F && dy == 0.0F) return null;
+        for (int index = 2; index + 1 < before.length; index += 2) {
+            if (Float.compare(after[index] - before[index], dx) != 0
+                || Float.compare(after[index + 1] - before[index + 1], dy) != 0) {
+                return null;
+            }
+        }
+        return new float[] {dx, dy};
+    }
+
+    private static String point(final float x, final float y) {
+        return "(" + Float.toString(x) + "," + Float.toString(y) + ")";
     }
 
     private static int changedPoints(final float[] before, final float[] after) {

@@ -57,11 +57,17 @@ public final class NativeHistoryOperations {
             );
         }
         if (isAppearanceOnly(detail)) {
-            return new Resolution(CubismOperation.SET_DRAWABLE_COLOR, subjectOf(detail));
+            return new Resolution(appearanceOperation(detail), subjectOf(detail));
+        }
+        if (isMoveOnly(detail)) {
+            return new Resolution(moveOperation(detail), subjectOf(detail));
         }
         if (detail.group().isPresent()) {
-            final Optional<Resolution> grouped = appearanceAcrossGroup(detail.group().orElseThrow());
+            final HistoryGroup group = detail.group().orElseThrow();
+            final Optional<Resolution> grouped = appearanceAcrossGroup(group);
             if (grouped.isPresent()) return grouped.orElseThrow();
+            final Optional<Resolution> moved = moveAcrossGroup(group);
+            if (moved.isPresent()) return moved.orElseThrow();
         }
         return Resolution.fallback();
     }
@@ -91,8 +97,58 @@ public final class NativeHistoryOperations {
         final boolean uniform = leaves.stream()
             .allMatch(leaf -> subjectOf(leaf).equals(subject));
         return uniform
-            ? Optional.of(new Resolution(CubismOperation.SET_DRAWABLE_COLOR, subject))
+            ? Optional.of(new Resolution(appearanceOperation(leaves.get(0)), subject))
             : Optional.empty();
+    }
+
+    /**
+     * Maps a group whose every leaf proves the same whole-object move on one subject.
+     *
+     * <p>A canvas drag commits one translation child per keyform of the same object, so the fact
+     * lives on the leaves. A non-MOVE leaf, an unnamed leaf, or two leaves naming different
+     * objects all describe more than one fact and stay generic.</p>
+     */
+    private static Optional<Resolution> moveAcrossGroup(final HistoryGroup group) {
+        final List<HistoryEntryDetail> leaves = new ArrayList<>();
+        if (!flatten(group, leaves, 0)) return Optional.empty();
+        if (leaves.isEmpty()) return Optional.empty();
+        if (!leaves.stream().allMatch(NativeHistoryOperations::isMoveOnly)) {
+            return Optional.empty();
+        }
+        final Optional<String> subject = subjectOf(leaves.get(0));
+        if (subject.isEmpty()) return Optional.empty();
+        final boolean uniform = leaves.stream()
+            .allMatch(leaf -> subjectOf(leaf).equals(subject));
+        return uniform
+            ? Optional.of(new Resolution(moveOperation(leaves.get(0)), subject))
+            : Optional.empty();
+    }
+
+    /**
+     * Maps a proven move to the operation of its target's family.
+     */
+    private static CubismOperation moveOperation(final HistoryEntryDetail detail) {
+        return "ART_MESH".equals(detail.targets().get(0).type())
+            ? CubismOperation.MOVE_DRAWABLE
+            : CubismOperation.MOVE_DEFORMER;
+    }
+
+    /**
+     * Maps an admitted appearance change to the operation of its target's family.
+     *
+     * <p>A deformer colour or opacity edit is not a drawable colour edit: the drawable operation
+     * is reserved for {@code ART_MESH} subjects. Deformer subjects claim the deformer opacity
+     * operation only when opacity is the entire change, and stay generic otherwise.</p>
+     */
+    private static CubismOperation appearanceOperation(final HistoryEntryDetail detail) {
+        if ("ART_MESH".equals(detail.targets().get(0).type())) {
+            return CubismOperation.SET_DRAWABLE_COLOR;
+        }
+        final boolean opacityOnly = detail.changes().stream()
+            .allMatch(change -> change.property().filter("opacity"::equals).isPresent());
+        return opacityOnly
+            ? CubismOperation.SET_DEFORMER_OPACITY
+            : CubismOperation.EXECUTE_EDITOR_COMMAND;
     }
 
     /**
@@ -155,6 +211,18 @@ public final class NativeHistoryOperations {
         final Optional<String> property = change.property();
         return property.isPresent()
             && SemanticHistoryOperationCatalog.isAppearanceChannel(targetType, property.orElseThrow());
+    }
+
+    /**
+     * Calculates whether every change is a proven translation of the same target.
+     *
+     * <p>A MOVE is only emitted when the decoder proved a uniform delta, so this predicate reads
+     * the decoder's proof rather than re-deriving it.</p>
+     */
+    private static boolean isMoveOnly(final HistoryEntryDetail detail) {
+        if (detail.targets().size() != 1 || detail.changes().isEmpty()) return false;
+        return detail.changes().stream().allMatch(change ->
+            change.operation() == HistoryChange.Operation.MOVE && change.relation().isEmpty());
     }
 
     /**

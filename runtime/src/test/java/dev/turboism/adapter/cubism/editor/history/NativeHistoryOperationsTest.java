@@ -147,10 +147,131 @@ class NativeHistoryOperationsTest {
     }
 
     @Test
+    void aProvenMoveOnAnArtMeshIsTheMoveDrawableOperation() {
+        final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(
+            move("ART_MESH")
+        );
+
+        assertEquals(CubismOperation.MOVE_DRAWABLE, resolution.operation());
+        assertEquals(Optional.of("mesh-1"), resolution.subjectId());
+    }
+
+    @Test
+    void aProvenMoveOnADeformerIsTheMoveDeformerOperation() {
+        for (final String type : List.of("WARP_DEFORMER", "ROTATION_DEFORMER")) {
+            final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(
+                move(type)
+            );
+
+            assertEquals(CubismOperation.MOVE_DEFORMER, resolution.operation(), type);
+            assertEquals(Optional.of("mesh-1"), resolution.subjectId(), type);
+        }
+    }
+
+    @Test
+    void aHoistedMoveGroupResolvesThroughItsHoistedSubject() {
+        // The decoder hoists a uniform per-keyform drag to a subject + single MOVE change while the
+        // bounded children stay attached; classification reads the hoisted fact directly.
+        final HistoryEntryDetail hoisted = new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(new HistoryTarget("WARP_DEFORMER", Optional.of("warp-1"), Optional.of("A"))),
+            List.of(moveChange()),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(move("WARP_DEFORMER", "warp-1"), move("WARP_DEFORMER", "warp-1")),
+                false
+            )),
+            Optional.empty()
+        );
+
+        final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(hoisted);
+
+        assertEquals(CubismOperation.MOVE_DEFORMER, resolution.operation());
+        assertEquals(Optional.of("warp-1"), resolution.subjectId());
+    }
+
+    @Test
+    void aGroupOfUniformMoveLeavesIsAMoveEvenWithoutHoisting() {
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(move("WARP_DEFORMER", "warp-1"), move("WARP_DEFORMER", "warp-1")),
+                false
+            )),
+            Optional.empty()
+        );
+
+        assertEquals(
+            CubismOperation.MOVE_DEFORMER,
+            NativeHistoryOperations.resolve(grouped).operation()
+        );
+    }
+
+    @Test
+    void aGroupMixingMoveWithAnotherEditStaysGeneric() {
+        final HistoryEntryDetail grouped = new HistoryEntryDetail(
+            "Edit",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(),
+            List.of(),
+            Optional.of(new HistoryGroup(
+                Optional.empty(),
+                2,
+                List.of(move("WARP_DEFORMER", "warp-1"), appearance("multiplyColor")),
+                false
+            )),
+            Optional.empty()
+        );
+
+        assertEquals(
+            CubismOperation.EXECUTE_EDITOR_COMMAND,
+            NativeHistoryOperations.resolve(grouped).operation(),
+            "a mixed group describes more than one fact"
+        );
+    }
+
+    @Test
     void anUndecodedEntryFallsBackToTheGenericEditorCommand() {
         assertEquals(
             CubismOperation.EXECUTE_EDITOR_COMMAND,
             NativeHistoryOperations.resolve(null).operation()
+        );
+    }
+
+    private static HistoryChange moveChange() {
+        return new HistoryChange(
+            HistoryChange.Operation.MOVE,
+            Optional.of(0),
+            Optional.of("translation"),
+            Optional.empty(),
+            Optional.of("(2.0,-1.0)"),
+            new HistoryEditContext(HistoryEditContext.Kind.OBJECT, Optional.empty(), List.of())
+        );
+    }
+
+    private static HistoryEntryDetail move(final String targetType) {
+        return move(targetType, "mesh-1");
+    }
+
+    private static HistoryEntryDetail move(final String targetType, final String targetId) {
+        return new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(new HistoryTarget(targetType, Optional.of(targetId), Optional.of("Subject"))),
+            List.of(moveChange()),
+            Optional.empty(),
+            Optional.empty()
         );
     }
 
