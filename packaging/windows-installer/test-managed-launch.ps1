@@ -97,7 +97,7 @@ if ($JdkParserOnly) {
     try {
         New-Item -ItemType Directory -Path $zgcHome -Force | Out-Null
         $defaultTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
-        Assert-ManagedLaunch ($defaultTokens -notcontains '-XX:+UseZGC') "managed options omit ZGC when launcher.zgc is unset"
+        Assert-ManagedLaunch ($defaultTokens -contains '-XX:+UseZGC') "managed options default to ZGC when launcher.zgc is unset"
         [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":true}}')
         $zgcTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
         Assert-ManagedLaunch ($zgcTokens -contains '-XX:+UseZGC') "managed options append -XX:+UseZGC when launcher.zgc is true"

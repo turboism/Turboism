@@ -59,12 +59,14 @@ public interface CubismJvmSettingsService {
     }
 
     /**
-     * Opt-in launcher preference: when true the next managed Cubism launch
+     * Launcher preference: when true the next managed Cubism launch
      * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
      * Launch-time flag — takes effect on the next launch only.
+     * On by default; users disable it explicitly when startup speed
+     * matters more than pause latency.
      */
     default boolean zgc() {
-        return false;
+        return true;
     }
 
     /** Persists the ZGC launcher preference. */
