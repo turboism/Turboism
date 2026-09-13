@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-/** Read-only framework log view supplied to Turboism's built-in core plugin. */
+/** Read-only framework log view supplied to Turboism's runtime-owned shell. */
 public interface RuntimeLogReader {
 
     Snapshot snapshot();
