@@ -43,6 +43,8 @@ public final class TurboismAgent {
         FILE_CHOOSER_HISTORY_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedExportSettingsHookInstaller> EXPORT_SETTINGS_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedProtectedExportHookInstaller>
+        PROTECTED_EXPORT_HOOK = new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasDataModelHookInstaller> TEXTURE_ATLAS_HOOK =
         new AtomicReference<>();
     private static final AtomicReference<VerifiedTextureAtlasAutoLayoutHookInstaller> TEXTURE_ATLAS_AUTO_LAYOUT_HOOK =
@@ -317,6 +319,14 @@ public final class TurboismAgent {
                     options.home(), "cubism-" + profile + "-ui-control-appearance.json"
                 )
                 : null;
+            // The protected-export slice is pinned for 5.3.02 only; the same gate that
+            // admits the export-settings hook also selects its orchestration record.
+            final Optional<Path> protectedExportVerificationRecord =
+                exportSettingsRuntimeAdmitted(profile, fullRuntimeAdmission)
+                    ? Optional.of(extractVerificationRecord(
+                        options.home(), "cubism-" + profile + "-protected-export.json"
+                    ))
+                    : Optional.empty();
             final VerifiedMeshMirrorHookInstaller meshMirrorHook = MESH_MIRROR_HOOK.get();
             final PreviewRuntime runtime;
             try {
@@ -332,6 +342,7 @@ public final class TurboismAgent {
                     statusBarVerificationRecord,
                     clipMaskVerificationRecord,
                     autoBackupVerificationRecord,
+                    protectedExportVerificationRecord,
                     host.artifact(),
                     coreArtifact,
                     host.classLoader()
@@ -563,11 +574,60 @@ public final class TurboismAgent {
                 installer.close();
             } else {
                 runtimeInfo("TURBOISM_EXPORT_SETTINGS_HOOK installation=COMPLETE");
+                installProtectedExportChooserHook(runtime, instrumentation, host);
             }
         } catch (Throwable failure) {
             if (installer != null) installer.close();
             runtimeWarn(
                 "Turboism export settings hook disabled safely: "
+                    + failure.getClass().getName()
+            );
+        }
+    }
+
+    /**
+     * Installs the protected-export chooser redirect on the exporter driver.
+     *
+     * <p>The bridge is already live from the export-settings hook, so this transformer only adds
+     * the bytecode seam on {@code com/live2d/cubism/doc/model/exporter/b}. Failure degrades to
+     * checked-always-reject: the authority keeps serving the dialog hook and every armed attempt
+     * is refused because the staging redirect cannot be proven.</p>
+     */
+    private static void installProtectedExportChooserHook(
+        final PreviewRuntime runtime,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        VerifiedProtectedExportHookInstaller installer = null;
+        try {
+            final var profile =
+                dev.turboism.exportsettings.ProtectedExportChooserProfile.forArtifact(
+                    HostArtifactDigest.from(host.artifact())
+                ).orElseThrow(() -> new IllegalStateException(
+                    "Unsupported protected-export chooser host artifact"
+                ));
+            installer = VerifiedProtectedExportHookInstaller.fromHostProfile(
+                instrumentation,
+                profile,
+                host.classLoader()
+            );
+            if (!installer.install()) {
+                installer.close();
+                runtimeWarn(
+                    "Turboism protected-export chooser redirect unavailable; checked export stays rejected"
+                );
+                return;
+            }
+            if (!PROTECTED_EXPORT_HOOK.compareAndSet(null, installer)) {
+                installer.close();
+                return;
+            }
+            runtime.exportSettingsAuthority().markProtectedExportRedirectSeamInstalled();
+            runtimeInfo("TURBOISM_PROTECTED_EXPORT_HOOK installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) installer.close();
+            runtimeWarn(
+                "Turboism protected-export chooser hook disabled safely: "
                     + failure.getClass().getName()
             );
         }
@@ -1154,6 +1214,19 @@ public final class TurboismAgent {
         final PreviewRuntime runtime,
         final String phase
     ) {
+        // Restore the exporter bytes before the dialog hook drops its bridge callbacks:
+        // transformed bytecode must never outlive the callbacks it invokes.
+        final VerifiedProtectedExportHookInstaller protectedExportHook =
+            PROTECTED_EXPORT_HOOK.getAndSet(null);
+        if (protectedExportHook != null) {
+            try {
+                protectedExportHook.close();
+            } catch (Throwable failure) {
+                final String message =
+                    "Turboism protected-export chooser hook cleanup failed safely: phase=" + phase;
+                if (runtime == null) dev.turboism.runtime.log.RuntimeDiagnostics.warn("bootstrap", message); else runtime.warn("bootstrap", message);
+            }
+        }
         final VerifiedExportSettingsHookInstaller exportSettingsHook =
             EXPORT_SETTINGS_HOOK.getAndSet(null);
         if (exportSettingsHook == null) {

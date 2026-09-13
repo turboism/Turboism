@@ -53,6 +53,7 @@ public final class PreviewRuntime implements AutoCloseable {
     private final AtomicBoolean closed = new AtomicBoolean(false);
     private volatile dev.turboism.sdk.cubism.filechooser.FileChooserHistoryService fileChooserHistoryService;
     private volatile dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettingsAuthority;
+    private volatile dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExportOrchestrator;
     private volatile List<ShutdownFailure> shutdownFailures = List.of();
 
     /** Package-private test composition seam; production startup uses {@link #start}. */
@@ -204,6 +205,7 @@ public final class PreviewRuntime implements AutoCloseable {
             Optional.empty(),
             Optional.empty(),
             null,
+            Optional.empty(),
             hostArtifact,
             null,
             hostClassLoader
@@ -226,6 +228,7 @@ public final class PreviewRuntime implements AutoCloseable {
         final Optional<Path> statusBarVerificationRecord,
         final Optional<Path> clipMaskVerificationRecord,
         final Path autoBackupVerificationRecord,
+        final Optional<Path> protectedExportVerificationRecord,
         final Path hostArtifact,
         final Path coreArtifact,
         final ClassLoader hostClassLoader
@@ -233,6 +236,7 @@ public final class PreviewRuntime implements AutoCloseable {
         Objects.requireNonNull(statusBarVerificationRecord, "statusBarVerificationRecord");
         Objects.requireNonNull(clipMaskVerificationRecord, "clipMaskVerificationRecord");
         Objects.requireNonNull(autoBackupVerificationRecord, "autoBackupVerificationRecord");
+        Objects.requireNonNull(protectedExportVerificationRecord, "protectedExportVerificationRecord");
         final Path normalizedHostArtifact = Objects.requireNonNull(
             hostArtifact,
             "hostArtifact"
@@ -435,6 +439,21 @@ public final class PreviewRuntime implements AutoCloseable {
                     )
                 );
             plugins.bindExportSettingsAuthority(exportSettings);
+            // The orchestrator is a degraded-capability seam: when the record is absent or the
+            // pinned chain fails, no orchestrator is bound and checked export stays rejected.
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator protectedExport =
+                createProtectedExportOrchestrator(
+                    protectedExportVerificationRecord,
+                    normalizedHostArtifact,
+                    verifiedHostClassLoader,
+                    exportSettings,
+                    ingress,
+                    layout,
+                    log
+                );
+            if (protectedExport != null) {
+                exportSettings.protectedExportOrchestrator(protectedExport);
+            }
             final LocalPluginRuntime.LoadReport report = plugins.loadAll();
             startupTimer.completed("plugin-loading", message -> log.info("startup", message));
             ingress.adapterAccess().editorLifecycleEvents().publishStartup(
@@ -468,6 +487,7 @@ public final class PreviewRuntime implements AutoCloseable {
             );
             runtime.bindFileChooserHistoryService(fileChooserHistory);
             runtime.bindExportSettingsAuthority(exportSettings);
+            runtime.bindProtectedExportOrchestrator(protectedExport);
             runtime.writeInitialReports(hostState);
             runtime.publishStartupBanner();
             publishNativeStartupNotice(verifiedHostClassLoader, log);
@@ -692,6 +712,95 @@ public final class PreviewRuntime implements AutoCloseable {
             if (exportSettingsAuthority == null) {
                 exportSettingsAuthority = java.util.Objects.requireNonNull(authority, "authority");
             }
+        }
+    }
+
+    /** Keeps the orchestrator reachable for shutdown; a no-op for an unwired capability. */
+    void bindProtectedExportOrchestrator(
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator
+    ) {
+        if (orchestrator == null) {
+            return;
+        }
+        synchronized (this) {
+            if (protectedExportOrchestrator == null) {
+                protectedExportOrchestrator = orchestrator;
+            }
+        }
+    }
+
+    /**
+     * Builds the protected-export orchestrator when the reviewed record is present and its
+     * whole pinned chain checks out (record hash, manifest agreement, byte-identical artifact,
+     * static selector verification, host classloader attestation).
+     *
+     * <p>Any failure degrades to no orchestrator: the authority keeps serving the native dialog
+     * and a checked option stays rejected, never silently downgraded to an unchecked export.</p>
+     */
+    private static dev.turboism.exportsettings.ProtectedExportOrchestrator
+        createProtectedExportOrchestrator(
+            final Optional<Path> protectedExportVerificationRecord,
+            final Path normalizedHostArtifact,
+            final ClassLoader verifiedHostClassLoader,
+            final dev.turboism.exportsettings.RuntimeExportSettingsAuthority exportSettings,
+            final HostRuntimeIngress ingress,
+            final TurboismHomeLayout layout,
+            final PreviewLog log
+    ) {
+        if (protectedExportVerificationRecord.isEmpty()) {
+            return null;
+        }
+        try {
+            final dev.turboism.mapping.verification.VerifiedMemberResolver resolver =
+                new dev.turboism.mapping.verification.VerifiedProtectedExportResolverFactory()
+                    .create(
+                        protectedExportVerificationRecord.orElseThrow(),
+                        normalizedHostArtifact,
+                        verifiedHostClassLoader
+                    );
+            final String orchestratedPluginId = "dev.turboism.plugin.protected-export";
+            final dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher edt =
+                new dev.turboism.exportsettings.ProtectedExportOrchestrator.EdtDispatcher() {
+                    @Override
+                    public <T> T call(final java.util.concurrent.Callable<T> action)
+                        throws Exception {
+                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                            return action.call();
+                        }
+                        final java.util.concurrent.FutureTask<T> task =
+                            new java.util.concurrent.FutureTask<>(action);
+                        javax.swing.SwingUtilities.invokeAndWait(task);
+                        return task.get();
+                    }
+                };
+            return new dev.turboism.exportsettings.ProtectedExportOrchestrator(
+                new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
+                new dev.turboism.exportsettings.ProtectedExportStaging(
+                    data -> ingress.adapterAccess().coreRuntimeInfo().mocLoader().load(data)
+                ),
+                layout.runtimeStateDir().resolve("protected-export"),
+                orchestratedPluginId,
+                "protected-export",
+                exportSettings::protectedExportRedirectSeamInstalled,
+                () -> exportSettings.pluginBindingLive(orchestratedPluginId),
+                exportSettings::hostGeneration,
+                edt,
+                report -> log.info(
+                    "protected-export",
+                    "session=" + report.sessionId()
+                        + " reached=" + report.reached()
+                        + " published=" + report.published()
+                        + " failure=" + report.failureKey()
+                ),
+                10_000L,
+                600_000L
+            );
+        } catch (Throwable failure) {
+            log.warn(
+                "protected-export",
+                "Protected-export orchestration unavailable: " + failure.getClass().getName()
+            );
+            return null;
         }
     }
 
@@ -934,6 +1043,16 @@ public final class PreviewRuntime implements AutoCloseable {
      * are still allocated.</p>
      */
     private void closeExportSettingsAuthority() {
+        final dev.turboism.exportsettings.ProtectedExportOrchestrator orchestrator =
+            protectedExportOrchestrator;
+        protectedExportOrchestrator = null;
+        if (orchestrator != null) {
+            try {
+                orchestrator.close();
+            } catch (Throwable ignored) {
+                // A stuck armed session must not block the authority teardown below.
+            }
+        }
         final dev.turboism.exportsettings.RuntimeExportSettingsAuthority authority =
             exportSettingsAuthority;
         exportSettingsAuthority = null;
