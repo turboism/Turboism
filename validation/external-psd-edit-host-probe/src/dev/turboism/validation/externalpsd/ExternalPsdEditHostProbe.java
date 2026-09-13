@@ -296,9 +296,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Files.move(sibling, tempFile, StandardCopyOption.ATOMIC_MOVE,
                     StandardCopyOption.REPLACE_EXISTING);
             } else if (i == 3) {
-                // Overlapping save: a second write lands inside the debounce window.
-                Files.write(tempFile, current);
+                // Overlapping save: a second distinct write lands inside the debounce
+                // window; latest-pending must win and publish a single revision.
+                final byte[] second = mutateLayerName(mutated, i + 100)
+                    .orElseThrow(() -> new IllegalStateException("Second mutation failed"));
                 Files.write(tempFile, mutated);
+                Files.write(tempFile, second);
             } else {
                 Files.write(tempFile, mutated);
             }
@@ -322,6 +325,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             final String observed = currentRawOnEdt(target.modelImage().value());
             result.setProperty(prefix + "currentRawAfter", observed);
             result.setProperty("applied.currentRaw", observed);
+            // Drain: an overlapping save may publish a second revision after the lane
+            // settles; leftovers must not leak into the corrupted-save assertion.
+            Thread.sleep(1500);
+            synchronized (revisions) {
+                result.setProperty(prefix + "extraRevisions", Integer.toString(revisions.size()));
+                revisions.clear();
+            }
         }
     }
 
