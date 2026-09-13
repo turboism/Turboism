@@ -467,6 +467,11 @@ class ProtectedExportOrchestratorTest {
             public <T> T call(final Callable<T> action) throws Exception {
                 return action.call();
             }
+
+            @Override
+            public void submit(final Runnable task) {
+                task.run();
+            }
         };
 
     private final class Fixture {
