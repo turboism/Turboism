@@ -904,6 +904,7 @@ final class EditorAnimationTimelineAccess {
                 return keyframes.size();
             }
             return transformKeyframes(frame -> frame + frameDelta,
+                KeyData::shiftedTo,
                 "Turboism: Offset Animation Keyframes");
         }
 
@@ -913,6 +914,7 @@ final class EditorAnimationTimelineAccess {
             }
             return transformKeyframes(
                 frame -> originFrame + (int) Math.round((frame - originFrame) * factor),
+                (key, newFrame) -> key.scaledTo(newFrame, originFrame, factor),
                 "Turboism: Scale Animation Keyframe Times"
             );
         }
@@ -923,6 +925,7 @@ final class EditorAnimationTimelineAccess {
             }
             return transformKeyframes(
                 frame -> (int) (Math.round(frame / (double) stepFrames) * stepFrames),
+                KeyData::shiftedTo,
                 "Turboism: Quantize Animation Keyframes"
             );
         }
@@ -1178,10 +1181,13 @@ final class EditorAnimationTimelineAccess {
 
         /**
          * Re-keys every frame through {@code mapping} inside one undo step,
-         * preserving values, curve types, and stored bezier handles.
+         * preserving values, curve types, and stored bezier handles. Handles are
+         * remapped by {@code remap}: translations shift them by the keyframe
+         * delta while scaling applies the same affine transform as keyframes.
          */
         private int transformKeyframes(
             final java.util.function.IntUnaryOperator mapping,
+            final KeyframeRemap remap,
             final String label
         ) {
             requireWritableAttribute();
@@ -1191,7 +1197,7 @@ final class EditorAnimationTimelineAccess {
             }
             final List<KeyData> mapped = new ArrayList<>(source.size());
             for (KeyData key : source) {
-                mapped.add(key.mappedTo(mapping.applyAsInt(key.frame())));
+                mapped.add(remap.apply(key, mapping.applyAsInt(key.frame())));
             }
             mapped.sort(Comparator.comparingInt(KeyData::frame));
             final Object sceneDocument = sceneDocument(fileContent, sceneSource);
@@ -1406,6 +1412,12 @@ final class EditorAnimationTimelineAccess {
         }
     }
 
+    /** Re-keys one captured keyframe onto {@code newFrame}, remapping handles. */
+    @FunctionalInterface
+    private interface KeyframeRemap {
+        KeyData apply(KeyData key, int newFrame);
+    }
+
     /** Live keyframe snapshot used by move/copy transforms. */
     private record KeyData(
         int frame,
@@ -1420,12 +1432,22 @@ final class EditorAnimationTimelineAccess {
             return inHandle != null || outHandle != null;
         }
 
-        KeyData mappedTo(final int newFrame) {
+        /** Translates the key and its handles by the same frame delta. */
+        KeyData shiftedTo(final int newFrame) {
             final double delta = newFrame - (double) frame;
             return new KeyData(
                 newFrame, value, pointX, pointY, curveType,
                 inHandle == null ? null : inHandle.shifted(delta),
                 outHandle == null ? null : outHandle.shifted(delta)
+            );
+        }
+
+        /** Scales the key position and its handle times around the origin. */
+        KeyData scaledTo(final int newFrame, final int originFrame, final double factor) {
+            return new KeyData(
+                newFrame, value, pointX, pointY, curveType,
+                inHandle == null ? null : inHandle.scaled(originFrame, factor),
+                outHandle == null ? null : outHandle.scaled(originFrame, factor)
             );
         }
     }
@@ -1434,6 +1456,14 @@ final class EditorAnimationTimelineAccess {
     private record HandleData(float frame, double value, boolean corner) {
         HandleData shifted(final double delta) {
             return new HandleData((float) (frame + delta), value, corner);
+        }
+
+        HandleData scaled(final int originFrame, final double factor) {
+            return new HandleData(
+                (float) (originFrame + (frame - originFrame) * factor),
+                value,
+                corner
+            );
         }
     }
 
