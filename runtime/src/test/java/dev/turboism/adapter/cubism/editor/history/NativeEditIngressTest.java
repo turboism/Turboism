@@ -78,6 +78,36 @@ class NativeEditIngressTest {
     }
 
     @Test
+    void aDecodedCommitPersistsItsObservedDetailForLaterSnapshots() {
+        final Recorder recorder = new Recorder();
+
+        final PartMembershipEntry committed = recorder.partEntry(true);
+        recorder.manager.commit(committed);
+        assertEquals(1, recorder.ingress.drain());
+
+        final var observed = EditorHistoryMetadataRegistry.observed(committed);
+        assertTrue(
+            observed.isPresent(),
+            "the detail proven while the entry was the tip must survive for later projections"
+        );
+        assertFalse(
+            EditorHistoryMetadataRegistry.claimsProvenance(committed),
+            "an observed detail must not turn a host edit into a Turboism-authored one"
+        );
+    }
+
+    @Test
+    void anUndecodableCommitRecordsNoObservedDetail() {
+        final Recorder recorder = new Recorder();
+
+        final var committed = new NativeUndoIngressObserverTest.Entry("Rename part");
+        recorder.manager.commit(committed);
+        assertEquals(1, recorder.ingress.drain());
+
+        assertTrue(EditorHistoryMetadataRegistry.observed(committed).isEmpty());
+    }
+
+    @Test
     void anUndecodableCommitFallsBackToTheGenericEditorCommand() {
         final Recorder recorder = new Recorder();
 

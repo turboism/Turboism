@@ -69,6 +69,63 @@ public final class EditorHistorySemanticSelectorContract {
         "cubism.editor-model.parameter-source.name"
     );
 
+    /** Form identity and keyform-context selectors shared by every form family. */
+    private static final Set<String> FORM_CONTEXT_ALIASES = Set.of(
+        "cubism.editor-history.semantic.form.guid",
+        "cubism.editor-model.form-guid.value",
+        "cubism.editor-model.float-color.red",
+        "cubism.editor-model.float-color.green",
+        "cubism.editor-model.float-color.blue",
+        "cubism.editor-model.parameter-controllable-source.id",
+        "cubism.editor-model.parameter-controllable-source.local-name",
+        "cubism.editor-model.id.value",
+        "cubism.editor-model.parameter-controllable.keyform-grid",
+        "cubism.editor-model.keyform-grid.bindings",
+        "cubism.editor-history.semantic.keyform-grid.forms-for-guid",
+        "cubism.editor-history.semantic.keyform-on-grid.class",
+        "cubism.editor-history.semantic.keyform-on-grid.access-key",
+        "cubism.editor-history.semantic.keyform-access-key.class",
+        "cubism.editor-history.semantic.keyform-access-key.coordinates",
+        "cubism.editor-history.semantic.key-on-parameter.class",
+        "cubism.editor-history.semantic.key-on-parameter.binding",
+        "cubism.editor-history.semantic.key-on-parameter.value",
+        "cubism.editor-model.keyform-binding.class",
+        "cubism.editor-history.semantic.keyform-binding.parameter",
+        "cubism.editor-model.parameter-source.id",
+        "cubism.editor-model.parameter-source.name"
+    );
+
+    private static final Set<String> DEFORMER_FORM_SCALARS = Set.of(
+        "cubism.editor-model.deformer-form.opacity",
+        "cubism.editor-model.deformer-form.multiply-color",
+        "cubism.editor-model.deformer-form.screen-color"
+    );
+
+    public static final Set<String> WARP_FORM_REQUIRED_ALIASES = union(
+        FORM_CONTEXT_ALIASES,
+        DEFORMER_FORM_SCALARS,
+        Set.of(
+            "cubism.editor-history.semantic.warp-form.class",
+            "cubism.editor-history.semantic.deformer-form.source",
+            "cubism.editor-model.warp-form.positions"
+        )
+    );
+
+    public static final Set<String> ROTATION_FORM_REQUIRED_ALIASES = union(
+        FORM_CONTEXT_ALIASES,
+        DEFORMER_FORM_SCALARS,
+        Set.of(
+            "cubism.editor-history.semantic.rotation-form.class",
+            "cubism.editor-history.semantic.deformer-form.source",
+            "cubism.editor-model.rotation-form.angle",
+            "cubism.editor-model.rotation-form.origin-x",
+            "cubism.editor-model.rotation-form.origin-y",
+            "cubism.editor-model.rotation-form.scale",
+            "cubism.editor-model.rotation-form.reflect-x",
+            "cubism.editor-model.rotation-form.reflect-y"
+        )
+    );
+
     public static final Set<String> ADD_REMOVE_REQUIRED_ALIASES = Set.of(
         "cubism.editor-history.semantic.add-remove.class",
         "cubism.editor-history.semantic.add-remove.owner",
@@ -127,6 +184,17 @@ public final class EditorHistorySemanticSelectorContract {
         "cubism.editor-model.parameter-controllable-source.local-name",
         "cubism.editor-model.id.value"
     );
+
+    private static Set<String> union(
+        final Set<String> first,
+        final Set<String> second,
+        final Set<String> third
+    ) {
+        final java.util.LinkedHashSet<String> combined = new java.util.LinkedHashSet<>(first);
+        combined.addAll(second);
+        combined.addAll(third);
+        return Set.copyOf(combined);
+    }
 
     private EditorHistorySemanticSelectorContract() {
     }

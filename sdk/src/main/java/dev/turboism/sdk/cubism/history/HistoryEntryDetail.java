@@ -220,6 +220,13 @@ public record HistoryEntryDetail(
             case ADD, REMOVE -> {
                 // Direction plus target identity is the complete trusted fact for add/remove.
             }
+            case MOVE -> {
+                if (change.property().isEmpty() || change.after().isEmpty()) {
+                    throw new IllegalArgumentException(
+                        "FULL MOVE changes require property and after"
+                    );
+                }
+            }
             case UNKNOWN -> {
                 // Compatibility actions can carry complete values without a more specific legacy kind.
             }

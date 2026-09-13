@@ -200,6 +200,12 @@ public final class NativeEditIngress implements AutoCloseable {
         final HistoryEntryDetail detail = decoded.outcome() == NativeHistoryDecodeResult.Outcome.DECODED
             ? decoded.detail().orElse(null)
             : null;
+        // The snapshot projection runs later, when this entry may no longer be the tip and its
+        // post state is no longer provably this entry's own. Persisting the commit-time decode is
+        // the only way a later projection can still show what the commit actually did.
+        if (detail != null) {
+            EditorHistoryMetadataRegistry.registerObserved(entry.orElseThrow(), detail);
+        }
         final NativeHistoryOperations.Resolution resolution = NativeHistoryOperations.resolve(detail);
         diagnose(tip, decoded, detail, resolution);
         publish(

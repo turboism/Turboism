@@ -31,6 +31,7 @@ public final class SemanticHistoryOperationCatalog {
         form("ART_MESH", "multiplyColor", ValueKind.COLOR),
         form("ART_MESH", "screenColor", ValueKind.COLOR),
         form("ART_MESH", "vertexPositions", ValueKind.BOUNDED_COLLECTION),
+        form("ART_MESH", "translation", ValueKind.TEXT),
         object("ART_MESH", "name", ValueKind.TEXT),
         object("ART_MESH", "id", ValueKind.TEXT),
         object("ART_MESH", "visible", ValueKind.BOOLEAN),
@@ -41,7 +42,21 @@ public final class SemanticHistoryOperationCatalog {
         object("GLUE", "id", ValueKind.TEXT),
         object("GLUE", "intensity", ValueKind.NUMBER),
         object("GLUE", "drawableA", ValueKind.TARGET_ID),
-        object("GLUE", "drawableB", ValueKind.TARGET_ID)
+        object("GLUE", "drawableB", ValueKind.TARGET_ID),
+        form("WARP_DEFORMER", "opacity", ValueKind.NUMBER),
+        form("WARP_DEFORMER", "multiplyColor", ValueKind.COLOR),
+        form("WARP_DEFORMER", "screenColor", ValueKind.COLOR),
+        form("WARP_DEFORMER", "controlPointPositions", ValueKind.BOUNDED_COLLECTION),
+        form("WARP_DEFORMER", "translation", ValueKind.TEXT),
+        form("ROTATION_DEFORMER", "opacity", ValueKind.NUMBER),
+        form("ROTATION_DEFORMER", "multiplyColor", ValueKind.COLOR),
+        form("ROTATION_DEFORMER", "screenColor", ValueKind.COLOR),
+        form("ROTATION_DEFORMER", "angle", ValueKind.NUMBER),
+        form("ROTATION_DEFORMER", "origin", ValueKind.TEXT),
+        form("ROTATION_DEFORMER", "scale", ValueKind.NUMBER),
+        form("ROTATION_DEFORMER", "reflectX", ValueKind.BOOLEAN),
+        form("ROTATION_DEFORMER", "reflectY", ValueKind.BOOLEAN),
+        form("ROTATION_DEFORMER", "translation", ValueKind.TEXT)
     );
 
     private SemanticHistoryOperationCatalog() { }

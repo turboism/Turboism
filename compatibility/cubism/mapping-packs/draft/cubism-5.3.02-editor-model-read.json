@@ -13045,6 +13045,65 @@
       "descriptor": "()Lcom/live2d/cubism/doc/model/drawable/artMesh/CArtMeshSource;"
     },
     {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.class.warp_form_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.warp-form.class",
+      "runtime": "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.class.rotation_form_class",
+      "kind": "class",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.rotation-form.class",
+      "runtime": "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 0
+      }
+    },
+    {
+      "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.deformer_form_source",
+      "kind": "method",
+      "owner": "editor-history-semantic-read",
+      "name": "cubism.editor-history.semantic.deformer-form.source",
+      "runtime": "getSource",
+      "profile": "cubism-5.3.02",
+      "status": "DRAFT",
+      "stability": "experimental",
+      "source": "exact-public-classfile-observation",
+      "verifiedBy": "none",
+      "verifiedAt": null,
+      "confidence": "high",
+      "x.verification": {
+        "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerForm",
+        "requiredAccessFlags": 1,
+        "forbiddenAccessFlags": 8
+      },
+      "intermediary": "",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/deformer/ACDeformerSource;"
+    },
+    {
       "semanticName": "cubism.mapping.v5_3_02.editor_history_semantic.method.form_guid",
       "kind": "method",
       "owner": "editor-history-semantic-read",
