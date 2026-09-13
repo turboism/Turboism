@@ -30,6 +30,8 @@ The Java installer can also package/install files on macOS and Linux. macOS pack
 
 Download a package and its matching `.sha256` file from the [latest GitHub Release](https://github.com/turboism/Turboism/releases/latest). Choose **one** installation format below. Close Cubism and back up your projects before installing or updating.
 
+Every Turboism installer ships in **English, Simplified Chinese, Japanese and Korean**. Choosing a language only changes the installer's own interface; the language Turboism uses at runtime still comes from `config.json` (`locale`).
+
 Installers are currently unsigned. Verify the downloaded file against its checksum before running it. For example, in PowerShell (replace `<version>` with the downloaded version):
 
 ```powershell
@@ -57,11 +59,11 @@ Install **Java 17 or newer**, then run:
 java -jar "TurboismInstaller-<version>.jar"
 ```
 
-Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
+Complete the license/declaration prompts, choose the installation directory and package options, and finish setup. The wizard starts with a language-selection dialog for the four supported languages; pass `-language eng|chn|jpn|kor` to preselect one and skip that dialog. On Windows, use the installed `configure_turboism.ps1` to configure Cubism if needed, then launch through Turboism. Installing files on macOS/Linux does not imply Cubism host compatibility there.
 
 ### EXE — recommended on Windows
 
-Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. Use the generated Turboism shortcut afterward.
+Run `TurboismInstaller-<version>.exe` and follow the setup wizard to choose the installation directory, plugins and launch options. The wizard offers a language picker (English, Simplified Chinese, Japanese, Korean) before the welcome page; it applies to the installer only. Use the generated Turboism shortcut afterward.
 
 Integration with the official Cubism startup BAT is **optional** and must be explicitly selected. It uses hash-guarded backups; later user edits can prevent automatic restoration. Keep your project backups separate from these installer-managed backups.
 
@@ -81,6 +83,12 @@ On Windows, use `gradlew.bat` instead of `./gradlew`. Make changes on a separate
 
 For plugin development, start with the [demo plugin](plugins/demo/README.md), its [build configuration](plugins/demo/build.gradle.kts) and [plugin descriptor](plugins/demo/src/main/resources/META-INF/turboism/plugin.json). Plugins depend on `:sdk` with `compileOnly` scope; do not directly depend on runtime internals or `com.live2d.*` classes.
 
+Building a plugin **outside** this repository does not require building Turboism. Every GitHub Release ships `turboism-sdk-<version>.jar` (with a `.sha256` sidecar): copy [templates/plugin-template](templates/plugin-template/) as a standalone project, drop the SDK JAR into its `libs/` directory and follow its README. Framework contributors can also publish the SDK and the `@SubscribeEvent` annotation processor to the local Maven repository, then resolve `dev.turboism:sdk` and `dev.turboism:event-processor` from `mavenLocal()`:
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -91,7 +99,7 @@ The demo is development-only, not part of the release bundle. Run focused tests 
 
 - [User and developer documentation](https://docs.turboism.dev)
 - [Architecture](ARCHITECTURE.md) and [roadmap](ROADMAP.md)
-- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v7 migration notes](sdk/api-contracts/sdk-api-v7-review.md)
-- [Demo plugin](plugins/demo/README.md)
+- [SDK API contracts and compatibility](sdk/api-contracts/) and [SDK v10 migration notes](sdk/api-contracts/sdk-api-v10-review.md), with the [v9](sdk/api-contracts/sdk-api-v9-review.md) and [v7](sdk/api-contracts/sdk-api-v7-review.md) reviews kept as historical audits
+- [Demo plugin](plugins/demo/README.md) and the standalone [plugin template](templates/plugin-template/)
 - [Java installer details](packaging/java-installer/README-java-installer.md)
 - [Release process](RELEASING.md) and [changelog](CHANGELOG.md)

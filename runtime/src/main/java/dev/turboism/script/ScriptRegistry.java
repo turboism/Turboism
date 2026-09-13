@@ -56,7 +56,7 @@ class ScriptRegistry {
         "turboism.ui.viewport.read", "turboism.ui.recent-preview.contribute",
         "turboism.ui.dialog.contribute", "turboism.ui.dialog.automate",
         "turboism.ui.panel.contribute", "turboism.ui.file-chooser.request",
-        "turboism.ui.status.notify", "turboism.ui.appearance.modify",
+        "turboism.ui.status.notify", "turboism.ui.canvas.hint", "turboism.ui.appearance.modify",
         "turboism.ui.toolbar.contribute", "turboism.config.plugin.read",
         "turboism.config.plugin.write", "turboism.event.subscribe", "turboism.event.publish",
         "turboism.performance.stats.read", "turboism.host.unsafe"

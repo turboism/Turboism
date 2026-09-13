@@ -306,6 +306,9 @@ class RuntimeSettingsServiceTest {
         assertEquals("INFO", settings.logLevel());
         assertEquals(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB, settings.maxLogStorageMiB());
         assertFalse(settings.useTextIcon());
+        assertTrue(settings.skipStartupUpdateCheck());
+        assertTrue(settings.skipStartupSplash());
+        assertTrue(settings.skipStartupInformation());
     }
 
     @Test

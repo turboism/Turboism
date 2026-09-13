@@ -8,7 +8,9 @@ dependencies {
     testImplementation(project(":sdk"))
 }
 
-val turboismFrameworkVersion = rootProject.extra["turboismFrameworkVersion"] as String
+@Suppress("UNCHECKED_CAST")
+val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+val turboismFrameworkVersion = buildMetadata.getValue("version")
 
 val frameworkVersionResource = layout.buildDirectory.file(
     "generated/resources/turboism-framework-version/framework-version.properties"
@@ -17,12 +19,12 @@ val frameworkVersionResource = layout.buildDirectory.file(
 val generateFrameworkVersionResource by tasks.registering {
     group = "build"
     description = "Generates the framework version resource packaged into the core plugin."
-    inputs.property("turboismFrameworkVersion", turboismFrameworkVersion)
+    inputs.properties(buildMetadata)
     outputs.file(frameworkVersionResource)
     doLast {
         val file = frameworkVersionResource.get().asFile
         file.parentFile.mkdirs()
-        file.writeText("version=$turboismFrameworkVersion\n")
+        file.writeText(buildMetadata.entries.joinToString("\n", postfix = "\n") { (key, value) -> "$key=$value" })
     }
 }
 

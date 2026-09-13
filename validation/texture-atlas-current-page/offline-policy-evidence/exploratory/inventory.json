@@ -1,0 +1,33 @@
+{
+  "sdk": "d6b2cb5d39e0022371e50042b568707d4aec706f55edac0b81f0c291ed8708ae",
+  "planner": "936621a3372505bc8e954d79b02eb272905bde781f29cf995c2cd9d865120a51",
+  "regions": "e68eb60dfb2c393121c55992ef2957f8dd53093679ec821ffbf79b9d0295d8a1",
+  "harness": "c771a4cbe79364c83649f4d895cdf491c05ebfa7ecd89a998487266cc51c8193",
+  "java": "openjdk version \"17.0.20\" 2026-07-21\nOpenJDK Runtime Environment (build 17.0.20+8)\nOpenJDK 64-Bit Server VM (build 17.0.20+8, mixed mode, sharing)\n",
+  "variants": {
+    "baseline": {
+      "threshold": 16,
+      "multi": false,
+      "planner": "936621a3372505bc8e954d79b02eb272905bde781f29cf995c2cd9d865120a51",
+      "regions": "e68eb60dfb2c393121c55992ef2957f8dd53093679ec821ffbf79b9d0295d8a1"
+    },
+    "multi": {
+      "threshold": 16,
+      "multi": true,
+      "planner": "1eeb14d08b55a89c6ad6ad39ec2a4b9f8c6d271386af80e4bf4970864417c806",
+      "regions": "e68eb60dfb2c393121c55992ef2957f8dd53093679ec821ffbf79b9d0295d8a1"
+    },
+    "threshold32": {
+      "threshold": 32,
+      "multi": false,
+      "planner": "936621a3372505bc8e954d79b02eb272905bde781f29cf995c2cd9d865120a51",
+      "regions": "a5272ad1b38ddb55e032cf89e6427ad68a0a956738fe1f976e778f2a0a281c73"
+    },
+    "threshold64": {
+      "threshold": 64,
+      "multi": false,
+      "planner": "936621a3372505bc8e954d79b02eb272905bde781f29cf995c2cd9d865120a51",
+      "regions": "3ba585a6aef8162e9801909d3700f1dc4537eb662ffae7c790f4ada1b33ab3f7"
+    }
+  }
+}

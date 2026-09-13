@@ -30,6 +30,8 @@ Java インストーラーは macOS と Linux へのファイル配置にも対�
 
 [最新の GitHub Release](https://github.com/turboism/Turboism/releases/latest)からパッケージと対応する `.sha256` ファイルをダウンロードしてください。以下の**いずれか一つ**の方法を選びます。インストールや更新の前に Cubism を終了し、プロジェクトをバックアップしてください。
 
+すべての Turboism インストーラーは**英語、簡体字中国語、日本語、韓国語**に対応しています。言語の選択はインストーラー自身の表示だけを変え、実行時の Turboism の言語は引き続き `config.json` の `locale` で決まります。
+
 現在のインストーラーにはコード署名がありません。実行前に、ダウンロードしたファイルの SHA-256 を付属のチェックサムと照合してください。PowerShell の例です（`<version>` はダウンロードしたバージョンに置き換えます）。
 
 ```powershell
@@ -57,11 +59,11 @@ Get-FileHash ".\TurboismInstaller-<version>.exe" -Algorithm SHA256
 java -jar "TurboismInstaller-<version>.jar"
 ```
 
-ライセンスと声明を確認し、インストール先とパッケージのオプションを選んでセットアップを完了します。Windows では、必要に応じてインストール先の `configure_turboism.ps1` で Cubism を設定し、Turboism 経由で起動してください。macOS/Linux にファイルをインストールできることは、その環境での Cubism ホスト対応を意味しません。
+ライセンスと声明を確認し、インストール先とパッケージのオプションを選んでセットアップを完了します。ウィザードの起動時に 4 言語の言語選択ダイアログが開きます。`-language eng|chn|jpn|kor` を渡すと選択を省略できます。Windows では、必要に応じてインストール先の `configure_turboism.ps1` で Cubism を設定し、Turboism 経由で起動してください。macOS/Linux にファイルをインストールできることは、その環境での Cubism ホスト対応を意味しません。
 
 ### EXE — Windows での推奨方法
 
-`TurboismInstaller-<version>.exe` を実行し、ウィザードに従ってインストール先、プラグイン、起動オプションを選択します。インストール後は、作成された Turboism ショートカットを使用してください。
+`TurboismInstaller-<version>.exe` を実行し、ウィザードに従ってインストール先、プラグイン、起動オプションを選択します。ようこそページの前に言語選択（英語、簡体字中国語、日本語、韓国語）が表示され、インストーラーにのみ適用されます。インストール後は、作成された Turboism ショートカットを使用してください。
 
 Cubism 公式の起動 BAT との統合は**任意**であり、明示的な選択が必要です。ハッシュ検証付きのバックアップを使用しますが、後から手動で編集されたファイルは自動復元できない場合があります。これらのインストーラー管理下のバックアップとは別に、プロジェクトのバックアップを保存してください。
 
@@ -81,6 +83,12 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 プラグイン開発は、[デモプラグイン](plugins/demo/README.md)、その[ビルド設定](plugins/demo/build.gradle.kts)、[プラグイン記述ファイル](plugins/demo/src/main/resources/META-INF/turboism/plugin.json)を参考に始められます。プラグインは `compileOnly` で `:sdk` に依存し、ランタイムの内部実装や `com.live2d.*` クラスには直接依存しないでください。
 
+このリポジトリの**外側**でプラグインを開発する場合、Turboism 本体のビルドは不要です。各 GitHub Release には `turboism-sdk-<version>.jar`（`.sha256` サイドカー付き）が同梱されます。[templates/plugin-template](templates/plugin-template/) を独立したプロジェクトとしてコピーし、SDK JAR を `libs/` ディレクトリに入れて、その README の手順に従ってください。フレームワーク貢献者は、SDK と `@SubscribeEvent` アノテーションプロセッサをローカル Maven リポジトリに公開し、`mavenLocal()` から `dev.turboism:sdk` と `dev.turboism:event-processor` を解決することもできます：
+
+```bash
+./gradlew :sdk:publishToMavenLocal :event-processor:publishToMavenLocal
+```
+
 ```bash
 ./gradlew :plugins:demo:test :plugins:demo:jar
 ```
@@ -91,7 +99,7 @@ Windows では `./gradlew` の代わりに `gradlew.bat` を使用してくだ�
 
 - [ユーザー・開発者向けドキュメント](https://docs.turboism.dev)
 - [アーキテクチャ](ARCHITECTURE.md)と[ロードマップ](ROADMAP.md)
-- [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v7 移行ガイド](sdk/api-contracts/sdk-api-v7-review.md)
-- [デモプラグイン](plugins/demo/README.md)
+- [SDK API 契約と互換性](sdk/api-contracts/)、[SDK v10 移行ガイド](sdk/api-contracts/sdk-api-v10-review.md)、[SDK v9](sdk/api-contracts/sdk-api-v9-review.md)・[SDK v7](sdk/api-contracts/sdk-api-v7-review.md) レビューは履歴監査として保持
+- [デモプラグイン](plugins/demo/README.md)とスタンドアロンの[プラグインテンプレート](templates/plugin-template/)
 - [Java インストーラーの詳細](packaging/java-installer/README-java-installer.md)
 - [リリース手順](RELEASING.md)と[変更履歴](CHANGELOG.md)

@@ -60,6 +60,20 @@ final class CubismEditorApiAvailabilityInterceptor {
         return wrap(value, sdkInterface);
     }
 
+    /**
+     * Returns the delegate behind a proxy created by this interceptor family, or the input
+     * unchanged. Used to compare the underlying service against {@code unavailable()} sentinels
+     * without defeating version gating for callers.
+     */
+    static Object unwrap(final Object value) {
+        if (value != null
+            && Proxy.isProxyClass(value.getClass())
+            && Proxy.getInvocationHandler(value) instanceof Handler handler) {
+            return handler.delegate;
+        }
+        return value;
+    }
+
     private <T> T wrap(final T value, final Class<T> sdkInterface) {
         return sdkInterface.cast(wrapInterface(value, sdkInterface));
     }

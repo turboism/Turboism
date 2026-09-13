@@ -37,9 +37,9 @@ cat > "$bundle_root/config.json" <<EOF
     "disabledIds": [],
     "denylistedClasses": [],
     "startup": {
-      "skipUpdateCheck": false,
-      "skipSplash": false,
-      "skipInformation": false
+      "skipUpdateCheck": true,
+      "skipSplash": true,
+      "skipInformation": true
     }
   }
 }

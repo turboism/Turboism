@@ -352,6 +352,22 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
     "--remote-pre-launch-arg"})
 
+# Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
+# invocation must carry, error description). Each entry is an explicit review of
+# that one hook; the queue still snapshots the hook file and digests its closure.
+REVIEWED_PRE_LAUNCH_HOOKS = {
+    "fps-resize-driver.sh": (
+        frozenset({"--remote-pre-launch-background", "--remote-pre-launch-args-only"}),
+        "FPS hook requires its reviewed background/args-only protocol",
+    ),
+    # The language is passed as the hook's trailing argument; without it the
+    # hook fails closed, so the flag is part of the reviewed protocol.
+    "host-locale-environment-language-hook.sh": (
+        frozenset({"--remote-pre-launch-arg"}),
+        "host-locale environment-language hook requires its language argument",
+    ),
+}
+
 
 def file_digest(path: Path) -> str:
     digest = hashlib.sha256()
@@ -547,17 +563,25 @@ class PreparedStore:
                     source = Path(source_value)
                     if not source.is_absolute():
                         raise QueueError("normalized inputs must be absolute paths")
-                    # Location alone is not approval: each supported hook has
-                    # its own reviewed complete dependency/protocol inventory.
+                    # Only enumerated hooks have a reviewed dependency closure.
+                    # A script's location in scripts/preview is not an approval.
                     if flag in {"--remote-pre-launch", "--remote-post-launch", "--remote-pre-cleanup"}:
-                        if (flag == "--remote-pre-launch" and memory_dependency is not None
-                                and source == source_root / "scripts/test/start-task-memory-observer.sh"):
-                            pass  # Full closure checked before any snapshot is created.
-                        elif flag == "--remote-pre-launch" and source == source_root / "scripts/preview/fps-resize-driver.sh":
-                            if not {"--remote-pre-launch-background", "--remote-pre-launch-args-only"}.issubset(argv):
-                                raise QueueError("FPS hook requires its reviewed background/args-only protocol")
-                        else:
-                            raise QueueError("custom hook requires reviewed dependency inventory")
+                        # The memory observer's full closure is checked by
+                        # memory_dependency() before any snapshot is created.
+                        memory_hook = (
+                            flag == "--remote-pre-launch"
+                            and memory_dependency is not None
+                            and source == source_root / "scripts/test/start-task-memory-observer.sh"
+                        )
+                        if not memory_hook:
+                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
+                                        if flag == "--remote-pre-launch"
+                                        and source.parent == source_root / "scripts/preview" else None)
+                            if reviewed is None:
+                                raise QueueError("custom hook requires reviewed dependency inventory")
+                            required_flags, description = reviewed
+                            if not required_flags.issubset(argv):
+                                raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),

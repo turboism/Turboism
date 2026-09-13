@@ -2,8 +2,8 @@ package dev.turboism.validation.backup;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
-import dev.turboism.plugin.backup.webdav.WebDavConfig;
-import dev.turboism.plugin.backup.webdav.WebDavSyncTarget;
+import dev.turboism.plugin.webdavbackup.webdav.WebDavConfig;
+import dev.turboism.plugin.webdavbackup.webdav.WebDavSyncTarget;
 import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.backup.BackupRunResult;
 import dev.turboism.sdk.cubism.backup.EditorAutoBackupService;
@@ -45,7 +45,7 @@ import java.util.stream.Stream;
  * {@code com.live2d.*} types.
  *
  * <p>The WebDAV client under test is the production {@link WebDavSyncTarget}
- * from {@code plugins/backup} (compiled into this exerciser by build.sh), so
+ * from {@code plugins/webdav-backup} (compiled into this exerciser by build.sh), so
  * the real-host run exercises the exact plugin upload code path.</p>
  *
  * <p>Readiness and the dirty write use the model-scoped path
