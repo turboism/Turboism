@@ -48,6 +48,11 @@ public interface ModelTextures {
     /**
      * Exports one explicitly identified raw image to a runtime-owned PSD handle.
      *
+     * <p>The export is Cubism's native layered-image rebuild of its current resources, not a
+     * byte copy of the originally imported file. Only saves of the issued handle are
+     * observable to {@link PsdEditFile#observeSaves}; saving under a different name or path
+     * in the external application is not tracked.</p>
+     *
      * <p>Implementations that do not own the native PSD service return a completed typed
      * {@link PsdExportResult.Status#UNAVAILABLE} result. The default never invokes a file
      * handle or accepts a caller-supplied path.</p>
@@ -68,6 +73,10 @@ public interface ModelTextures {
 
     /**
      * Replaces one explicitly identified raw image from a runtime-issued PSD revision.
+     *
+     * <p>A raw image shared by several model images or ArtMeshes is replaced once and every
+     * dependent object observes the new content; the native matcher performs the merge, not
+     * the caller.</p>
      *
      * <p>Implementations that do not own the native PSD service return a completed typed
      * {@link PsdReplaceResult.Status#UNAVAILABLE} result. The default does not inspect or
