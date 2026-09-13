@@ -590,7 +590,48 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                 }
             }
         }
-        return "dragged:" + source + "->" + target + ":no-significant-entry";
+        return "dragged:" + source + "->" + target + ":no-significant-entry:"
+            + onEdt(WindowsHistoryNativeUiIngressProbe::partsTreeDnD);
+    }
+
+    /**
+     * Reports whether the Parts tree supports Swing drag-and-drop at all.
+     *
+     * <p>Only consulted when both drops missed: if the host's tree has no drag gesture or no
+     * drop handler, no amount of pointer accuracy will produce an entry and the step needs a
+     * different interaction. The report is bounded to the trees that look like the Parts
+     * palette.</p>
+     */
+    private static String partsTreeDnD() {
+        final StringBuilder out = new StringBuilder(2048);
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (window.isVisible()) collectTreeDnD(window, out, 0);
+        }
+        return out.length() > 0 ? out.toString() : "no-trees";
+    }
+
+    private static void collectTreeDnD(
+        final java.awt.Component component,
+        final StringBuilder out,
+        final int depth
+    ) {
+        if (depth > UI_MAP_MAX_DEPTH || !component.isVisible() || out.length() > 1800) return;
+        if (component instanceof javax.swing.JTree tree) {
+            final java.awt.Container owner = SwingUtilities.getAncestorOfClass(
+                javax.swing.JTable.class, tree);
+            out.append("tree:").append(tree.getClass().getName())
+                .append(":drag=").append(tree.getDragEnabled())
+                .append(":drop=").append(tree.getDropTarget() != null)
+                .append(":handler=").append(tree.getTransferHandler() == null
+                    ? "none" : tree.getTransferHandler().getClass().getSimpleName())
+                .append(":owner=").append(owner == null ? "none" : owner.getClass().getName())
+                .append(';');
+        }
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                collectTreeDnD(child, out, depth + 1);
+            }
+        }
     }
 
     /**
@@ -609,7 +650,13 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     private String dragCanvas(final String knownSignificant) throws Exception {
         final List<java.awt.Component> candidates =
             onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
-        if (candidates.isEmpty()) return "unresolved:no-canvas-component";
+        if (candidates.isEmpty()) {
+            // The r13 run returned empty here while the post-action map showed a showing leaf —
+            // record what was actually rejected so the next run names the reason instead of
+            // needing another guess.
+            return "unresolved:no-canvas-component:" + onEdt(
+                WindowsHistoryNativeUiIngressProbe::canvasRejects);
+        }
         final ArrayList<String> tried = new ArrayList<>();
         // Centre of the visible region first — the model sits centered on load — then a second
         // point before moving to the next candidate surface.
@@ -773,6 +820,53 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             if (!candidates.contains(leaf)) candidates.add(leaf);
         }
         return candidates;
+    }
+
+    /**
+     * A bounded report of why every plausible canvas leaf was rejected.
+     *
+     * <p>Only consulted when discovery came back empty: it walks the same windows and records
+     * each leaf that was large enough to matter along with the check that excluded it, so an
+     * empty candidate list explains itself in the artifact.</p>
+     */
+    private static String canvasRejects() {
+        final StringBuilder out = new StringBuilder(4096);
+        for (final java.awt.Window window : java.awt.Window.getWindows()) {
+            if (!window.isVisible()) continue;
+            out.append("W:").append(window.getClass().getSimpleName())
+                .append(":showing=").append(window.isShowing()).append(';');
+            collectRejects(window, out, 0);
+        }
+        return out.length() > 0 ? out.substring(0, Math.min(out.length(), 4000)) : "no-windows";
+    }
+
+    private static void collectRejects(
+        final java.awt.Component component,
+        final StringBuilder out,
+        final int depth
+    ) {
+        if (depth > UI_MAP_MAX_DEPTH || !component.isVisible() || out.length() > 3800) return;
+        final boolean leaf = !(component instanceof java.awt.Container container)
+            || container.getComponentCount() == 0;
+        if (leaf && component.getWidth() >= MIN_CANVAS_EDGE
+            && component.getHeight() >= MIN_CANVAS_EDGE) {
+            final String reason = !component.isShowing() ? "not-showing"
+                : component instanceof javax.swing.AbstractButton ? "button"
+                : component instanceof javax.swing.JSlider ? "slider"
+                : component instanceof javax.swing.JComboBox<?> ? "combo"
+                : component instanceof javax.swing.text.JTextComponent ? "text"
+                : component instanceof javax.swing.JSpinner ? "spinner"
+                : "eligible";
+            out.append(component.getClass().getName())
+                .append('[').append(component.getWidth()).append('x')
+                .append(component.getHeight()).append(']')
+                .append('=').append(reason).append(';');
+        }
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                collectRejects(child, out, depth + 1);
+            }
+        }
     }
 
     private static void collectCanvas(
