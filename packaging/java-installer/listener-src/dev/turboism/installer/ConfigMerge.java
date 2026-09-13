@@ -840,7 +840,7 @@ final class ConfigMerge {
             "disabledIds", "denylistedClasses", "startup");
     private static final Set<String> STARTUP_FIELDS = Set.of(
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
-    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
+    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath", "zgc");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 
@@ -967,6 +967,13 @@ final class ConfigMerge {
                 if (!(cubismJvm instanceof String) || !CUBISM_JVMS.contains(cubismJvm)) {
                     throw new ConfigException(
                             "existing config.json launcher.cubismJvm is invalid: " + cubismJvm);
+                }
+            }
+            if (launcher.containsKey("zgc")) {
+                final Object zgc = launcher.get("zgc");
+                if (!(zgc instanceof Boolean)) {
+                    throw new ConfigException(
+                            "existing config.json launcher.zgc is invalid");
                 }
             }
             if (launcher.containsKey("graalVmPath")) {

@@ -1,5 +1,6 @@
 package dev.turboism.config;
 
+import dev.turboism.plugin.core.CubismJvmSettingsService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -73,6 +74,41 @@ class CubismJvmSettingsFileServiceTest {
             Map.of("TURBOISM_REDUCE_AUTO_BACKUP", "0"))) {
             service.saveReduceAutoBackup(true);
             assertFalse(service.reduceAutoBackup());
+        }
+    }
+
+    @Test
+    void zgcDefaultsToFalse() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            assertFalse(service.zgc());
+        }
+    }
+
+    @Test
+    void zgcRoundTripsThroughLauncherConfig() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            service.saveZgc(true);
+            assertTrue(service.zgc());
+            assertTrue(Files.readString(home.resolve("config.json"))
+                .contains("\"zgc\" : true"));
+            service.saveZgc(false);
+            assertFalse(service.zgc());
+            assertFalse(Files.readString(home.resolve("config.json"))
+                .contains("zgc"));
+        }
+    }
+
+    @Test
+    void zgcSurvivesBesideOtherLauncherFields() throws Exception {
+        try (CubismJvmSettingsFileService service = service(Map.of())) {
+            service.save(CubismJvmSettingsService.CubismJvm.GRAALVM);
+            service.saveZgc(true);
+            assertTrue(service.zgc());
+            service.saveZgc(false);
+            assertFalse(service.zgc());
+            final String saved = Files.readString(home.resolve("config.json"));
+            assertTrue(saved.contains("cubismJvm"));
+            assertFalse(saved.contains("zgc"));
         }
     }
 }
