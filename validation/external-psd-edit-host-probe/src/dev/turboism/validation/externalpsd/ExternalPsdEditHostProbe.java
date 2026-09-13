@@ -1,5 +1,10 @@
 package dev.turboism.validation.externalpsd;
 
+import dev.turboism.sdk.cubism.ProjectFileOperationType;
+import dev.turboism.sdk.cubism.command.EditorCommandResult;
+import dev.turboism.sdk.cubism.command.EditorFileCommand;
+import dev.turboism.sdk.cubism.command.EditorFileCommandRequest;
+import dev.turboism.sdk.cubism.command.EditorOverwritePolicy;
 import dev.turboism.sdk.cubism.model.ArtMeshTextureInputs;
 import dev.turboism.sdk.cubism.model.TextureInputBinding;
 import dev.turboism.sdk.cubism.model.TextureRelationsSnapshot;
@@ -8,12 +13,28 @@ import dev.turboism.sdk.cubism.psd.PsdExportResult;
 import dev.turboism.sdk.cubism.psd.PsdFileOperationResult;
 import dev.turboism.sdk.cubism.psd.PsdFileRevision;
 import dev.turboism.sdk.cubism.psd.PsdReplaceResult;
+import dev.turboism.sdk.event.cubism.ProjectFileLifecycleEvent;
 import dev.turboism.sdk.cubism.id.RawImageId;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
+import dev.turboism.sdk.ui.UserFileHandle;
+import dev.turboism.sdk.ui.UserFileLifetime;
+import dev.turboism.sdk.ui.UserFileMode;
+import dev.turboism.sdk.ui.UserFileRequest;
+import dev.turboism.sdk.ui.UserFileRequestResult;
 
+import javax.swing.JMenuItem;
+import javax.swing.JPopupMenu;
+import javax.swing.JTree;
+import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
+import java.awt.Component;
+import java.awt.Container;
+import java.awt.Frame;
+import java.awt.Window;
+import java.awt.event.InputEvent;
+import java.awt.event.MouseEvent;
 import java.io.StringWriter;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
@@ -31,6 +52,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -44,8 +66,14 @@ import java.util.stream.Stream;
  * file paths from plugin input; it locates the runtime allocation only for simulated
  * external writes, exactly as an external editor would see it.</p>
  *
- * <p>NOT covered (recorded honestly): GUI context-menu timing, real editor application,
- * document save/close/reopen persistence (no SDK seam), multi-document isolation.</p>
+ * <p>Phases ({@code -Dturboism.validation.externalpsd.phase}): {@code pipeline} (default)
+ * runs the full save/replace/undo/stop pipeline and, with {@code .persist=1}, appends a
+ * mediated SAVE_AS plus lifecycle-event confirmation; {@code reopen} re-exports the marker
+ * layer from a previously saved fixture copy; {@code gui} right-clicks a real object row,
+ * clicks the contributed menu item, and verifies the plugin's own session auto-imports a
+ * written save.</p>
+ *
+ * <p>NOT covered (recorded honestly): multi-document isolation, F3/F4 fixture entities.</p>
  */
 public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private PluginContext context;
@@ -77,49 +105,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("expectedHostVersion", "5.3.02");
         result.setProperty("hostIdentityEvidence", "runner exact JAR/BAT identity and lifecycle evidence");
         result.setProperty("cycles.requested", Integer.toString(cycles));
-        result.setProperty("guiContextMenu", "NOT_TESTED: no semantic SDK seam for right-click timing");
-        result.setProperty("realEditorApplication", "NOT_TESTED: default-application launch recorded only");
-        result.setProperty("documentPersistence", "NOT_TESTED: no SDK document save/close/reopen seam");
+        final String phase = System.getProperty(
+            "turboism.validation.externalpsd.phase", "pipeline");
+        result.setProperty("phase", phase);
         try {
             awaitReady();
-            final Target target = resolveTarget(result);
-            final Path before = tempMarker();
-            final PsdExportResult exported = export(result, target.raw());
-            final PsdEditFile file = exported.file().orElseThrow();
-            final Path tempFile = locateTempFile(before, result);
-            final byte[] baselineBytes = Files.readAllBytes(tempFile);
-            result.setProperty("tempFile.discovered", Boolean.toString(tempFile.getFileName()
-                .toString().equals("external-edit.psd")));
-            result.setProperty("baseline.bytes", Integer.toString(baselineBytes.length));
-            result.setProperty("baseline.sha256", sha256(baselineBytes));
-            result.setProperty("baseline.revisionIssued",
-                Boolean.toString(exported.initialRevision().isPresent()));
-
-            final Deque<PsdFileRevision> revisions = new ArrayDeque<>();
-            final Registration subscription = file.observeSaves(revision -> {
-                synchronized (revisions) { revisions.add(revision); revisions.notifyAll(); }
-            });
-            try {
-                assertNoRevision(revisions, 1500, "baseline revision must not be replayed to subscribers");
-                result.setProperty("baseline.replayed", "false");
-
-                final PsdFileOperationResult opened = file.openInDefaultApplication()
-                    .toCompletableFuture().get(60, TimeUnit.SECONDS);
-                result.setProperty("defaultApplication.status", opened.status().name());
-                result.setProperty("defaultApplication.diagnostic", opened.diagnostic());
-
-                runSaveCycles(result, file, target, tempFile, revisions, cycles);
-                runCorruptedSave(result, file, target, tempFile, revisions);
-                runUndoRedo(result, target);
-                assertNoReplayAfterIdle(result, revisions);
-                runStopAndRecovery(result, file, target, tempFile, revisions);
-            } finally {
-                subscription.close();
-                file.stop();
+            switch (phase) {
+                case "reopen" -> runReopen(result);
+                case "gui" -> runGui(result);
+                case "pipeline" -> runPipeline(result, cycles);
+                default -> throw new IllegalStateException("unknown probe phase " + phase);
             }
-            result.setProperty("expected", "full pipeline assertions hold");
-            result.setProperty("actual", "full pipeline assertions hold");
             result.setProperty("status", "PASS");
+        } catch (Blocked blocked) {
+            result.setProperty("status", "BLOCKED");
+            result.setProperty("expected", blocked.expected);
+            result.setProperty("actual", blocked.getMessage());
+            context.logger().warn("EXTERNAL_PSD_EDIT_RESULT status=BLOCKED " + blocked.getMessage());
         } catch (Throwable error) {
             if (stopped) return;
             result.setProperty("status", "FAIL");
@@ -144,6 +146,147 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             Runtime.getRuntime().exit("PASS".equals(result.getProperty("status")) ? 0 : 2);
         } catch (Exception error) {
             context.logger().warn("EXTERNAL_PSD_EDIT_RESULT_WRITE_FAILED " + error);
+        }
+    }
+
+    /** Full save→replace→undo→stop→recover pipeline plus optional persist tail. */
+    private void runPipeline(final Properties result, final int cycles) throws Exception {
+        result.setProperty("realEditorApplication",
+            "default-application launch recorded; OPENED requires the task .psd association");
+        final Target target = resolveTarget(result);
+        final Path before = tempMarker();
+        final PsdExportResult exported = export(result, target.raw());
+        final PsdEditFile file = exported.file().orElseThrow();
+        final Path tempFile = locateTempFile(before, result);
+        final byte[] baselineBytes = Files.readAllBytes(tempFile);
+        result.setProperty("tempFile.discovered", Boolean.toString(tempFile.getFileName()
+            .toString().equals("external-edit.psd")));
+        result.setProperty("baseline.bytes", Integer.toString(baselineBytes.length));
+        result.setProperty("baseline.sha256", sha256(baselineBytes));
+        result.setProperty("baseline.revisionIssued",
+            Boolean.toString(exported.initialRevision().isPresent()));
+
+        final Deque<PsdFileRevision> revisions = new ArrayDeque<>();
+        final Registration subscription = file.observeSaves(revision -> {
+            synchronized (revisions) { revisions.add(revision); revisions.notifyAll(); }
+        });
+        try {
+            assertNoRevision(revisions, 1500, "baseline revision must not be replayed to subscribers");
+            result.setProperty("baseline.replayed", "false");
+
+            final PsdFileOperationResult opened = file.openInDefaultApplication()
+                .toCompletableFuture().get(60, TimeUnit.SECONDS);
+            result.setProperty("defaultApplication.status", opened.status().name());
+            result.setProperty("defaultApplication.diagnostic", opened.diagnostic());
+
+            final Mutation marker =
+                runSaveCycles(result, file, target, tempFile, revisions, cycles);
+            runCorruptedSave(result, file, target, tempFile, revisions);
+            runUndoRedo(result, target);
+            assertNoReplayAfterIdle(result, revisions);
+            runStopAndRecovery(result, file, target, tempFile, revisions);
+            recordEnvironment(result);
+            if (marker != null) {
+                result.setProperty("persist.markerLayer", Integer.toString(marker.layer()));
+                result.setProperty("persist.markerOffset", Integer.toString(marker.nameOffset()));
+                result.setProperty("persist.markerChar", Integer.toString(marker.letter()));
+            }
+            if ("1".equals(System.getProperty("turboism.validation.externalpsd.persist"))) {
+                runPersistTail(result);
+            } else {
+                result.setProperty("documentPersistence",
+                    "NOT_TESTED: persist tail not requested");
+            }
+        } finally {
+            subscription.close();
+            file.stop();
+        }
+        result.setProperty("expected", "full pipeline assertions hold");
+        result.setProperty("actual", "full pipeline assertions hold");
+    }
+
+    /**
+     * Reopens a fixture copy saved by a persist run and proves the externally applied layer-name
+     * marker survived a real native save → file → reopen roundtrip.
+     */
+    private void runReopen(final Properties result) throws Exception {
+        final Target target = resolveTarget(result);
+        final Path before = tempMarker();
+        final PsdExportResult exported = export(result, target.raw());
+        final PsdEditFile file = exported.file().orElseThrow();
+        try {
+            final Path tempFile = locateTempFile(before, result);
+            final byte[] bytes = Files.readAllBytes(tempFile);
+            final List<int[]> names = layerNameRanges(bytes);
+            result.setProperty("reopen.layerCount", Integer.toString(names.size()));
+            result.setProperty("reopen.bytes", Integer.toString(bytes.length));
+            final int layer = Integer.getInteger(
+                "turboism.validation.externalpsd.markerLayer", -1);
+            final int offset = Integer.getInteger(
+                "turboism.validation.externalpsd.markerOffset", -1);
+            final int markerChar = Integer.getInteger(
+                "turboism.validation.externalpsd.markerChar", -1);
+            result.setProperty("reopen.expectedMarker", layer + ":" + offset + ":" + markerChar);
+            if (layer < 0 || layer >= names.size() || offset < 0 || offset >= names.get(layer)[1]) {
+                throw new IllegalStateException("marker coordinates out of range for reopened PSD");
+            }
+            final char actual = (char) bytes[names.get(layer)[0] + offset];
+            result.setProperty("reopen.actualMarker", Character.toString(actual));
+            if (actual != (char) markerChar) {
+                throw new IllegalStateException(
+                    "reopened document does not carry the external-edit marker");
+            }
+        } finally {
+            file.stop();
+        }
+        result.setProperty("expected", "reopened fixture retains the external-edit layer marker");
+        result.setProperty("actual", "marker verified in the reopened document's raw image");
+    }
+
+    /**
+     * Real GUI path: right-click an object row until a popup exposes the contributed item,
+     * click it, then verify the product plugin's own session opens the runtime-issued temp
+     * file and auto-imports a written save.
+     */
+    private void runGui(final Properties result) throws Exception {
+        final Target target = resolveTarget(result);
+        result.setProperty("gui.menuLabel", System.getProperty(
+            "turboism.validation.externalpsd.menuLabel", "Edit PSD Externally"));
+        final long generationBefore = generationOnEdt();
+        result.setProperty("gui.generationBefore", Long.toString(generationBefore));
+        final Path marker = tempMarker();
+
+        final GuiClick click = clickContributedItem(
+            result.getProperty("gui.menuLabel"), 64, result);
+        if (!click.clicked()) {
+            throw new Blocked("context menu with the contributed item was reachable",
+                click.diagnostic());
+        }
+        result.setProperty("gui.menuPresent", "true");
+        result.setProperty("gui.itemClicked", "true");
+
+        final Path sessionFile = awaitSessionTempFile(marker, 90);
+        result.setProperty("gui.sessionFile", sessionFile.getParent().getFileName().toString());
+        final byte[] mutated = mutateLayerName(Files.readAllBytes(sessionFile), 900)
+            .orElseThrow(() -> new IllegalStateException("session PSD has no mutable layer name"));
+        Files.write(sessionFile, mutated);
+
+        final boolean applied = awaitAutoImport(target, generationBefore, 90);
+        result.setProperty("gui.autoImportApplied", Boolean.toString(applied));
+        result.setProperty("gui.generationAfter", Long.toString(generationOnEdt()));
+        if (!applied) {
+            throw new IllegalStateException("plugin session did not auto-import the written save");
+        }
+        result.setProperty("expected", "context-menu item starts a session and auto-imports saves");
+        result.setProperty("actual", "menu click → session file → written save auto-applied");
+    }
+
+    /** Blocked signal: the evidence condition could not be reached, distinct from a failure. */
+    private static final class Blocked extends IllegalStateException {
+        final String expected;
+        Blocked(final String expected, final String actual) {
+            super(actual);
+            this.expected = expected;
         }
     }
 
@@ -205,7 +348,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("relation.raw", target.raw().value());
         result.setProperty("relation.rawReplaced",
             Boolean.toString(target.rawReplaced));
+        final long shared = relationsOf(target).map(relations -> relations.artMeshInputs().stream()
+            .filter(mesh -> mesh.currentInputIndex().isPresent())
+            .map(mesh -> mesh.inputs().get(mesh.currentInputIndex().getAsInt()))
+            .filter(input -> input.kind() == TextureInputBinding.Kind.MODEL_IMAGE
+                && input.isResolved() && input.modelImageId().isPresent())
+            .flatMap(input -> relations.modelImage(input.modelImageId().orElseThrow()).stream())
+            .flatMap(image -> image.currentRawImageId().stream())
+            .filter(raw -> raw.value().equals(target.raw().value()))
+            .count()).orElse(0L);
+        result.setProperty("relation.sharedRawArtMeshes", Long.toString(shared));
         return target;
+    }
+
+    private Optional<TextureRelationsSnapshot> relationsOf(final Target target) {
+        final AtomicReference<TextureRelationsSnapshot> snapshot = new AtomicReference<>();
+        try {
+            SwingUtilities.invokeAndWait(() -> snapshot.set(
+                context.cubism().model().active().textures().relations()));
+        } catch (Exception unavailable) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(snapshot.get());
     }
 
     private Optional<Target> pickTarget(final TextureRelationsSnapshot relations) {
@@ -282,12 +446,15 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return exported;
     }
 
-    private void runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
+    private Mutation runSaveCycles(final Properties result, final PsdEditFile file, final Target target,
         final Path tempFile, final Deque<PsdFileRevision> revisions, final int cycles) throws Exception {
+        Mutation lastMutation = null;
         for (int i = 1; i <= cycles; i++) {
             final byte[] current = Files.readAllBytes(tempFile);
-            final byte[] mutated = mutateLayerName(current, i)
+            final Mutation mutation = mutationFor(current, i)
                 .orElseThrow(() -> new IllegalStateException("PSD layer-name mutation failed"));
+            final byte[] mutated = applyMutation(current, mutation);
+            lastMutation = mutation;
             final long writeStart = System.nanoTime();
             if (i == 2) {
                 // Atomic-rename save: write sibling then move over the issued file.
@@ -298,8 +465,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             } else if (i == 3) {
                 // Overlapping save: a second distinct write lands inside the debounce
                 // window; latest-pending must win and publish a single revision.
-                final byte[] second = mutateLayerName(mutated, i + 100)
+                final Mutation secondMutation = mutationFor(mutated, i + 100)
                     .orElseThrow(() -> new IllegalStateException("Second mutation failed"));
+                final byte[] second = applyMutation(mutated, secondMutation);
                 Files.write(tempFile, mutated);
                 Files.write(tempFile, second);
             } else {
@@ -333,6 +501,7 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 revisions.clear();
             }
         }
+        return lastMutation;
     }
 
     private void runCorruptedSave(final Properties result, final PsdEditFile file, final Target target,
@@ -488,17 +657,32 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
      * same layout, only name bytes change. Returns empty when no mutable name exists.
      */
     static Optional<byte[]> mutateLayerName(final byte[] psd, final int cycle) {
+        return mutationFor(psd, cycle).map(mutation -> applyMutation(psd, mutation));
+    }
+
+    /** Deterministic per-cycle mutation coordinates over the parsed layer-name table. */
+    static Optional<Mutation> mutationFor(final byte[] psd, final int cycle) {
         final List<int[]> names = layerNameRanges(psd);
         if (names.isEmpty()) return Optional.empty();
-        final byte[] copy = psd.clone();
-        final int[] range = names.get((cycle - 1) % names.size());
-        final int offset = range[0] + (range[1] > 1 ? (cycle - 1) / names.size() % range[1] : 0);
+        final int layer = (cycle - 1) % names.size();
+        final int[] range = names.get(layer);
+        final int nameOffset = range[1] > 1 ? (cycle - 1) / names.size() % range[1] : 0;
         byte replacement = (byte) ('a' + (cycle - 1) % 26);
-        if (replacement == copy[offset]) {
+        if (replacement == psd[range[0] + nameOffset]) {
             replacement = (byte) (replacement == 'a' ? 'b' : 'a');
         }
-        copy[offset] = replacement;
-        return Optional.of(copy);
+        return Optional.of(new Mutation(layer, nameOffset, (char) replacement));
+    }
+
+    private static byte[] applyMutation(final byte[] psd, final Mutation mutation) {
+        final int[] range = layerNameRanges(psd).get(mutation.layer());
+        final byte[] copy = psd.clone();
+        copy[range[0] + mutation.nameOffset()] = (byte) mutation.letter();
+        return copy;
+    }
+
+    /** (layerIndex, byteOffsetWithinName, letter) of one name-byte substitution. */
+    record Mutation(int layer, int nameOffset, char letter) {
     }
 
     /** (nameByteStart, nameByteLength) per layer record; empty on any structural anomaly. */
@@ -541,6 +725,275 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             names.clear();
         }
         return names;
+    }
+
+    private void recordEnvironment(final Properties result) throws Exception {
+        final Runtime runtime = Runtime.getRuntime();
+        result.setProperty("env.processors", Integer.toString(runtime.availableProcessors()));
+        result.setProperty("env.heapMaxBytes", Long.toString(runtime.maxMemory()));
+        result.setProperty("env.heapUsedBytes",
+            Long.toString(runtime.totalMemory() - runtime.freeMemory()));
+        final long start = System.nanoTime();
+        SwingUtilities.invokeAndWait(() -> { });
+        result.setProperty("env.edtDispatchMs",
+            Long.toString((System.nanoTime() - start) / 1_000_000));
+    }
+
+    /**
+     * Mediated persistence: a fixed-grant write handle → typed SAVE_AS → the native
+     * {@code saveDocument} hook must surface a {@link ProjectFileOperationType#SAVE} After
+     * event. The granted target lives outside the task fixture copy, so the runner's
+     * fixture-unchanged guarantee still holds.
+     */
+    private void runPersistTail(final Properties result) throws Exception {
+        final List<ProjectFileLifecycleEvent.After> saves = new CopyOnWriteArrayList<>();
+        final Registration subscription = context.eventBus().subscribe(
+            ProjectFileLifecycleEvent.After.class,
+            event -> {
+                if (event.operation().operation() == ProjectFileOperationType.SAVE) {
+                    saves.add(event);
+                }
+            });
+        try {
+            final UserFileRequestResult granted = context.userFiles().request(
+                new UserFileRequest(
+                    "external-psd-persist",
+                    "Persist edited document",
+                    List.of("cmo3"),
+                    UserFileMode.WRITE,
+                    UserFileLifetime.ONE_OPERATION))
+                .toCompletableFuture().get(60, TimeUnit.SECONDS);
+            result.setProperty("persist.grant.status", granted.status().name());
+            final UserFileHandle handle = granted.handle().orElseThrow(() ->
+                new IllegalStateException("No write grant issued: " + granted.status()));
+            final EditorCommandResult saved = context.editorCommands().execute(
+                new EditorFileCommandRequest(
+                    EditorFileCommand.SAVE_AS, handle, EditorOverwritePolicy.REPLACE_EXISTING));
+            result.setProperty("persist.saveAs.status", saved.status().name());
+            result.setProperty("persist.saveAs.executed", Boolean.toString(saved.executed()));
+            if (!saved.executed()) {
+                throw new IllegalStateException("SAVE_AS did not execute: " + saved.status());
+            }
+            final long deadline = System.currentTimeMillis() + 15_000;
+            while (saves.isEmpty() && System.currentTimeMillis() < deadline) {
+                Thread.sleep(200);
+            }
+            result.setProperty("persist.saveEvents", Integer.toString(saves.size()));
+            if (saves.isEmpty()) {
+                throw new IllegalStateException("SAVE lifecycle event not observed");
+            }
+            final var saveResult = saves.get(0).result();
+            result.setProperty("persist.saveSucceeded",
+                Boolean.toString(saveResult.succeeded()));
+            result.setProperty("persist.savedFile",
+                saveResult.request().fileName().orElse(""));
+            if (!saveResult.succeeded()) {
+                throw new IllegalStateException("SAVE lifecycle completed without success");
+            }
+            result.setProperty("documentPersistence", "SAVE_AS executed + SAVE event confirmed");
+        } finally {
+            subscription.close();
+        }
+    }
+
+    private long generationOnEdt() throws Exception {
+        final AtomicReference<Long> generation = new AtomicReference<>(-1L);
+        SwingUtilities.invokeAndWait(() -> {
+            try {
+                generation.set(
+                    context.cubism().model().active().textures().relations().generation());
+            } catch (RuntimeException unavailable) {
+                // -1 stays; callers treat it as "unobserved".
+            }
+        });
+        return generation.get();
+    }
+
+    /**
+     * Scans visible {@link JTree} rows, dispatches a real popup-trigger right-click on each,
+     * and clicks the first menu item whose text equals {@code label}. Returns after the
+     * first successful click or when the row budget is exhausted.
+     */
+    private GuiClick clickContributedItem(final String label, final int rowBudget,
+        final Properties result) throws Exception {
+        int attempts = 0;
+        int popups = 0;
+        String diagnostic = "no visible JTree found";
+        final long deadline = System.currentTimeMillis() + 120_000;
+        while (System.currentTimeMillis() < deadline && !stopped) {
+            final List<JTree> trees = visibleTrees();
+            if (!trees.isEmpty()) {
+                for (final JTree tree : trees) {
+                    final int rows = rowCount(tree);
+                    for (int row = 0; row < rows && attempts < rowBudget; row++, attempts++) {
+                        if (stopped) return new GuiClick(false, "probe stopped");
+                        final JPopupMenu popup = rightClickRow(tree, row);
+                        if (popup == null) continue;
+                        popups++;
+                        final JMenuItem item = findItem(popup, label);
+                        if (item == null) {
+                            dismissPopup();
+                            continue;
+                        }
+                        result.setProperty("gui.popupRow", Integer.toString(row));
+                        result.setProperty("gui.popupComponent", tree.getClass().getName());
+                        clickItem(item);
+                        result.setProperty("gui.attempts", Integer.toString(attempts));
+                        result.setProperty("gui.popupsSeen", Integer.toString(popups));
+                        return new GuiClick(true, "clicked row " + row);
+                    }
+                    diagnostic = "rows exhausted without the item; popups seen " + popups;
+                }
+            }
+            Thread.sleep(1000);
+        }
+        result.setProperty("gui.attempts", Integer.toString(attempts));
+        result.setProperty("gui.popupsSeen", Integer.toString(popups));
+        return new GuiClick(false, diagnostic);
+    }
+
+    private record GuiClick(boolean clicked, String diagnostic) {
+    }
+
+    private List<JTree> visibleTrees() throws Exception {
+        final AtomicReference<List<JTree>> found = new AtomicReference<>(List.of());
+        SwingUtilities.invokeAndWait(() -> {
+            final List<JTree> trees = new ArrayList<>();
+            for (final Frame frame : Frame.getFrames()) {
+                collectTrees(frame, trees);
+            }
+            found.set(trees);
+        });
+        return found.get();
+    }
+
+    private static void collectTrees(final Container container, final List<JTree> trees) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JTree tree && tree.isShowing()) {
+                trees.add(tree);
+            }
+            if (component instanceof Container child) {
+                collectTrees(child, trees);
+            }
+        }
+    }
+
+    private int rowCount(final JTree tree) throws Exception {
+        final AtomicReference<Integer> rows = new AtomicReference<>(0);
+        SwingUtilities.invokeAndWait(() -> rows.set(tree.getRowCount()));
+        return rows.get();
+    }
+
+    /** Dispatches press+release popup-trigger clicks on a row; returns the opened popup. */
+    private JPopupMenu rightClickRow(final JTree tree, final int row) throws Exception {
+        SwingUtilities.invokeAndWait(() -> {
+            tree.expandRow(row);
+            final var bounds = tree.getRowBounds(row);
+            if (bounds == null) return;
+            final int x = bounds.x + bounds.width / 2;
+            final int y = bounds.y + bounds.height / 2;
+            final long now = System.currentTimeMillis();
+            tree.dispatchEvent(new MouseEvent(tree, MouseEvent.MOUSE_PRESSED, now,
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+            tree.dispatchEvent(new MouseEvent(tree, MouseEvent.MOUSE_RELEASED, now,
+                InputEvent.BUTTON3_DOWN_MASK, x, y, 1, true, MouseEvent.BUTTON3));
+        });
+        // The host may build and show the popup asynchronously after the event returns.
+        for (int attempt = 0; attempt < 20 && !stopped; attempt++) {
+            final AtomicReference<JPopupMenu> opened = new AtomicReference<>();
+            SwingUtilities.invokeAndWait(() -> opened.set(currentPopup()));
+            if (opened.get() != null) return opened.get();
+            Thread.sleep(150);
+        }
+        return null;
+    }
+
+    private static JPopupMenu currentPopup() {
+        final var path = MenuSelectionManager.defaultManager().getSelectedPath();
+        if (path.length > 0 && path[0] instanceof JPopupMenu popup && popup.isVisible()) {
+            return popup;
+        }
+        for (final Window window : Window.getWindows()) {
+            final JPopupMenu popup = findPopup(window);
+            if (popup != null) return popup;
+        }
+        return null;
+    }
+
+    private static JPopupMenu findPopup(final Container container) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JPopupMenu popup && popup.isVisible()) return popup;
+            if (component instanceof Container child) {
+                final JPopupMenu popup = findPopup(child);
+                if (popup != null) return popup;
+            }
+        }
+        return null;
+    }
+
+    private static JMenuItem findItem(final JPopupMenu popup, final String label) {
+        for (final Component component : popup.getComponents()) {
+            if (component instanceof JMenuItem item && label.equals(item.getText())) {
+                return item;
+            }
+        }
+        return null;
+    }
+
+    private void dismissPopup() throws Exception {
+        SwingUtilities.invokeAndWait(() ->
+            MenuSelectionManager.defaultManager().clearSelectedPath());
+    }
+
+    private void clickItem(final JMenuItem item) throws Exception {
+        SwingUtilities.invokeAndWait(item::doClick);
+    }
+
+    /** Polls the task temp root for a turboism-psd-* session created after {@code marker}. */
+    private Path awaitSessionTempFile(final Path marker, final int timeoutSeconds)
+        throws Exception {
+        final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
+        while (System.currentTimeMillis() < deadline && !stopped) {
+            try (Stream<Path> stream = Files.list(marker.getParent())) {
+                final Optional<Path> newest = stream
+                    .filter(path -> path.getFileName().toString().startsWith("turboism-psd-"))
+                    .filter(path -> isNewerThan(path, marker))
+                    .map(path -> path.resolve("external-edit.psd"))
+                    .filter(Files::isRegularFile)
+                    .max(Comparator.comparing(ExternalPsdEditHostProbe::modified));
+                if (newest.isPresent()) return newest.get().toRealPath(LinkOption.NOFOLLOW_LINKS);
+            }
+            Thread.sleep(500);
+        }
+        throw new IllegalStateException(
+            "plugin session temp file did not appear within " + timeoutSeconds + "s");
+    }
+
+    /** Waits for the plugin's auto-import: isReplaced flip or relation generation bump. */
+    private boolean awaitAutoImport(final Target target, final long generationBefore,
+        final int timeoutSeconds) throws Exception {
+        final long deadline = System.currentTimeMillis() + timeoutSeconds * 1000L;
+        while (System.currentTimeMillis() < deadline && !stopped) {
+            final AtomicReference<Boolean> replaced = new AtomicReference<>(false);
+            SwingUtilities.invokeAndWait(() -> {
+                try {
+                    final var relations =
+                        context.cubism().model().active().textures().relations();
+                    if (relations.generation() != generationBefore) {
+                        replaced.set(true);
+                        return;
+                    }
+                    relations.rawImage(target.raw()).ifPresent(raw -> {
+                        if (raw.isReplaced()) replaced.set(true);
+                    });
+                } catch (RuntimeException unavailable) {
+                    // keep polling until the deadline
+                }
+            });
+            if (replaced.get()) return true;
+            Thread.sleep(500);
+        }
+        return false;
     }
 
     private record Target(ArtMeshTextureInputs artMesh,

@@ -18,7 +18,9 @@
     {"id": "turboism.cubism.model.write", "scope": "application", "reason": "Apply native explicit-target raw-image replacement and native Undo/Redo for the task fixture."},
     {"id": "turboism.file.read", "scope": "application", "reason": "Read the runtime-issued temporary PSD to simulate external saves."},
     {"id": "turboism.file.write", "scope": "application", "reason": "Write into the runtime-issued temporary PSD to simulate external saves."},
-    {"id": "turboism.process.run", "scope": "application", "reason": "Observe the default-application launch result; the outcome is recorded, never gated."}
+    {"id": "turboism.process.run", "scope": "application", "reason": "Observe the default-application launch result; the outcome is recorded, never gated."},
+    {"id": "turboism.cubism.model.observe", "scope": "application", "reason": "Observe project file lifecycle events to confirm document saves."},
+    {"id": "turboism.ui.file-chooser.request", "scope": "application", "reason": "Request the task-pinned write grant used by the mediated SAVE_AS persist check."}
   ],
   "capabilities": [],
   "environment": {"requiresCubism": true, "ui": "swing"}
