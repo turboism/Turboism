@@ -29,8 +29,8 @@ record PreviewPluginRuntimeResources(
     dev.turboism.pluginmanagement.RuntimePluginManagementService pluginManagement,
     PreviewPluginContextFactory contextFactory,
     dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings,
-    dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings,
-    dev.turboism.plugin.core.CoreUpdateService updateService
+    dev.turboism.shell.CubismJvmSettingsService cubismJvmSettings,
+    dev.turboism.shell.CoreUpdateService updateService
 ) {
     static PreviewPluginRuntimeResources create(
         final Path home,
@@ -125,7 +125,7 @@ record PreviewPluginRuntimeResources(
                 .map(plugin -> {
                     final var descriptor = plugin.runtime().descriptor();
                     final var metadata = localizedMetadata(plugin.localization(), descriptor.name(), descriptor.description());
-                    return new dev.turboism.plugin.core.CorePluginManagement.PluginInfo(
+                    return new dev.turboism.shell.CorePluginManagement.PluginInfo(
                         descriptor.id(), metadata.name(), descriptor.version(), metadata.description(),
                         plugin.runtime().state().name(),
                         plugin.runtime().state() == dev.turboism.core.lifecycle.PluginLifecycleState.ENABLED
@@ -139,7 +139,7 @@ record PreviewPluginRuntimeResources(
                         ),
                         java.util.List.copyOf(descriptor.tags()),
                         descriptor.authors().stream()
-                            .map(author -> new dev.turboism.plugin.core.CorePluginManagement.Author(
+                            .map(author -> new dev.turboism.shell.CorePluginManagement.Author(
                                 author.name(), author.email()
                             ))
                             .toList()
@@ -174,7 +174,7 @@ record PreviewPluginRuntimeResources(
         log.setMaxStorageMiB(settings.maxLogStorageMiB());
         final dev.turboism.config.CubismJvmSettingsFileService cubismJvmSettings =
             new dev.turboism.config.CubismJvmSettingsFileService(home);
-        final dev.turboism.plugin.core.CoreUpdateService updateService =
+        final dev.turboism.shell.CoreUpdateService updateService =
             new dev.turboism.update.RuntimeUpdateService(
                 home,
                 scheduler,

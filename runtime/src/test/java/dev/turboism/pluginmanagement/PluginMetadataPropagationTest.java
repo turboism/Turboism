@@ -1,6 +1,6 @@
 package dev.turboism.pluginmanagement;
 
-import dev.turboism.plugin.core.CorePluginManagement;
+import dev.turboism.shell.CorePluginManagement;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
