@@ -249,7 +249,8 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             hostAdapters.projectWorkspace(),
             hostAdapters.clipMaskRead(),
             dependencies.descriptor().id(),
-            CubismReadPermissionGate.from(permissionGate)
+            CubismReadPermissionGate.from(permissionGate),
+            activeScope::get
         );
         final AutoBackupCoordinator backupCoordinator = new AutoBackupCoordinator(
             autoBackup,
@@ -280,8 +281,12 @@ final class DefaultCubismServicesFactory implements CubismServicesFactory {
             ),
             dependencies.permissions().stream().anyMatch(permission ->
                 CubismFacadeImpl.MODEL_WRITE_PERMISSION.equals(permission.id())
-            ) ? physicsEditorCoordinator : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
-            new CubismClipMaskServiceImpl(readCapabilityService, modelAccess),
+            ) ? new dev.turboism.adapter.cubism.physics.PluginScopedPhysicsEditorService(
+                physicsEditorCoordinator,
+                dependencies.disposableScope(),
+                activeScope::get
+            ) : dev.turboism.sdk.cubism.physics.PhysicsEditorService.unavailable(),
+            new CubismClipMaskServiceImpl(readCapabilityService, pluginModelAccess),
             new dev.turboism.adapter.cubism.command.RuntimeEditorCommandService(
                 editorCommands, permissionGate, editorFiles, activeScope::get
             ),
