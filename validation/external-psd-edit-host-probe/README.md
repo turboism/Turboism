@@ -1,13 +1,18 @@
 # External PSD Edit Host Probe (025, test-only)
 
 Drives the external PSD edit pipeline on the exact Cubism 5.3.02 host through the public
-SDK only:
+SDK only. Three phases, selected by `-Dturboism.validation.externalpsd.phase=`:
 
-1. Resolve an ArtMesh → model image → current raw image chain on the task fixture.
+## pipeline (default)
+
+1. Resolve an ArtMesh → model image → current raw image chain on the task fixture, and
+   record how many ArtMeshes share the same current raw (`relation.sharedRawArtMeshes`).
 2. `exportRawImagePsd` → `EXPORTED` + runtime-issued `PsdEditFile` + baseline revision.
 3. Discover the runtime temporary allocation under `java.io.tmpdir` (`turboism-psd-*/external-edit.psd`).
 4. `observeSaves`; assert the baseline revision is not replayed.
-5. `openInDefaultApplication` — recorded, never gated (headless Wine may lack an association).
+5. `openInDefaultApplication` — with the task-scoped `.psd → notepad.exe` association the
+   pre-launch hook installs into the cloned prefix's `system.reg`, `OPENED` is expected;
+   the golden prefix and real OS associations are never touched.
 6. N save cycles (default 3; `-Dturboism.validation.externalpsd.cycles=`): structural
    layer-name mutation → stable revision → `replaceRawImagePsd` → `APPLIED` with consumed
    revision and post-native `after` observation. Cycle 2 saves by atomic rename, cycle 3
@@ -17,10 +22,31 @@ SDK only:
 9. Idle wait → no revision replay without a new save.
 10. `stop()` → `STOPPED`; post-stop writes publish nothing.
 11. Re-export the same raw image → fresh handle → clean stop (same-binding recovery).
+12. Environment metrics (`env.*`: heap, processors, EDT dispatch latency).
+13. Persist tail when `-Dturboism.validation.externalpsd.persist=1`: a task-pinned
+    `UserFileGrantSource.fixedSelection` target (wired by
+    `-Dturboism.preview.userFileFixedGrant={HOME}/persisted-document.cmo3`) grants a WRITE
+    handle → `EditorFileCommand.SAVE_AS` executes the verified native `saveDocument` → a
+    `ProjectFileLifecycleEvent.After` SAVE event must confirm it. The saved copy lives in
+    the task home, outside the fixture copy — the runner's fixture-unchanged guarantee
+    still holds. The last mutation's `(layer, offset, char)` is recorded as
+    `persist.marker*` for the reopen stage.
 
-Not covered and recorded as `NOT_TESTED`: GUI context-menu click/selection timing, a real
-external editor, document save/close/reopen persistence, multi-document isolation, p95
-performance budgets.
+## reopen
+
+Runs against a fixture copy produced by a persist run (`--fixture-local <saved>`), re-exports
+the current raw image, and asserts the recorded marker byte survived the real native
+save → file → reopen roundtrip. Marker coordinates arrive via
+`-Dturboism.validation.externalpsd.marker{Layer,Offset,Char}=`.
+
+## gui
+
+Loads alongside the production `external-psd-edit` plugin jar (`EXTERNAL_PSD_WITH_PLUGIN`),
+dispatches a real popup-trigger right-click on visible `JTree` rows until a popup exposes
+the contributed item (`Edit PSD Externally`), clicks it, waits for the plugin's own
+`turboism-psd-*` session file, writes a mutated save, and verifies the plugin auto-imports
+it (relation `isReplaced` flip or generation bump). `BLOCKED` (not `FAIL`) when no popup
+can be raised — a blocked run terminates fast through the runner `--failure-marker`.
 
 ## Build / offline test
 
@@ -35,8 +61,15 @@ bash validation/external-psd-edit-host-probe/test.sh
 ```bash
 bash scripts/preview/run-external-psd-edit-host-validation.sh --dry-run
 bash scripts/preview/run-external-psd-edit-host-validation.sh
+
+# persistence: save-as → reopen two-stage evidence
+bash scripts/preview/run-external-psd-edit-persist-validation.sh
+
+# GUI: stage the production plugin jar beside the probe
+EXTERNAL_PSD_PHASE=gui EXTERNAL_PSD_WITH_PLUGIN=<external-psd-edit.jar> \
+  bash scripts/preview/run-external-psd-edit-host-validation.sh
 ```
 
 Result file: `state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties`
-under the isolated Turboism home. Terminal status is `status=PASS|FAIL`; the probe never
-rewrites a FAIL into PASS.
+under the isolated Turboism home. Terminal status is `status=PASS|FAIL|BLOCKED`; the probe
+never rewrites a FAIL or BLOCKED into PASS.
