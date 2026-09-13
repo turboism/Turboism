@@ -7,7 +7,7 @@ import dev.turboism.core.event.EventSubscriptionPermissionCatalog;
 import dev.turboism.core.lifecycle.PluginLifecycleState;
 import dev.turboism.core.plugin.PluginRuntime;
 import dev.turboism.plugin.core.CorePluginServices;
-import dev.turboism.plugin.core.MainToolbarPlugin;
+import dev.turboism.plugin.core.CorePlugin;
 import dev.turboism.sdk.plugin.DisposableScope;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -29,7 +29,7 @@ final class BuiltinCorePlugin {
         final CorePluginServices services,
         final PreviewLog log
     ) throws Exception {
-        final ClassLoader loader = MainToolbarPlugin.class.getClassLoader();
+        final ClassLoader loader = CorePlugin.class.getClassLoader();
         final URLClassLoader resources = resourceLoader(loader);
         DisposableScope scope = null;
         PluginContextBundle context = null;
@@ -53,7 +53,7 @@ final class BuiltinCorePlugin {
             runtime.transitionTo(PluginLifecycleState.CLASSLOADER_CREATED);
             scope = new DisposableScope();
             context = contexts.create(descriptor, resources, scope);
-            plugin = CorePluginServices.instantiate(services, MainToolbarPlugin::new);
+            plugin = CorePluginServices.instantiate(services, CorePlugin::new);
             runtime.setEntrypoints(List.of(plugin));
             final var eventSubscribers = new GeneratedSubscriberCatalogLoader().inspect(
                 List.of(plugin),
@@ -230,7 +230,7 @@ final class BuiltinCorePlugin {
      */
     private static URL coreSource(final ClassLoader loader) {
         final java.security.CodeSource codeSource =
-            MainToolbarPlugin.class.getProtectionDomain().getCodeSource();
+            CorePlugin.class.getProtectionDomain().getCodeSource();
         if (codeSource != null && codeSource.getLocation() != null) return codeSource.getLocation();
         final URL descriptorResource = loader != null
             ? loader.getResource(DESCRIPTOR)

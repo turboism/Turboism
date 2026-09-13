@@ -61,12 +61,12 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class MainToolbarPluginTest {
+class CorePluginTest {
 
     @Test
     void enableRegistersHomeActionAndMainToolbarContribution() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         plugin.enable();
@@ -126,7 +126,7 @@ class MainToolbarPluginTest {
     @Test
     void enabledTextIconPreferenceKeepsMainToolbarContributionContract() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
-        MainToolbarPlugin plugin = plugin(true);
+        CorePlugin plugin = plugin(true);
 
         plugin.init(context);
         plugin.enable();
@@ -151,7 +151,7 @@ class MainToolbarPluginTest {
     @Test
     void homeActionRoutesToSettingsWindow_whenInvoked() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         plugin.enable();
@@ -181,9 +181,9 @@ class MainToolbarPluginTest {
                 return new DockCleanupResult("Empty dock cleanup completed.");
             }
         };
-        final MainToolbarPlugin plugin = CorePluginServices.instantiate(
+        final CorePlugin plugin = CorePluginServices.instantiate(
             new CorePluginServices(settings, plugins()),
-            MainToolbarPlugin::new
+            CorePlugin::new
         );
         final RecordingPluginContext context = new RecordingPluginContext();
 
@@ -197,7 +197,7 @@ class MainToolbarPluginTest {
     @Test
     void disposableScopeClosesActionAndToolbarContribution() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         plugin.enable();
@@ -214,7 +214,7 @@ class MainToolbarPluginTest {
     void installActionUsesInteractiveRequestAndScopeClosesManagement() throws Exception {
         final RecordingPluginContext context = new RecordingPluginContext();
         final RecordingPluginManagement management = new RecordingPluginManagement();
-        final MainToolbarPlugin plugin = plugin(management);
+        final CorePlugin plugin = plugin(management);
 
         plugin.init(context);
         plugin.enable();
@@ -242,7 +242,7 @@ class MainToolbarPluginTest {
                 throw new IllegalStateException("duplicate desired-state write");
             }
         };
-        final MainToolbarPlugin plugin = plugin(management);
+        final CorePlugin plugin = plugin(management);
 
         plugin.init(context);
         plugin.enable();
@@ -255,7 +255,7 @@ class MainToolbarPluginTest {
     @Test
     void enableAllowsMainToolbar_whenPermissionGranted() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, true));
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         plugin.enable();
@@ -266,7 +266,7 @@ class MainToolbarPluginTest {
     @Test
     void enableDeniesMainToolbar_whenPermissionMissing() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(false, true));
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         CubismPermissionException denied = assertThrows(
@@ -280,7 +280,7 @@ class MainToolbarPluginTest {
     @Test
     void homeActionDoesNotRequireStatusNotificationPermission() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, false));
-        MainToolbarPlugin plugin = plugin();
+        CorePlugin plugin = plugin();
 
         plugin.init(context);
         plugin.enable();
@@ -293,7 +293,7 @@ class MainToolbarPluginTest {
     @Test
     void anAvailableUpdateIsShownAsAClickableCanvasHintAndRenewsWhileItPersists() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -334,7 +334,7 @@ class MainToolbarPluginTest {
     @Test
     void theCanvasHintClearsItselfOnceTheUpdateIsNoLongerOffered() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -366,7 +366,7 @@ class MainToolbarPluginTest {
     @Test
     void aCheckInFlightLeavesTheExistingHintAloneInsteadOfFlickering() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -403,7 +403,7 @@ class MainToolbarPluginTest {
     @Test
     void aNewerOfferedBuildReplacesTheHintMessageInsteadOfLeavingTheOldOne() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -440,7 +440,7 @@ class MainToolbarPluginTest {
     @Test
     void aQuietAutomaticFailureShowsNothingWhileAManualCheckReportsItsResult() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -479,7 +479,7 @@ class MainToolbarPluginTest {
     @Test
     void anUpToDateManualCheckIsReportedButAnAutomaticOneIsNot() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -514,7 +514,7 @@ class MainToolbarPluginTest {
     @Test
     void clickingTheCanvasHintDismissesItWithoutOpeningAnything() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
         final List<String> opened = new ArrayList<>();
@@ -544,7 +544,7 @@ class MainToolbarPluginTest {
     @Test
     void aDismissedBuildDoesNotComeStraightBackButANewerOneDoes() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
         context.useInlineUiScheduler();
 
@@ -590,7 +590,7 @@ class MainToolbarPluginTest {
     @Test
     void aCheckForUpdatesMenuItemIsContributedWithoutAddingToTheDockedPanel() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
 
         plugin.init(context);
@@ -607,7 +607,7 @@ class MainToolbarPluginTest {
     @Test
     void updatePreferenceToggleIsContributedForTheRuntimeUpdateService() throws Exception {
         final FakeUpdateService updates = new FakeUpdateService();
-        final MainToolbarPlugin plugin = plugin(updates);
+        final CorePlugin plugin = plugin(updates);
         final RecordingPluginContext context = new RecordingPluginContext();
 
         plugin.init(context);
@@ -618,18 +618,18 @@ class MainToolbarPluginTest {
         ));
     }
 
-    private static MainToolbarPlugin plugin() {
+    private static CorePlugin plugin() {
         return plugin(false);
     }
 
-    private static MainToolbarPlugin plugin(final boolean useTextIcon) {
+    private static CorePlugin plugin(final boolean useTextIcon) {
         return CorePluginServices.instantiate(
             new CorePluginServices(settings(useTextIcon), plugins()),
-            MainToolbarPlugin::new
+            CorePlugin::new
         );
     }
 
-    private static MainToolbarPlugin plugin(final CoreUpdateService updates) {
+    private static CorePlugin plugin(final CoreUpdateService updates) {
         return CorePluginServices.instantiate(
             new CorePluginServices(
                 settings(),
@@ -640,7 +640,7 @@ class MainToolbarPluginTest {
                 dev.turboism.sdk.runtime.RuntimeLogReader.unavailable(),
                 updates
             ),
-            MainToolbarPlugin::new
+            CorePlugin::new
         );
     }
 
@@ -705,10 +705,10 @@ class MainToolbarPluginTest {
         }
     }
 
-    private static MainToolbarPlugin plugin(final CorePluginManagement management) {
+    private static CorePlugin plugin(final CorePluginManagement management) {
         return CorePluginServices.instantiate(
             new CorePluginServices(settings(), management),
-            MainToolbarPlugin::new
+            CorePlugin::new
         );
     }
 
