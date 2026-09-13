@@ -368,7 +368,74 @@ class EditorDocumentReadAccessTest {
         assertEquals(3, scaled);
         final AnimationAttribute reloaded = scene1Parameter(model);
         assertEquals(List.of(0, 60, 120), frames(reloaded));
-        assertEquals(0.5, reloaded.keyframes().get(1).value().orElseThrow());
+        final var bezierKey = reloaded.keyframes().get(1);
+        assertEquals(0.5, bezierKey.value().orElseThrow());
+        assertEquals(AnimationCurveType.BEZIER, bezierKey.curveType().orElseThrow());
+        // Handles must scale around the same origin, not translate by the
+        // keyframe delta: 24.5 -> 49, 36 -> 72.
+        assertEquals(49.0F, bezierKey.inHandle().orElseThrow().frame());
+        assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
+        assertEquals(72.0F, bezierKey.outHandle().orElseThrow().frame());
+        assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
+        assertTrue(bezierKey.outHandle().orElseThrow().corner());
+        assertEquals(AnimationCurveType.LINEAR,
+            reloaded.keyframes().get(0).curveType().orElseThrow());
+    }
+
+    @Test
+    void scalesKeyframeTimesAroundNonZeroOrigin() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            writeResolver("5.3.02"), "session-a"
+        ).active();
+
+        final int scaled = scene1Parameter(model).scaleKeyframeTimes(0.5, 20);
+
+        assertEquals(3, scaled);
+        final AnimationAttribute reloaded = scene1Parameter(model);
+        assertEquals(List.of(10, 25, 40), frames(reloaded));
+        final var bezierKey = reloaded.keyframes().get(1);
+        assertEquals(0.5, bezierKey.value().orElseThrow());
+        assertEquals(AnimationCurveType.BEZIER, bezierKey.curveType().orElseThrow());
+        // 20 + (24.5 - 20) * 0.5 = 22.25; 20 + (36 - 20) * 0.5 = 28.
+        assertEquals(22.25F, bezierKey.inHandle().orElseThrow().frame());
+        assertEquals(0.4, bezierKey.inHandle().orElseThrow().value());
+        assertEquals(28.0F, bezierKey.outHandle().orElseThrow().frame());
+        assertEquals(0.6, bezierKey.outHandle().orElseThrow().value());
+        assertTrue(bezierKey.outHandle().orElseThrow().corner());
+    }
+
+    @Test
+    void scaleKeyframeTimesRollsBackKeysAndHandlesWhenMutationFails() {
+        final Fixture fixture = new Fixture();
+        Host.document = fixture.document;
+        final var model = new EditorBackedCubismModelAccess(
+            writeResolver("5.3.02"), "session-a"
+        ).active();
+        final AnimationAttribute parameter = scene1Parameter(model);
+        final Attr host = hostAttribute(fixture, 0);
+        host.failWrites = true;
+
+        // The transform removes every source key before re-inserting; the
+        // failing insert must roll keys and stored bezier handles back through
+        // the cancelled edit.
+        assertThrows(
+            dev.turboism.mapping.verification.VerifiedAccessException.class,
+            () -> parameter.scaleKeyframeTimes(2.0, 0));
+
+        final SceneDocument sceneDocument = sceneDocument(fixture, 0);
+        assertTrue(sceneDocument.editMode.lastCancelled);
+        assertFalse(sceneDocument.modified);
+        assertEquals(Map.of(0, 0.0, 30, 0.5, 60, 1.0), host.values);
+        final var restoredPoint = ((AttrF) host).valueData().point(30);
+        assertEquals(24.5F, restoredPoint.prev().posF());
+        assertEquals(0.4, restoredPoint.prev().doubleValue());
+        assertEquals(36.0F, restoredPoint.next().posF());
+        assertEquals(0.6, restoredPoint.next().doubleValue());
+        assertTrue(restoredPoint.next().corner());
+        assertEquals(AnimationCurveType.BEZIER,
+            scene1Parameter(model).keyframes().get(1).curveType().orElseThrow());
     }
 
     @Test
