@@ -80,7 +80,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "54ddcbba3563ab74c1140775353ed21a6a3bba2d3e72084dd165f9506cd64e9f",
+        "8c02d7f7d6ba73adbe32b962941b76b851b88e943606dddca5ea7a47a4586e82",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
