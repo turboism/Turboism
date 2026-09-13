@@ -605,6 +605,9 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         }
         // Fallback: class-path hint scan (kept for unknown shapes; fails closed otherwise).
         for (Window window : Window.getWindows()) {
+            // A window that is not showing cannot display a palette; skipping it
+            // prunes the host's cached hidden dialogs from the idle poll.
+            if (!window.isShowing()) continue;
             final Object root = findPaletteRoot(window, kind, null);
             if (root != null) {
                 return root;
@@ -631,7 +634,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             }
             return component;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final Object root = findPaletteRoot(child, kind, hostClassLoader);
                 if (root != null) {
@@ -653,6 +656,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     /** Finds the JTable remembered by the scene-table host (validated 5.3.02 property). */
     private static JTable findRememberedSceneTable() {
         for (Window window : Window.getWindows()) {
+            if (!window.isShowing()) continue;
             final JTable table = findRememberedSceneTable(window);
             if (table != null) {
                 return table;
@@ -675,7 +679,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
                 }
             }
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTable found = findRememberedSceneTable(child);
                 if (found != null) {
@@ -689,6 +693,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
     /** Finds a tree-table whose class name starts with the given 5.3.02 prefix. */
     private static JTable findTreeTable(final String classNamePrefix) {
         for (Window window : Window.getWindows()) {
+            if (!window.isShowing()) continue;
             final JTable table = findTreeTable(window, classNamePrefix);
             if (table != null) {
                 return table;
@@ -704,7 +709,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             && isInVisibleCubismWindow(table)) {
             return table;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTable found = findTreeTable(child, classNamePrefix);
                 if (found != null) {
@@ -823,7 +828,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
             buttons.add(button);
             return;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 collectButtons(child, depth - 1, buttons);
             }
@@ -2190,7 +2195,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (component instanceof JTree tree) {
             return tree;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTree found = findTreeInComponent(child);
                 if (found != null) {
@@ -2402,7 +2407,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (isParameterToolbar(component)) {
             return (Container) component;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final Container found = findParameterToolbarInSubtree(child, depth - 1);
                 if (found != null) {
@@ -2417,7 +2422,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (root instanceof JTable table) {
             return table;
         }
-        if (root instanceof Container container) {
+        if (root instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTable table = findTable(child);
                 if (table != null) {
@@ -2432,7 +2437,7 @@ public class PaletteFilterHostOperations implements PaletteFilterVisibilitySink,
         if (root instanceof JTextPane pane && !pane.isEditable()) {
             return pane;
         }
-        if (root instanceof Container container) {
+        if (root instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTextPane pane = findTextPane(child);
                 if (pane != null) {

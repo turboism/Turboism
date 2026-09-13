@@ -833,7 +833,7 @@ final class ConfigMerge {
     private static final Set<String> V1_FIELDS = Set.of(
             "format", "schemaVersion", "worktreeId", "pluginDirs", "disabledPlugins",
             "logLevel", "maxLogStorageMiB", "locale", "safeMode", "useTextIcon", "diagnostics",
-            "hooks", "launcher");
+            "hooks", "launcher", "reduceAutoBackup");
     private static final Set<String> LOG_LEVELS = Set.of(
             "TRACE", "DEBUG", "INFO", "WARN", "ERROR", "FATAL");
     private static final Set<String> LOCALES = Set.of(
@@ -842,7 +842,7 @@ final class ConfigMerge {
             "disabledIds", "denylistedClasses", "startup");
     private static final Set<String> STARTUP_FIELDS = Set.of(
             "skipUpdateCheck", "skipSplash", "skipInformation", "separateExportSaveDirectory");
-    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath");
+    private static final Set<String> LAUNCHER_FIELDS = Set.of("cubismJvm", "graalVmPath", "zgc");
     private static final Set<String> CUBISM_JVMS = Set.of("graalvm", "bundled");
     private static final Pattern WORKTREE_ID_PATTERN = Pattern.compile("^[a-z][a-z0-9-]{2,63}$");
 
@@ -935,6 +935,10 @@ final class ConfigMerge {
         if (map.containsKey("useTextIcon") && !(map.get("useTextIcon") instanceof Boolean)) {
             throw new ConfigException("existing config.json useTextIcon must be a boolean");
         }
+        if (map.containsKey("reduceAutoBackup")
+                && !(map.get("reduceAutoBackup") instanceof Boolean)) {
+            throw new ConfigException("existing config.json reduceAutoBackup must be a boolean");
+        }
 
         if (map.containsKey("hooks")) {
             final Map<?, ?> hooks = requireObject(map.get("hooks"), "hooks");
@@ -965,6 +969,13 @@ final class ConfigMerge {
                 if (!(cubismJvm instanceof String) || !CUBISM_JVMS.contains(cubismJvm)) {
                     throw new ConfigException(
                             "existing config.json launcher.cubismJvm is invalid: " + cubismJvm);
+                }
+            }
+            if (launcher.containsKey("zgc")) {
+                final Object zgc = launcher.get("zgc");
+                if (!(zgc instanceof Boolean)) {
+                    throw new ConfigException(
+                            "existing config.json launcher.zgc is invalid");
                 }
             }
             if (launcher.containsKey("graalVmPath")) {

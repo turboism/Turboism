@@ -5,7 +5,16 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import dev.turboism.core.reflect.MethodHandleCache;
 import dev.turboism.sdk.cubism.mesh.MeshDeletion;
 import dev.turboism.sdk.cubism.mesh.MeshEdgeRef;
 import dev.turboism.sdk.cubism.mesh.MeshEditContribution;
@@ -34,6 +43,19 @@ public final class NativeMeshMirrorBridge {
     private static final Consumer<String> DEFAULT_DIAGNOSTIC = ignored -> { };
     private static final AtomicReference<Consumer<String>> DIAGNOSTIC =
         new AtomicReference<>(DEFAULT_DIAGNOSTIC);
+    private static final Class<?>[] NO_PARAMS = new Class<?>[0];
+    private static final ConcurrentHashMap<Class<?>, Optional<Constructor<?>>> VECTOR_CONSTRUCTORS =
+        new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<Class<?>, Object[]> ENUM_CONSTANTS =
+        new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<ConstructorKey, Optional<Constructor<?>>>
+        HOST_CONSTRUCTORS = new ConcurrentHashMap<>();
+    private static final ConcurrentHashMap<FieldKey, Optional<Field>> STATIC_FIELDS =
+        new ConcurrentHashMap<>();
+
+    private record ConstructorKey(ClassLoader loader, String className, List<Class<?>> parameters) { }
+
+    private record FieldKey(ClassLoader loader, String className, String fieldName) { }
 
     private NativeMeshMirrorBridge() { }
 
@@ -373,20 +395,45 @@ public final class NativeMeshMirrorBridge {
 
     private static Object vector(final Object host, final MeshMirrorGeometry.Point point)
         throws ReflectiveOperationException {
-        final Class<?> type = Class.forName("com.live2d.graphics3d.type.GVector2", false, host.getClass().getClassLoader());
-        return type.getConstructor(float.class, float.class).newInstance(point.x(), point.y());
+        return hostConstructor(host.getClass().getClassLoader(), "com.live2d.graphics3d.type.GVector2",
+            float.class, float.class).newInstance(point.x(), point.y());
     }
 
     private static Object point(final ClassLoader loader, final int x, final int y)
         throws ReflectiveOperationException {
-        final Class<?> type = Class.forName("com.live2d.type.CPoint", false, loader);
-        return type.getConstructor(int.class, int.class).newInstance(x, y);
+        return hostConstructor(loader, "com.live2d.type.CPoint", int.class, int.class)
+            .newInstance(x, y);
+    }
+
+    private static Constructor<?> hostConstructor(
+        final ClassLoader loader,
+        final String className,
+        final Class<?>... parameters
+    ) throws ReflectiveOperationException {
+        final ConstructorKey key = new ConstructorKey(loader, className, List.of(parameters));
+        return HOST_CONSTRUCTORS.computeIfAbsent(key, unresolved -> {
+            try {
+                return Optional.of(Class.forName(unresolved.className(), false, unresolved.loader())
+                    .getConstructor(unresolved.parameters().toArray(Class<?>[]::new)));
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                return Optional.empty();
+            }
+        }).orElseThrow(() -> new NoSuchMethodException(className));
     }
 
     private static Object staticField(final ClassLoader loader, final String className, final String fieldName)
         throws ReflectiveOperationException {
-        final Field field = Class.forName(className, false, loader).getDeclaredField(fieldName);
-        field.setAccessible(true);
+        final Field field = STATIC_FIELDS.computeIfAbsent(
+            new FieldKey(loader, className, fieldName), key -> {
+                try {
+                    final Field resolved = Class.forName(key.className(), false, key.loader())
+                        .getDeclaredField(key.fieldName());
+                    resolved.setAccessible(true);
+                    return Optional.of(resolved);
+                } catch (ReflectiveOperationException | RuntimeException failure) {
+                    return Optional.empty();
+                }
+            }).orElseThrow(() -> new NoSuchFieldException(className + "#" + fieldName));
         return field.get(null);
     }
 
@@ -443,17 +490,9 @@ public final class NativeMeshMirrorBridge {
 
     private static Object field(final Object target, final String name) throws ReflectiveOperationException {
         if (target == null) throw new NoSuchFieldException(name);
-        Class<?> type = target.getClass();
-        while (type != null) {
-            try {
-                final Field field = type.getDeclaredField(name);
-                field.setAccessible(true);
-                return field.get(target);
-            } catch (NoSuchFieldException ignored) {
-                type = type.getSuperclass();
-            }
-        }
-        throw new NoSuchFieldException(name);
+        final Field field = MethodHandleCache.declaredFieldUp(target.getClass(), name);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     /** getXxx() → getXxx$cubism() → field; a null target throws (fail-closed). */
@@ -491,13 +530,11 @@ public final class NativeMeshMirrorBridge {
     private static Object invoke(final Object target, final String name, final Object... arguments)
         throws ReflectiveOperationException {
         if (target == null) throw new NoSuchMethodException(name);
-        for (Method method : target.getClass().getMethods()) {
-            if (method.getName().equals(name) && method.getParameterCount() == arguments.length) {
-                try {
-                    return method.invoke(target, arguments);
-                } catch (IllegalArgumentException ignored) {
-                    // Try the next overload.
-                }
+        for (Method method : MethodHandleCache.overloads(target.getClass(), name, arguments.length)) {
+            try {
+                return method.invoke(target, arguments);
+            } catch (IllegalArgumentException ignored) {
+                // Try the next overload.
             }
         }
         throw new NoSuchMethodException(target.getClass().getName() + "#" + name);
@@ -743,34 +780,38 @@ public final class NativeMeshMirrorBridge {
             }
             final Object mirror = hostMirror(pack);
             if (mirror == null || !hostMirrorEnabled(mirror, pack)) return;
-            final Object scale = call(pack, "aL", new Class<?>[0]);
+            final Object scale = call(pack, "aL", NO_PARAMS);
             if (!(scale instanceof Number number)) return;
             final float tolerance = 20.0f * number.floatValue();
             int moved = 0;
             for (Object context : contexts(pack)) {
-                final Object delta = call(context, "p", new Class<?>[0]);
-                final Object mesh = call(context, "b", new Class<?>[0]);
+                final Object delta = call(context, "p", NO_PARAMS);
+                final Object mesh = call(context, "b", NO_PARAMS);
                 if (delta == null || mesh == null) continue;
-                final Object selection = call(mesh, "getSelection", new Class<?>[0]);
-                final Object selector = call(selection, "getPointSelector", new Class<?>[0]);
+                final Object selection = call(mesh, "getSelection", NO_PARAMS);
+                final Object selector = call(selection, "getPointSelector", NO_PARAMS);
                 if (!(selector instanceof Iterable<?> selected)) continue;
 
+                final MeshFrameIndex meshIndex = new MeshFrameIndex(mesh);
                 final List<Object> selectedRefs = new ArrayList<>();
-                final List<Integer> selectedIds = new ArrayList<>();
+                final List<Object> compatibleSources = new ArrayList<>();
+                final Set<Integer> selectedIds = new HashSet<>();
                 for (Object reference : selected) {
                     selectedRefs.add(reference);
-                    final Object live = compatiblePoint(mesh, reference);
+                    final Object live = compatiblePoint(mesh, reference, meshIndex);
+                    compatibleSources.add(live);
                     if (live != null) selectedIds.add(pointId(live));
                 }
-                for (Object reference : selectedRefs) {
-                    final Object source = compatiblePoint(mesh, reference);
+                for (int index = 0; index < selectedRefs.size(); index++) {
+                    final Object reference = selectedRefs.get(index);
+                    final Object source = compatibleSources.get(index);
                     if (source == null) continue;
                     final float weight = selectionWeight(selector, reference);
                     final Object counterpart = counterpartPoint(
-                        mirror, source, mesh, pack, context, tolerance
+                        mirror, source, mesh, pack, context, tolerance, meshIndex
                     );
                     if (counterpart == null || selectedIds.contains(pointId(counterpart))) continue;
-                    final Object sourcePosition = call(source, "getPos", new Class<?>[0]);
+                    final Object sourcePosition = call(source, "getPos", NO_PARAMS);
                     if (sourcePosition == null) continue;
                     final Object target = call(
                         sourcePosition, "plus", new Class<?>[] {delta.getClass()}, delta
@@ -791,23 +832,22 @@ public final class NativeMeshMirrorBridge {
         }
     }
 
-    static Object compatiblePoint(final Object mesh, final Object reference)
-        throws ReflectiveOperationException {
+    static Object compatiblePoint(
+        final Object mesh,
+        final Object reference,
+        final MeshFrameIndex index
+    ) throws ReflectiveOperationException {
         if (reference == null) return null;
-        for (Method method : mesh.getClass().getMethods()) {
-            if (!method.getName().equals("getCompatiblePointRef") || method.getParameterCount() != 1) {
-                continue;
-            }
+        for (Method method : MethodHandleCache.overloads(mesh.getClass(), "getCompatiblePointRef", 1)) {
             if (!method.getParameterTypes()[0].isInstance(reference)) continue;
             return method.invoke(mesh, reference);
         }
-        return containsIdentity(points(mesh), reference) ? reference : null;
+        return index.pointIdentity().contains(reference) ? reference : null;
     }
 
     private static float selectionWeight(final Object selector, final Object reference)
         throws ReflectiveOperationException {
-        for (Method method : selector.getClass().getMethods()) {
-            if (!method.getName().equals("getWeight") || method.getParameterCount() != 2) continue;
+        for (Method method : MethodHandleCache.overloads(selector.getClass(), "getWeight", 2)) {
             final Class<?>[] parameters = method.getParameterTypes();
             if (!parameters[0].isInstance(reference) || parameters[1] != float.class) continue;
             final Object value = method.invoke(selector, reference, 0.0f);
@@ -987,7 +1027,7 @@ public final class NativeMeshMirrorBridge {
         final int edges = removeIncidentEdges
             ? removeIncidentEdgesInto(pack, live, groupUndo)
             : 0;
-        final Object editMode = call(pack, "aP", new Class<?>[0]);
+        final Object editMode = call(pack, "aP", NO_PARAMS);
         final Method delete = declaredMethod(
             editMode.getClass(), "delete_exe", List.class, groupUndo.getClass()
         );
@@ -1006,22 +1046,25 @@ public final class NativeMeshMirrorBridge {
     ) throws ReflectiveOperationException {
         int removed = 0;
         for (Object context : contexts(pack)) {
-            final Object mesh = call(context, "b", new Class<?>[0]);
+            final Object mesh = call(context, "b", NO_PARAMS);
             if (mesh == null) continue;
-            final List<Integer> ids = new ArrayList<>();
+            final MeshFrameIndex index = new MeshFrameIndex(mesh);
+            final Set<Object> livePoints = index.pointIdentity();
+            final Set<Integer> ids = new HashSet<>();
             for (Object point : points) {
-                if (containsIdentity(NativeMeshMirrorBridge.points(mesh), point)) {
+                if (livePoints.contains(point)) {
                     ids.add(pointId(point));
                 }
             }
             if (ids.isEmpty()) continue;
             final List<Object> incident = new ArrayList<>();
+            final Set<Object> incidentSeen = Collections.newSetFromMap(new IdentityHashMap<>());
             for (Object edge : edges(mesh)) {
-                final Object first = call(edge, "getIndex1", new Class<?>[0]);
-                final Object second = call(edge, "getIndex2", new Class<?>[0]);
+                final Object first = call(edge, "getIndex1", NO_PARAMS);
+                final Object second = call(edge, "getIndex2", NO_PARAMS);
                 if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
                 if ((ids.contains(start.intValue()) || ids.contains(end.intValue()))
-                    && !containsSame(incident, edge)) {
+                    && incidentSeen.add(edge)) {
                     incident.add(edge);
                 }
             }
@@ -1038,9 +1081,9 @@ public final class NativeMeshMirrorBridge {
         for (Object point : points) {
             final int id = pointId(point);
             if (id < 0) continue;
-            final Object position = call(point, "getPos", new Class<?>[0]);
-            final Object x = position == null ? null : call(position, "getX", new Class<?>[0]);
-            final Object y = position == null ? null : call(position, "getY", new Class<?>[0]);
+            final Object position = call(point, "getPos", NO_PARAMS);
+            final Object x = position == null ? null : call(position, "getX", NO_PARAMS);
+            final Object y = position == null ? null : call(position, "getY", NO_PARAMS);
             if (x instanceof Number first && y instanceof Number second) {
                 refs.add(new MeshPointRef(id, first.floatValue(), second.floatValue()));
             }
@@ -1151,8 +1194,8 @@ public final class NativeMeshMirrorBridge {
         throws ReflectiveOperationException {
         final List<MeshEdgeRef> refs = new ArrayList<>();
         for (Object edge : edges) {
-            final Object first = call(edge, "getIndex1", new Class<?>[0]);
-            final Object second = call(edge, "getIndex2", new Class<?>[0]);
+            final Object first = call(edge, "getIndex1", NO_PARAMS);
+            final Object second = call(edge, "getIndex2", NO_PARAMS);
             if (first instanceof Number start && second instanceof Number end
                 && start.intValue() != end.intValue()) {
                 refs.add(new MeshEdgeRef(
@@ -1175,7 +1218,7 @@ public final class NativeMeshMirrorBridge {
         final List<MeshEdgeRef> custom = customEdgeContributions(contribution);
         int removed = 0;
         for (Object context : contexts(pack)) {
-            final Object mesh = call(context, "b", new Class<?>[0]);
+            final Object mesh = call(context, "b", NO_PARAMS);
             if (mesh == null) continue;
             final List<Object> live = new ArrayList<>();
             for (Object source : sources) {
@@ -1203,7 +1246,7 @@ public final class NativeMeshMirrorBridge {
         final Object groupUndo
     ) throws ReflectiveOperationException {
         if (live.isEmpty()) return 0;
-        final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+        final Object handler = call(mesh, "getHandler", NO_PARAMS);
         if (handler == null) return 0;
         final Method remove = declaredMethod(handler.getClass(), "a", List.class);
         if (remove == null || !hasUndoAttachmentMethod(groupUndo)) return 0;
@@ -1253,8 +1296,8 @@ public final class NativeMeshMirrorBridge {
             final Object mirror = hostMirror(pack);
             if (mirror == null) return;
 
-            final Object first = call(edge, "getIndex1", new Class<?>[0]);
-            final Object second = call(edge, "getIndex2", new Class<?>[0]);
+            final Object first = call(edge, "getIndex1", NO_PARAMS);
+            final Object second = call(edge, "getIndex2", NO_PARAMS);
             if (!(first instanceof Number start) || !(second instanceof Number end)) return;
             if (start.intValue() == end.intValue()) return;
             final MeshEdgeRef source = new MeshEdgeRef(
@@ -1294,19 +1337,26 @@ public final class NativeMeshMirrorBridge {
         final List<MeshEdgeRef> custom = customEdgeContributions(contribution);
         final List<Object> customMatches = uniqueCustomEdgeMatches(pack, custom, source);
         for (Object context : contexts(pack)) {
-            final Object mesh = call(context, "b", new Class<?>[0]);
+            final Object mesh = call(context, "b", NO_PARAMS);
             if (mesh == null) continue;
-            final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+            final Object hostEdges = call(mesh, "getEdges", NO_PARAMS);
             if (!(hostEdges instanceof Iterable<?> iterable)) continue;
+            final Set<Object> liveEdgeSet = identitySet(iterable);
             final List<Object> live = new ArrayList<>();
+            final Set<Object> liveSeen = Collections.newSetFromMap(new IdentityHashMap<>());
             if (resolved != null) {
-                for (Object edge : resolved) if (containsIdentity(iterable, edge)) live.add(edge);
+                for (Object edge : resolved) {
+                    if (liveEdgeSet.contains(edge)) {
+                        live.add(edge);
+                        liveSeen.add(edge);
+                    }
+                }
             }
             for (Object edge : customMatches) {
-                if (containsIdentity(iterable, edge) && !containsSame(live, edge)) live.add(edge);
+                if (liveEdgeSet.contains(edge) && liveSeen.add(edge)) live.add(edge);
             }
             if (live.isEmpty()) continue;
-            final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+            final Object handler = call(mesh, "getHandler", NO_PARAMS);
             if (handler == null) continue;
             final Method remove = declaredMethod(handler.getClass(), "a", List.class);
             if (remove == null || !hasUndoAttachmentMethod(groupUndo)) continue;
@@ -1330,14 +1380,18 @@ public final class NativeMeshMirrorBridge {
         final List<MeshPointRef> refs,
         final List<Object> sources
     ) throws ReflectiveOperationException {
+        final List<MeshFrameIndex> indexes = new ArrayList<>();
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", NO_PARAMS);
+            indexes.add(mesh == null ? null : new MeshFrameIndex(mesh));
+        }
         final List<Object> unique = new ArrayList<>();
         for (MeshPointRef ref : refs) {
             Object match = null;
             boolean ambiguous = false;
-            for (Object context : contexts(pack)) {
-                final Object mesh = call(context, "b", new Class<?>[0]);
-                if (mesh == null) continue;
-                final Object candidate = pointById(mesh, ref.id());
+            for (MeshFrameIndex index : indexes) {
+                if (index == null) continue;
+                final Object candidate = index.pointsById().get(ref.id());
                 if (candidate == null || containsSame(sources, candidate)) continue;
                 if (match != null && match != candidate) {
                     ambiguous = true;
@@ -1356,22 +1410,29 @@ public final class NativeMeshMirrorBridge {
         final List<MeshEdgeRef> refs,
         final Object source
     ) throws ReflectiveOperationException {
+        final List<MeshFrameIndex> indexes = new ArrayList<>();
+        for (Object context : contexts(pack)) {
+            final Object mesh = call(context, "b", NO_PARAMS);
+            indexes.add(mesh == null ? null : new MeshFrameIndex(mesh).excludingEdge(source));
+        }
         final List<Object> unique = new ArrayList<>();
         for (MeshEdgeRef ref : refs) {
+            final long key = MeshFrameIndex.refEdgeKey(ref);
             Object match = null;
             boolean ambiguous = false;
-            for (Object context : contexts(pack)) {
-                final Object mesh = call(context, "b", new Class<?>[0]);
-                if (mesh == null) continue;
-                for (Object candidate : edges(mesh)) {
-                    if (candidate == source || !edgeMatches(candidate, ref)) continue;
-                    if (match != null && match != candidate) {
-                        ambiguous = true;
-                        break;
-                    }
-                    match = candidate;
+            for (MeshFrameIndex index : indexes) {
+                if (index == null) continue;
+                final Object candidate = index.edgesByKey().get(key);
+                if (candidate == null) continue;
+                if (match != null && match != candidate) {
+                    ambiguous = true;
+                    break;
                 }
-                if (ambiguous) break;
+                match = candidate;
+                if (index.duplicatedEdgeKeys().contains(key)) {
+                    ambiguous = true;
+                    break;
+                }
             }
             if (!ambiguous && match != null && !containsSame(unique, match)) unique.add(match);
         }
@@ -1380,8 +1441,8 @@ public final class NativeMeshMirrorBridge {
 
     private static boolean edgeMatches(final Object candidate, final MeshEdgeRef ref)
         throws ReflectiveOperationException {
-        final Object first = call(candidate, "getIndex1", new Class<?>[0]);
-        final Object second = call(candidate, "getIndex2", new Class<?>[0]);
+        final Object first = call(candidate, "getIndex1", NO_PARAMS);
+        final Object second = call(candidate, "getIndex2", NO_PARAMS);
         if (!(first instanceof Number start) || !(second instanceof Number end)) return false;
         return ref.startPointId() == Math.min(start.intValue(), end.intValue())
             && ref.endPointId() == Math.max(start.intValue(), end.intValue());
@@ -1399,28 +1460,31 @@ public final class NativeMeshMirrorBridge {
         final Object pack,
         final Object context
     ) throws ReflectiveOperationException {
-        final Object scale = call(pack, "aL", new Class<?>[0]);
+        final Object scale = call(pack, "aL", NO_PARAMS);
         if (!(scale instanceof Number number)) return null;
-        return counterpartPoint(mirror, source, mesh, pack, context, number.floatValue());
+        return counterpartPoint(
+            mirror, source, mesh, pack, context, number.floatValue(), new MeshFrameIndex(mesh)
+        );
     }
 
-    private static Object counterpartPoint(
+    static Object counterpartPoint(
         final Object mirror,
         final Object source,
         final Object mesh,
         final Object pack,
         final Object context,
-        final float tolerance
+        final float tolerance,
+        final MeshFrameIndex index
     ) throws ReflectiveOperationException {
-        final Object position = call(source, "getPos", new Class<?>[0]);
+        final Object position = call(source, "getPos", NO_PARAMS);
         final Object target = mirrorPoint(context, mirror, position);
         if (target == null) return null;
         final Class<?> vector = target.getClass();
 
         Object nearest = null;
         float best = Float.MAX_VALUE;
-        for (Object candidate : points(mesh)) {
-            final Object candidatePosition = call(candidate, "getPos", new Class<?>[0]);
+        for (Object candidate : index.points()) {
+            final Object candidatePosition = call(candidate, "getPos", NO_PARAMS);
             if (candidatePosition == null) continue;
             final Object distance = call(candidatePosition, "distance", new Class<?>[] {vector}, target);
             if (!(distance instanceof Number number)) continue;
@@ -1441,26 +1505,44 @@ public final class NativeMeshMirrorBridge {
         final Object pack,
         final Object context
     ) throws ReflectiveOperationException {
-        final Object firstIndex = call(edge, "getIndex1", new Class<?>[0]);
-        final Object secondIndex = call(edge, "getIndex2", new Class<?>[0]);
+        final Object scale = call(pack, "aL", NO_PARAMS);
+        if (!(scale instanceof Number number)) return null;
+        return counterpartEdge(
+            mirror, edge, mesh, pack, context, number.floatValue(), new MeshFrameIndex(mesh)
+        );
+    }
+
+    static Object counterpartEdge(
+        final Object mirror,
+        final Object edge,
+        final Object mesh,
+        final Object pack,
+        final Object context,
+        final float tolerance,
+        final MeshFrameIndex index
+    ) throws ReflectiveOperationException {
+        final Object firstIndex = call(edge, "getIndex1", NO_PARAMS);
+        final Object secondIndex = call(edge, "getIndex2", NO_PARAMS);
         if (!(firstIndex instanceof Number first) || !(secondIndex instanceof Number second)) return null;
-        final Object start = pointById(mesh, first.intValue());
-        final Object end = pointById(mesh, second.intValue());
+        final Object start = index.pointsById().get(first.intValue());
+        final Object end = index.pointsById().get(second.intValue());
         if (start == null || end == null) return null;
-        final Object mirroredStart = counterpartPoint(mirror, start, mesh, pack, context);
-        final Object mirroredEnd = counterpartPoint(mirror, end, mesh, pack, context);
+        final Object mirroredStart = counterpartPoint(
+            mirror, start, mesh, pack, context, tolerance, index);
+        final Object mirroredEnd = counterpartPoint(
+            mirror, end, mesh, pack, context, tolerance, index);
         if (mirroredStart == null || mirroredEnd == null) return null;
         final int startId = pointId(mirroredStart);
         final int endId = pointId(mirroredEnd);
         if (startId == endId) return null;
 
-        final Object type = call(edge, "getType", new Class<?>[0]);
+        final Object type = call(edge, "getType", NO_PARAMS);
         final Constructor<?> constructor = edgeConstructor(edge.getClass(), type);
         if (constructor == null) return null;
         final Object rebuilt = startId < endId
             ? constructor.newInstance(startId, endId, type)
             : constructor.newInstance(endId, startId, type);
-        final Object edges = call(mesh, "getEdges", new Class<?>[0]);
+        final Object edges = call(mesh, "getEdges", NO_PARAMS);
         if (!(edges instanceof Collection<?> collection)) return null;
         for (Object candidate : collection) if (rebuilt.equals(candidate)) return candidate;
         return null;
@@ -1539,7 +1621,7 @@ public final class NativeMeshMirrorBridge {
     static boolean actionPackOwnsEditMode(final Object actionPack, final Object editMode) {
         if (actionPack == null || editMode == null) return false;
         try {
-            return call(actionPack, "aP", new Class<?>[0]) == editMode;
+            return call(actionPack, "aP", NO_PARAMS) == editMode;
         } catch (ReflectiveOperationException | RuntimeException failure) {
             return false;
         }
@@ -1597,7 +1679,7 @@ public final class NativeMeshMirrorBridge {
         if (end == null) throw new NoSuchMethodException("mesh edit commit");
         final Object ended = end.invoke(owner, cancelled, null);
         if (!revert || !Boolean.TRUE.equals(ended)) return;
-        final Object undoManager = call(owner, "getUndoManager", new Class<?>[0]);
+        final Object undoManager = call(owner, "getUndoManager", NO_PARAMS);
         if (undoManager == null) throw new NoSuchMethodException("mesh undo manager");
         final Method undo = declaredMethod(undoManager.getClass(), "revert");
         if (undo == null) throw new NoSuchMethodException("mesh undo revert");
@@ -1618,8 +1700,7 @@ public final class NativeMeshMirrorBridge {
     }
 
     private static Method addPointMethod(final Object mesh) {
-        for (Method method : mesh.getClass().getMethods()) {
-            if (!method.getName().equals("addPoint") || method.getParameterCount() != 4) continue;
+        for (Method method : MethodHandleCache.overloads(mesh.getClass(), "addPoint", 4)) {
             final Class<?>[] parameters = method.getParameterTypes();
             if (parameters[0] == float.class && parameters[1] == float.class
                 && parameters[3] == long.class && enumConstant(parameters[2], "NORMAL") != null) {
@@ -1630,7 +1711,7 @@ public final class NativeMeshMirrorBridge {
     }
 
     static boolean canMovePoint(final Object point) throws ReflectiveOperationException {
-        final Object current = call(point, "getPos", new Class<?>[0]);
+        final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) return false;
         return vectorConstructor(current.getClass()) != null
             && movePointMethod(point.getClass(), current.getClass()) != null;
@@ -1638,7 +1719,7 @@ public final class NativeMeshMirrorBridge {
 
     static void movePoint(final Object point, final float x, final float y)
         throws ReflectiveOperationException {
-        final Object current = call(point, "getPos", new Class<?>[0]);
+        final Object current = call(point, "getPos", NO_PARAMS);
         if (current == null) throw new NoSuchMethodException("mesh point position");
         final Constructor<?> vector = vectorConstructor(current.getClass());
         if (vector == null) throw new NoSuchMethodException("mesh point vector construction");
@@ -1648,27 +1729,27 @@ public final class NativeMeshMirrorBridge {
     }
 
     private static Constructor<?> vectorConstructor(final Class<?> vectorType) {
-        try {
-            final Constructor<?> constructor = vectorType.getDeclaredConstructor(float.class, float.class);
-            constructor.setAccessible(true);
-            return constructor;
-        } catch (ReflectiveOperationException | RuntimeException failure) {
-            return null;
-        }
+        return VECTOR_CONSTRUCTORS.computeIfAbsent(vectorType, type -> {
+            try {
+                final Constructor<?> constructor =
+                    type.getDeclaredConstructor(float.class, float.class);
+                constructor.setAccessible(true);
+                return Optional.of(constructor);
+            } catch (ReflectiveOperationException | RuntimeException failure) {
+                return Optional.empty();
+            }
+        }).orElse(null);
     }
 
     private static Method movePointMethod(final Class<?> pointType, final Class<?> vectorType) {
-        for (Class<?> current = pointType; current != null; current = current.getSuperclass()) {
-            for (Method method : current.getDeclaredMethods()) {
-                if (!method.getName().equals("moveToOnLocal") || method.getParameterCount() != 2) continue;
-                final Class<?>[] parameters = method.getParameterTypes();
-                if (!parameters[0].isAssignableFrom(vectorType) || parameters[1] != float.class) continue;
-                try {
-                    method.setAccessible(true);
-                    return method;
-                } catch (RuntimeException ignored) {
-                    return null;
-                }
+        for (Method method : MethodHandleCache.declaredOverloads(pointType, "moveToOnLocal", 2)) {
+            final Class<?>[] parameters = method.getParameterTypes();
+            if (!parameters[0].isAssignableFrom(vectorType) || parameters[1] != float.class) continue;
+            try {
+                method.setAccessible(true);
+                return method;
+            } catch (RuntimeException ignored) {
+                return null;
             }
         }
         return null;
@@ -1690,8 +1771,7 @@ public final class NativeMeshMirrorBridge {
 
     private static Method addEdgeMethod(final Object mesh, final MeshEdgeRef edge) {
         if (edge.kind() == dev.turboism.sdk.cubism.mesh.MeshEdgeKind.UNKNOWN) return null;
-        for (Method method : mesh.getClass().getMethods()) {
-            if (!method.getName().equals("addEdge") || method.getParameterCount() != 5) continue;
+        for (Method method : MethodHandleCache.overloads(mesh.getClass(), "addEdge", 5)) {
             final Class<?>[] parameters = method.getParameterTypes();
             if (parameters[0] == int.class && parameters[1] == int.class
                 && parameters[3] == boolean.class && parameters[4] == boolean.class
@@ -1709,13 +1789,13 @@ public final class NativeMeshMirrorBridge {
     }
 
     private static int edgeCount(final Object mesh) throws ReflectiveOperationException {
-        final Object value = call(mesh, "getEdges", new Class<?>[0]);
+        final Object value = call(mesh, "getEdges", NO_PARAMS);
         return value instanceof Collection<?> edges ? edges.size() : -1;
     }
 
     private static Object enumConstant(final Class<?> type, final String name) {
         if (!type.isEnum()) return null;
-        for (Object value : type.getEnumConstants()) {
+        for (Object value : ENUM_CONSTANTS.computeIfAbsent(type, Class::getEnumConstants)) {
             if (value instanceof Enum<?> item && item.name().equals(name)) return value;
         }
         return null;
@@ -1728,9 +1808,8 @@ public final class NativeMeshMirrorBridge {
         final Class<?> second,
         final Class<?> third
     ) {
-        for (Method method : owner.getMethods()) {
+        for (Method method : MethodHandleCache.overloads(owner, name, 3)) {
             final Class<?>[] parameters = method.getParameterTypes();
-            if (!method.getName().equals(name) || parameters.length != 3) continue;
             if (parameters[0] != first || parameters[1] != second) continue;
             if (third != null && parameters[2] != third) continue;
             return method;
@@ -1744,10 +1823,9 @@ public final class NativeMeshMirrorBridge {
         final Class<?> first,
         final Class<?> second
     ) {
-        for (Method method : owner.getMethods()) {
+        for (Method method : MethodHandleCache.overloads(owner, name, 2)) {
             final Class<?>[] parameters = method.getParameterTypes();
-            if (method.getName().equals(name) && parameters.length == 2
-                && parameters[0] == first && (second == null || parameters[1] == second)) return method;
+            if (parameters[0] == first && (second == null || parameters[1] == second)) return method;
         }
         return null;
     }
@@ -1760,21 +1838,21 @@ public final class NativeMeshMirrorBridge {
         for (Object point : points(mesh)) {
             final int id = pointId(point);
             if (id < 0) continue;
-            final Object position = call(point, "getPos", new Class<?>[0]);
-            final Object x = position == null ? null : call(position, "getX", new Class<?>[0]);
-            final Object y = position == null ? null : call(position, "getY", new Class<?>[0]);
+            final Object position = call(point, "getPos", NO_PARAMS);
+            final Object x = position == null ? null : call(position, "getX", NO_PARAMS);
+            final Object y = position == null ? null : call(position, "getY", NO_PARAMS);
             if (x instanceof Number first && y instanceof Number second) {
                 points.add(new MeshPointRef(id, first.floatValue(), second.floatValue()));
             }
         }
-        final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+        final Object hostEdges = call(mesh, "getEdges", NO_PARAMS);
         if (!(hostEdges instanceof Iterable<?> iterable)) return;
         for (Object edge : iterable) {
-            final Object first = call(edge, "getIndex1", new Class<?>[0]);
-            final Object second = call(edge, "getIndex2", new Class<?>[0]);
+            final Object first = call(edge, "getIndex1", NO_PARAMS);
+            final Object second = call(edge, "getIndex2", NO_PARAMS);
             if (first instanceof Number start && second instanceof Number end
                 && start.intValue() != end.intValue()) {
-                final Object type = call(edge, "getType", new Class<?>[0]);
+                final Object type = call(edge, "getType", NO_PARAMS);
                 final dev.turboism.sdk.cubism.mesh.MeshEdgeKind kind = type instanceof Enum<?> value
                     ? switch (value.name()) {
                         case "LOCKED" -> dev.turboism.sdk.cubism.mesh.MeshEdgeKind.BORDER;
@@ -1789,12 +1867,12 @@ public final class NativeMeshMirrorBridge {
 
     static int countLiveEdges(final Object mesh, final List<MeshEdgeRef> refs)
         throws ReflectiveOperationException {
-        final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+        final Object hostEdges = call(mesh, "getEdges", NO_PARAMS);
         if (!(hostEdges instanceof Iterable<?> iterable)) return 0;
         int count = 0;
         for (Object candidate : iterable) {
-            final Object first = call(candidate, "getIndex1", new Class<?>[0]);
-            final Object second = call(candidate, "getIndex2", new Class<?>[0]);
+            final Object first = call(candidate, "getIndex1", NO_PARAMS);
+            final Object second = call(candidate, "getIndex2", NO_PARAMS);
             if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
             final int low = Math.min(start.intValue(), end.intValue());
             final int high = Math.max(start.intValue(), end.intValue());
@@ -1814,12 +1892,12 @@ public final class NativeMeshMirrorBridge {
         final List<MeshEdgeRef> refs,
         final Object groupUndo
     ) throws ReflectiveOperationException {
-        final Object hostEdges = call(mesh, "getEdges", new Class<?>[0]);
+        final Object hostEdges = call(mesh, "getEdges", NO_PARAMS);
         if (!(hostEdges instanceof Iterable<?> iterable)) return 0;
         final List<Object> live = new ArrayList<>();
         for (Object candidate : iterable) {
-            final Object first = call(candidate, "getIndex1", new Class<?>[0]);
-            final Object second = call(candidate, "getIndex2", new Class<?>[0]);
+            final Object first = call(candidate, "getIndex1", NO_PARAMS);
+            final Object second = call(candidate, "getIndex2", NO_PARAMS);
             if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
             final int low = Math.min(start.intValue(), end.intValue());
             final int high = Math.max(start.intValue(), end.intValue());
@@ -1831,7 +1909,7 @@ public final class NativeMeshMirrorBridge {
             }
         }
         if (live.isEmpty()) return 0;
-        final Object handler = call(mesh, "getHandler", new Class<?>[0]);
+        final Object handler = call(mesh, "getHandler", NO_PARAMS);
         if (handler == null) return 0;
         final Method remove = declaredMethod(handler.getClass(), "a", List.class);
         if (remove == null || !hasUndoAttachmentMethod(groupUndo)) return 0;
@@ -1844,17 +1922,8 @@ public final class NativeMeshMirrorBridge {
     }
 
     private static boolean hasUndoAttachmentMethod(final Object groupUndo) {
-        for (Method method : groupUndo.getClass().getMethods()) {
-            if (method.getName().equals("plusAssign") && method.getParameterCount() == 1) return true;
-        }
-        Class<?> type = groupUndo.getClass();
-        while (type != null) {
-            for (Method method : type.getDeclaredMethods()) {
-                if (method.getName().equals("plusAssign") && method.getParameterCount() == 1) return true;
-            }
-            type = type.getSuperclass();
-        }
-        return false;
+        return !MethodHandleCache.overloads(groupUndo.getClass(), "plusAssign", 1).isEmpty()
+            || !MethodHandleCache.declaredOverloads(groupUndo.getClass(), "plusAssign", 1).isEmpty();
     }
 
     /** Test seam: the exact host mirror class cannot exist on an offline classpath. */
@@ -1865,10 +1934,9 @@ public final class NativeMeshMirrorBridge {
     /** Uses the host's own enable predicate; we never invent one. */
     static boolean hostMirrorEnabled(final Object mirror, final Object pack) {
         try {
-            final Object editMode = call(pack, "aP", new Class<?>[0]);
+            final Object editMode = call(pack, "aP", NO_PARAMS);
             if (editMode != null) {
-                for (Method method : mirror.getClass().getMethods()) {
-                    if (!method.getName().equals("a") || method.getParameterCount() != 1) continue;
+                for (Method method : MethodHandleCache.overloads(mirror.getClass(), "a", 1)) {
                     if (method.getReturnType() != boolean.class) continue;
                     if (!method.getParameterTypes()[0].isInstance(editMode)) continue;
                     return Boolean.TRUE.equals(method.invoke(mirror, editMode));
@@ -1883,17 +1951,17 @@ public final class NativeMeshMirrorBridge {
     }
 
     static List<?> contexts(final Object pack) throws ReflectiveOperationException {
-        final Object value = call(pack, "aT", new Class<?>[0]);
+        final Object value = call(pack, "aT", NO_PARAMS);
         return value instanceof List<?> list ? list : List.of();
     }
 
     static List<?> points(final Object mesh) throws ReflectiveOperationException {
-        final Object value = call(mesh, "getAllPointRef", new Class<?>[0]);
+        final Object value = call(mesh, "getAllPointRef", NO_PARAMS);
         return value instanceof List<?> list ? list : List.of();
     }
 
     static Iterable<?> edges(final Object mesh) throws ReflectiveOperationException {
-        final Object value = call(mesh, "getEdges", new Class<?>[0]);
+        final Object value = call(mesh, "getEdges", NO_PARAMS);
         return value instanceof Iterable<?> iterable ? iterable : List.of();
     }
 
@@ -1905,7 +1973,7 @@ public final class NativeMeshMirrorBridge {
     }
 
     static int pointId(final Object point) throws ReflectiveOperationException {
-        final Object value = call(point, "b", new Class<?>[0]);
+        final Object value = call(point, "b", NO_PARAMS);
         return value instanceof Number number ? number.intValue() : Integer.MIN_VALUE;
     }
 
@@ -1955,14 +2023,21 @@ public final class NativeMeshMirrorBridge {
         return false;
     }
 
+    /** Identity-keyed membership set for repeated scans within one dispatch frame. */
+    private static Set<Object> identitySet(final Iterable<?> items) {
+        final Set<Object> set = Collections.newSetFromMap(new IdentityHashMap<>());
+        for (Object item : items) set.add(item);
+        return set;
+    }
+
     private static boolean containsSame(final List<?> collected, final Object candidate) {
         for (Object existing : collected) if (existing == candidate) return true;
         return false;
     }
 
     static Object pointMesh(final Object point) throws ReflectiveOperationException {
-        final Object mesh = call(point, "a", new Class<?>[0]);
-        return mesh == null ? call(point, "getMesh", new Class<?>[0]) : mesh;
+        final Object mesh = call(point, "a", NO_PARAMS);
+        return mesh == null ? call(point, "getMesh", NO_PARAMS) : mesh;
     }
 
     /** Flattens the host's list-of-lists deletion argument, and tolerates a plain list. */
@@ -1986,20 +2061,13 @@ public final class NativeMeshMirrorBridge {
         final String name,
         final Class<?>... parameters
     ) {
-        Class<?> type = owner;
-        while (type != null) {
-            try {
-                final Method method = type.getDeclaredMethod(name, parameters);
-                method.setAccessible(true);
-                return method;
-            } catch (NoSuchMethodException ignored) {
-                type = type.getSuperclass();
-            }
+        try {
+            return MethodHandleCache.declaredUp(owner, name, parameters);
+        } catch (NoSuchMethodException ignored) {
+            // Fall through to the public assignable-match fallback.
         }
-        for (Method method : owner.getMethods()) {
-            if (!method.getName().equals(name)) continue;
+        for (Method method : MethodHandleCache.overloads(owner, name, parameters.length)) {
             final Class<?>[] actual = method.getParameterTypes();
-            if (actual.length != parameters.length) continue;
             boolean matches = true;
             for (int index = 0; index < actual.length; index++) {
                 if (!actual[index].isAssignableFrom(parameters[index])) {

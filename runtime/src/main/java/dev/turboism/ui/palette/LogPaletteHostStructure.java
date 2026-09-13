@@ -44,7 +44,7 @@ public final class LogPaletteHostStructure {
             && findAncestorViewport(pane) != null) {
             return pane;
         }
-        if (component instanceof Container container) {
+        if (component instanceof Container container && container.isVisible()) {
             for (Component child : container.getComponents()) {
                 final JTextPane found = findLogTextPane(child);
                 if (found != null) {

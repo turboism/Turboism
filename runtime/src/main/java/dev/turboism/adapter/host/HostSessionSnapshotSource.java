@@ -73,21 +73,105 @@ public final class HostSessionSnapshotSource implements HostSnapshotSource {
 
     @Override
     public boolean isHostPresent() {
-        return activeProject().isPresent() || activeDocument().isPresent();
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return pair.project().isPresent() || pair.document().isPresent();
     }
 
     @Override
     public long invalidationToken() {
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return tokenFor(pair.project(), pair.document());
+    }
+
+    @Override
+    public SdkRuntimeObservation observeSdkRuntime() {
+        // The adapter pair is already SDK snapshots; carry them verbatim so callers never pay
+        // the intermediate Host* projection nor the SDK re-projection it feeds. Session scope
+        // never surfaces a selection, matching what the host-shaped observation reported.
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        return new SdkRuntimeObservation(
+            null,
+            pair.project().orElse(null),
+            pair.document().orElse(null),
+            null,
+            new ObservationEvidence(pair.project(), pair.document())
+        );
+    }
+
+    @Override
+    public long versionOfSdkRuntime(final SdkRuntimeObservation observed) {
+        Objects.requireNonNull(observed, "observed");
+        if (observed.evidence() instanceof ObservationEvidence evidence) {
+            return tokenFor(evidence.project(), evidence.document());
+        }
+        if (observed.host() != null) {
+            return versionOf(observed.host());
+        }
+        return invalidationToken();
+    }
+
+    @Override
+    public Observation observe() {
+        // One adapter traversal supplies the project, the document and the model; the unprojected
+        // pair rides along as evidence so versionOf can compare exactly what was observed.
+        final ProjectWorkspaceAdapter.ActiveProjectDocument pair = observedPair();
+        final Optional<ProjectSnapshot> project = pair.project();
+        final Optional<DocumentSnapshot> document = pair.document();
+        final Optional<HostDocument> projected = document.map(this::document);
+        final Optional<HostModel> model = projected
+            .filter(active -> active.kind() == DocumentKind.MODEL)
+            .flatMap(HostDocument::model);
+        return new Observation(
+            project.map(this::project),
+            projected,
+            model,
+            EMPTY_SELECTION,
+            new ObservationEvidence(project, document)
+        );
+    }
+
+    @Override
+    public long versionOf(final Observation observation) {
+        Objects.requireNonNull(observation, "observation");
+        if (!(observation.evidence() instanceof ObservationEvidence evidence)) {
+            // Foreign observation: fall back to the source's own fresh read.
+            return invalidationToken();
+        }
+        return tokenFor(evidence.project(), evidence.document());
+    }
+
+    /** Shared token bookkeeping: bump when the observed pair differs from the last one. */
+    private long tokenFor(
+        final Optional<ProjectSnapshot> project,
+        final Optional<DocumentSnapshot> document
+    ) {
         synchronized (invalidationLock) {
-            final Optional<ProjectSnapshot> project = available(projectWorkspace.activeProject());
-            final Optional<DocumentSnapshot> document = available(projectWorkspace.activeDocument());
-            if (!project.equals(lastProjectObservation) || !document.equals(lastDocumentObservation)) {
+            if (!project.equals(lastProjectObservation)
+                || !document.equals(lastDocumentObservation)) {
                 lastProjectObservation = project;
                 lastDocumentObservation = document;
                 invalidationToken++;
             }
             return invalidationToken;
         }
+    }
+
+    /** The unprojected pair behind one observation, comparable with the recorded baseline. */
+    private record ObservationEvidence(
+        Optional<ProjectSnapshot> project,
+        Optional<DocumentSnapshot> document
+    ) {
+    }
+
+    /** One adapter read of the project/document pair; unavailable flattens to two empty halves. */
+    private ProjectWorkspaceAdapter.ActiveProjectDocument observedPair() {
+        final ProjectWorkspaceAdapter.AdapterResult<ProjectWorkspaceAdapter.ActiveProjectDocument>
+            result = projectWorkspace.activeProjectAndDocument();
+        return result.isAvailable()
+            ? result.value().orElseThrow()
+            : new ProjectWorkspaceAdapter.ActiveProjectDocument(
+                Optional.empty(), Optional.empty()
+            );
     }
 
     private HostProject project(final ProjectSnapshot source) {

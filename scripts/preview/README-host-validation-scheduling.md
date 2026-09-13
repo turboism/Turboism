@@ -50,7 +50,10 @@ associated with the job. Golden/official installation and Proton are separately
 revalidated host dependencies, not redistributed input bundles.
 
 Unknown custom hook dependencies are rejected, not executed speculatively.
-The only admitted custom hook inventory is the FPS resize driver. The history
+Admitted inventories are the FPS resize driver and the exact `native-resource:5302`
+readonly memory observer closure documented in [native resource workload](README-native-resource-workload.md).
+The latter requires three fixed helper destinations, a pinned Python interpreter and
+managed background execution; it is not general hook admission. The history
 baseline wrapper's `collect-history-validation-evidence.sh` cleanup hook, FX hooks,
 MCP clients and generated plugin-chooser hooks remain blocked at snapshot admission
 until their complete dependencies are explicitly reviewed; do not bypass the queue.

@@ -120,6 +120,88 @@ final class CubismJvmSettingsContribution {
         );
     }
 
+    /**
+     * Opt-in toggle in the Performance tab: when on, the session disables the
+     * host's periodic auto-backup entirely (crash-recovery trades for no
+     * mid-edit backup stalls). The writer persists first, then applies live
+     * through the verified backup service so a rejected apply cannot fake a
+     * saved state.
+     */
+    static SettingsContribution createBackupDisable(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings,
+        final java.util.function.Consumer<Boolean> apply
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        Objects.requireNonNull(apply, "apply");
+        return new SettingsContribution(
+            "cubism-disable-auto-backup",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(110),
+            new SettingsControl.Toggle(
+                "cubism-disable-auto-backup",
+                i18n.text("settings.cubism-jvm.disable-auto-backup"),
+                SettingsBinding.of(
+                    settings::reduceAutoBackup,
+                    value -> {
+                        settings.saveReduceAutoBackup(value);
+                        apply.accept(value);
+                    }
+                )
+            )
+        );
+    }
+
+    /**
+     * Launch-time preference: appends {@code -XX:+UseZGC} to the managed
+     * JAVA_TOOL_OPTIONS block on the next Cubism launch. No live apply —
+     * the current JVM cannot change collectors mid-process.
+     */
+    static SettingsContribution createZgcToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        return new SettingsContribution(
+            "cubism-zgc",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(120),
+            new SettingsControl.Toggle(
+                "cubism-zgc",
+                i18n.text("settings.cubism-jvm.zgc"),
+                SettingsBinding.of(settings::zgc, settings::saveZgc)
+            )
+        );
+    }
+
+    /** Small footer note on the Performance tab; no binding, display only. */
+    static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
+        Objects.requireNonNull(i18n, "i18n");
+        return new SettingsContribution(
+            "performance-restart-note",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(130),
+            new SettingsControl.Note(
+                "performance-restart-note",
+                i18n.text("settings.performance.restart-note")
+            )
+        );
+    }
+
     private static SettingsActionHandle install(
         final PluginLocalization i18n,
         final CubismJvmSettingsService settings

@@ -2,8 +2,11 @@ package dev.turboism.adapter.cubism;
 
 import dev.turboism.sdk.cubism.DeformerType;
 import dev.turboism.sdk.cubism.DocumentKind;
+import dev.turboism.sdk.cubism.DocumentSnapshot;
 import dev.turboism.sdk.cubism.ProjectContentKind;
+import dev.turboism.sdk.cubism.ProjectSnapshot;
 import dev.turboism.sdk.cubism.ResourceKind;
+import dev.turboism.sdk.cubism.SelectionSnapshot;
 
 import java.nio.file.Path;
 import java.util.List;
@@ -36,6 +39,155 @@ public interface HostSnapshotSource {
     boolean isHostPresent();
 
     long invalidationToken();
+
+    /**
+     * Returns one coherent observation of the host for a single logical read.
+     *
+     * <p>A source that can pair its reads overrides this so the project, the document, the model and
+     * the selection come from one traversal. The default composes the individual accessors, which is
+     * what a source that has nothing to pair does anyway.</p>
+     *
+     * @return an observation owned by this source; never null
+     */
+    default Observation observe() {
+        return new Observation(activeProject(), activeDocument(), activeModel(), selection(), null);
+    }
+
+    /**
+     * Returns the invalidation token for an observation this source produced.
+     *
+     * <p>The default keeps {@link #invalidationToken()} semantics. A source that can compare the
+     * observation it made with its previous observation answers from that comparison instead of
+     * re-reading the host, so the caller's snapshot and its version describe the same moment.</p>
+     *
+     * @param observation an observation returned by this source; never null
+     * @return the token that corresponds to the supplied observation
+     */
+    default long versionOf(final Observation observation) {
+        Objects.requireNonNull(observation, "observation");
+        return invalidationToken();
+    }
+
+    /**
+     * One coherent runtime read at SDK level.
+     *
+     * <p>A source whose underlying read already produces SDK snapshots overrides this so the
+     * caller skips the intermediate {@code Host*} projection and the SDK re-projection it
+     * feeds. The default delegates to {@link #observe()} and keeps the host-typed observation
+     * in {@link SdkRuntimeObservation#host()} for the caller to project as before.</p>
+     *
+     * @return one observation owned by this source; never null
+     */
+    default SdkRuntimeObservation observeSdkRuntime() {
+        return new SdkRuntimeObservation(observe(), null, null, null, null);
+    }
+
+    /**
+     * Returns the invalidation token for one {@link #observeSdkRuntime()} result.
+     *
+     * <p>The default applies {@link #versionOf(Observation)} to a host-shaped observation, or
+     * {@link #invalidationToken()} for an SDK-shaped one the source did not specialize; a source
+     * that fills {@link SdkRuntimeObservation#evidence()} overrides this to compare exactly what
+     * was observed instead of re-reading the host.</p>
+     *
+     * @param observed a result returned by this source; never null
+     * @return the token that corresponds to the supplied observation
+     */
+    default long versionOfSdkRuntime(final SdkRuntimeObservation observed) {
+        Objects.requireNonNull(observed, "observed");
+        return observed.host() != null ? versionOf(observed.host()) : invalidationToken();
+    }
+
+    /**
+     * The result of {@link #observeSdkRuntime()}: either {@link #host()} carrying the raw
+     * observation for the caller to project, or SDK-level {@link #project()}/{@link #document()}/
+     * {@link #selection()} with {@link #evidence()} the producing source recognizes for
+     * versioning.
+     */
+    record SdkRuntimeObservation(
+        Observation host,
+        ProjectSnapshot project,
+        DocumentSnapshot document,
+        SelectionSnapshot selection,
+        Object evidence
+    ) {
+        public SdkRuntimeObservation {
+            if (host != null
+                && (project != null || document != null || selection != null || evidence != null)) {
+                throw new IllegalArgumentException(
+                    "SdkRuntimeObservation carries either a host observation or SDK snapshots"
+                );
+            }
+            if (host == null && evidence == null) {
+                throw new IllegalArgumentException(
+                    "SDK-shaped observation requires evidence for versioning"
+                );
+            }
+        }
+    }
+
+    /**
+     * One coherent observation of the host, created by the source that produced it.
+     *
+     * <p>{@code evidence} is opaque to everyone but the producing source: it is how a source keeps the
+     * unprojected values it compared against without exposing them, and without letting a projection
+     * that drops fields (for example {@code ModelSnapshot.objects}, which {@link HostModel} does not
+     * carry) weaken the change detection.</p>
+     */
+    final class Observation {
+
+        private final Optional<HostProject> project;
+        private final Optional<HostDocument> document;
+        private final Optional<HostModel> model;
+        private final HostSelection selection;
+        private final Object evidence;
+
+        /**
+         * @param project the observed project; never null
+         * @param document the observed document; never null
+         * @param model the model owned by the observed MODEL document; never null
+         * @param selection the observed selection; never null
+         * @param evidence opaque value for the producing source, or {@code null}
+         */
+        public Observation(
+            final Optional<HostProject> project,
+            final Optional<HostDocument> document,
+            final Optional<HostModel> model,
+            final HostSelection selection,
+            final Object evidence
+        ) {
+            this.project = Objects.requireNonNull(project, "project");
+            this.document = Objects.requireNonNull(document, "document");
+            this.model = Objects.requireNonNull(model, "model");
+            this.selection = Objects.requireNonNull(selection, "selection");
+            this.evidence = evidence;
+        }
+
+        /** @return the observed project; empty when the host reported none or it was redacted */
+        public Optional<HostProject> project() {
+            return project;
+        }
+
+        /** @return the observed document; empty when the host reported none */
+        public Optional<HostDocument> document() {
+            return document;
+        }
+
+        /** @return the model owned by the observed MODEL document; empty for any other kind */
+        public Optional<HostModel> model() {
+            return model;
+        }
+
+        /** @return the observed selection */
+        public HostSelection selection() {
+            return selection;
+        }
+
+        /** @return the opaque evidence for the producing source; may be {@code null} */
+        public Object evidence() {
+            return evidence;
+        }
+    }
 
     record HostProject(
         String projectId,

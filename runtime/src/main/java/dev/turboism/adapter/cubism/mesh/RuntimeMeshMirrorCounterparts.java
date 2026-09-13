@@ -61,21 +61,24 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         for (Object context : NativeMeshMirrorBridge.contexts(live.pack())) {
             final Object mesh = NativeMeshMirrorBridge.call(context, "b", new Class<?>[0]);
             if (mesh == null) continue;
+            final MeshFrameIndex index = new MeshFrameIndex(mesh);
             final List<Object> compatibleSources = new ArrayList<>();
             for (Object source : live.sourcePoints()) {
                 final Object compatible = live.pointSourcesById()
-                    ? NativeMeshMirrorBridge.pointById(
-                        mesh, NativeMeshMirrorBridge.pointId(source)
-                    )
-                    : NativeMeshMirrorBridge.compatiblePoint(mesh, source);
+                    ? index.pointsById().get(NativeMeshMirrorBridge.pointId(source))
+                    : NativeMeshMirrorBridge.compatiblePoint(mesh, source, index);
                 if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
                     compatibleSources, compatible
                 )) compatibleSources.add(compatible);
             }
+            final Object scale = NativeMeshMirrorBridge.call(live.pack(), "aL", new Class<?>[0]);
+            final boolean toleranceKnown = scale instanceof Number;
+            final float tolerance = toleranceKnown ? ((Number) scale).floatValue() : 0f;
             for (Object compatible : compatibleSources) {
-                final Object counterpart = NativeMeshMirrorBridge.counterpartPoint(
-                    live.mirror(), compatible, mesh, live.pack(), context
-                );
+                final Object counterpart = !toleranceKnown ? null
+                    : NativeMeshMirrorBridge.counterpartPoint(
+                        live.mirror(), compatible, mesh, live.pack(), context, tolerance, index
+                    );
                 if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(compatibleSources, counterpart)
                     || NativeMeshMirrorBridge.containsIdentity(seenPoints, counterpart)) continue;
                 final int id = NativeMeshMirrorBridge.pointId(counterpart);
@@ -89,16 +92,17 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             final List<Object> compatibleEdges = new ArrayList<>();
             for (Object source : live.sourceEdges()) {
                 final Object compatible = live.endpointEdgeSources()
-                    ? endpointCompatibleEdge(mesh, source)
-                    : compatibleEdge(mesh, source);
+                    ? endpointCompatibleEdge(index, source)
+                    : compatibleEdge(index, source);
                 if (compatible != null && !NativeMeshMirrorBridge.containsIdentity(
                     compatibleEdges, compatible
                 )) compatibleEdges.add(compatible);
             }
             for (Object compatible : compatibleEdges) {
-                final Object counterpart = NativeMeshMirrorBridge.counterpartEdge(
-                    live.mirror(), compatible, mesh, live.pack(), context
-                );
+                final Object counterpart = !toleranceKnown ? null
+                    : NativeMeshMirrorBridge.counterpartEdge(
+                        live.mirror(), compatible, mesh, live.pack(), context, tolerance, index
+                    );
                 if (counterpart == null || NativeMeshMirrorBridge.containsIdentity(
                     compatibleEdges, counterpart
                 )) continue;
@@ -114,13 +118,10 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
             : new MeshEditContribution(points, edges);
     }
 
-    private static Object compatibleEdge(final Object mesh, final Object reference)
+    private static Object compatibleEdge(final MeshFrameIndex index, final Object reference)
         throws ReflectiveOperationException {
         if (reference == null) return null;
-        for (Object candidate : NativeMeshMirrorBridge.edges(mesh)) {
-            if (candidate == reference) return candidate;
-        }
-        return null;
+        return index.edgeIdentity().contains(reference) ? reference : null;
     }
 
     /**
@@ -129,10 +130,10 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
      * each current context; this mode is deliberately confined to the eraser dispatch so the
      * discrete edge action keeps its stricter exact-identity mesh selection.
      */
-    private static Object endpointCompatibleEdge(final Object mesh, final Object reference)
+    private static Object endpointCompatibleEdge(final MeshFrameIndex index, final Object reference)
         throws ReflectiveOperationException {
         final MeshEdgeRef ref = toEdgeRef(reference);
-        return ref == null ? null : liveEdge(mesh, ref);
+        return ref == null ? null : liveEdge(index, ref);
     }
 
     /** The opt-in path: materialise the mesh and ask the plugin once per source point. */
@@ -202,19 +203,9 @@ public final class RuntimeMeshMirrorCounterparts implements MeshMirrorCounterpar
         return new MeshEdgeRef(start.intValue(), end.intValue(), MeshEdgeKind.UNKNOWN);
     }
 
-    private static Object liveEdge(final Object mesh, final MeshEdgeRef ref)
+    private static Object liveEdge(final MeshFrameIndex index, final MeshEdgeRef ref)
         throws ReflectiveOperationException {
-        final Object hostEdges = NativeMeshMirrorBridge.call(mesh, "getEdges", new Class<?>[0]);
-        if (!(hostEdges instanceof Iterable<?> iterable)) return null;
-        for (Object edge : iterable) {
-            final Object first = NativeMeshMirrorBridge.call(edge, "getIndex1", new Class<?>[0]);
-            final Object second = NativeMeshMirrorBridge.call(edge, "getIndex2", new Class<?>[0]);
-            if (!(first instanceof Number start) || !(second instanceof Number end)) continue;
-            final int low = Math.min(start.intValue(), end.intValue());
-            final int high = Math.max(start.intValue(), end.intValue());
-            if (ref.startPointId() == low && ref.endPointId() == high) return edge;
-        }
-        return null;
+        return index.edgesByKey().get(MeshFrameIndex.refEdgeKey(ref));
     }
 
     void resetSession() {

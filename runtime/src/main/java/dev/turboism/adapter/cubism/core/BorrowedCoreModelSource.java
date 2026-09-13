@@ -1,6 +1,8 @@
 package dev.turboism.adapter.cubism.core;
 
+import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Lifecycle gate for an Editor-owned active Core model.
@@ -12,6 +14,7 @@ import java.util.Objects;
 final class BorrowedCoreModelSource implements ActiveCoreModelSource {
 
     private final Object monitor = new Object();
+    private final List<Runnable> modelClearedListeners = new CopyOnWriteArrayList<>();
 
     private Object activeModel;
     private String modelIdentity;
@@ -19,6 +22,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     private int activeLeases;
     private boolean transitioning;
     private boolean closed;
+    private boolean releaseRequested;
 
     /**
      * Publishes an Editor-owned borrowed model after a verified acquisition adapter resolves it.
@@ -48,6 +52,38 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     /** Clears the active model without taking ownership of the previous reference. */
     void clearBorrowedModel() {
         transitionTo(null, null);
+    }
+
+    /**
+     * Non-blocking release request used when the publishing binding is known to be gone. The
+     * model is forgotten as soon as no lease is outstanding; a later publication cancels the
+     * pending release, so a re-bound document is never disturbed.
+     */
+    @Override
+    public void releaseWhenIdle() {
+        final boolean cleared;
+        synchronized (monitor) {
+            if (closed || activeModel == null) {
+                return;
+            }
+            releaseRequested = true;
+            cleared = applyIdleReleaseLocked();
+        }
+        if (cleared) {
+            fireModelCleared();
+        }
+    }
+
+    @Override
+    public Object publishedModel() {
+        synchronized (monitor) {
+            return activeModel;
+        }
+    }
+
+    @Override
+    public void onModelCleared(final Runnable listener) {
+        modelClearedListeners.add(Objects.requireNonNull(listener, "listener"));
     }
 
     @Override
@@ -102,6 +138,7 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     @Override
     public void close() {
         boolean interrupted = false;
+        final boolean cleared;
         synchronized (monitor) {
             interrupted |= awaitTransitionCompletion();
             if (closed) {
@@ -109,9 +146,11 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
                 return;
             }
             transitioning = true;
+            releaseRequested = false;
             try {
                 interrupted |= awaitLeaseRelease();
                 final long nextGeneration = Math.incrementExact(generation);
+                cleared = activeModel != null;
                 activeModel = null;
                 modelIdentity = null;
                 generation = nextGeneration;
@@ -122,10 +161,14 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
             }
         }
         restoreInterrupt(interrupted);
+        if (cleared) {
+            fireModelCleared();
+        }
     }
 
     private void transitionTo(final Object replacement, final String identity) {
         boolean interrupted = false;
+        final boolean cleared;
         synchronized (monitor) {
             interrupted |= awaitTransitionCompletion();
             if (closed) {
@@ -133,9 +176,11 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
                 throw new IllegalStateException("Active Core model source is closed.");
             }
             transitioning = true;
+            releaseRequested = false;
             try {
                 interrupted |= awaitLeaseRelease();
                 final long nextGeneration = Math.incrementExact(generation);
+                cleared = activeModel != null && replacement == null;
                 activeModel = replacement;
                 modelIdentity = identity;
                 generation = nextGeneration;
@@ -145,6 +190,31 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
             }
         }
         restoreInterrupt(interrupted);
+        if (cleared) {
+            fireModelCleared();
+        }
+    }
+
+    /**
+     * Applies a pending non-blocking release once no lease is outstanding. Must be called under
+     * the monitor; returns true when the model was actually forgotten.
+     */
+    private boolean applyIdleReleaseLocked() {
+        if (!releaseRequested || activeLeases != 0 || activeModel == null
+            || transitioning || closed) {
+            return false;
+        }
+        releaseRequested = false;
+        generation = Math.incrementExact(generation);
+        activeModel = null;
+        modelIdentity = null;
+        return true;
+    }
+
+    private void fireModelCleared() {
+        for (final Runnable listener : modelClearedListeners) {
+            listener.run();
+        }
     }
 
     private boolean awaitTransitionCompletion() {
@@ -183,14 +253,19 @@ final class BorrowedCoreModelSource implements ActiveCoreModelSource {
     }
 
     private void releaseLease() {
+        final boolean cleared;
         synchronized (monitor) {
             if (activeLeases <= 0) {
                 throw new IllegalStateException("Core model lease accounting underflow.");
             }
             activeLeases--;
+            cleared = applyIdleReleaseLocked();
             if (activeLeases == 0) {
                 monitor.notifyAll();
             }
+        }
+        if (cleared) {
+            fireModelCleared();
         }
     }
 

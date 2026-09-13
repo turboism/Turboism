@@ -76,7 +76,15 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
         final ClassReader reader = new ClassReader(classfileBuffer);
         final Map<Target, Integer> locals = findMaxLocals(reader, classTargets);
         final boolean[] changed = {false};
-        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS);
+        final ClassWriter writer = new ClassWriter(reader, ClassWriter.COMPUTE_FRAMES | ClassWriter.COMPUTE_MAXS) {
+            @Override
+            protected ClassLoader getClassLoader() {
+                // ASM resolves frame merges without class initialization. Host-only classes
+                // must come from the attested loader, not the agent's implementation loader.
+                // Resolution failures propagate; never guess Object for an unknown hierarchy.
+                return expectedLoader == null ? super.getClassLoader() : expectedLoader;
+            }
+        };
         reader.accept(new ClassVisitor(Opcodes.ASM9, writer) {
             @Override
             public MethodVisitor visitMethod(
@@ -195,7 +203,8 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
 
             @Override
             public void visitInsn(final int opcode) {
-                if (opcode == Opcodes.RETURN) complete();
+                // Leave any one- or two-slot return value below the callback arguments.
+                if (opcode >= Opcodes.IRETURN && opcode <= Opcodes.RETURN) complete();
                 super.visitInsn(opcode);
             }
 
@@ -228,10 +237,10 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
      * @param ownerInternalName JVM internal name of the declaring class, e.g.
      *                          {@code com/live2d/cubism/view/context/CEViewContext}
      * @param methodName        exact method name in that class
-     * @param descriptor        JVM method descriptor; must return void
+     * @param descriptor        JVM descriptor of a concrete, non-constructor method
      * @param metric            the metric this method timings are recorded under
      * @throws NullPointerException when any component is {@code null}
-     * @throws IllegalArgumentException when the descriptor does not end in {@code )V}
+     * @throws IllegalArgumentException when the descriptor is invalid or the method is a constructor
      */
     public record Target(
         String ownerInternalName,
@@ -244,8 +253,17 @@ public final class PerformanceProbeMethodTransformer implements ClassFileTransfo
             Objects.requireNonNull(methodName, "methodName");
             Objects.requireNonNull(descriptor, "descriptor");
             Objects.requireNonNull(metric, "metric");
-            if (!descriptor.endsWith(")V")) {
-                throw new IllegalArgumentException("performance probe targets must return void");
+            if (methodName.startsWith("<")) {
+                throw new IllegalArgumentException("performance probe targets must not be constructors");
+            }
+            try {
+                final org.objectweb.asm.Type type = org.objectweb.asm.Type.getMethodType(descriptor);
+                if (!descriptor.equals(org.objectweb.asm.Type.getMethodDescriptor(
+                    type.getReturnType(), type.getArgumentTypes()))) {
+                    throw new IllegalArgumentException("invalid performance probe method descriptor");
+                }
+            } catch (IndexOutOfBoundsException exception) {
+                throw new IllegalArgumentException("invalid performance probe method descriptor", exception);
             }
         }
     }

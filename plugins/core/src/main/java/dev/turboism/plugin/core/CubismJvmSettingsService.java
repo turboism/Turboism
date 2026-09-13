@@ -44,6 +44,36 @@ public interface CubismJvmSettingsService {
         return Optional.empty();
     }
 
+    /**
+     * Opt-in session preference: when true the session start disables the
+     * host's periodic auto-backup via the verified updateSettings path
+     * (crash-recovery trades for no mid-edit backup stalls). Off by default.
+     */
+    default boolean reduceAutoBackup() {
+        return false;
+    }
+
+    /** Persists the session auto-backup reduction preference. */
+    default boolean saveReduceAutoBackup(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
+    /**
+     * Launcher preference: when true the next managed Cubism launch
+     * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
+     * Launch-time flag — takes effect on the next launch only.
+     * On by default; users disable it explicitly when startup speed
+     * matters more than pause latency.
+     */
+    default boolean zgc() {
+        return true;
+    }
+
+    /** Persists the ZGC launcher preference. */
+    default boolean saveZgc(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     default boolean graalVmAvailable() {
         return graalVmJava().isPresent();
     }
