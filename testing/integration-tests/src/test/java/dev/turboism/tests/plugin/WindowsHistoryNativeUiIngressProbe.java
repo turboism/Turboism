@@ -96,10 +96,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
     /**
      * How long one step waits for the operator.
      *
-     * <p>Generous on purpose: the window opens when the instruction is written, and a human has to
-     * read it and walk the mouse to the right part of the Editor before anything happens.</p>
+     * <p>Generous on purpose in manual mode: the window opens when the instruction is written,
+     * and a human has to read it and walk the mouse to the right part of the Editor before
+     * anything happens. Automated runs share the host display with other work, so they default
+     * to a much shorter residual window — the actors already verify each attempt against the
+     * undo manager themselves, and the window only exists to catch a late commit or an operator
+     * who happens to be present. {@code -Dturboism.history.nativeUi.stepTimeoutMillis} overrides
+     * either default.</p>
      */
-    private static final long STEP_TIMEOUT_MILLIS = 420_000L;
+    private static final long STEP_TIMEOUT_MILLIS = Long.parseLong(
+        System.getProperty(
+            "turboism.history.nativeUi.stepTimeoutMillis",
+            AUTOMATE ? "60000" : "420000"));
 
     /**
      * Operator steps in order.
