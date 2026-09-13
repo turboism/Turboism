@@ -1,0 +1,233 @@
+package dev.turboism.exportsettings;
+
+import java.io.File;
+import java.util.List;
+import java.util.function.BiConsumer;
+
+/**
+ * Semantic seam between the protected-export orchestrator and verified host members.
+ *
+ * <p>All host objects are opaque {@code Object} handles; the production implementation is
+ * {@link VerifiedProtectedExportHostOperations}, backed by the exact 5.3.02 record slice.
+ * Tests substitute fakes to drive the fault-injection matrix without a host.</p>
+ */
+public interface ProtectedExportHostOperations {
+
+    // ------------------------------------------------------------------
+    // Session / application
+    // ------------------------------------------------------------------
+
+    /** The {@code CEAppCtrl} singleton. */
+    Object appController();
+
+    /** The active document, or {@code null} when none is open. */
+    Object currentDocument();
+
+    /** The active project, or {@code null}. */
+    Object currentProject();
+
+    /** Whether the project currently contains the given document. */
+    boolean projectContains(Object document);
+
+    /** The main frame used as export-dialog parent, or {@code null}. */
+    Object mainFrame();
+
+    /** Opens a file through the native open path (non-interactive). */
+    void openFile(File file);
+
+    /** Closes a file content through the native close command. */
+    void closeFileContent(Object fileContent);
+
+    // ------------------------------------------------------------------
+    // Document
+    // ------------------------------------------------------------------
+
+    /** Whether the document is a modeling document. */
+    boolean isModelingDocument(Object document);
+
+    /** The document's model source, or {@code null}. */
+    Object documentModelSource(Object document);
+
+    /** The document's file content handle, or {@code null}. */
+    Object documentFileContent(Object document);
+
+    /** The document's selector, or {@code null}. */
+    Object documentSelector(Object document);
+
+    /** The document's current edit mode (any subtype), or {@code null}. */
+    Object documentCurrentEditMode(Object document);
+
+    /** The document's modeling-main edit mode, or {@code null}. */
+    Object documentMainEditMode(Object document);
+
+    /** The document's backing file, or {@code null}. */
+    File documentFile(Object document);
+
+    /** The document's undo manager, or {@code null}. */
+    Object documentUndoManager(Object document);
+
+    /** Marks the (disposable) document saved so native close discards without prompting. */
+    void markDocumentSaved(Object document);
+
+    // ------------------------------------------------------------------
+    // File content / undo signatures
+    // ------------------------------------------------------------------
+
+    File fileContentFile(Object fileContent);
+
+    boolean fileContentModified(Object fileContent);
+
+    int undoPosition(Object undoManager);
+
+    int undoEditCount(Object undoManager);
+
+    boolean undoCanUndo(Object undoManager);
+
+    // ------------------------------------------------------------------
+    // Selector / edit mode (deformer application)
+    // ------------------------------------------------------------------
+
+    /** Whether the selector is the modeling main selector that deformer commands read. */
+    boolean isMainSelector(Object selector);
+
+    /** Whether the edit mode is the modeling main edit mode owning the apply command. */
+    boolean isMainEditMode(Object editMode);
+
+    void clearSelection(Object selector);
+
+    int selectedCount(Object selector);
+
+    /** Adds a parameter-controllable source directly to the modeling selector. */
+    void selectSource(Object selector, Object source);
+
+    /** Deformer sources currently selected on the modeling main selector. */
+    List<?> selectedDeformers(Object selector);
+
+    /** Applies the selected deformer into its target parameters on the main edit mode. */
+    void applyDeformerToParameters(Object mainEditMode);
+
+    // ------------------------------------------------------------------
+    // Model source census
+    // ------------------------------------------------------------------
+
+    /** The modeling document owning a model source, or {@code null}. */
+    Object modelSourceDocument(Object modelSource);
+
+    /** The live model instance of a model source, or {@code null}. */
+    Object modelSourceCurrentInstance(Object modelSource);
+
+    List<?> allDeformers(Object modelSource);
+
+    List<?> allObjects(Object modelSource);
+
+    List<?> allArtMeshes(Object modelSource);
+
+    List<?> allParts(Object modelSource);
+
+    List<?> allParameters(Object modelSource);
+
+    /** Stable model GUID string of a model source. */
+    String modelSourceGuid(Object modelSource);
+
+    /** Parameter objects of the model instance's live parameter set (empty when absent). */
+    List<?> liveParameters(Object modelSource);
+
+    /** Parameter ID string of a live parameter instance. */
+    String parameterInstanceId(Object parameter);
+
+    /** Current value of a live parameter instance, or {@code Float.NaN} when unreadable. */
+    float parameterInstanceValue(Object parameter);
+
+    // ------------------------------------------------------------------
+    // Object identity
+    // ------------------------------------------------------------------
+
+    /** Stable GUID string of a parameter-controllable source. */
+    String objectGuid(Object source);
+
+    /** ID string of a parameter-controllable source. */
+    String objectIdString(Object source);
+
+    /** Local name of a parameter-controllable source. */
+    String objectLocalName(Object source);
+
+    boolean isDeformerSource(Object object);
+
+    boolean isWarpDeformer(Object object);
+
+    boolean isRotationDeformer(Object object);
+
+    boolean isArtMeshSource(Object object);
+
+    /** Deformer GUID string; the receiver must be a deformer source. */
+    String deformerGuid(Object deformerSource);
+
+    /** Target (parent) deformer GUID string, or {@code null} when absent. */
+    String deformerTargetGuid(Object deformerSource);
+
+    // ------------------------------------------------------------------
+    // Extended-interpolation eligibility gate
+    // ------------------------------------------------------------------
+
+    /**
+     * Whether any object of the model source uses extended interpolation.
+     *
+     * <p>Reads every object's keyform grid bindings host-side: a non-{@code LINEAR}
+     * extended-interpolation type or an illegal-extended flag counts as usage. This is
+     * the host-resolved form of the planner's unresolved preflight condition; when it
+     * returns {@code true} (or cannot be proven {@code false}) the export rejects.</p>
+     */
+    boolean usesExtendedInterpolation(Object modelSource);
+
+    // ------------------------------------------------------------------
+    // Export dialog identity + native re-drive
+    // ------------------------------------------------------------------
+
+    /** Whether the object is the export settings dialog owner. */
+    boolean isExportDialog(Object owner);
+
+    /** The model source bound into the export settings dialog instance. */
+    Object dialogModelSource(Object dialogOwner);
+
+    /** The {@code appCtrlImpl/al} export driver singleton. */
+    Object exportDriver();
+
+    /**
+     * Re-drives the native export entry {@code al.a(CModelSource, CFrame, Function2)}.
+     *
+     * @param driver the driver from {@link #exportDriver()}
+     * @param modelSource bound copy's model source
+     * @param frame parent frame or {@code null} for the native fallback
+     * @param completionCallback proxy from {@link #newExportCompletionProxy(BiConsumer)}
+     */
+    void invokeNativeExport(
+        Object driver,
+        Object modelSource,
+        Object frame,
+        Object completionCallback
+    );
+
+    /**
+     * Builds a host-classloader {@code kotlin.jvm.functions.Function2} proxy receiving the
+     * staged output file and the generated absolute-path list.
+     */
+    Object newExportCompletionProxy(BiConsumer<File, List<String>> callback);
+
+    // ------------------------------------------------------------------
+    // Native file-cache force release (disposable copy cleanup)
+    // ------------------------------------------------------------------
+
+    /**
+     * Force-releases the native file-cache handle for the given file so the disposable
+     * copy can be deleted even if the host still pins its loader.
+     *
+     * @return {@code true} when no handle remains for the file afterwards
+     */
+    boolean releaseFileHandleFor(File file);
+
+    /**
+     * Diagnostic snapshot of the file-cache entries pinned to {@code file}:
+     * {@code loader=<loader-class>|listeners=<n>} per matching handle.
+     */
+    List<String> fileHandleDiagnostics(File file);
+}

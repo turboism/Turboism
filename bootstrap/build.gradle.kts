@@ -47,7 +47,8 @@ tasks.processResources {
         "cubism-5.3.03-workspace-control.json",
         "cubism-5.2.03-autobackup.json",
         "cubism-5.3.02-autobackup.json",
-        "cubism-5.3.03-autobackup.json"
+        "cubism-5.3.03-autobackup.json",
+        "cubism-5.3.02-protected-export.json"
     ).forEach { record ->
         from(rootProject.file("compatibility/cubism/verification/$record")) {
             into("META-INF/turboism/verification")
