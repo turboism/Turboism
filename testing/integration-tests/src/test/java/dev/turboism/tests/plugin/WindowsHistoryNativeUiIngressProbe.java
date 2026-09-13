@@ -660,8 +660,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
      * being reviewed and the retries stop.</p>
      */
     private String dragCanvas(final String knownSignificant) throws Exception {
-        final List<java.awt.Component> candidates =
+        // The r14 run proved the component tree can be mid-relayout when the actor runs — an
+        // invisible ancestor prunes the whole subtree and discovery comes back empty while the
+        // post-action map shows a perfectly good surface. Give the layout a few bounded chances
+        // to settle before reporting the miss.
+        List<java.awt.Component> candidates =
             onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
+        for (int retry = 0; candidates.isEmpty() && retry < 4; retry++) {
+            Thread.sleep(POLL_MILLIS);
+            candidates = onEdt(WindowsHistoryNativeUiIngressProbe::canvasCandidates);
+        }
         if (candidates.isEmpty()) {
             // The r13 run returned empty here while the post-action map showed a showing leaf —
             // record what was actually rejected so the next run names the reason instead of
@@ -858,9 +866,16 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
         final int depth
     ) {
         if (depth > UI_MAP_MAX_DEPTH || !component.isVisible() || out.length() > 3800) return;
-        final boolean leaf = !(component instanceof java.awt.Container container)
-            || container.getComponentCount() == 0;
-        if (leaf && component.getWidth() >= MIN_CANVAS_EDGE
+        boolean visibleLeaf = true;
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                if (child.isShowing()) {
+                    visibleLeaf = false;
+                    break;
+                }
+            }
+        }
+        if (visibleLeaf && component.getWidth() >= MIN_CANVAS_EDGE
             && component.getHeight() >= MIN_CANVAS_EDGE) {
             final String reason = !component.isShowing() ? "not-showing"
                 : component instanceof javax.swing.AbstractButton ? "button"
@@ -902,14 +917,21 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
             && !named.contains(component)) {
             named.add(component);
         }
-        final boolean leaf = !(component instanceof java.awt.Container container)
-            || container.getComponentCount() == 0;
-        // The largest-leaf fallback still has to look like a canvas: the r9 run found nothing by
-        // name and the fallback picked the window's title bar — a real component, but a drag
-        // there moves the window, not the model. Below a minimum area the pick is too small to
-        // be a model view and the step stays unresolved instead, and a known interactive control
-        // is never a candidate at all.
-        if (component.isShowing() && leaf
+        // A drag surface is any component with no <em>showing</em> children: the r14 run showed
+        // the model view is a container whose children exist but are hidden, so requiring a
+        // literal leaf rejected the one region a drag belongs on. Below the minimum area the
+        // pick is too small to be a model view and the step stays unresolved instead, and a
+        // known interactive control is never a candidate at all.
+        boolean visibleLeaf = true;
+        if (component instanceof java.awt.Container container) {
+            for (java.awt.Component child : container.getComponents()) {
+                if (child.isShowing()) {
+                    visibleLeaf = false;
+                    break;
+                }
+            }
+        }
+        if (component.isShowing() && visibleLeaf
             && component.getWidth() >= MIN_CANVAS_EDGE && component.getHeight() >= MIN_CANVAS_EDGE
             && !(component instanceof javax.swing.AbstractButton)
             && !(component instanceof javax.swing.JSlider)
