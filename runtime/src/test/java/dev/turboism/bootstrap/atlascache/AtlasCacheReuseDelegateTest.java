@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -240,5 +241,96 @@ final class AtlasCacheReuseDelegateTest {
     void verifyHostAccessResolvesAgainstTheFixture() {
         assertNull(AtlasCacheReuseDelegate.verifyHostAccess(
             AtlasCacheReuseDelegateTest.class.getClassLoader()));
+    }
+
+    /** A single-entry 2×2 atlas drawing {@code img} at the identity transform. */
+    private CTextureAtlas atlasOver(final CModelImage img) {
+        final CTextureAtlas a = new CTextureAtlas(source, 2, 2);
+        a.addEntry(img.getGuid(), new CAffine());
+        return a;
+    }
+
+    private CModelImage imageOf(final BufferedImage pixels) {
+        final CModelImage img = new CModelImage(() -> new CImageResource(
+            new CWritableImage(pixels)));
+        source.getTextureManager().put(img);
+        return img;
+    }
+
+    @Test
+    void anImageOverTheDigestBudgetIsNeverRecordedOrReused() {
+        // 8193×8193 > 64 Mi pixels; TYPE_BYTE_BINARY keeps the real image near 8 MiB.
+        final CModelImage big = imageOf(
+            new BufferedImage(8193, 8193, BufferedImage.TYPE_BYTE_BINARY));
+        final CTextureAtlas bigAtlas = atlasOver(big);
+
+        bigAtlas.setupCacheImage$cubism(true, null);
+        AtlasCacheReuseDelegate.rebuilt(CTextureAtlas.class, bigAtlas, true);
+
+        assertEquals(0, AtlasCacheReuseDelegate.recordCount(),
+            "an uncomputable signature must not be recorded");
+        assertEquals(0, AtlasCacheReuseDelegate.outputCount(),
+            "an uncomputable signature must not key a retained output");
+        assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, bigAtlas, true),
+            "content equality is unproven over budget, so the guard must rebuild");
+    }
+
+    @Test
+    void anOversizedInPlaceEditFallsBackToAStockRebuild() {
+        final BufferedImage pixels =
+            new BufferedImage(8193, 8193, BufferedImage.TYPE_BYTE_BINARY);
+        final CTextureAtlas bigAtlas = atlasOver(imageOf(pixels));
+
+        bigAtlas.setupCacheImage$cubism(true, null);
+        AtlasCacheReuseDelegate.rebuilt(CTextureAtlas.class, bigAtlas, true);
+        final int stalePixel = bigAtlas.getCachedAtlasImage().getImage()
+            .getJBufferedImage().getRGB(0, 0);
+
+        pixels.setRGB(0, 0, 0xFFFFFFFF);   // in-place edit, no version bump
+        assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, bigAtlas, true),
+            "the guard must not claim reuse for pixels it never hashed");
+
+        bigAtlas.setupCacheImage$cubism(true, null);   // the stock path being declined to
+        assertEquals(0xFFFFFFFF, bigAtlas.getCachedAtlasImage().getImage()
+            .getJBufferedImage().getRGB(0, 0),
+            "a real rebuild picks up the edited pixel");
+        assertNotEquals(stalePixel, 0xFFFFFFFF,
+            "the recorded cache carried the pre-edit pixels, so reuse would be wrong");
+    }
+
+    @Test
+    void anImageExactlyAtTheDigestBudgetStillReusesAndStillVerifies() {
+        // 8192×8192 == 64 Mi pixels == the hashing budget boundary.
+        final BufferedImage pixels =
+            new BufferedImage(8192, 8192, BufferedImage.TYPE_BYTE_BINARY);
+        final CTextureAtlas bigAtlas = atlasOver(imageOf(pixels));
+
+        bigAtlas.setupCacheImage$cubism(true, null);
+        AtlasCacheReuseDelegate.rebuilt(CTextureAtlas.class, bigAtlas, true);
+
+        assertTrue(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, bigAtlas, true),
+            "in-budget unchanged input must keep reusing");
+
+        pixels.setRGB(0, 0, 0xFFFFFFFF);
+        assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, bigAtlas, true),
+            "the pixel digest must still catch an in-place edit at the boundary");
+    }
+
+    @Test
+    void anUnreadableFilteredImageIsNeverRecordedOrReused() {
+        final CModelImage broken = new CModelImage(() -> new CImageResource(
+            new CWritableImage((BufferedImage) null)));
+        source.getTextureManager().put(broken);
+        final CTextureAtlas brokenAtlas = atlasOver(broken);
+
+        brokenAtlas.setupCacheImage$cubism(true, null);
+        AtlasCacheReuseDelegate.rebuilt(CTextureAtlas.class, brokenAtlas, true);
+
+        assertEquals(0, AtlasCacheReuseDelegate.recordCount(),
+            "unreadable pixels are an uncomputable signature, not a cache key");
+        assertEquals(0, AtlasCacheReuseDelegate.outputCount(),
+            "unreadable pixels must not key a retained output");
+        assertFalse(AtlasCacheReuseDelegate.tryReuse(CTextureAtlas.class, brokenAtlas, true),
+            "content equality is unproven, so the guard must rebuild");
     }
 }
