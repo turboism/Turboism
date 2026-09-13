@@ -614,6 +614,9 @@ class CoreShellTest {
             new ShellServices(
                 settings(),
                 CubismJvmSettingsService.unavailable(),
+                MeshTriangulationSettingsService.unavailable(),
+                AtlasTileBboxSettingsService.unavailable(),
+                AtlasCacheReuseSettingsService.unavailable(),
                 dev.turboism.sdk.ui.settings.SettingsContributionSource.empty(),
                 plugins(),
                 ShellServices.FloatingPanelActions.unavailable(),
