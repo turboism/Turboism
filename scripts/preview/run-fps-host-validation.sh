@@ -44,6 +44,14 @@ fi
 fixture_suffix='fps.cmo3'
 driver="$repo_root/scripts/preview/fps-resize-driver.sh"
 [ -r "$driver" ] || { echo "error: FPS resize hook is missing at $driver" >&2; exit 1; }
+extra_jvm_options=()
+case "$run_label" in
+  *-jfr)
+    # R11 diagnosis leg: execution samples across the resize-driven render
+    # window to split renderScene cost into CPU evaluation vs GL submit.
+    extra_jvm_options+=(--jvm-option '-XX:StartFlightRecording=duration=240s,filename={HOME}\logs\fps-observe.jfr')
+    ;;
+esac
 exec bash "$runner" \
   --name fps \
   --version "$version" \
@@ -51,6 +59,7 @@ exec bash "$runner" \
   --bundle-root "$repo_root/build/preview/$worktree_id" \
   --agent "$agent_jar" \
   --plugin "$probe_jar:fps-host-validation-exerciser.jar" \
+  "${extra_jvm_options[@]}" \
   --fixture-host "$fixture_src" \
   --fixture-name "$fixture_suffix" \
   --fixture-sha256 "$fixture_sha256" \
