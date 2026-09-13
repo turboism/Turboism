@@ -982,6 +982,12 @@ public final class ProtectedExportHostProbeAgent {
         }
         SwingUtilities.invokeLater(() -> {
             try {
+                // A flattened copy is dirty: IFileContent.saveIfModified would
+                // show a modal UUOption prompt inside command_closeFileContent,
+                // blocking this runnable so the document never detaches. The
+                // copy is disposable — marking it saved takes the discard path.
+                invoke(document, "setLastSavedTime",
+                    new Class<?>[] {long.class}, Long.MAX_VALUE);
                 invokeByName(controller, "command_closeFileContent", content);
             } catch (Throwable failure) {
                 System.out.println(
