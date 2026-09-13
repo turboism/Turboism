@@ -5,6 +5,10 @@ import dev.turboism.shell.CoreShell;
 import dev.turboism.shell.ShellManifest;
 import dev.turboism.shell.ShellServices;
 
+import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -23,6 +27,7 @@ final class CoreShellRuntime implements AutoCloseable {
     private final CoreShell shell;
     private final DisposableScope scope;
     private final PluginContextBundle bundle;
+    private final URLClassLoader resources;
     private final PreviewPluginShutdown hookCleanup;
     private final PreviewLog log;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -31,12 +36,14 @@ final class CoreShellRuntime implements AutoCloseable {
         final CoreShell shell,
         final DisposableScope scope,
         final PluginContextBundle bundle,
+        final URLClassLoader resources,
         final PreviewPluginShutdown hookCleanup,
         final PreviewLog log
     ) {
         this.shell = shell;
         this.scope = scope;
         this.bundle = bundle;
+        this.resources = resources;
         this.hookCleanup = hookCleanup;
         this.log = log;
     }
@@ -48,11 +55,12 @@ final class CoreShellRuntime implements AutoCloseable {
         final PreviewLog log
     ) throws Exception {
         final DisposableScope scope = new DisposableScope();
+        final URLClassLoader resources = shellResourceLoader();
         PluginContextBundle bundle = null;
         CoreShell shell = null;
         try {
             bundle = contexts.create(
-                ShellManifest.descriptor(), shellClassLoader(), scope
+                ShellManifest.descriptor(), resources, scope
             );
             shell = new CoreShell(services);
             log.info(ShellManifest.ID, "Shell startup: begin");
@@ -62,7 +70,7 @@ final class CoreShellRuntime implements AutoCloseable {
             bundle.eventOwner().beginEnabling();
             bundle.eventOwner().activate();
             log.info(ShellManifest.ID, "Shell startup: ready");
-            return new CoreShellRuntime(shell, scope, bundle, hookCleanup, log);
+            return new CoreShellRuntime(shell, scope, bundle, resources, hookCleanup, log);
         } catch (Throwable failure) {
             if (bundle != null) {
                 bundle.eventOwner().beginClosing();
@@ -78,6 +86,11 @@ final class CoreShellRuntime implements AutoCloseable {
                 scope.close();
             } catch (Throwable cleanup) {
                 log.error(ShellManifest.ID, "Shell scope cleanup failed safely", cleanup);
+            }
+            try {
+                resources.close();
+            } catch (Throwable cleanup) {
+                log.error(ShellManifest.ID, "Shell resource loader cleanup failed safely", cleanup);
             }
             if (failure instanceof Exception exception) {
                 throw exception;
@@ -139,6 +152,11 @@ final class CoreShellRuntime implements AutoCloseable {
         } catch (Throwable failure) {
             logFailure(id, "SHELL_EVENT_OWNER_CLOSE_FAILED");
         }
+        try {
+            resources.close();
+        } catch (Throwable failure) {
+            logFailure(id, "SHELL_RESOURCE_LOADER_CLOSE_FAILED");
+        }
         log.info(id, "Shell closed");
     }
 
@@ -147,13 +165,60 @@ final class CoreShellRuntime implements AutoCloseable {
     }
 
     /**
-     * The agent jar is appended to the boot classpath on the real host, so the shell's
-     * own class loader is {@code null} there; the context factory still requires a
-     * non-null loader for resource registration and localization. Fall back to the
-     * system loader, which resolves agent-jar resources through bootstrap delegation.
+     * The context factory requires a {@link URLClassLoader}: plugin catalogs are read
+     * plugin-locally from its URLs rather than through classpath delegation. The shell
+     * lives inside the agent jar, so its resource loader is a thin loader over the
+     * agent jar location (or the classes directory in exploded dev layouts).
      */
-    private static ClassLoader shellClassLoader() {
-        final ClassLoader own = CoreShell.class.getClassLoader();
-        return own != null ? own : ClassLoader.getSystemClassLoader();
+    private static URLClassLoader shellResourceLoader() {
+        final ClassLoader parent = CoreShell.class.getClassLoader();
+        return new URLClassLoader(new URL[]{shellSource(parent)}, parent);
     }
+
+    /**
+     * The agent jar that carries the shell. With {@code Boot-Class-Path} the shell
+     * classes may be bootstrap-loaded with a null class loader, in which case the
+     * protection domain may still expose a CodeSource; when it does not, recover the
+     * jar URL from the shell i18n catalog anchor resource.
+     */
+    private static URL shellSource(final ClassLoader parent) {
+        final java.security.CodeSource codeSource =
+            CoreShell.class.getProtectionDomain().getCodeSource();
+        if (codeSource != null && codeSource.getLocation() != null) {
+            return codeSource.getLocation();
+        }
+        final URL anchor = parent != null
+            ? parent.getResource(CATALOG_ANCHOR)
+            : ClassLoader.getSystemResource(CATALOG_ANCHOR);
+        if (anchor == null) {
+            throw new IllegalStateException("shell resource anchor is missing");
+        }
+        try {
+            return anchorSource(anchor);
+        } catch (MalformedURLException | URISyntaxException failure) {
+            throw new IllegalStateException("shell resource source is invalid", failure);
+        }
+    }
+
+    /**
+     * {@code jar:file:/.../turboism-agent.jar!/META-INF/...} resolves to the jar URL;
+     * {@code file:/.../resources/META-INF/...} resolves to the exploded resource root.
+     */
+    static URL anchorSource(final URL anchor) throws MalformedURLException, URISyntaxException {
+        final String spec = anchor.toExternalForm();
+        if ("jar".equals(anchor.getProtocol())) {
+            final int separator = spec.indexOf("!/");
+            if (separator > 0) {
+                return java.net.URI.create(spec.substring(4, separator)).toURL();
+            }
+            return anchor;
+        }
+        if ("file".equals(anchor.getProtocol()) && spec.endsWith(CATALOG_ANCHOR)) {
+            return java.net.URI.create(spec.substring(0, spec.length() - CATALOG_ANCHOR.length()))
+                .toURL();
+        }
+        return anchor;
+    }
+
+    private static final String CATALOG_ANCHOR = "META-INF/turboism/i18n/messages.properties";
 }
