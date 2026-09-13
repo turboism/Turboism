@@ -40,13 +40,17 @@ public record TopMenuDescriptor(
     /**
      * Reserved root menu aggregated across contributing plugins (the shared
      * Turboism root). Items keep their originating plugin identity and route
-     * back to their owning plugin.
+     * back to their owning plugin. {@code rootLabel} is the routing key items
+     * were contributed under; {@code displayLabel} is the framework-localized
+     * name actually shown in the menu bar.
      */
     static TopMenuDescriptor shared(
         final String rootLabel,
+        final String displayLabel,
         final List<TopMenuItemDescriptor> items
     ) {
         final String label = requireText(rootLabel, "rootLabel");
+        final String display = requireText(displayLabel, "displayLabel");
         final List<TopMenuItemDescriptor> snapshot = List.copyOf(items);
         if (snapshot.isEmpty()) {
             throw new IllegalArgumentException("items must not be empty");
@@ -57,7 +61,7 @@ public record TopMenuDescriptor(
         final String encodedLabel = Base64.getUrlEncoder().withoutPadding().encodeToString(
             label.getBytes(StandardCharsets.UTF_8)
         );
-        return new TopMenuDescriptor("turboism.menu.shared." + encodedLabel, label, snapshot);
+        return new TopMenuDescriptor("turboism.menu.shared." + encodedLabel, display, snapshot);
     }
 
     private static String requireText(final String value, final String name) {

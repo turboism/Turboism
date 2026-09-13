@@ -242,6 +242,9 @@ val legacyCubismEvidenceTest by tasks.registering(Test::class) {
 }
 
 tasks.named<Test>("test") {
+    @Suppress("UNCHECKED_CAST")
+    val buildMetadata = rootProject.extra["turboismBuildMetadata"] as Map<String, String>
+    systemProperty("turboism.expectedFrameworkVersion", buildMetadata.getValue("version"))
     filter {
         excludeTestsMatching(
             "dev.turboism.adapter.cubism.VerifiedProjectWorkspaceImageDocumentTest"
@@ -295,7 +298,6 @@ tasks.named<ProcessResources>("processTestResources") {
 
 dependencies {
     implementation(project(":sdk"))
-    implementation(project(":plugins:core"))
 
     // JSON parsing implementation stays in runtime, not in SDK
     implementation("com.fasterxml.jackson.core:jackson-databind:2.18.9")

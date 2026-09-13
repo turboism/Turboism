@@ -7,7 +7,6 @@ dependencies {
     testImplementation(project(":sdk"))
     testImplementation(project(":plugins:demo"))
     testImplementation(project(":plugins:ui-theme"))
-    testImplementation(project(":plugins:core"))
     testImplementation(project(":plugins:parameter"))
     testImplementation(project(":plugins:mesh-edit-mirror-axis-enhance"))
     testImplementation(project(":plugins:bounding-box"))

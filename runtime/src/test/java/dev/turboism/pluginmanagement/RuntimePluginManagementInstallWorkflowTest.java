@@ -60,7 +60,7 @@ class RuntimePluginManagementInstallWorkflowTest {
         );
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
         final RuntimeActionRegistry actions = new RuntimeActionRegistry(
             scheduler, ignored -> { }, "turboism.core", PermissionChecker.allowAll()
         );
@@ -97,7 +97,7 @@ class RuntimePluginManagementInstallWorkflowTest {
         );
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
         final CountDownLatch completed = new CountDownLatch(1);
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
         final RuntimeActionRegistry actions = new RuntimeActionRegistry(
             scheduler, ignored -> { }, "turboism.core", PermissionChecker.allowAll()
         );
@@ -127,7 +127,7 @@ class RuntimePluginManagementInstallWorkflowTest {
         Files.write(source, PluginManagementPackageFixture.pluginJarBytes("example.plugin", "1.0.0"));
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
 
         service.requestInstall(results::add);
         assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
@@ -162,7 +162,7 @@ class RuntimePluginManagementInstallWorkflowTest {
                 closeDeactivated::countDown
             );
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
         final CountDownLatch completed = new CountDownLatch(1);
 
         service.requestInstall(result -> {
@@ -194,7 +194,7 @@ class RuntimePluginManagementInstallWorkflowTest {
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, chooser, List::of, executor
         );
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
         final CountDownLatch completed = new CountDownLatch(1);
 
         service.requestInstall(result -> {
@@ -221,7 +221,7 @@ class RuntimePluginManagementInstallWorkflowTest {
         final RuntimePluginManagementService service = new RuntimePluginManagementService(
             home, chooser, List::of, executor
         );
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> results = new CopyOnWriteArrayList<>();
 
         service.requestInstall(results::add);
         assertTrue(chooser.opened.await(1, TimeUnit.SECONDS));
@@ -239,7 +239,7 @@ class RuntimePluginManagementInstallWorkflowTest {
     void overlappingInstallRequestIsRejectedAsBusy() throws Exception {
         final ControlledChooser chooser = new ControlledChooser();
         final RuntimePluginManagementService service = new RuntimePluginManagementService(home, chooser, List::of);
-        final List<dev.turboism.plugin.core.CorePluginManagement.OperationResult> second = new CopyOnWriteArrayList<>();
+        final List<dev.turboism.shell.CorePluginManagement.OperationResult> second = new CopyOnWriteArrayList<>();
 
         try {
             service.requestInstall(ignored -> { });

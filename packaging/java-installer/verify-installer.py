@@ -223,14 +223,13 @@ def assert_automated_eula_gate(jar):
 
 
 # Frozen release-plugin allowlist — sole authority is packaging/release-plugins.txt.
-# This exact 17-project list plus the eight excluded public module names is the regression
+# This exact 16-project list plus the eight excluded public module names is the regression
 # oracle; the id/name for every listed module comes from its committed
 # plugin.json descriptor at verification time (see load_plugin_metadata), so
 # production drift from the shared manifest or the source descriptors fails.
 MANIFEST_EXPECTED = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:clipmask-viewer",
-    ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:history-panel",
     ":plugins:mcp",
@@ -411,9 +410,9 @@ def load_release_manifest(path):
           "bad=%s" % malformed[:3])
     check("release manifest has no duplicates", len(set(lines)) == len(lines))
     check("release manifest is ASCII-sorted", lines == sorted(lines))
-    check("release manifest matches the frozen 17-project allowlist",
+    check("release manifest matches the frozen 16-project allowlist",
           lines == MANIFEST_EXPECTED, "n=%d" % len(lines))
-    return [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+    return [l[len(":plugins:"):] for l in lines]
 
 
 _STRICT_VERSION_RE = re.compile(r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$')

@@ -24,11 +24,13 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
     private final EditorUiProviderAdmission admission;
     private final TopMenuHostOperations host;
     private final EditorUiActionRouter actionRouter;
+    private final String sharedRootLabel;
 
     public TopMenuContributionProvider(
         final EditorUiProviderAdmission admission,
         final TopMenuHostOperations host,
-        final EditorUiActionRouter actionRouter
+        final EditorUiActionRouter actionRouter,
+        final String sharedRootLabel
     ) {
         this.admission = Objects.requireNonNull(admission, "admission");
         if (admission.family() != EditorUiFamily.MENU) {
@@ -36,6 +38,7 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
         this.host = Objects.requireNonNull(host, "host");
         this.actionRouter = Objects.requireNonNull(actionRouter, "actionRouter");
+        this.sharedRootLabel = Objects.requireNonNull(sharedRootLabel, "sharedRootLabel");
     }
 
     @Override
@@ -72,7 +75,8 @@ public final class TopMenuContributionProvider implements EditorUiContributionPr
         }
         final List<TopMenuDescriptor> menus = grouped.entrySet().stream()
             .map(entry -> entry.getKey().shared()
-                ? TopMenuDescriptor.shared(entry.getKey().rootLabel(), entry.getValue())
+                ? TopMenuDescriptor.shared(
+                    entry.getKey().rootLabel(), sharedRootLabel, entry.getValue())
                 : TopMenuDescriptor.owned(
                     entry.getKey().rootLabel(),
                     entry.getValue()

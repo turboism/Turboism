@@ -1,7 +1,7 @@
 package dev.turboism.config;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import dev.turboism.plugin.core.CubismJvmSettingsService;
+import dev.turboism.shell.CubismJvmSettingsService;
 
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
