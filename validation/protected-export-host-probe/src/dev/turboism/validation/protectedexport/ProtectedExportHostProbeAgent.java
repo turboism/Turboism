@@ -15,6 +15,7 @@ import java.lang.reflect.Modifier;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -110,6 +111,7 @@ public final class ProtectedExportHostProbeAgent {
     private static void run(final Instrumentation instrumentation) {
         final Path stateDir = stateDirectory();
         final Evidence evidence = new Evidence();
+        evidence.progress = stateDir.resolve("probe-progress.properties");
         try {
             prepare(stateDir, evidence);
             if (!awaitHostReady(instrumentation, stateDir, evidence)) {
@@ -490,6 +492,9 @@ public final class ProtectedExportHostProbeAgent {
                 return null;
             });
             evidence.put(prefix + "innerConfirmed", "true");
+            waitForHidden(inner);
+            evidence.put(prefix + "innerHiddenAfterConfirm",
+                Boolean.toString(!inner.isVisible()));
 
             if (!driveToDestination(inner, pick, alreadyVisible, stateDir,
                 evidence, prefix)) {
@@ -2780,14 +2785,37 @@ public final class ProtectedExportHostProbeAgent {
     private static final class Evidence {
         private final Map<String, String> values = new TreeMap<>();
         private String error;
+        /**
+         * Kill-safe progress mirror. The authoritative result file is only
+         * written at {@link #finish}; this file exists so a supervisor kill can
+         * never leave a run evidence-less. The runner ignores it.
+         */
+        private volatile Path progress;
 
         private void put(final String key, final String value) {
-            values.put(key, value == null ? "" : value);
+            final String stored = value == null ? "" : value;
+            values.put(key, stored);
+            appendProgress(key + "=" + stored);
         }
 
         private void fail(final String reason) {
             if (error == null) {
                 error = reason;
+                appendProgress("error=" + reason);
+            }
+        }
+
+        private void appendProgress(final String line) {
+            final Path target = progress;
+            if (target == null) {
+                return;
+            }
+            try {
+                Files.writeString(target, line + System.lineSeparator(),
+                    StandardCharsets.UTF_8, StandardOpenOption.CREATE,
+                    StandardOpenOption.APPEND);
+            } catch (IOException ignored) {
+                // Progress is best-effort; the terminal result stays authoritative.
             }
         }
     }
