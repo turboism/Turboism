@@ -84,6 +84,9 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                 services.cubismJvmSettings()
             )
         ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createPerformanceNote(localization(context))
+        ));
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
