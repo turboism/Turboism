@@ -146,6 +146,9 @@ public final class ProtectedExportHostProbeAgent {
             if (phases.contains("flatten")) {
                 phaseFlatten(controller, stateDir, evidence);
             }
+            if (phases.contains("export")) {
+                phaseExport(controller, appCtrl, stateDir, evidence);
+            }
             bridge.report(evidence);
         } catch (Throwable failure) {
             evidence.fail("PROBE_FAILURE:" + failure.getClass().getName() + ":" + text(failure));
@@ -351,6 +354,457 @@ public final class ProtectedExportHostProbeAgent {
     ) {
         copySession(controller, evidence, "flat.", scope ->
             flattenSupportedDeformers(controller, scope, evidence));
+    }
+
+    // ------------------------------------------------------------------
+    // Phase: production orchestrated export, end to end (M4)
+    //
+    // Drives the feature exactly like a user: check the contributed option and
+    // confirm. The decision gate vetoes the outer export and the orchestrator
+    // arms — preflight, disposable-copy bind, flatten, and the re-driven native
+    // export all happen without probe involvement. The fixture stores no
+    // texture atlas on disk and a file copy cannot carry an in-memory one, so
+    // while the orchestrator works the probe watches for the bound copy and
+    // injects the same atlas scaffolding there. The re-driven inner dialog must
+    // appear with contributed options suppressed; confirming it reaches the
+    // native save chooser, which is driven to a task-owned destination. The run
+    // passes only when validated output is published at that destination and the
+    // original session is verifiably restored.
+    // ------------------------------------------------------------------
+
+    private static void phaseExport(
+        final Object controller,
+        final Class<?> appCtrl,
+        final Path stateDir,
+        final Evidence evidence
+    ) {
+        final String prefix = "exp.";
+        try {
+            final Object original = readNoArg(controller, "getCurrentDoc");
+            if (original == null || !isA(original.getClass(), MODELING_DOCUMENT)) {
+                evidence.fail("EXP_NO_MODELING_DOCUMENT");
+                return;
+            }
+            final Object content = readNoArg(original, "getFileContent");
+            final Object fileObj =
+                content == null ? null : readNoArg(content, "getFile");
+            if (!(fileObj instanceof File originalFile) || !originalFile.isFile()) {
+                evidence.fail("EXP_ORIGINAL_FILE_MISSING");
+                return;
+            }
+            final Object modifiedCheck = readNoArg(content, "isModifiedAfterSaving");
+            if (Boolean.TRUE.equals(modifiedCheck)) {
+                // A dirty original is correctly rejected by preflight; probing it
+                // would only prove the rejection path, not the publish path.
+                evidence.fail("EXP_ORIGINAL_DIRTY");
+                return;
+            }
+            // Inject first so the snapshot baseline already carries whatever the
+            // in-memory atlas scaffolding changes (undo position included).
+            ensureTextureAtlas(controller, evidence);
+            final DocumentState before =
+                snapshotDocument(original, evidence, prefix + "orig");
+            evidence.put(prefix + "origFile", originalFile.getAbsolutePath());
+            evidence.put(prefix + "origFileSha256", sha256(originalFile));
+
+            final Path exportOut = stateDir.resolve("export-out");
+            Files.createDirectories(exportOut);
+            final File pick =
+                exportOut.resolve("protected-export.moc3").toFile();
+            evidence.put(prefix + "pick", pick.getAbsolutePath());
+
+            final Set<Window> alreadyVisible = visibleWindows();
+            if (!triggerExport(controller, appCtrl, evidence)) {
+                return;
+            }
+            final JDialog outer = awaitExportSettingsDialog(
+                alreadyVisible, stateDir, evidence, "expOuter"
+            );
+            if (outer == null) {
+                evidence.fail("EXP_OUTER_DIALOG_NOT_OBSERVED");
+                return;
+            }
+            inspectSettingsDialog(outer, stateDir, evidence, "expOuter");
+            final List<JCheckBox> injected = injectedCheckBoxes(outer);
+            evidence.put(
+                prefix + "outerInjectedCheckBoxCount", Integer.toString(injected.size()));
+            if (injected.isEmpty()) {
+                evidence.fail("EXP_OUTER_OPTION_MISSING");
+                dismiss(outer);
+                return;
+            }
+            try {
+                onEdt(() -> {
+                    for (JCheckBox box : injected) {
+                        box.doClick(0);
+                    }
+                    return null;
+                });
+                evidence.put(prefix + "optionChecked", "true");
+            } catch (Throwable failure) {
+                evidence.put(prefix + "optionCheckFailure", text(failure));
+            }
+            final AbstractButton outerConfirm = findButton(outer, CONFIRM_ACTION);
+            if (outerConfirm == null) {
+                evidence.fail("EXP_OUTER_CONFIRM_MISSING");
+                dismiss(outer);
+                return;
+            }
+            onEdt(() -> {
+                outerConfirm.doClick(0);
+                return null;
+            });
+            evidence.put(prefix + "outerConfirmed", "true");
+            waitForHidden(outer);
+
+            final JDialog inner = awaitInnerDialog(
+                controller, alreadyVisible, outer, stateDir, evidence, prefix);
+            if (inner == null) {
+                return; // inner wait recorded its own failure evidence
+            }
+            inspectSettingsDialog(inner, stateDir, evidence, "expInner");
+            final int innerInjected = injectedCheckBoxes(inner).size();
+            evidence.put(prefix + "innerInjectedCheckBoxCount",
+                Integer.toString(innerInjected));
+            evidence.put(prefix + "innerInjectedSuppressed",
+                Boolean.toString(innerInjected == 0));
+            if (innerInjected != 0) {
+                // Suppression failed: the inner dialog must be byte-identical to
+                // a native unchecked dialog. Cancel it so the session unwinds.
+                evidence.fail("EXP_INNER_OPTIONS_NOT_SUPPRESSED");
+                dismiss(inner);
+                return;
+            }
+            final AbstractButton innerConfirm = findButton(inner, CONFIRM_ACTION);
+            if (innerConfirm == null) {
+                evidence.fail("EXP_INNER_CONFIRM_MISSING");
+                dismiss(inner);
+                return;
+            }
+            onEdt(() -> {
+                innerConfirm.doClick(0);
+                return null;
+            });
+            evidence.put(prefix + "innerConfirmed", "true");
+
+            if (!driveToDestination(inner, pick, alreadyVisible, stateDir,
+                evidence, prefix)) {
+                return; // chooser drive recorded its own failure evidence
+            }
+            awaitPublished(exportOut, evidence, prefix);
+
+            final Object restored = readNoArg(controller, "getCurrentDoc");
+            evidence.put(prefix + "restoredActive",
+                Boolean.toString(restored != null
+                    && System.identityHashCode(restored) == before.docId));
+            if (restored != null) {
+                final DocumentState after =
+                    snapshotDocument(restored, evidence, prefix + "restored");
+                evidence.put(prefix + "sameLiveDocument",
+                    Boolean.toString(after.docId == before.docId));
+                evidence.put(prefix + "modifiedPreserved",
+                    Boolean.toString(after.modified == before.modified));
+                evidence.put(prefix + "undoPreserved",
+                    Boolean.toString(
+                        after.undoSignature.equals(before.undoSignature)));
+                evidence.put(prefix + "selectionPreserved",
+                    Boolean.toString(after.selectionSignature
+                        .equals(before.selectionSignature)));
+            }
+            evidence.put(prefix + "fileSha256Preserved",
+                Boolean.toString(sha256(originalFile)
+                    .equals(evidence.values.get(prefix + "origFileSha256"))));
+            reportStagingResidue(stateDir, evidence, prefix);
+        } catch (Throwable failure) {
+            evidence.fail("EXP_PHASE_FAILURE:" + failure.getClass().getName()
+                + ":" + text(failure));
+        }
+    }
+
+    /**
+     * Waits for the re-driven inner settings dialog on the disposable copy.
+     * While waiting, the bound copy is detected through the active document's
+     * backing file path (inside the task-owned staging tree) and the atlas
+     * scaffolding is injected into it — the file copy cannot carry the atlas
+     * the probe added to the original's live model. Intervening native veto
+     * dialogs (for example the zero-atlas pre-check) are recorded and dismissed
+     * so the re-drive can return and the session can fail cleanly.
+     */
+    private static JDialog awaitInnerDialog(
+        final Object controller,
+        final Set<Window> alreadyVisible,
+        final JDialog outer,
+        final Path stateDir,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final Set<Window> seen = new LinkedHashSet<>(alreadyVisible);
+        seen.add(outer);
+        // The settings window is a plain JDialog titled by the host (the owner
+        // object e is a controller, not the window). The inner dialog is the
+        // same native window re-driven on the copy: match by the outer title.
+        final String settingsTitle = outer.getTitle();
+        final List<String> observed = new ArrayList<>();
+        final boolean[] copyAtlas = {false};
+        final long deadline = System.currentTimeMillis() + 240_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (!copyAtlas[0]) {
+                copyAtlas[0] = injectAtlasOnBoundCopy(controller, evidence, prefix);
+            }
+            for (Window window : visibleWindows()) {
+                if (seen.contains(window)) {
+                    continue;
+                }
+                seen.add(window);
+                final String signature = describe(window);
+                observed.add(signature);
+                dumpTree(stateDir.resolve(
+                        "dialog-tree-expInner-observed-" + observed.size() + ".txt"),
+                    window);
+                // Title match alone identifies the settings window; requiring
+                // native checkboxes here could dismiss the inner dialog if its
+                // tree is still populating when it first becomes visible.
+                if (window instanceof JDialog dialog
+                    && settingsTitle != null
+                    && settingsTitle.equals(dialog.getTitle())) {
+                    evidence.put(prefix + "innerObserved", "true");
+                    evidence.put(prefix + "innerObservedBefore",
+                        String.join(" | ", observed));
+                    return dialog;
+                }
+                // A veto/error dialog blocks the EDT; record then dismiss so the
+                // re-drive unwinds and the session reports its own failure.
+                if (window instanceof java.awt.Dialog dialog
+                    && firstButton(dialog) != null) {
+                    dismiss(dialog);
+                }
+            }
+            sleep(POLL_MILLIS);
+        }
+        evidence.put(prefix + "innerObserved", "false");
+        evidence.put(prefix + "innerObservedBeforeTimeout",
+            String.join(" | ", observed));
+        evidence.fail("EXP_INNER_DIALOG_NOT_OBSERVED");
+        return null;
+    }
+
+    /**
+     * Injects the atlas scaffolding into the disposable copy once it is the
+     * active document, recognised by its backing file living under the
+     * task-owned {@code protected-export} staging tree. Non-dirtying, in-memory
+     * only — the same precedent as {@link #ensureTextureAtlas}.
+     */
+    private static boolean injectAtlasOnBoundCopy(
+        final Object controller,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        try {
+            final Object document = readNoArg(controller, "getCurrentDoc");
+            if (document == null) {
+                return false;
+            }
+            final Object content = readNoArg(document, "getFileContent");
+            final Object bound =
+                content == null ? null : readNoArg(content, "getFile");
+            if (!(bound instanceof File boundFile)
+                || !boundFile.getAbsolutePath().contains("protected-export")) {
+                return false;
+            }
+            evidence.put(prefix + "copyBoundPath", boundFile.getAbsolutePath());
+            onEdtBounded(APPLY_STEP_MILLIS, () -> {
+                final Object source = readNoArg(document, "getModelSource");
+                final Object manager =
+                    source == null ? null : readNoArg(source, "getTextureManager");
+                final Object atlases =
+                    manager == null ? null : readNoArg(manager, "getTextureAtlases");
+                if (!(atlases instanceof List<?> list) || !list.isEmpty()) {
+                    evidence.put(prefix + "copyAtlasInjected", "not-needed");
+                    return null;
+                }
+                final Class<?> atlasType = Class.forName(
+                    "com.live2d.cubism.doc.model.texture.textureAtlas.CTextureAtlas");
+                final java.lang.reflect.Constructor<?> ctor =
+                    atlasType.getDeclaredConstructor(
+                        Class.forName("com.live2d.cubism.doc.model.CModelSource"),
+                        String.class, int.class, int.class);
+                ctor.setAccessible(true);
+                final Object atlas =
+                    ctor.newInstance(source, "pe-probe-atlas", 1024, 1024);
+                invoke(manager, "addTextureAtlas",
+                    new Class<?>[] {atlasType, int.class}, atlas, 0);
+                evidence.put(prefix + "copyAtlasInjected", "true");
+                return null;
+            });
+            return true;
+        } catch (Throwable failure) {
+            evidence.put(prefix + "copyAtlasFailure", text(failure));
+            return true; // do not retry every poll on a hard failure
+        }
+    }
+
+    /**
+     * After the inner confirm, the native flow may raise confirmation prompts
+     * (export-warning list, alias list, physics report) before the destination
+     * chooser. Each is a modal the user would confirm through; the chooser is
+     * the window carrying a {@code JFileChooser} and is driven to the pick.
+     */
+    private static boolean driveToDestination(
+        final JDialog inner,
+        final File pick,
+        final Set<Window> alreadyVisible,
+        final Path stateDir,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final Set<Window> seen = new LinkedHashSet<>(alreadyVisible);
+        seen.add(inner);
+        final List<String> sequence = new ArrayList<>();
+        final long deadline = System.currentTimeMillis() + 120_000L;
+        while (System.currentTimeMillis() < deadline) {
+            for (Window window : visibleWindows()) {
+                if (seen.contains(window)) {
+                    continue;
+                }
+                seen.add(window);
+                sequence.add(describe(window));
+                dumpTree(stateDir.resolve(
+                        "dialog-tree-expChooser-" + sequence.size() + ".txt"),
+                    window);
+                final javax.swing.JFileChooser chooser = findFileChooser(window);
+                if (chooser != null) {
+                    try {
+                        onEdt(() -> {
+                            chooser.setSelectedFile(pick);
+                            chooser.approveSelection();
+                            return null;
+                        });
+                        evidence.put(prefix + "chooserDriven", "true");
+                        evidence.put(prefix + "chooserDialogSequence",
+                            String.join(" -> ", sequence));
+                        return true;
+                    } catch (Throwable failure) {
+                        evidence.put(prefix + "chooserDriveFailure", text(failure));
+                        evidence.fail("EXP_CHOOSER_DRIVE_FAILED");
+                        return false;
+                    }
+                }
+                if (window instanceof java.awt.Dialog dialog) {
+                    final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
+                    final AbstractButton click =
+                        confirm != null ? confirm : firstButton(dialog);
+                    if (click != null) {
+                        try {
+                            onEdt(() -> {
+                                click.doClick(0);
+                                return null;
+                            });
+                        } catch (Throwable failure) {
+                            evidence.put(prefix + "intermediateClickFailure",
+                                text(failure));
+                        }
+                    }
+                }
+            }
+            sleep(POLL_MILLIS);
+        }
+        evidence.put(prefix + "chooserDriven", "false");
+        evidence.put(prefix + "chooserDialogSequence",
+            String.join(" -> ", sequence));
+        evidence.fail("EXP_CHOOSER_NOT_OBSERVED");
+        return false;
+    }
+
+    private static javax.swing.JFileChooser findFileChooser(final Component root) {
+        if (root instanceof javax.swing.JFileChooser chooser) {
+            return chooser;
+        }
+        if (!(root instanceof Container container)) {
+            return null;
+        }
+        for (Component component : allComponents(container)) {
+            if (component instanceof javax.swing.JFileChooser chooser) {
+                return chooser;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Publication is all-or-nothing: the picked destination name only appears
+     * once the staged output validated and the original was restored. Polls the
+     * task-owned export directory for the published moc3 and its companions.
+     */
+    private static void awaitPublished(
+        final Path exportOut,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final Path moc3 = exportOut.resolve("protected-export.moc3");
+        final long deadline = System.currentTimeMillis() + 300_000L;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                if (Files.isRegularFile(moc3) && Files.size(moc3) > 0L) {
+                    // Companions may still be streaming in; settle then list.
+                    settle(3_000L);
+                    final List<String> files = new ArrayList<>();
+                    try (var walk = Files.walk(exportOut)) {
+                        walk.filter(Files::isRegularFile)
+                            .forEach(p -> files.add(
+                                exportOut.relativize(p).toString()));
+                    }
+                    evidence.put(prefix + "publishedMoc3", "true");
+                    evidence.put(prefix + "publishedMoc3Bytes",
+                        Long.toString(Files.size(moc3)));
+                    evidence.put(prefix + "publishedFiles", String.join(",", files));
+                    evidence.put(prefix + "publishedModelJson",
+                        Boolean.toString(files.stream().anyMatch(
+                            name -> name.endsWith(".model3.json"))));
+                    return;
+                }
+            } catch (IOException ignored) {
+                // Keep polling until the deadline.
+            }
+            sleep(POLL_MILLIS);
+        }
+        evidence.put(prefix + "publishedMoc3", "false");
+        evidence.fail("EXP_OUTPUT_NOT_PUBLISHED");
+    }
+
+    /**
+     * Counts task-owned staging residue: {@code protected-export-*} session
+     * directories or copied cmo3 files anywhere under the Turboism state tree
+     * after the session ended.
+     */
+    private static void reportStagingResidue(
+        final Path stateDir,
+        final Evidence evidence,
+        final String prefix
+    ) {
+        final Path stateRoot = stateDir.getParent() == null
+            ? stateDir : stateDir.getParent().getParent();
+        int residue = 0;
+        final List<String> leftovers = new ArrayList<>();
+        if (stateRoot != null && Files.isDirectory(stateRoot)) {
+            try (var walk = Files.walk(stateRoot, 6)) {
+                for (Path path : walk.toList()) {
+                    final String name = path.getFileName() == null
+                        ? "" : path.getFileName().toString();
+                    if (name.contains("protected-export-")
+                        || (name.endsWith(".cmo3") && name.contains("pe-"))) {
+                        residue++;
+                        leftovers.add(stateRoot.relativize(path).toString());
+                    }
+                }
+            } catch (IOException failure) {
+                evidence.put(prefix + "stagingResidueScan", text(failure));
+            }
+        }
+        evidence.put(prefix + "stagingResidue", Integer.toString(residue));
+        if (!leftovers.isEmpty()) {
+            evidence.put(prefix + "stagingLeftovers",
+                String.join(",", leftovers.subList(0, Math.min(10, leftovers.size()))));
+        }
     }
 
     /**
@@ -2146,6 +2600,50 @@ public final class ProtectedExportHostProbeAgent {
             }
             if (!"true".equals(evidence.values.get("flat.artMeshesPreserved"))) {
                 unmet.add("ArtMesh identities changed during flatten");
+            }
+        }
+        if (phases.contains("export")) {
+            if (intOf(evidence, "exp.outerInjectedCheckBoxCount") < 1) {
+                unmet.add("contributed option missing from the outer dialog");
+            }
+            if (!"true".equals(evidence.values.get("exp.outerConfirmed"))) {
+                unmet.add("outer confirmation was not driven");
+            }
+            if (!"true".equals(evidence.values.get("exp.innerObserved"))) {
+                unmet.add("re-driven inner export dialog never appeared");
+            }
+            if (!"true".equals(evidence.values.get("exp.innerInjectedSuppressed"))) {
+                unmet.add("inner dialog still showed contributed options");
+            }
+            if (!"true".equals(evidence.values.get("exp.innerConfirmed"))) {
+                unmet.add("inner confirmation was not driven");
+            }
+            if (!"true".equals(evidence.values.get("exp.chooserDriven"))) {
+                unmet.add("native destination chooser was not driven");
+            }
+            if (!"true".equals(evidence.values.get("exp.publishedMoc3"))) {
+                unmet.add("no published moc3 at the picked destination");
+            }
+            if (!"true".equals(evidence.values.get("exp.publishedModelJson"))) {
+                unmet.add("no published model3.json at the picked destination");
+            }
+            if (!"true".equals(evidence.values.get("exp.sameLiveDocument"))) {
+                unmet.add("original was not restored as the same live document");
+            }
+            if (!"true".equals(evidence.values.get("exp.fileSha256Preserved"))) {
+                unmet.add("original file bytes changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("exp.modifiedPreserved"))) {
+                unmet.add("original dirty flag changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("exp.undoPreserved"))) {
+                unmet.add("original undo state changed across the export");
+            }
+            if (!"true".equals(evidence.values.get("exp.selectionPreserved"))) {
+                unmet.add("original selection changed across the export");
+            }
+            if (intOf(evidence, "exp.stagingResidue") != 0) {
+                unmet.add("task-owned staging residue remains");
             }
         }
         if (!unmet.isEmpty()) {
