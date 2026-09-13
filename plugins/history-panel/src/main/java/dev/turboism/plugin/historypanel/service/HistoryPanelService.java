@@ -266,8 +266,7 @@ public final class HistoryPanelService {
         final int entryIndex,
         final String unavailable
     ) {
-        if (detail.group().isPresent()
-            || detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
+        if (detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY
             || detail.changes().size() != 1) {
             return Optional.empty();
         }
@@ -292,12 +291,23 @@ public final class HistoryPanelService {
 
         final IconSpec iconSpec = icon.orElseThrow();
         final List<UiInlineLabel.Run> runs = new ArrayList<>();
-        appendBoundedTextRuns(runs, (entryIndex + 1) + " " + action.orElseThrow() + " ");
-        runs.add(UiInlineLabel.iconRun(
-            new UiIconRef(iconSpec.icon()),
-            localization.text(iconSpec.fallbackKey())
-        ));
-        appendBoundedTextRuns(runs, " " + displayName.orElseThrow());
+        if (change.operation() == HistoryChange.Operation.MOVE) {
+            // "N [icon] A 移动": the moved object leads, matching how the action reads.
+            appendBoundedTextRuns(runs, (entryIndex + 1) + " ");
+            runs.add(UiInlineLabel.iconRun(
+                new UiIconRef(iconSpec.icon()),
+                localization.text(iconSpec.fallbackKey())
+            ));
+            appendBoundedTextRuns(runs, " " + displayName.orElseThrow()
+                + " " + action.orElseThrow());
+        } else {
+            appendBoundedTextRuns(runs, (entryIndex + 1) + " " + action.orElseThrow() + " ");
+            runs.add(UiInlineLabel.iconRun(
+                new UiIconRef(iconSpec.icon()),
+                localization.text(iconSpec.fallbackKey())
+            ));
+            appendBoundedTextRuns(runs, " " + displayName.orElseThrow());
+        }
         appendRichMetadata(runs, detail, unavailable);
         return Optional.of(UiInlineLabel.of(runs));
     }
@@ -384,6 +394,7 @@ public final class HistoryPanelService {
             case REMOVE -> change.property().isEmpty()
                 ? Optional.of(localization.text("history.entry.action.remove"))
                 : Optional.empty();
+            case MOVE -> Optional.of(localization.text("history.entry.action.move"));
             case UNKNOWN -> Optional.empty();
         };
     }
@@ -404,9 +415,12 @@ public final class HistoryPanelService {
     private record IconSpec(CubismIcon icon, String fallbackKey) { }
 
     private String detailHeadline(final HistoryEntryDetail detail, final String hostLabel) {
-        final boolean grouped = detail.group().isPresent();
         final boolean labelOnly = detail.detailLevel() == HistoryAction.DetailLevel.LABEL_ONLY;
-        final Optional<String> semanticChange = grouped || labelOnly ? Optional.empty()
+        // A group detail only carries a root change when the decoder hoisted a proven
+        // single-subject group — exactly one change naming the shared fact. Aggregated groups
+        // still headline their summary alone.
+        final boolean hoisted = detail.group().isEmpty() || detail.changes().size() == 1;
+        final Optional<String> semanticChange = labelOnly || !hoisted ? Optional.empty()
             : detail.changes().stream()
                 .map(change -> change(detail, change))
                 .flatMap(Optional::stream)
@@ -488,6 +502,20 @@ public final class HistoryPanelService {
                 contextText.orElseThrow()
             ));
         }
+        if (change.operation() == HistoryChange.Operation.MOVE) {
+            final String amount;
+            if (change.before().isPresent() && change.after().isPresent()) {
+                amount = " " + change.before().orElseThrow() + "→" + change.after().orElseThrow();
+            } else {
+                amount = change.after().map(value -> " " + value).orElse("");
+            }
+            return Optional.of(localization.format(
+                "history.entry.change.move",
+                targetText.orElseThrow(),
+                contextText.orElseThrow(),
+                amount
+            ));
+        }
         return Optional.empty();
     }
 
@@ -534,6 +562,13 @@ public final class HistoryPanelService {
             case "multiplyColor" -> "history.property.multiply-color";
             case "screenColor" -> "history.property.screen-color";
             case "vertexPositions" -> "history.property.vertex-positions";
+            case "controlPointPositions" -> "history.property.control-point-positions";
+            case "angle" -> "history.property.angle";
+            case "origin" -> "history.property.origin";
+            case "scale" -> "history.property.scale";
+            case "reflectX" -> "history.property.reflect-x";
+            case "reflectY" -> "history.property.reflect-y";
+            case "translation" -> "history.property.translation";
             default -> null;
         };
         return key == null ? Optional.empty() : Optional.of(localization.text(key));
