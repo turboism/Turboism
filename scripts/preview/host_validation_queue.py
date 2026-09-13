@@ -366,6 +366,14 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
         frozenset({"--remote-pre-launch-arg"}),
         "host-locale environment-language hook requires its language argument",
     ),
+    # The restart-phase hook copies restart-state/ into state/ and rebinds
+    # stagedJar inside pending.json; the staged plugin-management state must
+    # arrive as a declared --home-dir input, so the flag is part of the
+    # reviewed protocol.
+    "plugin-management-restart-remote-pre-launch.sh": (
+        frozenset({"--home-dir"}),
+        "plugin-management restart hook requires the staged state via --home-dir",
+    ),
 }
 
 

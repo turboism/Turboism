@@ -39,6 +39,7 @@ done
 rm -rf "$evidence_root"
 mkdir -p "$evidence_root"
 
+stage_log="$evidence_root/stage-runner.log"
 bash "$runner" \
   --name plugin-management-direct-jar-stage \
   --version "$version" \
@@ -65,23 +66,58 @@ bash "$runner" \
   --ready-timeout 300 \
   --result-timeout 300 \
   --exit-timeout 120 \
-  "$@"
+  "$@" 2>&1 | tee "$stage_log" || stage_rc=${PIPESTATUS[0]}
+[ "${stage_rc:-0}" -eq 0 ] || exit "$stage_rc"
+
+# Under the single-session queue the runner owns evidence placement and ignores
+# --local-evidence-dir; recover the stage task dir from the emitted job record.
+stage_task_dir="$(python3 - "$stage_log" <<'PY'
+import json
+import sys
+
+task_dir = ""
+for line in open(sys.argv[1], encoding="utf-8", errors="replace"):
+    line = line.strip()
+    if not line.startswith("{"):
+        continue
+    try:
+        record = json.loads(line)
+    except ValueError:
+        continue
+    evidence_json = record.get("job", {}).get("evidence_json")
+    if not evidence_json:
+        continue
+    try:
+        details = json.loads(evidence_json).get("details", {})
+    except ValueError:
+        continue
+    if details.get("taskDir"):
+        task_dir = details["taskDir"]
+print(task_dir)
+PY
+)"
 
 mkdir -p "$resume_root/state/runtime/plugin-management"
 if [ "$dry_run" -eq 1 ]; then
   printf '{}\n' > "$resume_root/state/runtime/plugin-management/pending.json"
 else
-  tar xf "$stage_evidence/turboism-home-logs-state.tar" -C "$resume_root" state/runtime/plugin-management
+  [ -n "$stage_task_dir" ] || {
+    echo "error: stage task dir was not reported by the runner" >&2
+    exit 1
+  }
+  stage_state_tar="$stage_task_dir/evidence/turboism-home-logs-state.tar"
+  [ -f "$stage_state_tar" ] || {
+    echo "error: stage evidence tar not found at $stage_state_tar" >&2
+    exit 1
+  }
+  tar xf "$stage_state_tar" -C "$resume_root" state/runtime/plugin-management
   [ -s "$resume_root/state/runtime/plugin-management/pending.json" ] || {
     echo "error: stage evidence did not preserve a pending install journal" >&2
     exit 1
   }
 fi
-restart_hook="$resume_root/plugin-management-restart-remote-pre-launch.sh"
-cp "$repo_root/scripts/preview/plugin-management-restart-remote-pre-launch.sh" "$restart_hook"
-printf '\n__PLUGIN_MANAGEMENT_STATE__\n' >> "$restart_hook"
-tar --create --gzip --directory "$resume_root" state/runtime/plugin-management | base64 --wrap=76 >> "$restart_hook"
 
+restart_log="$evidence_root/restart-runner.log"
 bash "$runner" \
   --name plugin-management-direct-jar-restart \
   --version "$version" \
@@ -89,7 +125,8 @@ bash "$runner" \
   --bundle-root "$bundle_root" \
   --agent "$bundle_root/turboism-agent.jar" \
   --plugin "$verifier:plugin-management-restart-validation-probe.jar" \
-  --remote-pre-launch "$restart_hook" \
+  --home-dir "$resume_root/state:restart-state" \
+  --remote-pre-launch "$repo_root/scripts/preview/plugin-management-restart-remote-pre-launch.sh" \
   --fixture-remote "$fixture_src" \
   --fixture-sha256 "$fixture_sha256" \
   --require-fixture-unchanged \
@@ -106,7 +143,8 @@ bash "$runner" \
   --ready-timeout 300 \
   --result-timeout 300 \
   --exit-timeout 120 \
-  "$@"
+  "$@" 2>&1 | tee "$restart_log" || restart_rc=${PIPESTATUS[0]}
+[ "${restart_rc:-0}" -eq 0 ] || exit "$restart_rc"
 
 printf '[plugin-management-direct-jar] PASS version=%s stage=%s restart=%s\n' \
-  "$version" "$stage_evidence" "$restart_evidence"
+  "$version" "${stage_task_dir:-$stage_evidence}" "$restart_evidence"
