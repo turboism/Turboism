@@ -34,6 +34,7 @@ import dev.turboism.sdk.ui.context.ContextMenuRegistry;
 import dev.turboism.sdk.ui.context.ContextSourceSnapshot;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -45,9 +46,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.HexFormat;
 
+import java.awt.Image;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -149,6 +152,28 @@ class MainToolbarHomeEntryServiceTest {
     }
 
     @Test
+    void registerHomeEntry_installsMatchingWindowIcon() throws Exception {
+        // Given
+        RecordingUiHost uiHost = new RecordingUiHost();
+
+        try {
+            // When: installer mode (default), then text-icon mode
+            service(uiHost).registerHomeEntry();
+            // Then
+            assertWindowIconMatches("/icons/main-toolbar-installer.png");
+
+            // When
+            service(uiHost, new RuntimeSettings(
+                false, "INFO", 100, false, false, false, false, "system", true
+            )).registerHomeEntry();
+            // Then
+            assertWindowIconMatches("/icons/main-toolbar-home.png");
+        } finally {
+            TurboismWindowFactory.installWindowIcon(null);
+        }
+    }
+
+    @Test
     void registerHomeEntry_registrationRemovesToolbarContributionWhenClosed() {
         // Given
         RecordingUiHost uiHost = new RecordingUiHost();
@@ -217,6 +242,25 @@ class MainToolbarHomeEntryServiceTest {
         assertTrue(maxX >= minX && maxY >= minY, "icon must contain visible pixels");
         return new int[] {minX, minY, maxX - minX + 1, maxY - minY + 1};
     }
+    private static void assertWindowIconMatches(final String resource) throws Exception {
+        final Image icon = TurboismWindowFactory.windowIcon();
+        assertNotNull(icon, "window icon must be installed");
+        final BufferedImage expected;
+        try (InputStream stream = MainToolbarHomeEntryService.class.getResourceAsStream(resource)) {
+            assertNotNull(stream, "missing packaged icon " + resource);
+            expected = ImageIO.read(stream);
+        }
+        assertTrue(icon instanceof BufferedImage, "window icon must be a decoded image");
+        final BufferedImage actual = (BufferedImage) icon;
+        assertEquals(expected.getWidth(), actual.getWidth(), "window icon width");
+        assertEquals(expected.getHeight(), actual.getHeight(), "window icon height");
+        assertArrayEquals(
+            expected.getRGB(0, 0, expected.getWidth(), expected.getHeight(), null, 0, expected.getWidth()),
+            actual.getRGB(0, 0, actual.getWidth(), actual.getHeight(), null, 0, actual.getWidth()),
+            "window icon must be the same asset as the toolbar button icon"
+        );
+    }
+
     private static MainToolbarHomeEntryService service(final RecordingUiHost uiHost) {
         return service(uiHost, new RuntimeSettings(false, "INFO", false, false, false));
     }
