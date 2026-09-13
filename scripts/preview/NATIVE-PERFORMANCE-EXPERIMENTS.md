@@ -1518,3 +1518,28 @@ EDT 上命中宿主内部 NPE（re-arm 路径 null）；enabled 写入经独立
 延迟应用。
 
 **门禁**：`devCheck` 绿；runtime/installer regression/core 测试全过。
+
+## I75 — 真 GraalVM 整机替换（n8/n9，推翻 n6 的"不可行"）
+
+n6 否决的是「bundled Liberica 上开 JVMCI」——它没有编译器本体。
+n8 换思路：整个 JVM 换成产品已 pin 的 GraalVM CE 25.2.4
+（`--cubism-java Z:\tools\graalvm-25.2.4\bin\java.exe`，Graal 是默认顶层 JIT）。
+
+**n8 `94d0b75e`（GraalVM+G1）**：JDK 25 承载 5.3.03 正常启动；
+加载 24.04s（vs 基线 25.66s，−6%）；GC 37 次 max 245ms
+（vs n2 的 1376ms——G1 天花板被压低但未消除）；窗口内再现
+27.8s/+3.9GB 自动备份尖峰（独立旁证）。
+
+**n9 `eb1f07a4`（GraalVM+ZGC）**：ZGC Major×10 全停顿 ≤0.224ms；
+加载 44.18s（+72%，ZGC-on-GraalVM 预热成本更高）；稳态 RSS
+~6.4GB（多映射虚高口径）。
+
+**产品化现状**：「Graal 可用且启用才生效」已是现成机制——
+`launcher.cubismJvm` 设置 + `ManagedGraalRuntimeService` pin 下载
+（本次实机用的正是该 manifest，sha256 命中）+
+`Find-CubismGraalJava` 解析链 + 不可用回退 bundled 本地化提示。
+n8 是这套链路的首次实机有效性证据。
+
+判定：GraalVM 单换=可行+温和收益（JDK 25 兼容 OK，加载略快，
+停顿天花板降但 G1 仍在）；Graal+ZGC=停顿归零但加载更慢。
+两者都是 opt-in 材质，非默认推荐。
