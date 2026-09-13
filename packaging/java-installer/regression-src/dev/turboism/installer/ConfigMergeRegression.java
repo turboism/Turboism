@@ -396,6 +396,14 @@ public final class ConfigMergeRegression {
         Map<String, Object> badReduceAutoBackup = validRuntimeConfig();
         badReduceAutoBackup.put("reduceAutoBackup", "true");
         invalid.add(badReduceAutoBackup);
+        Map<String, Object> badLauncherZgc = validRuntimeConfig();
+        badLauncherZgc.put("launcher", Map.of("cubismJvm", "bundled", "zgc", "yes"));
+        invalid.add(badLauncherZgc);
+
+        Map<String, Object> withZgc = validRuntimeConfig();
+        withZgc.put("launcher", Map.of("cubismJvm", "bundled", "zgc", Boolean.TRUE));
+        ConfigMerge.validateCurrent(withZgc);
+        check("launcher.zgc boolean passes installer validation", true);
 
         for (int index = 0; index < invalid.size(); index++) {
             try {

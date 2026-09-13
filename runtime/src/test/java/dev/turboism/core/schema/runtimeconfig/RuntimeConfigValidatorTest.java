@@ -101,6 +101,18 @@ class RuntimeConfigValidatorTest {
     }
 
     @Test
+    void rejectsNonBooleanZgcLauncherFlag() {
+        final ObjectNode root = base();
+        root.withObject("launcher").put("zgc", "yes");
+
+        assertTrue(codes(root).contains("RUNTIME_CONFIG_BAD_ZGC"));
+
+        final ObjectNode valid = base();
+        valid.withObject("launcher").put("zgc", true);
+        assertTrue(codes(valid).isEmpty());
+    }
+
+    @Test
     void rejectsUnknownStartupField() {
         final ObjectNode root = base();
         root.withObject("hooks").withObject("startup").put("unknownStartupFlag", true);

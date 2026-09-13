@@ -161,6 +161,24 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
     }
 
     @Override
+    public boolean zgc() {
+        return config.read().path("launcher").path("zgc").asBoolean(false);
+    }
+
+    @Override
+    public boolean saveZgc(final boolean value) {
+        config.update(root -> {
+            if (value) {
+                root.withObject("launcher").put("zgc", true);
+            } else {
+                root.withObject("launcher").remove("zgc");
+            }
+            return root;
+        });
+        return value;
+    }
+
+    @Override
     public Optional<Path> graalVmJava() {
         if (turboismHome == null) return Optional.empty();
         final Optional<Path> explicit = compatibleGraalVmPath(

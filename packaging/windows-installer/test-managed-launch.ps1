@@ -93,6 +93,22 @@ if ($JdkParserOnly) {
     Assert-ManagedLaunch ($regression.Options -notmatch 'add-exports=') "managed options omit obsolete internal ASM exports"
     Assert-ManagedLaunch ($regression.ExitCode -eq 0) "real Java 17 accepts the managed JVM options (exit $($regression.ExitCode))"
     Assert-ManagedLaunch ($regression.Output -match 'version "17\.') "managed option run proves a real Java 17 JVM executed"
+    $zgcHome = Join-Path ([System.IO.Path]::GetTempPath()) ("turboism-zgc-" + [guid]::NewGuid().ToString("N"))
+    try {
+        New-Item -ItemType Directory -Path $zgcHome -Force | Out-Null
+        $defaultTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($defaultTokens -notcontains '-XX:+UseZGC') "managed options omit ZGC when launcher.zgc is unset"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":true}}')
+        $zgcTokens = Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome
+        Assert-ManagedLaunch ($zgcTokens -contains '-XX:+UseZGC') "managed options append -XX:+UseZGC when launcher.zgc is true"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":false}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -notcontains '-XX:+UseZGC') "managed options omit ZGC when launcher.zgc is false"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":"yes"}}')
+        $zgcInvalid = $false
+        try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $zgcInvalid = $true }
+        Assert-ManagedLaunch $zgcInvalid "non-boolean launcher.zgc fails closed"
+    }
+    finally { Remove-Item -LiteralPath $zgcHome -Recurse -Force -ErrorAction SilentlyContinue }
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"
     exit 0
 }

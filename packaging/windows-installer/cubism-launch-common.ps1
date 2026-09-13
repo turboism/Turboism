@@ -1428,7 +1428,7 @@ function Get-CubismBatIntegrationText {
     $options = @(
         (ConvertTo-JdkOptionToken "-Dturboism.home=$TurboismHome"),
         (ConvertTo-JdkOptionToken "-javaagent:$agent=home=$TurboismHome;timeoutSeconds=120")
-    ) + @(Get-CubismManagedJdkOptionTokens)
+    ) + @(Get-CubismManagedJdkOptionTokens -TurboismHome $TurboismHome)
     $managed = @(
         'rem TURBOISM MANAGED BEGIN',
         'set "TURBOISM_HOME=' + $TurboismHome + '"',
@@ -1638,9 +1638,27 @@ function Remove-TurboismJdkOptions {
 }
 
 function Get-CubismManagedJdkOptionTokens {
+    param([string]$TurboismHome = "")
     # CLDR replaces the locale data removed with the legacy COMPAT provider.
     # Keep SPI available for Cubism or plugin service-provider extensions.
-    return @("-Djava.locale.providers=CLDR,SPI")
+    $tokens = @("-Djava.locale.providers=CLDR,SPI")
+    if (Read-CubismZgcPreference -TurboismHome $TurboismHome) {
+        $tokens += "-XX:+UseZGC"
+    }
+    return $tokens
+}
+
+function Read-CubismZgcPreference {
+    param([string]$TurboismHome)
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
+    $path = Join-Path $TurboismHome "config.json"
+    if (-not (Test-Path -LiteralPath $path)) { return $false }
+    if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
+    try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
+    catch { throw "Turboism config is invalid or exceeds bound" }
+    if ($null -eq $document.launcher -or $null -eq $document.launcher.zgc) { return $false }
+    if ($document.launcher.zgc -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
+    return [bool]$document.launcher.zgc
 }
 
 function ConvertTo-JdkOptionToken {
@@ -1895,7 +1913,7 @@ function New-CubismManagedOptionsBat {
         )
     }
     else { $managedOptions += "-Dturboism.graal.enabled=false" }
-    $managedOptions += @(Get-CubismManagedJdkOptionTokens)
+    $managedOptions += @(Get-CubismManagedJdkOptionTokens -TurboismHome $canonicalHome)
     if (@($managedOptions | Where-Object { $_ -match '[\r\n"&|<>^%!`]' }).Count -gt 0) {
         throw "managed Cubism JVM option contains an unsupported BAT character"
     }

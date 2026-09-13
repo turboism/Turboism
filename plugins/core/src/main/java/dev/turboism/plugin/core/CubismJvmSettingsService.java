@@ -58,6 +58,20 @@ public interface CubismJvmSettingsService {
         throw new IllegalStateException("Cubism JVM settings are unavailable");
     }
 
+    /**
+     * Opt-in launcher preference: when true the next managed Cubism launch
+     * adds {@code -XX:+UseZGC} to the managed JAVA_TOOL_OPTIONS block.
+     * Launch-time flag — takes effect on the next launch only.
+     */
+    default boolean zgc() {
+        return false;
+    }
+
+    /** Persists the ZGC launcher preference. */
+    default boolean saveZgc(final boolean value) {
+        throw new IllegalStateException("Cubism JVM settings are unavailable");
+    }
+
     default boolean graalVmAvailable() {
         return graalVmJava().isPresent();
     }

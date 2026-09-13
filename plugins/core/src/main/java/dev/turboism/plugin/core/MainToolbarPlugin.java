@@ -78,6 +78,12 @@ public final class MainToolbarPlugin implements TurboismPlugin {
                 this::applyAutoBackupPreference
             )
         ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createZgcToggle(
+                localization(context),
+                services.cubismJvmSettings()
+            )
+        ));
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);
