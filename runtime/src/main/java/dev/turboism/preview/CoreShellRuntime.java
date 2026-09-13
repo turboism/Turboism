@@ -52,7 +52,7 @@ final class CoreShellRuntime implements AutoCloseable {
         CoreShell shell = null;
         try {
             bundle = contexts.create(
-                ShellManifest.descriptor(), CoreShell.class.getClassLoader(), scope
+                ShellManifest.descriptor(), shellClassLoader(), scope
             );
             shell = new CoreShell(services);
             log.info(ShellManifest.ID, "Shell startup: begin");
@@ -144,5 +144,16 @@ final class CoreShellRuntime implements AutoCloseable {
 
     private void logFailure(final String id, final String code) {
         log.error(id, "Shell close stage failed safely: " + code, new IllegalStateException(code));
+    }
+
+    /**
+     * The agent jar is appended to the boot classpath on the real host, so the shell's
+     * own class loader is {@code null} there; the context factory still requires a
+     * non-null loader for resource registration and localization. Fall back to the
+     * system loader, which resolves agent-jar resources through bootstrap delegation.
+     */
+    private static ClassLoader shellClassLoader() {
+        final ClassLoader own = CoreShell.class.getClassLoader();
+        return own != null ? own : ClassLoader.getSystemClassLoader();
     }
 }
