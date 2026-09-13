@@ -488,6 +488,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * Rewrites a parameter-controllable source's local name. Used only by the protected
      * ArtMesh obfuscation pass on the disposable copy (never on the authoring document).
      */
+    @Override
     public void setObjectLocalName(final Object source, final String name) {
         resolver.invoke(SOURCE_SET_LOCAL_NAME,
             Objects.requireNonNull(source, "source"),
@@ -498,6 +499,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
      * Rewrites a drawable source's ID on the disposable copy. Rejecting callers that are
      * not drawable sources keeps the M5 pass scoped to ArtMesh identities.
      */
+    @Override
     public void setDrawableId(final Object drawableSource, final String idString) {
         if (!resolver.isInstance(DRAWABLE_CLASS, drawableSource)) {
             throw new IllegalStateException("object is not a drawable source");
@@ -507,6 +509,7 @@ public final class VerifiedProtectedExportHostOperations implements ProtectedExp
     }
 
     /** Drawable-specific ID string of an ArtMesh/drawable source. */
+    @Override
     public String drawableIdString(final Object drawableSource) {
         if (!resolver.isInstance(DRAWABLE_CLASS, drawableSource)) {
             return null;

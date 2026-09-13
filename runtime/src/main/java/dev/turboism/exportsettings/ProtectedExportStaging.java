@@ -16,6 +16,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Staged-output validation and all-or-nothing publication for protected export.
@@ -54,10 +55,25 @@ public final class ProtectedExportStaging {
     /**
      * Validates the native worker's staged output.
      *
+     * <p>Beyond file integrity, the loaded moc3 must prove the session's identity
+     * contract: every exported drawable ID is one of the planned obfuscation tokens,
+     * parameter and part IDs exactly match the copy's census, and no deformer survives
+     * the flatten pass into the output.</p>
+     *
      * @param stagedPick the redirected staging {@code File} the worker wrote beside
      * @param reportedPaths absolute output paths reported by the native callback
+     * @param expectedDrawableIds planned obfuscation tokens; staged drawable IDs must
+     *     be a subset (unplaced ArtMeshes are legitimately dropped by the exporter)
+     * @param expectedParameterIds the copy's parameter ID set; staged must equal it
+     * @param expectedPartIds the copy's part ID set; staged must equal it
      */
-    public Validation validate(final File stagedPick, final List<String> reportedPaths) {
+    public Validation validate(
+        final File stagedPick,
+        final List<String> reportedPaths,
+        final Set<String> expectedDrawableIds,
+        final Set<String> expectedParameterIds,
+        final Set<String> expectedPartIds
+    ) {
         if (stagedPick == null || reportedPaths == null || reportedPaths.isEmpty()) {
             return Validation.rejected("protected-export.staging-empty");
         }
@@ -93,8 +109,10 @@ public final class ProtectedExportStaging {
             final String name = path.getFileName().toString();
             if (name.endsWith(".moc3")) {
                 sawMoc = true;
-                if (!validateMoc(path)) {
-                    return Validation.rejected("protected-export.moc3-invalid");
+                final String failure = validateMoc(
+                    path, expectedDrawableIds, expectedParameterIds, expectedPartIds);
+                if (failure != null) {
+                    return Validation.rejected(failure);
                 }
             } else if (name.endsWith(".model3.json")) {
                 if (!validateModelJson(path, staged)) {
@@ -108,24 +126,56 @@ public final class ProtectedExportStaging {
         return Validation.ok(new ArrayList<>(staged));
     }
 
-    private boolean validateMoc(final Path path) {
+    /**
+     * Loads the staged moc3 through the verified Core runtime and asserts the session's
+     * identity contract materialized: drawable IDs ⊆ planned obfuscation tokens,
+     * parameter/part IDs exactly preserved, zero deformers left after flatten.
+     */
+    private String validateMoc(
+        final Path path,
+        final Set<String> expectedDrawableIds,
+        final Set<String> expectedParameterIds,
+        final Set<String> expectedPartIds
+    ) {
         if (mocLoader == null) {
-            return false;
+            return "protected-export.moc3-invalid";
         }
         try {
             final byte[] bytes = Files.readAllBytes(path);
             try (OwnedMoc moc = mocLoader.load(MocData.copyOf(bytes))) {
                 if (moc == null) {
-                    return false;
+                    return "protected-export.moc3-invalid";
                 }
-                final var model = moc.instantiateModel();
-                if (model != null) {
-                    model.close();
+                try (var model = moc.instantiateModel()) {
+                    if (model == null) {
+                        return "protected-export.moc3-invalid";
+                    }
+                    final Set<String> drawableIds = model.drawables().stream()
+                        .map(d -> d.id())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                    if (!expectedDrawableIds.containsAll(drawableIds)) {
+                        return "protected-export.moc3-drawable-ids";
+                    }
+                    final Set<String> parameterIds = model.parameters().stream()
+                        .map(p -> p.id())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                    if (!parameterIds.equals(expectedParameterIds)) {
+                        return "protected-export.moc3-parameter-ids";
+                    }
+                    final Set<String> partIds = model.parts().stream()
+                        .map(p -> p.id())
+                        .collect(Collectors.toCollection(LinkedHashSet::new));
+                    if (!partIds.equals(expectedPartIds)) {
+                        return "protected-export.moc3-part-ids";
+                    }
+                    if (!model.deformers().isEmpty()) {
+                        return "protected-export.moc3-deformers-remain";
+                    }
+                    return null;
                 }
-                return true;
             }
         } catch (Throwable failure) {
-            return false;
+            return "protected-export.moc3-invalid";
         }
     }
 

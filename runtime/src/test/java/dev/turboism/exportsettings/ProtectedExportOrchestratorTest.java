@@ -2,8 +2,16 @@ package dev.turboism.exportsettings;
 
 import dev.turboism.sdk.cubism.core.MocConsistency;
 import dev.turboism.sdk.cubism.core.MocVersion;
+import dev.turboism.sdk.cubism.core.OwnedCanvasInfo;
+import dev.turboism.sdk.cubism.core.OwnedDeformer;
+import dev.turboism.sdk.cubism.core.OwnedDrawable;
+import dev.turboism.sdk.cubism.core.OwnedGlue;
 import dev.turboism.sdk.cubism.core.OwnedMoc;
 import dev.turboism.sdk.cubism.core.OwnedModel;
+import dev.turboism.sdk.cubism.core.OwnedParameter;
+import dev.turboism.sdk.cubism.core.OwnedPart;
+import dev.turboism.sdk.cubism.model.BlendMode;
+import dev.turboism.sdk.cubism.model.Color;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -68,9 +76,84 @@ class ProtectedExportOrchestratorTest {
         // The original is the active document again; the copy is gone from the project.
         assertTrue(fixture.host.activeDoc == fixture.host.original);
         assertFalse(fixture.host.project.contains(fixture.host.copy));
+        // The copy carried the obfuscated identities; the original is untouched.
+        assertTrue(fixture.host.copy.model.artMeshes.stream()
+            .allMatch(mesh -> mesh.name.matches("ArtMesh_[0-9a-f]{16,}")
+                && mesh.drawableId.matches("@[0-9a-f]{16,}")));
+        assertEquals("meshA", fixture.host.original.model.artMeshes.get(0).name);
+        assertEquals("id-a", fixture.host.original.model.artMeshes.get(0).drawableId);
         // Task-owned staging is removed (root may remain but must be empty).
         assertTrue(!Files.exists(fixture.stagingRoot)
             || Files.list(fixture.stagingRoot).findAny().isEmpty());
+        orchestrator.close();
+    }
+
+    // ------------------------------------------------------------------
+    // Obfuscation (M5)
+    // ------------------------------------------------------------------
+
+    @Test
+    void rejectsWhenArtMeshDisappearsBeforeObfuscation() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The copy census sees both meshes; the per-target apply cannot resolve
+        // the first one again.
+        fixture.host.vanishArtMeshAfterCensus = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertEquals(ProtectedExportOrchestrator.OBFUSCATE_FAILED_KEY,
+            report.failureKey());
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedMocKeepsOriginalDrawableIds() throws Exception {
+        final Fixture fixture = new Fixture();
+        // The staged moc3 reports identities that were never planned — nothing
+        // may publish.
+        fixture.host.exportKeepsOriginalDrawableIds = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertFalse(report.published());
+        assertFalse(Files.exists(
+            fixture.realPick.toPath().getParent().resolve("model.moc3")));
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedMocRetainsDeformers() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.exportLeavesDeformer = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertFalse(report.published());
+        orchestrator.close();
+    }
+
+    @Test
+    void rejectsWhenStagedMocParameterIdsDiverge() throws Exception {
+        final Fixture fixture = new Fixture();
+        fixture.host.exportAddsParameter = true;
+        final ProtectedExportOrchestrator orchestrator = fixture.orchestrator();
+        assertTrue(orchestrator.requestExport(fixture.outerDialog));
+
+        final ProtectedExportOrchestrator.Report report = fixture.awaitReport();
+        assertNotNull(report.failureKey());
+        assertTrue(report.failureKey().startsWith(
+            ProtectedExportOrchestrator.VALIDATION_FAILED_KEY));
+        assertFalse(report.published());
         orchestrator.close();
     }
 
@@ -461,7 +544,86 @@ class ProtectedExportOrchestratorTest {
 
                 @Override
                 public OwnedModel instantiateModel() {
-                    return null;
+                    final FakeModel exported = host.exportedModel;
+                    if (exported == null) {
+                        return null;
+                    }
+                    return fakeModel(exported);
+                }
+
+                @Override
+                public void close() {
+                }
+            };
+        }
+
+        /**
+         * Projects the model the fake export saw into the read surface the staged
+         * validator consumes — drawable IDs reflect the copy's (obfuscated) state
+         * unless a fault knob rewrites them.
+         */
+        private OwnedModel fakeModel(final FakeModel exported) {
+            final List<OwnedDrawable> drawables = new ArrayList<>();
+            exported.artMeshes.forEach(mesh -> drawables.add(new OwnedDrawable(
+                host.exportKeepsOriginalDrawableIds
+                    ? mesh.guid.replace("-guid", "-original") : mesh.drawableId,
+                (byte) 0, (byte) 0, BlendMode.NORMAL, 0, 0, 0, 1f,
+                List.of(), List.of(), List.of(), List.of(),
+                new Color(1f, 1f, 1f, 1f), new Color(0f, 0f, 0f, 0f),
+                -1, -1, List.of())));
+            final List<OwnedParameter> parameters = new ArrayList<>();
+            exported.parameters.forEach(parameter -> parameters.add(
+                new OwnedParameter(parameter.id, 0, 0f, 1f, 0f, 0f,
+                    List.of(0f, 1f), java.util.Optional.empty())));
+            if (host.exportAddsParameter) {
+                parameters.add(new OwnedParameter("param-injected", 0, 0f, 1f, 0f,
+                    0f, List.of(0f, 1f), java.util.Optional.empty()));
+            }
+            final List<OwnedPart> parts = new ArrayList<>();
+            exported.parts.forEach(part ->
+                parts.add(new OwnedPart(part.id, 1f, -1)));
+            final List<OwnedDeformer> deformers = new ArrayList<>();
+            if (host.exportLeavesDeformer) {
+                deformers.add(new OwnedDeformer("d-left", -1, List.of()));
+            }
+            return new OwnedModel() {
+                @Override
+                public long nativeHandle() {
+                    return 1L;
+                }
+
+                @Override
+                public OwnedCanvasInfo canvasInfo() {
+                    return new OwnedCanvasInfo(1f, 1f, 0f, 0f, 1f);
+                }
+
+                @Override
+                public List<OwnedParameter> parameters() {
+                    return parameters;
+                }
+
+                @Override
+                public List<OwnedPart> parts() {
+                    return parts;
+                }
+
+                @Override
+                public List<OwnedDrawable> drawables() {
+                    return drawables;
+                }
+
+                @Override
+                public List<OwnedGlue> glues() {
+                    return List.of();
+                }
+
+                @Override
+                public List<OwnedDeformer> deformers() {
+                    return deformers;
+                }
+
+                @Override
+                public void update() {
                 }
 
                 @Override
@@ -500,8 +662,39 @@ class ProtectedExportOrchestratorTest {
         }
     }
 
+    private static final class FakeArtMesh {
+        final String guid;
+        String name;
+        String drawableId;
+
+        FakeArtMesh(final String guid, final String name, final String drawableId) {
+            this.guid = guid;
+            this.name = name;
+            this.drawableId = drawableId;
+        }
+    }
+
+    private static final class FakeParameter {
+        final String id;
+
+        FakeParameter(final String id) {
+            this.id = id;
+        }
+    }
+
+    private static final class FakePart {
+        final String id;
+
+        FakePart(final String id) {
+            this.id = id;
+        }
+    }
+
     private static final class FakeModel {
         final List<FakeDeformer> deformers = new ArrayList<>();
+        final List<FakeArtMesh> artMeshes = new ArrayList<>();
+        final List<FakeParameter> parameters = new ArrayList<>();
+        final List<FakePart> parts = new ArrayList<>();
         FakeDoc document;
     }
 
@@ -516,6 +709,7 @@ class ProtectedExportOrchestratorTest {
         volatile AtomicBoolean bindingLiveFlag;
         volatile AtomicLong hostGenerationFlag;
         volatile BiConsumer<File, List<String>> completion;
+        volatile FakeModel exportedModel;
 
         // fault knobs
         volatile boolean bindCopyDoc = true;
@@ -534,11 +728,22 @@ class ProtectedExportOrchestratorTest {
         volatile boolean cancelChooser;
         volatile boolean restoreOriginal = true;
         volatile boolean releaseCopyHandle = true;
+        volatile boolean exportKeepsOriginalDrawableIds;
+        volatile boolean exportLeavesDeformer;
+        volatile boolean exportAddsParameter;
+        volatile boolean vanishArtMeshAfterCensus;
         private int copyCensusCalls;
+        private int artMeshCensusCalls;
 
         FakeHost() {
             original.model.deformers.add(new FakeDeformer("g-leaf", "g-root"));
             original.model.deformers.add(new FakeDeformer("g-root", null));
+            original.model.artMeshes.add(
+                new FakeArtMesh("m-a-guid", "meshA", "id-a"));
+            original.model.artMeshes.add(
+                new FakeArtMesh("m-b-guid", "meshB", "id-b"));
+            original.model.parameters.add(new FakeParameter("param-1"));
+            original.model.parts.add(new FakePart("part-1"));
             otherDoc.file = new File("other.cmo3");
         }
 
@@ -615,6 +820,16 @@ class ProtectedExportOrchestratorTest {
             for (FakeDeformer deformer : original.model.deformers) {
                 fresh.model.deformers.add(
                     new FakeDeformer(deformer.guid, deformer.targetGuid));
+            }
+            for (FakeArtMesh mesh : original.model.artMeshes) {
+                fresh.model.artMeshes.add(
+                    new FakeArtMesh(mesh.guid, mesh.name, mesh.drawableId));
+            }
+            for (FakeParameter parameter : original.model.parameters) {
+                fresh.model.parameters.add(new FakeParameter(parameter.id));
+            }
+            for (FakePart part : original.model.parts) {
+                fresh.model.parts.add(new FakePart(part.id));
             }
             copy = fresh;
             project.add(fresh);
@@ -780,22 +995,35 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public List<?> allObjects(final Object modelSource) {
-            return allDeformers(modelSource);
+            final FakeModel model = (FakeModel) modelSource;
+            final List<Object> all = new ArrayList<>();
+            all.addAll(model.deformers);
+            all.addAll(model.artMeshes);
+            all.addAll(model.parameters);
+            all.addAll(model.parts);
+            return all;
         }
 
         @Override
         public List<?> allArtMeshes(final Object modelSource) {
-            return List.of();
+            final FakeModel model = (FakeModel) modelSource;
+            if (vanishArtMeshAfterCensus && model == copy.model
+                && model.artMeshes.size() > 1 && ++artMeshCensusCalls > 1) {
+                // The census planned over both meshes; later reads (per-target
+                // re-resolution, the post-pass census) no longer see the first.
+                return List.copyOf(model.artMeshes.subList(1, model.artMeshes.size()));
+            }
+            return List.copyOf(model.artMeshes);
         }
 
         @Override
         public List<?> allParts(final Object modelSource) {
-            return List.of();
+            return List.copyOf(((FakeModel) modelSource).parts);
         }
 
         @Override
         public List<?> allParameters(final Object modelSource) {
-            return List.of();
+            return List.copyOf(((FakeModel) modelSource).parameters);
         }
 
         @Override
@@ -820,17 +1048,50 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public String objectGuid(final Object source) {
-            return source instanceof FakeDeformer deformer ? deformer.guid : "object-guid";
+            if (source instanceof FakeDeformer deformer) {
+                return deformer.guid;
+            }
+            if (source instanceof FakeArtMesh mesh) {
+                return mesh.guid;
+            }
+            return "object-guid";
         }
 
         @Override
         public String objectIdString(final Object source) {
-            return "object-id";
+            if (source instanceof FakeArtMesh mesh) {
+                return mesh.drawableId;
+            }
+            if (source instanceof FakeParameter parameter) {
+                return parameter.id;
+            }
+            if (source instanceof FakePart part) {
+                return part.id;
+            }
+            return "object-id-" + System.identityHashCode(source);
         }
 
         @Override
         public String objectLocalName(final Object source) {
-            return "object-name";
+            if (source instanceof FakeArtMesh mesh) {
+                return mesh.name;
+            }
+            return "object-name-" + System.identityHashCode(source);
+        }
+
+        @Override
+        public void setObjectLocalName(final Object source, final String name) {
+            ((FakeArtMesh) source).name = name;
+        }
+
+        @Override
+        public String drawableIdString(final Object drawableSource) {
+            return drawableSource instanceof FakeArtMesh mesh ? mesh.drawableId : null;
+        }
+
+        @Override
+        public void setDrawableId(final Object drawableSource, final String idString) {
+            ((FakeArtMesh) drawableSource).drawableId = idString;
         }
 
         @Override
@@ -850,7 +1111,7 @@ class ProtectedExportOrchestratorTest {
 
         @Override
         public boolean isArtMeshSource(final Object object) {
-            return false;
+            return object instanceof FakeArtMesh;
         }
 
         @Override
@@ -908,6 +1169,7 @@ class ProtectedExportOrchestratorTest {
             if (!(stagedPick instanceof File staged)) {
                 return;
             }
+            exportedModel = (FakeModel) modelSource;
             final List<String> paths = new ArrayList<>();
             if (exportWritesFiles) {
                 try {

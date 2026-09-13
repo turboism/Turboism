@@ -151,6 +151,15 @@ public interface ProtectedExportHostOperations {
     /** Local name of a parameter-controllable source. */
     String objectLocalName(Object source);
 
+    /** Rewrites a source's local name — disposable-copy obfuscation only. */
+    void setObjectLocalName(Object source, String name);
+
+    /** Drawable ID string of an ArtMesh source, or {@code null} when unreadable. */
+    String drawableIdString(Object drawableSource);
+
+    /** Rewrites an ArtMesh source's drawable ID — disposable-copy obfuscation only. */
+    void setDrawableId(Object drawableSource, String idString);
+
     boolean isDeformerSource(Object object);
 
     boolean isWarpDeformer(Object object);
