@@ -320,6 +320,16 @@
           "{version}",
           "native-tuned4",
           "{runLabel}"
+        ],
+        "native-tuned5": [
+          "{version}",
+          "native-tuned5",
+          "{runLabel}"
+        ],
+        "native-tuned6": [
+          "{version}",
+          "native-tuned6",
+          "{runLabel}"
         ]
       },
       "resources": {

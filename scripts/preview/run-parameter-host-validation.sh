@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4|native-tuned5|native-tuned6) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -38,7 +38,7 @@ worktree_id="$(TURBOISM_WORKTREE_ID="${TURBOISM_WORKTREE_ID:-}" "$repo_root/scri
 bundle_root="$repo_root/build/manual-test/$worktree_id/windows-parameter-validation"
 runner="$repo_root/scripts/preview/run-cubism-host-validation.sh"
 
-if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" = 'native-tuned2' ] || [ "$mode" = 'native-tuned3' ] || [ "$mode" = 'native-tuned4' ]; then
+if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" = 'native-tuned2' ] || [ "$mode" = 'native-tuned3' ] || [ "$mode" = 'native-tuned4' ] || [ "$mode" = 'native-tuned5' ] || [ "$mode" = 'native-tuned6' ]; then
   # Host-only comparison leg: a no-op premain stub satisfies the runner's
   # --agent contract without loading the Turboism runtime or any plugin, so
   # the JVM is effectively stock Cubism. No runtime log is produced, so no
@@ -82,6 +82,24 @@ if [ "$mode" = 'native-baseline' ] || [ "$mode" = 'native-tuned' ] || [ "$mode" 
       --jvm-option '-XX:+UnlockExperimentalVMOptions'
       --jvm-option '-XX:+UseJVMCICompiler'
       --jvm-option '-XX:+UseStringDeduplication'
+    )
+  elif [ "$mode" = 'native-tuned5' ]; then
+    # Real GraalVM CE JDK probe: n6 proved bundled Liberica lacks the
+    # JVMCI compiler, so swap the whole JVM via --cubism-java to the
+    # managed pinned GraalVM (Graal is its default top-tier JIT — no
+    # compiler flag needed). JDK 25 vs bundled 17 compat is the risk.
+    native_tuned_options=(
+      --cubism-java 'Z:\home\rain\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
+      --cubism-java-console-marker 'GraalVM'
+    )
+  elif [ "$mode" = 'native-tuned6' ]; then
+    # GraalVM + ZGC combination: n8 showed GraalVM boots and runs the
+    # host fine; ZGC (available in GraalVM 25) erases the remaining
+    # G1 pause ceiling (n8 max 245ms).
+    native_tuned_options=(
+      --cubism-java 'Z:\home\rain\TurboismValidation\tools\graalvm-25.2.4\bin\java.exe'
+      --cubism-java-console-marker 'GraalVM'
+      --jvm-option '-XX:+UseZGC'
     )
   fi
   exec bash "$runner" \
