@@ -1,7 +1,6 @@
 package dev.turboism.plugin.atlasmaxrectsbssf;
 
-import dev.turboism.plugin.atlasmaxrectsbssf.layout.PartBucketTextureAtlasPlanner;
-import dev.turboism.plugin.atlasmaxrectsbssf.layout.MaxRectsBssfTextureAtlasPlanner;
+import dev.turboism.plugin.atlasmaxrectsbssf.layout.CurrentPageTextureAtlasPlanner;
 import dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutApplyResult;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.TurboismPlugin;
@@ -50,6 +49,8 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
             composeAutoLayoutService();
         }
         publishDialogState();
+        context.logger().info("Texture Atlas automatic layout uses current-page scope; legacy layout-mode="
+            + settings.confirmed().layoutMode() + " applies only to explicit complete-atlas SDK requests.");
     }
 
     /** Registers this plugin's algorithms with the framework registry. */
@@ -57,14 +58,21 @@ public final class TextureAtlasPlugin implements TurboismPlugin {
         try {
             final dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithmRegistry registry =
                 context.cubism().textureAtlasAlgorithms();
-            final boolean parallel = settings.confirmed().parallel();
             context.disposableScope().register(registry.register(
                 new dev.turboism.sdk.cubism.textureatlas.TextureAtlasLayoutAlgorithm(
                     ALGORITHM_MAXRECTS,
                     context.localization().text("texture-atlas.algorithm.maxrects"),
                     true,
-                    (items, constraints) ->
-                        new MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, parallel)
+                    (items, constraints) -> {
+                        final TextureAtlasSettings policy = settings.confirmed();
+                        if (constraints.singlePageOptions() != null) {
+                            return new CurrentPageTextureAtlasPlanner().plan(items, constraints, policy.parallel());
+                        }
+                        // Keep explicit complete-atlas SDK consumers separate from native current-page layout.
+                        return policy.layoutMode() == TextureAtlasLayoutMode.PART_BUCKET
+                            ? new dev.turboism.plugin.atlasmaxrectsbssf.layout.PartBucketTextureAtlasPlanner().plan(items, constraints)
+                            : new dev.turboism.plugin.atlasmaxrectsbssf.layout.MaxRectsBssfTextureAtlasPlanner().plan(items, constraints, policy.parallel());
+                    }
                 )
             ));
             context.disposableScope().register(registry.register(

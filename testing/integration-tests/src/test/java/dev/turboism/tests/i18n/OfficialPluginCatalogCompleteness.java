@@ -37,9 +37,20 @@ final class OfficialPluginCatalogCompleteness {
         "messages_zh_Hans.properties", Locale.forLanguageTag("zh-Hans"),
         "messages_zh_Hant.properties", Locale.forLanguageTag("zh-Hant"),
         "messages_ja.properties", Locale.JAPANESE,
-        "messages_ko.properties", Locale.KOREAN
+        "messages_ko.properties", Locale.KOREAN,
+        // Not part of the required matrix: the script-less zh catalog the framework
+        // resources carry as a compatibility alias (see FRAMEWORK_CATALOG_ALIASES).
+        "messages_zh.properties", Locale.forLanguageTag("zh")
     );
     private static final String BASELINE_FILE = "baseline-keys.txt";
+    /**
+     * Catalogs the framework resources may carry beyond the required matrix.
+     *
+     * <p>{@code messages_zh.properties} predates the script-suffixed catalogs and is kept as a
+     * compatibility alias: a script-less {@code zh} locale must not fall through to English. It is
+     * optional, but when present it is verified like every other catalog.</p>
+     */
+    private static final Set<String> FRAMEWORK_CATALOG_ALIASES = Set.of("messages_zh.properties");
     private static final Pattern VALID_KEY = Pattern.compile("[a-z][A-Za-z0-9]*(?:[._-][a-z][A-Za-z0-9]*)*");
     private static final Pattern KEY_REFERENCE = Pattern.compile(
         "[\\\"](?:labelKey|titleKey|messageKey)[\\\"]\\s*[:=]\\s*[\\\"]([^\\\"]+)[\\\"]"
@@ -122,33 +133,117 @@ final class OfficialPluginCatalogCompleteness {
 
         List<String> baseline = readBaseline(pluginId, i18nDirectory.resolve(BASELINE_FILE), problems);
         Set<String> baselineKeys = new LinkedHashSet<>(baseline);
-        verifyCatalogFileSet(pluginId, i18nDirectory, problems);
-
-        Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
-        for (String catalogFile : CATALOG_FILES) {
-            Path catalogPath = i18nDirectory.resolve(catalogFile);
-            if (!Files.isRegularFile(catalogPath)) {
-                problems.add(pluginId + ": missing required catalog " + catalogFile);
-                continue;
-            }
-            Map<String, String> catalog = readCatalog(pluginId, catalogPath, problems);
-            catalogs.put(catalogFile, catalog);
-            verifyKeyParity(pluginId, catalogFile, baselineKeys, catalog.keySet(), problems);
-            catalog.forEach((key, value) -> {
-                if (value.isBlank()) {
-                    problems.add(pluginId + ": blank value for " + key + " in " + catalogFile);
-                }
-            });
-        }
-        verifyMessagePatterns(pluginId, catalogs, problems);
-        verifyTranslationQuality(pluginId, catalogs, problems);
+        verifyCatalogMatrix(pluginId, i18nDirectory, baselineKeys, CATALOG_FILES, Set.of(), problems);
         if (productionRoot != null) {
             verifyProductionKeyReferences(pluginId, productionRoot, baselineKeys, problems);
         }
-
         if (!problems.isEmpty()) {
             throw new IllegalStateException(String.join(System.lineSeparator(), problems));
         }
+    }
+
+    /**
+     * Verifies every framework message catalog below {@code resourcesRoot}.
+     *
+     * <p>The framework resolves its own chrome through {@link java.util.ResourceBundle}, so a
+     * missing catalog silently falls back to the English baseline instead of failing. This gate
+     * holds the runtime resources to the same catalog matrix the official plugins already carry.</p>
+     *
+     * <p>Unlike a plugin, the framework has no {@code baseline-keys.txt}: the key set is the one
+     * {@code messages.properties} declares. {@link #FRAMEWORK_CATALOG_ALIASES aliases} may accompany
+     * the matrix but never replace it.</p>
+     *
+     * @param resourcesRoot a module's {@code src/main/resources} root
+     * @throws IOException if a catalog cannot be read
+     */
+    static void verifyFrameworkCatalogs(Path resourcesRoot) throws IOException {
+        List<String> problems = new ArrayList<>();
+        if (!Files.isDirectory(resourcesRoot)) {
+            throw new IllegalStateException("missing resources root " + resourcesRoot);
+        }
+        List<Path> catalogDirectories = new ArrayList<>();
+        try (Stream<Path> tree = Files.walk(resourcesRoot)) {
+            tree.filter(Files::isDirectory)
+                .filter(directory -> Files.isRegularFile(directory.resolve(CATALOG_FILES.get(0))))
+                .sorted()
+                .forEach(catalogDirectories::add);
+        }
+        if (catalogDirectories.isEmpty()) {
+            throw new IllegalStateException("no framework message catalogs under " + resourcesRoot);
+        }
+        for (Path directory : catalogDirectories) {
+            String scopeId = "framework " + resourcesRoot.relativize(directory);
+            // Baseline keys come from the catalog itself; pass null so the matrix reader derives
+            // them from messages.properties, which CATALOG_FILES lists first.
+            verifyCatalogMatrix(
+                scopeId, directory, null, CATALOG_FILES, FRAMEWORK_CATALOG_ALIASES, problems);
+        }
+        if (!problems.isEmpty()) {
+            throw new IllegalStateException(String.join(System.lineSeparator(), problems));
+        }
+    }
+
+    /**
+     * Shared catalog-matrix verification: required files, key parity, non-blank values, matching
+     * {@link MessageFormat} argument indexes and untranslated-value detection.
+     *
+     * @param scopeId problem prefix
+     * @param directory the directory holding the catalogs
+     * @param baselineKeys authoritative key set, or {@code null} to derive it from
+     *     {@code messages.properties} (the first required catalog)
+     * @param requiredCatalogs catalogs that must exist
+     * @param allowedExtraCatalogs catalogs that may exist in addition, verified when present
+     * @param problems accumulates failures
+     */
+    private static void verifyCatalogMatrix(
+        final String scopeId,
+        final Path directory,
+        final Set<String> baselineKeys,
+        final List<String> requiredCatalogs,
+        final Set<String> allowedExtraCatalogs,
+        final List<String> problems
+    ) throws IOException {
+        verifyCatalogFileSet(scopeId, directory, requiredCatalogs, allowedExtraCatalogs, problems);
+
+        Set<String> expectedKeys = baselineKeys == null ? null : new LinkedHashSet<>(baselineKeys);
+        Map<String, Map<String, String>> catalogs = new LinkedHashMap<>();
+        for (String catalogFile : requiredCatalogs) {
+            Path catalogPath = directory.resolve(catalogFile);
+            if (!Files.isRegularFile(catalogPath)) {
+                problems.add(scopeId + ": missing required catalog " + catalogFile);
+                continue;
+            }
+            Map<String, String> catalog = readCatalog(scopeId, catalogPath, problems);
+            catalogs.put(catalogFile, catalog);
+            if (expectedKeys == null) {
+                // messages.properties is required and read first, so its keys define the matrix.
+                expectedKeys = new LinkedHashSet<>(catalog.keySet());
+            }
+            verifyKeyParity(scopeId, catalogFile, expectedKeys, catalog.keySet(), problems);
+            catalog.forEach((key, value) -> {
+                if (value.isBlank()) {
+                    problems.add(scopeId + ": blank value for " + key + " in " + catalogFile);
+                }
+            });
+        }
+        for (String catalogFile : allowedExtraCatalogs.stream().sorted().toList()) {
+            Path catalogPath = directory.resolve(catalogFile);
+            if (!Files.isRegularFile(catalogPath) || catalogs.containsKey(catalogFile)) {
+                continue;
+            }
+            Map<String, String> catalog = readCatalog(scopeId, catalogPath, problems);
+            catalogs.put(catalogFile, catalog);
+            if (expectedKeys != null) {
+                verifyKeyParity(scopeId, catalogFile, expectedKeys, catalog.keySet(), problems);
+            }
+            catalog.forEach((key, value) -> {
+                if (value.isBlank()) {
+                    problems.add(scopeId + ": blank value for " + key + " in " + catalogFile);
+                }
+            });
+        }
+        verifyMessagePatterns(scopeId, catalogs, problems);
+        verifyTranslationQuality(scopeId, catalogs, problems);
     }
 
     private static boolean descriptorDeclaresI18n(
@@ -216,16 +311,21 @@ final class OfficialPluginCatalogCompleteness {
         return keys;
     }
 
-    private static void verifyCatalogFileSet(String pluginId, Path directory, List<String> problems)
-        throws IOException {
-        Set<String> expected = Set.copyOf(CATALOG_FILES);
+    private static void verifyCatalogFileSet(
+        final String scopeId,
+        final Path directory,
+        final List<String> requiredCatalogs,
+        final Set<String> allowedExtraCatalogs,
+        final List<String> problems
+    ) throws IOException {
+        Set<String> expected = Set.copyOf(requiredCatalogs);
         try (Stream<Path> paths = Files.list(directory)) {
             paths.filter(Files::isRegularFile)
                 .map(path -> path.getFileName().toString())
                 .filter(name -> name.startsWith("messages") && name.endsWith(".properties"))
-                .filter(name -> !expected.contains(name))
+                .filter(name -> !expected.contains(name) && !allowedExtraCatalogs.contains(name))
                 .sorted()
-                .forEach(name -> problems.add(pluginId + ": unexpected catalog " + name));
+                .forEach(name -> problems.add(scopeId + ": unexpected catalog " + name));
         }
     }
 

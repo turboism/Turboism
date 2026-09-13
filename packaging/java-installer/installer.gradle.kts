@@ -47,8 +47,9 @@ val releaseBuild = rootProject.extra["turboismReleaseBuild"] as Boolean
 val strictVersion = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)$")
 
 fun validateInstallerVersion(version: String): String {
-    if (!strictVersion.matches(version)) {
-        throw GradleException("installerVersion must be strict MAJOR.MINOR.PATCH: $version")
+    val prerelease = Regex("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)-(?:(?:alpha|beta|rc)\\.(?:0|[1-9][0-9]*)|0\\.nightly\\.[1-9][0-9]*)$")
+    if (!strictVersion.matches(version) && !prerelease.matches(version)) {
+        throw GradleException("installerVersion must be a canonical published product version: $version")
     }
     if (version != frameworkVersion) {
         throw GradleException(
@@ -156,6 +157,7 @@ val installerTemplateFiles = listOf(
     "packaging/windows-installer/README.en.txt.template",
     "packaging/windows-installer/README.zh.txt.template",
     "packaging/windows-installer/README.ja.txt.template",
+    "packaging/windows-installer/README.ko.txt.template",
     "packaging/windows-installer/launch-cubism-turboism.bat",
     "packaging/windows-installer/launch-cubism-turboism.ps1",
     "packaging/windows-installer/configure_turboism.ps1",
@@ -185,7 +187,8 @@ val customLangPackFiles = listOf(
     "CustomLangPack.xml",
     "CustomLangPack.xml_eng",
     "CustomLangPack.xml_chn",
-    "CustomLangPack.xml_jpn"
+    "CustomLangPack.xml_jpn",
+    "CustomLangPack.xml_kor"
 )// Plugin metadata parser contract and shared Windows payload staging
 // ---------------------------------------------------------------------------
 
@@ -303,7 +306,8 @@ val stageInstallerPayload by tasks.registering {
         listOf(
             "README.en.txt.template" to "README.txt",
             "README.zh.txt.template" to "README.zh.txt",
-            "README.ja.txt.template" to "README.ja.txt"
+            "README.ja.txt.template" to "README.ja.txt",
+            "README.ko.txt.template" to "README.ko.txt"
         ).forEach { (template, target) ->
             val text = file("packaging/windows-installer/$template").readText()
                 .replace("__VERSION__", version)
@@ -432,6 +436,7 @@ val generateInstallerXml by tasks.registering {
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_eng") })
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_chn") })
     outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_jpn") })
+    outputs.file(izpackBaseDir.map { it.file("CustomLangPack.xml_kor") })
     doLast {
         val version = requireInstallerVersion()
         val stage = javaInstallerPayloadDir.get().asFile
@@ -468,7 +473,7 @@ val generateInstallerXml by tasks.registering {
                     } catch (e: Exception) {
                         throw GradleException("${jarFile.name}: malformed META-INF/turboism/plugin.json", e)
                     }
-                    listOf("eng" to "en", "chn" to "zh_Hans", "jpn" to "ja").forEach { (locale, suffix) ->
+                    listOf("eng" to "en", "chn" to "zh_Hans", "jpn" to "ja", "kor" to "ko").forEach { (locale, suffix) ->
                         val resource = "META-INF/turboism/i18n/messages_${suffix}.properties"
                         val localizedEntry = zip.getEntry(resource)
                             ?: throw GradleException("${jarFile.name}: missing installer localization $resource")
@@ -540,18 +545,19 @@ val generateInstallerXml by tasks.registering {
         }
         // r1: 选择 pack 是 metadata-only（全部插件 JAR 由 required 的 payload pack 安装，
         // 勾选只控制 disabledPlugins），IzPack 按无文件计算 0 KB 会让用户误以为异常。
-        // 说明中追加多语言备注（installer.xml 内联三语为兜底；en/zh/ja 经 CustomLangPack
+        // 说明中追加多语言备注（installer.xml 内联四语为兜底；en/zh/ja/ko 经 CustomLangPack
         // <pluginId>.description 覆盖为单语言文案，见下方 langpack 注入）。
         val noteEn = "The plugin JAR is installed with the Turboism Plugins payload; the checkbox only controls the enabled list."
         val noteZh = "插件 JAR 已随 Turboism Plugins 载荷一并安装；勾选仅控制启用列表。"
         val noteJa = "プラグイン JAR は Turboism Plugins ペイロードに含めてインストールされます。チェックボックスは有効化リストの制御のみです。"
+        val noteKo = "플러그인 JAR은 Turboism Plugins 페이로드와 함께 설치됩니다. 체크박스는 활성화 목록만 제어합니다."
         val selectionPacks = plugins.joinToString("\n") { p ->
             val title = titleOf(p)
             buildString {
                 append("        <pack id=\"").append(xmlEscape(p.id))
                 append("\" name=\"").append(xmlEscape(title))
                 append("\" required=\"no\" preselected=\"true\" installGroups=\"full,thin\">\n")
-                append("            <description>").append(xmlEscape(p.description + " " + noteEn + " / " + noteZh + " / " + noteJa)).append("</description>\n")
+                append("            <description>").append(xmlEscape(p.description + " " + noteEn + " / " + noteZh + " / " + noteJa + " / " + noteKo)).append("</description>\n")
                 append("        </pack>")
             }
         }
@@ -570,6 +576,7 @@ val generateInstallerXml by tasks.registering {
             from("packaging/java-installer/CustomLangPack.xml_eng")
             from("packaging/java-installer/CustomLangPack.xml_chn")
             from("packaging/java-installer/CustomLangPack.xml_jpn")
+            from("packaging/java-installer/CustomLangPack.xml_kor")
             into(izpackDir)
         }
         // r1: 为每个插件选择 pack 注入本地化描述。IzPack 5.2.6 的
@@ -580,7 +587,8 @@ val generateInstallerXml by tasks.registering {
             Triple("CustomLangPack.xml", "eng", noteEn),
             Triple("CustomLangPack.xml_eng", "eng", noteEn),
             Triple("CustomLangPack.xml_chn", "chn", noteZh),
-            Triple("CustomLangPack.xml_jpn", "jpn", noteJa)
+            Triple("CustomLangPack.xml_jpn", "jpn", noteJa),
+            Triple("CustomLangPack.xml_kor", "kor", noteKo)
         ).forEach { (file, locale, localeNote) ->
             val target = izpackDir.resolve(file)
             val entries = plugins.joinToString("\n") { p ->
@@ -605,12 +613,32 @@ tasks.named("izPackCreateInstaller") {
     // the generated installer.xml references these by path; changes must rebuild the jar
     inputs.dir(javaInstallerPayloadDir)
     inputs.file(installerListenerJarTask.flatMap { it.archiveFile })
+    inputs.property("turboismBuildNumber", providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse(""))
+    inputs.property("turboismBuildSource", providers.environmentVariable("TURBOISM_SOURCE_REVISION").orElse(""))
+    inputs.property("turboismBuildChannel", providers.environmentVariable("TURBOISM_BUILD_CHANNEL").orElse(""))
+    inputs.property("turboismBuildVersion", providers.environmentVariable("TURBOISM_BUILD_VERSION").orElse(""))
     // The JAR and its SHA-256 sidecar are both declared outputs: deleting only
     // the sidecar marks the task out-of-date and recreates it next invocation.
     outputs.file(distDir.map { it.file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile })
     outputs.file(distDir.map { it.file("TurboismInstaller-${requireInstallerVersion()}.jar.sha256").asFile })
     doLast {
         val jar = distDir.get().file("TurboismInstaller-${requireInstallerVersion()}.jar").asFile
+        // IzPack produces this archive outside Gradle's Jar task type. Stamp it
+        // before calculating its checksum; publication never mutates these bytes.
+        val buildNumber = providers.environmentVariable("TURBOISM_BUILD_NUMBER").orElse("").get()
+        if (buildNumber.isNotEmpty()) {
+            java.nio.file.FileSystems.newFileSystem(jar.toPath(), emptyMap<String, String>()).use { zip ->
+                val path = zip.getPath("/META-INF/MANIFEST.MF")
+                val modified = java.nio.file.Files.getLastModifiedTime(path)
+                val mf = java.nio.file.Files.newInputStream(path).use { java.util.jar.Manifest(it) }
+                mf.mainAttributes.putValue("Turboism-Build-Number", buildNumber)
+                mf.mainAttributes.putValue("Turboism-Channel", providers.environmentVariable("TURBOISM_BUILD_CHANNEL").get())
+                mf.mainAttributes.putValue("Turboism-Version", requireInstallerVersion())
+                mf.mainAttributes.putValue("Turboism-Source-Revision", providers.environmentVariable("TURBOISM_SOURCE_REVISION").get())
+                java.nio.file.Files.newOutputStream(path).use { mf.write(it) }
+                java.nio.file.Files.setLastModifiedTime(path, modified)
+            }
+        }
         val shaFile = distDir.get().file("${jar.name}.sha256").asFile
         val digest = java.security.MessageDigest.getInstance("SHA-256")
         jar.inputStream().use { input ->

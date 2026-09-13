@@ -40,6 +40,7 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.LinearGradientPaint;
 import java.awt.RenderingHints;
+import java.util.function.Consumer;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URI;
@@ -69,6 +70,9 @@ final class CoreWindows implements AutoCloseable {
     private ActiveSettingsAction activeSettingsAction;
     private long pluginDetailsRequest;
     static final String ABOUT_LOGO_TEXT = "Turboism";
+    /** Fixed first-party download page; the client never opens a URL taken from the feed. */
+    static final String UPDATE_DOWNLOAD_PAGE = "https://turboism.dev/download";
+    private static volatile Consumer<String> testUpdateUrlObserver;
     static final String ABOUT_HOMEPAGE = "https://www.turboism.dev";
     static final String ABOUT_SUPPORT = "https://ifdian.net/a/raintrap341";
     static final String ABOUT_THANKS = "https://thanks.turboism.dev";
@@ -178,6 +182,7 @@ final class CoreWindows implements AutoCloseable {
         final JCheckBox skipInformation = new JCheckBox(text("settings.skip-information"), value.skipStartupInformation());
         final JCheckBox separateExportSaveDirectory =
             new JCheckBox(text("settings.separate-export-save-directory"), value.separateExportSaveDirectory());
+        final JCheckBox useTextIcon = createUseTextIconCheckBox(value);
 
         final Map<String, BuiltinTab> builtins = new LinkedHashMap<>();
         final JPanel runtime = form();
@@ -185,6 +190,7 @@ final class CoreWindows implements AutoCloseable {
         add(runtime, 1, new JLabel(text("settings.max-log-storage-mib")), maxLogStorage);
         add(runtime, 2, new JLabel(text("settings.locale") + " (" + text("settings.locale.restart-required") + ")"), locale);
         add(runtime, 3, safeMode, new JLabel());
+        add(runtime, 4, useTextIcon, new JLabel());
         builtins.put("runtime", new BuiltinTab(text("settings.tab.runtime"), 100, runtime));
 
         builtins.put(
@@ -221,11 +227,11 @@ final class CoreWindows implements AutoCloseable {
                 if (!rendered.save().getAsBoolean()) {
                     return false;
                 }
-                settings.save(new RuntimeSettings(
+                settings.save(settingsFromControls(
                     safeMode.isSelected(), (String) logLevel.getSelectedItem(),
                     ((Number) maxLogStorage.getValue()).intValue(),
                     skipUpdate.isSelected(), skipSplash.isSelected(), skipInformation.isSelected(),
-                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem()
+                    separateExportSaveDirectory.isSelected(), (String) locale.getSelectedItem(), useTextIcon.isSelected()
                 ));
                 CoreDialogs.message(dialog, text("common.turboism"), text("settings.saved"));
                 return true;
@@ -248,6 +254,27 @@ final class CoreWindows implements AutoCloseable {
         dialog.add(tabs, BorderLayout.CENTER);
         dialog.add(buttons, BorderLayout.SOUTH);
         return dialog;
+    }
+
+    JCheckBox createUseTextIconCheckBox(final RuntimeSettings value) {
+        return new JCheckBox(text("settings.use-text-icon"), value.useTextIcon());
+    }
+
+    static RuntimeSettings settingsFromControls(
+        final boolean safeMode,
+        final String logLevel,
+        final int maxLogStorageMiB,
+        final boolean skipStartupUpdateCheck,
+        final boolean skipStartupSplash,
+        final boolean skipStartupInformation,
+        final boolean separateExportSaveDirectory,
+        final String locale,
+        final boolean useTextIcon
+    ) {
+        return new RuntimeSettings(
+            safeMode, logLevel, maxLogStorageMiB, skipStartupUpdateCheck,
+            skipStartupSplash, skipStartupInformation, separateExportSaveDirectory, locale, useTextIcon
+        );
     }
 
     static void saveAndClose(
@@ -878,7 +905,7 @@ final class CoreWindows implements AutoCloseable {
         final JDialog dialog = CoreDialogs.create(text("window.about.title"), 380, 278);
         dialog.setLayout(new BorderLayout(0, 8));
 
-        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkVersion()));
+        final JEditorPane content = new JEditorPane("text/html", aboutHtml(i18n, frameworkDisplayVersion()));
         content.setEditable(false);
         content.setOpaque(true);
         content.setBackground(Color.WHITE);
@@ -956,6 +983,34 @@ final class CoreWindows implements AutoCloseable {
         }
     }
 
+    boolean openUpdateDownloadPage() {
+        return openUpdateHttpLink(UPDATE_DOWNLOAD_PAGE);
+    }
+
+    /** Package-private test seam used only to observe the validated production download action. */
+    static void setTestUpdateUrlObserver(final Consumer<String> observer) {
+        testUpdateUrlObserver = Objects.requireNonNull(observer, "observer");
+    }
+
+    /** Clears the package-private test-only download observer. */
+    static void clearTestUpdateUrlObserver() {
+        testUpdateUrlObserver = null;
+    }
+
+    private static boolean openUpdateHttpLink(final String value) {
+        if (!UPDATE_DOWNLOAD_PAGE.equals(value)) return false;
+        final Consumer<String> observer = testUpdateUrlObserver;
+        if (observer != null) {
+            try {
+                observer.accept(value);
+                return true;
+            } catch (RuntimeException failure) {
+                return false;
+            }
+        }
+        return openHttpLink(value);
+    }
+
     static boolean httpLinkAllowed(final String value) {
         try {
             final URI uri = URI.create(value);
@@ -1023,6 +1078,19 @@ final class CoreWindows implements AutoCloseable {
         graphics.drawString(ABOUT_LOGO_TEXT, 3, metrics.getAscent() + 2);
         graphics.dispose();
         return image;
+    }
+
+    static String frameworkDisplayVersion() {
+        return packagedVersionProperty("displayVersion", frameworkVersion());
+    }
+
+    private static String packagedVersionProperty(final String key, final String fallback) {
+        try (java.io.InputStream stream = CoreWindows.class.getResourceAsStream("/META-INF/turboism/framework-version.properties")) {
+            if (stream == null) return fallback;
+            final java.util.Properties properties = new java.util.Properties();
+            properties.load(stream);
+            return properties.getProperty(key, fallback);
+        } catch (java.io.IOException unavailable) { return fallback; }
     }
 
     static String frameworkVersion() {

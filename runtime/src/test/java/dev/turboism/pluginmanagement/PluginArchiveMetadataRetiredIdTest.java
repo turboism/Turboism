@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -50,6 +51,37 @@ class PluginArchiveMetadataRetiredIdTest {
             .toList();
         assertFalse(listed.contains(RETIRED_ID), "retired id must not be listed: " + listed);
         assertTrue(listed.contains(SUCCESSOR_ID), "retained successor id must be listed: " + listed);
+    }
+
+    /**
+     * Plugin management must show one WebDAV row after the webdav-backup rename: an
+     * upgraded install holding both the stale pre-rename {@code backup.jar} and the
+     * replacement {@code webdav-backup.jar} lists only the replacement, so the user
+     * never sees two entries for the same feature.
+     */
+    @Test
+    void supersededWebdavBackupJarIsNotListedWhileItsReplacementIs() throws Exception {
+        final Path plugins = Files.createDirectories(home.resolve("plugins"));
+        Files.write(plugins.resolve("backup.jar"), archive("dev.turboism.plugin.backup"));
+        Files.write(plugins.resolve("webdav-backup.jar"), archive("dev.turboism.plugin.webdav"));
+
+        assertTrue(PluginArchiveMetadata.read(plugins.resolve("backup.jar")).isEmpty(),
+            "the superseded id must not yield archive metadata");
+        assertTrue(PluginArchiveMetadata.read(plugins.resolve("webdav-backup.jar")).isPresent(),
+            "the replacement id must still yield archive metadata");
+
+        final RuntimePluginManagementService service = RuntimePluginManagementService.withMetadataLocale(
+            home, List::of, () -> Locale.ENGLISH, ignored -> { }
+        );
+        final List<String> listed = service.plugins().stream()
+            .map(RuntimePluginManagementService.PluginInfo::id)
+            .filter(id -> !dev.turboism.plugin.core.CorePluginManagement.CORE_PLUGIN_ID.equals(id))
+            .toList();
+        assertFalse(listed.contains("dev.turboism.plugin.backup"),
+            "the superseded id must not be listed: " + listed);
+        assertTrue(listed.contains("dev.turboism.plugin.webdav"),
+            "the replacement id must be listed: " + listed);
+        assertEquals(1, listed.size(), "exactly one WebDAV entry expected: " + listed);
     }
 
     private static byte[] archive(final String id) throws Exception {

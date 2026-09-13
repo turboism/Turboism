@@ -9,6 +9,8 @@ import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * UI-host service surface for SDK-only plugins.
@@ -120,20 +122,22 @@ public interface UiHostCapabilityService {
     }
 
     /**
-     * Returns the Cubism Editor UI language (host JVM locale), used by plugins
-     * to select localized presentation.
+     * Returns the Cubism Editor UI language in effect for this process — the
+     * language Cubism applied from {@code File → Environment Settings → General →
+     * Language} — used by plugins to select localized presentation.
      *
      * <p>Returns the <b>effective UI language</b>: zh builds are normalized to
      * {@code zh-Hans}/{@code zh-Hant} (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/zh-MO →
-     * zh-Hant, other script-less zh such as Wine-rewritten zh-US → zh-Hans);
-     * non-zh languages are returned unchanged. The raw host JVM locale may be
-     * rewritten by Proton/Wine (e.g. {@code zh-US}) and does not represent the
-     * actual UI language.</p>
+     * zh-Hant, other script-less zh such as the Wine-rewritten zh-US → zh-Hans);
+     * non-zh languages are returned unchanged. The launcher's
+     * {@code -Duser.language} only selects the build's language version and may be
+     * rewritten by Proton/Wine (e.g. {@code zh-US}); it does not track the host
+     * setting.</p>
      *
      * @return the current effective Cubism UI language, never {@code null}
      */
     default java.util.Locale hostLocale() {
-        return java.util.Locale.getDefault(java.util.Locale.Category.DISPLAY);
+        return java.util.Locale.getDefault();
     }
 
     /**
@@ -196,6 +200,75 @@ public interface UiHostCapabilityService {
      * @return a handle that dismisses this message only while it remains current
      */
     Registration notifyStatus(StatusNotification notification);
+
+    /**
+     * Shows a native Cubism hint over the drawing area.
+     *
+     * <p>The host owns the native lower-right placement and visual theme. The
+     * notification id is a stable replacement key, and the returned registration
+     * dismisses only the keyed hint that is still current.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default CanvasHintHandle notifyCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        throw new UnsupportedOperationException("canvas hints are not available");
+    }
+
+    /**
+     * Shows a native Cubism hint that dismisses itself when the user clicks it.
+     *
+     * <p>This is a convenience wrapper over
+     * {@link #notifyCanvasHint(CanvasHintNotification)}: it attaches a click action that
+     * closes the returned registration, so the common "click to acknowledge" case needs
+     * no handle bookkeeping in the plugin. A click replaces any action the notification
+     * already carried, and the returned registration still dismisses the hint explicitly.</p>
+     *
+     * @param notification validated native canvas-hint request
+     * @return a handle that dismisses the keyed hint
+     */
+    default CanvasHintHandle notifyDismissibleCanvasHint(final CanvasHintNotification notification) {
+        Objects.requireNonNull(notification, "notification");
+        final AtomicReference<CanvasHintHandle> handle = new AtomicReference<>();
+        final AtomicBoolean clicked = new AtomicBoolean();
+        final CanvasHintHandle registration = notifyCanvasHint(notification.withOnClick(() -> {
+            clicked.set(true);
+            final CanvasHintHandle current = handle.get();
+            if (current != null) {
+                current.close();
+            }
+        }));
+        handle.set(registration);
+        if (clicked.get()) {
+            // A click that raced the handle publication must still dismiss the hint.
+            registration.close();
+        }
+        return registration;
+    }
+
+    /**
+     * Shows a native Cubism hint and keeps it on screen while {@code condition} holds.
+     *
+     * <p>This is the SDK-level equivalent of the native pattern where a re-validation
+     * routine re-issues the same keyed hint while a problem persists: the hint is
+     * renewed on {@code cadence} and clears itself once the condition reports false,
+     * so the caller never tracks a handle. See
+     * {@link ConditionalCanvasHint#whileTrue(UiScheduler, UiHostCapabilityService,
+     * CanvasHintNotification, java.util.function.BooleanSupplier, java.time.Duration)}.</p>
+     *
+     * @param scheduler the plugin's UI scheduler, used to evaluate the condition
+     * @param notification validated native canvas-hint request
+     * @param condition evaluated on each tick; the hint stays while it returns true
+     * @return a handle that stops the watch and clears the hint
+     */
+    default Registration showCanvasHintWhile(
+        final UiScheduler scheduler,
+        final CanvasHintNotification notification,
+        final java.util.function.BooleanSupplier condition
+    ) {
+        return ConditionalCanvasHint.whileTrue(scheduler, this, notification, condition);
+    }
 
     Registration contributeContextMenu(ContextMenuRegistry.ContextMenuContribution contribution);
 

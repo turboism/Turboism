@@ -16,10 +16,14 @@ import java.util.Locale;
  * JDK APIs; it never imports or reflects {@code com.live2d.*} types.
  *
      * <p>The assertion is the contract of the API itself: the returned Locale must
-     * equal the effective UI language — the host JVM {@code user.language}/
-     * {@code user.country} (with DISPLAY fallback when the language is blank),
-     * normalized for zh scripts (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/zh-MO →
-     * zh-Hant, other script-less zh such as Wine-rewritten zh-US → zh-Hans).</p>
+     * equal the effective UI language — the locale Cubism applied from
+     * {@code File → Environment Settings → General → Language} (the process
+     * default locale), falling back to the host JVM {@code user.language}/
+     * {@code user.country} when the process default carries no language and then
+     * to DISPLAY; normalized for zh scripts (zh-CN/zh-SG → zh-Hans, zh-TW/zh-HK/
+     * zh-MO → zh-Hant, other script-less zh such as Wine-rewritten zh-US →
+     * zh-Hans). The launcher's {@code -Duser.language} only selects the build's
+     * language version, so it must not win when the two disagree.</p>
  */
 public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
 
@@ -108,16 +112,21 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
         }
 
         // Expected value follows the documented contract: the effective UI
-        // language — host JVM user.language/user.country with DISPLAY fallback
-        // when the language is blank — then the same zh script normalization the
-        // runtime applies. The probe must not import runtime classes, so the
-        // algorithm is inlined: zh with blank script → CN/SG → Hans, TW/HK/MO →
-        // Hant, everything else (incl. blank/US) → Hans; non-zh unchanged.
+        // language — the process default locale Cubism applied from Environment
+        // Settings, then the host JVM user.language/user.country when that
+        // default carries no language, then DISPLAY — followed by the same zh
+        // script normalization the runtime applies. The probe must not import
+        // runtime classes, so the algorithm is inlined: zh with blank script →
+        // CN/SG → Hans, TW/HK/MO → Hant, everything else (incl. blank/US) → Hans;
+        // non-zh unchanged.
+        final Locale appliedDefault = Locale.getDefault();
         final String language = System.getProperty("user.language", "");
         final String country = System.getProperty("user.country", "");
-        final Locale raw = language.isBlank()
-            ? Locale.getDefault(Locale.Category.DISPLAY)
-            : new Locale(language, country);
+        final Locale raw = !appliedDefault.getLanguage().isBlank()
+            ? appliedDefault
+            : language.isBlank()
+                ? Locale.getDefault(Locale.Category.DISPLAY)
+                : new Locale(language, country);
         final Locale expected;
         if ("zh".equals(raw.getLanguage()) && raw.getScript().isBlank()) {
             final String script = switch (raw.getCountry()) {
@@ -178,6 +187,7 @@ public final class HostLocaleHostValidationPlugin implements TurboismPlugin {
             + " probe=" + localizedProbe
             + " requested=" + requested
             + " userLanguage=" + System.getProperty("user.language", "<unset>")
+            + " defaultLocale=" + Locale.getDefault().toLanguageTag()
             + " display=" + Locale.getDefault(Locale.Category.DISPLAY).toLanguageTag());
         try {
             Thread.sleep(PASS_SETTLE_MILLIS);

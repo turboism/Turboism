@@ -351,6 +351,22 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
     "--remote-pre-launch-arg"})
 
+# Reviewed pre-launch hook inventory: hook file name -> (protocol flags the
+# invocation must carry, error description). Each entry is an explicit review of
+# that one hook; the queue still snapshots the hook file and digests its closure.
+REVIEWED_PRE_LAUNCH_HOOKS = {
+    "fps-resize-driver.sh": (
+        frozenset({"--remote-pre-launch-background", "--remote-pre-launch-args-only"}),
+        "FPS hook requires its reviewed background/args-only protocol",
+    ),
+    # The language is passed as the hook's trailing argument; without it the
+    # hook fails closed, so the flag is part of the reviewed protocol.
+    "host-locale-environment-language-hook.sh": (
+        frozenset({"--remote-pre-launch-arg"}),
+        "host-locale environment-language hook requires its language argument",
+    ),
+}
+
 
 def file_digest(path: Path) -> str:
     digest = hashlib.sha256()
@@ -469,7 +485,7 @@ class PreparedStore:
             for path in sorted((source_root / "scripts/preview").iterdir()):
                 if path.suffix in {".sh", ".py", ".json"} and path.is_file():
                     copy_verified(path, tool_dir / path.name)
-            for required in ("run-cubism-host-validation.sh", "host-validation-env.sh",
+            for required in ("run-cubism-host-validation.sh", "host-validation-env.sh", "host-validation-transport.sh",
                              "archive-cubism-host-evidence.sh", "host_validation.py", "host_validation_queue.py",
                              "host_validation_containment.py", "host_validation_evidence.py"):
                 if not (tool_dir / required).is_file():
@@ -508,13 +524,17 @@ class PreparedStore:
                     source = Path(source_value)
                     if not source.is_absolute():
                         raise QueueError("normalized inputs must be absolute paths")
-                    # Only the catalogue FPS driver has an enumerated hook closure.
+                    # Only enumerated hooks have a reviewed dependency closure.
                     # A script's location in scripts/preview is not an approval.
                     if flag in {"--remote-pre-launch", "--remote-post-launch", "--remote-pre-cleanup"}:
-                        if flag != "--remote-pre-launch" or source != source_root / "scripts/preview/fps-resize-driver.sh":
+                        reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
+                                    if flag == "--remote-pre-launch"
+                                    and source.parent == source_root / "scripts/preview" else None)
+                        if reviewed is None:
                             raise QueueError("custom hook requires reviewed dependency inventory")
-                        if not {"--remote-pre-launch-background", "--remote-pre-launch-args-only"}.issubset(argv):
-                            raise QueueError("FPS hook requires its reviewed background/args-only protocol")
+                        required_flags, description = reviewed
+                        if not required_flags.issubset(argv):
+                            raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),
@@ -947,9 +967,10 @@ def durable_outcome(store: Store, job: dict[str, Any]) -> dict[str, Any]:
     directory = store.root / "jobs" / job["job_id"]
     outcome_path = directory / "outcome.json"
     final_path = directory / "evidence/lifecycle-result.json"
-    outcome = json.loads(outcome_path.read_text()) if outcome_path.exists() else None
+    outcome_exists = outcome_path.exists() or outcome_path.is_symlink()
+    outcome = json.loads(outcome_path.read_text()) if outcome_exists else None
     final = json.loads(final_path.read_text()) if final_path.exists() else None
-    if outcome is not None:
+    if outcome_exists:
         if not isinstance(outcome, dict):
             raise QueueError("outcome must be an object")
         if outcome.get("finalizedBy") != "contained-supervisor":

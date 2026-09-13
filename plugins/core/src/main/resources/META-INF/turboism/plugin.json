@@ -55,6 +55,11 @@
       "id": "turboism.ui.dialog.contribute",
       "scope": "application",
       "reason": "Confirms plugin uninstall requests."
+    },
+    {
+      "id": "turboism.ui.canvas.hint",
+      "scope": "application",
+      "reason": "Reports an available update in the host's own drawing-area hint."
     }
   ],
   "capabilities": [],
