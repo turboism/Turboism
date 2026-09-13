@@ -71,6 +71,21 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            MeshTriangulationSettingsContribution.create(
+                localization(context), services.meshTriangulationSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            AtlasTileBboxSettingsContribution.create(
+                localization(context), services.atlasTileBboxSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            AtlasCacheReuseSettingsContribution.create(
+                localization(context), services.atlasCacheReuseSettings()
+            )
+        ));
         registerPluginActions();
         registerPanelTabActions();
         context.disposableScope().register(plugins);

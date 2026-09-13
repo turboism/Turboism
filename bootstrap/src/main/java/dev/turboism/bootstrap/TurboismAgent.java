@@ -66,6 +66,16 @@ public final class TurboismAgent {
         CONTROL_APPEARANCE_HOOK = new AtomicReference<>();
     private static final AtomicReference<StartupSuppressionInstaller.Installation> STARTUP_SUPPRESSION =
         new AtomicReference<>();
+    private static final AtomicReference<
+        dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller.Installation>
+        MESH_TRIANGULATION_HASH = new AtomicReference<>();
+    private static final AtomicReference<
+        dev.turboism.adapter.cubism.textureatlas.image.VerifiedAtlasTileBboxInstaller.Installation>
+        ATLAS_TILE_BBOX = new AtomicReference<>();
+    private static final AtomicReference<
+        dev.turboism.adapter.cubism.textureatlas.cache
+            .VerifiedAtlasCacheReuseInstaller.Installation>
+        ATLAS_CACHE_REUSE = new AtomicReference<>();
     private static final AtomicReference<PipeImplLoopbackInstaller.Installation> PIPE_IMPL_SHIM =
         new AtomicReference<>();
     private static final AtomicReference<dev.turboism.sdk.plugin.Registration> OVERLAY_HOOK =
@@ -192,6 +202,52 @@ public final class TurboismAgent {
                 )
             );
         if (attachmentMode == StartupSuppressionInstaller.AttachmentMode.PREMAIN) {
+            final dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller.Installation
+                meshTriangulationHash = installMeshTriangulationHashPremain(
+                    instrumentation,
+                    dev.turboism.config.RuntimeStartupConfig.load(options.home()),
+                    options.home()
+                );
+            if (!MESH_TRIANGULATION_HASH.compareAndSet(null, meshTriangulationHash)) {
+                if (meshTriangulationHash != null) meshTriangulationHash.close();
+            } else if (meshTriangulationHash != null) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Mesh triangulation hash status=" + meshTriangulationHash.status()
+                );
+            }
+            final dev.turboism.adapter.cubism.textureatlas.image
+                    .VerifiedAtlasTileBboxInstaller.Installation atlasTileBbox =
+                installAtlasTileBboxPremain(
+                    instrumentation,
+                    dev.turboism.config.RuntimeStartupConfig.load(options.home()),
+                    options.home()
+                );
+            if (!ATLAS_TILE_BBOX.compareAndSet(null, atlasTileBbox)) {
+                if (atlasTileBbox != null) atlasTileBbox.close();
+            } else if (atlasTileBbox != null) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Atlas tile-bbox status=" + atlasTileBbox.status()
+                        + ", transformOutcome=" + atlasTileBbox.transformOutcome()
+                );
+            }
+            final dev.turboism.adapter.cubism.textureatlas.cache
+                    .VerifiedAtlasCacheReuseInstaller.Installation atlasCacheReuse =
+                installAtlasCacheReusePremain(
+                    instrumentation,
+                    dev.turboism.config.RuntimeStartupConfig.load(options.home()),
+                    options.home()
+                );
+            if (!ATLAS_CACHE_REUSE.compareAndSet(null, atlasCacheReuse)) {
+                if (atlasCacheReuse != null) atlasCacheReuse.close();
+            } else if (atlasCacheReuse != null) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "bootstrap",
+                    "Atlas cache-reuse status=" + atlasCacheReuse.status()
+                        + ", transformOutcome=" + atlasCacheReuse.transformOutcome()
+                );
+            }
             installMeshMirrorHookPremain(
                 instrumentation,
                 System.getProperty("java.class.path", ""),
@@ -761,6 +817,155 @@ public final class TurboismAgent {
         }
     }
 
+    /**
+     * Installs the triangulation hash fix during premain.
+     *
+     * <p>Two independent gates must both pass: the operator's hook policy, and the persisted user
+     * preference. Safety admission is separate again and lives in the transformer, which only
+     * rewrites a class whose bytes match a pinned digest. Every failure path returns null after
+     * reporting, so a refused fix can never stop official startup.</p>
+     */
+    private static dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller.Installation
+            installMeshTriangulationHashPremain(
+        final Instrumentation instrumentation,
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        if (!meshTriangulationHashEnabled(policy, turboismHome)) return null;
+        try {
+            return dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller.install(
+                instrumentation,
+                code -> dev.turboism.runtime.log.RuntimeDiagnostics.debug(
+                    "mesh-triangulation-hash",
+                    code
+                )
+            );
+        } catch (Throwable failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "mesh-triangulation-hash",
+                "Triangulation hash fix disabled safely",
+                failure
+            );
+            return null;
+        }
+    }
+
+    static boolean meshTriangulationHashEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        return policy != null
+            && policy.hookEnabled("cubism.mesh.triangulation-hash")
+            && dev.turboism.config.MeshTriangulationPreference.read(turboismHome);
+    }
+
+    static void closeMeshTriangulationHashIfCurrent(
+        final dev.turboism.adapter.cubism.mesh.VerifiedMeshTriangulationHashInstaller.Installation
+            installation
+    ) {
+        if (installation == null) return;
+        if (!MESH_TRIANGULATION_HASH.compareAndSet(installation, null)) return;
+        installation.close();
+    }
+
+    /**
+     * Installs the atlas tile-bbox optimization during premain.
+     *
+     * <p>Two independent gates must both pass: the operator's hook policy, and the persisted user
+     * preference. Safety admission is separate again and lives in the transformer, which only
+     * rewrites a class whose bytes match a pinned digest and whose method shape passes every
+     * anchor. Every failure path returns null after reporting, so a refused optimization can
+     * never stop official startup.</p>
+     */
+    private static dev.turboism.adapter.cubism.textureatlas.image
+            .VerifiedAtlasTileBboxInstaller.Installation installAtlasTileBboxPremain(
+        final Instrumentation instrumentation,
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        if (!atlasTileBboxEnabled(policy, turboismHome)) return null;
+        try {
+            return dev.turboism.adapter.cubism.textureatlas.image
+                .VerifiedAtlasTileBboxInstaller.install(
+                    instrumentation,
+                    // Premain runs before the diagnostics sink exists; the console is the
+                    // only place the admission verdict survives on a real host.
+                    code -> System.err.println("[turboism] atlas-tile-bbox " + code)
+                );
+        } catch (Throwable failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "atlas-tile-bbox",
+                "Atlas tile-bbox optimization disabled safely",
+                failure
+            );
+            return null;
+        }
+    }
+
+    static boolean atlasTileBboxEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        return policy != null
+            && policy.hookEnabled("cubism.textureatlas.tile-bbox")
+            && dev.turboism.config.AtlasTileBboxPreference.read(turboismHome);
+    }
+
+    static void closeAtlasTileBboxIfCurrent(
+        final dev.turboism.adapter.cubism.textureatlas.image
+            .VerifiedAtlasTileBboxInstaller.Installation installation
+    ) {
+        if (installation == null) return;
+        if (!ATLAS_TILE_BBOX.compareAndSet(installation, null)) return;
+        installation.close();
+    }
+
+    /**
+     * Premain install for the atlas cache-reuse guard. Mirrors the tile-bbox wiring: the
+     * policy gate and persisted preference decide, and every failure path returns null
+     * after reporting so a refused optimization can never stop official startup.
+     */
+    private static dev.turboism.adapter.cubism.textureatlas.cache
+            .VerifiedAtlasCacheReuseInstaller.Installation installAtlasCacheReusePremain(
+        final Instrumentation instrumentation,
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        if (!atlasCacheReuseEnabled(policy, turboismHome)) return null;
+        try {
+            return dev.turboism.adapter.cubism.textureatlas.cache
+                .VerifiedAtlasCacheReuseInstaller.install(
+                    instrumentation,
+                    code -> System.err.println("[turboism] atlas-cache-reuse " + code)
+                );
+        } catch (Throwable failure) {
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "atlas-cache-reuse",
+                "Atlas cache-reuse optimization disabled safely",
+                failure
+            );
+            return null;
+        }
+    }
+
+    static boolean atlasCacheReuseEnabled(
+        final dev.turboism.config.RuntimeStartupConfig policy,
+        final Path turboismHome
+    ) {
+        return policy != null
+            && policy.hookEnabled("cubism.textureatlas.cache-reuse")
+            && dev.turboism.config.AtlasCacheReusePreference.read(turboismHome);
+    }
+
+    static void closeAtlasCacheReuseIfCurrent(
+        final dev.turboism.adapter.cubism.textureatlas.cache
+            .VerifiedAtlasCacheReuseInstaller.Installation installation
+    ) {
+        if (installation == null) return;
+        if (!ATLAS_CACHE_REUSE.compareAndSet(installation, null)) return;
+        installation.close();
+    }
+
     private static VerifiedMeshMirrorHookInstaller installMeshMirrorHookPremain(
         final Instrumentation instrumentation,
         final String classPath,
@@ -1027,6 +1232,9 @@ public final class TurboismAgent {
 
     private static void shutdown() {
         final PreviewRuntime runtime = RUNTIME.getAndSet(null);
+        closeMeshTriangulationHashIfCurrent(MESH_TRIANGULATION_HASH.getAndSet(null));
+        closeAtlasTileBboxIfCurrent(ATLAS_TILE_BBOX.getAndSet(null));
+        closeAtlasCacheReuseIfCurrent(ATLAS_CACHE_REUSE.getAndSet(null));
         closeProjectLifecycleHook(runtime, "process-exit");
         closeFileChooserHistoryHook(runtime, "process-exit");
         closeParameterHook(runtime, "process-exit");
