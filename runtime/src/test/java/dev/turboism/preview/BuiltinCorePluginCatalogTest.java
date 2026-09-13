@@ -2,7 +2,7 @@ package dev.turboism.preview;
 
 import dev.turboism.core.descriptor.PluginDescriptorParser;
 import dev.turboism.i18n.RuntimePluginLocalization;
-import dev.turboism.plugin.core.MainToolbarPlugin;
+import dev.turboism.plugin.core.CorePlugin;
 import dev.turboism.sdk.plugin.PluginDescriptor;
 import org.junit.jupiter.api.Test;
 
@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class BuiltinCorePluginCatalogTest {
     @Test void loadsDeclaredCoreCatalogsFromTheAgentArtifactOwner() throws Exception {
-        final ClassLoader applicationLoader = MainToolbarPlugin.class.getClassLoader();
+        final ClassLoader applicationLoader = CorePlugin.class.getClassLoader();
         final PluginDescriptor descriptor;
         try (InputStream input = applicationLoader.getResourceAsStream("META-INF/turboism/core-plugin.json")) {
             descriptor = new PluginDescriptorParser().parse(input);
