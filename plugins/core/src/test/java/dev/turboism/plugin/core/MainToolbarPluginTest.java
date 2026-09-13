@@ -86,9 +86,10 @@ class MainToolbarPluginTest {
             )),
             context.mainToolbar().buttonContributions()
         );
-        assertEquals(2, context.uiHost().settingsContributions().size());
+        assertEquals(4, context.uiHost().settingsContributions().size());
         assertEquals(
-            List.of("cubism-graalvm-path", "cubism-jvm"),
+            List.of("cubism-graalvm-path", "cubism-jvm", "mesh-triangulation-hash",
+                "atlas-tile-bbox"),
             context.uiHost().settingsContributions().stream()
                 .map(dev.turboism.sdk.ui.settings.SettingsContribution::id)
                 .toList()
