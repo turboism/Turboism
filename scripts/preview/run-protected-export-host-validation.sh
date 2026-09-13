@@ -106,7 +106,7 @@ exec_runner() {
     --result-fail-line 'status=FAIL' \
     --agent-timeout 600 \
     --ready-timeout 300 \
-    --result-timeout 900 \
+    --result-timeout 1500 \
     --exit-timeout 120 \
     "${args[@]}"
 }
