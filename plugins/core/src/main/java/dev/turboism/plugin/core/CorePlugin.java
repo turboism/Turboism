@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
 /** Built-in, non-removable Turboism core plugin. */
-public final class MainToolbarPlugin implements TurboismPlugin {
+public final class CorePlugin implements TurboismPlugin {
 
     private PluginContext context;
     private PluginLogger logger;
@@ -39,7 +39,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
     /** Identity the user dismissed, so acknowledging a build does not make it reappear. */
     private String dismissedHintIdentity;
 
-    public MainToolbarPlugin() {
+    public CorePlugin() {
         services = CorePluginServices.consume();
     }
 
