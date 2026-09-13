@@ -417,8 +417,11 @@ public final class ProtectedExportHostProbeAgent {
 
             final Path exportOut = stateDir.resolve("export-out");
             Files.createDirectories(exportOut);
-            final File pick =
-                exportOut.resolve("protected-export.moc3").toFile();
+            // The native destination picker runs in open/directory mode, which
+            // only approves an existing selection — and the chooser-redirect
+            // transformer replaces whatever is picked with the staged output
+            // anyway, so the existing directory itself is the safe pick.
+            final File pick = exportOut.toFile();
             evidence.put(prefix + "pick", pick.getAbsolutePath());
 
             final Set<Window> alreadyVisible = visibleWindows();
@@ -707,10 +710,25 @@ public final class ProtectedExportHostProbeAgent {
                         target.approveSelection();
                         return null;
                     });
+                    // approveSelection only closes the dialog when the pick is
+                    // approvable; keep polling until the chooser actually
+                    // disappears so a refused selection is retried or timed out
+                    // rather than mistaken for a successful drive.
                     evidence.put(prefix + "chooserDriven", "true");
-                    evidence.put(prefix + "chooserDialogSequence",
-                        String.join(" -> ", sequence));
-                    return true;
+                    final long hideDeadline =
+                        System.currentTimeMillis() + 10_000L;
+                    while (System.currentTimeMillis() < hideDeadline
+                            && target.isShowing()) {
+                        sleep(POLL_MILLIS);
+                    }
+                    if (!target.isShowing()) {
+                        evidence.put(prefix + "chooserDialogSequence",
+                            String.join(" -> ", sequence));
+                        return true;
+                    }
+                    final java.awt.Window carrier = currentCarrier(target);
+                    evidence.put(prefix + "chooserApproveRefused",
+                        carrier == null ? "<detached>" : describe(carrier));
                 } catch (Throwable failure) {
                     evidence.put(prefix + "chooserDriveFailure", text(failure));
                     evidence.fail("EXP_CHOOSER_DRIVE_FAILED");
@@ -725,26 +743,33 @@ public final class ProtectedExportHostProbeAgent {
                             "dialog-tree-expChooser-" + sequence.size() + ".txt"),
                         window);
                 }
-                // Give a freshly-observed dialog a few polls before clicking:
-                // the chooser carrier can appear with only its title-bar close
+                // Windows already visible when this phase started (MAX_VALUE)
+                // are background: never click them — a stray button on the home
+                // window can open a modal chooser and wedge the flow. Fresh
+                // dialogs get a few observation polls before clicking: the
+                // chooser carrier can appear with only its title-bar close
                 // button attached, and clicking that cancels the export.
-                if (polls < 5 || !(window instanceof java.awt.Dialog dialog)) {
-                    seen.put(window, polls + 1);
+                if (polls == Integer.MAX_VALUE || polls < 5
+                        || !(window instanceof java.awt.Dialog dialog)) {
+                    if (polls != Integer.MAX_VALUE) {
+                        seen.put(window, polls + 1);
+                    }
                     continue;
                 }
                 final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
                 final AbstractButton click =
                     confirm != null ? confirm : firstButton(dialog);
                 if (click != null) {
-                    try {
-                        onEdt(() -> {
-                            click.doClick(0);
-                            return null;
-                        });
-                    } catch (Throwable failure) {
-                        evidence.put(prefix + "intermediateClickFailure",
-                            text(failure));
-                    }
+                    // Never block on a click: the button can open a modal
+                    // dialog (the native chooser itself is one), and a
+                    // blocking invokeAndWait would deadlock the loop that is
+                    // supposed to drive that very dialog.
+                    java.awt.EventQueue.invokeLater(() -> click.doClick(0));
+                    evidence.put(prefix + "intermediateClicked",
+                        describe(window));
+                    // One click per dialog: if it stays open, record it rather
+                    // than spamming the button every poll.
+                    seen.put(window, Integer.MAX_VALUE);
                 }
             }
             sleep(POLL_MILLIS);
@@ -2172,6 +2197,15 @@ public final class ProtectedExportHostProbeAgent {
         while (System.currentTimeMillis() < deadline && dialog.isVisible()) {
             sleep(POLL_MILLIS);
         }
+    }
+
+    /** Walks a component's parent chain to the top-level window carrying it. */
+    private static java.awt.Window currentCarrier(final Component component) {
+        java.awt.Container parent = component.getParent();
+        while (parent != null && !(parent instanceof java.awt.Window)) {
+            parent = parent.getParent();
+        }
+        return parent instanceof java.awt.Window window ? window : null;
     }
 
     /**
