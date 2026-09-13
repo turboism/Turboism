@@ -95,10 +95,15 @@ undo manager reports — automation changes who acts, never what counts.
   a Parts-tree row drag, a canvas drag, and the Ctrl+Z / Ctrl+Y accelerators.
   Undo/Redo prefer the enabled menu accelerator and only fall back to a
   focused-window `Robot` keystroke when no menu item claims the shortcut.
+- Automated runs share the host display with other work, so each step's window
+  defaults to 60 seconds instead of the manual 420 — the actors verify every
+  attempt against the undo manager themselves, and the window only catches a
+  late commit or an operator who happens to be present. Override with
+  `--jvm-option "-Dturboism.history.nativeUi.stepTimeoutMillis=<ms>"` on the
+  Runner when a longer window is wanted.
 - Every other step (`deformer-assign`, `canvas-deform`, `native-parameter`,
-  `native-color`) still waits for the operator for its full window. You may act
-  on those steps exactly as in the manual run; if nobody is at the desk they are
-  recorded as `no-native-change` failures.
+  `native-color`) has no actor and simply waits out its window; with nobody at
+  the desk they are recorded as `no-native-change` failures.
 - An actor that cannot resolve its control reports `unresolved:<detail>` on its
   `actor` artifact line and the step stays open for the operator.
 - An automated run writes a bounded `ui-map` line for every step whose actor
