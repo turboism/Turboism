@@ -156,6 +156,33 @@ final class CubismJvmSettingsContribution {
         );
     }
 
+    /**
+     * Launch-time preference: appends {@code -XX:+UseZGC} to the managed
+     * JAVA_TOOL_OPTIONS block on the next Cubism launch. No live apply —
+     * the current JVM cannot change collectors mid-process.
+     */
+    static SettingsContribution createZgcToggle(
+        final PluginLocalization i18n,
+        final CubismJvmSettingsService settings
+    ) {
+        Objects.requireNonNull(i18n, "i18n");
+        Objects.requireNonNull(settings, "settings");
+        return new SettingsContribution(
+            "cubism-zgc",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(120),
+            new SettingsControl.Toggle(
+                "cubism-zgc",
+                i18n.text("settings.cubism-jvm.zgc"),
+                SettingsBinding.of(settings::zgc, settings::saveZgc)
+            )
+        );
+    }
+
     private static SettingsActionHandle install(
         final PluginLocalization i18n,
         final CubismJvmSettingsService settings
