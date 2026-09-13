@@ -7131,6 +7131,39 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history_semantic.class.warp_form_class",
+      "alias": "cubism.editor-history.semantic.warp-form.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/warp/CWarpDeformerForm",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history_semantic.class.rotation_form_class",
+      "alias": "cubism.editor-history.semantic.rotation-form.class",
+      "kind": "class",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/rotation/CRotationDeformerForm",
+      "memberName": null,
+      "descriptor": null,
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 0,
+      "status": "VERIFIED_STATIC"
+    },
+    {
+      "mappingId": "cubism.mapping.v5_3_02.editor_history_semantic.method.deformer_form_source",
+      "alias": "cubism.editor-history.semantic.deformer-form.source",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/model/deformer/ACDeformerForm",
+      "memberName": "getSource",
+      "descriptor": "()Lcom/live2d/cubism/doc/model/deformer/ACDeformerSource;",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.editor_history_semantic.method.form_guid",
       "alias": "cubism.editor-history.semantic.form.guid",
       "kind": "method",

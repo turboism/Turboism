@@ -167,6 +167,12 @@ public record HistoryChange(
         SET,
         ADD,
         REMOVE,
+        /**
+         * A proven whole-object translation: every observed point or anchor moved by the same
+         * delta. The change's {@code after} value carries the bounded signed delta, or the new
+         * absolute origin when the form exposes one.
+         */
+        MOVE,
         UNKNOWN
     }
 }

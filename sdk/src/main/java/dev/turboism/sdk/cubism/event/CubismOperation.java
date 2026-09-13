@@ -113,6 +113,9 @@ public enum CubismOperation {
     DETACH_HIERARCHY_PARENT("cubism.model.hierarchy.detach"),
     /** Moves an ArtMesh in the canvas. */
     MOVE_DRAWABLE("cubism.model.art-mesh.move"),
+
+    /** Moves a deformer's whole form to a new position. */
+    MOVE_DEFORMER("cubism.model.deformer.move"),
     /** Changes an ArtMesh color. */
     SET_DRAWABLE_COLOR("cubism.model.art-mesh.set-color");
 

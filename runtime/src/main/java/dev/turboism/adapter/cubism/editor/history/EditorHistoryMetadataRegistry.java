@@ -32,7 +32,8 @@ public final class EditorHistoryMetadataRegistry {
         final EntryMetadata current = metadataLocked(entry);
         ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(), current.transactionId(),
-            Optional.of(Objects.requireNonNull(action, "action")), current.detail()
+            Optional.of(Objects.requireNonNull(action, "action")), current.detail(),
+            current.observedDetail()
         ));
     }
 
@@ -45,7 +46,8 @@ public final class EditorHistoryMetadataRegistry {
         final EntryMetadata current = metadataLocked(entry);
         ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(), current.transactionId(), current.action(),
-            Optional.of(Objects.requireNonNull(detail, "detail"))
+            Optional.of(Objects.requireNonNull(detail, "detail")),
+            current.observedDetail()
         ));
     }
 
@@ -68,7 +70,28 @@ public final class EditorHistoryMetadataRegistry {
             current.entryId(),
             current.transactionId(),
             trustedAction.isPresent() ? trustedAction : current.action(),
-            Optional.of(trustedDetail)
+            Optional.of(trustedDetail),
+            current.observedDetail()
+        ));
+    }
+
+    /**
+     * Associates a detail decoded at commit time with a native Undo entry.
+     *
+     * <p>An observed detail is a host-attributed projection recorded while the entry was still the
+     * undo tip, when its post state may still be read. It is not Turboism authorship: it never
+     * makes {@link #claimsProvenance(Object)} true and never overrides an authoritative captured
+     * detail.</p>
+     */
+    public static synchronized void registerObserved(
+        final Object nativeEntry,
+        final HistoryEntryDetail detail
+    ) {
+        final Object entry = Objects.requireNonNull(nativeEntry, "nativeEntry");
+        final EntryMetadata current = metadataLocked(entry);
+        ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
+            current.entryId(), current.transactionId(), current.action(), current.detail(),
+            Optional.of(Objects.requireNonNull(detail, "detail"))
         ));
     }
 
@@ -81,7 +104,7 @@ public final class EditorHistoryMetadataRegistry {
         final EntryMetadata current = metadataLocked(entry);
         ENTRIES.put(new IdentityReference(entry, null), new EntryMetadata(
             current.entryId(), Optional.of(normalizedTransactionId(transactionId)),
-            current.action(), current.detail()
+            current.action(), current.detail(), current.observedDetail()
         ));
     }
 
@@ -105,7 +128,8 @@ public final class EditorHistoryMetadataRegistry {
             current.entryId(),
             Optional.of(normalizedTransactionId(transactionId)),
             trustedAction.isPresent() ? trustedAction : current.action(),
-            Optional.of(trustedDetail)
+            Optional.of(trustedDetail),
+            current.observedDetail()
         ));
     }
 
@@ -181,6 +205,11 @@ public final class EditorHistoryMetadataRegistry {
         return metadata(nativeEntry).action();
     }
 
+    /** Returns the detail observed at commit time, when one was recorded. */
+    static synchronized Optional<HistoryEntryDetail> observed(final Object nativeEntry) {
+        return metadata(nativeEntry).observedDetail();
+    }
+
     private static Optional<Object> appended(final List<?> before, final List<?> after) {
         final List<?> oldEntries = List.copyOf(Objects.requireNonNull(before, "before"));
         final List<?> newEntries = List.copyOf(Objects.requireNonNull(after, "after"));
@@ -199,6 +228,7 @@ public final class EditorHistoryMetadataRegistry {
         if (current != null) return current;
         final EntryMetadata created = new EntryMetadata(
             new HistoryEntryId("history-entry-" + Long.toUnsignedString(++nextEntryId, 36)),
+            Optional.empty(),
             Optional.empty(),
             Optional.empty(),
             Optional.empty()
@@ -227,13 +257,15 @@ public final class EditorHistoryMetadataRegistry {
         HistoryEntryId entryId,
         Optional<String> transactionId,
         Optional<HistoryAction> action,
-        Optional<HistoryEntryDetail> detail
+        Optional<HistoryEntryDetail> detail,
+        Optional<HistoryEntryDetail> observedDetail
     ) {
         EntryMetadata {
             Objects.requireNonNull(entryId, "entryId");
             transactionId = Objects.requireNonNull(transactionId, "transactionId");
             action = Objects.requireNonNull(action, "action");
             detail = Objects.requireNonNull(detail, "detail");
+            observedDetail = Objects.requireNonNull(observedDetail, "observedDetail");
         }
     }
 
