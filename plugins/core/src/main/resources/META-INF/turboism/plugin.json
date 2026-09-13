@@ -6,7 +6,7 @@
   "version": "0.1.0",
   "description": "Built-in, non-removable Turboism menu, toolbar, settings, tab, and plugin manager.",
   "entrypoints": [
-    "dev.turboism.plugin.core.MainToolbarPlugin"
+    "dev.turboism.plugin.core.CorePlugin"
   ],
   "turboismApi": "[0.1.0,0.2.0)",
   "authors": [
