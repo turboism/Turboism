@@ -626,6 +626,18 @@ public final class WindowsHistoryNativeUiIngressProbe implements CubismPlugin {
                     ? "none" : tree.getTransferHandler().getClass().getSimpleName())
                 .append(":owner=").append(owner == null ? "none" : owner.getClass().getName())
                 .append(';');
+        } else if (component instanceof javax.swing.JTable table
+            && table.getClass().getName().contains("treeTable")) {
+            // A TreeTable embeds its JTree as a cell renderer, so the drag gesture and the
+            // transfer handler live on the table — checking only the tree would report a DnD
+            // that can never fire.
+            out.append("table:").append(table.getClass().getName())
+                .append(":drag=").append(table.getDragEnabled())
+                .append(":drop=").append(table.getDropTarget() != null)
+                .append(":mode=").append(table.getDropMode())
+                .append(":handler=").append(table.getTransferHandler() == null
+                    ? "none" : table.getTransferHandler().getClass().getName())
+                .append(';');
         }
         if (component instanceof java.awt.Container container) {
             for (java.awt.Component child : container.getComponents()) {
