@@ -791,6 +791,8 @@ public final class PreviewRuntime implements AutoCloseable {
                         + " reached=" + report.reached()
                         + " published=" + report.published()
                         + " failure=" + report.failureKey()
+                        + (report.failureDetail() == null
+                            ? "" : " detail=" + report.failureDetail())
                 ),
                 10_000L,
                 600_000L

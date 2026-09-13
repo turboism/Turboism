@@ -112,6 +112,18 @@ public final class ProtectedExportObfuscationPlan {
                 reservedNames.add(name);
             }
         }
+        // Parameter sources sit outside the controllable census; reserve their
+        // identities through the parameter-source accessors.
+        for (Object parameter : host.allParameters(modelSource)) {
+            final String id = host.parameterSourceIdString(parameter);
+            if (id != null) {
+                reservedIds.add(id);
+            }
+            final String name = host.parameterSourceName(parameter);
+            if (name != null) {
+                reservedNames.add(name);
+            }
+        }
 
         final Map<String, Target> result = new LinkedHashMap<>();
         final Set<String> hashes = new LinkedHashSet<>();
