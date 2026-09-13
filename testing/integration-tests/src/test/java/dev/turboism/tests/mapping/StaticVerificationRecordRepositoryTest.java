@@ -50,7 +50,7 @@ class StaticVerificationRecordRepositoryTest {
     );
     private static final Path RECORDS = PROJECT_ROOT.resolve("compatibility/cubism/verification");
 
-    private static final Map<String, SliceExpectation> EXPECTATIONS = with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
+    private static final Map<String, SliceExpectation> EXPECTATIONS = withProtectedExport(with5303(withPerformance(withClipMask52(withAutoBackup(withStatusBar(withWorkspaceControl(withControlAppearance53(withBoundingBoxOverlays(withTopMenus(withEmbeddedPanels(Map.of(
         "compatibility/cubism/verification/cubism-5.2.03-project-workspace.json",
         new SliceExpectation(
             "m15.cubism-5.2.03.project-workspace.static",
@@ -231,7 +231,39 @@ class StaticVerificationRecordRepositoryTest {
             "98f4dac9a9508a6e255f6f3862608409a83e29c9009a7f0fcf517e06658164e4",
             "416ec0e9e45e1dfd44216969aa02a5171eb0688145b3738f583beb9bafe5131e",
             74, "5.3.02")
-    )))))))))));
+    ))))))))))));
+
+    private static Map<String, SliceExpectation> withProtectedExport(
+        final Map<String, SliceExpectation> existing
+    ) {
+        final LinkedHashMap<String, SliceExpectation> expectations = new LinkedHashMap<>(existing);
+        expectations.put(
+            "compatibility/cubism/verification/cubism-5.3.02-protected-export.json",
+            new SliceExpectation(
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.VERIFICATION_ID_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ADAPTER_SLICE_ID,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.CUBISM_VERSION_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.PROFILE_ID_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.CAPABILITY_IDS,
+                "Live2D_Cubism.jar",
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ARTIFACT_SIZE_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.ARTIFACT_SHA256_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.RECORD_SHA256_53,
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest
+                    .REQUIRED_ALIASES.size(),
+                dev.turboism.mapping.verification.ProtectedExportVerificationManifest.REQUIRED_ALIASES,
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations.REQUIRED_ALIASES,
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations.methodAliasesUsed(),
+                dev.turboism.exportsettings.VerifiedProtectedExportHostOperations.classAliasesUsed(),
+                "cubism-5.3.02-protected-export",
+                Path.of("compatibility/cubism/mapping-packs/draft/cubism-5.3.02-protected-export.json"),
+                Path.of("compatibility/cubism/profiles/draft/cubism-5.3.02.json"),
+                "5.3.02",
+                SliceKind.EDITOR_UI
+            )
+        );
+        return Map.copyOf(expectations);
+    }
 
     private static Map<String, SliceExpectation> with5303(
         final Map<String, SliceExpectation> existing

@@ -45,6 +45,14 @@ public final class RuntimeExportSettingsAuthority
     private final Supplier<ExportSettingsAttachBackend> backendFactory;
     private volatile long hostGeneration;
     private volatile boolean closed;
+    /**
+     * The exporter-side chooser redirect seam. Set by the bootstrap installer once the
+     * exporter bytes verifiably carry the injected redirect; without it no protected-export
+     * session may arm, because a staging redirect could not be proven.
+     */
+    private volatile boolean protectedExportRedirectSeamInstalled;
+    /** Armed-session orchestrator, or {@code null} when protected export is not wired. */
+    private volatile ProtectedExportOrchestrator protectedExportOrchestrator;
 
     public RuntimeExportSettingsAuthority(
         final Supplier<Optional<ExportSettingsIdentity>> identitySource
@@ -104,6 +112,49 @@ public final class RuntimeExportSettingsAuthority
                 }
             }
         };
+    }
+
+    /**
+     * Marks the exporter chooser-redirect seam as installed. Called by the bootstrap layer
+     * only after the transformer is registered and any already-loaded exporter class has
+     * been retransformed; orchestration admission checks this before arming a session.
+     */
+    public void markProtectedExportRedirectSeamInstalled() {
+        protectedExportRedirectSeamInstalled = true;
+    }
+
+    /** Whether the exporter-side staging redirect is live for this host generation. */
+    public boolean protectedExportRedirectSeamInstalled() {
+        return protectedExportRedirectSeamInstalled;
+    }
+
+    /**
+     * Installs the armed-session orchestrator consulted by decide/redirect dispatch.
+     *
+     * <p>{@code null} unwires orchestration: checked options fall back to the inert
+     * checked-always-reject behaviour and every chooser pick passes through.</p>
+     */
+    public void protectedExportOrchestrator(final ProtectedExportOrchestrator orchestrator) {
+        protectedExportOrchestrator = orchestrator;
+    }
+
+    /** The wired orchestrator, or empty when protected export is unavailable. */
+    public Optional<ProtectedExportOrchestrator> protectedExportOrchestrator() {
+        return Optional.ofNullable(protectedExportOrchestrator);
+    }
+
+    @Override
+    public Object redirectChooser(final Object picked) {
+        final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+        if (orchestrator == null) {
+            return picked;
+        }
+        return orchestrator.redirectPickedFile(picked);
+    }
+
+    /** Current verified host epoch; the orchestrator keys armed sessions to it. */
+    public long hostGeneration() {
+        return hostGeneration;
     }
 
     /** Advances the verified host epoch; open dialogs from another epoch are invalidated. */
@@ -171,6 +222,12 @@ public final class RuntimeExportSettingsAuthority
     @Override
     public Object attach(final Object owner, final Object container) {
         if (owner == null || container == null || closed) {
+            return null;
+        }
+        final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+        if (orchestrator != null && orchestrator.suppressDialogOptions(owner)) {
+            // An armed protected-export session keeps this dialog byte-identical to a
+            // native unchecked run: no contributed option, no plugin preflight state.
             return null;
         }
         final DialogSnapshot snapshot;
@@ -275,6 +332,10 @@ public final class RuntimeExportSettingsAuthority
         if (state != null) {
             closeAttachment(state.takeAttachment());
         }
+        final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+        if (orchestrator != null) {
+            orchestrator.dialogCancelled(owner);
+        }
     }
 
     @Override
@@ -305,7 +366,7 @@ public final class RuntimeExportSettingsAuthority
 
             boolean allowed;
             try {
-                allowed = decideState(state);
+                allowed = decideState(owner, state);
             } catch (Throwable failure) {
                 allowed = false;
                 state.invalidate(ATTACH_FAILED_KEY);
@@ -327,7 +388,7 @@ public final class RuntimeExportSettingsAuthority
         }
     }
 
-    private boolean decideState(final DialogState state) {
+    private boolean decideState(final Object owner, final DialogState state) {
         if (state.failureKey() != null || hostGeneration != state.hostGeneration()) {
             return false;
         }
@@ -370,10 +431,19 @@ public final class RuntimeExportSettingsAuthority
                 option.optionId(), true, identity.documentId(), identity.modelId(),
                 option.pluginGeneration()
             );
-            // This foundation slice has no execution backend: checked options always reject,
-            // including a callback that returns PROCEED_UNCHANGED.
+            // A checked option always vetoes the outer native export. When the plugin's
+            // own rejection (not a registry-generated failure) belongs to the orchestrated
+            // option, the orchestrator may arm a protected session; any failure to arm
+            // still leaves the outer export vetoed.
             if (decision.outcome() != ExportSettingsDecision.Outcome.REJECT) {
                 state.invalidate(RuntimeExportSettingsContributionRegistry.PROCEED_UNEXPECTED_KEY);
+            } else {
+                final ProtectedExportOrchestrator orchestrator = protectedExportOrchestrator;
+                if (orchestrator != null
+                    && !decision.messageKey().startsWith("export-settings.")
+                    && orchestrator.isOrchestrationOption(option.pluginId(), option.optionId())) {
+                    orchestrator.requestExport(owner);
+                }
             }
             return false;
         }
@@ -501,6 +571,13 @@ public final class RuntimeExportSettingsAuthority
     public List<String> boundPluginIds() {
         synchronized (bindingsLock) {
             return bindings.keySet().stream().sorted().toList();
+        }
+    }
+
+    /** Whether a plugin binding is currently registered (armed-session liveness gate). */
+    public boolean pluginBindingLive(final String pluginId) {
+        synchronized (bindingsLock) {
+            return !closed && bindings.containsKey(pluginId);
         }
     }
 

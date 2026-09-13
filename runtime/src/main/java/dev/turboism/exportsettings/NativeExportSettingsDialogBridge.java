@@ -23,6 +23,8 @@ public final class NativeExportSettingsDialogBridge {
     static final String ATTACH_KEY = PROPERTY_PREFIX + "attach";
     static final String CANCEL_KEY = PROPERTY_PREFIX + "cancel";
     static final String DECIDE_KEY = PROPERTY_PREFIX + "decide";
+    static final String CHOOSER_PREFIX = "turboism.export-settings.chooser.";
+    static final String REDIRECT_KEY = CHOOSER_PREFIX + "redirect";
 
     private static final AtomicReference<Handler> HANDLER = new AtomicReference<>();
 
@@ -40,9 +42,10 @@ public final class NativeExportSettingsDialogBridge {
             dispatchAttach(owner, container);
         final Consumer<Object> cancelCallback = NativeExportSettingsDialogBridge::dispatchCancel;
         final Function<Object, Object> decideCallback = NativeExportSettingsDialogBridge::dispatchDecide;
+        final Function<Object, Object> redirectCallback = NativeExportSettingsDialogBridge::dispatchRedirect;
         try {
             synchronized (properties) {
-                for (String key : new String[] {ATTACH_KEY, CANCEL_KEY, DECIDE_KEY}) {
+                for (String key : new String[] {ATTACH_KEY, CANCEL_KEY, DECIDE_KEY, REDIRECT_KEY}) {
                     if (properties.containsKey(key)) {
                         throw new IllegalStateException(
                             "export settings dialog callback property is already installed"
@@ -52,6 +55,7 @@ public final class NativeExportSettingsDialogBridge {
                 properties.put(ATTACH_KEY, attachCallback);
                 properties.put(CANCEL_KEY, cancelCallback);
                 properties.put(DECIDE_KEY, decideCallback);
+                properties.put(REDIRECT_KEY, redirectCallback);
             }
         } catch (RuntimeException | Error failure) {
             HANDLER.compareAndSet(requested, null);
@@ -59,6 +63,7 @@ public final class NativeExportSettingsDialogBridge {
                 properties.remove(ATTACH_KEY, attachCallback);
                 properties.remove(CANCEL_KEY, cancelCallback);
                 properties.remove(DECIDE_KEY, decideCallback);
+                properties.remove(REDIRECT_KEY, redirectCallback);
             }
             throw failure;
         }
@@ -75,6 +80,7 @@ public final class NativeExportSettingsDialogBridge {
                     properties.remove(ATTACH_KEY, attachCallback);
                     properties.remove(CANCEL_KEY, cancelCallback);
                     properties.remove(DECIDE_KEY, decideCallback);
+                    properties.remove(REDIRECT_KEY, redirectCallback);
                 }
                 HANDLER.compareAndSet(requested, null);
             }
@@ -121,6 +127,27 @@ public final class NativeExportSettingsDialogBridge {
         }
     }
 
+    /**
+     * Chooser-result dispatch for the exporter's file picks.
+     *
+     * <p>With no handler installed the picked value passes through untouched, keeping every
+     * native export byte-identical. A present handler may substitute a staging destination
+     * (armed protected-export sessions) or return {@code null} to cancel the export exactly
+     * like a dismissed chooser. A throwing handler fails closed to {@code null} so a broken
+     * redirect can never leak output to the user's real destination.</p>
+     */
+    private static Object dispatchRedirect(final Object picked) {
+        final Handler handler = HANDLER.get();
+        if (handler == null) {
+            return picked;
+        }
+        try {
+            return handler.redirectChooser(picked);
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
     /** Runtime policy entry called from transformed host bytecode. */
     @FunctionalInterface
     public interface Handler {
@@ -134,6 +161,11 @@ public final class NativeExportSettingsDialogBridge {
         /** Returns whether native continuation is allowed; default is native continuation. */
         default Boolean decide(final Object owner) {
             return Boolean.TRUE;
+        }
+
+        /** Rewrites a native chooser pick; default passes the pick through unchanged. */
+        default Object redirectChooser(final Object picked) {
+            return picked;
         }
     }
 }
