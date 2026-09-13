@@ -29,12 +29,11 @@ INSTALLER_NSI = Path(__file__).resolve().parent / "installer.nsi"
 EULA_DIR = Path(__file__).resolve().parent.parent / "eula"
 ICON_DIR = Path(__file__).resolve().parent / "assets"
 
-# 冻结的 17 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
+# 冻结的 16 项目批准清单 —— 回归 oracle：清单增删/改序/公开排除模块回归即失败。
 # 第 2 项由 "backup" 改名为 "webdav-backup"（插件改名），项目数不变。
 EXPECTED_PATHS = [
     ":plugins:atlas-maxrects-bssf",
     ":plugins:clipmask-viewer",
-    ":plugins:core",
     ":plugins:cubism-tab-filter",
     ":plugins:history-panel",
     ":plugins:mcp",
@@ -76,8 +75,8 @@ def load_manifest():
     check("清单项均为插件路径", not bad, f"bad={bad[:3]}")
     check("清单无重复", len(set(lines)) == len(lines))
     check("清单按 ASCII 升序", lines == sorted(lines))
-    check("清单与冻结 17 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
-    modules = [l[len(":plugins:"):] for l in lines if l != ":plugins:core"]
+    check("清单与冻结 16 项目一致", lines == EXPECTED_PATHS, f"n={len(lines)}")
+    modules = [l[len(":plugins:"):] for l in lines]
     check("公开排除模块不在清单", not (set(modules) & EXCLUDED),
           f"found={set(modules) & EXCLUDED}")
     return modules

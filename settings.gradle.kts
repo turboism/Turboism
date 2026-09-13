@@ -9,7 +9,6 @@ include(
     "plugins:demo",
     "plugins:ui-theme",
     "plugins:cubism-tab-filter",
-    "plugins:core",
     "plugins:parameter",
     "plugins:mesh-edit-mirror-axis-enhance",
     "plugins:mcp",

@@ -88,7 +88,7 @@ if len(set(entries)) != len(entries):
 if entries != sorted(entries):
     sys.exit("error: release plugin manifest is not ASCII-sorted")
 
-modules = [l[len(":plugins:"):] for l in entries if l != ":plugins:core"]
+modules = [l[len(":plugins:"):] for l in entries]
 staged = sorted(p.stem for p in stage.glob("plugins/*.jar"))
 if staged != sorted(modules):
     sys.exit(f"error: staged payload JARs do not match the release plugin manifest\n"
