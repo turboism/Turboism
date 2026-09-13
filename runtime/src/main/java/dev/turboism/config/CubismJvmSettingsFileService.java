@@ -162,16 +162,17 @@ public final class CubismJvmSettingsFileService implements CubismJvmSettingsServ
 
     @Override
     public boolean zgc() {
-        return config.read().path("launcher").path("zgc").asBoolean(false);
+        return config.read().path("launcher").path("zgc").asBoolean(true);
     }
 
     @Override
     public boolean saveZgc(final boolean value) {
         config.update(root -> {
             if (value) {
-                root.withObject("launcher").put("zgc", true);
-            } else {
+                // Absent means enabled; only an explicit false is stored.
                 root.withObject("launcher").remove("zgc");
+            } else {
+                root.withObject("launcher").put("zgc", false);
             }
             return root;
         });

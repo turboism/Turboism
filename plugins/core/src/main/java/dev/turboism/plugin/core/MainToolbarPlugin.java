@@ -72,7 +72,7 @@ public final class MainToolbarPlugin implements TurboismPlugin {
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
         context.disposableScope().register(context.uiHost().contributeSettings(
-            CubismJvmSettingsContribution.createBackupReduction(
+            CubismJvmSettingsContribution.createBackupDisable(
                 localization(context),
                 services.cubismJvmSettings(),
                 this::applyAutoBackupPreference

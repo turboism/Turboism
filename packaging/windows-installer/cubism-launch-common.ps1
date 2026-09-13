@@ -1650,13 +1650,15 @@ function Get-CubismManagedJdkOptionTokens {
 
 function Read-CubismZgcPreference {
     param([string]$TurboismHome)
-    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $false }
+    # ZGC is on by default; only an explicit `"zgc": false` disables it. An
+    # absent home/config/field therefore resolves enabled rather than off.
+    if ([string]::IsNullOrWhiteSpace($TurboismHome)) { return $true }
     $path = Join-Path $TurboismHome "config.json"
-    if (-not (Test-Path -LiteralPath $path)) { return $false }
+    if (-not (Test-Path -LiteralPath $path)) { return $true }
     if (-not (Test-CubismNormalFile $path)) { throw "Turboism config is not a normal file" }
     try { $document = Read-CubismStateBytes $path | ConvertFrom-Json -ErrorAction Stop }
     catch { throw "Turboism config is invalid or exceeds bound" }
-    if ($null -eq $document.launcher -or $null -eq $document.launcher.zgc) { return $false }
+    if ($null -eq $document.launcher -or $null -eq $document.launcher.zgc) { return $true }
     if ($document.launcher.zgc -isnot [bool]) { throw "Turboism launcher.zgc setting is invalid" }
     return [bool]$document.launcher.zgc
 }

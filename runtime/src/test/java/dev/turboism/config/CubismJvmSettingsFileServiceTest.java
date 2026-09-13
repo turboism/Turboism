@@ -78,21 +78,21 @@ class CubismJvmSettingsFileServiceTest {
     }
 
     @Test
-    void zgcDefaultsToFalse() throws Exception {
+    void zgcDefaultsToTrue() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
-            assertFalse(service.zgc());
+            assertTrue(service.zgc());
         }
     }
 
     @Test
     void zgcRoundTripsThroughLauncherConfig() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
-            service.saveZgc(true);
-            assertTrue(service.zgc());
-            assertTrue(Files.readString(home.resolve("config.json"))
-                .contains("\"zgc\" : true"));
             service.saveZgc(false);
             assertFalse(service.zgc());
+            assertTrue(Files.readString(home.resolve("config.json"))
+                .contains("\"zgc\" : false"));
+            service.saveZgc(true);
+            assertTrue(service.zgc());
             assertFalse(Files.readString(home.resolve("config.json"))
                 .contains("zgc"));
         }
@@ -102,10 +102,10 @@ class CubismJvmSettingsFileServiceTest {
     void zgcSurvivesBesideOtherLauncherFields() throws Exception {
         try (CubismJvmSettingsFileService service = service(Map.of())) {
             service.save(CubismJvmSettingsService.CubismJvm.GRAALVM);
-            service.saveZgc(true);
-            assertTrue(service.zgc());
             service.saveZgc(false);
             assertFalse(service.zgc());
+            service.saveZgc(true);
+            assertTrue(service.zgc());
             final String saved = Files.readString(home.resolve("config.json"));
             assertTrue(saved.contains("cubismJvm"));
             assertFalse(saved.contains("zgc"));
