@@ -34,6 +34,7 @@
         <langpack iso3="eng"/>
         <langpack iso3="chn"/>
         <langpack iso3="jpn"/>
+        <langpack iso3="kor"/>
     </locale>
 
     <variables>
@@ -49,6 +50,9 @@
         <res id="LicencePanel.eula_eng" src="__STAGE_REL__/EULA.en.txt"/>
         <res id="LicencePanel.eula_chn" src="__STAGE_REL__/EULA.zh-Hans.txt"/>
         <res id="LicencePanel.eula_jpn" src="__STAGE_REL__/EULA.ja.txt"/>
+        <!-- No Korean EULA translation exists; the Korean UI falls back to the
+             English EULA text. Simplified Chinese remains the authoritative version. -->
+        <res id="LicencePanel.eula_kor" src="__STAGE_REL__/EULA.en.txt"/>
         <!-- IzPack locale-suffixed CustomLangPack convention: the runtime
              resolves CustomLangPack.xml_<iso3> per selected locale and falls
              back to the base CustomLangPack.xml. -->
@@ -56,6 +60,7 @@
         <res id="CustomLangPack.xml_eng" src="CustomLangPack.xml_eng"/>
         <res id="CustomLangPack.xml_chn" src="CustomLangPack.xml_chn"/>
         <res id="CustomLangPack.xml_jpn" src="CustomLangPack.xml_jpn"/>
+        <res id="CustomLangPack.xml_kor" src="CustomLangPack.xml_kor"/>
     </resources>
 
     <jar src="__LISTENER_JAR_REL__" stage="both"/>
@@ -92,6 +97,7 @@
             <file src="__STAGE_REL__/README.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.zh.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.ja.txt" targetdir="$INSTALL_PATH" override="true"/>
+            <file src="__STAGE_REL__/README.ko.txt" targetdir="$INSTALL_PATH" override="true"/>
             <file src="__STAGE_REL__/README.java-installer.txt" targetdir="$INSTALL_PATH" override="true" os="unix"/>
             <file src="__STAGE_REL__/uninstall.command" targetdir="$INSTALL_PATH" override="true" os="mac"/>
             <file src="__STAGE_REL__/launch-cubism-turboism.bat" targetdir="$INSTALL_PATH" override="true" os="windows"/>

@@ -6218,6 +6218,17 @@
       "status": "VERIFIED_STATIC"
     },
     {
+      "mappingId": "cubism.mapping.v5_3_02.texture_atlas.native_item_scale",
+      "alias": "cubism.texture-atlas.native.item.scale",
+      "kind": "method",
+      "ownerInternalName": "com/live2d/cubism/doc/modeling/ui/atlasEditor/a/b",
+      "memberName": "c",
+      "descriptor": "()D",
+      "requiredAccessFlags": 1,
+      "forbiddenAccessFlags": 8,
+      "status": "VERIFIED_STATIC"
+    },
+    {
       "mappingId": "cubism.mapping.v5_3_02.texture_atlas.native_item_width",
       "alias": "cubism.texture-atlas.native.item.width",
       "kind": "method",

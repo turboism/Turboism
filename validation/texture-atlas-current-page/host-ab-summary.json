@@ -1,0 +1,222 @@
+[
+  {
+    "task": "${ATLAS_WORKTREE}/build/texture-ab-100-1zsyf9ck",
+    "input": {
+      "width": 4096,
+      "height": 4096,
+      "margin": 3,
+      "rotate": true,
+      "modelImage": false,
+      "requestedScale": 0.0,
+      "dataScale": 0.0,
+      "count": 100
+    },
+    "input_hash": "688b606413aa8fa473e0ac4c450fbf4cb256b446491ac3f32c4bb7a0c4dfc23e",
+    "groups": {
+      "balanced": {
+        "native": {
+          "n": 16,
+          "median_ms": 101.49249999999999,
+          "p95_nearest_rank_ms": 182.6377
+        },
+        "new": {
+          "n": 16,
+          "median_ms": 71.75495000000001,
+          "p95_nearest_rank_ms": 176.7751
+        },
+        "native_over_new_median_ratio": 1.414432035699279
+      },
+      "repeat": {
+        "native": {
+          "n": 8,
+          "median_ms": 26.69405,
+          "p95_nearest_rank_ms": 59.546
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 8.117149999999999,
+          "p95_nearest_rank_ms": 16.2881
+        },
+        "native_over_new_median_ratio": 3.2885988308704417
+      },
+      "switch": {
+        "native": {
+          "n": 8,
+          "median_ms": 157.8065,
+          "p95_nearest_rank_ms": 182.6377
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 141.83215,
+          "p95_nearest_rank_ms": 176.7751
+        },
+        "native_over_new_median_ratio": 1.112628554245282
+      }
+    }
+  },
+  {
+    "task": "${ATLAS_WORKTREE}/build/texture-ab-500-ixu8qybo",
+    "input": {
+      "width": 4096,
+      "height": 4096,
+      "margin": 3,
+      "rotate": true,
+      "modelImage": false,
+      "requestedScale": 0.0,
+      "dataScale": 0.0,
+      "count": 500
+    },
+    "input_hash": "fbc415fd0ef9271fb763ea274baff110776375d1d1f28d40855a684d0e98a93a",
+    "groups": {
+      "balanced": {
+        "native": {
+          "n": 16,
+          "median_ms": 722.78605,
+          "p95_nearest_rank_ms": 945.1241
+        },
+        "new": {
+          "n": 16,
+          "median_ms": 88.32845,
+          "p95_nearest_rank_ms": 176.5033
+        },
+        "native_over_new_median_ratio": 8.18293596230886
+      },
+      "repeat": {
+        "native": {
+          "n": 8,
+          "median_ms": 639.55385,
+          "p95_nearest_rank_ms": 906.8768
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 21.40265,
+          "p95_nearest_rank_ms": 36.5481
+        },
+        "native_over_new_median_ratio": 29.881993584906542
+      },
+      "switch": {
+        "native": {
+          "n": 8,
+          "median_ms": 748.73595,
+          "p95_nearest_rank_ms": 945.1241
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 152.8664,
+          "p95_nearest_rank_ms": 176.5033
+        },
+        "native_over_new_median_ratio": 4.897975945008191
+      }
+    }
+  },
+  {
+    "task": "${ATLAS_WORKTREE}/build/texture-ab-1000-v7xn3b3o",
+    "input": {
+      "width": 8192,
+      "height": 8192,
+      "margin": 3,
+      "rotate": true,
+      "modelImage": false,
+      "requestedScale": 0.0,
+      "dataScale": 0.0,
+      "count": 1000
+    },
+    "input_hash": "8c116ce64bc9bc4e42978a0e35e297507b0028a90d7cfe52ce672c3a39d6f8b7",
+    "groups": {
+      "balanced": {
+        "native": {
+          "n": 16,
+          "median_ms": 2287.36665,
+          "p95_nearest_rank_ms": 2752.2756
+        },
+        "new": {
+          "n": 16,
+          "median_ms": 107.30525,
+          "p95_nearest_rank_ms": 227.3495
+        },
+        "native_over_new_median_ratio": 21.316446772175638
+      },
+      "repeat": {
+        "native": {
+          "n": 8,
+          "median_ms": 2183.67155,
+          "p95_nearest_rank_ms": 2752.2756
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 39.4761,
+          "p95_nearest_rank_ms": 54.6282
+        },
+        "native_over_new_median_ratio": 55.316293909479405
+      },
+      "switch": {
+        "native": {
+          "n": 8,
+          "median_ms": 2370.98945,
+          "p95_nearest_rank_ms": 2676.8736
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 186.95049999999998,
+          "p95_nearest_rank_ms": 227.3495
+        },
+        "native_over_new_median_ratio": 12.682445085731251
+      }
+    }
+  },
+  {
+    "task": "${ATLAS_WORKTREE}/build/texture-ab-2500-afvp_if1",
+    "input": {
+      "width": 8192,
+      "height": 8192,
+      "margin": 3,
+      "rotate": true,
+      "modelImage": false,
+      "requestedScale": 0.0,
+      "dataScale": 0.0,
+      "count": 2500
+    },
+    "input_hash": "c766ab99c837d203d8930b6b02d83862261668a98f60648a194797cd94a806c4",
+    "groups": {
+      "balanced": {
+        "native": {
+          "n": 16,
+          "median_ms": 13896.43635,
+          "p95_nearest_rank_ms": 22256.7881
+        },
+        "new": {
+          "n": 16,
+          "median_ms": 175.998,
+          "p95_nearest_rank_ms": 910.7565
+        },
+        "native_over_new_median_ratio": 78.95792196502234
+      },
+      "repeat": {
+        "native": {
+          "n": 8,
+          "median_ms": 13741.501,
+          "p95_nearest_rank_ms": 19386.1261
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 88.18709999999999,
+          "p95_nearest_rank_ms": 145.1405
+        },
+        "native_over_new_median_ratio": 155.82212137602895
+      },
+      "switch": {
+        "native": {
+          "n": 8,
+          "median_ms": 14038.855899999999,
+          "p95_nearest_rank_ms": 22256.7881
+        },
+        "new": {
+          "n": 8,
+          "median_ms": 250.69375000000002,
+          "p95_nearest_rank_ms": 910.7565
+        },
+        "native_over_new_median_ratio": 56.00002353469122
+      }
+    }
+  }
+]

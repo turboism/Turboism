@@ -1,11 +1,27 @@
+import org.gradle.jvm.tasks.Jar
 import org.gradle.language.jvm.tasks.ProcessResources
 
 plugins {
     `java-library`
+    `maven-publish`
 }
 
 dependencies {
     // SDK has no implementation dependencies
+}
+
+// The published SDK artifact must keep stable Maven coordinates across
+// worktree layouts, so its jar does not carry the per-worktree classifier.
+tasks.named<Jar>("jar") {
+    archiveClassifier.set("")
+}
+
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["java"])
+        }
+    }
 }
 
 tasks.named<ProcessResources>("processResources") {

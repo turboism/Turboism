@@ -70,6 +70,26 @@ def select_gradle_jar(source: Path, worktree_id: str = HISTORY_WORKTREE_ID) -> P
         raise ReconstructionError(f"Gradle SDK JAR is empty: {jars[0]}")
     return jars[0]
 
+def isolated_environment(gradle_home: Path) -> dict[str, str]:
+    """Build the child environment for a hermetic historical SDK build.
+
+    The reconstructed archive has no Git checkout, so the framework's own
+    source-identity guard would compare an inherited candidate identity such as
+    ``TURBOISM_SOURCE_REVISION`` against a source tree that cannot report ``HEAD``.
+    CI exports that identity job-wide, which made every anchor whose commit already
+    contains the guard unreconstructable. The historical build must depend on the
+    pinned Git archive alone, so the caller's product identity is dropped here while
+    unrelated environment (proxies, locale, PATH) is preserved.
+    """
+    environment = {
+        key: value
+        for key, value in os.environ.items()
+        if not key.startswith("TURBOISM_") and not key.startswith("ORG_GRADLE_PROJECT_turboism")
+    }
+    environment["GRADLE_USER_HOME"] = str(gradle_home)
+    environment["GRADLE_OPTS"] = ""
+    environment.pop("GRADLE_HOME", None)
+    return environment
 def publish(source: Path, output: Path) -> None:
     temporary = output.with_name(f".{output.name}.tmp")
     try:
@@ -104,10 +124,7 @@ def build(
             gradle_home.mkdir()
         elif not gradle_home.is_dir():
             raise ReconstructionError(f"reused Gradle user home is not a directory: {gradle_home}")
-        environment = os.environ.copy()
-        environment["GRADLE_USER_HOME"] = str(gradle_home)
-        environment["GRADLE_OPTS"] = ""
-        environment.pop("GRADLE_HOME", None)
+        environment = isolated_environment(gradle_home)
         properties = source / "gradle" / "wrapper" / "gradle-wrapper.properties"
         try:
             wrapper = properties.read_text(encoding="utf-8")

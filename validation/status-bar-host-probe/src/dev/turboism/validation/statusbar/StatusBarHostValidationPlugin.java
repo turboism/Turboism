@@ -5,6 +5,8 @@ import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.plugin.TurboismPlugin;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
+import dev.turboism.sdk.ui.UiScheduler;
 
 import javax.swing.JLabel;
 import javax.swing.SwingUtilities;
@@ -16,6 +18,8 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Task-local exerciser for the native CX bottom status-bar matrix on an exact
@@ -33,6 +37,11 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private static final long DOCUMENT_READY_TIMEOUT_MILLIS = 180_000L;
     private static final long SETTLE_STEP_MILLIS = 2_000L;
     private static final long PASS_SETTLE_MILLIS = 3_000L;
+    /**
+     * Observation window for the canvas hint: long enough for a human to see the
+     * message and click it, then the probe clears the condition itself.
+     */
+    private static final long CANVAS_HINT_HOLD_MILLIS = 60_000L;
 
     /** Reviewed exact host versions the runtime report may advertise as READY. */
     private static final List<String> REVIEWED_HOST_VERSIONS = List.of("5.2.03", "5.3.02");
@@ -40,6 +49,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
 
     /** Same local id for the whole matrix; the runtime scopes it by plugin. */
     private static final String STATUS_ID = "status";
+    private static final String CANVAS_HINT_ID = "screen-color-incompatible";
+    private static final String CANVAS_HINT_MESSAGE = "所选目标版本与“屏幕色”不兼容";
     private static final String TOKEN = "turboism-status-probe";
 
     private PluginLogger logger;
@@ -247,6 +258,8 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
     private void runMatrixSteps(final List<String> failures) {
         // 1. Initial state: no test label exists yet.
         assertNoTokenLabel("initial", failures);
+        // 2. Native canvas hint: keep the lower-right message until its condition is cleared.
+        runCanvasHint(failures);
 
         // 2. INFO insert: a JLabel with "[I] " + token appears.
         final Registration info = notify("INFO", failures);
@@ -289,6 +302,58 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
         requireCompactLabel("compact-insert", failures);
         close(compact, "compact-close", failures);
         assertNoCompactLabel("compact-close-removes", failures);
+    }
+
+    /**
+     * Drives the native hint through the SDK condition watch while the click action
+     * acknowledges it: the message is renewed while the condition holds, an early click
+     * stops both the renewal and the hint, and letting the window expire proves the
+     * condition route clears the message on its own.
+     */
+    private void runCanvasHint(final List<String> failures) {
+        final long deadline = System.currentTimeMillis() + CANVAS_HINT_HOLD_MILLIS;
+        final AtomicBoolean acknowledged = new AtomicBoolean();
+        final AtomicReference<Registration> published = new AtomicReference<>();
+        final Registration watch;
+        try {
+            watch = context.uiHost().showCanvasHintWhile(
+                context.uiScheduler(),
+                new CanvasHintNotification(
+                    CANVAS_HINT_ID,
+                    CANVAS_HINT_MESSAGE,
+                    CanvasHintNotification.UNTIL_DISMISSED
+                ).withOnClick(() -> {
+                    acknowledged.set(true);
+                    logger.info("CANVAS_HINT_CLICKED id=" + CANVAS_HINT_ID);
+                    final Registration current = published.get();
+                    if (current != null) {
+                        current.close();
+                    }
+                }),
+                // Acknowledging the hint also ends the renewal, so a click cannot be
+                // undone by the next tick re-issuing the message.
+                () -> !acknowledged.get() && System.currentTimeMillis() < deadline
+            );
+        } catch (RuntimeException failure) {
+            failures.add("canvas-hint-watch failed: " + failure.getClass().getSimpleName());
+            return;
+        }
+        published.set(watch);
+        if (acknowledged.get()) {
+            // A click that raced handle publication must still leave the hint dismissed.
+            watch.close();
+        }
+        logger.info("CANVAS_HINT_SENT id=" + CANVAS_HINT_ID
+            + " dismissOnClick=true renewing=true message=" + CANVAS_HINT_MESSAGE);
+        try {
+            Thread.sleep(CANVAS_HINT_HOLD_MILLIS + PASS_SETTLE_MILLIS);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            failures.add("canvas-hint settle interrupted");
+        }
+        logger.info("CANVAS_HINT_OUTCOME id=" + CANVAS_HINT_ID
+            + " clicked=" + acknowledged.get());
+        close(watch, "canvas-hint-close", failures);
     }
 
 
@@ -403,6 +468,7 @@ public final class StatusBarHostValidationPlugin implements TurboismPlugin {
             return () -> { };
         }
     }
+
 
     /** COMPACT_METRIC status: the runtime must render the raw message without severity appearance. */
     private Registration notifyCompact(final List<String> failures) {

@@ -1,0 +1,15 @@
+{
+  "artifact": {
+    "sha256": "847473082cdc105b1e3b97e551a1db3603cc73b1d23d63b6b33803f4c51f7be6",
+    "size": 842885
+  },
+  "canonicalDump": {
+    "lineCount": 6415,
+    "sha256": "d282425d565686ff9f8106767141940144c0ccecf0d49a504bfa2418d981f92f"
+  },
+  "commit": "959ca8c359f24b80c86bb9699c8111d067e75694",
+  "format": "turboism.sdk.api-baseline",
+  "generatorVersion": 1,
+  "role": "exact",
+  "schemaVersion": 1
+}

@@ -43,6 +43,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
     private final PreviewPluginContextFactory contextFactory;
     private final dev.turboism.sdk.runtime.RuntimeSettingsService runtimeSettings;
     private final dev.turboism.plugin.core.CubismJvmSettingsService cubismJvmSettings;
+    private final dev.turboism.plugin.core.CoreUpdateService updateService;
     private final PreviewLog log;
     private List<LoadedPluginSummary> closedSummaries = List.of();
     private final AtomicBoolean started = new AtomicBoolean(false);
@@ -249,6 +250,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         this.contextFactory = resources.contextFactory();
         this.runtimeSettings = resources.runtimeSettings();
         this.cubismJvmSettings = resources.cubismJvmSettings();
+        this.updateService = resources.updateService();
         this.log = log;
         this.parameterLifecycle = java.util.Objects.requireNonNull(
             parameterLifecycle,
@@ -295,7 +297,8 @@ public final class LocalPluginRuntime implements AutoCloseable {
                     ),
                     pluginManagement,
                     dev.turboism.ui.panel.NativePanelTabFloatingBridge::toggle,
-                    log
+                    log,
+                    updateService
                 ),
                 log
             ));
@@ -354,6 +357,7 @@ public final class LocalPluginRuntime implements AutoCloseable {
         try {
             summaries.addAll(shutdown.closeAll(loaded));
         } finally {
+            updateService.close();
             if (cubismJvmSettings instanceof AutoCloseable closeable) {
                 try {
                     closeable.close();

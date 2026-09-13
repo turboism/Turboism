@@ -8,7 +8,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 import reconstruct_sdk_gradle_jar as reconstruction
-from reconstruct_sdk_gradle_jar import HISTORY_WORKTREE_ID, ReconstructionError, select_gradle_jar, validate_commit
+from reconstruct_sdk_gradle_jar import HISTORY_WORKTREE_ID, ReconstructionError, isolated_environment, select_gradle_jar, validate_commit
 
 def fails(action, text: str) -> None:
     try:
@@ -78,6 +78,36 @@ def cache_reuse_keeps_source_and_output_isolated() -> None:
         assert build_env is not None and build_env["GRADLE_USER_HOME"] == str(cache.resolve())
 
 
+def historical_build_cannot_inherit_the_callers_product_identity() -> None:
+    cache = Path("/tmp/turboism-selftest-gradle-user-home")
+    inherited = {
+        "PATH": "/usr/bin",
+        "TURBOISM_SOURCE_REVISION": "1" * 40,
+        "TURBOISM_BUILD_NUMBER": "7",
+        "TURBOISM_BUILD_VERSION": "1.2.3",
+        "TURBOISM_BUILD_CHANNEL": "stable",
+        "TURBOISM_NIGHTLY_VERSION": "1.2.3-0.nightly.7",
+        "ORG_GRADLE_PROJECT_turboismRelease": "true",
+        "ORG_GRADLE_PROJECT_unrelated": "kept",
+        "GRADLE_HOME": "/opt/gradle",
+        "GRADLE_OPTS": "-Dfile.encoding=UTF-8",
+    }
+    with mock.patch.dict(reconstruction.os.environ, inherited, clear=True):
+        environment = isolated_environment(cache)
+    for dropped in (
+        "TURBOISM_SOURCE_REVISION",
+        "TURBOISM_BUILD_NUMBER",
+        "TURBOISM_BUILD_VERSION",
+        "TURBOISM_BUILD_CHANNEL",
+        "TURBOISM_NIGHTLY_VERSION",
+        "ORG_GRADLE_PROJECT_turboismRelease",
+        "GRADLE_HOME",
+    ):
+        assert dropped not in environment, f"historical build inherited {dropped}"
+    assert environment["GRADLE_USER_HOME"] == str(cache)
+    assert environment["GRADLE_OPTS"] == ""
+    assert environment["PATH"] == "/usr/bin"
+    assert environment["ORG_GRADLE_PROJECT_unrelated"] == "kept"
 def main() -> None:
     root = Path(__file__).resolve().parents[2]
     fails(lambda: validate_commit(root, "invalid"), "40 lowercase")
@@ -92,6 +122,7 @@ def main() -> None:
         (libraries / "extra.jar").write_bytes(b"extra")
         fails(lambda: select_gradle_jar(libraries.parents[4]), "exactly one")
     cache_reuse_keeps_source_and_output_isolated()
+    historical_build_cannot_inherit_the_callers_product_identity()
     print("SDK v2 historical reconstruction selftest passed.")
 
 if __name__ == "__main__":

@@ -67,6 +67,7 @@ No capabilities are declared in the plugin manifest.
 | `turboism.ui.context-menu.contribute` | `application` | Contributes the built-in panel-tab float and dock menu operations. |
 | `turboism.ui.menu.contribute` | `application` | Adds Settings and Plugin Management entries to the Turboism top-level menu. |
 | `turboism.ui.dialog.contribute` | `application` | Confirms plugin uninstall requests. |
+| `turboism.ui.canvas.hint` | `application` | Reports an available update in the host's own drawing-area hint. |
 
 ## Privacy and data
 

@@ -80,8 +80,8 @@ The installer generates `Uninstaller/uninstaller.jar` under the home
 directory. The uninstaller removes the installed agent, installer-owned
 plugin JARs, installer-owned launch/configuration files, the generated
 uninstaller, and the runtime `logs`, `state` and `cache` directories.
-`config.json` is removed only when selected (en/zh/ja confirmation,
-default delete; closing the dialog without choosing preserves it). Windows
+`config.json` is removed only when selected (en/zh/ja/ko confirmation,
+default keep; closing the dialog without choosing also preserves it). Windows
 takeover records are restored from exact backups before those records or
 the home can be removed. A user-edited shortcut, invalid state, or failed
 atomic restoration preserves the shortcut, state, backups, and home for a
@@ -109,7 +109,7 @@ uninstaller.jar -console`.
 ```
 
 Deterministic, non-GUI (console mode), runnable on Linux/macOS/Windows with
-Java 17. It builds the installer and verifies: JAR layout (en/zh/ja
+Java 17. It builds the installer and verifies: JAR layout (en/zh/ja/ko
 langpacks, uninstaller, one required common pack, one optional pack per
 non-core plugin), Lite and Thin installs, Full install with deselects on a
 reviewed platform, compiled listener policy behavior for Full installs on
@@ -119,12 +119,20 @@ identity, invalid v1 values, malformed UTF-8, size boundary), and both uninstall
 with a synthetic
 third-party plugin file preserved. Every captured
 JVM runs with a task-owned `java.io.tmpdir` and `-Dfile.encoding=UTF-8`;
-all subprocess text is decoded with explicit UTF-8, so the live en/zh/ja
+all subprocess text is decoded with explicit UTF-8, so the live en/zh/ja/ko
 locale probes are byte-deterministic on any host. The global IzPack lock
 path (`<tmp>/iz-Turboism.tmp`) is never created, written or deleted by the
 verifier — a read-only snapshot asserts it is untouched (absent stays
 absent; a pre-existing file/symlink/special path stays byte/target/mode-
 identical).
+
+The installer UI ships in English, Simplified Chinese, Japanese and Korean
+(`eng`, `chn`, `jpn` and `kor` langpacks in `installer.xml`). With more than one
+langpack present and no `-language` argument, IzPack opens its modal
+language-selection dialog before the first panel; passing
+`-language eng|chn|jpn|kor` preselects a language and skips that dialog. No
+Korean EULA translation exists, so `LicencePanel.eula_kor` resolves to
+`EULA.en.txt` while the rest of the Korean UI stays translated.
 
 macOS CI: the manual workflow
 `.github/workflows/macos-packaging-verification.yml` (Apple Silicon and

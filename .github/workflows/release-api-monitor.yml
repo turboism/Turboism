@@ -1,0 +1,53 @@
+name: Release API health monitor
+
+on:
+  schedule:
+    # Every ten minutes, away from the hourly scheduling peak (UTC).
+    - cron: '4,14,24,34,44,54 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-api-monitor.yml'
+      - 'scripts/monitor/**'
+  pull_request:
+    paths:
+      - '.github/workflows/release-api-monitor.yml'
+      - 'scripts/monitor/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-api-monitor-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  test:
+    name: Monitor regression tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - name: Exercise failures, retries, deduplication and recovery offline
+        run: python3 -m unittest discover -s scripts/monitor -p 'test_*.py' -v
+
+  monitor:
+    name: Check public API and notify on incidents
+    needs: test
+    if: github.repository == 'turboism/Turboism' && github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@f548e57e544e1ff5a4c46bf1e1b8685f8e4a348a
+        with:
+          persist-credentials: false
+      - name: Check four public JSON endpoints and maintain one issue per incident
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 scripts/monitor/release_api_monitor.py --notify

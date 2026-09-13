@@ -93,6 +93,7 @@ public final class PreviewReportSnapshotFactory {
         binding("ui.embedded-panel.contribute", "ui.panel.contribute", "turboism.ui.panel.contribute"),
         binding("ui.file-chooser.request", "ui.file-chooser.request", "turboism.ui.file-chooser.request"),
         binding("ui.status.notify", "ui.status.notify", "turboism.ui.status.notify"),
+        binding("ui.canvas.hint", "ui.canvas.hint", "turboism.ui.canvas.hint"),
         binding("ui.palette-toolbar.contribute", "ui.palette-toolbar.contribute", "turboism.ui.toolbar.palette.contribute"),
         binding("ui.main-toolbar.contribute", "ui.main-toolbar.contribute", "turboism.ui.toolbar.main.contribute"),
         binding(

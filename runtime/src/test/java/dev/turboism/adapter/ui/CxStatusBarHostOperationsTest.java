@@ -2,6 +2,7 @@ package dev.turboism.adapter.ui;
 
 import dev.turboism.sdk.plugin.Registration;
 import dev.turboism.sdk.ui.StatusNotification;
+import dev.turboism.sdk.ui.CanvasHintNotification;
 import org.junit.jupiter.api.Test;
 
 import javax.swing.SwingUtilities;
@@ -12,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -421,11 +423,52 @@ class CxStatusBarHostOperationsTest {
     }
 
     @Test
-    void exposesOnlyTheExistingTypedStatusCapability() {
+    void exposesTheTypedStatusAndCanvasHintCapabilities() {
         CxStatusBarHostOperations host = new CxStatusBarHostOperations("5.3.02", new FakeTree());
 
         assertEquals("5.3.02", host.hostVersion());
         assertTrue(host.supports(StatusToolbarAdapter.Capability.STATUS_NOTIFY));
+        assertTrue(host.supports(StatusToolbarAdapter.Capability.CANVAS_HINT));
+    }
+
+    @Test
+    void canvasHintRegistrationsAreKeyedAndStaleHandlesCannotCloseTheLatestHint() throws Exception {
+        FakeTree tree = new FakeTree();
+        CxStatusBarHostOperations host = host(tree);
+
+        Registration first = host.notifyCanvasHint(new CanvasHintNotification("screen-color", "first", 5.0f));
+        Registration latest = host.notifyCanvasHint(new CanvasHintNotification(
+            "screen-color", "latest", CanvasHintNotification.UNTIL_DISMISSED
+        ));
+
+        assertEquals(List.of("first", "latest"),
+            tree.canvasHintCalls.stream().map(CanvasHintNotification::message).toList());
+        first.close();
+        flushEdt();
+        assertEquals(0, tree.canvasHintCloseCalls, "stale registrations must not close a replacement");
+        latest.close();
+        flushEdt();
+        assertEquals(1, tree.canvasHintCloseCalls);
+        assertTrue(tree.edtFlags.stream().allMatch(Boolean::booleanValue));
+    }
+
+    @Test
+    void canvasHintClickActionsReachTheHostSeamUnchanged() throws Exception {
+        FakeTree tree = new FakeTree();
+        CxStatusBarHostOperations host = host(tree);
+        AtomicBoolean clicked = new AtomicBoolean();
+
+        Registration registration = host.notifyCanvasHint(
+            new CanvasHintNotification("screen-color", "click me", 5.0f)
+                .withOnClick(() -> clicked.set(true))
+        );
+
+        CanvasHintNotification sent = tree.canvasHintCalls.get(0);
+        assertTrue(sent.onClick().isPresent(), "the CX layer must not strip the click action");
+        sent.onClick().orElseThrow().run();
+        assertTrue(clicked.get());
+
+        registration.close();
     }
 
     private static CxStatusBarHostOperations host(final FakeTree tree) {
@@ -443,6 +486,8 @@ class CxStatusBarHostOperationsTest {
         private final List<AddCall> removeCalls = new ArrayList<>();
         private final List<FakeWidget> refreshed = new ArrayList<>();
         private final List<Boolean> edtFlags = new ArrayList<>();
+        private final List<CanvasHintNotification> canvasHintCalls = new ArrayList<>();
+        private int canvasHintCloseCalls;
         private final Map<String, FakeLabel> labels = new HashMap<>();
         private boolean rootReady;
         private boolean failNextRemove;
@@ -538,6 +583,13 @@ class CxStatusBarHostOperationsTest {
                 failNextRefresh = false;
                 throw new IllegalStateException("native refresh failed");
             }
+        }
+
+        @Override
+        public Registration showCanvasHint(final CanvasHintNotification notification) {
+            canvasHintCalls.add(notification);
+            recordEdt();
+            return () -> canvasHintCloseCalls++;
         }
 
         private void recordEdt() {

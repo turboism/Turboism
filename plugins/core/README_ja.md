@@ -67,6 +67,7 @@ Turboism コアはランタイムにバンドルされています。自動的�
 | `turboism.ui.context-menu.contribute` | `application` | 組み込みパネルタブのフロートおよびドックのメニュー操作を提供します。 |
 | `turboism.ui.menu.contribute` | `application` | 設定とプラグイン管理の項目を Turboism 最上位メニューに追加します。 |
 | `turboism.ui.dialog.contribute` | `application` | プラグインのアンインストールリクエストを確認します。 |
+| `turboism.ui.canvas.hint` | `application` | 利用可能な更新をホスト自身の描画領域ヒントで通知します。 |
 
 ## プライバシーとデータ
 

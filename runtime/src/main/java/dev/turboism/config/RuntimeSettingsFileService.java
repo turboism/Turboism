@@ -117,9 +117,9 @@ public final class RuntimeSettingsFileService implements RuntimeSettingsService 
             root.path("safeMode").asBoolean(false),
             root.path("logLevel").asText("INFO"),
             root.path("maxLogStorageMiB").asInt(RuntimeSettings.DEFAULT_MAX_LOG_STORAGE_MIB),
-            startup.path("skipUpdateCheck").asBoolean(false),
-            startup.path("skipSplash").asBoolean(false),
-            startup.path("skipInformation").asBoolean(false),
+            startup.path("skipUpdateCheck").asBoolean(true),
+            startup.path("skipSplash").asBoolean(true),
+            startup.path("skipInformation").asBoolean(true),
             startup.path("separateExportSaveDirectory").asBoolean(false),
             root.path("locale").asText(RuntimeSettings.DEFAULT_LOCALE),
             root.path("useTextIcon").asBoolean(false)

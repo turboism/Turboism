@@ -13,8 +13,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "scripts/release"))
 from turboism_release import promotion as p
-from turboism_release.candidate import framework_artifacts
-from scripts.test.test_release_tooling import archive, sidecar
+from turboism_release.candidate import developer_artifacts, framework_artifacts
+from scripts.test.test_release_tooling import archive, sdk_archive, sidecar
 
 
 class FakeGitHub:
@@ -38,7 +38,23 @@ class FakeGitHub:
             if path == "releases/latest":
                 return copy.deepcopy(self.latest)
             if path.startswith("releases/tags/"):
+                # GitHub hides unpublished drafts from this endpoint (HTTP 404),
+                # so a draft is only observable through the paginated list API.
+                if self.release is None or self.release.get("draft") is True:
+                    if optional:
+                        return None
+                    raise p.ReleaseError(f"GitHub GET {path} failed (HTTP 404)")
+                if path != "releases/tags/" + self.release["tag_name"]:
+                    raise AssertionError(path)
                 return copy.deepcopy(self.release)
+            if path.startswith("releases?per_page="):
+                return [] if self.release is None else [copy.deepcopy(self.release)]
+            if path.startswith("releases/"):
+                if self.release is not None and path == f"releases/{self.release['id']}":
+                    return copy.deepcopy(self.release)
+                if optional:
+                    return None
+                raise p.ReleaseError(f"GitHub GET {path} failed (HTTP 404)")
             raise AssertionError(path)
         self.writes.append((method, path, copy.deepcopy(data)))
         if path == "git/tags":
@@ -52,9 +68,11 @@ class FakeGitHub:
             self.release = {"id": 42, "tag_name": data["tag_name"], "draft": True,
                             "prerelease": False, "assets": []}
             return self.release
-        if path == "releases/42":
-            self.release.update(data)
-            return self.release
+        if path.startswith("releases/"):
+            if self.release is not None and path == f"releases/{self.release['id']}":
+                self.release.update(data)
+                return self.release
+            raise AssertionError(path)
         raise AssertionError(path)
 
     def upload(self, tag, path):
@@ -91,13 +109,18 @@ class PromotionTest(unittest.TestCase):
         archive(self.dist / 'turboism-1.2.3-full.zip', '1.2.3', ('mcp',))
         (self.dist / 'TurboismInstaller-1.2.3.exe').write_bytes(b'exe')
         (self.dist / 'TurboismInstaller-1.2.3.jar').write_bytes(b'jar')
+        staged_sdk = self.dist.parent / "staging" / "graal" / "lib" / "sdk-1.2.3.jar"
+        staged_sdk.parent.mkdir(parents=True)
+        sdk_archive(staged_sdk)
+        (self.dist / 'turboism-sdk-1.2.3.jar').write_bytes(staged_sdk.read_bytes())
         for path in list(self.dist.iterdir()):
             sidecar(path)
         self.candidate = {"format": "turboism.release-candidate", "schemaVersion": 1,
             "source": {"repository": p.REPOSITORY, "revision": self.sha, "tag": "v1.2.3"},
             "framework": {"eligible": True, "version": "1.2.3", "changelog": {
                 "date": "2026-09-06", "sha256": hashlib.sha256(b'Test notes\n').hexdigest()},
-                "artifacts": framework_artifacts(self.source, self.dist, '1.2.3')},
+                "artifacts": framework_artifacts(self.source, self.dist, '1.2.3'),
+                "developerArtifacts": developer_artifacts(self.dist, '1.2.3')},
             "plugins": {"candidates": []}}
         self.save_candidate()
         (self.bundle / 'release-notes.md').write_text('Test notes\n')
@@ -123,7 +146,7 @@ class PromotionTest(unittest.TestCase):
         self.assertEqual(self.gh.tag_object['object']['sha'], self.sha)
         self.assertEqual(self.gh.ref['object']['type'], 'tag')
         self.assertFalse(self.gh.release['draft'])
-        self.assertEqual(len(self.gh.release['assets']), 8)
+        self.assertEqual(len(self.gh.release['assets']), 10)
         writes = copy.deepcopy(self.gh.writes)
         self.promote()
         self.assertEqual(self.gh.writes, writes)
@@ -192,7 +215,7 @@ class PromotionTest(unittest.TestCase):
         self.assertTrue(self.gh.release['draft'])
         self.promote()
         self.assertEqual(sum(path == 'git/refs' for _, path, _ in self.gh.writes), 1)
-        self.assertEqual(len(self.gh.release['assets']), 8)
+        self.assertEqual(len(self.gh.release['assets']), 10)
         self.assertFalse(self.gh.release['draft'])
 
     def test_conflicting_tag_or_existing_assets_never_overwritten(self):
