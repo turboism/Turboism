@@ -1,0 +1,25 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 2,
+  "id": "dev.turboism.validation.externalpsd",
+  "name": "External PSD Edit Pipeline Probe",
+  "version": "0.0.0",
+  "description": "025 test-only external PSD edit pipeline probe; not complete feature acceptance.",
+  "entrypoints": ["dev.turboism.validation.externalpsd.ExternalPsdEditHostProbe"],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [{"name": "Turboism Validation"}],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {"baseName": "META-INF/turboism/i18n/messages", "locales": []},
+  "dependencies": [],
+  "permissions": [
+    {"id": "turboism.cubism.model.read", "scope": "application", "reason": "Read task fixture relations and document/model identity."},
+    {"id": "turboism.cubism.model.write", "scope": "application", "reason": "Apply native explicit-target raw-image replacement and native Undo/Redo for the task fixture."},
+    {"id": "turboism.file.read", "scope": "application", "reason": "Read the runtime-issued temporary PSD to simulate external saves."},
+    {"id": "turboism.file.write", "scope": "application", "reason": "Write into the runtime-issued temporary PSD to simulate external saves."},
+    {"id": "turboism.process.run", "scope": "application", "reason": "Observe the default-application launch result; the outcome is recorded, never gated."}
+  ],
+  "capabilities": [],
+  "environment": {"requiresCubism": true, "ui": "swing"}
+}
