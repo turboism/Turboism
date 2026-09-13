@@ -89,7 +89,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         Phase reached,
         boolean published,
         String failureKey,
-        List<Path> publishedFiles
+        List<Path> publishedFiles,
+        String failureDetail
     ) {
     }
 
@@ -257,7 +258,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         } catch (SessionRejection rejection) {
             session.fail(rejection.failureKey);
         } catch (Throwable failure) {
-            session.fail("protected-export.internal-failure");
+            session.fail("protected-export.internal-failure",
+                session.phase + " " + describe(failure));
         } finally {
             session.cleanup();
             armed.compareAndSet(session, null);
@@ -401,7 +403,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
                 requireGeneration(session, session.hostGeneration);
                 requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
                 session.expectedParameterIds =
-                    identitySet(host.allParameters(session.copyModelSource));
+                    parameterIdentitySet(host.allParameters(session.copyModelSource));
                 session.expectedPartIds =
                     identitySet(host.allParts(session.copyModelSource));
                 return ProtectedExportObfuscationPlan.plan(
@@ -584,6 +586,22 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final Set<String> ids = new LinkedHashSet<>();
         for (Object source : sources) {
             final String id = host.objectIdString(source);
+            if (id == null || id.isBlank()) {
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+            }
+            ids.add(id);
+        }
+        return Set.copyOf(ids);
+    }
+
+    /**
+     * Exact ID set of the parameter-source census. Parameter sources are not
+     * parameter-controllable, so their IDs come through the dedicated accessor.
+     */
+    private Set<String> parameterIdentitySet(final List<?> sources) {
+        final Set<String> ids = new LinkedHashSet<>();
+        for (Object source : sources) {
+            final String id = host.parameterSourceIdString(source);
             if (id == null || id.isBlank()) {
                 throw new SessionRejection(OBFUSCATE_FAILED_KEY);
             }
@@ -818,12 +836,20 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             return dir.resolve(realPick.getName()).toFile();
         }
 
-        void report(final Phase reached, final boolean published, final String failureKey) {
+        void report(final Phase reached, final boolean published,
+            final String failureKey
+        ) {
+            report(reached, published, failureKey, null);
+        }
+
+        void report(final Phase reached, final boolean published,
+            final String failureKey, final String failureDetail
+        ) {
             phase = reached;
             // The terminal report is delivered after cleanup: a published or
             // failed report always means task-owned state is already gone.
             pendingReport = new Report(id, reached, published, failureKey,
-                publishedFiles);
+                publishedFiles, failureDetail);
         }
 
         void deliverReport() {
@@ -840,8 +866,12 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         }
 
         void fail(final String failureKey) {
+            fail(failureKey, null);
+        }
+
+        void fail(final String failureKey, final String failureDetail) {
             report(EXPORT_CANCELLED_KEY.equals(failureKey) ? Phase.CANCELLED : Phase.FAILED,
-                false, failureKey);
+                false, failureKey, failureDetail);
         }
 
         /** Best-effort removal of task-owned state; failures are only recorded. */
@@ -889,6 +919,17 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             super(failureKey);
             this.failureKey = failureKey;
         }
+    }
+
+    /**
+     * Bounded one-line description of an unexpected failure for the terminal
+     * report — class plus a truncated message, never a stack trace.
+     */
+    private static String describe(final Throwable failure) {
+        final String message = failure.getMessage();
+        final String text = failure.getClass().getName()
+            + (message == null ? "" : ": " + message.replaceAll("\\s+", " ").strip());
+        return text.length() > 200 ? text.substring(0, 200) : text;
     }
 
     private static String requireText(final String value, final String name) {
