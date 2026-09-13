@@ -289,6 +289,114 @@ class HistoryPanelServiceTest {
     }
 
     @Test
+    void aProvenMoveRendersTheMovedSubjectFirstWithItsNativeIcon() {
+        // "[warp deformer icon] A Move": the moved object leads the row, and the delta the
+        // decoder proved is kept out of the headline — it lives in the detail text instead.
+        final HistorySnapshot snapshot = available(
+            1,
+            1,
+            2,
+            List.of(
+                moveEntry(0, "warp-move", "WARP_DEFORMER", "A", "(2.0,-1.0)"),
+                moveEntry(1, "mesh-move", "ART_MESH", "Face mesh", "(0.5,0.25)")
+            ),
+            true,
+            false
+        );
+
+        final List<PanelView.Toggle> rows = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        );
+
+        assertEquals(2, rows.size());
+        assertEquals(CubismIcon.WARP_DEFORMER, icon(rows.get(0)).icon().icon());
+        assertEquals("1 Warp deformer icon A Move", rows.get(0).label());
+        assertEquals(CubismIcon.ART_MESH, icon(rows.get(1)).icon().icon());
+        assertEquals("2 Artmesh icon Face mesh Move", rows.get(1).label());
+    }
+
+    @Test
+    void aMoveDetailHeadlineCarriesTheDeltaInSentenceForm() {
+        final HistorySnapshot snapshot = available(
+            1,
+            1,
+            1,
+            List.of(moveEntry(0, "rotation-move", "ROTATION_DEFORMER", "Dial", "(10.0,20.0)")),
+            true,
+            false
+        );
+
+        final PanelView.Toggle row = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
+
+        assertNotNull(row.inlineLabel());
+        assertEquals("1 Rotation deformer icon Dial Move", row.label());
+    }
+
+    @Test
+    void aHoistedMoveGroupRendersTheSameRichRowAsALoneMove() {
+        // A canvas drag decoded as a uniform single-subject group carries the hoisted subject and
+        // one MOVE change at the root; the attached children must not hide the rich row.
+        final HistoryTarget warp = new HistoryTarget(
+            "WARP_DEFORMER",
+            Optional.of("warp-1"),
+            Optional.of("A")
+        );
+        final HistoryChange move = new HistoryChange(
+            HistoryChange.Operation.MOVE,
+            Optional.of(0),
+            Optional.of("translation"),
+            Optional.empty(),
+            Optional.of("(2.0,-1.0)"),
+            context(HistoryEditContext.Kind.OBJECT)
+        );
+        final HistoryEntryDetail keyformChild = new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(warp),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.MOVE,
+                Optional.of(0),
+                Optional.of("translation"),
+                Optional.empty(),
+                Optional.of("(2.0,-1.0)"),
+                context(HistoryEditContext.Kind.DEFAULT_FORM)
+            )),
+            Optional.empty(),
+            Optional.empty()
+        );
+        final HistoryEntryDetail hoisted = new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(warp),
+            List.of(move),
+            Optional.of(new HistoryGroup(Optional.empty(), 2,
+                List.of(keyformChild, keyformChild), false)),
+            Optional.empty()
+        );
+        final HistoryEntry entry = new HistoryEntry(
+            0,
+            "Raw move",
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId("grouped-move")),
+            Optional.empty(),
+            hoisted
+        );
+        final HistorySnapshot snapshot = available(1, 1, 1, List.of(entry), true, false);
+
+        final PanelView.Toggle row = toggles(
+            service(new FakeHistory(snapshot), new RecordingUiHost()).render(snapshot)
+        ).get(0);
+
+        assertNotNull(row.inlineLabel(), "a hoisted single-subject group keeps the rich row");
+        assertEquals("1 Warp deformer icon A Move", row.label());
+    }
+
+    @Test
     void rendersTypedRelationsFromCapturedEndpointsWithStableActions() {
         final HistoryTarget joinMesh = new HistoryTarget(
             "ART_MESH",
@@ -919,6 +1027,45 @@ class HistoryPanelServiceTest {
         );
     }
 
+    private static HistoryEntry moveEntry(
+        final int index,
+        final String entryId,
+        final String targetType,
+        final String displayName,
+        final String delta
+    ) {
+        final HistoryTarget target = new HistoryTarget(
+            targetType,
+            Optional.of(entryId + "-target"),
+            Optional.of(displayName)
+        );
+        final HistoryEntryDetail detail = new HistoryEntryDetail(
+            "Move",
+            HistoryAction.DetailLevel.FULL,
+            HistoryOrigin.hostUnattributed(),
+            List.of(target),
+            List.of(new HistoryChange(
+                HistoryChange.Operation.MOVE,
+                Optional.of(0),
+                Optional.of("translation"),
+                Optional.empty(),
+                Optional.of(delta),
+                context(HistoryEditContext.Kind.OBJECT)
+            )),
+            Optional.empty(),
+            Optional.empty()
+        );
+        return new HistoryEntry(
+            index,
+            "Raw " + displayName,
+            true,
+            Optional.empty(),
+            Optional.of(new HistoryEntryId(entryId)),
+            Optional.empty(),
+            detail
+        );
+    }
+
     private static HistoryEntry partialEntry(
         final int index,
         final String entryId,
@@ -1388,8 +1535,16 @@ class HistoryPanelServiceTest {
                 case "history.property.multiply-color" -> "multiply color";
                 case "history.property.screen-color" -> "screen color";
                 case "history.property.vertex-positions" -> "vertex positions";
+                case "history.property.control-point-positions" -> "control point positions";
+                case "history.property.angle" -> "angle";
+                case "history.property.origin" -> "origin";
+                case "history.property.scale" -> "scale";
+                case "history.property.reflect-x" -> "reflect X";
+                case "history.property.reflect-y" -> "reflect Y";
+                case "history.property.translation" -> "translation";
                 case "history.entry.action.add" -> "Add";
                 case "history.entry.action.remove" -> "Remove";
+                case "history.entry.action.move" -> "Move";
                 case "history.icon.art-mesh" -> "Artmesh icon";
                 case "history.icon.warp-deformer" -> "Warp deformer icon";
                 case "history.icon.rotation-deformer" -> "Rotation deformer icon";
@@ -1445,6 +1600,9 @@ class HistoryPanelServiceTest {
             }
             if (key.equals("history.entry.change.remove")) {
                 return arguments[0] + "" + arguments[1] + " removed";
+            }
+            if (key.equals("history.entry.change.move")) {
+                return arguments[0] + "" + arguments[1] + " moved" + arguments[2];
             }
             return text(key);
         }
