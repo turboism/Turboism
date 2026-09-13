@@ -30,6 +30,7 @@ import dev.turboism.sdk.cubism.model.RotationDeformer;
 import dev.turboism.sdk.cubism.model.RotationDeformerForm;
 import dev.turboism.sdk.cubism.model.WarpDeformer;
 import dev.turboism.sdk.cubism.model.WarpGrid;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
@@ -2955,12 +2956,30 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
                 final long gcMillisBeforeEdits = gcCollectionTimeMillis();
                 final java.util.concurrent.atomic.AtomicInteger toggle =
                     new java.util.concurrent.atomic.AtomicInteger();
-                measureCall(metrics, "parameterWrite", allocThreads, edtId, () -> {
+                final Callable<?> writeCall = () -> {
                     final float value = toggle.getAndIncrement() % 2 == 0
                         ? baseValue + delta : baseValue;
                     editTarget.setValue(value);
                     return null;
-                });
+                };
+                // R6: batching all writes inside one ambient authoring
+                // transaction should coalesce the per-write PARAMETER_PALETTE
+                // refresh into a single native rebuild.
+                final boolean batchWrite = Boolean.getBoolean("turboism.perf.batchWrite");
+                metrics.append("batchWrite=").append(batchWrite).append('\n');
+                if (batchWrite) {
+                    final var batchResult = onHostThread(() ->
+                        context.cubism().authoringTransactions().execute(
+                            AuthoringTransactionOptions.of("perf-observe batch writes"),
+                            () -> {
+                                measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
+                                return null;
+                            }));
+                    metrics.append("batchWriteCommitted=").append(batchResult.successful()).append('\n');
+                    metrics.append("batchWriteOutcome=").append(batchResult.outcome()).append('\n');
+                } else {
+                    measureCall(metrics, "parameterWrite", allocThreads, edtId, writeCall);
+                }
                 metrics.append("gcCollectionsDuringWrites=")
                     .append(gcCollectionCount() - gcBeforeEdits).append('\n');
                 metrics.append("gcMillisDuringWrites=")

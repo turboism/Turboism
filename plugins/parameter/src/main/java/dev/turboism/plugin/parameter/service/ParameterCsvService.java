@@ -4,6 +4,9 @@ import dev.turboism.sdk.cubism.CubismFacade;
 import dev.turboism.sdk.cubism.id.ParameterId;
 import dev.turboism.sdk.cubism.model.CubismModel;
 import dev.turboism.sdk.cubism.model.Parameter;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOptions;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionOutcome;
+import dev.turboism.sdk.cubism.transaction.AuthoringTransactionResult;
 import dev.turboism.sdk.plugin.PluginContext;
 import dev.turboism.sdk.plugin.PluginLogger;
 import dev.turboism.sdk.ui.FileChooserRequest;
@@ -194,8 +197,31 @@ public final class ParameterCsvService {
         }
 
         try {
-            for (final ResolvedWrite write : writes) {
-                write.parameter().setValue(write.value());
+            // One ambient transaction coalesces the per-write native palette
+            // refresh into a single structure rebuild and makes the import
+            // atomic (all rows or rolled back).
+            final AuthoringTransactionResult<Void> transactionResult = cubism
+                .authoringTransactions()
+                .execute(
+                    AuthoringTransactionOptions.of("Parameter CSV import"),
+                    () -> {
+                        writeAll(writes);
+                        return null;
+                    });
+            if (transactionResult.outcome() == AuthoringTransactionOutcome.UNAVAILABLE
+                || transactionResult.outcome() == AuthoringTransactionOutcome.REJECTED_SCOPE) {
+                // No backend or already inside an ambient transaction — sequential
+                // writes still join the ambient scope and coalesce the same way.
+                writeAll(writes);
+            } else if (!transactionResult.successful()) {
+                logger.warn("Parameter CSV import transaction did not commit: "
+                    + transactionResult.outcome());
+                uiHost.notifyStatus(new StatusNotification(
+                    IMPORT_FAILED,
+                    "WARNING",
+                    "Parameter CSV import failed. The transaction did not commit."
+                ));
+                return;
             }
             uiHost.notifyStatus(new StatusNotification(
                 IMPORT_COMPLETED,
@@ -209,6 +235,12 @@ public final class ParameterCsvService {
                 "WARNING",
                 "Parameter CSV import failed. Some values may require Undo in Cubism."
             ));
+        }
+    }
+
+    private static void writeAll(final List<ResolvedWrite> writes) {
+        for (final ResolvedWrite write : writes) {
+            write.parameter().setValue(write.value());
         }
     }
 

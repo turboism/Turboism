@@ -24,7 +24,7 @@ if [ "$#" -gt 0 ] && [[ "$1" != --* ]]; then
 fi
 
 case "$mode" in
-  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4|native-tuned5|native-tuned6) ;;
+  matrix|model-edit-level|wave1|statistics-read|binding-read|binding-matrix|parameter-menu-smoke|persist-write|persist-read|plugin-scope-close|document-close|native-control-background|native-control-background-document-close|native-control-background-persist-write|native-control-background-persist-reopen|native-control-background-persist-final|perf-observe|perf-observe-zgc|perf-observe-batch|native-baseline|native-tuned|native-tuned2|native-tuned3|native-tuned4|native-tuned5|native-tuned6) ;;
   *)
     echo "error: unsupported validation mode: $mode" >&2
     exit 2
@@ -126,7 +126,7 @@ fi
 fixture_policy=(--require-fixture-unchanged)
 extra_jvm_options=()
 probe_mode="$mode"
-if [ "$mode" = 'perf-observe-zgc' ]; then
+if [ "$mode" = 'perf-observe-zgc' ] || [ "$mode" = 'perf-observe-batch' ]; then
   probe_mode='perf-observe'
 fi
 result_timeout=900
@@ -152,6 +152,13 @@ case "$mode" in
     # Combined leg: Turboism + probe + ZGC — validates coexistence and
     # measures the real write-burst under sub-millisecond-pause GC.
     extra_jvm_options+=(--jvm-option '-XX:+UseZGC')
+    ;;
+  perf-observe-batch)
+    # R6 leg: identical perf-observe writes but all iterations run inside one
+    # ambient authoring transaction; the transaction commit should coalesce
+    # per-write PARAMETER_PALETTE refreshes into a single native
+    # "Update Parameter Structure" rebuild.
+    extra_jvm_options+=(--jvm-option '-Dturboism.perf.batchWrite=true')
     ;;
 esac
 case "$mode" in
