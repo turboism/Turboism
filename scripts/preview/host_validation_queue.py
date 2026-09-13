@@ -349,7 +349,7 @@ VALUE_FLAGS = frozenset({"--name", "--version", "--fixture-sha256", "--fixture-n
     "--agent-host-class", "--ready-timeout", "--result-timeout", "--exit-timeout",
     "--poll-seconds", "--golden-prefix", "--host-root", "--remote-root", "--display",
     "--proton-wrapper", "--proton-runner", "--local-evidence-dir", "--transport",
-    "--remote-pre-launch-arg"})
+    "--remote-pre-launch-arg", "--aux-agent-before-main"})
 
 
 def file_digest(path: Path) -> str:

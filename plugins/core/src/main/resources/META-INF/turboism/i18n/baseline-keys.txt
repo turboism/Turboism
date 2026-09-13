@@ -92,6 +92,8 @@ plugins.uninstall.confirm
 settings.action.cancelling
 settings.action.failed
 settings.action.start-failed
+settings.atlas.tile-bbox
+settings.atlas.cache-reuse
 settings.clean-empty-docks
 settings.cubism-jvm
 settings.cubism-jvm.bundled
@@ -122,6 +124,7 @@ settings.locale.auto
 settings.locale.restart-required
 settings.log-level
 settings.max-log-storage-mib
+settings.mesh-triangulation.hash-degeneracy
 settings.safe-mode
 settings.save
 settings.saved
