@@ -15,10 +15,12 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,6 +67,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     /** EDT marshalling seam; production wraps SwingUtilities, tests run inline. */
     public interface EdtDispatcher {
         <T> T call(Callable<T> action) throws Exception;
+
+        /** Posts {@code task} to the EDT without blocking the caller. */
+        void submit(Runnable task);
     }
 
     /** Session-phase trace for diagnostics and the fault-injection matrix. */
@@ -461,38 +466,81 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         });
         exportWindow.set(true);
         try {
-            onEdt(() -> {
-                final Object driver = host.exportDriver();
-                if (driver == null) {
-                    throw new SessionRejection(EXPORT_FAILED_KEY);
+            // Posted, not waited on: al.a runs the entire modal export flow on
+            // the EDT (inner settings dialog, warnings, chooser, write and any
+            // trailing message prompts). Blocking the worker in invokeAndWait
+            // here would park the session past every timeout in
+            // awaitCompletion — one un-dismissed native prompt wedged it
+            // forever (observed on exact host run queue-e324da1a).
+            edt.submit(() -> {
+                try {
+                    final Object driver = host.exportDriver();
+                    if (driver == null) {
+                        throw new SessionRejection(EXPORT_FAILED_KEY);
+                    }
+                    host.invokeNativeExport(
+                        driver, session.copyModelSource, host.mainFrame(),
+                        callback);
+                    session.exportDone.complete(null);
+                } catch (Throwable failure) {
+                    session.exportDone.completeExceptionally(failure);
                 }
-                host.invokeNativeExport(
-                    driver, session.copyModelSource, host.mainFrame(), callback);
-                return null;
             });
-        } finally {
+        } catch (RuntimeException failure) {
             exportWindow.set(false);
+            throw failure;
         }
         session.phase = Phase.EXPORT_DRIVEN;
     }
 
     private void awaitCompletion(final Session session) throws Exception {
-        if (session.aborted.get() || session.chooserCancelled.get()) {
-            throw new SessionRejection(EXPORT_CANCELLED_KEY);
+        try {
+            if (session.aborted.get() || session.chooserCancelled.get()) {
+                throw new SessionRejection(EXPORT_CANCELLED_KEY);
+            }
+            // Bound the whole modal export flow, not just the write callback:
+            // al.a only returns after every prompt it raised was dismissed. One
+            // shared deadline covers the EDT flow and the completion callback.
+            final long deadline = System.nanoTime()
+                + TimeUnit.MILLISECONDS.toNanos(exportCallbackTimeoutMillis);
+            try {
+                session.exportDone.get(
+                    exportCallbackTimeoutMillis, TimeUnit.MILLISECONDS);
+            } catch (TimeoutException timeout) {
+                throw new SessionRejection(EXPORT_TIMEOUT_KEY);
+            } catch (ExecutionException wrapped) {
+                final Throwable cause = wrapped.getCause();
+                if (cause instanceof SessionRejection rejection) {
+                    throw rejection;
+                }
+                throw new SessionRejection(EXPORT_FAILED_KEY);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new SessionRejection(EXPORT_FAILED_KEY);
+            }
+            // Cancellation can arrive mid-flow (chooser cancel posts null);
+            // re-check after the bounded wait so it reports CANCELLED.
+            if (session.aborted.get() || session.chooserCancelled.get()) {
+                throw new SessionRejection(EXPORT_CANCELLED_KEY);
+            }
+            // A native pre-check veto (e.g. empty texture atlases) returns from
+            // al.a without ever opening the settings dialog or the chooser.
+            if (!session.innerDialogSeen.get() || !session.redirectFired.get()) {
+                throw new SessionRejection(EXPORT_FAILED_KEY);
+            }
+            final long remaining = TimeUnit.NANOSECONDS.toMillis(
+                deadline - System.nanoTime());
+            if (remaining <= 0 || !session.completion.await(
+                remaining, TimeUnit.MILLISECONDS)) {
+                throw new SessionRejection(EXPORT_TIMEOUT_KEY);
+            }
+            if (session.stagedPick == null || session.stagedPaths.isEmpty()) {
+                throw new SessionRejection(EXPORT_FAILED_KEY);
+            }
+            session.phase = Phase.STAGED;
+        } finally {
+            exportWindow.set(false);
         }
-        // A native pre-check veto (e.g. empty texture atlases) returns from al.a
-        // without ever opening the settings dialog or reaching the chooser.
-        if (!session.innerDialogSeen.get() || !session.redirectFired.get()) {
-            throw new SessionRejection(EXPORT_FAILED_KEY);
-        }
-        if (!session.completion.await(
-            exportCallbackTimeoutMillis, TimeUnit.MILLISECONDS)) {
-            throw new SessionRejection(EXPORT_TIMEOUT_KEY);
-        }
-        if (session.stagedPick == null || session.stagedPaths.isEmpty()) {
-            throw new SessionRejection(EXPORT_FAILED_KEY);
-        }
-        session.phase = Phase.STAGED;
     }
 
     private void validate(final Session session) {
@@ -789,6 +837,8 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         final File sourceFile;
         final long hostGeneration;
         final CountDownLatch completion = new CountDownLatch(1);
+        final java.util.concurrent.CompletableFuture<Void> exportDone =
+            new java.util.concurrent.CompletableFuture<>();
         final AtomicBoolean innerDialogSeen = new AtomicBoolean();
         final AtomicBoolean aborted = new AtomicBoolean();
         final AtomicBoolean chooserCancelled = new AtomicBoolean();
