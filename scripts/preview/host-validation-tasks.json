@@ -330,6 +330,11 @@
           "{version}",
           "native-tuned6",
           "{runLabel}"
+        ],
+        "perf-observe-batch": [
+          "{version}",
+          "perf-observe-batch",
+          "{runLabel}"
         ]
       },
       "resources": {
