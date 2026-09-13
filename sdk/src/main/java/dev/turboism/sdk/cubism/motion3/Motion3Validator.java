@@ -29,7 +29,6 @@ public final class Motion3Validator {
         "linear", "bezier", "stepped", "inverse-stepped"
     };
     private static final BigDecimal REQUIRED_VERSION = BigDecimal.valueOf(3L);
-    private static final BigDecimal MAX_SEGMENT_KIND = BigDecimal.valueOf(3L);
     private static final double TIME_EPSILON = 1e-4;
 
     private Motion3Validator() {
@@ -203,14 +202,20 @@ public final class Motion3Validator {
             final Object rawKind = segments.get(offset);
             final BigDecimal kindValue = rawKind instanceof Number kindNumber
                 ? asBigDecimal(kindNumber) : null;
-            if (kindValue == null || kindValue.stripTrailingZeros().scale() > 0
-                || kindValue.compareTo(BigDecimal.ZERO) < 0
-                || kindValue.compareTo(MAX_SEGMENT_KIND) > 0) {
+            int kind = -1;
+            if (kindValue != null) {
+                for (int candidate = 0; candidate < SEGMENT_ARITY.length; candidate++) {
+                    if (kindValue.compareTo(BigDecimal.valueOf(candidate)) == 0) {
+                        kind = candidate;
+                        break;
+                    }
+                }
+            }
+            if (kind < 0) {
                 error(issues, path + "[" + offset + "]",
                     "segment kind must be 0..3, got " + rawKind);
                 break;
             }
-            final int kind = kindValue.intValueExact();
             final int arity = SEGMENT_ARITY[kind];
             if (offset + 1 + arity > segments.size()) {
                 error(issues, path + "[" + offset + "]",
