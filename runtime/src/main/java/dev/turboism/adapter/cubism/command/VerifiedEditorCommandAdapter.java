@@ -68,6 +68,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         try {
             return onEdt(() -> typed.execute(command));
         } catch (RuntimeException exception) {
+            reportFailure(command.commandId(), exception);
             return new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
         }
     }
@@ -83,6 +84,7 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         } catch (VerifiedTypedEditorCommandOperations.InvalidState invalidState) {
             return new EditorCommandResult(EditorCommandResult.Status.INVALID_STATE, command.commandId());
         } catch (RuntimeException exception) {
+            reportFailure(command.commandId(), exception);
             return new EditorCommandResult(EditorCommandResult.Status.FAILED, command.commandId());
         }
     }
@@ -146,6 +148,17 @@ public final class VerifiedEditorCommandAdapter implements EditorCommandAdapter 
         final EditorCommandResult.Status status
     ) {
         return new EditorCommandResult(status, command.id());
+    }
+
+    /**
+     * The sanitized {@code FAILED} result carries no detail by design; the root cause is still
+     * reported to {@code System.err} so host-validation evidence (cubism-console.txt) keeps it.
+     */
+    private static void reportFailure(final String commandId, final RuntimeException exception) {
+        System.err.println(
+            "TURBOISM_EDITOR_COMMAND_FAILED command=" + commandId
+                + " cause=" + exception.getClass().getName()
+                + " message=" + exception.getMessage());
     }
 
     private static <T> T onEdt(final Operation<T> operation) {
