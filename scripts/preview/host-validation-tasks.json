@@ -169,6 +169,7 @@
         "dialog": ["{version}", "{runLabel}", "dialog"],
         "copy-binding": ["{version}", "{runLabel}", "copy-binding"],
         "flatten": ["{version}", "{runLabel}", "flatten"],
+        "export": ["{version}", "{runLabel}", "export"],
         "full": ["{version}", "{runLabel}", "dialog,copy-binding,flatten"]
       },
       "defaultVariant": "dialog",
