@@ -549,7 +549,8 @@ public final class ProtectedExportHostProbeAgent {
         final long deadline = System.currentTimeMillis() + 240_000L;
         while (System.currentTimeMillis() < deadline) {
             if (!copyAtlas[0]) {
-                copyAtlas[0] = injectAtlasOnBoundCopy(controller, evidence, prefix);
+                copyAtlas[0] =
+                    injectAtlasOnBoundCopy(controller, stateDir, evidence, prefix);
             }
             for (Window window : visibleWindows()) {
                 if (seen.contains(window)) {
@@ -596,19 +597,27 @@ public final class ProtectedExportHostProbeAgent {
      */
     private static boolean injectAtlasOnBoundCopy(
         final Object controller,
+        final Path stateDir,
         final Evidence evidence,
         final String prefix
     ) {
         try {
+            // The copy must live under the runtime's own staging root
+            // (<home>/state/runtime/protected-export/<session>/file.cmo3). The
+            // task directory itself is named protected-export too, so a bare
+            // substring match would false-positive on the original document.
+            final Path stagingRoot = stateDir.getParent() == null ? null
+                : stateDir.getParent().resolve("runtime").resolve("protected-export");
             final Object document = readNoArg(controller, "getCurrentDoc");
-            if (document == null) {
+            if (document == null || stagingRoot == null) {
                 return false;
             }
             final Object content = readNoArg(document, "getFileContent");
             final Object bound =
                 content == null ? null : readNoArg(content, "getFile");
             if (!(bound instanceof File boundFile)
-                || !boundFile.getAbsolutePath().contains("protected-export")) {
+                || !boundFile.toPath().toAbsolutePath().normalize()
+                    .startsWith(stagingRoot)) {
                 return false;
             }
             evidence.put(prefix + "copyBoundPath", boundFile.getAbsolutePath());
