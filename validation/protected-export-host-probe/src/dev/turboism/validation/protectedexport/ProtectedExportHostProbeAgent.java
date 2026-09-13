@@ -70,6 +70,10 @@ public final class ProtectedExportHostProbeAgent {
     // path). Matching by action class rather than label is locale-stable.
     private static final String CONFIRM_ACTION = "com.live2d.ui.window.A";
     private static final String CANCEL_ACTION = "com.live2d.ui.window.z";
+    /** Affirmative button labels across the host's localized warning dialogs. */
+    private static final java.util.regex.Pattern AFFIRMATIVE_LABEL =
+        java.util.regex.Pattern.compile(
+            "(?i)(yes|ok|确定|是|继续|continue|proceed|save|保存)");
     private static final String BRIDGE_PREFIX = "turboism.export-settings.dialog.";
     private static final String ATTACH_KEY = BRIDGE_PREFIX + "attach";
     private static final String CANCEL_KEY = BRIDGE_PREFIX + "cancel";
@@ -2315,13 +2319,31 @@ public final class ProtectedExportHostProbeAgent {
         return findButtonByAction(root, actionClass::equals);
     }
 
+    /**
+     * Fallback action button for native warning dialogs. The first enabled
+     * {@code AbstractButton} in component order can be a scrollbar arrow or the
+     * FlatLaf title-bar close button — clicking those never dismisses the
+     * dialog. Prefer an affirmative label, then any labeled button; unlabeled
+     * chrome buttons are never a safe dismiss target.
+     */
     private static AbstractButton firstButton(final Container root) {
+        AbstractButton labeled = null;
         for (Component component : allComponents(root)) {
-            if (component instanceof AbstractButton button && button.isEnabled()) {
+            if (!(component instanceof AbstractButton button) || !button.isEnabled()) {
+                continue;
+            }
+            final String text = button.getText();
+            if (text == null || text.isBlank()) {
+                continue;
+            }
+            if (AFFIRMATIVE_LABEL.matcher(text).find()) {
                 return button;
             }
+            if (labeled == null) {
+                labeled = button;
+            }
         }
-        return null;
+        return labeled;
     }
 
     static AbstractButton findButtonByAction(
