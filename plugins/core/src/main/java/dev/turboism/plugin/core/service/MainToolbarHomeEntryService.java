@@ -11,7 +11,11 @@ import dev.turboism.sdk.ui.EmbeddedPanelId;
 import dev.turboism.sdk.ui.PanelView;
 import dev.turboism.sdk.ui.UiHostCapabilityService;
 import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -72,7 +76,7 @@ public final class MainToolbarHomeEntryService {
         this(
             uiHost, mainToolbar, menus, localization,
             new RuntimeSettingsService() {
-                private RuntimeSettings settings = new RuntimeSettings(false, "INFO", false, false, false);
+                private RuntimeSettings settings = new RuntimeSettings(false, "INFO", true, true, true);
                 @Override public RuntimeSettings read() { return settings; }
                 @Override public RuntimeSettings save(final RuntimeSettings value) { settings = value; return value; }
                 @Override public DockCleanupResult cleanEmptyDocks() {
@@ -123,7 +127,9 @@ public final class MainToolbarHomeEntryService {
      * @return the button registration; closing it removes the button from the toolbar
      */
     public Registration registerHomeEntry() {
-        final MainToolbarRegistry.IconVariants icons = runtimeSettings.read().useTextIcon()
+        final boolean textIcon = runtimeSettings.read().useTextIcon();
+        installWindowIcon(textIcon);
+        final MainToolbarRegistry.IconVariants icons = textIcon
             ? new MainToolbarRegistry.IconVariants(
                 ICON_RESOURCE_PATH, Optional.of("icons/main-toolbar-home-hover.png"),
                 Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty()
@@ -170,6 +176,32 @@ public final class MainToolbarHomeEntryService {
      */
     public Registration registerAboutMenu() {
         return menu(localization.text(ABOUT_MENU_LABEL_KEY), ABOUT_ACTION_ID, ORDER + 3);
+    }
+
+    /**
+     * Applies the toolbar button's icon choice to every plugin-owned window.
+     *
+     * <p>The assets live on this plugin's classpath, which the SDK classloader
+     * behind {@link TurboismWindowFactory} cannot see, so the image is decoded
+     * here through this plugin's loader and handed to the factory as a
+     * process-wide override. Branding is best-effort: a missing or corrupt
+     * asset leaves the bundled default icon in place.</p>
+     */
+    private void installWindowIcon(final boolean textIcon) {
+        try {
+            final String path = textIcon ? ICON_RESOURCE_PATH : INSTALLER_ICON_RESOURCE_PATH;
+            final ClassLoader loader = MainToolbarHomeEntryService.class.getClassLoader();
+            final URL url = loader == null ? null : loader.getResource(path);
+            if (url == null) {
+                return;
+            }
+            final BufferedImage icon = ImageIO.read(url);
+            if (icon != null && icon.getWidth() > 0 && icon.getHeight() > 0) {
+                TurboismWindowFactory.installWindowIcon(icon);
+            }
+        } catch (Throwable ignored) {
+            // window branding must never block the toolbar contribution
+        }
     }
 
     private Registration menu(final String label, final String actionId, final int order) {

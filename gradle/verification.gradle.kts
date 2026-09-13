@@ -75,7 +75,7 @@ tasks.register("checkGraalScriptHostValidation") {
 
 tasks.register("checkOfficialPluginI18nCompleteness") {
     group = "verification"
-    description = "Verifies baseline localization-key completeness for participating official plugins."
+    description = "Verifies the full locale matrix for official-plugin and framework catalogs."
     dependsOn(":testing:integration-tests:officialPluginI18nCompletenessTest")
 }
 
@@ -494,6 +494,14 @@ val buildStatusBarHostProbe by tasks.registering(Exec::class) {
     commandLine("bash", "validation/status-bar-host-probe/build.sh")
 }
 
+val buildUpdateCheckHostProbe by tasks.registering(Exec::class) {
+    group = "host verification"
+    description = "Builds the test-only SDK update-check host exerciser."
+    dependsOn(":sdk:jar")
+    workingDir(rootDir)
+    commandLine("bash", "validation/update-check-host-probe/build.sh")
+}
+
 tasks.register<Exec>("validateStatusBarHost5302") {
     group = "host verification"
     description = "Runs the automated exact-host Cubism 5.3.02 native status-bar matrix."
@@ -725,6 +733,7 @@ tasks.register("checkIntegration") {
         "verifyFirstPartyPluginMetadata",
         "verifyFirstPartyPluginReadmes",
         "checkDistributionProtocolContract",
+        "checkOfficialPluginI18nCompleteness",
         "checkPreviewBundleLayout",
         "checkPsdClipMaskHostValidationBundle",
         "checkHistoryValidationProbePackaging",
@@ -813,10 +822,17 @@ tasks.register("checkRelease") {
         "checkSdkV5ExactApiCompatibility",
         "checkSdkV6ExactApiCompatibility",
         "checkSdkV7ExactApiCompatibility",
+        "checkSdkV8ExactApiCompatibility",
+        "checkSdkV9ExactApiCompatibility",
+        "checkSdkV10ExactApiCompatibility",
+        "checkSdkV8Linkage",
+        "checkTextureAtlasSdkV7Linkage",
         checkMarketReleaseMetadata,
         "checkAsmSupplyChainAdmission",
         "checkMappingReviewWrapperArgs",
-        "checkJavaInstaller"
+        "checkJavaInstaller",
+        "checkInstallerLocalization",
+        "checkWindowsInstaller"
     )
 }
 

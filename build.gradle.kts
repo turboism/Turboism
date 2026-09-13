@@ -35,6 +35,15 @@ tasks.register<Exec>("checkInstallerLocalization") {
     commandLine("python3", "packaging/windows-installer/test-installer-localization.py")
 }
 
+
+// Self-contained: asserts the NSIS script, generated plugin sections, payload
+// simulation and uninstall contract against files already in the repository.
+tasks.register<Exec>("checkWindowsInstaller") {
+    group = "verification"
+    description = "Checks the Windows NSIS installer script, payload simulation and uninstall contract."
+    commandLine("python3", "packaging/windows-installer/test-config-merge.py")
+}
+
 tasks.register("checkPluginInspectionRuntime") {
     group = "verification"
     description = "Runs the production-backed strict ZIP mutation matrix."

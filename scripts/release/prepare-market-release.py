@@ -29,7 +29,8 @@ Strictness rules (fail closed):
   * ``cubismVersions`` is non-empty strict MAJOR.MINOR.PATCH only when the
     descriptor requires Cubism, and must be empty otherwise;
   * selected plugins need complete nonblank ``plugin.name`` and
-    ``plugin.description`` in the declared en, zh-Hans and ja catalogs;
+    ``plugin.description`` in the declared en, ja, ko, zh-Hans and zh-Hant
+    catalogs, matching the Cubism language matrix;
   * repository/support are explicit public HTTPS URLs;
   * trust is fixed to ``official`` and platform to ``windows-x64``: they are
     implicit and never read from the manifest.
@@ -66,18 +67,21 @@ SIDECAR_NAME = "market-release.json"
 MAX_JAR_BYTES = 16 * 1024 * 1024  # 16 MiB contract ceiling
 STRICT_VERSION = re.compile(r"^[0-9]+\.[0-9]+\.[0-9]+$")
 SOURCE_SHA = re.compile(r"^[0-9a-f]{40}$")
-REQUIRED_LOCALES = ("en", "zh-Hans", "ja")
+REQUIRED_LOCALES = ("en", "ja", "ko", "zh-Hans", "zh-Hant")
 REQUIRED_KEYS = ("plugin.name", "plugin.description")
 DEFAULT_REPO_ROOT = Path(__file__).resolve().parents[2]
 
 # Mirrors runtime/src/main/java/dev/turboism/core/plugin/PluginJarContract
 # RETIRED_PLUGIN_IDS. The Gradle gates are authoritative; this set only keeps
-# retired ids from being selected for publication in the first place.
+# retired or superseded ids from being selected for publication in the first
+# place. dev.turboism.plugin.backup is superseded by
+# dev.turboism.plugin.webdav after the webdav-backup rename.
 RETIRED_PLUGIN_IDS = frozenset({
     "dev.turboism.plugin.logfilter",
     "dev.turboism.plugin.clipmask",
     "dev.turboism.plugin.perfopt",
     "dev.turboism.plugin.renderopt",
+    "dev.turboism.plugin.backup",
 })
 
 
@@ -381,7 +385,7 @@ def catalog_name(base_name: str, locale: str) -> str:
 
 
 def required_localizations(read_catalog, base_name: str, locales: list) -> dict:
-    """Require nonblank plugin.name/plugin.description in en/zh-Hans/ja."""
+    """Require nonblank plugin.name/plugin.description in every required locale."""
     result = {}
     for locale in REQUIRED_LOCALES:
         if locale not in locales:

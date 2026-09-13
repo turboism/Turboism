@@ -48,10 +48,15 @@ dev.turboism.sdk.cubism.hook
   Override-based plugin lifecycle hooks; no registration bus.
 
 dev.turboism.sdk.cubism.event
-  Immutable Cubism and Editor semantic event values.
+  Operation-envelope types: CubismOperation, CubismOperationEvent,
+  CubismOperationOrigin and SelectionChangedEvent.
 
 dev.turboism.sdk.event
   Generic event transport and EventBus contracts.
+
+dev.turboism.sdk.event.cubism
+  Immutable per-object semantic lifecycle event payloads (ParameterValueEvent,
+  PartOpacityEvent and peers) published on the before/on/after lifecycle.
 
 dev.turboism.sdk.cubism.id
   Shared identities used across reads, queries, events and transactions.
@@ -66,9 +71,9 @@ dev.turboism.core.runtime.sidecar
   Isolated heavy-work dispatch and supervision.
 ```
 
-Deprecated package shapes such as `sdk.cubism.callback`, `sdk.event.cubism`,
-feature-local `DocumentId`, and callback-named plugin work executors are not
-compatibility surfaces and must not be reintroduced.
+Deprecated package shapes such as `sdk.cubism.callback`, feature-local
+`DocumentId`, and callback-named plugin work executors are not compatibility
+surfaces and must not be reintroduced.
 
 ## 3. Public API model
 
@@ -83,6 +88,8 @@ SDK APIs use Turboism-owned types only. They must not expose:
 - mutable arrays whose ownership belongs to Cubism.
 
 Turboism publishes one public SDK tier. Before the first formal release, maintainers review the generated public classfile surface without treating a pre-release snapshot as a compatibility promise. The first released SDK artifact establishes the compatibility baseline for later releases. Cubism Editor version restrictions are declared separately with `@CubismEditor` and exact-version catalogs.
+
+Exact API baselines accumulate one per reviewed SDK revision and stay in release verification. A baseline may be retired only once a stable (1.x) SDK baseline supersedes it, and the retirement must be recorded in that release's notes; the newest baseline is never retired.
 
 Sole documented exception to the no-UI-type surface rule: `dev.turboism.sdk.ui.window.TurboismWindowFactory` constructs plugin-owned JDK Swing windows and applies the Turboism window icon; it is not part of the `UiHostCapabilityService` host contract. No other package may expose JDK UI types.
 

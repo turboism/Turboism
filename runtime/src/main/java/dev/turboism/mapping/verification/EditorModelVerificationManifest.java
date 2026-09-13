@@ -63,10 +63,12 @@ public final class EditorModelVerificationManifest {
     public static final String CUBISM_VERSION_5_3_03 = "5.3.03";
 
     /** Reviewed Editor-model record admitted for exact Cubism 5.2.03. */
+    // Record-byte pins must move with reviewed selector additions (including per-item q).
+    // Static selector verification alone does not satisfy PinnedVerifiedResolverWorkflow admission.
     public static final ReviewedSliceRecord RECORD_5_2_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_2_03,
         "cubism-5.2.03.editor-model.static",
-        "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
+        "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
         CUBISM_VERSION_5_2_03,
         "cubism-5.2.03"
     );
@@ -75,7 +77,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_02 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_02,
         "cubism-5.3.02.editor-model.static",
-        "20d08f6d03a77ab7312d597cfe5b9b80723220d0bdf459f4ee6788fd75cc92fd",
+        "41b9b93d6e1e38f65b1b7af5d146b7394d935cdf7d2a8b5ef6bceed17defb744",
         CUBISM_VERSION_5_3_02,
         "cubism-5.3.02"
     );
@@ -88,7 +90,7 @@ public final class EditorModelVerificationManifest {
     public static final ReviewedSliceRecord RECORD_5_3_03 = new ReviewedSliceRecord(
         ReviewedHostArtifacts.CUBISM_5_3_03,
         "cubism-5.3.03.editor-model.static",
-        "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665",
+        "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b",
         CUBISM_VERSION_5_3_03,
         "cubism-5.3.03"
     );

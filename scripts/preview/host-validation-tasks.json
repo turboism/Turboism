@@ -20,6 +20,43 @@
     }
   },
   "tasks": {
+    "atlas": {
+      "description": "Fixed single-invocation current-page Geometry validation; final 2500 explicitly authorized after preliminary PASS.",
+      "command": "scripts/preview/run-atlas-host-validation.sh",
+      "versions": ["5303"],
+      "defaultVariant": "geometry-100-new",
+      "variants": {
+        "ui-circle-100-new": ["{version}", "{runLabel}", "ui-circle-100-new"],
+        "ui-circle-100-new-parallel": ["{version}", "{runLabel}", "ui-circle-100-new-parallel"],
+        "ui-circle-100-native": ["{version}", "{runLabel}", "ui-circle-100-native"],
+        "ui-circle-1000-new": ["{version}", "{runLabel}", "ui-circle-1000-new"],
+        "ui-circle-1000-native": ["{version}", "{runLabel}", "ui-circle-1000-native"],
+        "ui-circle-2500-new": ["{version}", "{runLabel}", "ui-circle-2500-new"],
+        "ui-circle-2500-native": ["{version}", "{runLabel}", "ui-circle-2500-native"],
+        "ui-geometry-100-new": ["{version}", "{runLabel}", "ui-geometry-100-new"],
+        "ui-geometry-100-new-parallel": ["{version}", "{runLabel}", "ui-geometry-100-new-parallel"],
+        "ui-geometry-100-native": ["{version}", "{runLabel}", "ui-geometry-100-native"],
+        "ui-geometry-1000-new": ["{version}", "{runLabel}", "ui-geometry-1000-new"],
+        "ui-geometry-1000-native": ["{version}", "{runLabel}", "ui-geometry-1000-native"],
+        "ui-geometry-2500-new": ["{version}", "{runLabel}", "ui-geometry-2500-new"],
+        "ui-geometry-2500-native": ["{version}", "{runLabel}", "ui-geometry-2500-native"],
+        "ui-circle-500-new": ["{version}", "{runLabel}", "ui-circle-500-new"],
+        "ui-circle-500-new-parallel": ["{version}", "{runLabel}", "ui-circle-500-new-parallel"],
+        "ui-circle-500-native": ["{version}", "{runLabel}", "ui-circle-500-native"],
+        "ui-geometry-500-new": ["{version}", "{runLabel}", "ui-geometry-500-new"],
+        "ui-geometry-500-new-parallel": ["{version}", "{runLabel}", "ui-geometry-500-new-parallel"],
+        "ui-geometry-500-native": ["{version}", "{runLabel}", "ui-geometry-500-native"],
+        "geometry-100-new": ["{version}", "{runLabel}", "geometry-100-new"],
+        "geometry-100-native": ["{version}", "{runLabel}", "geometry-100-native"],
+        "geometry-500-new": ["{version}", "{runLabel}", "geometry-500-new"],
+        "geometry-500-native": ["{version}", "{runLabel}", "geometry-500-native"],
+        "geometry-1000-new": ["{version}", "{runLabel}", "geometry-1000-new"],
+        "geometry-1000-native": ["{version}", "{runLabel}", "geometry-1000-native"],
+        "geometry-2500-new": ["{version}", "{runLabel}", "geometry-2500-new"],
+        "geometry-2500-native": ["{version}", "{runLabel}", "geometry-2500-native"]
+      },
+      "resources": {"host-slot": 1, "display-input": 1, "performance-host": 1}
+    },
     "backup": {
       "description": "Automated backup host validation.",
       "command": "scripts/preview/run-backup-host-validation.sh",
@@ -183,41 +220,17 @@
       ],
       "defaultVariant": "system",
       "variants": {
-        "system": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "system"
+        "system": ["{version}", "{runLabel}", "--locale", "system"],
+        "en": ["{version}", "{runLabel}", "--locale", "en"],
+        "ja": ["{version}", "{runLabel}", "--locale", "ja"],
+        "ko": ["{version}", "{runLabel}", "--locale", "ko"],
+        "zh-Hans": ["{version}", "{runLabel}", "--locale", "zh-Hans"],
+        "zh-Hant": ["{version}", "{runLabel}", "--locale", "zh-Hant"],
+        "environment-ja": [
+          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "ja"
         ],
-        "en": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "en"
-        ],
-        "ja": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "ja"
-        ],
-        "ko": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "ko"
-        ],
-        "zh-Hans": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "zh-Hans"
-        ],
-        "zh-Hant": [
-          "{version}",
-          "{runLabel}",
-          "--locale",
-          "zh-Hant"
+        "environment-en": [
+          "{version}", "{runLabel}", "--locale", "system", "--environment-language", "en"
         ]
       },
       "resources": {
@@ -514,6 +527,19 @@
       "resources": {
         "host-slot": 1
       }
+    },
+    "update-check": {
+      "description": "Stable update-check request, comparison and rendered UI on an exact host.",
+      "command": "scripts/preview/run-update-check-host-validation.sh",
+      "versions": ["5203", "5302", "5303"],
+      "defaultVariant": "current",
+      "variants": {
+        "current": ["{version}", "{runLabel}", "current"],
+        "new": ["{version}", "{runLabel}", "new"],
+        "safe": ["{version}", "{runLabel}", "safe"],
+        "demo": ["{version}", "{runLabel}", "demo"]
+      },
+      "resources": {"host-slot": 1}
     },
     "workspace": {
       "description": "Workspace switching and reconnect validation.",

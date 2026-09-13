@@ -1,0 +1,51 @@
+name: Distribution and build identity checks
+on:
+  push:
+    branches: [feat/distribution-builds-20260909]
+  pull_request:
+    paths: ['distribution/**', 'scripts/release/build-identity.py', 'scripts/release/test_build_identity.py', 'gradle/common-java.gradle.kts', '.github/workflows/release.yml', '.github/workflows/allocate-build.yml', '.github/workflows/distribution-ci.yml']
+permissions:
+  contents: read
+concurrency:
+  group: distribution-ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: '22'
+      - name: Distribution unit tests
+        if: ${{ hashFiles('distribution/test/*.test.mjs') != '' }}
+        run: node --test distribution/test/*.test.mjs
+      - name: Build identity and publisher regression tests
+        if: ${{ hashFiles('scripts/release/test_build_identity.py') != '' }}
+        run: python3 -m unittest discover -s scripts/release -p 'test*identity*.py'
+      - name: Existing publisher regression tests
+        run: python3 -m unittest discover -s scripts/test -p test_release_promotion.py
+      - name: Remote source hygiene
+        run: python3 scripts/check_remote_hygiene.py --worktree
+      - uses: actions/setup-java@d2bb5a81bf6132351ee9adcc0bba8261a8d34d48
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+      - name: Compile the Gradle identity and installer configuration
+        run: ./gradlew --no-daemon help --console=plain
+      - name: Retain exact source for independent review
+        if: always()
+        run: |
+          mkdir -p artifacts
+          git archive HEAD > artifacts/source.tar
+          git rev-parse HEAD > artifacts/commit.txt
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        if: always()
+        with:
+          name: distribution-source-and-checks
+          path: artifacts
+          retention-days: 7

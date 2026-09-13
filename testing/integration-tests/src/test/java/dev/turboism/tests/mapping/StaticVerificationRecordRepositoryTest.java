@@ -192,8 +192,8 @@ class StaticVerificationRecordRepositoryTest {
             "Live2D_Cubism.jar",
             ReviewedHostArtifacts.CUBISM_5_2_03.size(),
             ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-            "bec069bd5e126574b9203bc106beebcd511b5ae1c3a3ad4c158b03611f7f69ee",
-            621,
+            "b6ed488e17c2452eaa085e21fdab23063e93204e66843882925eae63dda9634c",
+            622,
             EditorModelVerificationManifest.cubism52Aliases(),
             EditorModelVerificationManifest.cubism52Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.2.03-editor-model.json"),
@@ -215,7 +215,7 @@ class StaticVerificationRecordRepositoryTest {
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().size(),
             EditorModelVerificationManifest.RECORD_5_3_02.artifact().sha256(),
             EditorModelVerificationManifest.RECORD_5_3_02.recordSha256(),
-            642,
+            643,
             EditorModelVerificationManifest.cubism5302Aliases(),
             EditorModelVerificationManifest.cubism5302Aliases(),
             recordMethodAliases("compatibility/cubism/verification/cubism-5.3.02-editor-model.json"),
@@ -318,7 +318,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-clipmask" ->
                 "c17a6596497b148fb71e9d9074b97d2967a9697d38e7222848f154e44fb5a597";
             case "cubism-5.3.03-editor-model" ->
-                "7e03714a07e27400c86e5a39e45bfdc5d00612030a1819ad547ab239bdea5665";
+                "4e92ece4cb18cf4d780ae972e221c35f6ad911c3c922e8dbf2d012fcc7c3067b";
             case "cubism-5.3.03-performance-render-scene" ->
                 "045979891bc7512e0f2a89c0972e34fa6b7cb8ae1515086ae1307b5bb5413feb";
             case "cubism-5.3.03-project-workspace" ->
@@ -332,7 +332,7 @@ class StaticVerificationRecordRepositoryTest {
             case "cubism-5.3.03-ui-main-toolbar" ->
                 "3c3beb4f6574558b735c56d2c08dc07c9b7052c7406cb2fe77d7acd66a6c7d07";
             case "cubism-5.3.03-ui-status-bar" ->
-                "7ac88d2e842e85636a2bb3aabc137fa2fd2312a76f442c9de24d6ba48ac54ec7";
+                "c16a15c3d44c7c1d904f80429021b2915a8ea4a8af0dfc907bfe21c1756ec575";
             case "cubism-5.3.03-ui-top-menu" ->
                 "14738c81260f4ac6f5c56c391ced3e923bca0176af7b7a9dfda0c64f4b26973b";
             case "cubism-5.3.03-workspace-control" ->
@@ -712,8 +712,8 @@ class StaticVerificationRecordRepositoryTest {
                 "Live2D_Cubism.jar",
                 ReviewedHostArtifacts.CUBISM_5_2_03.size(),
                 ReviewedHostArtifacts.CUBISM_5_2_03.sha256(),
-                "452e9376e407b608117972819ebabb6a93729534699e8c2f8b82271ca7f99e39",
-                21,
+                StatusBarVerificationManifest.RECORD_5_2_03.recordSha256(),
+                27,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
@@ -737,7 +737,7 @@ class StaticVerificationRecordRepositoryTest {
                 StatusBarVerificationManifest.RECORD_5_3_02.artifact().size(),
                 StatusBarVerificationManifest.RECORD_5_3_02.artifact().sha256(),
                 StatusBarVerificationManifest.RECORD_5_3_02.recordSha256(),
-                21,
+                27,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 StatusBarVerificationManifest.REQUIRED_ALIASES,
                 statusBarMethodAliases(),
@@ -756,6 +756,10 @@ class StaticVerificationRecordRepositoryTest {
         return Set.of(
             "cubism.ui-status-bar.app-controller.instance",
             "cubism.ui-status-bar.app-controller.main-frame",
+            "cubism.ui-canvas-hint.app-controller.current-view-context",
+            "cubism.ui-canvas-hint.view-context.show-hint",
+            "cubism.ui-canvas-hint.view-context.show-hint-with-action",
+            "cubism.ui-canvas-hint.position.create",
             "cubism.ui-status-bar.main-frame-controller.frame",
             "cubism.ui-status-bar.frame.content-pane",
             "cubism.ui-status-bar.widget.set-name",

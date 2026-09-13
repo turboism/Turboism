@@ -108,7 +108,7 @@ for module in modules:
         except KeyError:
             sys.exit(f"error: {jar}: missing META-INF/turboism/plugin.json")
         localized = {}
-        for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja")):
+        for locale, suffix in (("eng", "en"), ("chn", "zh_Hans"), ("jpn", "ja"), ("kor", "ko")):
             resource = f"META-INF/turboism/i18n/messages_{suffix}.properties"
             try:
                 text = z.read(resource).decode("utf-8")
@@ -155,6 +155,7 @@ core_payload.extend([
     ("README.txt", stage / "README.txt"),
     ("README.zh.txt", stage / "README.zh.txt"),
     ("README.ja.txt", stage / "README.ja.txt"),
+    ("README.ko.txt", stage / "README.ko.txt"),
     ("LICENSE", stage / "LICENSE.txt"),
     ("EULA.en.txt", stage / "EULA.en.txt"),
     ("EULA.zh-Hans.txt", stage / "EULA.zh-Hans.txt"),
@@ -245,10 +246,10 @@ lines.append("")
 def sanitize(s: str) -> str:
     return re.sub(r"[^A-Za-z0-9_]", "_", s)
 
-# 可见插件 Section：三语言显示名/描述均来自插件自身 i18n 资源。
+# 可见插件 Section：四语言显示名/描述均来自插件自身 i18n 资源。
 for p in plugins:
     key = sanitize(p["id"])
-    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE")):
+    for locale, nsis_lang in (("eng", "LANG_ENGLISH"), ("chn", "LANG_SIMPCHINESE"), ("jpn", "LANG_JAPANESE"), ("kor", "LANG_KOREAN")):
         title = p["localized"][locale]["name"] + (" " + p["version"] if p["version"] else "")
         description = p["localized"][locale]["description"]
         lines.append(f'LangString PLUGIN_NAME_{key} ${{{nsis_lang}}} "{nsis_escape(title)}"')
@@ -359,11 +360,23 @@ PYEOF
 
 zip_dir "$stage" "$dist/turboism-$VER-full.zip" 0
 zip_dir "$stage" "$dist/turboism-$VER-lite.zip" 1
+
+# ---------- 4.5 SDK 开发构件 ----------
+# 独立的插件开发构件：与发行载荷内 graal/lib 的 sdk jar 同源同字节，
+# 以稳定文件名挂到 GitHub Release，供外部插件工程直接消费。
+mapfile -t sdk_jars < <(find "$stage/graal/lib" -maxdepth 1 -type f -name 'sdk-*.jar' | LC_ALL=C sort)
+if [[ ${#sdk_jars[@]} -ne 1 || "$(basename "${sdk_jars[0]}")" != "sdk-$VER.jar" ]]; then
+  echo "error: expected exactly one staged SDK JAR named sdk-$VER.jar under $stage/graal/lib" >&2
+  exit 1
+fi
+cp "${sdk_jars[0]}" "$dist/turboism-sdk-$VER.jar"
+
 # sidecar 只记录同目录文件名，下载后可直接在附件目录执行 `sha256sum -c *.sha256`。
 (
   cd "$dist"
   sha256sum "turboism-$VER-lite.zip" > "turboism-$VER-lite.zip.sha256"
   sha256sum "turboism-$VER-full.zip" > "turboism-$VER-full.zip.sha256"
+  sha256sum "turboism-sdk-$VER.jar" > "turboism-sdk-$VER.jar.sha256"
 )
 
 # ---------- 5. NSIS 安装器 ----------
@@ -385,14 +398,13 @@ else
   ver_numeric=""
   if [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(\.([0-9]+))?$ ]]; then
     ver_numeric="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.${BASH_REMATCH[5]:-0}"
+  elif [[ "$VER" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)-(0\.nightly\.[1-9][0-9]*|(alpha|beta|rc)\.(0|[1-9][0-9]*))$ ]]; then
+    # Windows resources have only four 16-bit components; the complete build
+    # identity remains in the string version and payload JARs, not a lossy counter.
+    ver_numeric="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}.0"
   else
-    ver_numeric="$(printf '%s' "$VER" | sed -E 's/[^0-9]+/./g; s/^\.+//; s/\.+$//')"
-    parts=(${ver_numeric//./ })
-    if [[ ${#parts[@]} -lt 3 ]]; then
-      ver_numeric=""
-    else
-      while [[ ${#parts[@]} -lt 4 ]]; do ver_numeric="$ver_numeric.0"; parts+=("0"); done
-    fi
+    echo "error: unsupported installer version: $VER" >&2
+    exit 1
   fi
   nsis_args=(
     -WX
