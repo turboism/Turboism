@@ -10,6 +10,11 @@ public final class AtlasAdmitDigests {
     private AtlasAdmitDigests() {
     }
 
+    /**
+     * Parses a comma-separated list of lowercase 64-hex class digests. Entries are trimmed,
+     * lowercased, and dropped when malformed; parsing stops once {@code maxEntries} valid
+     * digests have been collected so a runaway property cannot widen admission.
+     */
     public static java.util.Set<String> parse(final String raw, final int maxEntries) {
         final java.util.Set<String> parsed = new java.util.LinkedHashSet<>();
         if (raw == null) return parsed;
