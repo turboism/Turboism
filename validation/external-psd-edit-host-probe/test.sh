@@ -17,7 +17,8 @@ import pathlib, sys, zipfile, json
 expected = {
     'turboism.cubism.model.read', 'turboism.cubism.model.write',
     'turboism.file.read', 'turboism.file.write', 'turboism.process.run',
-    'turboism.cubism.model.observe', 'turboism.ui.file-chooser.request'}
+    'turboism.cubism.model.observe', 'turboism.event.subscribe',
+    'turboism.ui.file-chooser.request'}
 with zipfile.ZipFile('build/external-psd-edit-host-probe.jar') as archive:
     metadata = json.loads(archive.read('META-INF/turboism/plugin.json'))
     assert {p['id'] for p in metadata['permissions']} == expected

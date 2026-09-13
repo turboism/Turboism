@@ -54,7 +54,7 @@ exec bash "$root/scripts/preview/run-cubism-host-validation.sh" \
   "${plugins[@]}" \
   "${fixture[@]}" \
   --fixture-name external-psd-edit-025.cmo3 \
-  --remote-pre-launch "$root/validation/external-psd-edit-host-probe/pre-launch-psd-association.sh" \
+  --remote-pre-launch "$root/scripts/preview/external-psd-edit-psd-association-pre-launch.sh" \
   "${options[@]}" \
   --failure-marker 'EXTERNAL_PSD_EDIT_RESULT status=BLOCKED' \
   --result-file state/dev.turboism.validation.externalpsd/external-psd-edit-result.properties \
