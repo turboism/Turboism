@@ -165,7 +165,7 @@ public final class AtlasCacheReuseDelegate {
                 return report(atlas, "miss:first-build installed="
                     + shortDigest(installedDigest));
             }
-            if (output.digest.equals(installedDigest)) {
+            if (output.digest != null && output.digest.equals(installedDigest)) {
                 return report(atlas, "reuse:content");
             }
             if (output.image != null && supply(host, atlas, output.image)) {
@@ -328,7 +328,9 @@ public final class AtlasCacheReuseDelegate {
 
     /**
      * The complete draw-input signature, or {@code null} when any part cannot be read —
-     * the caller then rebuilds, which is always safe.
+     * the caller then rebuilds, which is always safe. An unreadable part must never
+     * degenerate into a comparable placeholder: two unknown contents are not equal
+     * contents, so any uncomputable component discards the whole signature.
      */
     private static Object signature(final HostAccess host, final Object atlas,
                                     final boolean privatePath) throws Exception {
@@ -339,41 +341,47 @@ public final class AtlasCacheReuseDelegate {
         final Object entries = host.modelImages.get(atlas);
         if (!(entries instanceof Iterable<?> list)) return null;
         for (final Object entry : list) {
-            if (entry == null) {
-                sig.add("entry:null");
-                continue;
-            }
+            if (entry == null) return null;
             final List<Object> term = new ArrayList<>(4);
             final Object guid = host.entryGuid.invoke(entry);
             term.add(guid == null
                 ? "guid:null"
                 : String.valueOf(host.guidUuid.invoke(guid)));
             final Object affine = host.entryTransform.invoke(entry);
-            term.add(affine == null ? "tx:null" : matrixKey(host, affine));
+            final Object transform = affine == null ? null : matrixKey(host, affine);
+            if (transform == null) return null;
+            term.add(transform);
             final Object modelImage = host.entryModelImage.invoke(entry);
-            term.add(modelImage == null ? "mi:null" : modelImageTerm(host, modelImage));
+            if (modelImage == null) {
+                term.add("mi:null");
+            } else {
+                final Object imageTerm = modelImageTerm(host, modelImage);
+                if (imageTerm == null) return null;
+                term.add(imageTerm);
+            }
             sig.add(term);
         }
         return sig;
     }
 
+    /**
+     * The content term for one resolved model image, or {@code null} when its filtered
+     * pixels cannot be read or hashed within budget — the signature then cannot prove
+     * what would be drawn and must be discarded.
+     */
     private static Object modelImageTerm(final HostAccess host, final Object modelImage)
             throws Exception {
-        final List<Object> term = new ArrayList<>(3);
-        term.add(host.miVersion.invoke(modelImage));
         final Object resource = host.miFiltered.invoke(modelImage);
-        if (resource == null) {
-            term.add("img:null");
-            return term;
-        }
+        if (resource == null) return null;
         final BufferedImage pixels = bufferedImage(host, resource);
-        if (pixels == null) {
-            term.add("img:unreadable");
-            return term;
-        }
+        if (pixels == null) return null;
+        final String digest = pixelDigest(pixels);
+        if (digest == null) return null;
+        final List<Object> term = new ArrayList<>(4);
+        term.add(host.miVersion.invoke(modelImage));
         term.add(pixels.getWidth());
         term.add(pixels.getHeight());
-        term.add(pixelDigest(pixels));
+        term.add(digest);
         return term;
     }
 
@@ -385,11 +393,11 @@ public final class AtlasCacheReuseDelegate {
         return image instanceof BufferedImage buffered ? buffered : null;
     }
 
-    /** Canonical float[6] key — bit-exact compare, no tolerance. */
+    /** Canonical float[6] key — bit-exact compare, no tolerance; null if unreadable. */
     private static Object matrixKey(final HostAccess host, final Object affine)
             throws Exception {
         final Object matrix = host.affineMatrix.invoke(affine);
-        if (!(matrix instanceof float[] m) || m.length != 6) return "tx:bad";
+        if (!(matrix instanceof float[] m) || m.length != 6) return null;
         final StringBuilder key = new StringBuilder(6 * 9);
         for (final float v : m) {
             key.append(Integer.toHexString(Float.floatToIntBits(v))).append(',');
@@ -397,10 +405,14 @@ public final class AtlasCacheReuseDelegate {
         return key.toString();
     }
 
-    /** SHA-256 over the image's ARGB int raster; DataBufferInt fast path when available. */
+    /**
+     * SHA-256 over the image's ARGB int raster; DataBufferInt fast path when available.
+     * Returns {@code null} for a degenerate or over-budget pixel count: the digest is
+     * then uncomputable and must never act as a comparable cache key.
+     */
     private static String pixelDigest(final BufferedImage image) {
         final long pixels = (long) image.getWidth() * image.getHeight();
-        if (pixels <= 0 || pixels > MAX_PIXELS) return "img:" + pixels;
+        if (pixels <= 0 || pixels > MAX_PIXELS) return null;
         final MessageDigest sha = sha256();
         final DataBuffer buffer = image.getRaster().getDataBuffer();
         if (buffer instanceof DataBufferInt ints
@@ -539,7 +551,9 @@ public final class AtlasCacheReuseDelegate {
     /**
      * One recorded build output: the produced pixels' digest plus the produced
      * {@code CWritableImage} while retained. {@code image} is nulled on byte-budget
-     * eviction; the digest then still serves content-verified reuse.
+     * eviction; the digest then still serves content-verified reuse. A null digest
+     * means the produced image itself was uncomputable — it can then only be
+     * {@code reuse:supplied} to a signature-matched instance, never content-verified.
      */
     private static final class Output {
         private final String digest;
