@@ -1,5 +1,7 @@
 package dev.turboism.ui.appearance.control;
 
+import dev.turboism.core.reflect.MethodHandleCache;
+
 import java.awt.Component;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -235,13 +237,13 @@ public final class NativeParameterAppearanceBridge {
     }
 
     private static Object invoke(final Object target, final String methodName) throws ReflectiveOperationException {
-        final Method method = target.getClass().getMethod(methodName);
+        final Method method = MethodHandleCache.method(target.getClass(), methodName);
         if (!method.canAccess(target) && !method.trySetAccessible()) return null;
         return method.invoke(target);
     }
 
     private static Object field(final Object target, final String fieldName) throws ReflectiveOperationException {
-        final Field field = target.getClass().getDeclaredField(fieldName);
+        final Field field = MethodHandleCache.declaredField(target.getClass(), fieldName);
         if (!field.canAccess(target) && !field.trySetAccessible()) return null;
         return field.get(target);
     }

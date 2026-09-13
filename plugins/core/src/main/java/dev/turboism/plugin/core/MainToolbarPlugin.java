@@ -87,6 +87,22 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         context.disposableScope().register(context.uiHost().contributeSettings(
             CubismJvmSettingsContribution.create(localization(context), services.cubismJvmSettings())
         ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createBackupDisable(
+                localization(context),
+                services.cubismJvmSettings(),
+                this::applyAutoBackupPreference
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createZgcToggle(
+                localization(context),
+                services.cubismJvmSettings()
+            )
+        ));
+        context.disposableScope().register(context.uiHost().contributeSettings(
+            CubismJvmSettingsContribution.createPerformanceNote(localization(context))
+        ));
         registerUpdateFeatures();
         registerPluginActions();
         registerPanelTabActions();
@@ -102,7 +118,97 @@ public final class MainToolbarPlugin implements TurboismPlugin {
         if (services.update().available()) services.update().start();
         logger.info("Turboism main toolbar icon mode selected: "
             + (settings.useTextIcon() ? "text" : "installer"));
+        applyAutoBackupPreference(services.cubismJvmSettings().reduceAutoBackup());
         logger.info("Turboism core enabled");
+    }
+
+    /**
+     * Applies the opt-in auto-backup reduction through the verified
+     * updateSettings path. ON captures the observed host settings into a
+     * plugin-state baseline first, then disables the periodic timer while
+     * keeping the user's interval/cap; OFF restores that baseline so a crash
+     * while ON cannot strand backups disabled. Fail-soft: the backup service
+     * may be unavailable early or the host may reject — a warning is enough.
+     */
+    private void applyAutoBackupPreference(final boolean reduce) {
+        try {
+            final dev.turboism.sdk.cubism.backup.EditorAutoBackupService backup = context.backup();
+            final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings current = backup.settings();
+            if (reduce) {
+                if (saveBackupBaseline(current)) {
+                    backup.updateSettings(new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(
+                        false,
+                        clamp(current.intervalMinutes(),
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_INTERVAL_MINUTES,
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_INTERVAL_MINUTES),
+                        clamp(current.maxMB(),
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
+                        current.backupDir()));
+                    logger.info("auto-backup reduced for this session (opt-in)");
+                }
+            } else {
+                final java.util.Properties baseline = readBackupBaseline();
+                if (baseline != null) {
+                    backup.updateSettings(new dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings(
+                        Boolean.parseBoolean(baseline.getProperty("enabled", "true")),
+                        clamp(Integer.parseInt(baseline.getProperty("intervalMinutes", "5")),
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_INTERVAL_MINUTES,
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_INTERVAL_MINUTES),
+                        clamp(Integer.parseInt(baseline.getProperty("maxMB", "50")),
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MIN_MAX_MB,
+                            dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings.MAX_MAX_MB),
+                        baseline.getProperty("backupDir")
+                    ));
+                    java.nio.file.Files.deleteIfExists(baselineFile());
+                    logger.info("auto-backup baseline restored");
+                }
+            }
+        } catch (Exception failure) {
+            logger.warn("auto-backup preference apply failed: " + failure);
+        }
+    }
+
+    private java.nio.file.Path baselineFile() {
+        return context.paths().stateDir().resolve("auto-backup-baseline.properties");
+    }
+
+    private static int clamp(final int value, final int min, final int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    /** Writes the baseline only when absent — a crashed session's baseline must survive. */
+    private boolean saveBackupBaseline(
+        final dev.turboism.sdk.cubism.backup.EditorAutoBackupSettings current
+    ) throws java.io.IOException {
+        final java.nio.file.Path file = baselineFile();
+        if (java.nio.file.Files.exists(file)) {
+            return true;
+        }
+        final java.util.Properties props = new java.util.Properties();
+        props.setProperty("enabled", Boolean.toString(current.enabled()));
+        props.setProperty("intervalMinutes", Integer.toString(current.intervalMinutes()));
+        props.setProperty("maxMB", Integer.toString(current.maxMB()));
+        if (current.backupDir() != null) {
+            props.setProperty("backupDir", current.backupDir());
+        }
+        java.nio.file.Files.createDirectories(file.getParent());
+        try (java.io.OutputStream out = java.nio.file.Files.newOutputStream(file)) {
+            props.store(out, "host auto-backup settings before Turboism opt-in reduction");
+        }
+        return true;
+    }
+
+    private java.util.Properties readBackupBaseline() throws java.io.IOException {
+        final java.nio.file.Path file = baselineFile();
+        if (!java.nio.file.Files.exists(file)) {
+            return null;
+        }
+        final java.util.Properties props = new java.util.Properties();
+        try (java.io.InputStream in = java.nio.file.Files.newInputStream(file)) {
+            props.load(in);
+        }
+        return props;
     }
 
     @Override public void disable() { logger.warn("Turboism core disable was ignored by runtime policy"); }

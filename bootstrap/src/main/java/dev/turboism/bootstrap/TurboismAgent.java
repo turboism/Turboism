@@ -74,6 +74,14 @@ public final class TurboismAgent {
         new AtomicReference<>();
     private static final AtomicReference<PerformanceFpsHook> FPS_HOOK =
         new AtomicReference<>();
+    private static final AtomicReference<VerifiedImageArchiveReuseInstaller> IMAGE_ARCHIVE_REUSE =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedFloatArrayParseCacheInstaller> FLOAT_ARRAY_PARSE_CACHE =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedTextureUploadPreparationInstaller> TEXTURE_UPLOAD_PREPARATION =
+        new AtomicReference<>();
+    private static final AtomicReference<VerifiedWarpPositionProjectionInstaller> WARP_POSITION_PROJECTION =
+        new AtomicReference<>();
 
     @FunctionalInterface
     interface ShutdownHookRegistrar {
@@ -315,6 +323,12 @@ public final class TurboismAgent {
                 )
                 : null;
             final VerifiedMeshMirrorHookInstaller meshMirrorHook = MESH_MIRROR_HOOK.get();
+            // Runtime startup can already open/decode the initial document. Capture
+            // native decode provenance before that, but only after exact admission.
+            if (fullRuntimeAdmission) installImageArchiveReuse(options, instrumentation, host);
+            if (fullRuntimeAdmission) installFloatArrayParseCache(options, instrumentation, host);
+            if (fullRuntimeAdmission) installTextureUploadPreparation(options, instrumentation, host);
+            if (fullRuntimeAdmission) installWarpPositionProjection(options, instrumentation, host);
             final PreviewRuntime runtime;
             try {
                 runtime = startPreviewRuntime(meshMirrorHook, () -> PreviewRuntime.start(
@@ -335,6 +349,10 @@ public final class TurboismAgent {
                 ));
             } catch (Throwable failure) {
                 closeMeshMirrorHookIfCurrent(meshMirrorHook);
+                closeImageArchiveReuse();
+                closeFloatArrayParseCache();
+                closeTextureUploadPreparation();
+                closeWarpPositionProjection();
                 throw failure;
             }
             if (!RUNTIME.compareAndSet(null, runtime)) {
@@ -355,6 +373,19 @@ public final class TurboismAgent {
                 installTextureAtlasAutoLayoutHook(runtime, instrumentation, host);
             }
             if (fullRuntimeAdmission) {
+                // Republish admission after the runtime logger is available; never install twice.
+                if (IMAGE_ARCHIVE_REUSE.get() != null) {
+                    runtimeInfo("TURBOISM_IMAGE_ARCHIVE_REUSE installation=COMPLETE phase=runtime-ready");
+                }
+                if (FLOAT_ARRAY_PARSE_CACHE.get() != null) {
+                    runtimeInfo("TURBOISM_FLOAT_ARRAY_PARSE_CACHE installation=COMPLETE phase=runtime-ready");
+                }
+                if (TEXTURE_UPLOAD_PREPARATION.get() != null) {
+                    runtimeInfo("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=COMPLETE phase=runtime-ready");
+                }
+                if (WARP_POSITION_PROJECTION.get() != null) {
+                    runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE phase=runtime-ready");
+                }
                 installPerformanceProbe(options, instrumentation, host);
                 installDockTabPopupHook(
                     embeddedPanelVerificationRecord,
@@ -407,6 +438,135 @@ public final class TurboismAgent {
                 runtime.error("bootstrap", "Turboism bootstrap failed safely", failure);
             }
 
+        }
+    }
+
+    private static void installImageArchiveReuse(
+        final AgentOptions options,
+        final Instrumentation instrumentation,
+        final HostClassLocator.LocatedHost host
+    ) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.image
+            .ImageArchiveReuseBridge.ENABLE_PROPERTY)) return;
+        VerifiedImageArchiveReuseInstaller installer = null;
+        try {
+            if (!VerifiedImageArchiveReuseInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true)) {
+                runtimeInfo("TURBOISM_IMAGE_ARCHIVE_REUSE installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedImageArchiveReuseInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!IMAGE_ARCHIVE_REUSE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_IMAGE_ARCHIVE_REUSE installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_IMAGE_ARCHIVE_REUSE installation=FAILED " + failure.getClass().getName());
+        }
+    }
+
+    private static void installFloatArrayParseCache(AgentOptions options, Instrumentation instrumentation,
+                                                   HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.serialization
+            .FloatArrayParseBridge.ENABLE_PROPERTY)) return;
+        VerifiedFloatArrayParseCacheInstaller installer = null;
+        try {
+            if (!VerifiedFloatArrayParseCacheInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true)) {
+                runtimeInfo("TURBOISM_FLOAT_ARRAY_PARSE_CACHE installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedFloatArrayParseCacheInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!FLOAT_ARRAY_PARSE_CACHE.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_FLOAT_ARRAY_PARSE_CACHE installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_FLOAT_ARRAY_PARSE_CACHE installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void installTextureUploadPreparation(AgentOptions options, Instrumentation instrumentation,
+                                                        HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.image
+            .TextureUploadPreparationBridge.ENABLE_PROPERTY)) return;
+        VerifiedTextureUploadPreparationInstaller installer = null;
+        try {
+            if (!VerifiedTextureUploadPreparationInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedTextureUploadPreparationInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!TEXTURE_UPLOAD_PREPARATION.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_TEXTURE_UPLOAD_PREPARATION installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void installWarpPositionProjection(AgentOptions options, Instrumentation instrumentation,
+                                                       HostClassLocator.LocatedHost host) {
+        if (!Boolean.getBoolean(dev.turboism.adapter.cubism.optimization.geometry.WarpPositionProjectionBridge.ENABLE_PROPERTY)) return;
+        VerifiedWarpPositionProjectionInstaller installer = null;
+        try {
+            if (!VerifiedWarpPositionProjectionInstaller.admitted(HostArtifactDigest.from(host.artifact()),
+                NativeOptimizationPolicy.load(options.home()), true, Runtime.version().feature())) {
+                runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=NOT_ADMITTED");
+                return;
+            }
+            installer = new VerifiedWarpPositionProjectionInstaller(instrumentation, host.artifact(), host.classLoader());
+            installer.install();
+            if (!WARP_POSITION_PROJECTION.compareAndSet(null, installer)) installer.close();
+            else runtimeInfo("TURBOISM_WARP_POSITION_PROJECTION installation=COMPLETE");
+        } catch (Throwable failure) {
+            if (installer != null) {
+                try { installer.close(); } catch (Throwable cleanup) { failure.addSuppressed(cleanup); }
+            }
+            runtimeWarn("TURBOISM_WARP_POSITION_PROJECTION installation=FAILED " + failure.getClass().getName()
+                + ": " + failure.getMessage());
+        }
+    }
+
+    private static void closeWarpPositionProjection() {
+        VerifiedWarpPositionProjectionInstaller installation = WARP_POSITION_PROJECTION.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism warp position projection cleanup failed safely"); }
+        }
+    }
+
+    private static void closeTextureUploadPreparation() {
+        VerifiedTextureUploadPreparationInstaller installation = TEXTURE_UPLOAD_PREPARATION.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism texture upload preparation cleanup failed safely"); }
+        }
+    }
+
+    private static void closeFloatArrayParseCache() {
+        VerifiedFloatArrayParseCacheInstaller installation = FLOAT_ARRAY_PARSE_CACHE.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism float array parse cache cleanup failed safely"); }
+        }
+    }
+
+    private static void closeImageArchiveReuse() {
+        final VerifiedImageArchiveReuseInstaller installation = IMAGE_ARCHIVE_REUSE.getAndSet(null);
+        if (installation != null) {
+            try { installation.close(); }
+            catch (Throwable failure) { runtimeWarn("Turboism image archive reuse cleanup failed safely"); }
         }
     }
 
@@ -734,7 +894,8 @@ public final class TurboismAgent {
                 instrumentation,
                 host.artifact(),
                 host.classLoader(),
-                options.home().resolve("lib/performance-probe-carrier.jar")
+                options.home().resolve("lib/performance-probe-carrier.jar"),
+                options.performanceProbeScenario()
             );
             installer.install(
                 options.performanceProbeCapture(),
@@ -1217,6 +1378,10 @@ public final class TurboismAgent {
             }
         }
 
+        closeImageArchiveReuse();
+        closeFloatArrayParseCache();
+        closeTextureUploadPreparation();
+        closeWarpPositionProjection();
         final PerformanceFpsHook fpsHook = FPS_HOOK.getAndSet(null);
         if (fpsHook != null) {
             try {

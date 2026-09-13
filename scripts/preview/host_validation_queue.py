@@ -21,6 +21,7 @@ import uuid
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import multiprocessing
 import select
@@ -463,6 +464,43 @@ def copy_verified(source: Path, destination: Path) -> None:
                 os.fsync(stream.fileno())
 
 
+def memory_observer_dependency(argv: list[str], source_root: Path, task_spec: str) -> dict[str, str] | None:
+    """One reviewed closure, not a general custom-hook registration mechanism."""
+    options: dict[str, list[str]] = {}
+    index = 0
+    while index < len(argv):
+        flag = argv[index]
+        if flag in BOOLEAN_FLAGS:
+            options.setdefault(flag, []).append("")
+            index += 1
+        elif flag in INPUT_FLAGS | COMPOSITE_FLAGS | VALUE_FLAGS and index + 1 < len(argv):
+            options.setdefault(flag, []).append(argv[index + 1])
+            index += 2
+        else:
+            raise QueueError(f"unsupported normalized runner option: {flag}")
+    hook = str(source_root / "scripts/test/start-task-memory-observer.sh")
+    if hook not in options.get("--remote-pre-launch", []):
+        return None
+    required = {"--remote-pre-launch": [hook], "--name": ["native-resource"],
+                "--version": ["5302"], "--remote-pre-launch-background": [""]}
+    if task_spec != "native-resource:5302" or any(options.get(key) != value for key, value in required.items()):
+        raise QueueError("memory observer requires its reviewed task/background protocol")
+    if any(key in options for key in ("--remote-pre-launch-args-only", "--remote-post-launch",
+                                      "--remote-pre-cleanup", "--client-script", "--home-dir")):
+        raise QueueError("memory observer closure cannot include extra hooks or shadow directories")
+    helpers = ("measure-task-memory.py", "host_memory_identity.py", "host_resource_counters.py")
+    expected = {str(source_root / "scripts/test" / name) + ":validation/" + name for name in helpers}
+    supplied = options.get("--home-file", [])
+    if len(supplied) != len(expected) or set(supplied) != expected:
+        raise QueueError("memory observer requires exact unshadowed helper dependency inventory")
+    interpreter = Path(sys.executable).resolve(strict=True)
+    if (options.get("--remote-pre-launch-arg") != [str(interpreter)]
+            or not interpreter.is_file() or not os.access(interpreter, os.X_OK)):
+        raise QueueError("memory observer requires the preparing Python interpreter")
+    return {"option": "memory-observer-python", "path": str(interpreter),
+            "sha256": runtime_digest(interpreter)}
+
+
 class PreparedStore:
     def __init__(self, store: Store):
         self.store = store
@@ -478,6 +516,7 @@ class PreparedStore:
         if request.get("environment", {}) != {}:
             raise QueueError("normalized runner must express all configuration as argv")
         source_root = source_root.resolve(strict=True)
+        memory_dependency = memory_observer_dependency(argv, source_root, task_spec)
         with tempfile.TemporaryDirectory(dir=self.store.root / "staging") as temporary:
             stage = Path(temporary)
             tool_dir = stage / "tool/scripts/preview"
@@ -492,7 +531,7 @@ class PreparedStore:
                     raise QueueError(f"missing canonical runner/helper: {required}")
             rendered: list[str] = []
             source_inputs: list[dict[str, Any]] = []
-            host_dependencies: list[dict[str, str]] = []
+            host_dependencies: list[dict[str, str]] = [memory_dependency] if memory_dependency else []
             index = 0
             while index < len(argv):
                 flag = argv[index]
@@ -527,14 +566,22 @@ class PreparedStore:
                     # Only enumerated hooks have a reviewed dependency closure.
                     # A script's location in scripts/preview is not an approval.
                     if flag in {"--remote-pre-launch", "--remote-post-launch", "--remote-pre-cleanup"}:
-                        reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
-                                    if flag == "--remote-pre-launch"
-                                    and source.parent == source_root / "scripts/preview" else None)
-                        if reviewed is None:
-                            raise QueueError("custom hook requires reviewed dependency inventory")
-                        required_flags, description = reviewed
-                        if not required_flags.issubset(argv):
-                            raise QueueError(description)
+                        # The memory observer's full closure is checked by
+                        # memory_dependency() before any snapshot is created.
+                        memory_hook = (
+                            flag == "--remote-pre-launch"
+                            and memory_dependency is not None
+                            and source == source_root / "scripts/test/start-task-memory-observer.sh"
+                        )
+                        if not memory_hook:
+                            reviewed = (REVIEWED_PRE_LAUNCH_HOOKS.get(source.name)
+                                        if flag == "--remote-pre-launch"
+                                        and source.parent == source_root / "scripts/preview" else None)
+                            if reviewed is None:
+                                raise QueueError("custom hook requires reviewed dependency inventory")
+                            required_flags, description = reviewed
+                            if not required_flags.issubset(argv):
+                                raise QueueError(description)
                     relative = Path("inputs") / str(len(source_inputs)) / source.name
                     copy_verified(source, stage / relative)
                     source_inputs.append({"source": str(source), "path": relative.as_posix(),

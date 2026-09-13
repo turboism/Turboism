@@ -196,6 +196,36 @@ class DeclarativeSettingsRendererTest {
         );
     }
 
+    @Test
+    void noteRendersAsDisabledSmallCaptionWithNothingToSave() throws Exception {
+        final CoreWindows windows = new CoreWindows(
+            localization(), settings(), List::of, plugins(), RuntimeLogReader.unavailable()
+        );
+        final JPanel panel = new JPanel(new GridBagLayout());
+        final SettingsControl.Note control = new SettingsControl.Note(
+            "performance-restart-note",
+            "All performance adjustments take effect after restarting the editor"
+        );
+        final Method render = CoreWindows.class.getDeclaredMethod(
+            "renderControl", JDialog.class, JPanel.class, int.class, SettingsControl.class
+        );
+        render.setAccessible(true);
+
+        final java.util.function.BooleanSupplier saver =
+            (java.util.function.BooleanSupplier) render.invoke(windows, null, panel, 0, control);
+
+        final javax.swing.JLabel caption = java.util.Arrays.stream(panel.getComponents())
+            .filter(javax.swing.JLabel.class::isInstance)
+            .map(javax.swing.JLabel.class::cast)
+            .filter(label -> control.label().equals(label.getText()))
+            .findFirst()
+            .orElseThrow();
+        assertEquals(control.label(), caption.getText());
+        assertTrue(!caption.isEnabled());
+        assertTrue(caption.getFont().getSize2D() < new javax.swing.JLabel().getFont().getSize2D());
+        assertTrue(saver.getAsBoolean());
+    }
+
     private static SettingsSnapshot.Tab tab(
         final String id,
         final String title,

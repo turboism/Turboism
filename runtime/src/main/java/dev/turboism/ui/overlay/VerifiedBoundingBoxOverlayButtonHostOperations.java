@@ -10,7 +10,9 @@ import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.IOException;
 import java.net.URL;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
@@ -30,6 +32,13 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     implements BoundingBoxOverlayButtonHostOperations {
 
     private static final int MAX_CUSTOM_BUTTONS = 8;
+    /**
+     * Bound on cached per-overlay entries: overlays are per-view host objects (expected count
+     * ~1); this cap keeps the table bounded under pathological overlay churn. The eldest
+     * inserted key is evicted first and its buttons are detached through its last observed
+     * scene; a live evicted overlay simply rebuilds its buttons on its next update.
+     */
+    private static final int MAX_CACHED_OVERLAYS = 16;
     private static final Object[] EMPTY_BUTTONS = new Object[0];
 
     private static final String BUTTON_CREATE = "cubism.ui-bounding-box-overlay.button.create";
@@ -50,6 +59,8 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
     private final VerifiedMemberResolver resolver;
     private final EditorUiPluginResourceRegistry resources;
     private final Map<Object, CachedButtons> buttonsByOverlay = new IdentityHashMap<>();
+    /** FIFO of live {@link #buttonsByOverlay} keys; guarded by the same monitor. */
+    private final Deque<Object> overlayOrder = new ArrayDeque<>();
     private volatile List<BoundingBoxOverlayButtonDescriptor> descriptors = List.of();
 
     public VerifiedBoundingBoxOverlayButtonHostOperations(
@@ -137,15 +148,36 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
             return EMPTY_BUTTONS;
         }
         final CachedButtons cached;
+        final List<CachedButtons> evicted = new ArrayList<>();
         synchronized (buttonsByOverlay) {
             final CachedButtons existing = buttonsByOverlay.get(overlay);
             if (existing != null && existing.snapshot == current) {
                 cached = existing;
             } else {
                 cached = rebuild(existing, overlay, current, sceneGraph);
+                if (existing == null) {
+                    overlayOrder.addLast(overlay);
+                }
                 buttonsByOverlay.put(overlay, cached);
             }
             cached.scene = sceneGraph;
+            while (overlayOrder.size() > MAX_CACHED_OVERLAYS) {
+                final CachedButtons eldest = buttonsByOverlay.remove(overlayOrder.pollFirst());
+                if (eldest != null) {
+                    evicted.add(eldest);
+                }
+            }
+        }
+        // Evicted overlays lose their side-table entry; their buttons are detached through the
+        // last scene each entry observed so nothing lingers in a live host scene.
+        RuntimeException evictFailure = null;
+        for (final CachedButtons entry : evicted) {
+            for (final Object button : entry.buttons) {
+                evictFailure = append(evictFailure, detachButton(button, entry.scene));
+            }
+        }
+        if (evictFailure != null) {
+            throw evictFailure;
         }
         // The native update$setupButton helper is the sole enabler/setup/positioning path;
         // no proactive setEnabled(true) is emitted here. setEnabled(false) is reserved for
@@ -353,6 +385,7 @@ public final class VerifiedBoundingBoxOverlayButtonHostOperations
                 }
             } finally {
                 buttonsByOverlay.clear();
+                overlayOrder.clear();
             }
             return first;
         }

@@ -208,6 +208,20 @@ final class DynamicCubismModelAccess implements CubismModelAccess,
         restoreInterrupt(interrupted);
     }
 
+    /**
+     * Forwards a best-effort borrowed-model release to the connected access when it is
+     * Editor-backed; no-op otherwise. Called on successful project-file close completion.
+     */
+    void releaseUnboundBorrowedModel() {
+        final CubismModelAccess delegate;
+        synchronized (callGate) {
+            delegate = current;
+        }
+        if (delegate instanceof dev.turboism.adapter.cubism.BorrowedModelRelease release) {
+            release.releaseUnboundBorrowedModel();
+        }
+    }
+
     void deactivate() {
         final boolean interrupted;
         synchronized (callGate) {

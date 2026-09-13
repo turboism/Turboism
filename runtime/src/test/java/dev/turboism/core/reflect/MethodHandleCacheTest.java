@@ -2,6 +2,7 @@ package dev.turboism.core.reflect;
 
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -28,6 +29,8 @@ class MethodHandleCacheTest {
         public void setValue(final double value) { }
 
         private String hidden() { return "hidden"; }
+
+        private int secret = 7;
     }
 
     static final class Derived extends Base {
@@ -50,11 +53,42 @@ class MethodHandleCacheTest {
 
     @Test
     void missingPublicMethodThrowsNoSuchMethod() {
-        assertThrows(NoSuchMethodException.class,
+        final NoSuchMethodException first = assertThrows(NoSuchMethodException.class,
             () -> MethodHandleCache.method(Base.class, "doesNotExist"));
-        // repeated misses must also throw (nothing cached for failures)
-        assertThrows(NoSuchMethodException.class,
+        // permanent misses are cached: the canonical exception instance is rethrown
+        final NoSuchMethodException second = assertThrows(NoSuchMethodException.class,
             () -> MethodHandleCache.method(Base.class, "doesNotExist"));
+        assertSame(first, second, "a permanent miss must rethrow the cached exception");
+        assertEquals(first.getMessage(), second.getMessage());
+    }
+
+    @Test
+    void missingDeclaredMembersRethrowTheCachedException() {
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declared(Derived.class, "absentDeclared")),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declared(Derived.class, "absentDeclared")));
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredUp(Derived.class, "absentUp")),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredUp(Derived.class, "absentUp")));
+        assertSame(
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredByArity(Derived.class, "absentArity", 9)),
+            assertThrows(NoSuchMethodException.class,
+                () -> MethodHandleCache.declaredByArity(Derived.class, "absentArity", 9)));
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Derived.class, "absentField")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Derived.class, "absentField")));
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Derived.class, "absentFieldUp")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Derived.class, "absentFieldUp")));
     }
 
     @Test
@@ -108,6 +142,62 @@ class MethodHandleCacheTest {
         assertTrue(invoked, "one of the cached overloads must accept a boxed Float argument");
         assertFalse(MethodHandleCache.overloads(Base.class, "setValue", 1).isEmpty());
         assertTrue(MethodHandleCache.overloads(Base.class, "missing", 1).isEmpty());
+    }
+
+    @Test
+    void declaredFieldHitsAndReturnsSameHandle() throws Exception {
+        final Field first = MethodHandleCache.declaredField(Base.class, "secret");
+        final Field second = MethodHandleCache.declaredField(Base.class, "secret");
+        assertSame(first, second, "repeated lookups must return the cached Field instance");
+        assertEquals("secret", first.getName());
+        // no access policy at resolve: the caller's trySetAccessible applies to the shared handle
+        assertTrue(first.trySetAccessible());
+        assertEquals(7, first.get(new Base()));
+        // exact-class contract: superclass fields are not found through the subclass key space...
+        assertThrows(NoSuchFieldException.class,
+            () -> MethodHandleCache.declaredField(Derived.class, "secret"));
+        // ...and permanent misses rethrow the cached exception
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Base.class, "missing")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredField(Base.class, "missing")));
+    }
+
+    @Test
+    void declaredOverloadsCollectsEveryHierarchyMatchAndCachesTheList() {
+        final List<Method> first = MethodHandleCache.declaredOverloads(Derived.class, "setValue", 1);
+        // the subclass declares none, so both matches come from the superclass walk
+        assertEquals(2, first.size());
+        assertTrue(first.stream().allMatch(m ->
+            m.getName().equals("setValue") && m.getParameterCount() == 1));
+        final List<Method> second = MethodHandleCache.declaredOverloads(Derived.class, "setValue", 1);
+        assertSame(first, second, "repeated lookups must return the cached list instance");
+        // a miss resolves once and stays an immutable empty list
+        final List<Method> missing = MethodHandleCache.declaredOverloads(Base.class, "absent", 0);
+        assertTrue(missing.isEmpty());
+        assertSame(missing, MethodHandleCache.declaredOverloads(Base.class, "absent", 0));
+    }
+
+    @Test
+    void declaredFieldUpWalksTheHierarchyAndCachesTheHit() throws Exception {
+        final Field first = MethodHandleCache.declaredFieldUp(Derived.class, "secret");
+        assertEquals("secret", first.getName());
+        assertSame(first, MethodHandleCache.declaredFieldUp(Derived.class, "secret"),
+            "repeated lookups must return the cached Field instance");
+        // the Base key space resolves the same member through its own walk (distinct handle
+        // instances per key; the JDK hands out a fresh Field per resolution)
+        assertEquals(Base.class,
+            MethodHandleCache.declaredFieldUp(Base.class, "secret").getDeclaringClass());
+        // caller-side access applies to the shared handle
+        assertTrue(first.trySetAccessible());
+        assertEquals(7, first.get(new Derived()));
+        // permanent misses rethrow the cached exception
+        assertSame(
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Base.class, "missing")),
+            assertThrows(NoSuchFieldException.class,
+                () -> MethodHandleCache.declaredFieldUp(Base.class, "missing")));
     }
 
     @Test

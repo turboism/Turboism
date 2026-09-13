@@ -94,6 +94,9 @@ settings.action.failed
 settings.action.start-failed
 settings.clean-empty-docks
 settings.cubism-jvm
+settings.cubism-jvm.disable-auto-backup
+settings.cubism-jvm.zgc
+settings.performance.restart-note
 settings.cubism-jvm.bundled
 settings.cubism-jvm.graalvm
 settings.cubism-jvm.graalvm-install
