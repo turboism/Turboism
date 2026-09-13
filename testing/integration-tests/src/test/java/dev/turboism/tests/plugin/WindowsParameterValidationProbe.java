@@ -35,6 +35,7 @@ import dev.turboism.sdk.ui.appearance.NativeLabelColor;
 import dev.turboism.sdk.ui.appearance.NativeLabelColorState;
 import dev.turboism.sdk.ui.appearance.PresetColor;
 import dev.turboism.sdk.ui.appearance.UiColor;
+import dev.turboism.sdk.ui.window.TurboismWindowFactory;
 
 import javax.swing.BorderFactory;
 import javax.swing.DefaultListModel;
@@ -575,7 +576,8 @@ public final class WindowsParameterValidationProbe implements CubismPlugin {
             refresh();
             return;
         }
-        frame = new JFrame("Turboism Parameter Validation");
+        frame = TurboismWindowFactory.frame("Turboism Parameter Validation");
+        if (frame == null) throw new IllegalStateException("Swing is unavailable in a headless JVM");
         frame.setDefaultCloseOperation(WindowConstants.HIDE_ON_CLOSE);
         frame.setLayout(new BorderLayout(10, 10));
         frame.getRootPane().setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
