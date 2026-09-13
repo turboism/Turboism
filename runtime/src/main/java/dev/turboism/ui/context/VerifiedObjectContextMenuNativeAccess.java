@@ -37,17 +37,22 @@ public final class VerifiedObjectContextMenuNativeAccess
 
     private final VerifiedMemberResolver resolver;
     private final long hostGeneration;
-    private final String documentId;
+    private final java.util.function.Supplier<String> documentIdentity;
 
+    /**
+     * Creates the adapter. {@code documentIdentity} is queried once per resolved selection so a
+     * captured menu always carries the binding live at menu build time; a later action invoke can
+     * then detect a document or model switch by comparing it against the executing binding.
+     */
     public VerifiedObjectContextMenuNativeAccess(
         final VerifiedMemberResolver resolver,
         final long hostGeneration,
-        final String documentId
+        final java.util.function.Supplier<String> documentIdentity
     ) {
         this.resolver = Objects.requireNonNull(resolver, "resolver");
         if (hostGeneration <= 0) throw new IllegalArgumentException("hostGeneration must be positive");
         this.hostGeneration = hostGeneration;
-        this.documentId = requireText(documentId, "documentId");
+        this.documentIdentity = Objects.requireNonNull(documentIdentity, "documentIdentity");
     }
 
     @Override
@@ -61,7 +66,7 @@ public final class VerifiedObjectContextMenuNativeAccess
         };
         final List<ContextMenuSelection.Item> items = new ArrayList<>(selected.size());
         for (Object value : selected) items.add(item(value));
-        return new ContextMenuSelection(hostGeneration, documentId, location, items);
+        return new ContextMenuSelection(hostGeneration, documentIdentity.get(), location, items);
     }
 
     /** Builds the typed parameter selection carried by a persistent parameter-point Q context. */
@@ -74,7 +79,7 @@ public final class VerifiedObjectContextMenuNativeAccess
         }
         return new ContextMenuSelection(
             hostGeneration,
-            documentId,
+            documentIdentity.get(),
             Location.PARAMETER_TAB,
             List.of(new ContextMenuSelection.Item(ObjectKind.PARAMETER, text))
         );
@@ -265,11 +270,5 @@ public final class VerifiedObjectContextMenuNativeAccess
     private static List<?> list(final Object value, final String label) {
         if (!(value instanceof List<?> list)) throw new IllegalStateException(label + " are unavailable");
         return List.copyOf(list);
-    }
-
-    private static String requireText(final String value, final String name) {
-        Objects.requireNonNull(value, name);
-        if (value.isBlank()) throw new IllegalArgumentException(name + " must not be blank");
-        return value;
     }
 }
