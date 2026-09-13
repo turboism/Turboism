@@ -56,7 +56,7 @@ public final class ShellManifest {
         "Project License",
         Optional.of("https://turboism.dev"),
         List.of(),
-        new CoreI18n("META-INF.turboism.i18n.messages", List.of("base", "en", "ja", "zh")),
+        new CoreI18n("META-INF/turboism/i18n/messages", List.of("en", "ja", "ko", "zh-Hans", "zh-Hant")),
         List.of(),
         PERMISSIONS,
         List.of(),
