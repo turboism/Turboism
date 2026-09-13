@@ -417,11 +417,14 @@ public final class ProtectedExportHostProbeAgent {
 
             final Path exportOut = stateDir.resolve("export-out");
             Files.createDirectories(exportOut);
-            // The native destination picker runs in open/directory mode, which
-            // only approves an existing selection — and the chooser-redirect
+            // The native destination picker runs in either open/directory mode
+            // (only approves an existing selection) or save mode (wants a file
+            // name inside a writable directory). The chooser-redirect
             // transformer replaces whatever is picked with the staged output
-            // anyway, so the existing directory itself is the safe pick.
+            // anyway, so both picks stay inside the task-owned export-out.
             final File pick = exportOut.toFile();
+            final File pickFile =
+                exportOut.resolve("protected-export.moc3").toFile();
             evidence.put(prefix + "pick", pick.getAbsolutePath());
 
             final Set<Window> alreadyVisible = visibleWindows();
@@ -501,8 +504,8 @@ public final class ProtectedExportHostProbeAgent {
             evidence.put(prefix + "innerHiddenAfterConfirm",
                 Boolean.toString(!inner.isVisible()));
 
-            if (!driveToDestination(inner, pick, alreadyVisible, stateDir,
-                evidence, prefix)) {
+            if (!driveToDestination(inner, pick, pickFile, alreadyVisible,
+                stateDir, evidence, prefix)) {
                 return; // chooser drive recorded its own failure evidence
             }
             awaitPublished(exportOut, stateDir, evidence, prefix);
@@ -675,6 +678,7 @@ public final class ProtectedExportHostProbeAgent {
     private static boolean driveToDestination(
         final JDialog inner,
         final File pick,
+        final File pickFile,
         final Set<Window> alreadyVisible,
         final Path stateDir,
         final Evidence evidence,
@@ -706,7 +710,17 @@ public final class ProtectedExportHostProbeAgent {
             if (target != null) {
                 try {
                     onEdt(() -> {
-                        target.setSelectedFile(pick);
+                        // The host uses both pickers: an open/directory chooser
+                        // only approves an existing selection, a save chooser
+                        // wants a file name inside a writable directory — and
+                        // selecting a directory as the save target trips its
+                        // "no access to the selected folder" message loop.
+                        if (target.getDialogType()
+                                == javax.swing.JFileChooser.SAVE_DIALOG) {
+                            target.setSelectedFile(pickFile);
+                        } else {
+                            target.setSelectedFile(pick);
+                        }
                         target.approveSelection();
                         return null;
                     });
