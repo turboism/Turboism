@@ -3,6 +3,7 @@ package dev.turboism.sdk.cubism.motion3;
 import dev.turboism.protocol.json.StrictJson;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +28,8 @@ public final class Motion3Validator {
     private static final String[] SEGMENT_NAMES = {
         "linear", "bezier", "stepped", "inverse-stepped"
     };
+    private static final BigDecimal REQUIRED_VERSION = BigDecimal.valueOf(3L);
+    private static final BigDecimal MAX_SEGMENT_KIND = BigDecimal.valueOf(3L);
     private static final double TIME_EPSILON = 1e-4;
 
     private Motion3Validator() {
@@ -74,7 +77,7 @@ public final class Motion3Validator {
         final Object version = document.get("Version");
         if (version == null) {
             error(issues, "$.Version", "missing");
-        } else if (!(version instanceof Number number) || number.longValue() != 3L) {
+        } else if (!equalsExactly(version, REQUIRED_VERSION)) {
             error(issues, "$.Version", "must be 3, got " + version);
         }
         final Map<String, Object> meta = asStringMap(document.get("Meta"), issues, "$.Meta");
@@ -198,13 +201,16 @@ public final class Motion3Validator {
         int offset = 2;
         while (offset < segments.size()) {
             final Object rawKind = segments.get(offset);
-            if (!(rawKind instanceof Number kindNumber) || !isIntegral(kindNumber)
-                || kindNumber.intValue() < 0 || kindNumber.intValue() > 3) {
+            final BigDecimal kindValue = rawKind instanceof Number kindNumber
+                ? asBigDecimal(kindNumber) : null;
+            if (kindValue == null || kindValue.stripTrailingZeros().scale() > 0
+                || kindValue.compareTo(BigDecimal.ZERO) < 0
+                || kindValue.compareTo(MAX_SEGMENT_KIND) > 0) {
                 error(issues, path + "[" + offset + "]",
                     "segment kind must be 0..3, got " + rawKind);
                 break;
             }
-            final int kind = kindNumber.intValue();
+            final int kind = kindValue.intValueExact();
             final int arity = SEGMENT_ARITY[kind];
             if (offset + 1 + arity > segments.size()) {
                 error(issues, path + "[" + offset + "]",
@@ -361,6 +367,47 @@ public final class Motion3Validator {
     private static boolean isIntegral(final Number number) {
         return !(number instanceof BigDecimal decimal)
             || decimal.stripTrailingZeros().scale() <= 0;
+    }
+
+    /**
+     * Exact mathematical equality, independent of the written scale:
+     * {@code 3}, {@code 3.0} and {@code 3e0} all match while {@code 3.5}
+     * and integers that only wrap to the expected value do not.
+     */
+    private static boolean equalsExactly(
+        final Object value,
+        final BigDecimal expected
+    ) {
+        if (!(value instanceof Number number)) {
+            return false;
+        }
+        final BigDecimal actual = asBigDecimal(number);
+        return actual != null && actual.compareTo(expected) == 0;
+    }
+
+    /**
+     * Exact mathematical value of {@code number}, or {@code null} when the
+     * value cannot be represented exactly. Unlike {@link Number#longValue()}
+     * or {@link Number#intValue()}, this preserves fractional parts and
+     * magnitudes beyond the narrowing type, so callers can validate before
+     * narrowing.
+     */
+    private static BigDecimal asBigDecimal(final Number number) {
+        if (number instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (number instanceof BigInteger integer) {
+            return new BigDecimal(integer);
+        }
+        if (number instanceof Byte || number instanceof Short
+            || number instanceof Integer || number instanceof Long) {
+            return BigDecimal.valueOf(number.longValue());
+        }
+        if (number instanceof Double || number instanceof Float) {
+            final double value = number.doubleValue();
+            return Double.isFinite(value) ? BigDecimal.valueOf(value) : null;
+        }
+        return null;
     }
 
     private static String describe(final Object value) {
