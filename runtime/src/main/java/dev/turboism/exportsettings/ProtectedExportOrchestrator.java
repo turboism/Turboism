@@ -8,8 +8,11 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -51,6 +54,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     public static final String PREFLIGHT_FAILED_KEY = "protected-export.preflight-failed";
     public static final String BIND_FAILED_KEY = "protected-export.bind-failed";
     public static final String FLATTEN_FAILED_KEY = "protected-export.flatten-failed";
+    public static final String OBFUSCATE_FAILED_KEY = "protected-export.obfuscation-failed";
     public static final String EXPORT_CANCELLED_KEY = "protected-export.export-cancelled";
     public static final String EXPORT_FAILED_KEY = "protected-export.export-failed";
     public static final String EXPORT_TIMEOUT_KEY = "protected-export.export-timeout";
@@ -69,6 +73,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         PREFLIGHTED,
         COPY_BOUND,
         FLATTENED,
+        OBFUSCATED,
         EXPORT_DRIVEN,
         STAGED,
         VALIDATED,
@@ -242,6 +247,7 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
             preflight(session);
             bindCopy(session);
             flatten(session);
+            obfuscate(session);
             driveExport(session);
             awaitCompletion(session);
             validate(session);
@@ -382,6 +388,69 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         session.phase = Phase.FLATTENED;
     }
 
+    /**
+     * Rewrites every ArtMesh name and drawable ID on the disposable copy to the
+     * deterministic GUID-derived token — never on the authoring document. Each write
+     * re-resolves the target by GUID and re-reads the result; a post-pass census then
+     * requires every ArtMesh to carry exactly its planned identity.
+     */
+    private void obfuscate(final Session session) throws Exception {
+        final ProtectedExportObfuscationPlan.Plan plan;
+        try {
+            plan = onEdt(() -> {
+                requireGeneration(session, session.hostGeneration);
+                requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
+                session.expectedParameterIds =
+                    identitySet(host.allParameters(session.copyModelSource));
+                session.expectedPartIds =
+                    identitySet(host.allParts(session.copyModelSource));
+                return ProtectedExportObfuscationPlan.plan(
+                    host, session.copyModelSource);
+            });
+        } catch (ProtectedExportDeformerPlan.ProtectedExportPlanRejection rejection) {
+            throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+        }
+        for (Map.Entry<String, ProtectedExportObfuscationPlan.Target> entry
+                : plan.byGuid().entrySet()) {
+            final String guid = entry.getKey();
+            final ProtectedExportObfuscationPlan.Target target = entry.getValue();
+            final boolean applied = onEdt(() -> {
+                requireGeneration(session, session.hostGeneration);
+                requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
+                final Object mesh = resolveArtMesh(session.copyModelSource, guid);
+                if (mesh == null || !host.isArtMeshSource(mesh)) {
+                    return Boolean.FALSE;
+                }
+                host.setObjectLocalName(mesh, target.name());
+                host.setDrawableId(mesh, target.idToken());
+                return target.name().equals(host.objectLocalName(mesh))
+                    && target.idToken().equals(host.drawableIdString(mesh));
+            });
+            if (!Boolean.TRUE.equals(applied)) {
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+            }
+        }
+        final boolean consistent = onEdt(() -> {
+            requireGeneration(session, session.hostGeneration);
+            requireLiveCopy(session, OBFUSCATE_FAILED_KEY);
+            for (Object mesh : host.allArtMeshes(session.copyModelSource)) {
+                final ProtectedExportObfuscationPlan.Target target =
+                    plan.byGuid().get(host.objectGuid(mesh));
+                if (target == null
+                    || !target.name().equals(host.objectLocalName(mesh))
+                    || !target.idToken().equals(host.drawableIdString(mesh))) {
+                    return Boolean.FALSE;
+                }
+            }
+            return Boolean.TRUE;
+        });
+        if (!Boolean.TRUE.equals(consistent)) {
+            throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+        }
+        session.expectedDrawableIds = plan.idTokens();
+        session.phase = Phase.OBFUSCATED;
+    }
+
     private void driveExport(final Session session) throws Exception {
         final Object callback = host.newExportCompletionProxy((file, paths) -> {
             session.stagedPick = file;
@@ -425,8 +494,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     private void validate(final Session session) {
-        final ProtectedExportStaging.Validation validation =
-            staging.validate(session.stagedPick, session.stagedPaths);
+        final ProtectedExportStaging.Validation validation = staging.validate(
+            session.stagedPick, session.stagedPaths, session.expectedDrawableIds,
+            session.expectedParameterIds, session.expectedPartIds);
         if (!validation.valid()) {
             throw new SessionRejection(
                 VALIDATION_FAILED_KEY + ":" + validation.failureKey());
@@ -489,10 +559,14 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
     }
 
     private void requireLiveCopy(final Session session) {
+        requireLiveCopy(session, FLATTEN_FAILED_KEY);
+    }
+
+    private void requireLiveCopy(final Session session, final String failureKey) {
         if (host.currentDocument() != session.copyDocument
             || !host.projectContains(session.copyDocument)
             || !host.projectContains(session.document)) {
-            throw new SessionRejection(FLATTEN_FAILED_KEY);
+            throw new SessionRejection(failureKey);
         }
     }
 
@@ -500,6 +574,28 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         for (Object deformer : host.allDeformers(modelSource)) {
             if (guid.equals(host.deformerGuid(deformer))) {
                 return deformer;
+            }
+        }
+        return null;
+    }
+
+    /** Exact ID set of a host census; a single unreadable identity fails closed. */
+    private Set<String> identitySet(final List<?> sources) {
+        final Set<String> ids = new LinkedHashSet<>();
+        for (Object source : sources) {
+            final String id = host.objectIdString(source);
+            if (id == null || id.isBlank()) {
+                throw new SessionRejection(OBFUSCATE_FAILED_KEY);
+            }
+            ids.add(id);
+        }
+        return Set.copyOf(ids);
+    }
+
+    private Object resolveArtMesh(final Object modelSource, final String guid) {
+        for (Object mesh : host.allArtMeshes(modelSource)) {
+            if (guid.equals(host.objectGuid(mesh))) {
+                return mesh;
             }
         }
         return null;
@@ -695,6 +791,9 @@ public final class ProtectedExportOrchestrator implements AutoCloseable {
         volatile File stagedPick;
         volatile List<String> stagedPaths = List.of();
         volatile List<Path> stagedFiles = List.of();
+        volatile Set<String> expectedDrawableIds = Set.of();
+        volatile Set<String> expectedParameterIds = Set.of();
+        volatile Set<String> expectedPartIds = Set.of();
         volatile List<Path> publishedFiles = List.of();
         volatile Report pendingReport;
 
