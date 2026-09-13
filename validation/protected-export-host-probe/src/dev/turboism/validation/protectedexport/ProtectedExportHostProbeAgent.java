@@ -666,52 +666,73 @@ public final class ProtectedExportHostProbeAgent {
         final Evidence evidence,
         final String prefix
     ) {
-        final Set<Window> seen = new LinkedHashSet<>(alreadyVisible);
-        seen.add(inner);
+        final Map<Window, Integer> seen = new LinkedHashMap<>();
+        for (Window window : alreadyVisible) {
+            seen.put(window, Integer.MAX_VALUE);
+        }
+        seen.put(inner, Integer.MAX_VALUE);
         final List<String> sequence = new ArrayList<>();
-        final long deadline = System.currentTimeMillis() + 120_000L;
+        // JFileChooser construction under Wine can block the EDT for a long
+        // time enumerating shell folders (Z: maps the whole Linux root), so the
+        // chooser window may appear minutes after the export was confirmed.
+        final long deadline = System.currentTimeMillis() + 300_000L;
         while (System.currentTimeMillis() < deadline) {
+            // Re-scan every visible window each poll: a dialog observed before
+            // its content was populated can gain the JFileChooser late, and the
+            // chooser carrier must never be dismissed as an intermediate prompt.
+            javax.swing.JFileChooser chooser = null;
             for (Window window : visibleWindows()) {
-                if (seen.contains(window)) {
+                final javax.swing.JFileChooser found = findFileChooser(window);
+                if (found != null) {
+                    chooser = found;
+                    break;
+                }
+            }
+            final javax.swing.JFileChooser target = chooser;
+            if (target != null) {
+                try {
+                    onEdt(() -> {
+                        target.setSelectedFile(pick);
+                        target.approveSelection();
+                        return null;
+                    });
+                    evidence.put(prefix + "chooserDriven", "true");
+                    evidence.put(prefix + "chooserDialogSequence",
+                        String.join(" -> ", sequence));
+                    return true;
+                } catch (Throwable failure) {
+                    evidence.put(prefix + "chooserDriveFailure", text(failure));
+                    evidence.fail("EXP_CHOOSER_DRIVE_FAILED");
+                    return false;
+                }
+            }
+            for (Window window : visibleWindows()) {
+                final Integer polls = seen.computeIfAbsent(window, k -> 0);
+                if (polls == 0) {
+                    sequence.add(describe(window));
+                    dumpTree(stateDir.resolve(
+                            "dialog-tree-expChooser-" + sequence.size() + ".txt"),
+                        window);
+                }
+                // Give a freshly-observed dialog a few polls before clicking:
+                // the chooser carrier can appear with only its title-bar close
+                // button attached, and clicking that cancels the export.
+                if (polls < 5 || !(window instanceof java.awt.Dialog dialog)) {
+                    seen.put(window, polls + 1);
                     continue;
                 }
-                seen.add(window);
-                sequence.add(describe(window));
-                dumpTree(stateDir.resolve(
-                        "dialog-tree-expChooser-" + sequence.size() + ".txt"),
-                    window);
-                final javax.swing.JFileChooser chooser = findFileChooser(window);
-                if (chooser != null) {
+                final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
+                final AbstractButton click =
+                    confirm != null ? confirm : firstButton(dialog);
+                if (click != null) {
                     try {
                         onEdt(() -> {
-                            chooser.setSelectedFile(pick);
-                            chooser.approveSelection();
+                            click.doClick(0);
                             return null;
                         });
-                        evidence.put(prefix + "chooserDriven", "true");
-                        evidence.put(prefix + "chooserDialogSequence",
-                            String.join(" -> ", sequence));
-                        return true;
                     } catch (Throwable failure) {
-                        evidence.put(prefix + "chooserDriveFailure", text(failure));
-                        evidence.fail("EXP_CHOOSER_DRIVE_FAILED");
-                        return false;
-                    }
-                }
-                if (window instanceof java.awt.Dialog dialog) {
-                    final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
-                    final AbstractButton click =
-                        confirm != null ? confirm : firstButton(dialog);
-                    if (click != null) {
-                        try {
-                            onEdt(() -> {
-                                click.doClick(0);
-                                return null;
-                            });
-                        } catch (Throwable failure) {
-                            evidence.put(prefix + "intermediateClickFailure",
-                                text(failure));
-                        }
+                        evidence.put(prefix + "intermediateClickFailure",
+                            text(failure));
                     }
                 }
             }
@@ -720,6 +741,14 @@ public final class ProtectedExportHostProbeAgent {
         evidence.put(prefix + "chooserDriven", "false");
         evidence.put(prefix + "chooserDialogSequence",
             String.join(" -> ", sequence));
+        final List<String> open = new ArrayList<>();
+        for (Window window : visibleWindows()) {
+            open.add(describe(window));
+            dumpTree(stateDir.resolve(
+                    "dialog-tree-expChooser-timeout-" + open.size() + ".txt"),
+                window);
+        }
+        evidence.put(prefix + "chooserTimeoutWindows", String.join(" | ", open));
         evidence.fail("EXP_CHOOSER_NOT_OBSERVED");
         return false;
     }
