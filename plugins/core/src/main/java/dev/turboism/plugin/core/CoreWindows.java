@@ -430,6 +430,13 @@ final class CoreWindows implements AutoCloseable {
                 return true;
             };
         }
+        if (control instanceof SettingsControl.Note note) {
+            final JLabel caption = new JLabel(note.label());
+            caption.setFont(caption.getFont().deriveFont(caption.getFont().getSize2D() - 2.0f));
+            caption.setEnabled(false);
+            add(panel, row, caption, new JLabel());
+            return () -> true;
+        }
         throw new IllegalArgumentException("unsupported settings control: " + control.getClass().getName());
     }
 

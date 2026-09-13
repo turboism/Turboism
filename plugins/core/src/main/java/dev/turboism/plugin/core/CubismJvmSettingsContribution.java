@@ -183,6 +183,24 @@ final class CubismJvmSettingsContribution {
         );
     }
 
+    /** Small footer note on the Performance tab; no binding, display only. */
+    static SettingsContribution createPerformanceNote(final PluginLocalization i18n) {
+        Objects.requireNonNull(i18n, "i18n");
+        return new SettingsContribution(
+            "performance-restart-note",
+            new SettingsTab(
+                "performance",
+                i18n.text("settings.tab.performance"),
+                OptionalInt.of(200)
+            ),
+            OptionalInt.of(130),
+            new SettingsControl.Note(
+                "performance-restart-note",
+                i18n.text("settings.performance.restart-note")
+            )
+        );
+    }
+
     private static SettingsActionHandle install(
         final PluginLocalization i18n,
         final CubismJvmSettingsService settings
