@@ -44,6 +44,16 @@ public final class ExternalPsdEditHostProbeTest {
         final byte[] changed = ExternalPsdEditHostProbe.mutateLayerName(startsWithA, 1)
             .orElseThrow();
         assertTrue(!Arrays.equals(startsWithA, changed), "same-letter cycle still differs");
+
+        // mutationFor coordinates must describe exactly the byte applyMutation writes,
+        // so a reopen stage can re-verify the persisted marker by coordinates alone.
+        final var marker = ExternalPsdEditHostProbe.mutationFor(psd, 1).orElseThrow();
+        final int[] markedRange = names.get(marker.layer());
+        assertEquals(marker.letter(),
+            (char) first.orElseThrow()[markedRange[0] + marker.nameOffset()],
+            "marker coordinates identify the mutated byte");
+        assertEquals(marker.letter(), (char) mutated[markedRange[0] + marker.nameOffset()],
+            "persisted byte equals the recorded marker letter");
         System.out.println("PASS: ExternalPsdEditHostProbeTest");
     }
 
