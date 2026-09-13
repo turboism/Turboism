@@ -18,6 +18,11 @@ EXPECTED_PRIMARY = (
     "TurboismInstaller-{version}.exe",
     "TurboismInstaller-{version}.jar",
 )
+# Standalone developer artifacts ship on the GitHub Release only; the product
+# artifact contract and the Updates media roster remain the four files above.
+DEVELOPER_PRIMARY = (
+    "turboism-sdk-{version}.jar",
+)
 MEDIA_TYPES = {
     ".zip": "application/zip",
     ".exe": "application/octet-stream",
@@ -51,6 +56,25 @@ def framework_artifacts(
         raise ReleaseError(f"release payload verification failed: {failure}") from failure
     names = []
     for pattern in EXPECTED_PRIMARY:
+        name = pattern.format(version=version)
+        names.extend((name, name + ".sha256"))
+    artifacts = []
+    for name in sorted(names):
+        path = dist / name
+        suffix = ".sha256" if name.endswith(".sha256") else path.suffix.lower()
+        artifacts.append({
+            "name": name,
+            "relativePath": f"framework/{name}",
+            "mediaType": MEDIA_TYPES[suffix],
+            "size": path.stat().st_size,
+            "sha256": file_sha256(path),
+        })
+    return artifacts
+
+
+def developer_artifacts(dist: Path, version: str) -> list[dict[str, Any]]:
+    names = []
+    for pattern in DEVELOPER_PRIMARY:
         name = pattern.format(version=version)
         names.extend((name, name + ".sha256"))
     artifacts = []
@@ -167,10 +191,12 @@ def build_candidate(
         "version": version,
         "changelog": changelog,
         "artifacts": [],
+        "developerArtifacts": [],
         "bundledPlugins": [],
     }
     if dist is not None:
         framework["artifacts"] = framework_artifacts(repo_root, dist.resolve(), version)
+        framework["developerArtifacts"] = developer_artifacts(dist.resolve(), version)
         framework["bundledPlugins"] = bundled_plugins(dist.resolve(), version)
     return {
         "format": "turboism.release-candidate",

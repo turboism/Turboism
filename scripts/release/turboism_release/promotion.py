@@ -8,7 +8,7 @@ import subprocess
 from pathlib import Path
 
 from .build_identity import verify_receipt
-from .candidate import _load_script, framework_artifacts
+from .candidate import _load_script, developer_artifacts, framework_artifacts
 from .contracts import ReleaseError, read_document
 from .versions import CHANGELOG_HEADING, SOURCE_SHA, STRICT_VERSION, compare_versions, framework_version, git_source
 
@@ -110,8 +110,11 @@ def verify_bundle(source_root, bundle_root, run, source_sha):
     dist = unique_file(bundle_root, f"turboism-{version}-full.zip").parent
     artifacts = framework_artifacts(source_root, dist, version)
     require(framework.get("artifacts") == artifacts, "candidate artifact hashes/sizes differ")
+    developer = developer_artifacts(dist, version)
+    require(framework.get("developerArtifacts") == developer,
+            "candidate developer artifact hashes/sizes differ")
     return tag, dist, notes, {item["name"]: {"size": item["size"], "sha256": item["sha256"]}
-                             for item in artifacts}
+                             for item in artifacts + developer}
 
 
 def tag_binding(github, tag, source_sha, binding=None):

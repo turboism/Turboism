@@ -59,6 +59,13 @@ def sidecar(path: Path) -> None:
     )
 
 
+def sdk_archive(path: Path) -> None:
+    """Minimal developer SDK JAR carrying the plugin lifecycle contract class."""
+    with zipfile.ZipFile(path, "w") as output:
+        output.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\n\r\n")
+        output.writestr("dev/turboism/sdk/plugin/TurboismPlugin.class", b"class")
+
+
 class ReleaseNotesTest(unittest.TestCase):
     def test_extracts_exact_section(self):
         text = "# Changelog\n\n## [Unreleased]\n\nNext\n\n## [0.42.0] - 2026-08-25\n\nBody\n\n## [0.41.0] - 2026-08-01\n\nOld\n"
@@ -323,7 +330,7 @@ class RootReadmeTest(unittest.TestCase):
             return ["\n".join(line.strip() for line in block.splitlines())
                     for block in re.findall(r"(?ms)^ *```[^\n]*\n(.*?)^ *```[ \t]*$", text)]
         english = blocks("README.md")
-        self.assertEqual(len(english), 5)
+        self.assertEqual(len(english), 6)
         for filename in self.PAGES:
             self.assertEqual(blocks(filename), english, filename)
 
@@ -362,11 +369,16 @@ class ReleaseVerifierTest(unittest.TestCase):
         full = dist / f"turboism-{version}-full.zip"
         exe = dist / f"TurboismInstaller-{version}.exe"
         jar = dist / f"TurboismInstaller-{version}.jar"
+        staged_sdk = stage / "graal" / "lib" / f"sdk-{version}.jar"
+        staged_sdk.parent.mkdir(parents=True)
+        sdk = dist / f"turboism-sdk-{version}.jar"
         archive(lite, version)
         archive(full, version, self.PLUGINS)
         exe.write_bytes(b"exe")
         jar.write_bytes(b"jar")
-        for path in (lite, full, exe, jar):
+        sdk_archive(staged_sdk)
+        sdk.write_bytes(staged_sdk.read_bytes())
+        for path in (lite, full, exe, jar, sdk):
             sidecar(path)
         return dist, roster, stage
 
@@ -380,7 +392,7 @@ class ReleaseVerifierTest(unittest.TestCase):
         dist, roster, stage = self.fixture()
         manifest = release.artifact_manifest(dist, "0.42.0", roster, stage)
         self.assertEqual(manifest["format"], "turboism.framework-artifacts")
-        self.assertEqual(len(manifest["artifacts"]), 8)
+        self.assertEqual(len(manifest["artifacts"]), 10)
         self.assertEqual(
             sorted(path.name for path in dist.iterdir()),
             sorted(item["name"] for item in manifest["artifacts"]),
