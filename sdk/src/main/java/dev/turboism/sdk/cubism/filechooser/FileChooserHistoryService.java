@@ -16,10 +16,10 @@ import java.util.Optional;
  * {@link #exportSeparationEnabled()} is on.
  *
  * <p>Persistence is owned by the plugin side: a single {@link Provider}
- * registered by the core plugin stores both directories under the plugin
- * config directory ({@code <home>/config/dev.turboism.plugin.core/}). The
- * runtime service delegates reads/writes to the registered provider and is
- * fail-closed without one (reads empty, writes no-op).
+ * registered by the framework shell stores both directories under the
+ * shell's reserved config directory ({@code <home>/config/turboism.core/}).
+ * The runtime service delegates reads/writes to the registered provider and
+ * is fail-closed without one (reads empty, writes no-op).
  */
 public interface FileChooserHistoryService {
 

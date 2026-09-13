@@ -21,8 +21,9 @@ only selection validation and staging:
 Strictness rules (fail closed):
 
   * entries unique and ASCII-sorted by Gradle project path;
-  * only known ``:plugins:*`` modules; ``:plugins:core`` and retired plugin
-    ids are rejected; duplicate descriptor ids are rejected;
+  * only known ``:plugins:*`` modules; ``:plugins:core`` (the former core
+    module, now the runtime-owned shell) and retired plugin ids are rejected;
+    duplicate descriptor ids are rejected;
   * descriptor version is authoritative strict MAJOR.MINOR.PATCH;
   * schemaVersion 3 or 4 with a category and ordered non-empty tags is required;
   * schema-v4 public event exports/imports are normalized into store metadata;
