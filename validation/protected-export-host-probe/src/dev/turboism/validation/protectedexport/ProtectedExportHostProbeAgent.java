@@ -505,7 +505,7 @@ public final class ProtectedExportHostProbeAgent {
                 evidence, prefix)) {
                 return; // chooser drive recorded its own failure evidence
             }
-            awaitPublished(exportOut, evidence, prefix);
+            awaitPublished(exportOut, stateDir, evidence, prefix);
 
             final Object restored = readNoArg(controller, "getCurrentDoc");
             evidence.put(prefix + "restoredActive",
@@ -735,43 +735,8 @@ public final class ProtectedExportHostProbeAgent {
                     return false;
                 }
             }
-            for (Window window : visibleWindows()) {
-                final Integer polls = seen.computeIfAbsent(window, k -> 0);
-                if (polls == 0) {
-                    sequence.add(describe(window));
-                    dumpTree(stateDir.resolve(
-                            "dialog-tree-expChooser-" + sequence.size() + ".txt"),
-                        window);
-                }
-                // Windows already visible when this phase started (MAX_VALUE)
-                // are background: never click them — a stray button on the home
-                // window can open a modal chooser and wedge the flow. Fresh
-                // dialogs get a few observation polls before clicking: the
-                // chooser carrier can appear with only its title-bar close
-                // button attached, and clicking that cancels the export.
-                if (polls == Integer.MAX_VALUE || polls < 5
-                        || !(window instanceof java.awt.Dialog dialog)) {
-                    if (polls != Integer.MAX_VALUE) {
-                        seen.put(window, polls + 1);
-                    }
-                    continue;
-                }
-                final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
-                final AbstractButton click =
-                    confirm != null ? confirm : firstButton(dialog);
-                if (click != null) {
-                    // Never block on a click: the button can open a modal
-                    // dialog (the native chooser itself is one), and a
-                    // blocking invokeAndWait would deadlock the loop that is
-                    // supposed to drive that very dialog.
-                    java.awt.EventQueue.invokeLater(() -> click.doClick(0));
-                    evidence.put(prefix + "intermediateClicked",
-                        describe(window));
-                    // One click per dialog: if it stays open, record it rather
-                    // than spamming the button every poll.
-                    seen.put(window, Integer.MAX_VALUE);
-                }
-            }
+            clickSettledDialogs(seen, sequence, stateDir, evidence, prefix,
+                "expChooser");
             sleep(POLL_MILLIS);
         }
         evidence.put(prefix + "chooserDriven", "false");
@@ -787,6 +752,52 @@ public final class ProtectedExportHostProbeAgent {
         evidence.put(prefix + "chooserTimeoutWindows", String.join(" | ", open));
         evidence.fail("EXP_CHOOSER_NOT_OBSERVED");
         return false;
+    }
+
+    /**
+     * One scan+click pass over all visible windows. Windows already visible when
+     * the owning phase started (MAX_VALUE) are background: never clicked — a
+     * stray button on the home window can open a modal chooser and wedge the
+     * flow. Fresh dialogs get a few observation polls before clicking: the
+     * chooser carrier can appear with only its title-bar close button attached,
+     * and clicking that cancels the export. Clicks are posted non-blocking —
+     * the button can open a modal dialog, and a blocking invokeAndWait would
+     * deadlock the loop that is supposed to drive that very dialog.
+     */
+    private static void clickSettledDialogs(
+        final Map<Window, Integer> seen,
+        final List<String> sequence,
+        final Path stateDir,
+        final Evidence evidence,
+        final String prefix,
+        final String dumpTag
+    ) {
+        for (Window window : visibleWindows()) {
+            final Integer polls = seen.computeIfAbsent(window, k -> 0);
+            if (polls == 0) {
+                sequence.add(describe(window));
+                dumpTree(stateDir.resolve(
+                        "dialog-tree-" + dumpTag + "-" + sequence.size() + ".txt"),
+                    window);
+            }
+            if (polls == Integer.MAX_VALUE || polls < 5
+                    || !(window instanceof java.awt.Dialog dialog)) {
+                if (polls != Integer.MAX_VALUE) {
+                    seen.put(window, polls + 1);
+                }
+                continue;
+            }
+            final AbstractButton confirm = findButton(dialog, CONFIRM_ACTION);
+            final AbstractButton click =
+                confirm != null ? confirm : firstButton(dialog);
+            if (click != null) {
+                java.awt.EventQueue.invokeLater(() -> click.doClick(0));
+                evidence.put(prefix + "intermediateClicked", describe(window));
+                // One click per dialog: if it stays open, record it rather
+                // than spamming the button every poll.
+                seen.put(window, Integer.MAX_VALUE);
+            }
+        }
     }
 
     private static javax.swing.JFileChooser findFileChooser(final Component root) {
@@ -811,12 +822,23 @@ public final class ProtectedExportHostProbeAgent {
      */
     private static void awaitPublished(
         final Path exportOut,
+        final Path stateDir,
         final Evidence evidence,
         final String prefix
     ) {
         final Path moc3 = exportOut.resolve("protected-export.moc3");
+        // The export can raise trailing prompts after the chooser (completion
+        // notices, overwrite or error dialogs); each parks al.a on the EDT
+        // until dismissed, so keep driving them while waiting for the moc3.
+        final Map<Window, Integer> seen = new LinkedHashMap<>();
+        for (Window window : visibleWindows()) {
+            seen.put(window, Integer.MAX_VALUE);
+        }
+        final List<String> postChooser = new ArrayList<>();
         final long deadline = System.currentTimeMillis() + 300_000L;
         while (System.currentTimeMillis() < deadline) {
+            clickSettledDialogs(seen, postChooser, stateDir, evidence, prefix,
+                "expPostChooser");
             try {
                 if (Files.isRegularFile(moc3) && Files.size(moc3) > 0L) {
                     // Companions may still be streaming in; settle then list.
@@ -834,6 +856,8 @@ public final class ProtectedExportHostProbeAgent {
                     evidence.put(prefix + "publishedModelJson",
                         Boolean.toString(files.stream().anyMatch(
                             name -> name.endsWith(".model3.json"))));
+                    evidence.put(prefix + "postChooserDialogs",
+                        String.join(" -> ", postChooser));
                     return;
                 }
             } catch (IOException ignored) {
@@ -842,6 +866,8 @@ public final class ProtectedExportHostProbeAgent {
             sleep(POLL_MILLIS);
         }
         evidence.put(prefix + "publishedMoc3", "false");
+        evidence.put(prefix + "postChooserDialogs",
+            String.join(" -> ", postChooser));
         evidence.fail("EXP_OUTPUT_NOT_PUBLISHED");
     }
 

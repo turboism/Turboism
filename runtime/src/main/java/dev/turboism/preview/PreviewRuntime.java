@@ -772,6 +772,15 @@ public final class PreviewRuntime implements AutoCloseable {
                         javax.swing.SwingUtilities.invokeAndWait(task);
                         return task.get();
                     }
+
+                    @Override
+                    public void submit(final Runnable task) {
+                        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
+                            task.run();
+                            return;
+                        }
+                        javax.swing.SwingUtilities.invokeLater(task);
+                    }
                 };
             return new dev.turboism.exportsettings.ProtectedExportOrchestrator(
                 new dev.turboism.exportsettings.VerifiedProtectedExportHostOperations(resolver),
