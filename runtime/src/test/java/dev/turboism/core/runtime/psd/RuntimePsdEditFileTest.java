@@ -98,6 +98,29 @@ class RuntimePsdEditFileTest {
     }
 
     @Test
+    void openReportsFailureAndRetainsTheFileWhenNoDefaultApplicationLaunches() throws Exception {
+        final PsdEditRegistry registry = new PsdEditRegistry();
+        final Allocation allocation = allocation();
+        final AtomicBoolean active = new AtomicBoolean(true);
+        final RuntimePsdEditFile file = handle(
+            registry,
+            allocation,
+            allowAll(),
+            active,
+            path -> { throw new IOException("no default application"); }
+        );
+
+        final PsdFileOperationResult result = await(file.openInDefaultApplication());
+
+        assertEquals(PsdFileOperationResult.Status.FAILED, result.status());
+        assertTrue(result.diagnostic().contains("launch=failed"));
+        assertTrue(
+            Files.exists(allocation.temporary.validatedPath()),
+            "a failed launch must retain the temporary PSD for the OS/user to clean up"
+        );
+    }
+
+    @Test
     void subscriptionPublishesStagedRevisionsAndIsolatesConsumerFailures() throws Exception {
         final PsdEditRegistry registry = new PsdEditRegistry();
         final Allocation allocation = allocation();

@@ -1,0 +1,91 @@
+{
+  "format": "turboism.plugin.meta",
+  "schemaVersion": 3,
+  "id": "dev.turboism.plugin.external-psd-edit",
+  "name": "External PSD Edit Plugin",
+  "version": "0.1.0",
+  "description": "ArtMesh context-menu entry that exports the complete raw PSD, opens it in the system default PSD application, and applies Cubism native explicit-target replacement on save.",
+  "entrypoints": [
+    "dev.turboism.plugin.externalpsdedit.ExternalPsdEditPlugin"
+  ],
+  "turboismApi": "[0.1.0,0.2.0)",
+  "authors": [
+    { "name": "Turboism Contributors" }
+  ],
+  "license": "Project License",
+  "website": "https://turboism.dev",
+  "resources": [],
+  "i18n": {
+    "baseName": "META-INF/turboism/i18n/messages",
+    "locales": ["en", "ja", "ko", "zh-Hans", "zh-Hant"]
+  },
+  "dependencies": [],
+  "permissions": [
+    {
+      "id": "turboism.cubism.model.read",
+      "scope": "application",
+      "reason": "Read texture relations to resolve selected ArtMeshes to their current raw image and validate session bindings."
+    },
+    {
+      "id": "turboism.cubism.model.write",
+      "scope": "application",
+      "reason": "Apply Cubism native explicit-target raw-image replacement when a watched temporary PSD is saved."
+    },
+    {
+      "id": "turboism.file.read",
+      "scope": "application",
+      "reason": "Read the runtime-issued temporary PSD revision for replacement."
+    },
+    {
+      "id": "turboism.file.write",
+      "scope": "application",
+      "reason": "Export the complete raw PSD to a runtime-owned temporary file."
+    },
+    {
+      "id": "turboism.process.run",
+      "scope": "application",
+      "reason": "Open the temporary PSD in the operating system's default PSD application."
+    },
+    {
+      "id": "turboism.ui.status.notify",
+      "scope": "application",
+      "reason": "Report session, import, and pause/failure status to the user."
+    },
+    {
+      "id": "turboism.ui.dialog.contribute",
+      "scope": "application",
+      "reason": "Confirm once before opening multiple temporary PSDs."
+    },
+    {
+      "id": "turboism.action.register",
+      "scope": "application",
+      "reason": "Register the external PSD edit action invoked from ArtMesh context menus."
+    },
+    {
+      "id": "turboism.ui.context-menu.contribute",
+      "scope": "application",
+      "reason": "Expose external PSD editing in ArtMesh-capable Editor context menus."
+    },
+    {
+      "id": "turboism.ui.context-source.read",
+      "scope": "application",
+      "reason": "Read the captured ArtMesh context-menu selection that triggers editing."
+    }
+  ],
+  "capabilities": [
+    "cubism.psd.external-edit",
+    "ui.context-menu.contribute",
+    "ui.status.notify",
+    "ui.dialog.contribute"
+  ],
+  "environment": {
+    "requiresCubism": true,
+    "ui": "embedded"
+  },
+  "tags": [
+    "psd",
+    "texture",
+    "external-edit"
+  ],
+  "category": "modeling"
+}
