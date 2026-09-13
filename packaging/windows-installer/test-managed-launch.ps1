@@ -107,6 +107,13 @@ if ($JdkParserOnly) {
         $zgcInvalid = $false
         try { Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome } catch { $zgcInvalid = $true }
         Assert-ManagedLaunch $zgcInvalid "non-boolean launcher.zgc fails closed"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"cubismJvm":"graalvm","graalVmPath":"x"}}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-XX:+UseZGC') "launcher without zgc defaults to ZGC under strict mode"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"worktreeId":"turboism-runtime"}')
+        Assert-ManagedLaunch ((Get-CubismManagedJdkOptionTokens -TurboismHome $zgcHome) -contains '-XX:+UseZGC') "config without launcher defaults to ZGC under strict mode"
+        Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $zgcHome) -eq "graalvm") "config without launcher defaults the Cubism JVM preference under strict mode"
+        [System.IO.File]::WriteAllText((Join-Path $zgcHome "config.json"), '{"launcher":{"zgc":false}}')
+        Assert-ManagedLaunch ((Read-CubismJvmPreference -TurboismHome $zgcHome) -eq "graalvm") "launcher without cubismJvm defaults the preference under strict mode"
     }
     finally { Remove-Item -LiteralPath $zgcHome -Recurse -Force -ErrorAction SilentlyContinue }
     Write-Host "MANAGED_LAUNCH_PARSER_ONLY=PASS"
