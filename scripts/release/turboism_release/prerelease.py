@@ -39,7 +39,8 @@ def receipt_from_body(body, expected_channel=None):
 def names_for(version):
     require(channel_for(version) in ('beta','nightly'), 'Not a prerelease version')
     primary = [f'TurboismInstaller-{version}.exe', f'TurboismInstaller-{version}.jar',
-               f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip']
+               f'turboism-{version}-full.zip', f'turboism-{version}-lite.zip',
+               f'turboism-sdk-{version}.jar']
     return {name for item in primary for name in (item, item+'.sha256')}
 
 
@@ -135,7 +136,7 @@ def publish(github, dist, receipt, manifest, notes):
     require(receipt_from_body(notes,receipt['channel']) == receipt, 'Notes have a different build receipt')
     require(manifest['version'] == version, 'Manifest version mismatch')
     expected = {a['name']:{'size':a['size'],'sha256':a['sha256']} for a in manifest['artifacts']}
-    require(set(expected) == names_for(version) and len(manifest['artifacts']) == 8, 'Prerelease requires eight verified files')
+    require(set(expected) == names_for(version) and len(manifest['artifacts']) == 10, 'Prerelease requires ten verified files')
     binding = hashlib.sha256(json.dumps({'receipt':receipt,'assets':expected,'notes':notes},sort_keys=True).encode()).hexdigest()
     bound = tag_binding(github,tag,source,binding)
     raw = find_release(github,tag)
