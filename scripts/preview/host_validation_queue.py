@@ -365,6 +365,12 @@ REVIEWED_PRE_LAUNCH_HOOKS = {
         frozenset({"--remote-pre-launch-arg"}),
         "host-locale environment-language hook requires its language argument",
     ),
+    # 025 external-edit probe: appends a .psd -> notepad.exe open verb to the
+    # task-scoped cloned prefix's system.reg only; takes no extra flags.
+    "external-psd-edit-psd-association-pre-launch.sh": (
+        frozenset(),
+        "external-psd-edit association hook needs no extra flags",
+    ),
 }
 
 
