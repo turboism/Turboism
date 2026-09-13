@@ -23,6 +23,7 @@ Usage:
     --home-config <local-config.json> \
     --plugin <local.jar[:task-name.jar]> [--plugin ...] \
     --aux-agent <local.jar[:task-name.jar]> [--aux-agent ...] \
+    [--aux-agent-before-main <task-name.jar> ...] \
     --home-file <local-file:relative-home-path> [--home-file ...] \
     --home-dir <local-directory:relative-home-path> [--home-dir ...] \
     (--fixture-host|--fixture-remote <local-path> | --fixture-local <local-path>) \
@@ -314,6 +315,7 @@ agent=''
 home_config=''
 plugins=()
 aux_agents=()
+aux_agents_before_main=()
 home_files=()
 home_dirs=()
 remote_pre_launch=''
@@ -369,6 +371,7 @@ while [ "$#" -gt 0 ]; do
     --home-config) require_value "$@"; home_config="$2"; shift 2 ;;
     --plugin) require_value "$@"; plugins+=("$2"); shift 2 ;;
     --aux-agent) require_value "$@"; aux_agents+=("$2"); shift 2 ;;
+    --aux-agent-before-main) require_value "$@"; aux_agents_before_main+=("$2"); shift 2 ;;
     --home-file) require_value "$@"; home_files+=("$2"); shift 2 ;;
     --home-dir) require_value "$@"; home_dirs+=("$2"); shift 2 ;;
     --remote-pre-launch) require_value "$@"; remote_pre_launch="$2"; shift 2 ;;
@@ -680,6 +683,15 @@ for spec in "${aux_agents[@]}"; do
   resolved_aux_agents+=("$local_path:$remote_name")
 done
 
+for before_name in "${aux_agents_before_main[@]}"; do
+  before_found=0
+  for existing_name in "${aux_agent_remote_names[@]}"; do
+    [ "$existing_name" = "$before_name" ] && before_found=1 && break
+  done
+  [ "$before_found" = 1 ] \
+    || fail "--aux-agent-before-main must name a resolved aux-agent remote name: $before_name"
+done
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 queue_admission_json=''
 supervisor_cleanup=0
@@ -778,6 +790,7 @@ normalized_argv=(
 if [ -n "$home_config" ]; then normalized_argv+=(--home-config "$home_config"); fi
 for spec in "${resolved_plugins[@]}"; do normalized_argv+=(--plugin "$spec"); done
 for spec in "${resolved_aux_agents[@]}"; do normalized_argv+=(--aux-agent "$spec"); done
+for before_name in "${aux_agents_before_main[@]}"; do normalized_argv+=(--aux-agent-before-main "$before_name"); done
 for spec in "${resolved_home_files[@]}"; do normalized_argv+=(--home-file "$spec"); done
 for spec in "${resolved_home_dirs[@]}"; do normalized_argv+=(--home-dir "$spec"); done
 if [ -n "$fixture_host" ]; then normalized_argv+=(--fixture-host "$fixture_host"); else normalized_argv+=(--fixture-local "$fixture_local"); fi
@@ -1825,9 +1838,26 @@ all_jvm_options=(
   "-Dturboism.validation.hostVersion=$version"
   "-Dturboism.validation.fixtureName=$fixture_name"
 )
+# Aux agents named via --aux-agent-before-main premain before the production agent, so a
+# co-patching instrument (e.g. the T039 shadow weave) sees the class bytes first.
+for spec in "${resolved_aux_agents[@]}"; do
+  remote_name="${spec#*:}"
+  before=0
+  for before_name in "${aux_agents_before_main[@]}"; do
+    [ "$remote_name" = "$before_name" ] && before=1 && break
+  done
+  [ "$before" = 1 ] || continue
+  win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
+  all_jvm_options+=("-javaagent:$win_aux_agent")
+done
 all_jvm_options+=("-javaagent:$win_agent=home=$win_home;timeoutSeconds=$agent_timeout;hostClass=$agent_host_class")
 for spec in "${resolved_aux_agents[@]}"; do
   remote_name="${spec#*:}"
+  before=0
+  for before_name in "${aux_agents_before_main[@]}"; do
+    [ "$remote_name" = "$before_name" ] && before=1 && break
+  done
+  [ "$before" = 0 ] || continue
   win_aux_agent="$(z_path "$task_dir/agents/$remote_name")"
   all_jvm_options+=("-javaagent:$win_aux_agent")
 done
