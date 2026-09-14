@@ -31,6 +31,7 @@ import javax.swing.MenuSelectionManager;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dialog;
 import java.awt.Frame;
 import java.awt.Window;
 import java.awt.event.InputEvent;
@@ -50,7 +51,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.Set;
@@ -1196,6 +1199,23 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
     }
 
+    private record TableWidget(javax.swing.JTable table) implements RowWidget {
+        public String name() { return table.getClass().getName(); }
+        public int rows() throws Exception {
+            final AtomicReference<Integer> rows = new AtomicReference<>(0);
+            SwingUtilities.invokeAndWait(() -> rows.set(table.getRowCount()));
+            return rows.get();
+        }
+        public JPopupMenu rightClick(final int row) throws Exception {
+            SwingUtilities.invokeAndWait(() -> {
+                final var bounds = table.getCellRect(row, 0, true);
+                if (bounds == null) return;
+                dispatchRightClick(table, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+            });
+            return awaitPopup();
+        }
+    }
+
     private record ListWidget(javax.swing.JList<?> list) implements RowWidget {
         public String name() { return list.getClass().getName(); }
         public int rows() throws Exception {
@@ -1254,6 +1274,9 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 widgets.add(new TreeWidget(tree));
             } else if (component instanceof javax.swing.JList<?> list && list.isShowing()) {
                 widgets.add(new ListWidget(list));
+            } else if (component instanceof javax.swing.JTable table && table.isShowing()) {
+                // CTreeTable hosts a JTree inside a JTable; the table receives the clicks.
+                widgets.add(new TableWidget(table));
             }
             if (component instanceof Container child) {
                 collectRowWidgets(child, widgets);
@@ -1263,18 +1286,28 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     /**
      * Component-hierarchy digest recorded when no row widget could be clicked, so a BLOCKED run
-     * still identifies which widget the object list actually is.
+     * still identifies which widget the object list actually is. Lists every showing component
+     * in every showing window, deduplicated with counts.
      */
     private String hierarchyDigest() {
         final AtomicReference<String> digest = new AtomicReference<>("");
         try {
             SwingUtilities.invokeAndWait(() -> {
                 final StringBuilder text = new StringBuilder();
-                for (final Frame frame : Frame.getFrames()) {
-                    if (!frame.isVisible()) continue;
-                    text.append("frame('").append(frame.getTitle()).append("')");
-                    collectWidgetNames(frame, text, 0);
+                final Map<String, Integer> counts = new LinkedHashMap<>();
+                for (final Window window : Window.getWindows()) {
+                    if (!window.isShowing()) continue;
+                    text.append("window(").append(window.getClass().getSimpleName());
+                    if (window instanceof Frame frame) text.append(":'").append(frame.getTitle()).append('\'');
+                    if (window instanceof Dialog dialog) text.append(":'").append(dialog.getTitle()).append('\'');
+                    text.append(") ");
+                    collectWidgetNames(window, counts);
                 }
+                counts.forEach((name, count) -> {
+                    if (text.length() < 3500) {
+                        text.append('<').append(name).append('x').append(count).append("> ");
+                    }
+                });
                 digest.set(text.toString());
             });
         } catch (Exception ignored) {
@@ -1283,18 +1316,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private static void collectWidgetNames(final Container container,
-        final StringBuilder text, final int depth) {
-        if (depth > 8 || text.length() > 4000) return;
+        final Map<String, Integer> counts) {
         for (final Component component : container.getComponents()) {
-            final String name = component.getClass().getName();
-            if (component.isShowing()
-                && (component instanceof JTree || component instanceof javax.swing.JList<?>
-                    || component instanceof javax.swing.JTable
-                    || name.contains("List") || name.contains("Tree") || name.contains("Palette"))) {
-                text.append(" <").append(name).append('>');
+            if (component.isShowing()) {
+                counts.merge(component.getClass().getName(), 1, Integer::sum);
             }
             if (component instanceof Container child) {
-                collectWidgetNames(child, text, depth + 1);
+                collectWidgetNames(child, counts);
             }
         }
     }
