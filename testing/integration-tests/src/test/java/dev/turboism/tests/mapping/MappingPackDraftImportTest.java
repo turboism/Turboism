@@ -2,6 +2,8 @@ package dev.turboism.tests.mapping;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import dev.turboism.mapping.schema.MappingPackValidator;
 import dev.turboism.mapping.verification.ReviewedHostArtifacts;
 import org.junit.jupiter.api.Test;
@@ -9,9 +11,16 @@ import org.junit.jupiter.api.Test;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -252,16 +261,146 @@ class MappingPackDraftImportTest {
             "bd0a23b9f21a56271d31e6f7f5aed0202661c4fe12444469d093bcdeb4cbf166",
             metadata.path("artifactSha256").asText()
         );
-        assertEquals(621, root.path("entries").size());
-        assertEquals(58, metadata.path("capabilityCount").asInt());
-        final Set<String> capabilities = asStringSet(metadata.path("capabilityIds"));
-        assertEquals(metadata.path("capabilityCount").asInt(), capabilities.size());
-        assertTrue(capabilities.containsAll(Set.of(
-            "cubism.editor-model.read",
-            "cubism.editor-model.texture.read",
-            "cubism.editor-model.parameter-structure.write",
-            "cubism.editor-model.part-structure.write"
-        )));
+
+        final Path evidencePath = Paths.get(
+                System.getProperty("projectRoot", System.getProperty("user.dir")))
+            .resolve(metadata.path("inventoryRef").asText())
+            .normalize();
+        final byte[] evidenceBytes = Files.readAllBytes(evidencePath);
+        final JsonNode evidence = mapper.readTree(evidenceBytes);
+        assertEquals("VERIFIED_STATIC", evidence.path("status").asText());
+        assertEquals(evidence.path("artifact").path("name").asText(),
+            metadata.path("artifactName").asText());
+        assertEquals(evidence.path("artifact").path("size").asLong(),
+            metadata.path("artifactSize").asLong());
+        assertEquals(evidence.path("artifact").path("sha256").asText(),
+            metadata.path("artifactSha256").asText());
+        assertEquals(evidence.path("profileId").asText(),
+            metadata.path("profileId").asText());
+        assertEquals(evidence.path("verificationId").asText(),
+            metadata.path("verificationId").asText());
+
+        final List<String> metadataViolations =
+            draftMetadataViolations(root, evidence, sha256Hex(evidenceBytes));
+        assertTrue(metadataViolations.isEmpty(),
+            () -> "draft metadata out of sync with inventoryRef: " + metadataViolations);
+
+        final JsonNode selectors = evidence.path("selectors");
+        final Map<String, JsonNode> selectorsById = new TreeMap<>();
+        selectors.forEach(s -> selectorsById.put(s.path("mappingId").asText(), s));
+        assertEquals(selectors.size(), selectorsById.size(),
+            "record selector mappingIds must be unique");
+        assertEquals(selectors.size(), root.path("entries").size());
+
+        for (JsonNode entry : root.path("entries")) {
+            final String mappingId = entry.path("semanticName").asText();
+            final JsonNode selector = selectorsById.get(mappingId);
+            assertNotNull(selector, "entry without record selector: " + mappingId);
+            assertEquals("VERIFIED_STATIC", selector.path("status").asText());
+            assertEquals(selector.path("alias"), entry.path("name"));
+            assertEquals(selector.path("kind"), entry.path("kind"));
+            assertEquals("DRAFT", entry.path("status").asText());
+            assertEquals("none", entry.path("verifiedBy").asText());
+            assertTrue(entry.path("verifiedAt").isNull());
+            if ("class".equals(selector.path("kind").asText())) {
+                assertEquals(selector.path("ownerInternalName"), entry.path("runtime"));
+            } else {
+                assertEquals(selector.path("memberName"), entry.path("runtime"));
+                assertEquals(selector.path("descriptor"), entry.path("descriptor"));
+            }
+            for (String field : List.of("ownerInternalName", "requiredAccessFlags", "forbiddenAccessFlags")) {
+                assertEquals(selector.path(field), entry.path("x.verification").path(field));
+            }
+            if (entry.has("x.review")) {
+                assertEquals(selector.path("mappingId"), entry.path("x.review").path("recordMappingId"));
+                assertEquals(selector.path("alias"), entry.path("x.review").path("recordAlias"));
+                assertEquals(evidence.path("artifact").path("sha256"),
+                    entry.path("x.review").path("exactArtifactSha256"));
+            }
+        }
+    }
+
+    @Test
+    void editorModel5303DraftMetadataRejectsTamperedProjection() throws Exception {
+        final JsonNode pack = mapper.readTree(
+            DRAFT_DIR.resolve("cubism-5.3.03-editor-model-read.json").toFile()
+        );
+        final Path evidencePath = Paths.get(
+                System.getProperty("projectRoot", System.getProperty("user.dir")))
+            .resolve(pack.path("metadata").path("inventoryRef").asText())
+            .normalize();
+        final byte[] evidenceBytes = Files.readAllBytes(evidencePath);
+        final JsonNode evidence = mapper.readTree(evidenceBytes);
+        final String recordSha256 = sha256Hex(evidenceBytes);
+
+        assertTrue(draftMetadataViolations(pack, evidence, recordSha256).isEmpty(),
+            "pack metadata must be consistent for mutation negatives to be meaningful");
+
+        final int recordSelectorCount = evidence.path("selectors").size();
+        final int recordCapabilityCount = evidence.path("capabilityIds").size();
+
+        assertFieldViolation(pack, evidence, recordSha256, "selectorCount",
+            metadata -> metadata.put("selectorCount", recordSelectorCount + 1));
+        assertFieldViolation(pack, evidence, recordSha256, "capabilityCount",
+            metadata -> metadata.put("capabilityCount", recordCapabilityCount + 1));
+        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+            metadata -> ((ArrayNode) metadata.get("capabilityIds")).remove(0));
+        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+            metadata -> ((ArrayNode) metadata.get("capabilityIds"))
+                .add("cubism.editor-model.nonexistent-capability"));
+        assertFieldViolation(pack, evidence, recordSha256, "capabilityIds",
+            metadata -> ((ArrayNode) metadata.get("capabilityIds"))
+                .set(1, metadata.get("capabilityIds").get(0)));
+        assertFieldViolation(pack, evidence, recordSha256, "verificationRecordSha256",
+            metadata -> metadata.put("verificationRecordSha256", "0".repeat(64)));
+    }
+
+    private void assertFieldViolation(JsonNode pack, JsonNode evidence, String recordSha256,
+                                      String field, Consumer<ObjectNode> mutation) {
+        final ObjectNode mutated = pack.deepCopy();
+        mutation.accept((ObjectNode) mutated.get("metadata"));
+        final List<String> violations = draftMetadataViolations(mutated, evidence, recordSha256);
+        assertFalse(violations.isEmpty(),
+            () -> "mutation of " + field + " was not rejected");
+        assertTrue(violations.stream().allMatch(v -> v.contains(field)),
+            () -> "mutation of " + field + " reported unrelated violations: " + violations);
+    }
+
+    private static List<String> draftMetadataViolations(
+            JsonNode pack, JsonNode record, String recordSha256) {
+        final List<String> violations = new ArrayList<>();
+        final JsonNode metadata = pack.path("metadata");
+
+        final int selectorCount = record.path("selectors").size();
+        if (metadata.path("selectorCount").asInt(-1) != selectorCount) {
+            violations.add("selectorCount " + metadata.path("selectorCount").asInt(-1)
+                + " does not match record selector count " + selectorCount);
+        }
+
+        final List<String> recordCapabilities = new ArrayList<>();
+        record.path("capabilityIds").forEach(c -> recordCapabilities.add(c.asText()));
+        final List<String> packCapabilities = new ArrayList<>();
+        metadata.path("capabilityIds").forEach(c -> packCapabilities.add(c.asText()));
+        if (new HashSet<>(packCapabilities).size() != packCapabilities.size()) {
+            violations.add("capabilityIds contains duplicate entries");
+        }
+        if (!packCapabilities.equals(recordCapabilities)) {
+            violations.add("capabilityIds does not exactly match record capabilityIds");
+        }
+        if (metadata.path("capabilityCount").asInt(-1) != recordCapabilities.size()) {
+            violations.add("capabilityCount " + metadata.path("capabilityCount").asInt(-1)
+                + " does not match record capability count " + recordCapabilities.size());
+        }
+
+        if (!recordSha256.equals(metadata.path("verificationRecordSha256").asText())) {
+            violations.add("verificationRecordSha256 does not match sha256 of the referenced record bytes");
+        }
+        return violations;
+    }
+
+    private static String sha256Hex(byte[] bytes) throws Exception {
+        return HexFormat.of()
+            .formatHex(MessageDigest.getInstance("SHA-256").digest(bytes));
     }
 
     @Test
@@ -293,12 +432,6 @@ class MappingPackDraftImportTest {
             assertEquals("none", entry.path("verifiedBy").asText());
             assertTrue(entry.path("verifiedAt").isNull());
         }
-    }
-
-    private static Set<String> asStringSet(final JsonNode array) {
-        final java.util.HashSet<String> values = new java.util.HashSet<>();
-        array.forEach(value -> assertTrue(values.add(value.asText())));
-        return Set.copyOf(values);
     }
 
     @Test
