@@ -16,6 +16,11 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import javax.swing.JTable;
+import javax.swing.JTree;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.TreePath;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -1072,6 +1077,170 @@ class WindowsHistoryNativeUiIngressProbeTest {
     }
 
     @Test
+    void partActorUsesIdsAndRejectsRootCurrentParentAndDescendantTargets() {
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot model = new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+            "model-a",
+            List.of(
+                actorPart("__RootPart__", "Root", Optional.empty(), List.of("parent", "target")),
+                actorPart("parent", "Parent", Optional.of("__RootPart__"), List.of("source")),
+                actorPart("source", "Source", Optional.of("parent"), List.of("descendant")),
+                actorPart("descendant", "Descendant", Optional.of("source"), List.of()),
+                actorPart("target", "Target", Optional.of("__RootPart__"), List.of())
+            )
+        );
+
+        final List<WindowsHistoryNativeUiIngressProbe.PartPair> pairs =
+            WindowsHistoryNativeUiIngressProbe.safePartPairs(model);
+
+        assertTrue(pairs.stream().noneMatch(pair -> "__RootPart__".equals(pair.source().id())));
+        assertTrue(pairs.stream().noneMatch(pair ->
+            "source".equals(pair.source().id())
+                && Set.of("parent", "descendant").contains(pair.target().id())));
+        assertTrue(pairs.stream().anyMatch(pair ->
+            "source".equals(pair.source().id()) && "target".equals(pair.target().id())));
+    }
+
+    @Test
+    void partActorRejectsAmbiguousNamesAndModelReplacement() {
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot ambiguous =
+            new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+                "model-a",
+                List.of(
+                    actorPart("__RootPart__", "Root", Optional.empty(), List.of("source", "a", "b")),
+                    actorPart("source", "Source", Optional.of("__RootPart__"), List.of()),
+                    actorPart("a", "Same", Optional.of("__RootPart__"), List.of()),
+                    actorPart("b", "Same", Optional.of("__RootPart__"), List.of())
+                )
+            );
+
+        assertTrue(WindowsHistoryNativeUiIngressProbe.safePartPairs(ambiguous).isEmpty());
+        final WindowsHistoryNativeUiIngressProbe.PartPair pair =
+            new WindowsHistoryNativeUiIngressProbe.PartPair(
+                "model-a",
+                actorPart("source", "Source", Optional.of("__RootPart__"), List.of()),
+                actorPart("target", "Target", Optional.of("__RootPart__"), List.of())
+            );
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot replacement =
+            new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+                "model-b", pairModelParts(pair));
+
+        assertFalse(WindowsHistoryNativeUiIngressProbe.partPairMatches(replacement, pair));
+    }
+
+    @Test
+    void partDragNeedsTheSelectedSourceParentTransition() {
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot before =
+            partModel("model-a", "parent", "source", "target", "other");
+        final WindowsHistoryNativeUiIngressProbe.PartPair pair =
+            WindowsHistoryNativeUiIngressProbe.safePartPairs(before).stream()
+                .filter(candidate -> "source".equals(candidate.source().id())
+                    && "target".equals(candidate.target().id()))
+                .findFirst()
+                .orElseThrow();
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck selectionOnly =
+            WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+                pair, before, before, "selection", "selection");
+        assertEquals(
+            WindowsHistoryNativeUiIngressProbe.PartDragStatus.NO_CHANGE,
+            selectionOnly.status()
+        );
+
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot wrongSource =
+            partModel("model-a", "parent", "source", "target", "other-moved");
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck wrong =
+            WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+                pair, before, wrongSource, "before", "other-source-edit");
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, wrong.status());
+        assertEquals("unselected-significant-change", wrong.code());
+
+        final WindowsHistoryNativeUiIngressProbe.PartModelSnapshot moved =
+            partModel("model-a", "target", "source", "target", "other");
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck changed =
+            WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+                pair, before, moved, "before", "after");
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.CHANGED, changed.status());
+        assertEquals(Optional.of("parent"), changed.parentBefore());
+        assertEquals(Optional.of("target"), changed.parentAfter());
+        assertTrue(changed.evidence().contains("sourceId=source"), changed.evidence());
+        assertTrue(changed.evidence().contains("targetId=target"), changed.evidence());
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck sameParent =
+            WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+                pair, moved, moved, "before", "before");
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, sameParent.status());
+        assertEquals("same-parent", sameParent.code());
+
+        final WindowsHistoryNativeUiIngressProbe.PartDragCheck replaced =
+            WindowsHistoryNativeUiIngressProbe.assessPartDrag(
+                pair,
+                before,
+                new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+                    "model-b", moved.parts()),
+                "before",
+                "after");
+        assertEquals(WindowsHistoryNativeUiIngressProbe.PartDragStatus.MISMATCH, replaced.status());
+        assertEquals("model-changed", replaced.code());
+    }
+
+    @Test
+    void partRowLocatorRecomputesSourceAfterTargetExpansionAndKeepsPathAndRowAligned() {
+        final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+        final DefaultMutableTreeNode target = new DefaultMutableTreeNode("Target");
+        target.add(new DefaultMutableTreeNode("Target child"));
+        final DefaultMutableTreeNode source = new DefaultMutableTreeNode("Source");
+        root.add(target);
+        root.add(source);
+        final JTree tree = new JTree(root);
+        final TreePath targetPath = new TreePath(target.getPath());
+        final TreePath sourcePath = new TreePath(source.getPath());
+        tree.collapsePath(targetPath);
+        final int sourceRowBeforeExpansion = tree.getRowForPath(sourcePath);
+
+        final JTable table = new JTable(4, 1);
+        table.setRowHeight(20);
+        table.setSize(240, 80);
+        final WindowsHistoryNativeUiIngressProbe.PartPairLayout layout =
+            WindowsHistoryNativeUiIngressProbe.locatePartPairRows(
+                table, tree, "Source", "Target");
+
+        assertTrue(layout != null);
+        assertTrue(
+            layout.source().row() > sourceRowBeforeExpansion,
+            "target expansion must displace and force a fresh source row lookup"
+        );
+        assertEquals(layout.source().row(), tree.getRowForPath(layout.source().path()));
+        assertEquals(layout.target().row(), tree.getRowForPath(layout.target().path()));
+        assertEquals(layout.source().row(), table.rowAtPoint(layout.source().localPoint()));
+        assertEquals(layout.target().row(), table.rowAtPoint(layout.target().localPoint()));
+        assertTrue(layout.source().viewport().contains(layout.source().cell()));
+        assertTrue(layout.target().viewport().contains(layout.target().cell()));
+        assertNull(layout.source().screenPoint(), "headless layout has no stale screen point");
+    }
+
+    @Test
+    void partRowLocatorRejectsPairsThatCannotShareTheFinalViewport() {
+        final DefaultMutableTreeNode root = new DefaultMutableTreeNode("Root");
+        final DefaultMutableTreeNode target = new DefaultMutableTreeNode("Target");
+        target.add(new DefaultMutableTreeNode("Target child"));
+        root.add(target);
+        root.add(new DefaultMutableTreeNode("middle"));
+        root.add(new DefaultMutableTreeNode("another"));
+        root.add(new DefaultMutableTreeNode("Source"));
+        final JTree tree = new JTree(root);
+        tree.collapsePath(new TreePath(target.getPath()));
+        final JTable table = new JTable(6, 1);
+        table.setRowHeight(20);
+        table.setSize(240, 60);
+
+        assertNull(
+            WindowsHistoryNativeUiIngressProbe.locatePartPairRows(
+                table, tree, "Source", "Target"),
+            "the actor must reject a pair that would require drag auto-scroll"
+        );
+    }
+
+    @Test
     void navigationSettlesFarShorterThanAnEdit() {
         // A long settle on a navigation step is what let the operator's next keystroke land
         // inside the previous step's window.
@@ -1795,6 +1964,53 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final HistoryEntryDetail detail
     ) {
         return partVerdict(List.of(detail));
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.ActorPart actorPart(
+        final String id,
+        final String name,
+        final Optional<String> parentId,
+        final List<String> childIds
+    ) {
+        return new WindowsHistoryNativeUiIngressProbe.ActorPart(id, name, parentId, childIds);
+    }
+
+    private static List<WindowsHistoryNativeUiIngressProbe.ActorPart> pairModelParts(
+        final WindowsHistoryNativeUiIngressProbe.PartPair pair
+    ) {
+        return List.of(
+            actorPart("__RootPart__", "Root", Optional.empty(),
+                List.of(pair.source().id(), pair.target().id())),
+            pair.source(),
+            pair.target()
+        );
+    }
+
+    private static WindowsHistoryNativeUiIngressProbe.PartModelSnapshot partModel(
+        final String modelId,
+        final String sourceParent,
+        final String sourceId,
+        final String targetId,
+        final String otherId
+    ) {
+        final List<String> rootChildren = new java.util.ArrayList<>(
+            List.of("parent", targetId, otherId));
+        rootChildren.remove(sourceParent);
+        if (!rootChildren.contains(sourceParent)) rootChildren.add(0, sourceParent);
+        final List<String> parentChildren = "parent".equals(sourceParent)
+            ? List.of(sourceId) : List.of();
+        final List<String> targetChildren = targetId.equals(sourceParent)
+            ? List.of(sourceId) : List.of();
+        return new WindowsHistoryNativeUiIngressProbe.PartModelSnapshot(
+            modelId,
+            List.of(
+                actorPart("__RootPart__", "Root", Optional.empty(), rootChildren),
+                actorPart("parent", "Parent", Optional.of("__RootPart__"), parentChildren),
+                actorPart(sourceId, "Source", Optional.of(sourceParent), List.of()),
+                actorPart(targetId, "Target", Optional.of("__RootPart__"), targetChildren),
+                actorPart(otherId, "Other", Optional.of("__RootPart__"), List.of())
+            )
+        );
     }
 
     private static WindowsHistoryNativeUiIngressProbe.Verdict partVerdict(
