@@ -43,6 +43,8 @@ host_root="${DRIVER_STUB_HOST_ROOT:?}"
 log="${DRIVER_STUB_LOG:?}"
 file_hash="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
 image_hash="1111111111111111111111111111111111111111111111111111111111111111"
+baseline_target_hash="2222222222222222222222222222222222222222222222222222222222222222"
+post_target_hash="3333333333333333333333333333333333333333333333333333333333333333"
 a_run_id="queue-run-a"
 a_job_id="job-a"
 a_task_dir="$host_root/external-psd-edit-pipeline/5302-025-us4/$a_run_id"
@@ -121,6 +123,7 @@ PY
 if [ "$phase" = reopen ]; then
   printf 'stageB.fixture=%s\n' "${EXTERNAL_PSD_FIXTURE_LOCAL:-}" >> "$log"
   printf 'stageB.postImage=%s\n' "${EXTERNAL_PSD_POSTEDITIMAGESHA256:-}" >> "$log"
+  printf 'stageB.postTarget=%s\n' "${EXTERNAL_PSD_POSTEDITTARGETRGBSHA256:-}" >> "$log"
   printf 'stageB.postFile=%s\n' "${EXTERNAL_PSD_POSTEDITSHA256:-}" >> "$log"
   printf 'stageB.markerLayer=%s\n' "${EXTERNAL_PSD_MARKERLAYER:-}" >> "$log"
   printf 'stageB.markerOffset=%s\n' "${EXTERNAL_PSD_MARKEROFFSET:-}" >> "$log"
@@ -135,18 +138,23 @@ if [ "$phase" = reopen ]; then
   mkdir -p "$(dirname "$b_result")"
   b_expected="${EXTERNAL_PSD_POSTEDITIMAGESHA256:-}"
   b_actual="$b_expected"
+  b_expected_target="${EXTERNAL_PSD_POSTEDITTARGETRGBSHA256:-}"
+  b_actual_target="$b_expected_target"
   b_phase=reopen
   b_result_run_id="$b_run_id"
   case "$mode" in
     wrong-phase) b_phase=pipeline ;;
     wrong-run) b_result_run_id="$a_run_id" ;;
-    wrong-expected-image) b_expected="$file_hash" ;;
-    wrong-image) b_actual="$file_hash" ;;
+    wrong-expected-target) b_expected_target="$file_hash" ;;
+    wrong-target) b_actual_target="$file_hash" ;;
+    missing-target) b_expected_target=""; b_actual_target="" ;;
   esac
   {
     printf 'status=PASS\n'
     printf 'runId=%s\n' "$b_result_run_id"
     printf 'phase=%s\n' "$b_phase"
+    printf 'reopen.expectedTargetRgbSha256=%s\n' "$b_expected_target"
+    printf 'reopen.targetRgbSha256=%s\n' "$b_actual_target"
     printf 'reopen.expectedImageSha256=%s\n' "$b_expected"
     printf 'reopen.imageSha256=%s\n' "$b_actual"
   } > "$b_result"
@@ -191,51 +199,56 @@ printf 'persisted copy from %s\n' "$mode" > "$a_task_dir/turboism-home/persisted
 a_result_run_id="$a_run_id"
 a_phase=pipeline
 a_save_succeeded=true
+a_baseline_target_hash="$baseline_target_hash"
+a_second_target_hash="$baseline_target_hash"
+a_post_target_hash="$post_target_hash"
+a_target_changed=true
+a_quarantine_status=MOVED
+a_quarantine_owned=true
+a_quarantine_source_missing=true
+a_post_file_hash="$file_hash"
+a_post_image_hash="$image_hash"
+a_omit_target_fields=0
 case "$mode" in
   wrong-a-run) a_result_run_id=queue-run-other ;;
   wrong-a-phase) a_phase=reopen ;;
   save-not-succeeded) a_save_succeeded=false ;;
+  missing-hash|old-composite-only|target-missing|image-only) a_omit_target_fields=1 ;;
+  invalid-hash) a_post_target_hash=not-a-sha256 ;;
+  baseline-unstable) a_second_target_hash="4444444444444444444444444444444444444444444444444444444444444444" ;;
+  target-unchanged) a_post_target_hash="$a_baseline_target_hash" ;;
+  target-mismatch) a_target_changed=false ;;
+  quarantine-failure) a_quarantine_status=FAILED ;;
+  quarantine-incomplete)
+    a_quarantine_owned=false
+    a_quarantine_source_missing=false
+    ;;
+  legacy-composite-different)
+    a_post_file_hash="eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    a_post_image_hash="9999999999999999999999999999999999999999999999999999999999999999"
+    ;;
 esac
 
-if [ "$mode" = missing-hash ]; then
-  {
-    printf 'status=PASS\n'
-    printf 'runId=%s\n' "$a_result_run_id"
-    printf 'phase=%s\n' "$a_phase"
-    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
-    printf 'persist.markerLayer=3\n'
-    printf 'persist.markerOffset=4\n'
-    printf 'persist.markerChar=5\n'
-  } > "$a_result"
-elif [ "$mode" = invalid-hash ]; then
-  {
-    printf 'status=PASS\n'
-    printf 'runId=%s\n' "$a_result_run_id"
-    printf 'phase=%s\n' "$a_phase"
-    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
-    printf 'persist.postEditImageSha256=not-a-sha256\n'
-  } > "$a_result"
-elif [ "$mode" = image-only ]; then
-  {
-    printf 'status=PASS\n'
-    printf 'runId=%s\n' "$a_result_run_id"
-    printf 'phase=%s\n' "$a_phase"
-    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
-    printf 'persist.postEditImageSha256=%s\n' "$image_hash"
-  } > "$a_result"
-else
-  {
-    printf 'status=PASS\n'
-    printf 'runId=%s\n' "$a_result_run_id"
-    printf 'phase=%s\n' "$a_phase"
-    printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
-    printf 'persist.markerLayer=legacy\n'
-    printf 'persist.markerOffset=legacy\n'
-    printf 'persist.markerChar=legacy\n'
-    printf 'persist.postEditSha256=%s\n' "$file_hash"
-    printf 'persist.postEditImageSha256=%s\n' "$image_hash"
-  } > "$a_result"
-fi
+{
+  printf 'status=PASS\n'
+  printf 'runId=%s\n' "$a_result_run_id"
+  printf 'phase=%s\n' "$a_phase"
+  printf 'persist.saveSucceeded=%s\n' "$a_save_succeeded"
+  printf 'persist.markerLayer=legacy\n'
+  printf 'persist.markerOffset=legacy\n'
+  printf 'persist.markerChar=legacy\n'
+  if [ "$a_omit_target_fields" = 0 ]; then
+    printf 'persist.baselineTargetRgbSha256=%s\n' "$a_baseline_target_hash"
+    printf 'persist.baselineSecondTargetRgbSha256=%s\n' "$a_second_target_hash"
+    printf 'persist.postEditTargetRgbSha256=%s\n' "$a_post_target_hash"
+    printf 'persist.targetContentChanged=%s\n' "$a_target_changed"
+    printf 'persist.tempQuarantine.status=%s\n' "$a_quarantine_status"
+    printf 'persist.tempQuarantine.taskOwned=%s\n' "$a_quarantine_owned"
+    printf 'persist.tempQuarantine.sourceMissing=%s\n' "$a_quarantine_source_missing"
+  fi
+  printf 'persist.postEditSha256=%s\n' "$a_post_file_hash"
+  printf 'persist.postEditImageSha256=%s\n' "$a_post_image_hash"
+} > "$a_result"
 
 if [ "$mode" = crlf ]; then
   convert_result_to_crlf "$a_result"
@@ -314,6 +327,9 @@ run_success_case() {
     'stageB.postImage=1111111111111111111111111111111111111111111111111111111111111111' \
     "$mode must pass the post-edit image hash"
   assert_file_contains "$case_root/stub.log" \
+    'stageB.postTarget=3333333333333333333333333333333333333333333333333333333333333333' \
+    "$mode must pass the post-edit target RGB hash"
+  assert_file_contains "$case_root/stub.log" \
     'stageB.postFile=ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' \
     "$mode must pass the optional post-edit file hash"
   assert_file_not_contains "$case_root/stub.log" 'stageB.markerLayer=legacy' \
@@ -323,6 +339,16 @@ run_success_case() {
 run_success_case correct
 run_success_case adjacent-job
 run_success_case crlf
+
+run_driver_case legacy-composite-different 0 >/dev/null
+assert_file_contains "$test_root/legacy-composite-different/stub.log" 'phase=reopen' \
+  'different legacy composite evidence must not block a valid target RGB round trip'
+assert_file_contains "$test_root/legacy-composite-different/stub.log" \
+  'stageB.postTarget=3333333333333333333333333333333333333333333333333333333333333333' \
+  'target RGB evidence remains the stage B gate when legacy hashes differ'
+assert_file_contains "$test_root/legacy-composite-different/stub.log" \
+  'stageB.postImage=9999999999999999999999999999999999999999999999999999999999999999' \
+  'legacy composite evidence is forwarded only as optional diagnostics'
 
 assert_logged_result_is_crlf() {
   local log="$1" key="$2" description="$3" result_path
@@ -352,15 +378,6 @@ assert_logged_result_is_crlf "$test_root/crlf/stub.log" stageA.result \
 assert_logged_result_is_crlf "$test_root/crlf/stub.log" stageB.result \
   'stage B result must preserve CRLF input'
 
-run_driver_case image-only 0 >/dev/null
-assert_file_contains "$test_root/image-only/stub.log" 'phase=reopen' \
-  'image-only evidence must run stage B'
-assert_file_contains "$test_root/image-only/stub.log" 'stageB.postFile=' \
-  'the optional post-edit file hash may be absent'
-assert_file_contains "$test_root/image-only/stub.log" \
-  'stageB.postImage=1111111111111111111111111111111111111111111111111111111111111111' \
-  'image-only evidence must pass the required image hash'
-
 run_stage_b_rejection_case() {
   local mode="$1"
   run_driver_case "$mode" 1 >/dev/null
@@ -371,8 +388,9 @@ run_stage_b_rejection_case() {
 run_stage_b_rejection_case reuse-a-evidence
 run_stage_b_rejection_case wrong-phase
 run_stage_b_rejection_case wrong-run
-run_stage_b_rejection_case wrong-expected-image
-run_stage_b_rejection_case wrong-image
+run_stage_b_rejection_case wrong-expected-target
+run_stage_b_rejection_case wrong-target
+run_stage_b_rejection_case missing-target
 run_stage_b_rejection_case terminal-sha-mismatch
 run_stage_b_rejection_case stage-b-failure
 run_stage_b_rejection_case stage-b-incomplete-supervisor
@@ -391,14 +409,16 @@ run_stage_a_rejection_case() {
 run_stage_a_rejection_case wrong-a-run
 run_stage_a_rejection_case wrong-a-phase
 run_stage_a_rejection_case save-not-succeeded
-
-run_driver_case missing-hash 1 >/dev/null
-assert_file_not_contains "$test_root/missing-hash/stub.log" 'phase=reopen' \
-  'missing post-edit hash must fail before stage B'
-
-run_driver_case invalid-hash 1 >/dev/null
-assert_file_not_contains "$test_root/invalid-hash/stub.log" 'phase=reopen' \
-  'invalid post-edit hash must fail before stage B'
+run_stage_a_rejection_case missing-hash
+run_stage_a_rejection_case old-composite-only
+run_stage_a_rejection_case target-missing
+run_stage_a_rejection_case image-only
+run_stage_a_rejection_case invalid-hash
+run_stage_a_rejection_case baseline-unstable
+run_stage_a_rejection_case target-unchanged
+run_stage_a_rejection_case target-mismatch
+run_stage_a_rejection_case quarantine-failure
+run_stage_a_rejection_case quarantine-incomplete
 
 run_driver_case incomplete-supervisor 1 >/dev/null
 assert_file_not_contains "$test_root/incomplete-supervisor/stub.log" 'phase=reopen' \
@@ -437,11 +457,13 @@ printf '%s\n' "$@" > "${DRIVER_STUB_ARG_LOG:?}"
 RUNNER
   chmod +x "$root/scripts/preview/run-cubism-host-validation.sh"
   set +e
+  target_hash=2222222222222222222222222222222222222222222222222222222222222222
   TURBOISM_ENV_FILE=/dev/null \
     TURBOISM_HOST_VALIDATION_FIXTURE_5302="$fixture" \
     TURBOISM_HOST_VALIDATION_FIXTURE_5302_SHA256=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
     EXTERNAL_PSD_POSTEDITSHA256=file-hash \
     EXTERNAL_PSD_POSTEDITIMAGESHA256=image-hash \
+    EXTERNAL_PSD_POSTEDITTARGETRGBSHA256="$target_hash" \
     DRIVER_STUB_ARG_LOG="$args" \
     bash "$root/scripts/preview/run-external-psd-edit-host-validation.sh" --dry-run \
     > "$output" 2>&1
@@ -460,6 +482,7 @@ expected = [
     ("--fixture-host", fixture),
     ("--jvm-option", "-Dturboism.validation.externalpsd.postEditSha256=file-hash"),
     ("--jvm-option", "-Dturboism.validation.externalpsd.postEditImageSha256=image-hash"),
+    ("--jvm-option", "-Dturboism.validation.externalpsd.postEditTargetRgbSha256=" + "2" * 64),
 ]
 for flag, value in expected:
     if any(args[index:index + 2] == [flag, value] for index in range(len(args) - 1)):

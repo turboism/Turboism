@@ -195,29 +195,51 @@ property() {
   || die 'stage A result is not the pipeline phase; stage B was not started'
 [ "$(property "$result_a" persist.saveSucceeded)" = true ] \
   || die 'stage A did not record persist.saveSucceeded=true; stage B was not started'
+[ "$(property "$result_a" persist.targetContentChanged)" = true ] \
+  || die 'stage A did not prove target RGB content changed; stage B was not started'
+[ "$(property "$result_a" persist.tempQuarantine.status)" = MOVED ] \
+  || die 'stage A temporary PSD quarantine was not completed; stage B was not started'
+[ "$(property "$result_a" persist.tempQuarantine.taskOwned)" = true ] \
+  || die 'stage A temporary PSD quarantine is not task-owned; stage B was not started'
+[ "$(property "$result_a" persist.tempQuarantine.sourceMissing)" = true ] \
+  || die 'stage A temporary PSD source still exists after quarantine; stage B was not started'
+
+is_sha256() {
+  [[ "$1" =~ ^[0-9a-fA-F]{64}$ ]]
+}
+
+baseline_target_sha256="$(property "$result_a" persist.baselineTargetRgbSha256)"
+baseline_second_target_sha256="$(property "$result_a" persist.baselineSecondTargetRgbSha256)"
+post_target_sha256="$(property "$result_a" persist.postEditTargetRgbSha256)"
+is_sha256 "$baseline_target_sha256" \
+  || die 'stage A is missing a valid persist.baselineTargetRgbSha256; stage B was not started'
+is_sha256 "$baseline_second_target_sha256" \
+  || die 'stage A is missing a valid persist.baselineSecondTargetRgbSha256; stage B was not started'
+is_sha256 "$post_target_sha256" \
+  || die 'stage A is missing a valid persist.postEditTargetRgbSha256; stage B was not started'
+[ "$baseline_target_sha256" = "$baseline_second_target_sha256" ] \
+  || die 'stage A native baseline target RGB fingerprints are unstable; stage B was not started'
+[ "$post_target_sha256" != "$baseline_target_sha256" ] \
+  || die 'stage A post-edit target RGB fingerprint did not change; stage B was not started'
 
 saved="$task_dir/turboism-home/persisted-document.cmo3"
 [ -f "$saved" ] && [ ! -L "$saved" ] \
   || die "persisted document missing for job $stage_a_job_id / run $stage_a_run_id: $saved"
 
-# The reopen probe gates on exported image data. The full-file digest is useful
-# context and is optional; the retired marker coordinates are intentionally not
-# read or forwarded.
+# The reopen probe gates on the decoded target-layer RGB fingerprint. The old
+# full-file/composite digests are optional diagnostics only; the retired marker
+# coordinates are intentionally not read or forwarded.
 post_file_sha256="$(property "$result_a" persist.postEditSha256)"
 post_image_sha256="$(property "$result_a" persist.postEditImageSha256)"
-[[ "$post_image_sha256" =~ ^[0-9a-fA-F]{64}$ ]] \
-  || die "stage A is missing a valid persist.postEditImageSha256; stage B was not started"
-if [ -n "$post_file_sha256" ] && [[ ! "$post_file_sha256" =~ ^[0-9a-fA-F]{64}$ ]]; then
-  die 'stage A has an invalid persist.postEditSha256; stage B was not started'
-fi
 
-echo "== stage B: reopen $saved (post-edit image hash=$post_image_sha256)"
+echo "== stage B: reopen $saved (post-edit target RGB hash=$post_target_sha256)"
 if (
   unset EXTERNAL_PSD_MARKERLAYER EXTERNAL_PSD_MARKEROFFSET EXTERNAL_PSD_MARKERCHAR
   EXTERNAL_PSD_PHASE=reopen \
     EXTERNAL_PSD_FIXTURE_LOCAL="$saved" \
     EXTERNAL_PSD_POSTEDITSHA256="$post_file_sha256" \
     EXTERNAL_PSD_POSTEDITIMAGESHA256="$post_image_sha256" \
+    EXTERNAL_PSD_POSTEDITTARGETRGBSHA256="$post_target_sha256" \
     bash "$wrapper" "$@" >"$stage_b_log" 2>&1
 ); then
   stage_b_status=0
@@ -250,7 +272,7 @@ stage_b_result="$stage_b_terminal_path"
   || die "stage B result runId is not bound to queue run $stage_b_run_id"
 [ "$(property "$stage_b_result" phase)" = reopen ] \
   || die 'stage B result is not the reopen phase'
-[ "$(property "$stage_b_result" reopen.expectedImageSha256)" = "$post_image_sha256" ] \
-  || die 'stage B expected image SHA does not match the stage A post-edit image SHA'
-[ "$(property "$stage_b_result" reopen.imageSha256)" = "$post_image_sha256" ] \
-  || die 'stage B reopened image SHA does not match the stage A post-edit image SHA'
+[ "$(property "$stage_b_result" reopen.expectedTargetRgbSha256)" = "$post_target_sha256" ] \
+  || die 'stage B expected target RGB SHA does not match the stage A post-edit target RGB SHA'
+[ "$(property "$stage_b_result" reopen.targetRgbSha256)" = "$post_target_sha256" ] \
+  || die 'stage B reopened target RGB SHA does not match the stage A post-edit target RGB SHA'
