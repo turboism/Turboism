@@ -3,6 +3,7 @@ package dev.turboism.validation.externalpsd;
 import java.awt.AWTEvent;
 import java.awt.Component;
 import java.awt.Container;
+import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
 import java.nio.ByteBuffer;
@@ -14,16 +15,20 @@ import java.util.List;
 import java.util.Optional;
 
 import javax.swing.JPopupMenu;
+import javax.swing.JTable;
 
 /** Offline unit coverage for the probe's PSD mutation, popup dispatch, and GUI evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
-    public static void main(final String[] args) throws java.io.IOException {
+    public static void main(final String[] args) throws Exception {
         testPopupTriggerDispatch();
         testSyntheticTargetDiagnostics();
         testRendererPreparationFollowsDispatch();
         testRightClickDispatchFailure();
         testReplacedTargetAfterSelection();
         testUnrelocatableTargetIsRejected();
+        testActiveRowResolver();
+        testStableRowKeySafety();
+        testBoundedRowDispatches();
         testPopupMarker();
         testPopupAttemptAssociation();
         testAutoImportEvidence();
@@ -196,6 +201,134 @@ public final class ExternalPsdEditHostProbeTest {
             "row relocation retries are bounded");
     }
 
+    private static void testActiveRowResolver() {
+        final Component original = new RecordingComponent();
+        final Component replacement = new RecordingComponent();
+        final var captured = capturedRow("widget-a", "window-a", 2, "mesh-a", true);
+
+        final var sameIdentity = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(currentRow("widget-a", "window-a", 2, "mesh-a", true, original)));
+        assertTrue(sameIdentity.available(), "same widget and row identity resolves");
+        assertSame(original, sameIdentity.row().component(), "same identity keeps target");
+
+        final var sameIdentityWithDuplicate = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(
+                currentRow("widget-a", "window-a", 2, "mesh-a", true, original),
+                currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement)));
+        assertTrue(sameIdentityWithDuplicate.available(),
+            "same identity wins over another same-key row");
+        assertSame(original, sameIdentityWithDuplicate.row().component(),
+            "same identity branch preserves the captured target constraint");
+
+        final var moved = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(currentRow("widget-a", "window-a", 7, "mesh-a", true, original)));
+        assertTrue(moved.available(), "a uniquely keyed row can move within its widget");
+        assertEquals(7, moved.row().row(), "row movement resolves the new row index");
+
+        final var replaced = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement)));
+        assertTrue(replaced.available(), "a replacement component can be relocated");
+        assertSame(replacement, replaced.row().component(),
+            "replacement component is the resolved target");
+        assertEquals(8, replaced.row().row(), "replacement row is used instead of captured index");
+
+        final var otherWindow = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(currentRow("widget-b", "window-b", 8, "mesh-a", true, replacement)));
+        assertTrue(!otherWindow.available(), "matching row in another window is rejected");
+        assertContains(otherWindow.reason(), "captured window",
+            "cross-window rejection identifies the captured window constraint");
+
+        final var ambiguous = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            captured, List.of(
+                currentRow("widget-b", "window-a", 8, "mesh-a", true, replacement),
+                currentRow("widget-c", "window-a", 9, "mesh-a", true, new RecordingComponent())));
+        assertTrue(!ambiguous.available(), "duplicate same-window keys are rejected");
+        assertContains(ambiguous.reason(), "ambiguous", "ambiguous row rejection is explicit");
+
+        final var unavailable = ExternalPsdEditHostProbe.resolveActiveRowForTest(
+            capturedRow("widget-a", "window-a", 2, "", false),
+            List.of(currentRow("widget-a", "window-a", 2, "mesh-a", true, original)));
+        assertTrue(!unavailable.available(), "an unavailable capture key is rejected");
+        assertContains(unavailable.reason(), "no stable key",
+            "unavailable key rejection explains why index reuse is unsafe");
+    }
+
+    private static void testStableRowKeySafety() {
+        final JTable collision = new JTable(new Object[][]{
+            {"a", "b|String:c"},
+            {"a|String:b", "c"}
+        }, new Object[]{"one", "two"});
+        final var first = ExternalPsdEditHostProbe.rowKeyForTest(
+            collision, ExternalPsdEditHostProbe.RowKind.TABLE, 0);
+        final var second = ExternalPsdEditHostProbe.rowKeyForTest(
+            collision, ExternalPsdEditHostProbe.RowKind.TABLE, 1);
+        assertTrue(first.available() && second.available(),
+            "ordinary table values have stable keys");
+        assertTrue(!first.value().equals(second.value()),
+            "delimiters in values cannot collide in a row key");
+
+        final String prefix = "x".repeat(256);
+        final JTable longValues = new JTable(new Object[][]{
+            {prefix + "a"}, {prefix + "b"}
+        }, new Object[]{"one"});
+        final var longFirst = ExternalPsdEditHostProbe.rowKeyForTest(
+            longValues, ExternalPsdEditHostProbe.RowKind.TABLE, 0);
+        final var longSecond = ExternalPsdEditHostProbe.rowKeyForTest(
+            longValues, ExternalPsdEditHostProbe.RowKind.TABLE, 1);
+        assertTrue(!longFirst.value().equals(longSecond.value()),
+            "full values, not a 256-character preview, identify rows");
+
+        final JTable throwing = new JTable(new Object[][]{{new ThrowingValue()}},
+            new Object[]{"one"});
+        assertTrue(!ExternalPsdEditHostProbe.rowKeyForTest(
+            throwing, ExternalPsdEditHostProbe.RowKind.TABLE, 0).available(),
+            "toString failure makes the row key unavailable");
+
+        final Object identityOnly = new Object();
+        final JTable defaultString = new JTable(new Object[][]{{identityOnly}},
+            new Object[]{"one"});
+        assertTrue(!ExternalPsdEditHostProbe.rowKeyForTest(
+            defaultString, ExternalPsdEditHostProbe.RowKind.TABLE, 0).available(),
+            "Object class-at-identity text is not a stable cross-component key");
+    }
+
+    private static void testBoundedRowDispatches() throws Exception {
+        final int[] calls = {0};
+        final int exhausted = ExternalPsdEditHostProbe.runBoundedRowDispatches(attempt -> {
+            calls[0]++;
+            assertEquals(calls[0], attempt, "retry attempt numbers are sequential");
+            return true;
+        });
+        assertEquals(ExternalPsdEditHostProbe.rowDispatchAttemptLimit(), exhausted,
+            "retry loop stops at its configured upper bound");
+        assertEquals(ExternalPsdEditHostProbe.rowDispatchAttemptLimit(), calls[0],
+            "retry operation is invoked only through the upper bound");
+
+        calls[0] = 0;
+        final int stopped = ExternalPsdEditHostProbe.runBoundedRowDispatches(attempt -> {
+            calls[0]++;
+            return attempt < 2;
+        });
+        assertEquals(2, stopped, "retry loop stops when the operation succeeds");
+        assertEquals(2, calls[0], "successful attempt prevents another retry");
+    }
+
+    private static ExternalPsdEditHostProbe.CapturedRow capturedRow(
+        final String widget, final String window, final int row, final String key,
+        final boolean keyAvailable) {
+        return new ExternalPsdEditHostProbe.CapturedRow(
+            ExternalPsdEditHostProbe.RowKind.TABLE, "HostTable", widget, window, row,
+            key, keyAvailable, "(0,0,10,10)");
+    }
+
+    private static ExternalPsdEditHostProbe.CurrentRow currentRow(
+        final String widget, final String window, final int row, final String key,
+        final boolean keyAvailable, final Component component) {
+        return new ExternalPsdEditHostProbe.CurrentRow(
+            capturedRow(widget, window, row, key, keyAvailable), component,
+            new Rectangle(0, row * 10, 100, 10));
+    }
+
     private static void testPopupMarker() {
         final JPopupMenu popup = new JPopupMenu();
         final javax.swing.JMenuItem item = new javax.swing.JMenuItem("Edit PSD Externally");
@@ -365,6 +498,12 @@ public final class ExternalPsdEditHostProbeTest {
         }
 
         private List<MouseEvent> events() { return events; }
+    }
+
+    private static final class ThrowingValue {
+        @Override public String toString() {
+            throw new IllegalStateException("row-value-failure");
+        }
     }
 
     private static final class ReplacingComponent extends Component {
