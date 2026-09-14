@@ -17,8 +17,8 @@ import java.util.Locale;
  * 6 is also required so an index-only mutation cannot silently select another layer.</p>
  *
  * <p>The composite is parsed for structural evidence but is never mutated and is not included in
- * the target fingerprint. The fingerprint includes validated target bounds, dimensions, channel
- * layout, and the encoded RGB channel payloads, so a layer-name or composite-only change does not
+ * the target fingerprint. The fingerprint includes validated target bounds, dimensions, RGB
+ * channel IDs, and decoded target RGB content, so a layer-name or composite-only change does not
  * masquerade as a target content change.</p>
  */
 public final class PsdValidationContent {
@@ -38,10 +38,11 @@ public final class PsdValidationContent {
     private PsdValidationContent() { }
 
     /**
-     * Returns the SHA-256 content fingerprint of the validated target layer's RGB payload.
+     * Returns the SHA-256 content fingerprint of the validated target layer's decoded RGB content.
      *
      * @param psd complete PSD bytes
-     * @return target bounds/layout plus the content SHA-256 in lower-case hexadecimal
+     * @return target bounds, dimensions, RGB channel IDs, and decoded content SHA-256 in lower-case
+     *     hexadecimal
      * @throws ValidationException if the bytes are malformed or outside the supported profile
      */
     public static Fingerprint targetLayerRgbFingerprint(final byte[] psd) {
@@ -261,8 +262,6 @@ public final class PsdValidationContent {
                 final int start = layer.pos;
                 final int end = checkedEnd(start, channel.declaredLength, layer.limit,
                     "layer channel data");
-                channel.start = start;
-                channel.end = end;
                 final boolean collect = parsedLayer.index == TARGET_LAYER_INDEX
                     && channel.id >= 0 && channel.id <= 2;
                 final byte[] decodedSamples = collect
@@ -578,8 +577,6 @@ public final class PsdValidationContent {
         private final int declaredLength;
         private final List<Integer> sampleOffsets = new ArrayList<>();
         private byte[] decodedSamples;
-        private int start;
-        private int end;
 
         private Channel(final int id, final int declaredLength) {
             this.id = id;
