@@ -235,7 +235,7 @@ class WindowsHistoryNativeUiIngressProbeTest {
         final WindowsHistoryNativeUiIngressProbe probe = new WindowsHistoryNativeUiIngressProbe();
 
         for (final String id : List.of(
-            "deformer-assign", "canvas-deform", "native-parameter", "native-color", "unknown"
+            "unknown"
         )) {
             assertEquals(
                 "none",
@@ -257,6 +257,27 @@ class WindowsHistoryNativeUiIngressProbeTest {
         assertTrue(
             canvas.startsWith("unresolved:") || canvas.startsWith("failed:"),
             "an automated actor with no canvas to drive must be recorded, got " + canvas
+        );
+
+        final String parameter =
+            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-parameter", "ACTION", "x"), "");
+        assertTrue(
+            parameter.startsWith("unresolved:") || parameter.startsWith("failed:"),
+            "an automated actor with no slider to drive must be recorded, got " + parameter
+        );
+
+        final String deform =
+            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("canvas-deform", "ACTION", "x"), "");
+        assertTrue(
+            deform.startsWith("unresolved:") || deform.startsWith("failed:"),
+            "the canvas actor with no canvas must be recorded, got " + deform
+        );
+
+        final String color =
+            probe.act(new WindowsHistoryNativeUiIngressProbe.Step("native-color", "ACTION", "x"), "");
+        assertTrue(
+            color.startsWith("unresolved:") || color.startsWith("failed:"),
+            "an automated actor with no colour field to drive must be recorded, got " + color
         );
 
         final String undo =

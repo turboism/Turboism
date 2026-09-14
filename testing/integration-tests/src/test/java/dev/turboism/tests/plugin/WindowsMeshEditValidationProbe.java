@@ -605,7 +605,7 @@ public final class WindowsMeshEditValidationProbe implements CubismPlugin {
         }
     }
 
-    private static JTree extractTree(final javax.swing.JTable table) {
+    static JTree extractTree(final javax.swing.JTable table) {
         for (Component child : table.getComponents()) {
             if (child instanceof JTree tree) return tree;
         }

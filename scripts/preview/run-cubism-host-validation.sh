@@ -1879,6 +1879,34 @@ set -u
 export DISPLAY="$display"
 export TURBOISM_HOST_VALIDATION_TASK_DIR="$task_dir"
 cd "$task_dir" || exit 1
+# Under the niri scrolling compositor the launcher's own cmd.exe console becomes a
+# column beside the editor. Columns tile across the viewport, so the editor's AWT
+# coordinates (origin 0,0) only line up with real screen pixels when the editor is the
+# leftmost visible column — otherwise every Robot press lands on the console window.
+# Keep the editor column focused and pinned to the start of its workspace.
+(
+  for _ in \$(seq 1 600); do
+    niri msg -j windows 2>/dev/null | python3 -c '
+import json, subprocess, sys
+task = sys.argv[1]
+try:
+    windows = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+for w in windows:
+    title = w.get("title") or ""
+    if task + ".cmo3" in title:
+        if not w.get("is_focused"):
+            subprocess.run(
+                ["niri", "msg", "action", "focus-window", "--id", str(w["id"])],
+                capture_output=True)
+        subprocess.run(
+            ["niri", "msg", "action", "move-column-to-first"],
+            capture_output=True)
+' "$task_id"
+    sleep 2
+  done
+) &
 "$proton_wrapper" -p "$prefix_dir" --runner "$proton_runner" --debug "$cmd_unix" /c "$win_launch" > "$evidence_dir/launcher.out" 2>&1
 rc=\$?
 printf '%s\\n' "\$rc" > "$evidence_dir/wrapper.exit"
