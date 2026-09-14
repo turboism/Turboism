@@ -39,6 +39,7 @@ import java.awt.Frame;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PointerInfo;
+import java.awt.Rectangle;
 import java.awt.Window;
 import java.awt.event.InputEvent;
 import java.awt.event.MouseEvent;
@@ -1232,10 +1233,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             final List<RowWidget> widgets = visibleRowWidgets();
             if (!widgets.isEmpty()) {
                 for (final RowWidget widget : widgets) {
-                    final int rows = widget.rows();
-                    for (int row = 0; row < rows && attempts < rowBudget; row++, attempts++) {
+                    final List<CapturedRow> rows = widget.captureRows();
+                    for (final CapturedRow captured : rows) {
+                        if (attempts >= rowBudget) break;
                         if (stopped) return new GuiClick(false, "probe stopped");
-                        final RowAttempt rowAttempt = widget.rightClick(row);
+                        attempts++;
+                        final RowAttempt rowAttempt = widget.rightClick(captured);
                         popups += rowAttempt.popupCount();
                         String menuDiagnostic = "no selected popup";
                         final JPopupMenu popup = rowAttempt.popup();
@@ -1253,13 +1256,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                                     ? "none" : foundItem.get().getText())
                                 + " menuTexts=" + rowMenuTexts;
                         }
-                        final String rowDiagnostic = "attempt=" + (attempts + 1)
-                            + " widget=" + widget.name() + " row=" + row + " "
+                        final String rowDiagnostic = "attempt=" + attempts
+                            + " widget=" + widget.name() + " row=" + captured.row() + " "
                             + rowAttempt.diagnostic() + " " + menuDiagnostic;
                         rowDiagnostics.add(rowDiagnostic);
-                        result.setProperty("gui.row." + (attempts + 1), rowDiagnostic);
+                        result.setProperty("gui.row." + attempts, rowDiagnostic);
                         if (!rowAttempt.dispatchFailureTrace().isBlank()) {
-                            result.setProperty("gui.row." + (attempts + 1)
+                            result.setProperty("gui.row." + attempts
                                 + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
                         }
                         context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
@@ -1270,12 +1273,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                             dismissPopup();
                             continue;
                         }
-                        result.setProperty("gui.popupRow", Integer.toString(row));
-                        result.setProperty("gui.popupComponent", widget.name());
+                        result.setProperty("gui.popupRow", Integer.toString(rowAttempt.dispatchRow()));
+                        result.setProperty("gui.popupComponent", rowAttempt.dispatchComponent());
                         clickItem(item);
                         result.setProperty("gui.attempts", Integer.toString(attempts));
                         result.setProperty("gui.popupsSeen", Integer.toString(popups));
-                        return new GuiClick(true, "clicked row " + row);
+                        return new GuiClick(true,
+                            "clicked row " + rowAttempt.dispatchRow());
                     }
                     diagnostic = "rows exhausted without the item; popups seen " + popups
                         + " widgets=" + widgets.stream().map(RowWidget::name).toList()
@@ -1293,102 +1297,177 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return new GuiClick(false, diagnostic);
     }
 
-    /** A selectable row widget the host popup can be raised on: JTree row or JList cell. */
+    /** A selectable row widget the host popup can be raised on: JTree row, table cell, or JList cell. */
     private sealed interface RowWidget {
         String name();
-        int rows() throws Exception;
-        RowAttempt rightClick(int row) throws Exception;
+        List<CapturedRow> captureRows() throws Exception;
+        RowAttempt rightClick(CapturedRow row) throws Exception;
     }
 
     private record TreeWidget(JTree tree) implements RowWidget {
         public String name() { return tree.getClass().getName(); }
-        public int rows() throws Exception {
-            final AtomicReference<Integer> rows = new AtomicReference<>(0);
-            SwingUtilities.invokeAndWait(() -> rows.set(tree.getRowCount()));
+        public List<CapturedRow> captureRows() throws Exception {
+            final AtomicReference<List<CapturedRow>> rows = new AtomicReference<>(List.of());
+            SwingUtilities.invokeAndWait(() -> rows.set(captureRowsOnEdt(
+                tree, RowKind.TREE)));
             return rows.get();
         }
-        public RowAttempt rightClick(final int row) throws Exception {
-            final PopupAttempt attempt = dismissPopup();
-            return rowAttempt(attempt, tree, row, () -> {
-                tree.expandRow(row);
-                final var bounds = tree.getRowBounds(row);
-                if (bounds == null) return RightClickDispatch.notDispatched(
-                    "row bounds unavailable");
-                return dispatchRightClick(tree, bounds.x + bounds.width / 2,
-                    bounds.y + bounds.height / 2);
-            });
+        public RowAttempt rightClick(final CapturedRow row) throws Exception {
+            return rightClickRow(row);
         }
     }
 
     private record TableWidget(javax.swing.JTable table) implements RowWidget {
         public String name() { return table.getClass().getName(); }
-        public int rows() throws Exception {
-            final AtomicReference<Integer> rows = new AtomicReference<>(0);
-            SwingUtilities.invokeAndWait(() -> rows.set(table.getRowCount()));
+        public List<CapturedRow> captureRows() throws Exception {
+            final AtomicReference<List<CapturedRow>> rows = new AtomicReference<>(List.of());
+            SwingUtilities.invokeAndWait(() -> rows.set(captureRowsOnEdt(
+                table, RowKind.TABLE)));
             return rows.get();
         }
-        public RowAttempt rightClick(final int row) throws Exception {
-            final PopupAttempt attempt = dismissPopup();
-            return rowAttempt(attempt, table, row, () -> {
-                final var bounds = table.getCellRect(row, 0, true);
-                if (bounds == null) return RightClickDispatch.notDispatched(
-                    "cell bounds unavailable");
-                return dispatchRightClick(table, bounds.x + bounds.width / 2,
-                    bounds.y + bounds.height / 2);
-            });
+        public RowAttempt rightClick(final CapturedRow row) throws Exception {
+            return rightClickRow(row);
         }
     }
 
     private record ListWidget(javax.swing.JList<?> list) implements RowWidget {
         public String name() { return list.getClass().getName(); }
-        public int rows() throws Exception {
-            final AtomicReference<Integer> rows = new AtomicReference<>(0);
-            SwingUtilities.invokeAndWait(() -> rows.set(list.getModel().getSize()));
+        public List<CapturedRow> captureRows() throws Exception {
+            final AtomicReference<List<CapturedRow>> rows = new AtomicReference<>(List.of());
+            SwingUtilities.invokeAndWait(() -> rows.set(captureRowsOnEdt(
+                list, RowKind.LIST)));
             return rows.get();
         }
-        public RowAttempt rightClick(final int row) throws Exception {
-            final PopupAttempt attempt = dismissPopup();
-            return rowAttempt(attempt, list, row, () -> {
-                final var bounds = list.getCellBounds(row, row);
-                if (bounds == null) return RightClickDispatch.notDispatched(
-                    "cell bounds unavailable");
-                return dispatchRightClick(list, bounds.x + bounds.width / 2,
-                    bounds.y + bounds.height / 2);
-            });
+        public RowAttempt rightClick(final CapturedRow row) throws Exception {
+            return rightClickRow(row);
         }
     }
 
-    private static RowAttempt rowAttempt(final PopupAttempt attempt, final Component target,
-        final int row, final java.util.function.Supplier<RightClickDispatch> dispatch)
+    private static final int MAX_ROW_DISPATCH_ATTEMPTS = 3;
+
+    private static RowAttempt rightClickRow(final CapturedRow captured) throws Exception {
+        return rowAttempt(dismissPopup(), captured);
+    }
+
+    /**
+     * Runs one captured row through a bounded stale-widget recovery loop. Every invocation of
+     * {@link #dispatchCapturedRow(CapturedRow, boolean)} is made on the EDT; returning to the
+     * worker between retries gives a replacement table a chance to become visible.
+     */
+    private static RowAttempt rowAttempt(PopupAttempt attempt, final CapturedRow captured)
         throws Exception {
-        final AtomicReference<RightClickDispatch> outcome = new AtomicReference<>();
+        final AtomicReference<RowDispatchResult> rowOutcome = new AtomicReference<>();
         RightClickDispatchException dispatchFailure = null;
-        try {
-            SwingUtilities.invokeAndWait(() -> outcome.set(dispatch.get()));
-        } catch (InvocationTargetException wrapped) {
-            if (wrapped.getCause() instanceof RightClickDispatchException failure) {
-                dispatchFailure = failure;
-            } else {
+        final List<String> retryReasons = new ArrayList<>();
+        for (int attemptNumber = 1; attemptNumber <= MAX_ROW_DISPATCH_ATTEMPTS;
+            attemptNumber++) {
+            rowOutcome.set(null);
+            try {
+                final boolean triggerOnPress = popupTriggerOnPress(
+                    System.getProperty("os.name", ""));
+                SwingUtilities.invokeAndWait(() -> rowOutcome.set(
+                    dispatchCapturedRow(captured, triggerOnPress)));
+            } catch (InvocationTargetException wrapped) {
+                if (wrapped.getCause() instanceof RightClickDispatchException failure) {
+                    dispatchFailure = failure;
+                    break;
+                }
                 throw wrapped;
+            }
+
+            final RowDispatchResult result = rowOutcome.get();
+            if (result == null || !result.retryable()) break;
+            retryReasons.add("attempt=" + attemptNumber + " phase=" + result.phase()
+                + " reason=" + result.reason());
+            if (attemptNumber < MAX_ROW_DISPATCH_ATTEMPTS) {
+                final PopupAttempt retryPopup = dismissPopup();
+                attempt = mergePopupAttempts(attempt, retryPopup);
             }
         }
         final PopupCapture popup = awaitPopup(attempt);
-        final RightClickDispatch dispatchResult = outcome.get();
-        final String dispatchDiagnostic = dispatchResult != null
-            ? dispatchResult.diagnostic()
+        final RowDispatchResult rowResult = rowOutcome.get();
+        final String dispatchDiagnostic = rowResult != null
+            ? rowResult.dispatch().diagnostic()
             : dispatchFailure != null
                 ? dispatchFailure.dispatch().diagnostic()
                 : "not-dispatched";
         final String failureTrace = dispatchFailure == null ? ""
             : stackTrace(dispatchFailure);
-        final String diagnostic = "target=" + componentIdentity(target)
-            + " row=" + row
+        final String diagnostic = "capture=" + captured.diagnostic()
+            + " dispatchRow=" + (rowResult == null ? -1 : rowResult.row())
+            + " dispatchComponent=" + (rowResult == null ? "" : rowResult.component())
+            + " retryLimit=" + MAX_ROW_DISPATCH_ATTEMPTS
+            + " retryReasons=" + retryReasons
             + " " + dispatchDiagnostic
             + (failureTrace.isBlank() ? "" : " dispatchExceptionTrace=" + failureTrace)
             + " popupCount=" + popup.popupCount()
             + " popupMaxCount=" + popup.maxPopupCount()
             + " " + popup.diagnostic();
-        return new RowAttempt(popup.popup(), popup.popupCount(), diagnostic, failureTrace);
+        return new RowAttempt(popup.popup(), popup.popupCount(), diagnostic, failureTrace,
+            rowResult == null ? -1 : rowResult.row(),
+            rowResult == null ? "" : rowResult.component());
+    }
+
+    private static RowDispatchResult dispatchCapturedRow(final CapturedRow captured,
+        final boolean triggerOnPress) {
+        RowResolution selection = resolveActiveRow(captured);
+        if (!selection.available()) {
+            return RowDispatchResult.retry(captured, "before-left", selection.reason());
+        }
+
+        // Preserve the old tree behavior, but re-resolve because expansion itself can rebuild the
+        // host widget before the selection click.
+        if (selection.row().component() instanceof JTree tree) {
+            tree.expandRow(selection.row().row());
+            selection = resolveActiveRow(captured);
+            if (!selection.available()) {
+                return RowDispatchResult.retry(captured, "before-left", selection.reason());
+            }
+        }
+
+        final AtomicReference<RowResolution> afterSelection = new AtomicReference<>();
+        final CurrentRow selected = selection.row();
+        final String prefix = rowDispatchPrefix(captured, selected);
+        try {
+            final RightClickDispatch dispatch = dispatchRightClickAfterSelection(
+                selected.component(), centerX(selected.bounds()), centerY(selected.bounds()),
+                triggerOnPress, prefix, () -> {
+                    final RowResolution resolved = resolveActiveRow(captured);
+                    afterSelection.set(resolved);
+                    if (!resolved.available()) return null;
+                    final CurrentRow row = resolved.row();
+                    return new DispatchTarget(row.component(), centerX(row.bounds()),
+                        centerY(row.bounds()));
+                });
+            final CurrentRow dispatched = afterSelection.get().row();
+            return RowDispatchResult.success(dispatch, dispatched);
+        } catch (RowRelocationException retry) {
+            final RowResolution resolved = afterSelection.get();
+            final String reason = resolved == null
+                ? retry.getMessage() : resolved.reason();
+            return RowDispatchResult.retry(captured, "after-left", reason);
+        }
+    }
+
+    private static String rowDispatchPrefix(final CapturedRow captured,
+        final CurrentRow selection) {
+        return "captureWidget=" + captured.widgetIdentity()
+            + " captureRow=" + captured.row()
+            + " captureWindow=" + captured.windowIdentity()
+            + " captureRowKey=" + captured.rowKeyDiagnostic()
+            + " captureBounds=" + captured.bounds()
+            + " selectionWidget=" + componentIdentity(selection.component())
+            + " selectionState=" + componentState(selection.component())
+            + " selectionRow=" + selection.row()
+            + " selectionBounds=" + boundsMarker(selection.bounds()) + " ";
+    }
+
+    private static int centerX(final Rectangle bounds) {
+        return bounds.x + bounds.width / 2;
+    }
+
+    private static int centerY(final Rectangle bounds) {
+        return bounds.y + bounds.height / 2;
     }
 
     private static void dispatchLeftClick(final Component target, final int x, final int y) {
@@ -1409,17 +1488,53 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     static RightClickDispatch dispatchRightClick(final Component target, final int x, final int y,
         final boolean triggerOnPress) {
         dispatchLeftClick(target, x, y);
+        return dispatchRightClickEvents(target, x, y, triggerOnPress, "");
+    }
+
+    /**
+     * Dispatches the right-click after the selection click has been completed. The caller supplies
+     * a fresh target, so a host table replacement between the two phases cannot receive the right
+     * click merely because it was the object captured before selection.
+     */
+    static RightClickDispatch dispatchRightClickAfterSelection(final Component selectionTarget,
+        final int selectionX, final int selectionY, final boolean triggerOnPress,
+        final java.util.function.Supplier<DispatchTarget> refreshedTarget) {
+        return dispatchRightClickAfterSelection(selectionTarget, selectionX, selectionY,
+            triggerOnPress, "", refreshedTarget);
+    }
+
+    private static RightClickDispatch dispatchRightClickAfterSelection(
+        final Component selectionTarget, final int selectionX, final int selectionY,
+        final boolean triggerOnPress, final String diagnosticPrefix,
+        final java.util.function.Supplier<DispatchTarget> refreshedTarget) {
+        try {
+            dispatchLeftClick(selectionTarget, selectionX, selectionY);
+        } catch (RuntimeException failure) {
+            final RightClickDispatch dispatch = new RightClickDispatch(diagnosticPrefix
+                + "selectionTarget=" + componentState(selectionTarget)
+                + " selectionCoordinates=(" + selectionX + ',' + selectionY + ')');
+            throw new RightClickDispatchException(dispatch,
+                List.of(new DispatchFailure("MOUSE_LEFT", failure)));
+        }
+        final DispatchTarget target = refreshedTarget.get();
+        if (target == null || target.component() == null) {
+            throw new RowRelocationException(
+                "active row could not be revalidated after the selection click");
+        }
+        return dispatchRightClickEvents(target.component(), target.x(), target.y(),
+            triggerOnPress, diagnosticPrefix
+                + " dispatchWidget=" + componentIdentity(target.component())
+                + " dispatchState=" + componentState(target.component())
+                + " dispatchCoordinates=(" + target.x() + ',' + target.y() + ") ");
+    }
+
+    private static RightClickDispatch dispatchRightClickEvents(final Component target,
+        final int x, final int y, final boolean triggerOnPress, final String diagnosticPrefix) {
         final long now = System.currentTimeMillis();
         final MouseEvent pressed = new MouseEvent(target, MouseEvent.MOUSE_PRESSED, now,
             InputEvent.BUTTON3_DOWN_MASK, x, y, 1, triggerOnPress, MouseEvent.BUTTON3);
         final MouseEvent released = new MouseEvent(target, MouseEvent.MOUSE_RELEASED, now,
             InputEvent.BUTTON3_DOWN_MASK, x, y, 1, !triggerOnPress, MouseEvent.BUTTON3);
-        final RightClickDispatch dispatch = new RightClickDispatch(
-            "synthetic=" + mouseEventMarker(pressed) + "," + mouseEventMarker(released)
-                + " triggerPhase=" + (triggerOnPress ? "MOUSE_PRESSED" : "MOUSE_RELEASED")
-                + " target=" + componentState(target)
-                + " renderer=" + rendererState(target, x, y)
-                + " pointer=" + pointerState());
         final List<DispatchFailure> failures = new ArrayList<>();
         try {
             target.dispatchEvent(pressed);
@@ -1431,6 +1546,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         } catch (RuntimeException failure) {
             failures.add(new DispatchFailure("MOUSE_RELEASED", failure));
         }
+        final RightClickDispatch dispatch = new RightClickDispatch(diagnosticPrefix
+            + "synthetic=" + mouseEventMarker(pressed) + "," + mouseEventMarker(released)
+                + " triggerPhase=" + (triggerOnPress ? "MOUSE_PRESSED" : "MOUSE_RELEASED")
+                + " target=" + componentState(target)
+                + " renderer=" + rendererState(target, x, y)
+                + " pointer=" + pointerState());
         if (!failures.isEmpty()) throw new RightClickDispatchException(dispatch, failures);
         return dispatch;
     }
@@ -1557,6 +1678,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
 
     private static String rendererState(final Component target, final int x, final int y) {
         if (!(target instanceof JTable table)) return "not-JTable";
+        // Renderer preparation is host code and may mutate/rebuild a table. It is diagnostic
+        // only, so never invoke it for a detached target; in the live path it is deliberately
+        // evaluated after the right-click events have completed.
+        if (!isLiveComponent(table)) {
+            return "target-not-live prepared=<skipped renderer preparation>";
+        }
         final Point point = new Point(x, y);
         final int row = table.rowAtPoint(point);
         final int column = table.columnAtPoint(point);
@@ -1635,11 +1762,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     private static void collectRowWidgets(final Container container,
         final List<RowWidget> widgets) {
         for (final Component component : container.getComponents()) {
-            if (component instanceof JTree tree && tree.isShowing()) {
+            if (component instanceof JTree tree && isLiveComponent(tree)) {
                 widgets.add(new TreeWidget(tree));
-            } else if (component instanceof javax.swing.JList<?> list && list.isShowing()) {
+            } else if (component instanceof javax.swing.JList<?> list
+                && isLiveComponent(list)) {
                 widgets.add(new ListWidget(list));
-            } else if (component instanceof javax.swing.JTable table && table.isShowing()) {
+            } else if (component instanceof javax.swing.JTable table
+                && isLiveComponent(table)) {
                 // CTreeTable hosts a JTree inside a JTable; the table receives the clicks.
                 widgets.add(new TableWidget(table));
             }
@@ -1647,6 +1776,188 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 collectRowWidgets(child, widgets);
             }
         }
+    }
+
+    private static boolean isLiveComponent(final Component component) {
+        return component != null && component.isShowing() && component.isDisplayable()
+            && component.getParent() != null;
+    }
+
+    /** Captures row keys and bounds without calling a renderer, and must run on the EDT. */
+    private static List<CapturedRow> captureRowsOnEdt(final Component component,
+        final RowKind kind) {
+        // The widget was discovered while showing, but may be detached by the time this
+        // snapshot runs. Keep its row key/bounds for relocation diagnostics; live validation is
+        // intentionally performed again by resolveActiveRow immediately before dispatch.
+        if (component == null) return List.of();
+        final int count = rowCount(component, kind);
+        final List<CapturedRow> rows = new ArrayList<>(Math.max(0, count));
+        for (int row = 0; row < count; row++) {
+            final Rectangle bounds;
+            try {
+                bounds = rowBounds(component, kind, row);
+            } catch (RuntimeException failure) {
+                rows.add(capturedRow(component, kind, row, null, RowKey.unavailable()));
+                continue;
+            }
+            final RowKey key = rowKey(component, kind, row);
+            rows.add(capturedRow(component, kind, row, bounds, key));
+        }
+        return List.copyOf(rows);
+    }
+
+    private static CapturedRow capturedRow(final Component component, final RowKind kind,
+        final int row, final Rectangle bounds, final RowKey key) {
+        return new CapturedRow(kind, component.getClass().getName(),
+            componentIdentity(component), componentIdentity(
+                SwingUtilities.getWindowAncestor(component)), row,
+            key.value(), key.available(), boundsMarker(bounds));
+    }
+
+    private static int rowCount(final Component component, final RowKind kind) {
+        return switch (kind) {
+            case TREE -> ((JTree) component).getRowCount();
+            case TABLE -> ((JTable) component).getRowCount();
+            case LIST -> ((javax.swing.JList<?>) component).getModel().getSize();
+        };
+    }
+
+    private static Rectangle rowBounds(final Component component, final RowKind kind,
+        final int row) {
+        return switch (kind) {
+            case TREE -> ((JTree) component).getRowBounds(row);
+            case TABLE -> {
+                final JTable table = (JTable) component;
+                yield table.getColumnCount() == 0 ? null : table.getCellRect(row, 0, true);
+            }
+            case LIST -> ((javax.swing.JList<?>) component).getCellBounds(row, row);
+        };
+    }
+
+    private static boolean validBounds(final Rectangle bounds) {
+        return bounds != null && bounds.width > 0 && bounds.height > 0;
+    }
+
+    private static RowKey rowKey(final Component component, final RowKind kind, final int row) {
+        try {
+            return switch (kind) {
+                case TREE -> treeRowKey((JTree) component, row);
+                case TABLE -> tableRowKey((JTable) component, row);
+                case LIST -> listRowKey((javax.swing.JList<?>) component, row);
+            };
+        } catch (RuntimeException failure) {
+            return RowKey.unavailable();
+        }
+    }
+
+    private static RowKey treeRowKey(final JTree tree, final int row) {
+        final javax.swing.tree.TreePath path = tree.getPathForRow(row);
+        if (path == null) return RowKey.unavailable();
+        final StringBuilder key = new StringBuilder("tree:");
+        for (final Object value : path.getPath()) {
+            key.append(stableRowValue(value)).append('/');
+        }
+        return RowKey.of(key.toString());
+    }
+
+    private static RowKey tableRowKey(final JTable table, final int row) {
+        if (table.getColumnCount() == 0) return RowKey.unavailable();
+        final StringBuilder key = new StringBuilder("table:");
+        for (int column = 0; column < table.getColumnCount(); column++) {
+            key.append(stableRowValue(table.getValueAt(row, column))).append('|');
+        }
+        return RowKey.of(key.toString());
+    }
+
+    private static RowKey listRowKey(final javax.swing.JList<?> list, final int row) {
+        return RowKey.of("list:" + stableRowValue(list.getModel().getElementAt(row)));
+    }
+
+    private static String stableRowValue(final Object value) {
+        if (value == null) return "<null>";
+        final String text;
+        try {
+            text = String.valueOf(value);
+        } catch (RuntimeException failure) {
+            return "<unavailable:" + value.getClass().getName() + ">";
+        }
+        final String bounded = text.length() > 256 ? text.substring(0, 256) : text;
+        return value.getClass().getName() + ':' + bounded;
+    }
+
+    private static List<CurrentRow> currentRowsOnEdt() {
+        final List<CurrentRow> rows = new ArrayList<>();
+        for (final Frame frame : Frame.getFrames()) {
+            if (frame.isShowing()) collectCurrentRows(frame, rows);
+        }
+        return rows;
+    }
+
+    private static void collectCurrentRows(final Container container,
+        final List<CurrentRow> rows) {
+        for (final Component component : container.getComponents()) {
+            if (component instanceof JTree tree && isLiveComponent(tree)) {
+                addCurrentRows(tree, RowKind.TREE, rows);
+            } else if (component instanceof JTable table && isLiveComponent(table)) {
+                addCurrentRows(table, RowKind.TABLE, rows);
+            } else if (component instanceof javax.swing.JList<?> list
+                && isLiveComponent(list)) {
+                addCurrentRows(list, RowKind.LIST, rows);
+            }
+            if (component instanceof Container child) collectCurrentRows(child, rows);
+        }
+    }
+
+    private static void addCurrentRows(final Component component, final RowKind kind,
+        final List<CurrentRow> rows) {
+        for (final CapturedRow row : captureRowsOnEdt(component, kind)) {
+            final Rectangle bounds = rowBounds(component, kind, row.row());
+            if (validBounds(bounds)) rows.add(new CurrentRow(row, component, bounds));
+        }
+    }
+
+    /** Resolves a capture to one current live row; ambiguous or unkeyed replacement is rejected. */
+    private static RowResolution resolveActiveRow(final CapturedRow captured) {
+        final List<CurrentRow> all = currentRowsOnEdt();
+        final List<CurrentRow> sameWidgetType = all.stream()
+            .filter(row -> row.descriptor().kind() == captured.kind())
+            .filter(row -> row.descriptor().widgetClass().equals(captured.widgetClass()))
+            .toList();
+        if (sameWidgetType.isEmpty()) {
+            return RowResolution.unavailable("no live widget of captured type");
+        }
+
+        final List<CurrentRow> sameWindow = sameWidgetType.stream()
+            .filter(row -> row.descriptor().windowIdentity().equals(captured.windowIdentity()))
+            .toList();
+        final List<CurrentRow> candidates = sameWindow.isEmpty() ? sameWidgetType : sameWindow;
+        if (!captured.rowKeyAvailable()) {
+            return RowResolution.unavailable(
+                "captured row has no stable key; row index reuse is refused");
+        }
+
+        final List<CurrentRow> keyed = candidates.stream()
+            .filter(row -> row.descriptor().rowKeyAvailable())
+            .filter(row -> row.descriptor().rowKey().equals(captured.rowKey()))
+            .toList();
+        final List<CurrentRow> sameIdentity = keyed.stream()
+            .filter(row -> row.descriptor().widgetIdentity().equals(captured.widgetIdentity()))
+            .filter(row -> row.row() == captured.row())
+            .toList();
+        if (sameIdentity.size() == 1) return RowResolution.available(sameIdentity.get(0));
+        if (sameIdentity.size() > 1) {
+            return RowResolution.unavailable("captured widget has ambiguous matching rows");
+        }
+        if (keyed.size() == 1) return RowResolution.available(keyed.get(0));
+        if (keyed.isEmpty()) {
+            return RowResolution.unavailable("no live row matches captured row key");
+        }
+        return RowResolution.unavailable("live row key matches are ambiguous: " + keyed.size());
+    }
+
+    private static String boundsMarker(final Rectangle bounds) {
+        return bounds == null ? "null"
+            : "(" + bounds.x + ',' + bounds.y + ',' + bounds.width + ',' + bounds.height + ')';
     }
 
     /**
@@ -1765,6 +2076,24 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return null;
     }
 
+    private static PopupAttempt mergePopupAttempts(final PopupAttempt first,
+        final PopupAttempt second) {
+        return new PopupAttempt(mergePopupLists(first.visibleBefore(), second.visibleBefore()),
+            mergePopupLists(first.dismissed(), second.dismissed()));
+    }
+
+    private static List<JPopupMenu> mergePopupLists(final List<JPopupMenu> first,
+        final List<JPopupMenu> second) {
+        final List<JPopupMenu> merged = new ArrayList<>(first.size() + second.size());
+        for (final JPopupMenu popup : first) {
+            if (!containsIdentity(merged, popup)) merged.add(popup);
+        }
+        for (final JPopupMenu popup : second) {
+            if (!containsIdentity(merged, popup)) merged.add(popup);
+        }
+        return List.copyOf(merged);
+    }
+
     private static PopupAttempt dismissPopup() throws Exception {
         final AtomicReference<PopupAttempt> attempt = new AtomicReference<>();
         SwingUtilities.invokeAndWait(() -> {
@@ -1844,11 +2173,103 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private record RowAttempt(JPopupMenu popup, int popupCount, String diagnostic,
-        String dispatchFailureTrace) {
+        String dispatchFailureTrace, int dispatchRow, String dispatchComponent) {
         RowAttempt {
             diagnostic = diagnostic == null ? "" : diagnostic;
             dispatchFailureTrace = dispatchFailureTrace == null ? "" : dispatchFailureTrace;
+            dispatchComponent = dispatchComponent == null ? "" : dispatchComponent;
         }
+    }
+
+    private enum RowKind {
+        TREE, TABLE, LIST
+    }
+
+    private record RowKey(String value, boolean available) {
+        RowKey {
+            value = value == null ? "" : value;
+        }
+
+        static RowKey of(final String value) {
+            return new RowKey(value, value != null && !value.isBlank());
+        }
+
+        static RowKey unavailable() {
+            return new RowKey("", false);
+        }
+    }
+
+    private record CapturedRow(RowKind kind, String widgetClass, String widgetIdentity,
+        String windowIdentity, int row, String rowKey, boolean rowKeyAvailable, String bounds) {
+        CapturedRow {
+            widgetClass = widgetClass == null ? "" : widgetClass;
+            widgetIdentity = widgetIdentity == null ? "" : widgetIdentity;
+            windowIdentity = windowIdentity == null ? "" : windowIdentity;
+            rowKey = rowKey == null ? "" : rowKey;
+            bounds = bounds == null ? "null" : bounds;
+        }
+
+        String rowKeyDiagnostic() {
+            return rowKeyAvailable
+                ? "available#" + Integer.toHexString(rowKey.hashCode()) : "unavailable";
+        }
+
+        String diagnostic() {
+            return "widget=" + widgetIdentity
+                + " class=" + widgetClass
+                + " window=" + windowIdentity
+                + " row=" + row
+                + " rowKey=" + rowKeyDiagnostic()
+                + " bounds=" + bounds;
+        }
+    }
+
+    private record CurrentRow(CapturedRow descriptor, Component component, Rectangle bounds) {
+        int row() { return descriptor.row(); }
+    }
+
+    private record RowResolution(CurrentRow row, String reason) {
+        static RowResolution available(final CurrentRow row) {
+            return new RowResolution(row, "");
+        }
+
+        static RowResolution unavailable(final String reason) {
+            return new RowResolution(null, reason == null ? "unknown" : reason);
+        }
+
+        boolean available() { return row != null; }
+    }
+
+    /** Coordinates and component chosen immediately before a popup-trigger dispatch. */
+    static record DispatchTarget(Component component, int x, int y) {
+    }
+
+    private record RowDispatchResult(RightClickDispatch dispatch, int row, String component,
+        boolean retryable, String phase, String reason) {
+        static RowDispatchResult success(final RightClickDispatch dispatch,
+            final CurrentRow row) {
+            return new RowDispatchResult(dispatch, row.row(), componentIdentity(row.component()),
+                false, "", "");
+        }
+
+        static RowDispatchResult retry(final CapturedRow captured, final String phase,
+            final String reason) {
+            final String actual = reason == null || reason.isBlank() ? "unknown" : reason;
+            return new RowDispatchResult(
+                RightClickDispatch.notDispatched("capture=" + captured.diagnostic()
+                    + " phase=" + phase + " reason=" + actual),
+                -1, "", true, phase, actual);
+        }
+    }
+
+    private static final class RowRelocationException extends RuntimeException {
+        RowRelocationException(final String message) {
+            super(message);
+        }
+    }
+
+    static int rowDispatchAttemptLimit() {
+        return MAX_ROW_DISPATCH_ATTEMPTS;
     }
 
     static record RightClickDispatch(String diagnostic) {
