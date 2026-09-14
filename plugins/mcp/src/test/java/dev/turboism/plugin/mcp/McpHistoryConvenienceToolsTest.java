@@ -82,6 +82,12 @@ final class McpHistoryConvenienceToolsTest {
         final Map<String, Object> changes = object(detailProperties.get("changes"));
         final Map<String, Object> changeSchema = object(changes.get("items"));
         final Map<String, Object> changeProperties = object(changeSchema.get("properties"));
+        assertEquals(
+            java.util.Arrays.stream(dev.turboism.sdk.cubism.history.HistoryChange.Operation.values())
+                .map(operation -> operation.name())
+                .toList(),
+            object(changeProperties.get("operation")).get("enum")
+        );
         assertTrue(((List<?>) changeSchema.get("required")).contains("relation"));
         final Map<String, Object> relation = object(changeProperties.get("relation"));
         assertEquals(List.of("object", "null"), relation.get("type"));
