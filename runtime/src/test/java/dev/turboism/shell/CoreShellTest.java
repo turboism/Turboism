@@ -48,11 +48,17 @@ import dev.turboism.sdk.ui.toolbar.MainToolbarRegistry;
 import dev.turboism.sdk.ui.toolbar.PaletteToolbarRegistry;
 import org.junit.jupiter.api.Test;
 
+import java.awt.GraphicsEnvironment;
+import java.awt.Window;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
+import javax.swing.SwingUtilities;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -152,15 +158,18 @@ class CoreShellTest {
     void homeActionRoutesToSettingsWindow_whenInvoked() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext();
         CoreShell plugin = plugin();
+        try {
+            plugin.start(context);
+            context.actions().execute("turboism.core.open");
 
-        plugin.start(context);
-        context.actions().execute("turboism.core.open");
-
-        // The toolbar home action routes to the settings window (CoreDialogs
-        // dispatches window construction to the EDT), never activating the
-        // blank Turboism panel tab, and never emitting a status notification.
-        assertTrue(context.uiHost().activatedPanels().isEmpty());
-        assertTrue(context.uiHost().notifications().isEmpty());
+            // The toolbar home action routes to the settings window (CoreDialogs
+            // dispatches window construction to the EDT), never activating the
+            // blank Turboism panel tab, and never emitting a status notification.
+            assertTrue(context.uiHost().activatedPanels().isEmpty());
+            assertTrue(context.uiHost().notifications().isEmpty());
+        } finally {
+            closePluginScope(context);
+        }
     }
 
     @Test
@@ -273,12 +282,49 @@ class CoreShellTest {
     void homeActionDoesNotRequireStatusNotificationPermission() throws Exception {
         RecordingPluginContext context = new RecordingPluginContext(new PermissionGatedUiHost(true, false));
         CoreShell plugin = plugin();
+        try {
+            plugin.start(context);
+            context.actions().execute("turboism.core.open");
 
+            assertTrue(context.uiHost().activatedPanels().isEmpty());
+            assertEquals(List.of(), context.uiHost().notifications());
+        } finally {
+            closePluginScope(context);
+        }
+    }
+
+    @Test
+    void homeActionOwnedSettingsWindowIsReleasedWhenTheScopeCloses() throws Exception {
+        final RecordingPluginContext context = new RecordingPluginContext();
+        final CoreShell plugin = plugin();
         plugin.start(context);
-        context.actions().execute("turboism.core.open");
-
-        assertTrue(context.uiHost().activatedPanels().isEmpty());
-        assertEquals(List.of(), context.uiHost().notifications());
+        // Settle any start-time window work so the diff below observes only the
+        // window this action opens.
+        SwingUtilities.invokeAndWait(() -> { });
+        final Set<Window> before = new HashSet<>(List.of(Window.getWindows()));
+        final List<Window> owned;
+        try {
+            context.actions().execute("turboism.core.open");
+            SwingUtilities.invokeAndWait(() -> { });
+            owned = Arrays.stream(Window.getWindows())
+                .filter(window -> !before.contains(window) && window.isShowing())
+                .toList();
+            if (GraphicsEnvironment.isHeadless()) {
+                // No AWT window can exist without a display; there is nothing to leak.
+                assertTrue(owned.isEmpty());
+            } else {
+                assertEquals(1, owned.size(), "the home action must open exactly one settings window");
+                assertTrue(owned.get(0).isDisplayable(), "the settings window must be shown");
+            }
+        } finally {
+            closePluginScope(context);
+        }
+        for (Window window : owned) {
+            assertFalse(
+                window.isDisplayable(),
+                "the owned settings window must be disposed with the plugin scope"
+            );
+        }
     }
 
     @Test
@@ -597,6 +643,17 @@ class CoreShellTest {
         assertTrue(context.uiHost().settingsContributions().stream().anyMatch(
             contribution -> "turboism-updates-automatic".equals(contribution.id())
         ));
+    }
+
+    /**
+     * Releases everything this test's context owns. {@link CoreWindows#close()} dispatches
+     * dialog disposal to the EDT, so the drain below must complete before the test returns:
+     * a leaked non-modal settings window can otherwise be picked up as the active window by
+     * a later dialog test in the same JVM.
+     */
+    private static void closePluginScope(final RecordingPluginContext context) throws Exception {
+        context.disposableScope().close();
+        SwingUtilities.invokeAndWait(() -> { });
     }
 
     private static CoreShell plugin() {
