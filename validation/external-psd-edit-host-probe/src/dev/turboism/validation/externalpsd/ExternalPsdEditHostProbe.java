@@ -384,12 +384,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         result.setProperty("gui.generationBefore", Long.toString(generationBefore));
         final Path marker = tempMarker();
 
-        final GuiClick click = clickContributedItem(
-            Set.of(result.getProperty("gui.menuLabel"),
-                "Edit PSD Externally",
-                "外部编辑 PSD", "外部編輯 PSD",
-                "外部でPSDを編集", "외부에서 PSD 편집"),
-            64, result);
+        final Set<String> labels = new LinkedHashSet<>(List.of(result.getProperty("gui.menuLabel"),
+            "Edit PSD Externally",
+            "外部编辑 PSD", "外部編輯 PSD",
+            "外部でPSDを編集", "외부에서 PSD 편집"));
+        final GuiClick click = clickContributedItem(labels, 64, result);
         if (!click.clicked()) {
             throw new Blocked("context menu with the contributed item was reachable",
                 click.diagnostic());
