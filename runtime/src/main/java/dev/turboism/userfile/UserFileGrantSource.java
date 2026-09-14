@@ -16,7 +16,7 @@ public interface UserFileGrantSource {
      *
      * @param request the chooser configuration
      * @return a stage completing with the user's decision; the stage completes normally even
-     *         for {@link Decision.Canceled} and {@link Decision.Unavailable} outcomes
+     *         for {@link Canceled} and {@link Unavailable} outcomes
      */
     CompletionStage<Decision> request(UserFileRequest request);
 

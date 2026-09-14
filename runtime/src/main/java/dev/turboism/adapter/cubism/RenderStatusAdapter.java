@@ -106,9 +106,11 @@ public interface RenderStatusAdapter {
     /**
      * Guarded implementation of {@link RenderStatusAdapter}.
      *
-     * <p>Every read checks the reviewed host version and the render-status capability
-     * before touching {@link HostOperations}, and converts {@link AdapterHostException} and
-     * unexpected runtime failures into unavailable results.</p>
+     * <p>Every read checks the reviewed host version and the render-status capability before
+     * issuing the data read — the gate itself already calls
+     * {@link HostOperations#hostVersion()} and the capability probe, so admission gates the
+     * data read, not all host access. {@link AdapterHostException} and unexpected runtime
+     * failures become unavailable results.</p>
      */
     final class Impl implements RenderStatusAdapter {
         private final Optional<HostOperations> host;

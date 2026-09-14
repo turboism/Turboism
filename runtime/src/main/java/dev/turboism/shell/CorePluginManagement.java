@@ -125,7 +125,8 @@ public interface CorePluginManagement extends AutoCloseable {
 
     /**
      * Full plugin metadata for a details view; every collection is defensively copied and
-     * null components fall back to empty values.
+     * optional metadata that is null falls back to an empty value. The {@code plugin}
+     * component is required and a null value is rejected.
      */
     record PluginDetails(
         PluginInfo plugin,
