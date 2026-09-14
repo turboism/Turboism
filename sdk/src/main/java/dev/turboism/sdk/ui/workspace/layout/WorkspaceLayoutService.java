@@ -14,8 +14,15 @@ import java.util.concurrent.CompletionStage;
  */
 public interface WorkspaceLayoutService {
 
+    /**
+     * Resolves the current workspace dock layout, completing with an immutable snapshot.
+     *
+     * <p>Failures are reported as a typed {@code UNAVAILABLE} snapshot, not as an exceptional
+     * completion.</p>
+     */
     CompletionStage<WorkspaceLayoutSnapshot> current();
 
+    /** Returns a fail-closed service that always resolves a {@code UNAVAILABLE} snapshot. */
     static WorkspaceLayoutService unavailable() {
         final WorkspaceLayoutSnapshot snapshot = new WorkspaceLayoutSnapshot(
             WorkspaceLayoutSnapshot.Availability.UNAVAILABLE,

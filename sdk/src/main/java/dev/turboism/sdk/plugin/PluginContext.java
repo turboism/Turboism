@@ -59,6 +59,7 @@ import dev.turboism.sdk.cubism.service.clipmask.CubismClipMaskService;
  */
 public interface PluginContext {
 
+    /** Returns the current plugin's descriptor as read from plugin meta. */
     PluginDescriptor descriptor();
 
     /**
@@ -71,114 +72,143 @@ public interface PluginContext {
      */
     PluginLogger logger();
 
+    /** Returns the persistent and runtime paths available to the plugin. */
     PluginPaths paths();
 
+    /** Returns the plugin-scoped localization catalog. */
     default PluginLocalization localization() {
         throw new UnsupportedOperationException("localization service is not available");
     }
 
+    /** Returns the plugin's task scheduler. */
     default PluginTaskScheduler tasks() {
         throw new UnsupportedOperationException("task scheduler is not available");
     }
 
+    /** Returns the asynchronous host read service. */
     default AsyncHostReadService hostReads() {
         throw new UnsupportedOperationException("async host read service is not available");
     }
 
+    /** Returns the plugin's bounded storage service. */
     default PluginStorage storage() {
         throw new UnsupportedOperationException("storage service is not available");
     }
 
+    /** Returns the script discovery and execution service. */
     default ScriptService scripts() {
         return ScriptService.unavailable();
     }
 
+    /** Returns the mediated user file access service. */
     default UserFileAccessService userFiles() {
         throw new UnsupportedOperationException("user file access service is not available");
     }
 
+    /** Returns the Cubism-facing facade for the current plugin. */
     CubismFacade cubism();
 
+    /** Returns the parameter query service. */
     default ParameterQueryService parameterQuery() {
         throw new UnsupportedOperationException("parameterQuery service is not available");
     }
 
+    /** Returns the selection query service. */
     default SelectionQueryService selectionQuery() {
         throw new UnsupportedOperationException("selectionQuery service is not available");
     }
 
+    /** Returns the model hierarchy query service. */
     default ModelHierarchyQueryService modelHierarchyQuery() {
         throw new UnsupportedOperationException("modelHierarchyQuery service is not available");
     }
 
+    /** Returns the grouped Cubism read service. */
     default CubismReadCapabilityService cubismRead() {
         throw new UnsupportedOperationException("cubismRead service is not available");
     }
 
+    /** Returns the model-object authoring service. */
     default ModelObjectService modelObjects() {
         return ModelObjectService.unavailable();
     }
 
+    /** Returns the clip-mask service. */
     default CubismClipMaskService cubismClipMasks() {
         throw new UnsupportedOperationException("clipMask service is not available");
     }
 
+    /** Returns the Recent Files menu projection. */
     default RecentFileService recentFiles() {
         return RecentFileService.unavailable();
     }
 
+    /** Returns the asynchronous preview capture service for recent project files. */
     default ScreenshotCaptureService screenshots() {
         return ScreenshotCaptureService.unavailable();
     }
 
+    /** Returns the recent-file hover preview contribution service. */
     default RecentPreviewContributionService recentPreviews() {
         return RecentPreviewContributionService.unavailable();
     }
 
+    /** Returns the Physics Settings contribution seam. */
     default PhysicsEditorService physicsEditor() {
         return PhysicsEditorService.unavailable();
     }
 
+    /** Returns the file-chooser history service. */
     default FileChooserHistoryService fileChooserHistory() {
         return FileChooserHistoryService.unavailable();
     }
 
+    /** Returns the mesh mirror-axis service. */
     default MeshMirrorAxisService meshMirrorAxis() {
         throw new UnsupportedOperationException("meshMirrorAxis service is not available");
     }
 
+    /** Returns the mesh editing service. */
     default MeshEditService meshEdit() {
         throw new UnsupportedOperationException("meshEdit service is not available");
     }
 
+    /** Returns the mesh-edit participation service. */
     default MeshEditParticipation meshEditParticipation() {
         throw new UnsupportedOperationException("meshEditParticipation service is not available");
     }
 
+    /** Returns the mesh mirror-counterpart resolution service. */
     default MeshMirrorCounterparts meshMirrorCounterparts() {
         throw new UnsupportedOperationException("meshMirrorCounterparts service is not available");
     }
 
+    /** Returns the mesh mirror tool-eligibility service. */
     default MeshMirrorToolEligibility meshMirrorToolEligibility() {
         throw new UnsupportedOperationException("meshMirrorToolEligibility service is not available");
     }
 
+    /** Returns the mesh mirror move-participation service. */
     default MeshMirrorMoveParticipation meshMirrorMoveParticipation() {
         throw new UnsupportedOperationException("meshMirrorMoveParticipation service is not available");
     }
 
+    /** Returns the mesh-edit UI service. */
     default MeshEditUiService meshEditUi() {
         throw new UnsupportedOperationException("meshEditUi service is not available");
     }
 
+    /** Returns the Editor command execution service. */
     default EditorCommandService editorCommands() {
         return EditorCommandService.unavailable();
     }
 
+    /** Returns the Editor auto-backup service. */
     default EditorAutoBackupService backup() {
         return EditorAutoBackupService.unavailable();
     }
 
+    /** Returns the permissions the plugin declared in its meta. */
     List<PluginPermission> permissions();
 
     /**
@@ -196,62 +226,78 @@ public interface PluginContext {
         return java.util.Set.of();
     }
 
+    /** Returns the typed event bus. */
     EventBus eventBus();
 
+    /** Returns the action registry. */
     ActionRegistry actions();
 
+    /** Returns the menu contribution registry. */
     MenuRegistry menus();
 
+    /** Returns the main-toolbar contribution registry. */
     default MainToolbarRegistry mainToolbar() {
         throw new UnsupportedOperationException("mainToolbar registry is not available");
     }
 
+    /** Returns the palette-toolbar contribution registry. */
     default PaletteToolbarRegistry paletteToolbar() {
         throw new UnsupportedOperationException("paletteToolbar registry is not available");
     }
 
+    /** Returns the palette filter-box contribution registry. */
     default PaletteFilterRegistry paletteFilter() {
         throw new UnsupportedOperationException("paletteFilter registry is not available");
     }
 
+    /** Returns the Scene palette table service. */
     default SceneTableService sceneTable() {
         return SceneTableService.unavailable();
     }
 
+    /** Returns the UI-host capability surface. */
     default UiHostCapabilityService uiHost() {
         throw new UnsupportedOperationException("uiHost service is not available");
     }
 
+    /** Returns the host dialog automation service. */
     default HostDialogAutomationService hostDialogs() {
         throw new UnsupportedOperationException("host dialog automation service is not available");
     }
 
+    /** Returns the theme appearance service. */
     default AppearanceService appearance() {
         return AppearanceService.unavailable();
     }
 
 
+    /** Returns the workspace arrangement service. */
     default WorkspaceService workspace() {
         return WorkspaceService.unavailable();
     }
 
+    /** Returns the workspace dock-layout query service. */
     default WorkspaceLayoutService workspaceLayout() {
         return WorkspaceLayoutService.unavailable();
     }
 
+    /** Returns the context-menu contribution registry. */
     default ContextMenuRegistry contextMenu() {
         throw new UnsupportedOperationException("contextMenu registry is not available");
     }
 
+    /** Returns the plugin configuration registry. */
     default PluginConfigRegistry config() {
         throw new UnsupportedOperationException("config registry is not available");
     }
 
 
+    /** Returns the Cubism log stream service. */
     default CubismLogService cubismLog() {
         return CubismLogService.unavailable();
     }
 
+    /** Returns the global runtime settings service. */
     default RuntimeSettingsService runtimeSettings() {
         throw new UnsupportedOperationException("runtime settings service is not available");
     }
@@ -268,13 +314,20 @@ public interface PluginContext {
         return McpConnectionService.unavailable();
     }
 
+    /** Returns the scheduler for UI-thread work. */
     UiScheduler uiScheduler();
 
+    /** Returns the performance probe service. */
     default PerformanceProbeService performanceStats() {
         return PerformanceProbeService.unavailable();
     }
 
+    /** Returns the plugin's diagnostic report view. */
     DiagnosticReport diagnostics();
 
+    /**
+     * Returns the plugin's disposable scope; resources registered into it close in reverse
+     * order when the scope closes.
+     */
     DisposableScope disposableScope();
 }

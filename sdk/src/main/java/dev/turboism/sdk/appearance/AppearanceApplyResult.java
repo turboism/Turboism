@@ -33,6 +33,7 @@ public record AppearanceApplyResult(
         });
     }
 
+    /** What happened to an apply request; failures are values, never thrown exceptions. */
     public enum Outcome {
         APPLIED,
         NO_CHANGE,

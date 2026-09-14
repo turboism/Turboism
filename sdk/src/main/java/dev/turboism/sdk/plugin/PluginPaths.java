@@ -12,6 +12,7 @@ public interface PluginPaths {
         return dataDir();
     }
 
+    /** Returns the plugin's persistent data directory. */
     Path dataDir();
 
     /**
@@ -27,7 +28,9 @@ public interface PluginPaths {
         );
     }
 
+    /** Returns the plugin's session or host-lifetime state directory. */
     Path stateDir();
 
+    /** Returns the plugin's disposable cache directory. */
     Path cacheDir();
 }

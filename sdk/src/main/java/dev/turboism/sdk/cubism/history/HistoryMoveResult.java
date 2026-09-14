@@ -19,6 +19,7 @@ public record HistoryMoveResult(
             .filter(value -> !value.isEmpty());
     }
 
+    /** What happened to a history-cursor move; non-{@code MOVED} outcomes did not move. */
     public enum Outcome {
         MOVED,
         NO_CHANGE,
