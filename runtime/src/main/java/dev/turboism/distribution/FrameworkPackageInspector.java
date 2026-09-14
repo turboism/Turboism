@@ -6,17 +6,20 @@ import java.util.List;
 /**
  * Inspects a framework distribution package and decides whether it may be installed.
  *
- * <p>Implementations are total: {@code inspect} never propagates an exception, reporting every
- * failure as {@link Rejected} carrying {@link DistributionProblem}s instead. Inspection is
- * read-only - it produces a plan, it never installs anything.
+ * <p>Inspection is read-only - it produces a plan, it never installs anything. Normal
+ * validation refusals and I/O failures are reported as {@link Rejected} carrying
+ * {@link DistributionProblem}s rather than thrown; implementations may still propagate
+ * errors for illegal arguments (e.g. a null {@code packagePath}) and failures outside the
+ * classification the runtime can map to a result.
  */
 public interface FrameworkPackageInspector {
     /**
      * Inspects one framework package without installing anything.
      *
-     * @param packagePath the package file to inspect
+     * @param packagePath the package file to inspect, non-null
      * @return {@link Accepted} with a validated install plan, or {@link Rejected} carrying
-     *         the observed problems; never throws
+     *         the observed problems; validation and I/O refusals map to {@link Rejected},
+     *         while illegal arguments and unclassifiable failures may propagate
      */
     Result inspect(Path packagePath);
 
