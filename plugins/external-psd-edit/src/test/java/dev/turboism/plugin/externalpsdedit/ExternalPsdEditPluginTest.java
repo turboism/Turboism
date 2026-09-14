@@ -75,6 +75,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ExternalPsdEditPluginTest {
 
     private static final String BINDING = "session-test:model-1:1";
+    private static final String OTHER_BINDING = "session-test:model-2:1";
     private static final RawImageId RAW_A = new RawImageId("raw-a");
     private static final RawImageId RAW_B = new RawImageId("raw-b");
     private static final ModelImageId IMAGE_A = new ModelImageId("image-a");
@@ -175,8 +176,136 @@ class ExternalPsdEditPluginTest {
         context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
 
         assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        assertEquals(2, file.openCalls.get(), "a repeated action must reopen the live file");
+        assertEquals(1, file.observeCalls.get(), "a repeated action must not resubscribe");
+    }
+
+    @Test
+    void reopeningExistingFileDoesNotOverwriteExternalEdits() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+        file.externalContent = "edited outside Cubism";
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals("edited outside Cubism", file.externalContent);
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertEquals(2, file.openCalls.get());
+        assertEquals(1, file.observeCalls.get());
+    }
+
+    @Test
+    void openingSessionDoesNotDuplicateWorkAndKeepsEarlySave() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdFileOperationResult> openCompletion = new CompletableFuture<>();
+        context.cubism().textures().openCompletion = openCompletion;
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        file.saveListener.accept(new TestRevision("during-open"));
+
+        assertEquals(
+            List.of("export:raw-a", "replace:raw-a:during-open"),
+            context.cubism().textures().calls(),
+            "a save observed while the initial open is pending must not be dropped"
+        );
+        assertEquals(1, file.openCalls.get(), "an in-flight open must not be launched twice");
+        assertEquals(1, file.observeCalls.get(), "an in-flight session must not resubscribe");
+
+        openCompletion.complete(new PsdFileOperationResult(
+            PsdFileOperationResult.Status.OPENED, "test"));
+    }
+
+    @Test
+    void partialFailureDuringOpeningRemainsPausedAfterOpenCompletes() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdFileOperationResult> openCompletion = new CompletableFuture<>();
+        context.cubism().textures().openCompletion = openCompletion;
+        context.cubism().textures().replaceStatus = PsdReplaceResult.Status.PARTIAL_FAILURE;
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile file = context.cubism().textures().issued().get(RAW_A);
+
+        file.saveListener.accept(new TestRevision("during-open"));
+        openCompletion.complete(new PsdFileOperationResult(
+            PsdFileOperationResult.Status.OPENED, "test"));
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        file.saveListener.accept(new TestRevision("after-open"));
+
+        assertEquals(
+            List.of("export:raw-a", "replace:raw-a:during-open"),
+            context.cubism().textures().calls(),
+            "a partial failure during opening must pause later automatic imports"
+        );
+        assertEquals(2, file.openCalls.get(),
+            "a paused session still reopens its existing file without exporting again");
         assertTrue(context.uiHost().notifications().stream()
-            .anyMatch(n -> n.id().equals("external-psd-edit.status.already-open")));
+            .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+    }
+
+    @Test
+    void exportingSessionDoesNotDuplicateExportBeforeAFileExists() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        final CompletableFuture<PsdExportResult> exportCompletion = new CompletableFuture<>();
+        context.cubism().textures().exportCompletion = exportCompletion;
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final ContextMenuSelection selection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection);
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertTrue(context.cubism().textures().issued().isEmpty(),
+            "an exporting session has no file to reopen yet");
+
+        final FakePsdEditFile file = new FakePsdEditFile();
+        exportCompletion.complete(new PsdExportResult(
+            PsdExportResult.Status.EXPORTED,
+            "test",
+            RAW_A,
+            Optional.of(file),
+            Optional.of(new TestRevision("baseline"))
+        ));
+
+        assertEquals(1, file.observeCalls.get());
+        assertEquals(1, file.openCalls.get());
     }
 
     @Test
@@ -210,6 +339,110 @@ class ExternalPsdEditPluginTest {
             List.of("export:raw-a", "export:raw-b"),
             context.cubism().textures().calls()
         );
+    }
+
+    @Test
+    void mixedExistingAndFreshSessionsCanBeCancelledAsOneBatch() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(
+            artMesh("mesh-1", IMAGE_A),
+            artMesh("mesh-2", IMAGE_B)
+        )));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        final ContextMenuSelection existingSelection = selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        );
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, existingSelection);
+        final FakePsdEditFile existing = context.cubism().textures().issued().get(RAW_A);
+
+        context.uiHost().confirmResult = false;
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
+        ));
+
+        assertEquals(List.of("export:raw-a"), context.cubism().textures().calls());
+        assertEquals(1, existing.openCalls.get(), "cancel must not reopen an existing file");
+        assertNotNull(context.uiHost().lastConfirmRequest());
+
+        context.uiHost().confirmResult = true;
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
+        ));
+
+        final FakePsdEditFile fresh = context.cubism().textures().issued().get(RAW_B);
+        assertEquals(List.of("export:raw-a", "export:raw-b"), context.cubism().textures().calls());
+        assertEquals(2, existing.openCalls.get());
+        assertEquals(1, existing.observeCalls.get());
+        assertEquals(1, fresh.openCalls.get());
+        assertEquals(1, fresh.observeCalls.get());
+    }
+
+    @Test
+    void unavailableMultipleConfirmationFailsClosedWithoutExport() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(
+            artMesh("mesh-1", IMAGE_A),
+            artMesh("mesh-2", IMAGE_B)
+        )));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+        context.uiHost().confirmFailure = new UnsupportedOperationException("dialog unavailable");
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1"),
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-2")
+        ));
+
+        assertTrue(context.cubism().textures().calls().isEmpty(),
+            "an unavailable confirmation must not grant consent to export");
+        assertEquals(0, plugin.liveSessions());
+        assertTrue(context.uiHost().notifications().stream()
+            .anyMatch(n -> n.id().equals("external-psd-edit.error.confirmation-unavailable")
+                && n.severity().equals("ERROR")),
+            "confirmation failure must be visible");
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.message().contains("multiple PSD files")),
+            "confirmation failure must not be reported as an open failure");
+    }
+
+    @Test
+    void differentBindingNeverReopensTheOldRawImageHandle() {
+        final RecordingPluginContext context = new RecordingPluginContext(new TestPluginLogger());
+        context.cubism().relations(relations(BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        final ExternalPsdEditPlugin plugin = new ExternalPsdEditPlugin();
+        plugin.init(context);
+        plugin.enable();
+
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+        final FakePsdEditFile oldFile = context.cubism().textures().issued().get(RAW_A);
+
+        context.cubism().relations(relations(OTHER_BINDING, List.of(artMesh("mesh-1", IMAGE_A))));
+        context.actions().execute(ExternalPsdEditPlugin.OPEN_ACTION_ID, selection(
+            OTHER_BINDING, ContextMenuRegistry.Location.PART_TAB,
+            item(ContextMenuRegistry.ObjectKind.ART_MESH, "mesh-1")
+        ));
+
+        final FakePsdEditFile newFile = context.cubism().textures().issued().get(RAW_A);
+        assertEquals(1, oldFile.openCalls.get(), "the old binding must never be reopened");
+        assertTrue(oldFile.stopped.get(), "the old binding must be stopped before replacement");
+        assertTrue(oldFile.subscriptionClosed.get());
+        assertNotSame(oldFile, newFile);
+        assertEquals(List.of("export:raw-a", "export:raw-a"), context.cubism().textures().calls());
+        assertEquals(1, newFile.openCalls.get());
+        assertEquals(1, newFile.observeCalls.get());
     }
 
     @Test
@@ -556,9 +789,13 @@ class ExternalPsdEditPluginTest {
             new java.util.concurrent.atomic.AtomicBoolean();
         private final java.util.concurrent.atomic.AtomicInteger openCalls =
             new java.util.concurrent.atomic.AtomicInteger();
+        private final java.util.concurrent.atomic.AtomicInteger observeCalls =
+            new java.util.concurrent.atomic.AtomicInteger();
         private volatile boolean subscribedBeforeOpen;
         private volatile boolean observed;
+        private volatile String externalContent = "baseline";
         private volatile Consumer<PsdFileRevision> saveListener = ignored -> { };
+        private volatile CompletionStage<PsdFileOperationResult> openCompletion;
         private volatile PsdFileOperationResult.Status openStatus =
             PsdFileOperationResult.Status.OPENED;
 
@@ -566,12 +803,16 @@ class ExternalPsdEditPluginTest {
         public CompletionStage<PsdFileOperationResult> openInDefaultApplication() {
             subscribedBeforeOpen = observed && !subscriptionClosed.get();
             openCalls.incrementAndGet();
+            if (openCompletion != null) {
+                return openCompletion;
+            }
             return CompletableFuture.completedFuture(
                 new PsdFileOperationResult(openStatus, "test"));
         }
 
         @Override
         public Registration observeSaves(final Consumer<PsdFileRevision> listener) {
+            observeCalls.incrementAndGet();
             saveListener = listener;
             observed = true;
             return () -> subscriptionClosed.set(true);
@@ -592,6 +833,8 @@ class ExternalPsdEditPluginTest {
         private volatile TextureRelationsSnapshot relations = TextureRelationsSnapshot.unavailable();
         private volatile PsdExportResult.Status exportStatus = PsdExportResult.Status.EXPORTED;
         private volatile PsdReplaceResult.Status replaceStatus = PsdReplaceResult.Status.APPLIED;
+        private volatile CompletableFuture<PsdExportResult> exportCompletion;
+        private volatile CompletableFuture<PsdFileOperationResult> openCompletion;
         private volatile PsdFileOperationResult.Status openStatus =
             PsdFileOperationResult.Status.OPENED;
 
@@ -606,12 +849,16 @@ class ExternalPsdEditPluginTest {
         @Override
         public CompletionStage<PsdExportResult> exportRawImagePsd(final RawImageId source) {
             calls.add("export:" + source.value());
+            if (exportCompletion != null) {
+                return exportCompletion;
+            }
             if (exportStatus != PsdExportResult.Status.EXPORTED) {
                 return CompletableFuture.completedFuture(new PsdExportResult(
                     exportStatus, "test", source, Optional.empty(), Optional.empty()));
             }
             final FakePsdEditFile file = new FakePsdEditFile();
             file.openStatus = openStatus;
+            file.openCompletion = openCompletion;
             issued.put(source, file);
             return CompletableFuture.completedFuture(new PsdExportResult(
                 PsdExportResult.Status.EXPORTED, "test", source,
@@ -790,6 +1037,7 @@ class ExternalPsdEditPluginTest {
     private static final class RecordingUiHost implements UiHostCapabilityService {
         private final List<StatusNotification> notifications = new ArrayList<>();
         private boolean confirmResult = true;
+        private RuntimeException confirmFailure;
         private DialogRequest lastConfirmRequest;
         List<StatusNotification> notifications() { return notifications; }
         DialogRequest lastConfirmRequest() { return lastConfirmRequest; }
@@ -800,6 +1048,9 @@ class ExternalPsdEditPluginTest {
         @Override public Registration openDialog(DialogRequest request) { throw unsupported(); }
         @Override public boolean confirmDialog(final DialogRequest request) {
             lastConfirmRequest = request;
+            if (confirmFailure != null) {
+                throw confirmFailure;
+            }
             return confirmResult;
         }
         @Override public Registration contributeEmbeddedPanel(EmbeddedPanelContribution contribution) { throw unsupported(); }
