@@ -9,7 +9,10 @@ sdk=("build/worktree/$id/sdk/libs/"sdk-*.jar)
 out="$(mktemp -d)"
 trap 'rm -rf "$out"' EXIT
 javac --release 17 -cp "${sdk[0]}:build/external-psd-edit-host-probe.jar" -d "$out" \
+  validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/PsdValidationContentTest.java \
   validation/external-psd-edit-host-probe/test/dev/turboism/validation/externalpsd/ExternalPsdEditHostProbeTest.java
+java -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
+  dev.turboism.validation.externalpsd.PsdValidationContentTest
 java -cp "$out:${sdk[0]}:build/external-psd-edit-host-probe.jar" \
   dev.turboism.validation.externalpsd.ExternalPsdEditHostProbeTest
 python3 - "$id" <<'PY'

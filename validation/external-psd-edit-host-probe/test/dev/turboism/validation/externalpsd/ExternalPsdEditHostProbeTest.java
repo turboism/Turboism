@@ -6,18 +6,28 @@ import java.awt.Container;
 import java.awt.Rectangle;
 import java.awt.event.MouseEvent;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
+import java.util.Set;
 
 import javax.swing.JPopupMenu;
 import javax.swing.JTable;
 
-/** Offline unit coverage for the probe's PSD mutation, popup dispatch, and GUI evidence gates. */
+import dev.turboism.sdk.cubism.history.HistoryMoveResult;
+import dev.turboism.sdk.cubism.history.HistorySnapshot;
+
+/** Offline unit coverage for PSD mutation, GUI dispatch, and persistence evidence gates. */
 public final class ExternalPsdEditHostProbeTest {
     public static void main(final String[] args) throws Exception {
         testPopupTriggerDispatch();
@@ -32,6 +42,13 @@ public final class ExternalPsdEditHostProbeTest {
         testPopupMarker();
         testPopupAttemptAssociation();
         testAutoImportEvidence();
+        testPersistEvidenceGate();
+        testNativeFingerprintGates();
+        testHistoryMovesRequireMoved();
+        testTempCandidateBinding();
+        testQuarantineMovesAllTrackedDirectories();
+        testQuarantineRejectsConflictAndSymlink();
+        testFinalCycleSelection();
 
         final byte[] psd = syntheticPsd("LayerA", "B2");
         final List<int[]> names = ExternalPsdEditHostProbe.layerNameRanges(psd);
@@ -77,6 +94,263 @@ public final class ExternalPsdEditHostProbeTest {
         assertEquals(marker.letter(), (char) mutated[markedRange[0] + marker.nameOffset()],
             "persisted byte equals the recorded marker letter");
         System.out.println("PASS: ExternalPsdEditHostProbeTest");
+    }
+
+    private static void testPersistEvidenceGate() {
+        final Properties valid = validPersistEvidence();
+        ExternalPsdEditHostProbe.requirePersistEvidence(valid);
+
+        final Properties missing = copy(valid);
+        missing.remove("persist.postEditTargetRgbSha256");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(missing),
+            "missing target RGB evidence is rejected");
+
+        final Properties sameContent = copy(valid);
+        sameContent.setProperty("persist.postEditTargetRgbSha256",
+            sameContent.getProperty("persist.baselineTargetRgbSha256"));
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(sameContent),
+            "unchanged target RGB evidence is rejected");
+
+        final Properties unstableBaseline = copy(valid);
+        unstableBaseline.setProperty("persist.baselineSecondTargetRgbSha256", "c".repeat(64));
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(unstableBaseline),
+            "unstable baseline evidence is rejected");
+
+        final Properties incompleteQuarantine = copy(valid);
+        incompleteQuarantine.setProperty("persist.tempQuarantine.sourceMissing", "false");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(
+            incompleteQuarantine), "incomplete quarantine evidence is rejected");
+
+        final Properties uppercase = copy(valid);
+        uppercase.setProperty("persist.baselineTargetRgbSha256", "A".repeat(64));
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requirePersistEvidence(uppercase),
+            "non-canonical hash evidence is rejected");
+    }
+
+    private static void testNativeFingerprintGates() {
+        final PsdValidationContent.Bounds bounds = new PsdValidationContent.Bounds(
+            450, 450, 550, 550);
+        final PsdValidationContent.Fingerprint baseline = new PsdValidationContent.Fingerprint(
+            "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final PsdValidationContent.Fingerprint same = new PsdValidationContent.Fingerprint(
+            "a".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final PsdValidationContent.Fingerprint changed = new PsdValidationContent.Fingerprint(
+            "b".repeat(64), bounds, 100, 100, List.of(0, 1, 2));
+        final PsdValidationContent.Fingerprint unstable = new PsdValidationContent.Fingerprint(
+            "a".repeat(64), new PsdValidationContent.Bounds(451, 450, 551, 550),
+            100, 100, List.of(0, 1, 2));
+
+        ExternalPsdEditHostProbe.requireStableBaseline(baseline, same);
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireStableBaseline(
+            baseline, unstable), "baseline bounds instability is rejected");
+        ExternalPsdEditHostProbe.requireChangedPost(baseline, changed);
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireChangedPost(baseline, same),
+            "unchanged native post fingerprint is rejected");
+        ExternalPsdEditHostProbe.requireReopenTarget("b".repeat(64), changed);
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireReopenTarget(
+            "a".repeat(64), changed), "reopen digest mismatch is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireReopenTarget(
+            "B".repeat(64), changed), "reopen expected digest must be lowercase");
+    }
+
+    private static void testHistoryMovesRequireMoved() {
+        final HistorySnapshot unavailable = HistorySnapshot.unavailable();
+        final HistoryMoveResult moved = new HistoryMoveResult(
+            HistoryMoveResult.Outcome.MOVED, unavailable, Optional.empty());
+        ExternalPsdEditHostProbe.requireHistoryMoved(moved, "undo");
+
+        final HistoryMoveResult unchanged = new HistoryMoveResult(
+            HistoryMoveResult.Outcome.NO_CHANGE, unavailable, Optional.empty());
+        expectIllegalState(() -> ExternalPsdEditHostProbe.requireHistoryMoved(unchanged, "redo"),
+            "redo without MOVED is rejected");
+    }
+
+    private static void testTempCandidateBinding() throws Exception {
+        final Path oldCandidate = Path.of("/tmp/external PSD old/turboism-psd-old");
+        final Path newCandidate = Path.of("/tmp/external PSD new/turboism-psd-new");
+        assertEquals(newCandidate, ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+            Set.of(oldCandidate), Set.of(oldCandidate, newCandidate)),
+            "exactly one new candidate is bound");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+            Set.of(oldCandidate), Set.of(oldCandidate)), "missing candidate is rejected");
+        expectIllegalState(() -> ExternalPsdEditHostProbe.uniqueNewTempCandidate(
+            Set.of(oldCandidate), Set.of(oldCandidate, newCandidate,
+                Path.of("/tmp/external PSD another/turboism-psd-another"))),
+            "ambiguous candidates are rejected");
+
+        final Path root = Files.createTempDirectory("external PSD candidate root ");
+        try {
+            final Path directory = Files.createDirectory(root.resolve("turboism-psd-valid"));
+            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireTrackedTempFile(
+                directory, root), "candidate without the runtime PSD is rejected");
+            final Path outside = Files.createTempFile("external PSD candidate outside ", ".psd");
+            try {
+                Files.createSymbolicLink(directory.resolve("external-edit.psd"), outside);
+                expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.requireTrackedTempFile(
+                    directory, root), "candidate PSD symlink is rejected");
+                Files.delete(directory.resolve("external-edit.psd"));
+            } finally {
+                Files.deleteIfExists(outside);
+            }
+            Files.write(directory.resolve("external-edit.psd"), new byte[]{1});
+            assertEquals(directory.resolve("external-edit.psd").toRealPath(),
+                ExternalPsdEditHostProbe.requireTrackedTempFile(directory, root),
+                "valid candidate PSD is bound without mtime guessing");
+        } finally {
+            deleteTree(root);
+        }
+    }
+
+    private static void testQuarantineMovesAllTrackedDirectories() throws Exception {
+        final Path tempRoot = Files.createTempDirectory("external PSD temp root ");
+        final Path taskRoot = Files.createTempDirectory("external PSD task root ");
+        try {
+            final Path first = Files.createDirectory(tempRoot.resolve("turboism-psd-first"));
+            final Path second = Files.createDirectory(tempRoot.resolve("turboism-psd-second"));
+            Files.write(first.resolve("external-edit.psd"), new byte[]{1, 2, 3});
+            Files.write(second.resolve("external-edit.psd"), new byte[]{4, 5, 6});
+            final Path destination = taskRoot.resolve("quarantine with spaces");
+
+            final ExternalPsdEditHostProbe.QuarantineReport report =
+                ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+                    List.of(first, second), tempRoot, taskRoot, destination);
+            assertEquals("MOVED", report.status(), "all tracked directories are moved atomically");
+            assertTrue(report.taskOwned(), "quarantine remains under the task root");
+            assertTrue(report.sourceMissing(), "all tracked sources are absent after move");
+            assertEquals(2, report.entries().size(), "every export directory is recorded");
+            assertTrue(!Files.exists(first, LinkOption.NOFOLLOW_LINKS),
+                "first source is not left behind");
+            assertTrue(!Files.exists(second, LinkOption.NOFOLLOW_LINKS),
+                "second source is not left behind");
+            assertTrue(Files.isRegularFile(destination.resolve(first.getFileName())
+                .resolve("external-edit.psd"), LinkOption.NOFOLLOW_LINKS),
+                "first PSD is retained in quarantine");
+            assertTrue(Files.isRegularFile(destination.resolve(second.getFileName())
+                .resolve("external-edit.psd"), LinkOption.NOFOLLOW_LINKS),
+                "second PSD is retained in quarantine");
+        } finally {
+            deleteTree(taskRoot);
+            deleteTree(tempRoot);
+        }
+    }
+
+    private static void testQuarantineRejectsConflictAndSymlink() throws Exception {
+        final Path conflictTemp = Files.createTempDirectory("external PSD conflict temp ");
+        final Path conflictTask = Files.createTempDirectory("external PSD conflict task ");
+        try {
+            final Path source = Files.createDirectory(conflictTemp.resolve("turboism-psd-source"));
+            Files.write(source.resolve("external-edit.psd"), new byte[]{7});
+            final Path destination = conflictTask.resolve("quarantine");
+            Files.createDirectory(destination);
+            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+                List.of(source), conflictTemp, conflictTask, destination),
+                "existing quarantine destination is rejected");
+            assertTrue(Files.exists(source, LinkOption.NOFOLLOW_LINKS),
+                "destination conflict does not move the source");
+        } finally {
+            deleteTree(conflictTask);
+            deleteTree(conflictTemp);
+        }
+
+        final Path symlinkTemp = Files.createTempDirectory("external PSD symlink temp ");
+        final Path symlinkTask = Files.createTempDirectory("external PSD symlink task ");
+        final Path outside = Files.createTempDirectory("external PSD outside ");
+        try {
+            final Path source = Files.createDirectory(symlinkTemp.resolve("turboism-psd-source"));
+            Files.write(source.resolve("external-edit.psd"), new byte[]{8});
+            Files.createSymbolicLink(source.resolve("escape"), outside);
+            expectIllegalStateChecked(() -> ExternalPsdEditHostProbe.moveTrackedTempDirectories(
+                List.of(source), symlinkTemp, symlinkTask, symlinkTask.resolve("quarantine")),
+                "source child symlink is rejected");
+            assertTrue(Files.exists(source, LinkOption.NOFOLLOW_LINKS),
+                "symlink rejection does not move the source");
+            assertTrue(!Files.exists(symlinkTask.resolve("quarantine"), LinkOption.NOFOLLOW_LINKS),
+                "symlink rejection does not create quarantine");
+        } finally {
+            deleteTree(symlinkTask);
+            deleteTree(symlinkTemp);
+            deleteTree(outside);
+        }
+    }
+
+    private static void testFinalCycleSelection() {
+        assertTrue(!ExternalPsdEditHostProbe.isFinalRgbMutationCycle(1, 3),
+            "early cycles do not invert RGB content");
+        assertTrue(!ExternalPsdEditHostProbe.isFinalRgbMutationCycle(2, 3),
+            "middle cycles do not invert RGB content");
+        assertTrue(ExternalPsdEditHostProbe.isFinalRgbMutationCycle(3, 3),
+            "only the final cycle inverts RGB content");
+        assertTrue(ExternalPsdEditHostProbe.isFinalRgbMutationCycle(1, 1),
+            "a one-cycle run still has one final inversion");
+        expectIllegalArgument(() -> ExternalPsdEditHostProbe.isFinalRgbMutationCycle(0, 3),
+            "zero cycle is rejected");
+        expectIllegalArgument(() -> ExternalPsdEditHostProbe.isFinalRgbMutationCycle(4, 3),
+            "cycle beyond requested count is rejected");
+    }
+
+    private static Properties validPersistEvidence() {
+        final Properties result = new Properties();
+        result.setProperty("persist.baselineTargetRgbSha256", "a".repeat(64));
+        result.setProperty("persist.baselineSecondTargetRgbSha256", "a".repeat(64));
+        result.setProperty("persist.postEditTargetRgbSha256", "b".repeat(64));
+        result.setProperty("persist.targetContentChanged", "true");
+        result.setProperty("persist.saveSucceeded", "true");
+        result.setProperty("persist.tempQuarantine.status", "MOVED");
+        result.setProperty("persist.tempQuarantine.taskOwned", "true");
+        result.setProperty("persist.tempQuarantine.sourceMissing", "true");
+        return result;
+    }
+
+    private static Properties copy(final Properties source) {
+        final Properties copy = new Properties();
+        copy.putAll(source);
+        return copy;
+    }
+
+    private static void expectIllegalState(final Runnable action, final String message) {
+        try {
+            action.run();
+            throw new AssertionError(message);
+        } catch (IllegalStateException expected) {
+            // expected
+        }
+    }
+
+    private static void expectIllegalArgument(final Runnable action, final String message) {
+        try {
+            action.run();
+            throw new AssertionError(message);
+        } catch (IllegalArgumentException expected) {
+            // expected
+        }
+    }
+
+    private static void expectIllegalStateChecked(final ThrowingAction action,
+        final String message) throws Exception {
+        try {
+            action.run();
+            throw new AssertionError(message);
+        } catch (IllegalStateException expected) {
+            // expected
+        }
+    }
+
+    @FunctionalInterface
+    private interface ThrowingAction {
+        void run() throws Exception;
+    }
+
+    private static void deleteTree(final Path root) throws IOException {
+        if (root == null || !Files.exists(root, LinkOption.NOFOLLOW_LINKS)) return;
+        try (var paths = Files.walk(root)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException failure) {
+                    throw new RuntimeException(failure);
+                }
+            });
+        }
     }
 
     private static void testPopupTriggerDispatch() {
