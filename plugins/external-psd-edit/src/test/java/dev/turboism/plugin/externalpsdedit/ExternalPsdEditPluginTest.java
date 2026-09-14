@@ -272,6 +272,9 @@ class ExternalPsdEditPluginTest {
             "a paused session still reopens its existing file without exporting again");
         assertTrue(context.uiHost().notifications().stream()
             .anyMatch(n -> n.id().equals("external-psd-edit.status.paused-partial")));
+        assertTrue(context.uiHost().notifications().stream()
+            .noneMatch(n -> n.id().equals("external-psd-edit.status.editing")),
+            "a late open completion must not report a paused session as actively syncing");
     }
 
     @Test
