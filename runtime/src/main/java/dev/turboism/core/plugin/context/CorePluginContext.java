@@ -153,7 +153,16 @@ public final class CorePluginContext implements PluginContext {
         final RuntimeHostAdapterAccess hostAccess,
         final PluginLocalization localization
     ) {
-        this(dependencies, hostAccess, localization, null, null, null, null);
+        this(
+            dependencies,
+            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            hostAccess,
+            localization,
+            null,
+            null,
+            null,
+            null
+        );
     }
 
     public CorePluginContext(
@@ -162,7 +171,16 @@ public final class CorePluginContext implements PluginContext {
         final PluginLocalization localization,
         final PluginTaskScheduler taskScheduler
     ) {
-        this(dependencies, hostAccess, localization, taskScheduler, null, null, null);
+        this(
+            dependencies,
+            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
+            hostAccess,
+            localization,
+            taskScheduler,
+            null,
+            null,
+            null
+        );
     }
 
     public CorePluginContext(
@@ -174,6 +192,7 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
+            servicesFactory(Objects.requireNonNull(hostAccess, "hostAccess")),
             hostAccess,
             localization,
             taskScheduler,
@@ -193,6 +212,10 @@ public final class CorePluginContext implements PluginContext {
     ) {
         this(
             dependencies,
+            servicesFactory(
+                Objects.requireNonNull(hostAccess, "hostAccess"),
+                userFileAccessService
+            ),
             hostAccess,
             localization,
             taskScheduler,
