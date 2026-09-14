@@ -28,8 +28,10 @@ public interface UserFileHandle extends AutoCloseable {
     UserFileHandleState state();
 
     /**
-     * Withdraws the grant early, moving the handle to {@link UserFileHandleState#REVOKED};
-     * the state stays distinguishable from a holder-initiated {@link #close()}.
+     * Withdraws the grant early: an active handle moves to
+     * {@link UserFileHandleState#REVOKED}, while an already-terminal handle keeps its
+     * state. {@code REVOKED} stays distinguishable from a holder-initiated
+     * {@link #close()}.
      */
     void revoke();
 
