@@ -59,12 +59,29 @@ public final class VerifiedObjectContextMenuHostOperations
 
     @Override
     public Object augment(final Object menu, final Location location, final Object source) {
-        if (menu == null || location == null || source == null || entries.isEmpty()) return menu;
+        if (menu == null || location == null || source == null) return menu;
+        dev.turboism.runtime.log.RuntimeDiagnostics.info(
+            "context-menu",
+            "augment invoked location=" + location
+                + " source=" + source.getClass().getName()
+                + " entries=" + entries.size());
+        if (entries.isEmpty()) return menu;
         try {
             final ContextMenuSelection selection = selectionResolver.resolve(location, source);
-            if (selection == null || selection.location() != location || selection.items().isEmpty()) return menu;
+            if (selection == null || selection.location() != location || selection.items().isEmpty()) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "context-menu",
+                    "augment skipped: selection=" + (selection == null ? "null"
+                        : "location=" + selection.location() + " items=" + selection.items().size()));
+                return menu;
+            }
             for (Entry entry : entries) {
                 final boolean matches = entry.contribution().matches(selection);
+                dev.turboism.runtime.log.RuntimeDiagnostics.info(
+                    "context-menu",
+                    "contribution " + entry.contribution().contributionId()
+                        + " matches=" + matches
+                        + " kinds=" + selection.items());
                 if (matches) {
                     appender.append(
                         menu,
@@ -74,7 +91,10 @@ public final class VerifiedObjectContextMenuHostOperations
                 }
             }
         } catch (Throwable failure) {
-            // Host UI callbacks must fail closed and preserve Cubism's original menu.
+            dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                "context-menu",
+                "Object context-menu augmentation failed safely",
+                failure);
         }
         return menu;
     }
