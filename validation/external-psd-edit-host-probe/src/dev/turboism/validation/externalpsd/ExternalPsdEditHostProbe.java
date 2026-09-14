@@ -36,6 +36,7 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
 import java.awt.Frame;
+import java.awt.KeyboardFocusManager;
 import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.PointerInfo;
@@ -2000,14 +2001,22 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         hostAccessByLoader.clear();
         final long deadline = System.currentTimeMillis() + 120_000;
         while (System.currentTimeMillis() < deadline && !stopped) {
-            final List<ExactTableRef> tables = visibleReviewedTables();
+            final ReviewedTables reviewed = visibleReviewedTables();
+            result.setProperty("gui.exactTarget.window", reviewed.windowIdentity());
+            result.setProperty("gui.exactTarget.windowSelection", reviewed.diagnostic());
+            if (!reviewed.proven()) {
+                result.setProperty("gui.exactTarget.status", "REJECTED");
+                result.setProperty("gui.exactTarget.diagnostic", reviewed.diagnostic());
+                return new GuiClick(false, reviewed.diagnostic());
+            }
+            final List<ExactTableRef> tables = reviewed.tables();
             if (tables.isEmpty()) {
-                diagnostic = "no visible reviewed host JTable model found; generic Swing widgets "
-                    + "are intentionally not eligible";
+                diagnostic = reviewed.diagnostic();
                 Thread.sleep(1000);
                 continue;
             }
-            final ExactCapture capture = captureExactRows(tables, expectedTarget);
+            final ExactCapture capture = captureExactRows(tables, expectedTarget,
+                reviewed.windowIdentity());
             result.setProperty("gui.exactTableDiagnostics",
                 String.join("\n---\n", capture.tableDiagnostics()));
             if (!capture.hostAvailable()) {
@@ -2018,10 +2027,11 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
             result.setProperty("gui.hostAccess.status", "PREPARED_OFF_EDT");
             result.setProperty("gui.hostAccess.preflightCount",
                 Integer.toString(hostAccessByLoader.size()));
-            if (capture.rows().size() > 1) {
-                diagnostic = "selected ArtMesh has ambiguous same-window exact rows: "
-                    + capture.rows().stream().map(ExactDispatchCapture::diagnostic).toList();
-                result.setProperty("gui.exactTarget.status", "AMBIGUOUS");
+            result.setProperty("gui.exactTarget.status", capture.targetStatus().name());
+            if (capture.targetStatus() == ExactTargetSelectionStatus.AMBIGUOUS
+                || capture.targetStatus() == ExactTargetSelectionStatus.REJECTED) {
+                diagnostic = capture.diagnostic();
+                result.setProperty("gui.exactTarget.status", capture.targetStatus().name());
                 result.setProperty("gui.exactTarget.diagnostic", diagnostic);
                 return new GuiClick(false, diagnostic);
             }
@@ -2030,56 +2040,66 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 Thread.sleep(1000);
                 continue;
             }
-            final ExactDispatchCapture captured = capture.rows().get(0);
+            for (final ExactDispatchCapture captured : capture.rows()) {
+                if (attempts >= rowBudget) break;
+                if (stopped) return new GuiClick(false, "probe stopped");
+                attempts++;
+                final RowAttempt rowAttempt = exactRowAttempt(captured);
+                popups += rowAttempt.popupCount();
+                String menuDiagnostic = "no selected popup";
+                final JPopupMenu popup = rowAttempt.popup();
+                final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
+                if (popup != null) {
+                    final Set<String> rowMenuTexts = new LinkedHashSet<>();
+                    final AtomicReference<String> popupMarker = new AtomicReference<>("");
+                    SwingUtilities.invokeAndWait(() -> {
+                        foundItem.set(findItem(popup, labels, rowMenuTexts));
+                        popupMarker.set(popupMarker(popup));
+                    });
+                    menuTexts.addAll(rowMenuTexts);
+                    menuDiagnostic = "selectedPopup=" + popupMarker.get()
+                        + " item=" + (foundItem.get() == null
+                            ? "none" : foundItem.get().getText())
+                        + " menuTexts=" + rowMenuTexts;
+                }
+                final String rowDiagnostic = "attempt=" + attempts
+                    + " family=" + captured.captured().identity().rowFamily()
+                    + " widget=" + captured.captured().widgetIdentity() + " row="
+                    + captured.captured().viewRow() + " "
+                    + rowAttempt.diagnostic() + " " + menuDiagnostic;
+                rowDiagnostics.add(rowDiagnostic);
+                result.setProperty("gui.row." + attempts, rowDiagnostic);
+                if (!rowAttempt.dispatchFailureTrace().isBlank()) {
+                    result.setProperty("gui.row." + attempts
+                        + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
+                }
+                context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
+                result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
+                if (rowAttempt.terminalRejection()
+                    || !rowAttempt.dispatchFailureTrace().isBlank()) {
+                    result.setProperty("gui.exactTarget.status", "REJECTED");
+                    return new GuiClick(false, rowAttempt.diagnostic());
+                }
+                final JMenuItem item = foundItem.get();
+                if (popup == null) continue;
+                if (item == null) {
+                    dismissPopup();
+                    continue;
+                }
+                result.setProperty("gui.popupRow", Integer.toString(rowAttempt.dispatchRow()));
+                result.setProperty("gui.popupComponent", rowAttempt.dispatchComponent());
+                clickItem(item);
+                result.setProperty("gui.attempts", Integer.toString(attempts));
+                result.setProperty("gui.popupsSeen", Integer.toString(popups));
+                return new GuiClick(true,
+                    "clicked exact ArtMesh " + captured.captured().identity().rowFamily()
+                        + " row " + rowAttempt.dispatchRow());
+            }
             if (attempts >= rowBudget) break;
-            if (stopped) return new GuiClick(false, "probe stopped");
-            attempts++;
-            final RowAttempt rowAttempt = exactRowAttempt(captured);
-            popups += rowAttempt.popupCount();
-            String menuDiagnostic = "no selected popup";
-            final JPopupMenu popup = rowAttempt.popup();
-            final AtomicReference<JMenuItem> foundItem = new AtomicReference<>();
-            if (popup != null) {
-                final Set<String> rowMenuTexts = new LinkedHashSet<>();
-                final AtomicReference<String> popupMarker = new AtomicReference<>("");
-                SwingUtilities.invokeAndWait(() -> {
-                    foundItem.set(findItem(popup, labels, rowMenuTexts));
-                    popupMarker.set(popupMarker(popup));
-                });
-                menuTexts.addAll(rowMenuTexts);
-                menuDiagnostic = "selectedPopup=" + popupMarker.get()
-                    + " item=" + (foundItem.get() == null
-                        ? "none" : foundItem.get().getText())
-                    + " menuTexts=" + rowMenuTexts;
-            }
-            final String rowDiagnostic = "attempt=" + attempts
-                + " widget=" + captured.captured().widgetIdentity() + " row="
-                + captured.captured().viewRow() + " "
-                + rowAttempt.diagnostic() + " " + menuDiagnostic;
-            rowDiagnostics.add(rowDiagnostic);
-            result.setProperty("gui.row." + attempts, rowDiagnostic);
-            if (!rowAttempt.dispatchFailureTrace().isBlank()) {
-                result.setProperty("gui.row." + attempts
-                    + ".dispatchFailureTrace", rowAttempt.dispatchFailureTrace());
-            }
-            context.logger().warn("EXTERNAL_PSD_EDIT_GUI_ATTEMPT " + rowDiagnostic);
-            result.setProperty("gui.rowDiagnostics", String.join("\n---\n", rowDiagnostics));
-            if (rowAttempt.terminalRejection()) {
-                result.setProperty("gui.exactTarget.status", "REJECTED");
-                return new GuiClick(false, rowAttempt.diagnostic());
-            }
-            final JMenuItem item = foundItem.get();
-            if (popup == null) continue;
-            if (item == null) {
-                dismissPopup();
-                continue;
-            }
-            result.setProperty("gui.popupRow", Integer.toString(rowAttempt.dispatchRow()));
-            result.setProperty("gui.popupComponent", rowAttempt.dispatchComponent());
-            clickItem(item);
-            result.setProperty("gui.attempts", Integer.toString(attempts));
-            result.setProperty("gui.popupsSeen", Integer.toString(popups));
-            return new GuiClick(true, "clicked exact ArtMesh row " + rowAttempt.dispatchRow());
+            diagnostic = "exact ArtMesh entrances exhausted without the item; popups seen "
+                + popups + " menuTexts=" + menuTexts + " rowDiagnostics="
+                + String.join(" || ", rowDiagnostics);
+            Thread.sleep(1000);
         }
         diagnostic = "exact ArtMesh row exhausted without the item; popups seen " + popups
             + " menuTexts=" + menuTexts
@@ -2092,14 +2112,33 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         return new GuiClick(false, diagnostic);
     }
 
-    private List<ExactTableRef> visibleReviewedTables() throws Exception {
-        final AtomicReference<List<ExactTableRef>> found = new AtomicReference<>(List.of());
+    private ReviewedTables visibleReviewedTables() throws Exception {
+        final AtomicReference<ReviewedTables> found = new AtomicReference<>(
+            ReviewedTables.unavailable("active target window was not observed"));
         SwingUtilities.invokeAndWait(() -> {
-            final List<ExactTableRef> tables = new ArrayList<>();
-            for (final Window window : Window.getWindows()) {
-                if (window.isShowing()) collectReviewedTables(window, window, tables);
+            try {
+                final Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+                    .getActiveWindow();
+                if (active == null) {
+                    found.set(ReviewedTables.unavailable(
+                        "active target window cannot be proven: AWT active window is null"));
+                    return;
+                }
+                if (!active.isShowing() || !active.isDisplayable()) {
+                    found.set(ReviewedTables.unavailable(
+                        "active target window cannot be proven showing/displayable: "
+                            + componentIdentity(active)));
+                    return;
+                }
+                final List<ExactTableRef> tables = new ArrayList<>();
+                collectReviewedTables(active, active, tables);
+                final String windowIdentity = componentIdentity(active);
+                found.set(new ReviewedTables(List.copyOf(tables), windowIdentity, true,
+                    "activeTargetWindow=" + windowIdentity + " tables=" + tables.size()));
+            } catch (RuntimeException failure) {
+                found.set(ReviewedTables.unavailable(
+                    "active target window discovery failed: " + failure));
             }
-            found.set(List.copyOf(tables));
         });
         return found.get();
     }
@@ -2137,8 +2176,13 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private ExactCapture captureExactRows(final List<ExactTableRef> tables,
-        final Target expectedTarget) throws Exception {
+        final Target expectedTarget, final String targetWindowIdentity) throws Exception {
         final List<String> tableDiagnostics = new ArrayList<>();
+        if (targetWindowIdentity == null || targetWindowIdentity.isBlank()) {
+            return new ExactCapture(List.of(), tableDiagnostics,
+                "active target window identity is unavailable", false,
+                ExactTargetSelectionStatus.REJECTED);
+        }
         int availableContexts = 0;
         for (final ExactTableRef table : tables) {
             final ExactHostRowTarget.HostAccessPreparation preparation = prepareHostAccess(table);
@@ -2154,7 +2198,8 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         }
         if (availableContexts == 0) {
             return new ExactCapture(List.of(), tableDiagnostics,
-                String.join(" || ", tableDiagnostics), false);
+                String.join(" || ", tableDiagnostics), false,
+                ExactTargetSelectionStatus.REJECTED);
         }
 
         final AtomicReference<ExactCapture> captured = new AtomicReference<>();
@@ -2198,11 +2243,32 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 }
                 currentDiagnostics.add(table.diagnostic() + " rows=" + rowFacts);
             }
-            final String diagnostic = rows.isEmpty()
-                ? "no exact ArtMesh row matched domain ID " + expectedTarget.artMesh().id().value()
-                : "exact target rows=" + rows.stream().map(ExactDispatchCapture::diagnostic).toList();
-            captured.set(new ExactCapture(List.copyOf(rows), List.copyOf(currentDiagnostics),
-                diagnostic, true));
+            final List<ExactCapturedRow> descriptors = rows.stream()
+                .map(ExactDispatchCapture::captured).toList();
+            final ExactTargetSelection selection = selectExactTargetRows(descriptors,
+                targetWindowIdentity, expectedTarget.artMesh().id().value());
+            final IdentityHashMap<ExactCapturedRow, ExactDispatchCapture> byDescriptor =
+                new IdentityHashMap<>();
+            for (final ExactDispatchCapture row : rows) byDescriptor.put(row.captured(), row);
+            final List<ExactDispatchCapture> ordered = new ArrayList<>();
+            for (final ExactCapturedRow descriptor : selection.rows()) {
+                final ExactDispatchCapture row = byDescriptor.get(descriptor);
+                if (row == null) {
+                    captured.set(new ExactCapture(List.of(), List.copyOf(currentDiagnostics),
+                        "exact target capture mapping was lost", true,
+                        ExactTargetSelectionStatus.REJECTED));
+                    return;
+                }
+                ordered.add(row);
+            }
+            currentDiagnostics.add("targetSelection=" + selection.status()
+                + " reason=" + selection.reason());
+            final String diagnostic = selection.available()
+                ? "exact target entrances=" + ordered.stream()
+                    .map(ExactDispatchCapture::diagnostic).toList()
+                : selection.reason();
+            captured.set(new ExactCapture(List.copyOf(ordered), List.copyOf(currentDiagnostics),
+                diagnostic, true, selection.status()));
         });
         return captured.get();
     }
@@ -2360,6 +2426,16 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         if (!SwingUtilities.isEventDispatchThread()) {
             return ExactRowResolution.unavailable("exact row resolution must run on EDT");
         }
+        if (captured == null) {
+            return ExactRowResolution.unavailable("captured exact row is unavailable");
+        }
+        final Window active = KeyboardFocusManager.getCurrentKeyboardFocusManager()
+            .getActiveWindow();
+        if (active == null || !active.isShowing() || !active.isDisplayable()
+            || !componentIdentity(active).equals(captured.windowIdentity())) {
+            return ExactRowResolution.unavailable(
+                "captured target window is no longer the active showing window");
+        }
         final List<ExactCurrentRow> rows = new ArrayList<>();
         for (final Window window : Window.getWindows()) {
             if (!window.isShowing() || !componentIdentity(window).equals(captured.windowIdentity())) {
@@ -2440,6 +2516,76 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 "exact row identity is ambiguous in captured window: " + sameWindow.size());
         }
         return ExactRowResolution.available(sameWindow.get(0));
+    }
+
+    /**
+     * Selects the exact entrances for one proven active target window. Parts and Deformer are
+     * independent host entry points, so they may both be returned; duplicate identities within a
+     * family remain ambiguous and are rejected.
+     */
+    static ExactTargetSelection selectExactTargetRowsForTest(
+        final List<ExactCapturedRow> rows, final String targetWindowIdentity,
+        final String expectedDomainId) {
+        return selectExactTargetRows(rows, targetWindowIdentity, expectedDomainId);
+    }
+
+    private static ExactTargetSelection selectExactTargetRows(
+        final List<ExactCapturedRow> rows, final String targetWindowIdentity,
+        final String expectedDomainId) {
+        if (targetWindowIdentity == null || targetWindowIdentity.isBlank()) {
+            return ExactTargetSelection.rejected(
+                "active target window cannot be proven: window identity is unavailable");
+        }
+        if (expectedDomainId == null || expectedDomainId.isBlank()) {
+            return ExactTargetSelection.rejected(
+                "expected ArtMesh domain ID is unavailable");
+        }
+        final List<ExactCapturedRow> all = rows == null ? List.of() : rows.stream()
+            .filter(Objects::nonNull)
+            .filter(row -> row.identity() != null)
+            .toList();
+        final List<ExactCapturedRow> matching = all.stream()
+            .filter(row -> targetWindowIdentity.equals(row.windowIdentity()))
+            .filter(row -> ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME.equals(
+                row.identity().sourceClass()))
+            .filter(row -> expectedDomainId.equals(row.identity().domainId()))
+            .toList();
+        if (matching.isEmpty()) {
+            final boolean otherWindow = all.stream()
+                .filter(row -> ExactHostRowTarget.ART_MESH_SOURCE_CLASS_NAME.equals(
+                    row.identity().sourceClass()))
+                .anyMatch(row -> expectedDomainId.equals(row.identity().domainId())
+                    && !targetWindowIdentity.equals(row.windowIdentity()));
+            return otherWindow
+                ? ExactTargetSelection.rejected(
+                    "matching exact ArtMesh row exists only in another window")
+                : ExactTargetSelection.notFound(
+                    "no exact ArtMesh row matched domain ID " + expectedDomainId);
+        }
+
+        final Map<ExactTargetGroup, List<ExactCapturedRow>> groups = new LinkedHashMap<>();
+        for (final ExactCapturedRow row : matching) {
+            final ExactTargetGroup group = new ExactTargetGroup(row.windowIdentity(),
+                row.identity());
+            groups.computeIfAbsent(group, ignored -> new ArrayList<>()).add(row);
+        }
+        for (final Map.Entry<ExactTargetGroup, List<ExactCapturedRow>> entry
+            : groups.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                return ExactTargetSelection.ambiguous(
+                    "same row family has multiple active exact candidates: "
+                        + entry.getKey() + " count=" + entry.getValue().size());
+            }
+        }
+
+        final List<ExactCapturedRow> ordered = new ArrayList<>(matching);
+        ordered.sort(Comparator.comparingInt(row -> exactFamilyOrder(
+            row.identity().rowFamily())));
+        return ExactTargetSelection.available(ordered);
+    }
+
+    private static int exactFamilyOrder(final ExactHostRowTarget.RowFamily family) {
+        return family == ExactHostRowTarget.RowFamily.DEFORMER ? 0 : 1;
     }
 
     private static boolean sameExactState(final ExactCapturedRow captured,
@@ -3511,6 +3657,19 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
         boolean available() { return row != null; }
     }
 
+    private record ReviewedTables(List<ExactTableRef> tables, String windowIdentity,
+        boolean proven, String diagnostic) {
+        ReviewedTables {
+            tables = List.copyOf(tables);
+            windowIdentity = windowIdentity == null ? "" : windowIdentity;
+            diagnostic = diagnostic == null ? "" : diagnostic;
+        }
+
+        static ReviewedTables unavailable(final String diagnostic) {
+            return new ReviewedTables(List.of(), "", false, diagnostic);
+        }
+    }
+
     private record ExactTableRef(JTable table, Class<?> modelClass, String widgetIdentity,
         String windowIdentity, String modelIdentity) {
         String diagnostic() {
@@ -3547,6 +3706,46 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
                 + " state=" + state;
         }
     }
+
+    enum ExactTargetSelectionStatus {
+        AVAILABLE,
+        NOT_FOUND,
+        AMBIGUOUS,
+        REJECTED
+    }
+
+    static record ExactTargetSelection(List<ExactCapturedRow> rows,
+        ExactTargetSelectionStatus status, String reason) {
+        ExactTargetSelection {
+            rows = rows == null ? List.of() : List.copyOf(rows);
+            status = Objects.requireNonNull(status, "status");
+            reason = reason == null ? "" : reason;
+        }
+
+        static ExactTargetSelection available(final List<ExactCapturedRow> rows) {
+            return new ExactTargetSelection(rows, ExactTargetSelectionStatus.AVAILABLE, "");
+        }
+
+        static ExactTargetSelection notFound(final String reason) {
+            return new ExactTargetSelection(List.of(), ExactTargetSelectionStatus.NOT_FOUND,
+                reason);
+        }
+
+        static ExactTargetSelection ambiguous(final String reason) {
+            return new ExactTargetSelection(List.of(), ExactTargetSelectionStatus.AMBIGUOUS,
+                reason);
+        }
+
+        static ExactTargetSelection rejected(final String reason) {
+            return new ExactTargetSelection(List.of(), ExactTargetSelectionStatus.REJECTED,
+                reason);
+        }
+
+        boolean available() { return status == ExactTargetSelectionStatus.AVAILABLE; }
+    }
+
+    private record ExactTargetGroup(String windowIdentity,
+        ExactHostRowTarget.Identity identity) { }
 
     static record ExactCurrentRow(ExactCapturedRow descriptor, Component component) {
         ExactCurrentRow {
@@ -3586,11 +3785,12 @@ public final class ExternalPsdEditHostProbe implements TurboismPlugin {
     }
 
     private record ExactCapture(List<ExactDispatchCapture> rows, List<String> tableDiagnostics,
-        String diagnostic, boolean hostAvailable) {
+        String diagnostic, boolean hostAvailable, ExactTargetSelectionStatus targetStatus) {
         ExactCapture {
             rows = List.copyOf(rows);
             tableDiagnostics = List.copyOf(tableDiagnostics);
             diagnostic = diagnostic == null ? "" : diagnostic;
+            targetStatus = Objects.requireNonNull(targetStatus, "targetStatus");
         }
     }
 
