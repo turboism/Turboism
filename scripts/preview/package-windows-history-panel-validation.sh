@@ -54,7 +54,7 @@ cat > "$bundle_root/config.json" <<EOF
     "denylistedClasses": [],
     "startup": {
       "skipUpdateCheck": true,
-      "skipSplash": true,
+      "skipSplash": false,
       "skipInformation": true
     }
   }

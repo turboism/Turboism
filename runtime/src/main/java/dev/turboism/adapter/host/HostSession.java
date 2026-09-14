@@ -242,6 +242,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
             try {
                 connectionKey = ConnectionKey.from(descriptor);
             } catch (RuntimeException exception) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Host connection key derivation failed",
+                    exception
+                );
                 return failAfterCleanup(
                     HostSessionFailure.Code.CONNECTION_FAILED,
                     "Host adapter connection failed safely."
@@ -277,6 +282,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     "connection.adapters()"
                 );
             } catch (Throwable throwable) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Host adapter connect threw",
+                    throwable
+                );
                 final CleanupOutcome candidateCleanup = closeCandidate(candidate);
                 if (!candidateCleanup.succeeded()) {
                     return finishCleanupFailure(candidateCleanup, false);
@@ -358,6 +368,11 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
                     providers
                 );
             } catch (Throwable throwable) {
+                dev.turboism.runtime.log.RuntimeDiagnostics.error(
+                    "host-session",
+                    "Editor UI provider install threw",
+                    throwable
+                );
                 final CleanupOutcome candidateCleanup = cleanupOwnedResources();
                 if (!candidateCleanup.succeeded()) {
                     return finishCleanupFailure(candidateCleanup, false);
