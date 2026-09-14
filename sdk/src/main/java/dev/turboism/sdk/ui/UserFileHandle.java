@@ -12,16 +12,22 @@ package dev.turboism.sdk.ui;
  */
 public interface UserFileHandle extends AutoCloseable {
 
+    /** Returns the handle's opaque runtime identifier. */
     String id();
 
+    /** Returns the user-visible name of the chosen file. */
     String displayName();
 
+    /** Returns the access mode the user granted. */
     UserFileMode mode();
 
+    /** Returns the lifetime scope the user granted. */
     UserFileLifetime lifetime();
 
+    /** Returns the handle's current state (active, closed, revoked, or expired). */
     UserFileHandleState state();
 
+    /** Revokes the handle early; equivalent to closing it before its lifetime elapses. */
     void revoke();
 
     @Override

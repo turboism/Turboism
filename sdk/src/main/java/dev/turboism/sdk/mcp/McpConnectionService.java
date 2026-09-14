@@ -33,6 +33,7 @@ public interface McpConnectionService {
         return Unavailable.INSTANCE;
     }
 
+    /** Fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements McpConnectionService {
         INSTANCE;
 

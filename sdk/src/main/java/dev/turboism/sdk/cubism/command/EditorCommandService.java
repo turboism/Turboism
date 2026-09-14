@@ -5,19 +5,41 @@ import java.util.Set;
 
 /** Executes the safe typed subset of native Cubism Editor menu operations. */
 public interface EditorCommandService {
+    /** Returns the commands the connected host can currently execute; empty when none apply. */
     Set<EditorCommand> available();
 
+    /**
+     * Executes one parameterless command.
+     *
+     * @param command the command to run
+     * @return the sanitized result; {@link EditorCommandResult#executed()} reports whether the
+     *     host actually applied it
+     */
     EditorCommandResult execute(EditorCommand command);
 
+    /**
+     * Executes one file-carrying command described by {@code request}.
+     *
+     * @param request the typed file command request
+     * @return the sanitized result; non-executed statuses mean nothing was applied
+     */
     EditorCommandResult execute(EditorFileCommandRequest request);
 
+    /**
+     * Executes one parameterized command described by {@code request}.
+     *
+     * @param request the typed command request
+     * @return the sanitized result; non-executed statuses mean nothing was applied
+     */
     EditorCommandResult execute(EditorParameterizedRequest request);
 
 
+    /** Returns the fail-closed service whose commands all report {@code UNAVAILABLE}. */
     static EditorCommandService unavailable() {
         return Unavailable.INSTANCE;
     }
 
+    /** Singleton fail-closed implementation returned by {@link #unavailable()}. */
     enum Unavailable implements EditorCommandService {
         INSTANCE;
 

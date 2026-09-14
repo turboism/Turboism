@@ -9,36 +9,49 @@ import java.util.Optional;
  */
 public interface PluginDescriptor {
 
+    /** Returns the plugin's stable identifier. */
     String id();
 
+    /** Returns the plugin's display name. */
     String name();
 
+    /** Returns the plugin's declared version string. */
     String version();
 
+    /** Returns the plugin's declared description. */
     String description();
 
     /** Ordered plugin entrypoint classes. */
     List<String> entrypoints();
 
+    /** Returns the Turboism API version range the plugin was built against. */
     String turboismApi();
 
+    /** Returns the declared authors in declaration order. */
     List<Author> authors();
 
+    /** Returns the declared license identifier or text. */
     String license();
 
+    /** Returns the declared project website, when present. */
     Optional<String> website();
 
     /** Plugin-owned resource roots, relative to the JAR root. */
     List<String> resources();
 
+    /** Returns the plugin's declared localization catalog layout. */
     I18n i18n();
 
+    /** Returns the plugin's declared dependencies in declaration order. */
     List<DependencyRef> dependencies();
 
+    /** Returns the permissions the plugin declares it needs. */
     List<PermissionRef> permissions();
 
+    /** Returns the runtime capabilities the plugin declares it uses. */
     List<String> capabilities();
 
+    /** Returns the host environment the plugin declares it requires. */
     Environment environment();
 
     /**
@@ -89,36 +102,52 @@ public interface PluginDescriptor {
         return List.of();
     }
 
+    /** One public event contract this plugin provides. */
     interface EventExport {
+        /** Returns the event's stable identifier within the providing plugin. */
         String id();
 
+        /** Returns the declared contract version governing the payload ABI. */
         String contractVersion();
 
+        /** Returns the event payload's fully qualified type name. */
         String eventType();
 
+        /** Returns the payload type's declared ABI digest. */
         String abiSha256();
     }
 
+    /** One public event contract this plugin consumes. */
     interface EventImport {
+        /** Returns the providing plugin's identifier. */
         String providerId();
 
+        /** Returns the event identifier declared by the provider. */
         String eventId();
 
+        /** Returns the contract version this plugin was built against. */
         String contractVersion();
 
+        /** Returns the expected event payload type name. */
         String eventType();
 
+        /** Returns the expected payload type's ABI digest. */
         String abiSha256();
 
+        /** Returns whether an unsatisfied import fails route admission instead of being skipped. */
         boolean required();
     }
 
+    /** One declared plugin author. */
     interface Author {
+        /** Returns the author's display name. */
         String name();
 
+        /** Returns the author's contact email, when declared. */
         Optional<String> email();
     }
 
+    /** Declared localization catalog layout. */
     interface I18n {
         /** Resource base without locale suffix or extension. */
         String baseName();
@@ -127,29 +156,42 @@ public interface PluginDescriptor {
         List<String> locales();
     }
 
+    /** One declared plugin dependency. */
     interface DependencyRef {
+        /** Returns the dependency's plugin identifier. */
         String id();
 
+        /** Returns the dependency kind declared in plugin meta. */
         String type();
 
+        /** Returns the declared acceptable version range. */
         String version();
 
+        /** Returns the declared load-ordering constraint relative to the dependency. */
         String ordering();
 
+        /** Returns the declared justification for the dependency, when present. */
         Optional<String> reason();
     }
 
+    /** One permission the plugin declares it needs. */
     interface PermissionRef {
+        /** Returns the permission identifier. */
         String id();
 
+        /** Returns the scope the permission is requested for. */
         String scope();
 
+        /** Returns the declared justification for the permission, when present. */
         Optional<String> reason();
     }
 
+    /** Declared host environment requirements. */
     interface Environment {
+        /** Returns whether the plugin requires a Cubism host to run. */
         boolean requiresCubism();
 
+        /** Returns the declared UI mode the plugin uses. */
         String ui();
     }
 }

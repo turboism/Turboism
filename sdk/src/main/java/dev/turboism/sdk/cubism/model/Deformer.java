@@ -10,19 +10,24 @@ import java.util.Optional;
 /** One Cubism deformer. */
 public interface Deformer {
 
+    /** Returns this Deformer's stable identity within the model. */
     DeformerId id();
 
     /** Returns this Deformer's Cubism palette UI projection. */
     default DeformerAppearance ui() { return DeformerAppearance.unavailable(); }
 
+    /** Returns this Deformer's position within its owner's child list. */
     default int index() { throw unavailable("Deformer index"); }
 
+    /** Returns the parent Part identity, or empty when this Deformer is not under a Part. */
     default Optional<PartId> parentPartId() { throw unavailable("Deformer parent Part"); }
 
+    /** Returns the parent Deformer identity, or empty when this Deformer is at the model root. */
     default Optional<DeformerId> parentDeformerId() {
         throw unavailable("Deformer parent Deformer");
     }
 
+    /** Returns the identities of the parameters bound to this Deformer. */
     default List<ParameterId> parameterIds() { throw unavailable("Deformer parameters"); }
 
     /** Editor display name, or the ID text when no authoring name is available. */
@@ -81,42 +86,52 @@ public interface Deformer {
     default void setTargetDeformer(final Optional<DeformerId> target) {
         throw unavailable("Deformer target-deformer editing");
     }
+    /** Returns this Deformer's own visibility flag. */
     default boolean visible() {
         throw unavailable("Deformer visibility");
     }
 
+    /** Writes this Deformer's visibility flag through the Editor authoring path. */
     default void setVisible(final boolean visible) {
         throw unavailable("Deformer visibility editing");
     }
 
+    /** Returns this Deformer's own lock flag. */
     default boolean locked() {
         throw unavailable("Deformer lock state");
     }
 
+    /** Writes this Deformer's lock flag through the Editor authoring path. */
     default void setLocked(final boolean locked) {
         throw unavailable("Deformer lock editing");
     }
 
+    /** Returns whether this Deformer is effectively visible, including ancestor state. */
     default boolean visibleInHierarchy() {
         throw unavailable("Deformer effective visibility");
     }
 
+    /** Returns whether this Deformer is effectively locked, including ancestor state. */
     default boolean lockedInHierarchy() {
         throw unavailable("Deformer effective lock state");
     }
 
+    /** Returns this Deformer's opacity in {@code [0,1]}. */
     default float getOpacity() {
         throw unavailable("Deformer opacity");
     }
 
+    /** Writes this Deformer's opacity through the Editor authoring path. */
     default void setOpacity(final float opacity) {
         throw unavailable("Deformer opacity editing");
     }
 
+    /** Returns this Deformer's multiply (blend) color, channels in {@code [0,1]}. */
     default Color multiplyColor() {
         throw unavailable("Deformer multiply color");
     }
 
+    /** Returns this Deformer's screen (additive) color, channels in {@code [0,1]}. */
     default Color screenColor() {
         throw unavailable("Deformer screen color");
     }
@@ -139,12 +154,15 @@ public interface Deformer {
         throw unavailable("Deformer screen-color editing");
     }
 
+    /** Returns the Core index of the parent Part, or a negative value when there is none. */
     default int parentPartIndex() {
         throw unavailable("Deformer parent Part");
     }
 
+    /** Returns the Core index of the parent Deformer, or a negative value when there is none. */
     int parentDeformerIndex();
 
+    /** Returns the Core parameter indexes bound to this Deformer. */
     IntSequence parameters();
 
     /**

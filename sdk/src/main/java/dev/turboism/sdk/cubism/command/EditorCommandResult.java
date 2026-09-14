@@ -19,6 +19,7 @@ public record EditorCommandResult(Status status, String commandId) {
         return status == Status.EXECUTED;
     }
 
+    /** Outcome of one command invocation; only {@code EXECUTED} means the document changed. */
     public enum Status {
         EXECUTED,
         UNAVAILABLE,

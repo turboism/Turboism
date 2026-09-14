@@ -31,10 +31,13 @@ public interface AnimationAttribute {
      */
     Optional<ParameterId> parameterId();
 
+    /** The value kind this attribute carries (float, integer, or point). */
     AnimationAttributeKind kind();
 
+    /** Whether the attribute is enabled on the timeline. */
     boolean active();
 
+    /** Whether the host allows editing this attribute's keys. */
     boolean editable();
 
     /** Keyframes in frame order; empty when the attribute carries no keys. */

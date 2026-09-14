@@ -11,8 +11,10 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
             DeformerOpacityEvent.On,
             DeformerOpacityEvent.After {
 
+    /** Returns the detached Deformer projection participating in the operation. */
     Deformer deformer();
 
+    /** Synchronous state published before the host opacity write. */
     final class Before implements DeformerOpacityEvent {
         private final Deformer deformer;
         private final float requestedOpacity;
@@ -49,6 +51,7 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
         }
 
         @Override public Deformer deformer() { return deformer; }
+        /** Returns the opacity value originally requested by the write call. */
         public float requestedOpacity() { return requestedOpacity; }
         /** Returns the candidate opacity value that will be applied. */
         public float opacity() { return opacity; }
@@ -59,6 +62,7 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
             this.opacity = opacity;
         }
 
+        /** One Runtime-owned mutable callback scope. */
         public static final class Callback implements AutoCloseable {
             private final CallbackScope scope = new CallbackScope(Thread.currentThread());
             private final Before event;
@@ -101,11 +105,13 @@ public sealed interface DeformerOpacityEvent extends TurboismEvent
         }
     }
 
+    /** State published after a successful opacity write that changed the value. */
     record On(Deformer deformer, float oldOpacity, float newOpacity)
         implements DeformerOpacityEvent {
         public On { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }
 
+    /** State published after every successful opacity write. */
     record After(Deformer deformer, float finalOpacity) implements DeformerOpacityEvent {
         public After { deformer = Objects.requireNonNull(deformer, "deformer"); }
     }

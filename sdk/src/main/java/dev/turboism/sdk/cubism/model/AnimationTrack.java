@@ -12,6 +12,7 @@ public interface AnimationTrack {
     /** Track name shown on the timeline. */
     String name();
 
+    /** The track's timeline role (for example Live2D model, scene reference, or group). */
     AnimationTrackKind kind();
 
     /** First frame occupied by this track, in scene frames. */
@@ -23,12 +24,16 @@ public interface AnimationTrack {
     /** Frame positions where this track's placement has explicit keys. */
     List<Integer> keyframeFrames();
 
+    /** Whether the track contributes to the rendered output. */
     boolean visible();
 
+    /** Whether the host allows editing this track. */
     boolean editable();
 
+    /** Whether the track is muted; a muted track does not contribute to scene playback. */
     boolean muted();
 
+    /** Whether the track's content repeats after its duration. */
     boolean repeat();
 
     /**
