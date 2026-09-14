@@ -7,6 +7,7 @@ import dev.turboism.adapter.cubism.lifecycle.EditorObjectLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ParameterLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.PartLifecycleCoordinator;
 import dev.turboism.adapter.cubism.lifecycle.ProjectFileLifecycleCoordinator;
+import dev.turboism.sdk.cubism.ProjectContentKind;
 import dev.turboism.sdk.cubism.ProjectFileOperationType;
 import dev.turboism.adapter.cubism.textureatlas.TextureAtlasLayoutCoordinator;
 import dev.turboism.adapter.cubism.physics.PhysicsEditorCoordinator;
@@ -195,6 +196,15 @@ public final class HostSession implements RuntimeHostAdapterAccess, AutoCloseabl
 
     private void registerProjectContentCleanup() {
         projectFileLifecycle.registerCompletionListener(result -> {
+            if (result.succeeded()
+                && result.request().kind() == ProjectContentKind.MODEL
+                && (result.request().operation() == ProjectFileOperationType.OPEN
+                    || result.request().operation() == ProjectFileOperationType.CREATE)) {
+                // Model-open completion is the existing lifecycle signal that the late document
+                // may now expose its native undo manager. The session posts and coalesces the
+                // actual resolver/ listener work so this synchronous host callback stays bounded.
+                nativeEditIngress.retryBinding();
+            }
             if (!result.succeeded() || result.request().operation() != ProjectFileOperationType.CLOSE) return;
             result.content().ifPresent(content -> paletteAppearanceCoordinator.removeContent(content.contentId()));
         });

@@ -189,6 +189,102 @@ class NativeEditIngressSessionTest {
         assertFalse(fixture.retryStillRunning(), "the retry thread must not outlive its budget");
     }
 
+    @Test
+    void aLateDocumentCanBeRecoveredAfterTheStartupBudgetByARebindSignal() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+
+        fixture.makeEditorReady();
+        fixture.session.retryBinding();
+
+        assertEquals(1, fixture.posted.size(), "the recovery signal is posted once");
+        fixture.runPosted();
+
+        assertTrue(fixture.session.isAttached(), "a late document must re-arm the ingress");
+        assertEquals(1, fixture.session.bindCount());
+        assertEquals(1, fixture.manager.listenerCount());
+        fixture.session.close();
+    }
+
+    @Test
+    void repeatedRebindSignalsDoNotQueueOrAttachAnotherListener() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+        fixture.makeEditorReady();
+
+        fixture.session.retryBinding();
+        fixture.session.retryBinding();
+
+        assertEquals(1, fixture.posted.size(), "rebind signals must be coalesced");
+        fixture.runPosted();
+        fixture.session.retryBinding();
+        fixture.runPosted();
+
+        assertEquals(1, fixture.session.bindCount());
+        assertEquals(1, fixture.manager.listenerCount(), "the manager has one listener");
+        fixture.session.close();
+    }
+
+    @Test
+    void queuedRebindFromAnOlderGenerationCannotReplaceTheNewBinding() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+        fixture.session.retryBinding();
+        assertEquals(1, fixture.posted.size());
+
+        fixture.replaceManager();
+        assertTrue(fixture.session.bind(2L, fixture.resolver));
+        fixture.runPosted();
+
+        assertEquals(1, fixture.session.bindCount(), "the stale queued request did not rebind");
+        assertEquals(1, fixture.manager.listenerCount());
+        fixture.session.close();
+    }
+
+    @Test
+    void closingCancelsAQueuedRebind() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+        fixture.makeEditorReady();
+        fixture.session.retryBinding();
+        fixture.session.close();
+        fixture.runPosted();
+
+        assertFalse(fixture.session.isAttached());
+        assertEquals(0, fixture.manager.listenerCount());
+    }
+
+    @Test
+    void deactivationCancelsAQueuedRebindButAllowsALaterExplicitBind() throws Exception {
+        final Fixture fixture = new Fixture(new NativeEditIngressSession.RetryPolicy(10L, 2));
+        App.current = null;
+
+        assertFalse(fixture.session.bind(1L, fixture.resolver));
+        awaitRetryStopped(fixture);
+        fixture.makeEditorReady();
+        fixture.session.retryBinding();
+        fixture.session.deactivate();
+        fixture.runPosted();
+
+        assertFalse(fixture.session.isAttached());
+        assertEquals(0, fixture.manager.listenerCount());
+        assertTrue(fixture.session.bind(2L, fixture.resolver));
+        assertEquals(1, fixture.manager.listenerCount());
+        fixture.session.close();
+    }
+
     private static void awaitAttached(final Fixture fixture) throws Exception {
         final long deadline = System.currentTimeMillis() + 5_000L;
         while (System.currentTimeMillis() < deadline) {
@@ -196,6 +292,15 @@ class NativeEditIngressSessionTest {
             Thread.sleep(25L);
         }
         assertTrue(fixture.session.isAttached(), "the deferred bind never attached");
+    }
+
+    private static void awaitRetryStopped(final Fixture fixture) throws Exception {
+        final long deadline = System.currentTimeMillis() + 5_000L;
+        while (System.currentTimeMillis() < deadline) {
+            if (!fixture.retryStillRunning()) return;
+            Thread.sleep(10L);
+        }
+        assertFalse(fixture.retryStillRunning(), "the startup retry did not finish");
     }
 
     @Test
