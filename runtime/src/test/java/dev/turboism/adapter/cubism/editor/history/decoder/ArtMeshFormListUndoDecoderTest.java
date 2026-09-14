@@ -5,6 +5,7 @@ import dev.turboism.mapping.verification.TestVerifiedResolvers;
 import dev.turboism.mapping.verification.VerifiedMemberResolver;
 import dev.turboism.sdk.cubism.history.HistoryAction;
 import dev.turboism.sdk.cubism.history.HistoryEditContext;
+import dev.turboism.sdk.cubism.history.HistoryEntryDetail;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -234,6 +235,115 @@ class ArtMeshFormListUndoDecoderTest {
             "the last writer of the form may read the live target"
         );
         assertEquals("#0000ff", children.get(1).changes().get(0).after().orElseThrow());
+    }
+
+    @Test
+    void onlyTheLastNestedWriterOfOneFormMayReadTheLiveTarget() {
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1.0F, 1.0F, 1.0F), color(0, 0, 0));
+        final Form middle = form(source, "form-default", color(1.0F, 0.0F, 0.0F), color(0, 0, 0));
+        final Form shared = form(source, "form-default", color(0.0F, 0.0F, 1.0F), color(0, 0, 0));
+        final GroupEntry first = new GroupEntry(List.of(new SimpleEntry(shared, before, null)));
+        final GroupEntry last = new GroupEntry(List.of(new SimpleEntry(shared, middle, null)));
+        final GroupEntry root = new GroupEntry(List.of(first, last));
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(), root, "Nested grouped edit", true
+        ).detail().orElseThrow();
+        final var nestedChildren = detail.group().orElseThrow().children();
+        final var earlier = nestedChildren.get(0).group().orElseThrow().children().get(0);
+        final var finalWriter = nestedChildren.get(1).group().orElseThrow().children().get(0);
+
+        assertEquals(
+            HistoryAction.DetailLevel.LABEL_ONLY,
+            earlier.detailLevel(),
+            "a nested earlier writer must not read the later sibling's live target"
+        );
+        assertEquals("history.detail.post-state-unavailable", earlier.degradationCode().orElseThrow());
+        assertEquals(List.of(), earlier.changes());
+        assertEquals("#ff0000", finalWriter.changes().get(0).before().orElseThrow());
+        assertEquals("#0000ff", finalWriter.changes().get(0).after().orElseThrow());
+    }
+
+    @Test
+    void nestedWritersOnDifferentFormsDoNotWithholdEachOther() {
+        final Source firstSource = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Source secondSource = new Source("ArtMesh2", "Sleeve", new Grid(List.of(), Map.of()));
+        final Form firstBefore = form(firstSource, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final Form firstLive = form(firstSource, "form-default", color(1, 0, 0), color(0, 0, 0));
+        final Form secondBefore = form(secondSource, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final Form secondLive = form(secondSource, "form-default", color(0, 0, 1), color(0, 0, 0));
+        final GroupEntry root = new GroupEntry(List.of(
+            new GroupEntry(List.of(new SimpleEntry(firstLive, firstBefore, null))),
+            new GroupEntry(List.of(new SimpleEntry(secondLive, secondBefore, null)))
+        ));
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(), root, "Nested independent edits", true
+        ).detail().orElseThrow();
+        final var nestedChildren = detail.group().orElseThrow().children();
+        final var first = nestedChildren.get(0).group().orElseThrow().children().get(0);
+        final var second = nestedChildren.get(1).group().orElseThrow().children().get(0);
+
+        assertEquals(HistoryAction.DetailLevel.FULL, first.detailLevel());
+        assertEquals("#ff0000", first.changes().get(0).after().orElseThrow());
+        assertEquals(HistoryAction.DetailLevel.FULL, second.detailLevel());
+        assertEquals("#0000ff", second.changes().get(0).after().orElseThrow());
+    }
+
+    @Test
+    void anUnknownNestedChildWithholdsKnownLiveWriters() {
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final Form shared = form(source, "form-default", color(0, 0, 1), color(0, 0, 0));
+        final GroupEntry root = new GroupEntry(List.of(
+            new GroupEntry(List.of(new SimpleEntry(shared, before, null))),
+            new Object()
+        ));
+
+        final var detail = new NativeHistoryDecoderRegistry().decode(
+            resolver(), root, "Unknown nested edit", true
+        ).detail().orElseThrow();
+        final var earlier = detail.group().orElseThrow().children().get(0)
+            .group().orElseThrow().children().get(0);
+
+        assertWithheldLiveWriter(earlier);
+    }
+
+    @Test
+    void writerScanBoundariesWithholdEarlyLiveWriters() {
+        final Source source = new Source("ArtMesh1", "Face shadow", new Grid(List.of(), Map.of()));
+        final Form before = form(source, "form-default", color(1, 1, 1), color(0, 0, 0));
+        final Form middle = form(source, "form-default", color(1, 0, 0), color(0, 0, 0));
+        final Form shared = form(source, "form-default", color(0, 0, 1), color(0, 0, 0));
+        final SimpleEntry repeated = new SimpleEntry(shared, before, null);
+        final GroupEntry repeatedRoot = new GroupEntry(List.of(repeated, repeated));
+
+        Object deep = new SimpleEntry(shared, middle, null);
+        for (int index = 0; index < NativeHistoryDecodeContext.MAX_DEPTH + 1; index++) {
+            deep = new GroupEntry(List.of(deep));
+        }
+        final GroupEntry deepRoot = new GroupEntry(List.of(
+            new SimpleEntry(shared, before, null),
+            deep
+        ));
+
+        final List<Object> oversizedChildren = new ArrayList<>();
+        oversizedChildren.add(new SimpleEntry(shared, before, null));
+        for (int index = 0; index < NativeHistoryDecodeContext.MAX_NODES; index++) {
+            final String guid = "form-" + index;
+            final Form otherBefore = form(source, guid, color(1, 1, 1), color(0, 0, 0));
+            final Form otherLive = form(source, guid, color(0, 1, 0), color(0, 0, 0));
+            oversizedChildren.add(new SimpleEntry(otherLive, otherBefore, null));
+        }
+        final GroupEntry oversizedRoot = new GroupEntry(oversizedChildren);
+
+        for (final GroupEntry root : List.of(repeatedRoot, deepRoot, oversizedRoot)) {
+            final var detail = new NativeHistoryDecoderRegistry().decode(
+                resolver(), root, "Bounded writer scan", true
+            ).detail().orElseThrow();
+            assertWithheldLiveWriter(detail.group().orElseThrow().children().get(0));
+        }
     }
 
     @Test
@@ -496,6 +606,12 @@ class ArtMeshFormListUndoDecoderTest {
         assertEquals("history.value-codec-unavailable", detail.degradationCode().orElseThrow());
         assertEquals("multiplyColor", detail.changes().get(0).property().orElseThrow());
         assertEquals(1, detail.changes().size());
+    }
+
+    private static void assertWithheldLiveWriter(final HistoryEntryDetail detail) {
+        assertEquals(HistoryAction.DetailLevel.LABEL_ONLY, detail.detailLevel());
+        assertEquals("history.detail.post-state-unavailable", detail.degradationCode().orElseThrow());
+        assertEquals(List.of(), detail.changes());
     }
 
     private static final float[] QUAD = {0.0F, 0.0F, 1.0F, 0.0F, 1.0F, 1.0F, 0.0F, 1.0F};
