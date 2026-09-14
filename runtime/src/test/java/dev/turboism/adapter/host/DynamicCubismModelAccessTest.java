@@ -415,17 +415,39 @@ class DynamicCubismModelAccessTest {
         final AnimationAttribute sameGeneration = access.active().animationDocuments().get(0)
             .scenes().get(0).tracks().get(0).attributes().get(0);
         final AnimationAttribute foreign = rawAnimationAttribute("foreign");
+
+        final List<String> foreignCalls = new ArrayList<>();
+        final DynamicCubismModelAccess foreignAccess = new DynamicCubismModelAccess();
+        foreignAccess.connect(() -> animationGraphModel(foreignCalls));
+        // Align the captured generation number with the target session so only
+        // ownership, not the numeric generation, can reject this source.
+        foreignAccess.connect(() -> animationGraphModel(foreignCalls));
+        final AnimationAttribute foreignAccessSource = foreignAccess.active()
+            .animationDocuments().get(0).scenes().get(0).tracks().get(1)
+            .children().get(0).attributes().get(0);
         calls.clear();
+        foreignCalls.clear();
 
         assertThrows(IllegalStateException.class,
             () -> target.copyKeyframesFrom(staleSource, false));
         assertThrows(IllegalStateException.class,
             () -> target.copyKeyframesFrom(foreign, false));
+
+        // A source from a different DynamicCubismModelAccess is not owned by
+        // this session even when both captured the same generation number;
+        // it must be rejected without touching either backend.
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+        foreignAccess.deactivate();
+        assertThrows(IllegalStateException.class,
+            () -> target.copyKeyframesFrom(foreignAccessSource, false));
+
         assertThrows(NullPointerException.class,
             () -> target.copyKeyframesFrom(null, false));
 
         assertEquals(0, target.copyKeyframesFrom(sameGeneration, false));
         assertEquals(List.of("attr.copyKeyframesFrom"), calls);
+        assertEquals(List.of(), foreignCalls);
     }
 
     private static CubismModel animationGraphModel(final List<String> calls) {
