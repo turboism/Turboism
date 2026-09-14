@@ -622,53 +622,98 @@ final class WindowsHistoryNativeUiHostClose {
             // Re-snapshot on the EDT immediately before acting. The worker carries only the
             // immutable observation and an opaque dialog handle; it never reads Swing properties.
             final CloseDialogState current = snapshotCloseDialog(observed.dialog());
-            final HostCloseDecision decision = hostCloseDecision(
-                true, current.snapshot(), fixtureName
-            );
-            if (decision != HostCloseDecision.DISCARD) {
-                throw new IllegalStateException(
-                    "Host-owned confirmation is unsupported or not for this task: "
-                        + current.description()
-                );
-            }
-            final int discardIndex = selectDiscardButton(current.snapshot().buttons());
-            final List<JButton> liveButtons = visibleButtons(current.dialog());
-            if (discardIndex < 0 || discardIndex >= liveButtons.size()) {
-                throw new IllegalStateException(
-                    "Host-owned confirmation has no single semantic discard action: "
-                        + current.description()
-                );
-            }
-            final JButton discard = liveButtons.get(discardIndex);
-            final ButtonSnapshot expected = current.snapshot().buttons().get(discardIndex);
-            final ButtonSnapshot finalState = snapshotButton(discard);
-            if (!discard.isVisible() || !discard.isEnabled() || !finalState.equals(expected)) {
-                throw new IllegalStateException(
-                    "Host-owned discard action changed before click: " + current.description()
-                );
-            }
-            discard.doClick();
-            return decision;
+            return clickDiscardButton(current.dialog(), current.snapshot(), fixtureName);
         });
+    }
+
+    /** Headless structural seam used by the focused Swing-container regression tests. */
+    static HostCloseDecision handleCloseDialogForTest(
+        final Component dialogRoot,
+        final String dialogTitle,
+        final String fixtureName
+    ) throws Exception {
+        Objects.requireNonNull(dialogRoot, "dialogRoot");
+        return onHostThread(() -> {
+            final CloseDialogSnapshot current = snapshotCloseDialog(
+                dialogRoot,
+                dialogRoot.getClass().getName(),
+                dialogTitle
+            );
+            return clickDiscardButton(dialogRoot, current, fixtureName);
+        });
+    }
+
+    /** Headless structural seam that uses the same EDT snapshot path as a live dialog. */
+    static CloseDialogSnapshot snapshotCloseDialogForTest(
+        final Component dialogRoot,
+        final String dialogTitle
+    ) throws Exception {
+        Objects.requireNonNull(dialogRoot, "dialogRoot");
+        return onHostThread(() -> snapshotCloseDialog(
+            dialogRoot,
+            dialogRoot.getClass().getName(),
+            dialogTitle
+        ));
+    }
+
+    private static HostCloseDecision clickDiscardButton(
+        final Component dialogRoot,
+        final CloseDialogSnapshot current,
+        final String fixtureName
+    ) {
+        final HostCloseDecision decision = hostCloseDecision(true, current, fixtureName);
+        if (decision != HostCloseDecision.DISCARD) {
+            throw new IllegalStateException(
+                "Host-owned confirmation is unsupported or not for this task: "
+                    + current.description()
+            );
+        }
+        final int discardIndex = selectDiscardButton(current.buttons());
+        final JOptionPane optionPane = findOptionPane(dialogRoot);
+        final List<JButton> liveButtons = visibleOptionPaneButtons(optionPane);
+        if (discardIndex < 0 || discardIndex >= liveButtons.size()) {
+            throw new IllegalStateException(
+                "Host-owned confirmation has no single semantic discard action: "
+                    + current.description()
+            );
+        }
+        final JButton discard = liveButtons.get(discardIndex);
+        final ButtonSnapshot expected = current.buttons().get(discardIndex);
+        final ButtonSnapshot finalState = snapshotButton(discard);
+        if (!discard.isVisible() || !discard.isEnabled() || !finalState.equals(expected)) {
+            throw new IllegalStateException(
+                "Host-owned discard action changed before click: " + current.description()
+            );
+        }
+        discard.doClick();
+        return decision;
     }
 
     /** Creates immutable dialog state while running on the EDT. */
     private static CloseDialogState snapshotCloseDialog(final Dialog dialog) {
+        return new CloseDialogState(
+            dialog,
+            snapshotCloseDialog(dialog, dialog.getClass().getName(), dialog.getTitle())
+        );
+    }
+
+    private static CloseDialogSnapshot snapshotCloseDialog(
+        final Component dialogRoot,
+        final String dialogClassName,
+        final String dialogTitle
+    ) {
         if (!SwingUtilities.isEventDispatchThread()) {
             throw new IllegalStateException("dialog snapshot must run on the Cubism EDT");
         }
-        final JOptionPane optionPane = findOptionPane(dialog);
-        final List<JButton> buttons = visibleButtons(dialog);
-        return new CloseDialogState(
-            dialog,
-            new CloseDialogSnapshot(
-                dialog.getClass().getName(),
-                dialog.getTitle(),
-                messageText(optionPane),
-                optionPane != null,
-                optionPane == null ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType(),
-                buttons.stream().map(WindowsHistoryNativeUiHostClose::snapshotButton).toList()
-            )
+        final JOptionPane optionPane = findOptionPane(dialogRoot);
+        final List<JButton> buttons = visibleOptionPaneButtons(optionPane);
+        return new CloseDialogSnapshot(
+            dialogClassName,
+            dialogTitle,
+            messageText(optionPane),
+            optionPane != null,
+            optionPane == null ? JOptionPane.DEFAULT_OPTION : optionPane.getOptionType(),
+            buttons.stream().map(WindowsHistoryNativeUiHostClose::snapshotButton).toList()
         );
     }
 
@@ -720,14 +765,23 @@ final class WindowsHistoryNativeUiHostClose {
     }
 
     private static JOptionPane findOptionPane(final Component component) {
-        if (component instanceof JOptionPane optionPane) return optionPane;
+        final List<JOptionPane> optionPanes = new ArrayList<>();
+        collectOptionPanes(component, optionPanes);
+        return optionPanes.size() == 1 ? optionPanes.get(0) : null;
+    }
+
+    private static void collectOptionPanes(
+        final Component component,
+        final List<JOptionPane> optionPanes
+    ) {
+        if (component instanceof JOptionPane optionPane) {
+            optionPanes.add(optionPane);
+        }
         if (component instanceof Container container) {
             for (final Component child : container.getComponents()) {
-                final JOptionPane found = findOptionPane(child);
-                if (found != null) return found;
+                collectOptionPanes(child, optionPanes);
             }
         }
-        return null;
     }
 
     private static String messageText(final JOptionPane optionPane) {
@@ -771,6 +825,10 @@ final class WindowsHistoryNativeUiHostClose {
         return buttons.stream()
             .filter(button -> button.isVisible() && button.isEnabled())
             .toList();
+    }
+
+    private static List<JButton> visibleOptionPaneButtons(final JOptionPane optionPane) {
+        return optionPane == null ? List.of() : visibleButtons(optionPane);
     }
 
     private static void collectButtons(final Component component, final List<JButton> buttons) {

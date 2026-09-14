@@ -2,9 +2,13 @@ package dev.turboism.tests.plugin;
 
 import org.junit.jupiter.api.Test;
 
+import javax.swing.JButton;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import java.awt.BorderLayout;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -301,6 +305,136 @@ class WindowsHistoryNativeUiHostCloseTest {
     }
 
     @Test
+    void aRealOptionPaneSubtreeExcludesTheIndependentTitlebarButton() throws Exception {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+        final SwingDialogFixture dialog = swingDialog(
+            "你想保存" + fixture + "的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            "Yes(Y)",
+            "No(N)",
+            "Cancel(C)"
+        );
+
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot snapshot =
+            WindowsHistoryNativeUiHostClose.snapshotCloseDialogForTest(dialog.root(), "确定");
+
+        assertTrue(snapshot.optionPanePresent());
+        assertEquals(3, snapshot.buttons().size());
+        assertEquals(
+            List.of("Yes(Y)", "No(N)", "Cancel(C)"),
+            snapshot.buttons().stream()
+                .map(WindowsHistoryNativeUiHostClose.ButtonSnapshot::text)
+                .toList()
+        );
+        assertEquals(
+            WindowsHistoryNativeUiHostClose.HostCloseDecision.DISCARD,
+            WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+                dialog.root(), "确定", fixture
+            )
+        );
+        assertEquals(1, dialog.noClicks().get());
+        assertEquals(1, dialog.paneClicks().get());
+        assertEquals(0, dialog.titlebarClicks().get());
+    }
+
+    @Test
+    void aWrongFixtureInARealOptionPaneIsRejectedWithoutClicking() throws Exception {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+        final SwingDialogFixture dialog = swingDialog(
+            "你想保存other-queue.cmo3的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            "Yes(Y)",
+            "No(N)",
+            "Cancel(C)"
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+                dialog.root(), "确定", fixture
+            )
+        );
+        assertEquals(0, dialog.paneClicks().get());
+        assertEquals(0, dialog.titlebarClicks().get());
+    }
+
+    @Test
+    void multipleDiscardActionsInARealOptionPaneAreRejectedWithoutClicking() throws Exception {
+        final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
+        final SwingDialogFixture dialog = swingDialog(
+            "你想保存" + fixture + "的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            "Yes(Y)",
+            "No(N)",
+            "Discard"
+        );
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+                dialog.root(), "确定", fixture
+            )
+        );
+        assertEquals(0, dialog.paneClicks().get());
+        assertEquals(0, dialog.titlebarClicks().get());
+    }
+
+    @Test
+    void aMissingOptionPaneIsRejectedWithoutUsingTheTitlebarButton() throws Exception {
+        final AtomicInteger titlebarClicks = new AtomicInteger();
+        final JPanel root = rootWithTitlebar(new JPanel(), titlebarClicks);
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot snapshot =
+            WindowsHistoryNativeUiHostClose.snapshotCloseDialogForTest(root, "确定");
+
+        assertFalse(snapshot.optionPanePresent());
+        assertTrue(snapshot.buttons().isEmpty());
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+                root, "确定", "queue-19112224a5154b1f81b996cc432c1f10.cmo3"
+            )
+        );
+        assertEquals(0, titlebarClicks.get());
+    }
+
+    @Test
+    void multipleOptionPanesAreAmbiguousAndCannotBeClicked() throws Exception {
+        final SwingDialogFixture first = swingDialog(
+            "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            "Yes(Y)",
+            "No(N)",
+            "Cancel(C)"
+        );
+        final SwingDialogFixture second = swingDialog(
+            "你想保存queue-19112224a5154b1f81b996cc432c1f10.cmo3的文件吗?",
+            JOptionPane.YES_NO_CANCEL_OPTION,
+            "Yes(Y)",
+            "No(N)",
+            "Cancel(C)"
+        );
+        final JPanel panes = new JPanel();
+        panes.add(first.optionPane());
+        panes.add(second.optionPane());
+        final AtomicInteger titlebarClicks = new AtomicInteger();
+        final JPanel root = rootWithTitlebar(panes, titlebarClicks);
+        final WindowsHistoryNativeUiHostClose.CloseDialogSnapshot snapshot =
+            WindowsHistoryNativeUiHostClose.snapshotCloseDialogForTest(root, "确定");
+
+        assertFalse(snapshot.optionPanePresent());
+        assertTrue(snapshot.buttons().isEmpty());
+        assertThrows(
+            IllegalStateException.class,
+            () -> WindowsHistoryNativeUiHostClose.handleCloseDialogForTest(
+                root, "确定", "queue-19112224a5154b1f81b996cc432c1f10.cmo3"
+            )
+        );
+        assertEquals(0, first.paneClicks().get());
+        assertEquals(0, second.paneClicks().get());
+        assertEquals(0, titlebarClicks.get());
+    }
+
+    @Test
     void observedR80ChineseSavePromptForAnotherFixtureIsRejected() {
         final String fixture = "queue-19112224a5154b1f81b996cc432c1f10.cmo3";
 
@@ -497,5 +631,65 @@ class WindowsHistoryNativeUiHostCloseTest {
         return new WindowsHistoryNativeUiHostClose.CloseDialogSnapshot(
             "javax.swing.JDialog", title, message, true, optionType, List.of(buttons)
         );
+    }
+
+    private record SwingDialogFixture(
+        JPanel root,
+        JOptionPane optionPane,
+        AtomicInteger titlebarClicks,
+        AtomicInteger paneClicks,
+        AtomicInteger noClicks
+    ) {
+    }
+
+    private static SwingDialogFixture swingDialog(
+        final String message,
+        final int optionType,
+        final String... buttonTexts
+    ) {
+        final AtomicInteger titlebarClicks = new AtomicInteger();
+        final AtomicInteger paneClicks = new AtomicInteger();
+        final AtomicInteger noClicks = new AtomicInteger();
+        final JPanel buttonPanel = new JPanel();
+        for (final String text : buttonTexts) {
+            final JButton button = new JButton(text);
+            button.addActionListener(event -> {
+                paneClicks.incrementAndGet();
+                if ("No(N)".equals(text)) noClicks.incrementAndGet();
+            });
+            buttonPanel.add(button);
+        }
+
+        final JOptionPane optionPane = new JOptionPane();
+        optionPane.setMessage(message);
+        optionPane.setOptionType(optionType);
+        optionPane.removeAll();
+        optionPane.setLayout(new BorderLayout());
+        optionPane.add(buttonPanel, BorderLayout.SOUTH);
+
+        final JButton titlebarClose = new JButton();
+        titlebarClose.setName("titlebarClose");
+        titlebarClose.setActionCommand("close");
+        titlebarClose.addActionListener(event -> titlebarClicks.incrementAndGet());
+
+        final JPanel root = new JPanel(new BorderLayout());
+        root.add(optionPane, BorderLayout.CENTER);
+        root.add(titlebarClose, BorderLayout.NORTH);
+        return new SwingDialogFixture(root, optionPane, titlebarClicks, paneClicks, noClicks);
+    }
+
+    private static JPanel rootWithTitlebar(
+        final JPanel content,
+        final AtomicInteger titlebarClicks
+    ) {
+        final JButton titlebarClose = new JButton();
+        titlebarClose.setName("titlebarClose");
+        titlebarClose.setActionCommand("close");
+        titlebarClose.addActionListener(event -> titlebarClicks.incrementAndGet());
+
+        final JPanel root = new JPanel(new BorderLayout());
+        root.add(content, BorderLayout.CENTER);
+        root.add(titlebarClose, BorderLayout.NORTH);
+        return root;
     }
 }
